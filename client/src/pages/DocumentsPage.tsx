@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, Plus, Trash2, Search, Save, ArrowLeft, Clock, Loader2 } from "lucide-react";
+import { FileText, Plus, Trash2, Search, Save, ArrowLeft, Clock, Loader2, Download, PenLine } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -128,6 +128,22 @@ export default function DocumentsPage() {
               <Clock className="h-4 w-4 mr-1" />Versiones
             </Button>
             <Button
+              variant="ghost" size="sm"
+              onClick={() => {
+                const content = currentDoc.type === "generated" ? currentDoc.content || "" : editContent;
+                const blob = new Blob([content], { type: "text/markdown" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${currentDoc.title}.md`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success("Documento descargado");
+              }}
+            >
+              <Download className="h-4 w-4 mr-1" />Descargar
+            </Button>
+            <Button
               size="sm"
               onClick={() => updateMutation.mutate({ id: currentDoc.id, content: editContent })}
               disabled={updateMutation.isPending}
@@ -233,9 +249,14 @@ export default function DocumentsPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
+            <PenLine className="h-8 w-8 opacity-40" />
+          </div>
           <p className="text-lg font-medium">No hay documentos</p>
-          <p className="text-sm mt-1">Crea tu primer documento para comenzar</p>
+          <p className="text-sm mt-1 max-w-xs mx-auto">Crea notas, documentación técnica o genera documentos con IA.</p>
+          <Button variant="outline" className="mt-4" onClick={() => setCreateOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />Crear Documento
+          </Button>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

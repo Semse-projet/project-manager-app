@@ -22,14 +22,14 @@
 - [x] Notification system for project changes and task reminders
 - [x] Vitest tests for core procedures
 - [x] Review and fix UI/visual issues across all pages
-- [ ] Add project templates (React, Python, Node.js) for quick start
-- [ ] Add export documentation to PDF/Markdown download
+- [x] Add project templates (React, Python, Node.js, Rust, HTML/CSS) for quick start
+- [x] Add export documentation to PDF/Markdown download
 - [x] Improve landing page design with feature showcase
 - [ ] Add micro-interactions and animations (framer-motion)
-- [ ] Polish empty states and loading skeletons across all pages
-- [ ] Add AI chat standalone page improvements
-- [ ] Improve Kanban board with better visual feedback
-- [ ] Add breadcrumb navigation in project detail
+- [x] Polish empty states and loading skeletons across all pages
+- [x] Add AI chat standalone page improvements (copy/download results)
+- [x] Improve Kanban board with HTML5 drag-and-drop, visual feedback, progress bar
+- [x] Add breadcrumb navigation in project detail with folder icons
 - [ ] Improve mobile responsiveness
 - [x] Integrate RAG Visualizer component from OKComputer
 - [x] Integrate Cache Simulator component from OKComputer

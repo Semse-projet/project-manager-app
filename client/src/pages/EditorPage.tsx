@@ -4,7 +4,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  ArrowLeft, Save, MessageSquare, FileText, Bug, TestTube, RefreshCw, Sparkles, Loader2
+  ArrowLeft, Save, MessageSquare, FileText, Bug, TestTube, RefreshCw, Sparkles, Loader2,
+  Download, Copy, ClipboardCheck
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "wouter";
@@ -148,7 +149,42 @@ export default function EditorPage() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleSave]);
 
+  const [copied, setCopied] = useState(false);
+
   const getCurrentCode = () => viewRef.current?.state.doc.toString() || code;
+
+  const handleCopyResult = () => {
+    navigator.clipboard.writeText(aiResult);
+    setCopied(true);
+    toast.success("Copiado al portapapeles");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadResult = () => {
+    const isMarkdown = aiResult.includes("#") || aiResult.includes("```");
+    const ext = isMarkdown ? "md" : "txt";
+    const mimeType = isMarkdown ? "text/markdown" : "text/plain";
+    const blob = new Blob([aiResult], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${file?.name || "documento"}_ai.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Archivo descargado");
+  };
+
+  const handleDownloadCode = () => {
+    const content = getCurrentCode();
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file?.name || "code.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Código descargado");
+  };
 
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-10 w-64" /><Skeleton className="h-[600px] w-full" /></div>;
 
@@ -165,6 +201,9 @@ export default function EditorPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleDownloadCode}>
+            <Download className="h-4 w-4 mr-1" />Descargar
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSave} disabled={updateMutation.isPending}>
             <Save className="h-4 w-4 mr-1" />
             {updateMutation.isPending ? "Guardando..." : "Guardar"}
@@ -259,8 +298,19 @@ export default function EditorPage() {
                   <span className="ml-2 text-sm text-muted-foreground">Analizando con IA...</span>
                 </div>
               ) : aiResult ? (
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <Streamdown>{aiResult}</Streamdown>
+                <div>
+                  <div className="flex items-center gap-1 mb-3 pb-2 border-b border-border/50">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleCopyResult}>
+                      {copied ? <ClipboardCheck className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                      {copied ? "Copiado" : "Copiar"}
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={handleDownloadResult}>
+                      <Download className="h-3 w-3 mr-1" />Descargar
+                    </Button>
+                  </div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <Streamdown>{aiResult}</Streamdown>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-12 text-muted-foreground text-sm">

@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sparkles, MessageSquare, FileText, Bug, TestTube, RefreshCw, Loader2 } from "lucide-react";
+import { Sparkles, MessageSquare, FileText, Bug, TestTube, RefreshCw, Loader2, Download, Copy, ClipboardCheck } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Streamdown } from "streamdown";
 
@@ -46,6 +46,7 @@ export default function AIAssistantPage() {
   });
 
   const isToolLoading = commentMutation.isPending || docsMutation.isPending || analyzeMutation.isPending;
+  const [resultCopied, setResultCopied] = useState(false);
 
   const handleSend = (content: string) => {
     const newMessages: Message[] = [...messages, { role: "user", content }];
@@ -174,8 +175,31 @@ export default function AIAssistantPage() {
                     <span className="ml-2 text-sm text-muted-foreground">Analizando con IA...</span>
                   </div>
                 ) : analysisResult ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none max-h-[500px] overflow-auto">
-                    <Streamdown>{analysisResult}</Streamdown>
+                  <div>
+                    <div className="flex items-center gap-1 mb-3 pb-2 border-b border-border/50">
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                        navigator.clipboard.writeText(analysisResult);
+                        setResultCopied(true);
+                        setTimeout(() => setResultCopied(false), 2000);
+                      }}>
+                        {resultCopied ? <ClipboardCheck className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                        {resultCopied ? "Copiado" : "Copiar"}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => {
+                        const blob = new Blob([analysisResult], { type: "text/markdown" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "analisis_ia.md";
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}>
+                        <Download className="h-3 w-3 mr-1" />Descargar
+                      </Button>
+                    </div>
+                    <div className="prose prose-sm dark:prose-invert max-w-none max-h-[450px] overflow-auto">
+                      <Streamdown>{analysisResult}</Streamdown>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-16 text-muted-foreground">
