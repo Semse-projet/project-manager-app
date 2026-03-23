@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Bell, CheckCheck, Info, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -40,7 +41,7 @@ export default function NotificationsPage() {
   const unreadCount = notifications?.filter(n => !n.isRead).length ?? 0;
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <PageTransition className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Notificaciones</h1>
@@ -106,6 +107,6 @@ export default function NotificationsPage() {
           })}
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

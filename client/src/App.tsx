@@ -4,6 +4,7 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { CommandPalette } from "./components/CommandPalette";
 import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import ProjectsPage from "./pages/ProjectsPage";
@@ -18,6 +19,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import RAGToolsPage from "./pages/RAGToolsPage";
 import SEMSEPage from "./pages/SEMSEPage";
 import PrometeoPage from "./pages/PrometeoPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function Router() {
   return (
@@ -36,6 +38,7 @@ function Router() {
         <Route path="/rag-tools" component={RAGToolsPage} />
         <Route path="/semse" component={SEMSEPage} />
         <Route path="/prometeo" component={PrometeoPage} />
+        <Route path="/profile" component={ProfilePage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
@@ -49,6 +52,7 @@ function App() {
       <ThemeProvider defaultTheme="dark" switchable>
         <TooltipProvider>
           <Toaster />
+          <CommandPalette />
           <Router />
         </TooltipProvider>
       </ThemeProvider>

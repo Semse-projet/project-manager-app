@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, Plus, Trash2, Search, Save, ArrowLeft, Clock, Loader2, Download, PenLine } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -211,7 +212,7 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <PageTransition className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Documentos</h1>
@@ -291,6 +292,6 @@ export default function DocumentsPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

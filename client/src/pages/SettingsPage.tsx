@@ -2,29 +2,40 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Settings, Code2, Sparkles, Palette, Save, Loader2, User } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { PageTransition } from "@/components/PageTransition";
+import { Settings, Code2, Sparkles, Palette, Save, Loader2, User, Keyboard, Command } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
+
+const defaultShortcuts = [
+  { action: "Guardar archivo", keys: "Ctrl + S", category: "Editor" },
+  { action: "Búsqueda global", keys: "Ctrl + K", category: "Navegación" },
+  { action: "Cerrar pestaña", keys: "Ctrl + W", category: "Editor" },
+  { action: "Nuevo proyecto", keys: "Ctrl + N", category: "Proyectos" },
+  { action: "Generar comentarios IA", keys: "Ctrl + Shift + C", category: "IA" },
+  { action: "Generar documentación", keys: "Ctrl + Shift + D", category: "IA" },
+  { action: "Análisis de bugs", keys: "Ctrl + Shift + B", category: "IA" },
+  { action: "Cambiar tema", keys: "Ctrl + Shift + T", category: "Apariencia" },
+];
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { data: prefs, isLoading } = trpc.preferences.get.useQuery();
+  const utils = trpc.useUtils();
   const updateMutation = trpc.preferences.update.useMutation({
     onSuccess: () => {
       toast.success("Configuración guardada");
       utils.preferences.get.invalidate();
     },
   });
-  const utils = trpc.useUtils();
 
   const [settings, setSettings] = useState({
     editorFontSize: 14,
@@ -58,28 +69,28 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <PageTransition className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Configuración</h1>
-        <p className="text-muted-foreground mt-1">Personaliza tu experiencia en WebAssistant</p>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Configuración</h1>
+        <p className="text-sm text-muted-foreground mt-1">Personaliza tu experiencia en WebAssistant</p>
       </div>
 
       {/* Profile */}
       <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4" />Perfil</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><User className="h-4 w-4 text-primary" />Perfil</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarFallback className="text-lg bg-primary/10 text-primary">
+            <Avatar className="h-14 w-14">
+              <AvatarFallback className="text-lg bg-primary/10 text-primary font-bold">
                 {user?.name?.charAt(0).toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <p className="font-semibold">{user?.name || "Usuario"}</p>
-              <p className="text-sm text-muted-foreground">{user?.email || "-"}</p>
-              <p className="text-xs text-muted-foreground mt-1 capitalize">Rol: {user?.role || "user"}</p>
+            <div className="min-w-0">
+              <p className="font-semibold truncate">{user?.name || "Usuario"}</p>
+              <p className="text-sm text-muted-foreground truncate">{user?.email || "-"}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 capitalize">Rol: {user?.role || "user"}</p>
             </div>
           </div>
         </CardContent>
@@ -87,14 +98,14 @@ export default function SettingsPage() {
 
       {/* Theme */}
       <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Palette className="h-4 w-4" />Apariencia</CardTitle>
-          <CardDescription>Personaliza el tema visual de la interfaz</CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Palette className="h-4 w-4 text-primary" />Apariencia</CardTitle>
+          <CardDescription className="text-xs">Personaliza el tema visual de la interfaz</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label>Tema Oscuro</Label>
+              <Label className="text-sm">Tema Oscuro</Label>
               <p className="text-xs text-muted-foreground mt-0.5">Activa el modo oscuro para reducir fatiga visual</p>
             </div>
             <Switch checked={theme === "dark"} onCheckedChange={() => toggleTheme?.()} />
@@ -104,14 +115,14 @@ export default function SettingsPage() {
 
       {/* Editor Settings */}
       <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Code2 className="h-4 w-4" />Editor de Código</CardTitle>
-          <CardDescription>Configura el comportamiento del editor</CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Code2 className="h-4 w-4 text-primary" />Editor de Código</CardTitle>
+          <CardDescription className="text-xs">Configura el comportamiento del editor</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-5">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Tamaño de Fuente: {settings.editorFontSize}px</Label>
+              <Label className="text-sm">Tamaño de Fuente: {settings.editorFontSize}px</Label>
             </div>
             <Slider
               value={[settings.editorFontSize]}
@@ -121,12 +132,12 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Tamaño de Tabulación</Label>
+            <Label className="text-sm">Tamaño de Tabulación</Label>
             <Select
               value={String(settings.editorTabSize)}
               onValueChange={(v) => setSettings(s => ({ ...s, editorTabSize: parseInt(v) }))}
             >
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="2">2 espacios</SelectItem>
                 <SelectItem value="4">4 espacios</SelectItem>
@@ -137,50 +148,45 @@ export default function SettingsPage() {
 
           <Separator />
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Ajuste de Línea</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Ajustar líneas largas al ancho del editor</p>
+          <div className="space-y-3">
+            {[
+              { key: "editorWordWrap" as const, label: "Ajuste de Línea", desc: "Ajustar líneas largas al ancho del editor" },
+              { key: "editorMinimap" as const, label: "Minimapa", desc: "Mostrar vista previa del código" },
+              { key: "editorLineNumbers" as const, label: "Números de Línea", desc: "Mostrar números en el margen" },
+            ].map(item => (
+              <div key={item.key} className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm">{item.label}</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.desc}</p>
+                </div>
+                <Switch
+                  checked={settings[item.key]}
+                  onCheckedChange={(v) => setSettings(s => ({ ...s, [item.key]: v }))}
+                />
               </div>
-              <Switch checked={settings.editorWordWrap} onCheckedChange={(v) => setSettings(s => ({ ...s, editorWordWrap: v }))} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Minimapa</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Mostrar vista previa del código</p>
-              </div>
-              <Switch checked={settings.editorMinimap} onCheckedChange={(v) => setSettings(s => ({ ...s, editorMinimap: v }))} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Números de Línea</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Mostrar números de línea en el margen</p>
-              </div>
-              <Switch checked={settings.editorLineNumbers} onCheckedChange={(v) => setSettings(s => ({ ...s, editorLineNumbers: v }))} />
-            </div>
+            ))}
           </div>
         </CardContent>
       </Card>
 
       {/* AI Settings */}
       <Card className="border-border/50">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4" />Inteligencia Artificial</CardTitle>
-          <CardDescription>Configura el comportamiento del asistente de IA</CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />Inteligencia Artificial</CardTitle>
+          <CardDescription className="text-xs">Configura el comportamiento del asistente de IA</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label>Comentarios Automáticos</Label>
+              <Label className="text-sm">Comentarios Automáticos</Label>
               <p className="text-xs text-muted-foreground mt-0.5">Sugerir comentarios al guardar archivos</p>
             </div>
             <Switch checked={settings.aiAutoComment} onCheckedChange={(v) => setSettings(s => ({ ...s, aiAutoComment: v }))} />
           </div>
           <div className="space-y-2">
-            <Label>Idioma de Respuestas IA</Label>
+            <Label className="text-sm">Idioma de Respuestas IA</Label>
             <Select value={settings.aiLanguage} onValueChange={(v) => setSettings(s => ({ ...s, aiLanguage: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="es">Español</SelectItem>
                 <SelectItem value="en">English</SelectItem>
@@ -191,10 +197,35 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full">
+      {/* Keyboard Shortcuts */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Keyboard className="h-4 w-4 text-primary" />Atajos de Teclado</CardTitle>
+          <CardDescription className="text-xs">Referencia rápida de atajos disponibles</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-1">
+            {defaultShortcuts.map((shortcut, i) => (
+              <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground w-20">{shortcut.category}</span>
+                  <span className="text-sm">{shortcut.action}</span>
+                </div>
+                <kbd className="px-2 py-0.5 text-[11px] font-mono bg-muted/50 border border-border/50 rounded text-muted-foreground">
+                  {shortcut.keys}
+                </kbd>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full" size="sm">
         {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
         Guardar Configuración
       </Button>
-    </div>
+
+      <div className="h-8" />
+    </PageTransition>
   );
 }

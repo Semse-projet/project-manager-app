@@ -12,6 +12,7 @@ import {
   FolderKanban, Plus, Code2, MoreVertical, Archive, Trash2, Search,
   FileCode, Braces, Hash, Cpu, Globe, Layers, Sparkles, Zap
 } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
 import { useLocation } from "wouter";
@@ -207,7 +208,7 @@ export default function ProjectsPage() {
   ) ?? [];
 
   return (
-    <div className="space-y-6">
+    <PageTransition className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Proyectos</h1>
@@ -388,6 +389,6 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }

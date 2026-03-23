@@ -25,26 +25,29 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, FolderKanban, Code2, FileText, ListTodo,
   Sparkles, Settings, History, Bell, LogOut, PanelLeft, Moon, Sun,
-  Database, Hammer, Atom
+  Database, Hammer, Atom, Search, User
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Badge } from "@/components/ui/badge";
+import { trpc } from "@/lib/trpc";
+import { motion } from "framer-motion";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: FolderKanban, label: "Proyectos", path: "/projects" },
-  { icon: FileText, label: "Documentos", path: "/documents" },
-  { icon: ListTodo, label: "Tareas", path: "/tasks" },
-  { icon: Sparkles, label: "Asistente IA", path: "/ai" },
-  { icon: History, label: "Actividad", path: "/activity" },
-  { icon: Bell, label: "Notificaciones", path: "/notifications" },
-  { icon: Database, label: "RAG Tools", path: "/rag-tools" },
-  { icon: Hammer, label: "SEMSE OS", path: "/semse" },
-  { icon: Atom, label: "Ecosistema Prometeo", path: "/prometeo" },
-  { icon: Settings, label: "Configuración", path: "/settings" },
+  { icon: LayoutDashboard, label: "Dashboard", path: "/", group: "principal" },
+  { icon: FolderKanban, label: "Proyectos", path: "/projects", group: "principal" },
+  { icon: FileText, label: "Documentos", path: "/documents", group: "principal" },
+  { icon: ListTodo, label: "Tareas", path: "/tasks", group: "principal" },
+  { icon: Sparkles, label: "Asistente IA", path: "/ai", group: "principal" },
+  { icon: History, label: "Actividad", path: "/activity", group: "principal" },
+  { icon: Bell, label: "Notificaciones", path: "/notifications", group: "principal" },
+  { icon: Database, label: "RAG Tools", path: "/rag-tools", group: "avanzado" },
+  { icon: Hammer, label: "SEMSE OS", path: "/semse", group: "avanzado" },
+  { icon: Atom, label: "Ecosistema Prometeo", path: "/prometeo", group: "avanzado" },
+  { icon: Settings, label: "Configuración", path: "/settings", group: "config" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -74,18 +77,27 @@ export default function DashboardLayout({
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background relative overflow-hidden">
-        {/* Background decoration */}
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5" />
         <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl" />
 
-        <div className="relative z-10 flex flex-col items-center gap-8 p-8 max-w-lg w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative z-10 flex flex-col items-center gap-8 p-8 max-w-lg w-full"
+        >
           <div className="flex flex-col items-center gap-5">
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20"
+            >
               <Code2 className="h-8 w-8 text-white" />
-            </div>
+            </motion.div>
             <div className="text-center space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight">WebAssistant</h1>
+              <h1 className="text-3xl font-bold tracking-tight">WebAssistant Portal</h1>
               <p className="text-sm text-muted-foreground max-w-sm">
                 Plataforma integral de desarrollo y documentación de código con inteligencia artificial generativa.
               </p>
@@ -95,14 +107,21 @@ export default function DashboardLayout({
           <div className="w-full space-y-4">
             <div className="grid grid-cols-3 gap-3 text-center">
               {[
-                { icon: Code2, label: "Editor de Código" },
-                { icon: Sparkles, label: "IA Generativa" },
-                { icon: FileText, label: "Live Docs" },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                { icon: Code2, label: "Editor de Código", desc: "Multi-lenguaje" },
+                { icon: Sparkles, label: "IA Generativa", desc: "Comentarios & Docs" },
+                { icon: FileText, label: "Live Docs", desc: "Tiempo real" },
+              ].map(({ icon: Icon, label, desc }, i) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 + i * 0.1 }}
+                  className="p-3 rounded-xl bg-muted/50 border border-border/50 hover:border-primary/30 transition-colors"
+                >
                   <Icon className="h-5 w-5 mx-auto mb-1.5 text-primary" />
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                </div>
+                  <p className="text-xs font-medium">{label}</p>
+                  <p className="text-[10px] text-muted-foreground">{desc}</p>
+                </motion.div>
               ))}
             </div>
 
@@ -117,7 +136,7 @@ export default function DashboardLayout({
               Autenticación segura con Manus OAuth
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -154,6 +173,16 @@ function DashboardLayoutContent({
   const isMobile = useIsMobile();
   const { theme, toggleTheme } = useTheme();
 
+  // Notification count
+  const { data: notifications } = trpc.activity.list.useQuery(
+    { limit: 20 },
+    { enabled: !!user }
+  );
+  const unreadCount = notifications?.filter(n => {
+    const hourAgo = new Date(Date.now() - 3600000);
+    return new Date(n.createdAt) > hourAgo;
+  }).length || 0;
+
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);
   }, [isCollapsed]);
@@ -180,6 +209,10 @@ function DashboardLayoutContent({
     };
   }, [isResizing, setSidebarWidth]);
 
+  const principalItems = menuItems.filter(i => i.group === "principal");
+  const avanzadoItems = menuItems.filter(i => i.group === "avanzado");
+  const configItems = menuItems.filter(i => i.group === "config");
+
   return (
     <>
       <div className="relative" ref={sidebarRef}>
@@ -195,7 +228,7 @@ function DashboardLayoutContent({
               </button>
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="h-7 w-7 rounded-md bg-primary flex items-center justify-center shrink-0">
+                  <div className="h-7 w-7 rounded-md bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shrink-0">
                     <Code2 className="h-4 w-4 text-primary-foreground" />
                   </div>
                   <span className="font-semibold tracking-tight truncate text-sm">
@@ -207,18 +240,101 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
+            {/* Search hint */}
+            {!isCollapsed && (
+              <div className="px-3 py-2">
+                <button
+                  onClick={() => {
+                    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-muted/50 border border-border/50 text-xs text-muted-foreground hover:bg-muted/80 transition-colors"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  <span className="flex-1 text-left">Buscar...</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted border border-border text-[10px] font-mono">⌘K</kbd>
+                </button>
+              </div>
+            )}
+
+            {/* Principal section */}
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
+              {!isCollapsed && (
+                <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+                  Principal
+                </p>
+              )}
+              {principalItems.map(item => {
                 const isActive = item.path === "/"
                   ? location === "/"
                   : location.startsWith(item.path);
+                const isNotif = item.path === "/notifications";
                 return (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className="h-10 transition-all font-normal"
+                      className="h-9 transition-all font-normal"
+                    >
+                      <div className="relative">
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                        {isNotif && unreadCount > 0 && (
+                          <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                        )}
+                      </div>
+                      <span className="flex-1">{item.label}</span>
+                      {isNotif && unreadCount > 0 && !isCollapsed && (
+                        <Badge variant="destructive" className="h-5 min-w-5 px-1 text-[10px] justify-center">
+                          {unreadCount}
+                        </Badge>
+                      )}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+
+            {/* Advanced section */}
+            <SidebarMenu className="px-2 py-1 mt-2">
+              {!isCollapsed && (
+                <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+                  Avanzado
+                </p>
+              )}
+              {avanzadoItems.map(item => {
+                const isActive = location.startsWith(item.path);
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      className="h-9 transition-all font-normal"
+                    >
+                      <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+
+            {/* Config section */}
+            <SidebarMenu className="px-2 py-1 mt-2">
+              {!isCollapsed && (
+                <p className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">
+                  Sistema
+                </p>
+              )}
+              {configItems.map(item => {
+                const isActive = location.startsWith(item.path);
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      className="h-9 transition-all font-normal"
                     >
                       <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
                       <span>{item.label}</span>
@@ -243,7 +359,7 @@ function DashboardLayoutContent({
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 hover:bg-accent/50 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Avatar className="h-9 w-9 border shrink-0">
-                    <AvatarFallback className="text-xs font-medium bg-primary/10 text-primary">
+                    <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-primary/20 to-purple-500/20 text-primary">
                       {user?.name?.charAt(0).toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
@@ -258,6 +374,10 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setLocation("/profile")} className="cursor-pointer">
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Mi Perfil</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setLocation("/settings")} className="cursor-pointer">
                   <Settings className="mr-2 h-4 w-4" />
                   <span>Configuración</span>
@@ -288,16 +408,36 @@ function DashboardLayoutContent({
       </div>
 
       <SidebarInset>
-        {isMobile && (
-          <div className="flex border-b h-14 items-center justify-between bg-background/95 px-2 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="h-9 w-9 rounded-lg bg-background" />
-              <span className="tracking-tight text-foreground font-medium">
-                {activeMenuItem?.label ?? "Menu"}
-              </span>
-            </div>
+        {/* Top header bar */}
+        <div className="flex border-b h-12 items-center justify-between bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
+          <div className="flex items-center gap-2">
+            {isMobile && <SidebarTrigger className="h-8 w-8 rounded-lg" />}
+            <span className="tracking-tight text-foreground font-medium text-sm">
+              {activeMenuItem?.label ?? "Menu"}
+            </span>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
+              }}
+              className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+              title="Buscar (⌘K)"
+            >
+              <Search className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setLocation("/notifications")}
+              className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-accent transition-colors text-muted-foreground relative"
+              title="Notificaciones"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+              )}
+            </button>
+          </div>
+        </div>
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </SidebarInset>
     </>

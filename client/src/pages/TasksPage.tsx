@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, Trash2, GripVertical, ListTodo, Clock, AlertTriangle, CheckCircle2, Circle, ArrowRight } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
 import { useState, useMemo, useRef, DragEvent } from "react";
 import { toast } from "sonner";
 
@@ -146,7 +147,7 @@ export default function TasksPage() {
   const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   return (
-    <div className="space-y-6">
+    <PageTransition className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Tareas</h1>
@@ -283,6 +284,6 @@ export default function TasksPage() {
           );
         })}
       </div>
-    </div>
+    </PageTransition>
   );
 }

@@ -179,3 +179,97 @@ describe("input validation", () => {
     ).rejects.toThrow();
   });
 });
+
+describe("files procedures require authentication", () => {
+  it("files.list throws UNAUTHORIZED for unauthenticated users", async () => {
+    const ctx = createUnauthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.files.list({ projectId: 1 })).rejects.toThrow();
+  });
+
+  it("files.create throws UNAUTHORIZED for unauthenticated users", async () => {
+    const ctx = createUnauthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.files.create({ projectId: 1, name: "test.ts", type: "file" })
+    ).rejects.toThrow();
+  });
+});
+
+describe("files input validation", () => {
+  it("files.create rejects empty name", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.files.create({ projectId: 1, name: "", type: "file" })
+    ).rejects.toThrow();
+  });
+
+  it("files.create rejects invalid type", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.files.create({ projectId: 1, name: "test", type: "invalid" as any })
+    ).rejects.toThrow();
+  });
+});
+
+describe("notifications procedures require authentication", () => {
+  it("notifications.markRead throws UNAUTHORIZED for unauthenticated users", async () => {
+    const ctx = createUnauthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.notifications.markRead({ id: 1 })).rejects.toThrow();
+  });
+
+  it("notifications.markAllRead throws UNAUTHORIZED for unauthenticated users", async () => {
+    const ctx = createUnauthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(caller.notifications.markAllRead()).rejects.toThrow();
+  });
+});
+
+describe("ai input validation", () => {
+  it("ai.generateDocs rejects empty code", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.ai.generateDocs({ code: "" })
+    ).rejects.toThrow();
+  });
+
+  it("ai.analyzeCode rejects invalid analysisType", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.ai.analyzeCode({ code: "const x = 1;", analysisType: "nonexistent" as any })
+    ).rejects.toThrow();
+  });
+});
+
+describe("projects input validation extended", () => {
+  it("projects.update rejects invalid status", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.projects.update({ id: 1, status: "invalid" as any })
+    ).rejects.toThrow();
+  });
+});
+
+describe("tasks input validation extended", () => {
+  it("tasks.create rejects invalid priority", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.tasks.create({ title: "Test", priority: "invalid" as any })
+    ).rejects.toThrow();
+  });
+
+  it("tasks.create rejects invalid status", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.tasks.create({ title: "Test", status: "invalid" as any })
+    ).rejects.toThrow();
+  });
+});

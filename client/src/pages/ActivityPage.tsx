@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { History, FolderKanban, FileText, Code2, ListTodo, Sparkles } from "lucide-react";
+import { PageTransition } from "@/components/PageTransition";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -33,7 +34,7 @@ export default function ActivityPage() {
   const { data: activity, isLoading } = trpc.activity.list.useQuery({ limit: 100 });
 
   return (
-    <div className="space-y-6 max-w-3xl">
+    <PageTransition className="space-y-6 max-w-3xl">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Historial de Actividad</h1>
         <p className="text-muted-foreground mt-1">Registro de todas tus acciones en la plataforma</p>
@@ -82,6 +83,6 @@ export default function ActivityPage() {
           </div>
         </div>
       )}
-    </div>
+    </PageTransition>
   );
 }
