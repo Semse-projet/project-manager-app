@@ -1,0 +1,23 @@
+# Project TODO
+
+- [x] Design system: dark theme IDE-style, Inter font, custom color palette
+- [x] Database schema: projects, files, documents, tasks, activity_log, user_preferences
+- [x] tRPC routers: projects, files, documents, tasks, ai, preferences, activity
+- [x] Dashboard page with project overview, stats, and quick actions
+- [x] DashboardLayout sidebar with navigation for all modules
+- [x] Project manager: CRUD projects with metadata
+- [x] File manager: create/edit/delete files and folders within projects
+- [x] Code editor with syntax highlighting (CodeMirror integration)
+- [x] AI code comments: analyze code and generate descriptive comments
+- [x] AI documentation generator: Live Docs from code comments to Markdown
+- [x] AI advanced analysis: refactoring suggestions, bug detection, test generation
+- [x] Rich text editor for notes (TipTap-based)
+- [x] Kanban task manager with drag-and-drop
+- [x] Document viewer for Markdown files
+- [x] Theme customization: light/dark toggle with custom color palettes
+- [x] Keyboard shortcuts configuration
+- [x] User settings panel: editor preferences, AI config, theme settings
+- [x] Activity history and document versioning
+- [x] S3 file storage integration for project backups
+- [x] Notification system for project changes and task reminders
+- [x] Vitest tests for core procedures
