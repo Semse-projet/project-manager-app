@@ -37,3 +37,9 @@
 - [x] Add RAG Tools section in sidebar navigation
 - [x] Add SEMSE OS section in sidebar navigation
 - [x] Adapt OKComputer components to use WebAssistant dark theme
+- [x] Create Prometeo Ecosystem Dashboard page with Knowledge Matrix (83 modules, 6 phases)
+- [x] Create ADR Registry viewer page with architecture decision records (integrated in Prometeo page)
+- [x] Create Execution Plan Tracker page (12-week MusicGenius roadmap, integrated in Prometeo page)
+- [x] Enrich SEMSE OS page with real evolution data (v10.1→v10.3, RAG architecture, in Prometeo page)
+- [x] Add Integration Systems visualizer (IntegradorCuantico, FusionadorDeConsciencia, SintetizadorDeRealidad, ConectorUniversal)
+- [x] Update sidebar navigation with new Prometeo ecosystem pages

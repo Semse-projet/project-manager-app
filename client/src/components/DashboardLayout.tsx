@@ -25,7 +25,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, FolderKanban, Code2, FileText, ListTodo,
   Sparkles, Settings, History, Bell, LogOut, PanelLeft, Moon, Sun,
-  Database, Hammer
+  Database, Hammer, Atom
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -43,6 +43,7 @@ const menuItems = [
   { icon: Bell, label: "Notificaciones", path: "/notifications" },
   { icon: Database, label: "RAG Tools", path: "/rag-tools" },
   { icon: Hammer, label: "SEMSE OS", path: "/semse" },
+  { icon: Atom, label: "Ecosistema Prometeo", path: "/prometeo" },
   { icon: Settings, label: "Configuración", path: "/settings" },
 ];
 

@@ -17,6 +17,7 @@ import ActivityPage from "./pages/ActivityPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import RAGToolsPage from "./pages/RAGToolsPage";
 import SEMSEPage from "./pages/SEMSEPage";
+import PrometeoPage from "./pages/PrometeoPage";
 
 function Router() {
   return (
@@ -34,6 +35,7 @@ function Router() {
         <Route path="/notifications" component={NotificationsPage} />
         <Route path="/rag-tools" component={RAGToolsPage} />
         <Route path="/semse" component={SEMSEPage} />
+        <Route path="/prometeo" component={PrometeoPage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

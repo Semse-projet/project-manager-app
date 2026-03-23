@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   FolderKanban, FileText, ListTodo, Code2, Sparkles,
   Plus, ArrowRight, Clock, Activity, Database, Hammer,
-  Zap, Brain, Terminal, ChevronRight
+  Zap, Brain, Terminal, ChevronRight, Atom
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -52,6 +52,15 @@ export default function Home() {
       borderColor: "border-amber-500/30",
       badges: ["Worker", "Client", "Admin", "Prometeo"],
       path: "/semse",
+    },
+    {
+      title: "Ecosistema Prometeo",
+      description: "Arquitectura integral: 83+ módulos, IA, cuántico, RAG",
+      icon: Atom,
+      color: "from-violet-500/20 to-pink-500/20",
+      borderColor: "border-violet-500/30",
+      badges: ["Knowledge Matrix", "ADRs", "RAG Pipeline", "Evolución"],
+      path: "/prometeo",
     },
   ];
 
@@ -115,8 +124,8 @@ export default function Home() {
         ))}
       </div>
 
-      {/* Tool Cards - RAG & SEMSE */}
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* Tool Cards - RAG, SEMSE & Prometeo */}
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {toolCards.map((tool) => (
           <Card
             key={tool.title}
