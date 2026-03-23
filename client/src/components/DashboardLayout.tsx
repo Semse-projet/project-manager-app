@@ -24,7 +24,8 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, FolderKanban, Code2, FileText, ListTodo,
-  Sparkles, Settings, History, Bell, LogOut, PanelLeft, Moon, Sun
+  Sparkles, Settings, History, Bell, LogOut, PanelLeft, Moon, Sun,
+  Database, Hammer
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -40,6 +41,8 @@ const menuItems = [
   { icon: Sparkles, label: "Asistente IA", path: "/ai" },
   { icon: History, label: "Actividad", path: "/activity" },
   { icon: Bell, label: "Notificaciones", path: "/notifications" },
+  { icon: Database, label: "RAG Tools", path: "/rag-tools" },
+  { icon: Hammer, label: "SEMSE OS", path: "/semse" },
   { icon: Settings, label: "Configuración", path: "/settings" },
 ];
 
@@ -69,26 +72,50 @@ export default function DashboardLayout({
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary flex items-center justify-center">
-                <Code2 className="h-6 w-6 text-primary-foreground" />
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight">WebAssistant</h1>
+      <div className="flex items-center justify-center min-h-screen bg-background relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-purple-500/5" />
+        <div className="absolute top-1/4 -left-32 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl" />
+
+        <div className="relative z-10 flex flex-col items-center gap-8 p-8 max-w-lg w-full">
+          <div className="flex flex-col items-center gap-5">
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
+              <Code2 className="h-8 w-8 text-white" />
             </div>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Plataforma integral de desarrollo y documentación de código con inteligencia artificial generativa.
+            <div className="text-center space-y-2">
+              <h1 className="text-3xl font-bold tracking-tight">WebAssistant</h1>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Plataforma integral de desarrollo y documentación de código con inteligencia artificial generativa.
+              </p>
+            </div>
+          </div>
+
+          <div className="w-full space-y-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              {[
+                { icon: Code2, label: "Editor de Código" },
+                { icon: Sparkles, label: "IA Generativa" },
+                { icon: FileText, label: "Live Docs" },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="p-3 rounded-xl bg-muted/50 border border-border/50">
+                  <Icon className="h-5 w-5 mx-auto mb-1.5 text-primary" />
+                  <p className="text-xs text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            <Button
+              onClick={() => { window.location.href = getLoginUrl(); }}
+              size="lg"
+              className="w-full shadow-lg hover:shadow-xl transition-all h-12 text-base bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
+            >
+              Iniciar sesión
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              Autenticación segura con Manus OAuth
             </p>
           </div>
-          <Button
-            onClick={() => { window.location.href = getLoginUrl(); }}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            Iniciar sesión
-          </Button>
         </div>
       </div>
     );

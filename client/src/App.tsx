@@ -15,6 +15,8 @@ import AIAssistantPage from "./pages/AIAssistantPage";
 import SettingsPage from "./pages/SettingsPage";
 import ActivityPage from "./pages/ActivityPage";
 import NotificationsPage from "./pages/NotificationsPage";
+import RAGToolsPage from "./pages/RAGToolsPage";
+import SEMSEPage from "./pages/SEMSEPage";
 
 function Router() {
   return (
@@ -30,6 +32,8 @@ function Router() {
         <Route path="/settings" component={SettingsPage} />
         <Route path="/activity" component={ActivityPage} />
         <Route path="/notifications" component={NotificationsPage} />
+        <Route path="/rag-tools" component={RAGToolsPage} />
+        <Route path="/semse" component={SEMSEPage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>

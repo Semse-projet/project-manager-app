@@ -21,3 +21,19 @@
 - [x] S3 file storage integration for project backups
 - [x] Notification system for project changes and task reminders
 - [x] Vitest tests for core procedures
+- [x] Review and fix UI/visual issues across all pages
+- [ ] Add project templates (React, Python, Node.js) for quick start
+- [ ] Add export documentation to PDF/Markdown download
+- [x] Improve landing page design with feature showcase
+- [ ] Add micro-interactions and animations (framer-motion)
+- [ ] Polish empty states and loading skeletons across all pages
+- [ ] Add AI chat standalone page improvements
+- [ ] Improve Kanban board with better visual feedback
+- [ ] Add breadcrumb navigation in project detail
+- [ ] Improve mobile responsiveness
+- [x] Integrate RAG Visualizer component from OKComputer
+- [x] Integrate Cache Simulator component from OKComputer
+- [x] Integrate SEMSE OS dashboard as a separate module
+- [x] Add RAG Tools section in sidebar navigation
+- [x] Add SEMSE OS section in sidebar navigation
+- [x] Adapt OKComputer components to use WebAssistant dark theme
