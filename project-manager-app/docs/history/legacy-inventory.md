@@ -72,6 +72,76 @@ Keep these out of the active code path:
 - `archive/sql/supabase_schema.sql` as reference, not source of truth
 - zip, tar.gz, dist, build, pptx, docx, png artifacts
 
+## Remaining External Blocks
+
+### `semse-mobile-app/`
+Classification: potential future mobile module, not ready for active versioning.
+
+Current issues:
+- Large size: ~298M
+- Contains `node_modules/`
+- Contains `dist/`
+- Contains `.env.local`
+- Has useful architecture material in `canon/`, `docs/`, and `SEMSE_MOBILE_INTEGRATION_AUDIT.md`
+
+Potential value:
+- Mobile adaptation blueprint
+- Mobile surfaces documentation
+- UX or screen patterns for future SEMSE mobile experience
+
+Recommended action:
+- Do not commit wholesale.
+- Before any future versioning, remove or ignore `node_modules/`, `dist/`, and `.env.local`.
+- Rescue only selected docs, architecture notes, or UX patterns into the canonical monorepo.
+
+### `semse/`
+Classification: auxiliary tooling / possible internal CLI.
+
+Potential value:
+- `semse/node/src/*`
+- `semse/python/semse_py/*`
+- `semse/README.md`
+- Could become an internal automation or agent CLI package.
+
+Current issues:
+- Contains generated artifacts such as `node/dist/` and `python/__pycache__/`.
+
+Recommended action:
+- Review more finely before adoption.
+- If adopted, migrate into `project-manager-app/packages/*` or `apps/api` as official tooling.
+- If not adopted, keep documented as historical auxiliary tooling.
+
+### `semse-storage/`
+Classification: local storage / uploaded-data residue.
+
+Current issues:
+- Contains multipart JSON-like storage data.
+- Not source code.
+- Should not be versioned as active repo content.
+
+Recommended action:
+- Do not commit.
+- Keep out of Git.
+- Archive outside the repo if the data must be preserved.
+- Document only as historical local storage residue.
+
+## Final Active/Legacy Boundary
+
+- Active trunk: `project-manager-app/`
+- Historical/quarantine sources:
+  - `app/`
+  - `archive/`
+  - `app semse/`
+  - `semse-mobile-app/`
+  - `semse/`
+  - `semse-storage/`
+
+Rules:
+- Do not import legacy folders wholesale.
+- Rescue one concept at a time.
+- Every rescue must target the canonical monorepo.
+- No secrets, `node_modules`, builds, storage, zips, tarballs, or generated artifacts.
+
 ## Rules for Future Rescue
 
 1. Never import legacy folders wholesale.
