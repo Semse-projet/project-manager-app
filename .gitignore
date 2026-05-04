@@ -9,7 +9,9 @@ claves/
 !.env.example
 
 # Local tooling and editor state
+.claude
 .claude/
+.vscode
 .vscode/
 .cache/
 **/.cache/
