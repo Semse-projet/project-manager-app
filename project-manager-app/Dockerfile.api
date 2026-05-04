@@ -1,0 +1,55 @@
+FROM node:20-alpine AS base
+RUN apk add --no-cache openssl python3 make g++
+
+FROM base AS deps
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/angular/package.json ./apps/angular/
+COPY apps/api/package.json ./apps/api/
+COPY apps/autonomy-server/package.json ./apps/autonomy-server/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/autonomy/package.json ./packages/autonomy/
+COPY packages/db/package.json ./packages/db/
+COPY packages/knowledge/package.json ./packages/knowledge/
+COPY packages/schemas/package.json ./packages/schemas/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/ui/package.json ./packages/ui/
+
+RUN npm ci
+
+FROM deps AS builder
+WORKDIR /app
+
+COPY . .
+
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
+RUN npm run build --workspace @semse/shared
+RUN npm run build --workspace @semse/auth
+RUN npm run build --workspace @semse/schemas
+RUN npm run build --workspace @semse/knowledge
+RUN npm run build --workspace @semse/agents
+RUN npm run build --workspace @semse/autonomy
+RUN npm run build --workspace @semse/api
+
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV HOST=::
+ENV PORT=4000
+
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/api/skills ./apps/api/skills
+COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+
+EXPOSE 4000
+
+CMD ["node", "apps/api/dist/main.js"]

@@ -1,0 +1,84 @@
+name: API Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/api/**"
+      - "apps/worker/**"
+      - "scripts/api-integration.mjs"
+      - ".github/workflows/api-integration.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "apps/worker/**"
+      - "scripts/api-integration.mjs"
+      - ".github/workflows/api-integration.yml"
+
+concurrency:
+  group: api-integration-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm --prefix apps/api install --no-audit --no-fund
+
+      - name: Start API
+        run: |
+          npm --prefix apps/api run dev > /tmp/semse-api-integration.log 2>&1 &
+          echo $! > /tmp/semse-api-integration.pid
+
+      - name: Wait for healthcheck
+        run: |
+          for i in {1..40}; do
+            if curl -sSf http://localhost:4000/v1/health >/dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not start in time"
+          tail -n 200 /tmp/semse-api-integration.log || true
+          exit 1
+
+      - name: Run API integration script
+        env:
+          SEMSE_API_URL: http://localhost:4000
+          SEMSE_ROLES: OPS_ADMIN,WORKER
+          SEMSE_WORKER_ID: gh-worker-integration
+        run: node ./scripts/api-integration.mjs
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/semse-api-integration.pid ]; then
+            kill "$(cat /tmp/semse-api-integration.pid)" || true
+          fi
+
+      - name: Upload API integration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-integration-log
+          path: /tmp/semse-api-integration.log
+          if-no-files-found: ignore

@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gestor de Proyectos Max</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="background-shape bg-1"></div>
+    <div class="background-shape bg-2"></div>
+
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="kicker">SEMSE Maximized App</p>
+          <h1>Gestor de Proyectos Pro</h1>
+          <p>Planifica, prioriza y controla proyectos con vista lista y tablero.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="export-btn" class="btn secondary" type="button">Exportar JSON</button>
+          <label class="btn secondary file-btn">
+            Importar JSON
+            <input id="import-file" type="file" accept="application/json" hidden />
+          </label>
+        </div>
+      </header>
+
+      <p id="app-status" class="app-status" role="status" aria-live="polite"></p>
+
+      <section class="panel metrics-panel">
+        <article class="metric-card">
+          <p>Total</p>
+          <strong id="metric-total">0</strong>
+        </article>
+        <article class="metric-card">
+          <p>En progreso</p>
+          <strong id="metric-progress">0</strong>
+        </article>
+        <article class="metric-card">
+          <p>Vencidos</p>
+          <strong id="metric-overdue">0</strong>
+        </article>
+        <article class="metric-card">
+          <p>Completado</p>
+          <strong id="metric-completion">0%</strong>
+        </article>
+        <article class="metric-card">
+          <p>Presupuesto total</p>
+          <strong id="metric-budget-total">$0</strong>
+        </article>
+        <article class="metric-card">
+          <p>Budget pendiente</p>
+          <strong id="metric-budget-pending">$0</strong>
+        </article>
+        <article class="metric-card">
+          <p>Budget en progreso</p>
+          <strong id="metric-budget-progress">$0</strong>
+        </article>
+        <article class="metric-card">
+          <p>Budget completado</p>
+          <strong id="metric-budget-completed">$0</strong>
+        </article>
+      </section>
+
+      <section class="panel owners-panel">
+        <div class="panel-head">
+          <h2>Presupuesto por responsable</h2>
+          <p class="subtle" id="owners-caption">Top responsables por presupuesto</p>
+        </div>
+        <ul id="owner-budget-list" class="owner-budget-list"></ul>
+      </section>
+
+      <section class="panel form-panel">
+        <div class="panel-head">
+          <h2 id="form-title">Nuevo proyecto</h2>
+          <button id="cancel-edit" class="icon-btn hidden" type="button">Cancelar edición</button>
+        </div>
+
+        <form id="project-form" novalidate>
+          <input id="project-id" name="projectId" type="hidden" />
+
+          <div class="grid two">
+            <label>
+              Nombre del proyecto
+              <input id="name" name="name" type="text" required maxlength="80" />
+            </label>
+            <label>
+              Responsable
+              <input id="owner" name="owner" type="text" required maxlength="60" />
+            </label>
+          </div>
+
+          <div class="grid four">
+            <label>
+              Estado
+              <select id="status" name="status" required>
+                <option value="pendiente">Pendiente</option>
+                <option value="en-progreso">En progreso</option>
+                <option value="completado">Completado</option>
+              </select>
+            </label>
+            <label>
+              Prioridad
+              <select id="priority" name="priority" required>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baja">Baja</option>
+              </select>
+            </label>
+            <label>
+              Fecha límite
+              <input id="dueDate" name="dueDate" type="date" required />
+            </label>
+            <label>
+              Presupuesto (USD)
+              <input id="budget" name="budget" type="number" min="0" step="0.01" value="0" />
+            </label>
+          </div>
+
+          <div class="grid two">
+            <label>
+              Etiquetas (separadas por coma)
+              <input id="tags" name="tags" type="text" placeholder="web, cliente-a, sprint-1" maxlength="120" />
+            </label>
+            <label>
+              Orden sugerido
+              <select id="sort-preview" disabled>
+                <option>Se gestiona en filtros</option>
+              </select>
+            </label>
+          </div>
+
+          <label>
+            Descripción
+            <textarea id="description" name="description" rows="3" maxlength="260"></textarea>
+          </label>
+
+          <button id="submit-btn" type="submit" class="btn">Guardar proyecto</button>
+        </form>
+      </section>
+
+      <section class="panel controls-panel">
+        <div class="panel-head">
+          <h2>Filtros y vista</h2>
+          <div class="view-switch" role="tablist" aria-label="Modo de vista">
+            <button
+              id="view-list"
+              class="icon-btn active"
+              data-view="list"
+              type="button"
+              role="tab"
+              aria-selected="true"
+            >
+              Lista
+            </button>
+            <button
+              id="view-kanban"
+              class="icon-btn"
+              data-view="kanban"
+              type="button"
+              role="tab"
+              aria-selected="false"
+            >
+              Kanban
+            </button>
+            <button
+              id="view-calendar"
+              class="icon-btn"
+              data-view="calendar"
+              type="button"
+              role="tab"
+              aria-selected="false"
+            >
+              Calendario
+            </button>
+          </div>
+        </div>
+
+        <div class="grid five">
+          <label>
+            Buscar
+            <input id="search" type="search" placeholder="Nombre, responsable, etiqueta" />
+          </label>
+          <label>
+            Estado
+            <select id="filter-status">
+              <option value="todos">Todos</option>
+              <option value="pendiente">Pendiente</option>
+              <option value="en-progreso">En progreso</option>
+              <option value="completado">Completado</option>
+            </select>
+          </label>
+          <label>
+            Prioridad
+            <select id="filter-priority">
+              <option value="todas">Todas</option>
+              <option value="alta">Alta</option>
+              <option value="media">Media</option>
+              <option value="baja">Baja</option>
+            </select>
+          </label>
+          <label>
+            Responsable
+            <input id="filter-owner" type="text" placeholder="Ej: Ana" />
+          </label>
+          <label>
+            Etiqueta
+            <input id="filter-tag" type="text" placeholder="Ej: sprint-1" />
+          </label>
+          <label>
+            Presupuesto mín.
+            <input id="filter-budget-min" type="number" min="0" step="1" placeholder="0" />
+          </label>
+          <label>
+            Presupuesto máx.
+            <input id="filter-budget-max" type="number" min="0" step="1" placeholder="Sin tope" />
+          </label>
+          <label>
+            Ordenar por
+            <select id="sort-by">
+              <option value="dueDate">Fecha límite</option>
+              <option value="priority">Prioridad</option>
+              <option value="status">Estado</option>
+              <option value="newest">Más reciente</option>
+              <option value="name">Nombre</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="preset-row">
+          <label>
+            Preset de filtros
+            <select id="filter-preset">
+              <option value="">Sin preset</option>
+            </select>
+          </label>
+          <button id="save-preset" class="icon-btn" type="button">Guardar preset</button>
+          <button id="delete-preset" class="icon-btn danger" type="button">Borrar preset</button>
+          <button id="help-shortcuts" class="icon-btn" type="button">Atajos</button>
+          <p class="shortcut-hint">
+            Atajos: <kbd>/</kbd> buscar, <kbd>n</kbd> nuevo, <kbd>l</kbd> lista, <kbd>k</kbd> kanban,
+            <kbd>c</kbd> calendario, <kbd>?</kbd> ayuda, <kbd>Esc</kbd> cancelar
+          </p>
+        </div>
+
+        <div class="actions-row">
+          <button id="reset-filters" class="icon-btn" type="button">Limpiar filtros</button>
+          <button id="clear-completed" class="icon-btn danger" type="button">Borrar completados</button>
+          <button id="undo-action" class="icon-btn" type="button" disabled>Deshacer</button>
+          <p id="project-count" aria-live="polite">0 proyectos visibles</p>
+        </div>
+      </section>
+
+      <section class="panel list-panel">
+        <div id="list-view" class="view-container" role="tabpanel"></div>
+
+        <div id="kanban-view" class="view-container hidden" role="tabpanel">
+          <div class="kanban-column" data-status="pendiente">
+            <h3>Pendiente</h3>
+            <div class="kanban-items" id="kanban-pendiente"></div>
+          </div>
+          <div class="kanban-column" data-status="en-progreso">
+            <h3>En progreso</h3>
+            <div class="kanban-items" id="kanban-en-progreso"></div>
+          </div>
+          <div class="kanban-column" data-status="completado">
+            <h3>Completado</h3>
+            <div class="kanban-items" id="kanban-completado"></div>
+          </div>
+        </div>
+
+        <div id="calendar-view" class="view-container hidden" role="tabpanel">
+          <div class="calendar-toolbar">
+            <button id="calendar-prev" class="icon-btn" type="button">Mes anterior</button>
+            <strong id="calendar-label">Calendario</strong>
+            <button id="calendar-next" class="icon-btn" type="button">Mes siguiente</button>
+          </div>
+          <p class="calendar-legend">
+            <span class="legend-chip overdue">Vencido</span>
+            <span class="legend-chip soon">Próximo (<= 3 días)</span>
+          </p>
+          <div id="calendar-grid" class="calendar-grid" role="grid" aria-label="Calendario de entregas"></div>
+        </div>
+      </section>
+    </main>
+
+    <div id="shortcuts-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="modal-content">
+        <div class="panel-head">
+          <h2 id="shortcuts-title">Atajos de teclado</h2>
+          <button id="close-shortcuts" class="icon-btn" type="button">Cerrar</button>
+        </div>
+        <ul class="shortcut-list">
+          <li><kbd>/</kbd> Enfocar búsqueda</li>
+          <li><kbd>n</kbd> Nuevo proyecto</li>
+          <li><kbd>l</kbd> Vista lista</li>
+          <li><kbd>k</kbd> Vista kanban</li>
+          <li><kbd>c</kbd> Vista calendario</li>
+          <li><kbd>Ctrl/Cmd + Z</kbd> Deshacer</li>
+          <li><kbd>Esc</kbd> Cerrar ayuda / cancelar edición</li>
+          <li><kbd>?</kbd> o <kbd>h</kbd> Abrir ayuda</li>
+        </ul>
+      </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>

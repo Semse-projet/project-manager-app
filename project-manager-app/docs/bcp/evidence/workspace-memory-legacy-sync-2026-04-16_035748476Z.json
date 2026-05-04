@@ -1,0 +1,34 @@
+{
+  "generatedAtIso": "2026-04-16T03:57:48.476Z",
+  "mode": "apply",
+  "summary": {
+    "legacyFacts": 2,
+    "parsableLegacyFacts": 2,
+    "uniqueLegacyRecords": 2,
+    "existingDedicatedRecords": 0,
+    "pendingBackfillRecords": 2,
+    "migratedRecords": 2
+  },
+  "pendingSample": [
+    {
+      "id": "workspace-bcp-1776301897731:run_summary:cmo0sacb80002d4dbl79wboq4",
+      "tenantId": "tnt_bcp_drill_1776301897731",
+      "workspaceId": "workspace-bcp-1776301897731",
+      "runId": "cmo0sacb80002d4dbl79wboq4",
+      "taskId": "task-operacion-asistida-bcp",
+      "updatedAtIso": "2026-04-16T01:11:38.160Z"
+    },
+    {
+      "id": "workspace-bcp-1776301597733:run_summary:cmo0s41670002d4mgc9wprdup",
+      "tenantId": "tnt_bcp_drill_1776301597732",
+      "workspaceId": "workspace-bcp-1776301597733",
+      "runId": "cmo0s41670002d4mgc9wprdup",
+      "taskId": "task-operacion-asistida-bcp",
+      "updatedAtIso": "2026-04-16T01:06:44.328Z"
+    }
+  ],
+  "recommendations": [
+    "Se migraron 2 registros. Repetir la auditoria en dry-run para confirmar que pendingBackfillRecords quedo en cero.",
+    "Cuando el audit confirme cero pendientes, planificar el apagado gradual del reader legacy."
+  ]
+}

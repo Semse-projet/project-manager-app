@@ -1,0 +1,56 @@
+FROM node:20-alpine AS base
+RUN apk add --no-cache openssl python3 make g++
+
+FROM base AS deps
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+COPY apps/angular/package.json ./apps/angular/
+COPY apps/api/package.json ./apps/api/
+COPY apps/autonomy-server/package.json ./apps/autonomy-server/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/autonomy/package.json ./packages/autonomy/
+COPY packages/db/package.json ./packages/db/
+COPY packages/knowledge/package.json ./packages/knowledge/
+COPY packages/schemas/package.json ./packages/schemas/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/ui/package.json ./packages/ui/
+
+RUN npm ci
+
+FROM deps AS builder
+WORKDIR /app
+
+COPY . .
+
+ARG NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=true
+ARG NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false
+ENV NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=$NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED
+ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
+
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
+RUN npm run build --workspace @semse/shared
+RUN npm run build --workspace @semse/auth
+RUN npm run build --workspace @semse/schemas
+RUN npm run build --workspace @semse/knowledge
+RUN npm run build --workspace @semse/agents
+RUN npm run build --workspace @semse/autonomy
+RUN npm run build --workspace @semse/web
+
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
+COPY --from=builder /app/apps/web/.next/standalone ./
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+EXPOSE 3000
+
+CMD ["node", "apps/web/server.js"]

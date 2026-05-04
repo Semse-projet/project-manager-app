@@ -1,0 +1,115 @@
+name: Operacion Asistida API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/api/**"
+      - "packages/auth/**"
+      - "packages/knowledge/**"
+      - "packages/shared/**"
+      - "packages/schemas/**"
+      - "packages/agents/**"
+      - "packages/autonomy/**"
+      - "packages/db/**"
+      - "scripts/operacion-asistida-*.mjs"
+      - "docs/bcp/**"
+      - ".github/workflows/operacion-asistida-api.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "packages/auth/**"
+      - "packages/knowledge/**"
+      - "packages/shared/**"
+      - "packages/schemas/**"
+      - "packages/agents/**"
+      - "packages/autonomy/**"
+      - "packages/db/**"
+      - "scripts/operacion-asistida-*.mjs"
+      - "docs/bcp/**"
+      - ".github/workflows/operacion-asistida-api.yml"
+
+concurrency:
+  group: operacion-asistida-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-operacion-asistida-api:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      AUTH_SECRET: semse_local_secret_123456789012345
+      REDIS_URL: redis://127.0.0.1:6379
+      SEMSE_API_DRILL_DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      SEMSE_API_DRILL_AUTH_SECRET: semse_local_secret_123456789012345
+      SEMSE_API_DRILL_MIGRATE: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Build API runtime
+        run: npm run build:api
+
+      - name: Verify operacion asistida dedicated store
+        run: npm run verify:operacion-asistida:dedicated-store
+
+      - name: Generate operacion asistida risk review
+        run: npm run review:operacion-asistida:risk
+
+      - name: Audit workspace memory legacy state
+        run: npm run audit:operacion-asistida:workspace-memory-legacy
+
+      - name: Sync operacion asistida governance artifacts
+        run: npm run review:operacion-asistida:governance
+
+      - name: Run operacion asistida multienv restore simulation
+        run: npm run drill:operacion-asistida:restore:multienv
+
+      - name: Upload BCP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operacion-asistida-bcp-evidence
+          path: docs/bcp/evidence/
+          if-no-files-found: ignore

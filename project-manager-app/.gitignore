@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+.angular/
+**/.angular/
+*.tsbuildinfo
+packages/db/.env
+package-lock.legacy.json
+playwright-report/
+test-results/
+coverage/
+.nyc_output/

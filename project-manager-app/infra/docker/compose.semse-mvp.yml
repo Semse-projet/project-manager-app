@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: semse-postgres
+    environment:
+      POSTGRES_USER: semse
+      POSTGRES_PASSWORD: semse
+      POSTGRES_DB: semse
+    ports:
+      - "5433:5432"
+    volumes:
+      - semse_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U semse -d semse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: semse-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - semse_redis_data:/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: semse-minio
+    environment:
+      MINIO_ROOT_USER: semse
+      MINIO_ROOT_PASSWORD: semse123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - semse_minio_data:/data
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: semse-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+volumes:
+  semse_postgres_data:
+  semse_redis_data:
+  semse_minio_data:

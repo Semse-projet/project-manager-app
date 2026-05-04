@@ -1,0 +1,104 @@
+{
+  "jobs": [
+    {
+      "id": "job_demo_001",
+      "tenantId": "tenant-demo",
+      "title": "Kitchen Remodel — Orlando",
+      "scope": "Cliente crea job, se coordina milestone, se registra evidencia, se fondea escrow y se gestiona aprobación.",
+      "status": "accepted",
+      "budgetMin": 12000,
+      "budgetMax": 28500
+    },
+    {
+      "id": "job_demo_002",
+      "tenantId": "tenant-demo",
+      "title": "Roof Repair — Miami",
+      "scope": "Caso de excepción para mostrar dispute abierta y su resolución manual en la demo.",
+      "status": "dispute",
+      "budgetMin": 8000,
+      "budgetMax": 12900
+    }
+  ],
+  "milestones": [
+    {
+      "id": "milestone_demo_001",
+      "jobId": "job_demo_001",
+      "title": "Site inspection",
+      "amount": 2500,
+      "sequence": 1,
+      "status": "released",
+      "reviewDecision": "approved"
+    },
+    {
+      "id": "milestone_demo_002",
+      "jobId": "job_demo_001",
+      "title": "Material delivery",
+      "amount": 4600,
+      "sequence": 2,
+      "status": "approved",
+      "reviewDecision": "approved"
+    },
+    {
+      "id": "milestone_demo_003",
+      "jobId": "job_demo_002",
+      "title": "Emergency tarp + inspection",
+      "amount": 1900,
+      "sequence": 1,
+      "status": "changes_requested",
+      "reviewDecision": "changes_requested",
+      "rejectionReason": "Cliente solicita evidencia adicional del material instalado."
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence_demo_001",
+      "jobId": "job_demo_001",
+      "milestoneId": "milestone_demo_001",
+      "kind": "photo",
+      "key": "demo/kitchen-before-01.jpg",
+      "createdAt": "2026-03-15T12:00:00.000Z"
+    },
+    {
+      "id": "evidence_demo_002",
+      "jobId": "job_demo_001",
+      "milestoneId": "milestone_demo_002",
+      "kind": "document",
+      "key": "demo/material-delivery-proof.pdf",
+      "createdAt": "2026-03-15T12:05:00.000Z"
+    },
+    {
+      "id": "evidence_demo_003",
+      "jobId": "job_demo_002",
+      "milestoneId": "milestone_demo_003",
+      "kind": "photo",
+      "key": "demo/roof-issue-01.jpg",
+      "createdAt": "2026-03-15T12:10:00.000Z"
+    }
+  ],
+  "disputes": [
+    {
+      "id": "dispute_demo_001",
+      "jobId": "job_demo_002",
+      "reason": "Diferencia entre material instalado y scope aprobado.",
+      "status": "open"
+    }
+  ],
+  "escrow": {
+    "job_demo_001": {
+      "jobId": "job_demo_001",
+      "status": "partially_released",
+      "totalAmount": 12000,
+      "availableAmount": 9500,
+      "releasedAmount": 2500,
+      "currency": "USD"
+    },
+    "job_demo_002": {
+      "jobId": "job_demo_002",
+      "status": "funded",
+      "totalAmount": 5000,
+      "availableAmount": 5000,
+      "releasedAmount": 0,
+      "currency": "USD"
+    }
+  }
+}

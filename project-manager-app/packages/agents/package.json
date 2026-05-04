@@ -1,0 +1,32 @@
+{
+  "name": "@semse/agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./anatomy": {
+      "types": "./dist/anatomy.d.ts",
+      "default": "./dist/anatomy.js"
+    },
+    "./master-domains": {
+      "types": "./dist/master-domains.d.ts",
+      "default": "./dist/master-domains.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@semse/knowledge": "*",
+    "@semse/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

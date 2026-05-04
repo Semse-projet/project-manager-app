@@ -1,0 +1,79 @@
+name: API Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "apps/api/**"
+      - "apps/worker/**"
+      - "scripts/agent-flow-smoke.sh"
+      - "docs/runbooks/AGENTS_SMOKE_TEST.md"
+      - ".github/workflows/api-smoke.yml"
+
+concurrency:
+  group: api-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-flow-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install API dependencies
+        run: npm --prefix apps/api install --no-audit --no-fund
+
+      - name: Start API
+        run: |
+          npm --prefix apps/api run dev > /tmp/semse-api.log 2>&1 &
+          echo $! > /tmp/semse-api.pid
+
+      - name: Wait for healthcheck
+        run: |
+          for i in {1..40}; do
+            if curl -sSf http://localhost:4000/v1/health >/dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not start in time"
+          tail -n 200 /tmp/semse-api.log || true
+          exit 1
+
+      - name: Run agent flow smoke
+        env:
+          SEMSE_API_URL: http://localhost:4000
+          SEMSE_ROLES: OPS_ADMIN,WORKER
+          SEMSE_WORKER_ID: gh-worker-smoke
+        run: ./scripts/agent-flow-smoke.sh
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/semse-api.pid ]; then
+            kill "$(cat /tmp/semse-api.pid)" || true
+          fi
+
+      - name: Upload API log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-smoke-log
+          path: /tmp/semse-api.log
+          if-no-files-found: ignore

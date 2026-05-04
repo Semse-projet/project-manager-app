@@ -1,0 +1,239 @@
+{
+  "generatedAtIso": "2026-04-16T04:09:22.295Z",
+  "drill": "operacion_asistida_backup_recovery",
+  "mode": "api",
+  "targets": {
+    "rto": "4h",
+    "rpo": "15m"
+  },
+  "switch": {
+    "local": "SEMSE_BCP_DRILL_MODE=local npm run drill:operacion-asistida:bcp",
+    "api": "SEMSE_BCP_DRILL_MODE=api SEMSE_API_URL=http://127.0.0.1:4000 npm run drill:operacion-asistida:bcp"
+  },
+  "evidenceFiles": {
+    "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+    "manifest": "docs/bcp/evidence/manifest.json",
+    "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_040922295Z.json"
+  },
+  "tenantId": "tnt_bcp_drill_1776312562296",
+  "actor": {
+    "userId": "usr_bcp_operator",
+    "orgId": "org_bcp",
+    "roles": "OPS_ADMIN"
+  },
+  "ids": {
+    "workspaceId": "workspace-bcp-1776312562296",
+    "repoId": "repo-semse-bcp",
+    "taskId": "task-operacion-asistida-bcp",
+    "correlationId": "corr-operacion-asistida-bcp-1776312562296"
+  },
+  "checks": [
+    {
+      "name": "API health uses Prisma persistence",
+      "status": "pass"
+    },
+    {
+      "name": "API issues session-bound drill token",
+      "status": "pass"
+    },
+    {
+      "name": "API creates AgentRun with operatorContext",
+      "status": "pass"
+    },
+    {
+      "name": "Ops filters recovered runtime by workspaceId",
+      "status": "pass"
+    },
+    {
+      "name": "Ops filters recovered runtime by operatorId",
+      "status": "pass"
+    },
+    {
+      "name": "Ops trace exposes operatorContext and workspaceMemory",
+      "status": "pass"
+    },
+    {
+      "name": "Knowledge exposes recovered workspace_memory",
+      "status": "pass"
+    }
+  ],
+  "evidence": {
+    "runId": "cmo0ymx580002d4i4jdfb05eg",
+    "created": {
+      "id": "cmo0ymx580002d4i4jdfb05eg",
+      "tenantId": "tnt_bcp_drill_1776312562296",
+      "agentType": "risk",
+      "status": "queued",
+      "triggerType": "manual",
+      "correlationId": "corr-operacion-asistida-bcp-1776312562296",
+      "input": {
+        "scope": "API BCP drill for operator context and workspace memory recovery.",
+        "eventType": "operacion_asistida.bcp_drill",
+        "budgetCents": 250000,
+        "operatorContext": {
+          "orgId": "org_bcp",
+          "roles": [
+            "OPS_ADMIN"
+          ],
+          "scope": "task",
+          "repoId": "repo-semse-bcp",
+          "source": "user_session",
+          "taskId": "task-operacion-asistida-bcp",
+          "version": "v1",
+          "tenantId": "tnt_bcp_drill_1776312562296",
+          "operatorId": "usr_bcp_operator",
+          "workspaceId": "workspace-bcp-1776312562296"
+        }
+      },
+      "attempts": 0,
+      "maxAttempts": 3,
+      "deadLettered": false,
+      "createdAt": "2026-04-16T04:09:22.508Z",
+      "updatedAt": "2026-04-16T04:09:22.508Z"
+    },
+    "opsRuntime": {
+      "total": 1,
+      "filters": {
+        "workspaceId": "workspace-bcp-1776312562296",
+        "limit": 20
+      },
+      "items": [
+        {
+          "id": "cmo0ymx580002d4i4jdfb05eg",
+          "correlationId": "corr-operacion-asistida-bcp-1776312562296",
+          "eventType": "operacion_asistida.bcp_drill",
+          "agentType": "risk",
+          "triggerType": "manual",
+          "status": "completed",
+          "attempts": 1,
+          "maxAttempts": 3,
+          "deadLettered": false,
+          "inputSummary": "Operacion asistida BCP drill",
+          "outputSummary": "Operacion asistida BCP API drill completed",
+          "operatorContext": {
+            "source": "user_session",
+            "scope": "task",
+            "operatorId": "usr_bcp_operator",
+            "workspaceId": "workspace-bcp-1776312562296",
+            "repoId": "repo-semse-bcp",
+            "taskId": "task-operacion-asistida-bcp"
+          },
+          "requiresHumanReview": false,
+          "startedAt": "2026-04-16T04:09:22.577Z",
+          "heartbeatAt": "2026-04-16T04:09:22.577Z",
+          "endedAt": "2026-04-16T04:09:22.634Z",
+          "createdAt": "2026-04-16T04:09:22.508Z",
+          "updatedAt": "2026-04-16T04:09:22.635Z"
+        }
+      ]
+    },
+    "trace": {
+      "correlationId": "corr-operacion-asistida-bcp-1776312562296",
+      "summary": {
+        "triggerCount": 1,
+        "queued": 0,
+        "running": 0,
+        "completed": 1,
+        "failed": 0
+      },
+      "runs": [
+        {
+          "id": "cmo0ymx580002d4i4jdfb05eg",
+          "agentType": "risk",
+          "triggerType": "manual",
+          "eventType": "operacion_asistida.bcp_drill",
+          "status": "completed",
+          "attempts": 1,
+          "maxAttempts": 3,
+          "deadLettered": false,
+          "inputSummary": "Operacion asistida BCP drill",
+          "outputSummary": "Operacion asistida BCP API drill completed",
+          "operatorContext": {
+            "source": "user_session",
+            "scope": "task",
+            "operatorId": "usr_bcp_operator",
+            "workspaceId": "workspace-bcp-1776312562296",
+            "repoId": "repo-semse-bcp",
+            "taskId": "task-operacion-asistida-bcp"
+          },
+          "requiresHumanReview": false,
+          "startedAt": "2026-04-16T04:09:22.577Z",
+          "heartbeatAt": "2026-04-16T04:09:22.577Z",
+          "endedAt": "2026-04-16T04:09:22.634Z",
+          "createdAt": "2026-04-16T04:09:22.508Z",
+          "updatedAt": "2026-04-16T04:09:22.635Z"
+        }
+      ],
+      "workspaceMemory": [
+        {
+          "id": "workspace-bcp-1776312562296:run_summary:cmo0ymx580002d4i4jdfb05eg",
+          "runId": "cmo0ymx580002d4i4jdfb05eg",
+          "kind": "run_summary",
+          "scope": "task",
+          "title": "Agent run completed: risk",
+          "summary": "Operacion asistida BCP API drill completed",
+          "tags": [
+            "agent-runtime",
+            "run-summary",
+            "risk",
+            "completed"
+          ],
+          "updatedAtIso": "2026-04-16T04:09:22.665Z"
+        }
+      ],
+      "timeline": [
+        {
+          "id": "aud_a19dba5c-c03e-4eea-a2ed-f34302e8a7f9",
+          "action": "agent.run.create",
+          "entityType": "AgentRun",
+          "entityId": "cmo0ymx580002d4i4jdfb05eg",
+          "requestId": "e8b91b90-433c-4129-819b-21274e7e0c86",
+          "timestamp": "2026-04-16T04:09:22.528Z"
+        },
+        {
+          "id": "aud_4b956907-8523-4dbb-ab15-17ecbdfb70b5",
+          "action": "agent.run.start",
+          "entityType": "AgentRun",
+          "entityId": "cmo0ymx580002d4i4jdfb05eg",
+          "requestId": "d46822fa-6005-4c84-89f4-8d22881f3d04",
+          "timestamp": "2026-04-16T04:09:22.607Z"
+        },
+        {
+          "id": "aud_9c94837e-8430-4c17-9925-0c556422a8b5",
+          "action": "agent.run.complete",
+          "entityType": "AgentRun",
+          "entityId": "cmo0ymx580002d4i4jdfb05eg",
+          "requestId": "a0c6f563-376a-4559-97e3-1546854a36e5",
+          "timestamp": "2026-04-16T04:09:22.651Z"
+        }
+      ]
+    },
+    "workspaceMemory": {
+      "items": [
+        {
+          "id": "workspace-bcp-1776312562296:run_summary:cmo0ymx580002d4i4jdfb05eg",
+          "tenantId": "tnt_bcp_drill_1776312562296",
+          "orgId": "org_bcp",
+          "createdBy": "usr_bcp_operator",
+          "workspaceId": "workspace-bcp-1776312562296",
+          "repoId": "repo-semse-bcp",
+          "runId": "cmo0ymx580002d4i4jdfb05eg",
+          "taskId": "task-operacion-asistida-bcp",
+          "kind": "run_summary",
+          "scope": "task",
+          "title": "Agent run completed: risk",
+          "summary": "Operacion asistida BCP API drill completed",
+          "body": "Agent: risk\nTrigger: manual\nAction: classify",
+          "tags": [
+            "agent-runtime",
+            "run-summary",
+            "risk",
+            "completed"
+          ],
+          "sourceRef": "corr-operacion-asistida-bcp-1776312562296",
+          "updatedAtIso": "2026-04-16T04:09:22.665Z"
+        }
+      ]
+    }
+  }
+}

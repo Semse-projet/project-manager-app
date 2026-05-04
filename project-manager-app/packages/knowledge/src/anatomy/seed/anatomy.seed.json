@@ -1,0 +1,220 @@
+{
+  "version": "1.0.0",
+  "namespace": "anatomy.human",
+  "nodes": [
+    {
+      "id": "body",
+      "name": "Body",
+      "kind": "body",
+      "description": "Organismo humano completo considerado como la raíz anatómica del dominio.",
+      "functions": ["integrate_all_structures"],
+      "parentId": null,
+      "aliases": ["human_body", "cuerpo"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "head",
+      "name": "Head",
+      "kind": "region",
+      "description": "Región superior que contiene cara, boca, nariz, ojos y otras estructuras craneofaciales.",
+      "functions": ["house_sensory_organs", "protect_brain"],
+      "parentId": "body",
+      "aliases": ["cabeza"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "face",
+      "name": "Face",
+      "kind": "subregion",
+      "description": "Subregión anterior de la cabeza que integra boca, nariz, ojos y mejillas.",
+      "functions": ["expression", "intake_interfaces"],
+      "parentId": "head",
+      "aliases": ["cara"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "mouth",
+      "name": "Mouth",
+      "kind": "functional_unit",
+      "description": "Unidad funcional de entrada oral relacionada con alimentación, habla y respiración auxiliar.",
+      "functions": ["ingestion", "speech", "assisted_breathing"],
+      "parentId": "face",
+      "aliases": ["boca", "oral_cavity"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "tongue",
+      "name": "Tongue",
+      "kind": "organ",
+      "description": "Órgano muscular móvil de la boca implicado en gusto, deglución y articulación del habla.",
+      "functions": ["taste", "speech_articulation", "bolus_control"],
+      "parentId": "mouth",
+      "aliases": ["lengua"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "teeth",
+      "name": "Teeth",
+      "kind": "functional_unit",
+      "description": "Conjunto dentario usado para masticar y fragmentar alimento.",
+      "functions": ["mastication"],
+      "parentId": "mouth",
+      "aliases": ["dientes"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.94, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "nose",
+      "name": "Nose",
+      "kind": "functional_unit",
+      "description": "Unidad funcional de la cara vinculada con respiración y olfato.",
+      "functions": ["breathing", "olfaction"],
+      "parentId": "face",
+      "aliases": ["nariz"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.95, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "upper_limb",
+      "name": "Upper Limb",
+      "kind": "region",
+      "description": "Región anatómica del miembro superior que incluye brazo, antebrazo y mano.",
+      "functions": ["reach", "grasp", "manipulation"],
+      "parentId": "body",
+      "aliases": ["miembro_superior"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.96, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "hand",
+      "name": "Hand",
+      "kind": "functional_unit",
+      "description": "Unidad funcional distal del miembro superior adaptada a prensión y manipulación fina.",
+      "functions": ["grasp", "fine_manipulation", "touch"],
+      "parentId": "upper_limb",
+      "aliases": ["mano"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "fingers",
+      "name": "Fingers",
+      "kind": "functional_unit",
+      "description": "Subunidades de la mano que permiten movimiento fino y contacto táctil.",
+      "functions": ["precision_grip", "touch"],
+      "parentId": "hand",
+      "aliases": ["dedos"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.93, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "lower_limb",
+      "name": "Lower Limb",
+      "kind": "region",
+      "description": "Región anatómica del miembro inferior adaptada a soporte y locomoción.",
+      "functions": ["support", "locomotion"],
+      "parentId": "body",
+      "aliases": ["miembro_inferior"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.96, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "foot",
+      "name": "Foot",
+      "kind": "functional_unit",
+      "description": "Unidad distal del miembro inferior vinculada con apoyo, equilibrio y propulsión.",
+      "functions": ["support", "balance", "propulsion"],
+      "parentId": "lower_limb",
+      "aliases": ["pie"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.95, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "epithelial_tissue",
+      "name": "Epithelial Tissue",
+      "kind": "tissue",
+      "description": "Tejido de revestimiento presente en diversas superficies anatómicas.",
+      "functions": ["cover_surfaces", "protect_surfaces"],
+      "parentId": "mouth",
+      "aliases": ["tejido_epitelial"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.88, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "epithelial_cell",
+      "name": "Epithelial Cell",
+      "kind": "cell",
+      "description": "Célula representativa del tejido epitelial.",
+      "functions": ["surface_barrier"],
+      "parentId": "epithelial_tissue",
+      "aliases": ["celula_epitelial"],
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.84, "version": "1.0.0", "status": "canonical" }
+    }
+  ],
+  "relations": [
+    {
+      "id": "mouth_part_of_face",
+      "type": "part_of",
+      "sourceId": "mouth",
+      "targetId": "face",
+      "description": "La boca forma parte de la cara.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "face_part_of_head",
+      "type": "part_of",
+      "sourceId": "face",
+      "targetId": "head",
+      "description": "La cara forma parte de la cabeza.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "hand_part_of_upper_limb",
+      "type": "part_of",
+      "sourceId": "hand",
+      "targetId": "upper_limb",
+      "description": "La mano forma parte del miembro superior.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "tongue_part_of_mouth",
+      "type": "part_of",
+      "sourceId": "tongue",
+      "targetId": "mouth",
+      "description": "La lengua forma parte de la boca.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "mouth_contains_tongue",
+      "type": "contains",
+      "sourceId": "mouth",
+      "targetId": "tongue",
+      "description": "La boca contiene a la lengua como órgano funcional.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.98, "version": "1.0.0" }
+    },
+    {
+      "id": "mouth_contains_teeth",
+      "type": "contains",
+      "sourceId": "mouth",
+      "targetId": "teeth",
+      "description": "La boca contiene el conjunto dentario.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.97, "version": "1.0.0" }
+    },
+    {
+      "id": "nose_connected_to_mouth",
+      "type": "connected_to",
+      "sourceId": "nose",
+      "targetId": "mouth",
+      "description": "Nariz y boca están conectadas en la vía aérea superior.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.91, "version": "1.0.0" }
+    },
+    {
+      "id": "nose_functionally_related_to_mouth",
+      "type": "functionally_related_to",
+      "sourceId": "nose",
+      "targetId": "mouth",
+      "description": "Nariz y boca cooperan en respiración y entrada de aire.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.9, "version": "1.0.0" }
+    },
+    {
+      "id": "tongue_depends_on_mouth",
+      "type": "depends_on",
+      "sourceId": "tongue",
+      "targetId": "mouth",
+      "description": "La lengua depende del contexto anatómico de la boca para su función principal.",
+      "metadata": { "source": "semse_anatomy_seed", "confidence": 0.85, "version": "1.0.0" }
+    }
+  ]
+}

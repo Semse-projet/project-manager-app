@@ -1,0 +1,34 @@
+{
+  "generatedAtIso": "2026-04-16T03:56:27.940Z",
+  "mode": "dry-run",
+  "summary": {
+    "legacyFacts": 2,
+    "parsableLegacyFacts": 2,
+    "uniqueLegacyRecords": 2,
+    "existingDedicatedRecords": 0,
+    "pendingBackfillRecords": 2,
+    "migratedRecords": 0
+  },
+  "pendingSample": [
+    {
+      "id": "workspace-bcp-1776301897731:run_summary:cmo0sacb80002d4dbl79wboq4",
+      "tenantId": "tnt_bcp_drill_1776301897731",
+      "workspaceId": "workspace-bcp-1776301897731",
+      "runId": "cmo0sacb80002d4dbl79wboq4",
+      "taskId": "task-operacion-asistida-bcp",
+      "updatedAtIso": "2026-04-16T01:11:38.160Z"
+    },
+    {
+      "id": "workspace-bcp-1776301597733:run_summary:cmo0s41670002d4mgc9wprdup",
+      "tenantId": "tnt_bcp_drill_1776301597732",
+      "workspaceId": "workspace-bcp-1776301597733",
+      "runId": "cmo0s41670002d4mgc9wprdup",
+      "taskId": "task-operacion-asistida-bcp",
+      "updatedAtIso": "2026-04-16T01:06:44.328Z"
+    }
+  ],
+  "recommendations": [
+    "Ejecutar con SEMSE_WORKSPACE_MEMORY_LEGACY_APPLY=true para absorber registros legacy faltantes.",
+    "Mantener la lectura dual hasta que el pendingBackfillRecords llegue a cero."
+  ]
+}
