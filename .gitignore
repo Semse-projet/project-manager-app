@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Secrets and local configuration
+claves/
+.env
+.env.*
+!.env.example
+
+# Local tooling and editor state
+.claude/
+.vscode/
+.cache/
+**/.cache/
+.temp/
+**/.temp/
+tmp/
+**/tmp/
+temp/
+**/temp/
+
+# Build outputs and generated assets
+.next/
+**/.next/
+.vite/
+**/.vite/
+dist/
+**/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+test-results/
+**/test-results/
+logs/
+**/logs/
+generated/
+**/generated/
+.prisma/client/
+**/.prisma/client/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.tsbuildinfo
+
+# Local archives and heavy artifacts
+*.zip
+*.tar.gz
+*.tgz
