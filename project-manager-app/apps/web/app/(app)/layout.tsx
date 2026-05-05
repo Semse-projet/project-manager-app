@@ -124,6 +124,7 @@ const NAV: Record<NavRole, { label: string; labelEn: string; color: string; icon
       { label: "Field Ops", labelEn: "Field Ops", href: "/admin/field-ops", icon: Wrench, section: "Operaciones" },
       { label: "Config", labelEn: "Settings", href: "/admin/settings", icon: Settings },
       { label: "HTML Canvas", labelEn: "HTML Canvas", href: "/admin/html-in-canvas", icon: Layers, section: "Lab" },
+      { label: "SEMSE Tools", labelEn: "SEMSE Tools", href: "/tools", icon: Wrench, section: "Lab" },
       { label: "Agentes", labelEn: "Agents", href: "/agents", icon: Bot, section: "IA" },
       { label: "Coordinator", labelEn: "Coordinator", href: "/admin/coordinator", icon: GitBranch },
       { label: "Métricas LLM", labelEn: "LLM Metrics", href: "/admin/llm-metrics", icon: BarChart2 },
