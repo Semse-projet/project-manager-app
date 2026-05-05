@@ -1,5 +1,5 @@
 export type ToolMode = "client" | "professional" | "admin";
-export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile";
+export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors";
 
 export type ValidationIssue = {
   field: string;

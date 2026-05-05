@@ -38,3 +38,5 @@ export { calculateCarpentry, runCarpentryEngine } from "./trades/carpentry.engin
 export type { CarpentryInput } from "./trades/carpentry.engine.js";
 export { calculateTile, runTileEngine } from "./trades/tile.engine.js";
 export type { TileInput } from "./trades/tile.engine.js";
+export { calculateWindowsDoors, runWindowsDoorsEngine } from "./trades/windows-doors.engine.js";
+export type { WindowsDoorsInput } from "./trades/windows-doors.engine.js";
