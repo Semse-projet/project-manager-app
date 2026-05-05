@@ -178,3 +178,5 @@ export function runConcreteEngine(input: ConcreteInput): SemseToolResult {
     createdAt: new Date().toISOString(),
   };
 }
+
+export const calculateConcrete = runConcreteEngine;

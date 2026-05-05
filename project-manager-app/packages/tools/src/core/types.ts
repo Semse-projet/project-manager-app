@@ -97,6 +97,63 @@ export type Milestone = {
   releaseTrigger: string;
 };
 
+// ─── Derived Plans ───────────────────────────────────────────────────────────
+
+export type QuoteSummary = {
+  materials: number;
+  labor: number;
+  overhead: number;
+  profit: number;
+  semseFee: number;
+  contingency: number;
+  taxes: number;
+  subtotal: number;
+  total: number;
+  recommendedDeposit: number;
+  recommendedEscrow: number;
+  currency: "USD";
+  notes: string[];
+};
+
+export type EvidenceChecklist = {
+  trade: TradeId;
+  riskLevel: RiskLevel;
+  requiredCount: number;
+  items: EvidenceItem[];
+  notes: string[];
+};
+
+export type MilestonePlan = {
+  trade: TradeId;
+  totalAmount: number;
+  riskLevel: RiskLevel;
+  milestones: Milestone[];
+  fundingSchedule: number[];
+};
+
+export type EscrowPlan = {
+  trade: TradeId;
+  totalAmount: number;
+  initialDeposit: number;
+  holdback: number;
+  releaseSchedule: number[];
+  recommendedReserve: number;
+  notes: string[];
+};
+
+export type ExportBundle = {
+  toolId: string;
+  trade: TradeId;
+  mode: ToolMode;
+  createdAt: string;
+  quote: QuoteSummary;
+  evidence: EvidenceChecklist;
+  milestonePlan: MilestonePlan;
+  escrowPlan: EscrowPlan;
+  warnings: string[];
+  recommendations: string[];
+};
+
 // ─── Evidence ────────────────────────────────────────────────────────────────
 
 export type EvidenceItem = {

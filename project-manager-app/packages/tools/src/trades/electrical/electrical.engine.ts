@@ -216,3 +216,5 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
     createdAt: new Date().toISOString(),
   };
 }
+
+export const calculateElectrical = runElectricalEngine;
