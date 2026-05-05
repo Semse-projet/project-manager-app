@@ -32,3 +32,5 @@ export { calculatePainting, runPaintingEngine } from "./trades/painting.engine.j
 export type { PaintingInput } from "./trades/painting.engine.js";
 export { calculateDrywall, runDrywallEngine } from "./trades/drywall.engine.js";
 export type { DrywallInput } from "./trades/drywall.engine.js";
+export { calculateFlooring, runFlooringEngine } from "./trades/flooring.engine.js";
+export type { FlooringInput } from "./trades/flooring.engine.js";
