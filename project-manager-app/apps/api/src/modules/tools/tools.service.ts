@@ -6,6 +6,7 @@ import {
   buildMilestonePlan,
   calculateConcrete,
   calculateElectrical,
+  calculateDemolition,
   calculateHvac,
   calculatePlumbing,
   calculatePainting,
@@ -47,6 +48,8 @@ export class ToolsService {
         return calculateConcrete(payload as Parameters<typeof calculateConcrete>[0]);
       case "electrical":
         return calculateElectrical(payload as Parameters<typeof calculateElectrical>[0]);
+      case "demolition":
+        return calculateDemolition(payload as Parameters<typeof calculateDemolition>[0]);
       case "roofing":
         return calculateRoofing(payload as Parameters<typeof calculateRoofing>[0]);
       case "plumbing":

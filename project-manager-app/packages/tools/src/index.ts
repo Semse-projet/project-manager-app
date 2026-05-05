@@ -42,3 +42,5 @@ export { calculateWindowsDoors, runWindowsDoorsEngine } from "./trades/windows-d
 export type { WindowsDoorsInput } from "./trades/windows-doors.engine.js";
 export { calculateInsulation, runInsulationEngine } from "./trades/insulation.engine.js";
 export type { InsulationInput } from "./trades/insulation.engine.js";
+export { calculateDemolition, runDemolitionEngine } from "./trades/demolition.engine.js";
+export type { DemolitionInput } from "./trades/demolition.engine.js";
