@@ -46,3 +46,5 @@ export { calculateDemolition, runDemolitionEngine } from "./trades/demolition.en
 export type { DemolitionInput } from "./trades/demolition.engine.js";
 export { calculateMasonry, runMasonryEngine } from "./trades/masonry.engine.js";
 export type { MasonryInput } from "./trades/masonry.engine.js";
+export { calculateDeck, runDeckEngine } from "./trades/deck.engine.js";
+export type { DeckInput } from "./trades/deck.engine.js";

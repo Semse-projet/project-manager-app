@@ -14,6 +14,7 @@ export type TradeId =
   | "hvac"
   | "demolition"
   | "masonry"
+  | "deck"
   | "inspection";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
