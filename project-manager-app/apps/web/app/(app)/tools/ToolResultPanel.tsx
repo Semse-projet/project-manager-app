@@ -56,13 +56,17 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 
 export function ToolResultPanel({ result }: { result: SemseToolResult }) {
   const riskVariant = RISK_VARIANTS[result.risk.level];
+  const safetyCritical = result.trade === "electrical" || result.risk.level === "critical";
 
   return (
     <div className="grid gap-6">
       <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="grid gap-1">
-            <Badge variant={riskVariant}>{RISK_LABELS[result.risk.level]}</Badge>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={riskVariant}>{RISK_LABELS[result.risk.level]}</Badge>
+              {safetyCritical ? <Badge variant="error">Safety critical</Badge> : null}
+            </div>
             <h3 className="text-2xl font-bold tracking-tight text-ink">
               {result.projectType}
             </h3>
