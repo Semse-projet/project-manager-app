@@ -354,7 +354,7 @@ export class AssistantService {
           sessionId: entry.sessionId ?? null,
           draftId: entry.draftId ?? null,
           actionType: entry.actionType,
-          payload: entry.payload,
+          payload: entry.payload as unknown as import("@prisma/client").Prisma.InputJsonValue,
         },
       });
     } catch (err) {

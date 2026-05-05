@@ -66,7 +66,7 @@ export class NotificationsRepository {
         type: input.type,
         title: input.title,
         body: input.body,
-        payload: input.payload ?? {},
+        payload: (input.payload ?? {}) as unknown as import("@prisma/client").Prisma.InputJsonValue,
         channel: input.channel ?? NotificationChannel.IN_APP,
         sentAt: new Date(),
       },

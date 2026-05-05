@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { getActionPolicy } from "@semse/agents";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import type { PlanStepCapability } from "./plan-mode.types.js";
@@ -312,9 +313,9 @@ export class AgentWorkPlanService {
         title: input.title,
         description: input.description ?? null,
         status: "draft",
-        stepsJson: normalizedSteps,
-        contextJson: input.contextSnapshot ?? null,
-        metaJson: input.meta ?? null,
+        stepsJson: normalizedSteps as unknown as Prisma.InputJsonValue,
+        contextJson: (input.contextSnapshot ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        metaJson: (input.meta ?? Prisma.JsonNull) as Prisma.InputJsonValue,
         threadId: input.threadId ?? null,
       },
     });

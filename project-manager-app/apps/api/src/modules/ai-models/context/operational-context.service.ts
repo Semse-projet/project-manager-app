@@ -219,7 +219,7 @@ export class OperationalContextService {
       ]);
 
       if (proj) {
-        activeProject = { id: proj.id, title: proj.job.title, status: proj.status, jobId: proj.jobId };
+        activeProject = { id: proj.id, title: proj.job.title, status: proj.status, jobId: proj.jobId ?? undefined };
       }
 
       if (proj?.jobId) {

@@ -650,9 +650,14 @@ async function main() {
     create: {
       id: "wsmem_demo_001",
       tenantId: TENANT_ID,
+      orgId: ORG_CLIENT,
+      createdBy: USER_CLIENT,
       workspaceId: project.id,
-      key: "project_context",
-      value: JSON.stringify({
+      kind: "project_context",
+      scope: "project",
+      title: "Contexto del proyecto demo",
+      summary: "Discrepancia marca tablero eléctrico hito 2 — plan pendiente aprobación",
+      body: JSON.stringify({
         projectId: project.id,
         jobId: "job_demo_001",
         currentIssue: "Discrepancia marca tablero eléctrico hito 2",
@@ -671,7 +676,7 @@ async function main() {
       tenantId: TENANT_ID,
       jobId: "job_demo_004",
       assignedProOrgId: ORG_PRO,
-      status: "CLOSED",
+      status: "COMPLETED",
       startAt: new Date("2026-03-01"),
       dueAt: new Date("2026-03-20"),
     },
@@ -834,8 +839,8 @@ async function main() {
   console.log("     • 3 memorias de agente");
   console.log("     • 3 delegaciones (coordinator dashboard)");
   console.log("     • 3 notificaciones");
-  console.log("     • userProfiles con assistantSettings
-     • 6 contractor leads (pipeline completo)");
+  console.log("     • userProfiles con assistantSettings");
+  console.log("     • 6 contractor leads (pipeline completo)");
 }
 
 main()

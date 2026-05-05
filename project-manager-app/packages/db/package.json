@@ -14,7 +14,7 @@
     "prisma:repair-soft-delete": "node --experimental-strip-types ./scripts/repair-soft-delete-drift.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.4.1",
+    "@prisma/client": "^6.19.3",
     "dotenv": "^16.6.1"
   },
   "devDependencies": {

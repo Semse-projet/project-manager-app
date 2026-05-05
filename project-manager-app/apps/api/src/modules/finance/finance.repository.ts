@@ -306,7 +306,7 @@ export class FinanceRepository {
     const row = await this.prisma.documentTemplate.create({
       data: {
         tenantId: data.tenantId, orgId: data.orgId, createdBy: data.createdBy,
-        name: data.name, category: data.category, bodyJson: data.bodyJson ?? {},
+        name: data.name, category: data.category, bodyJson: (data.bodyJson ?? {}) as unknown as import("@prisma/client").Prisma.InputJsonValue,
       },
     });
     return toTemplateRecord(row as Record<string, unknown>);

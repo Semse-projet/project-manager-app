@@ -134,8 +134,9 @@ export class MatchingRepository {
       by: ["toUserId"],
       where: { toUserId: { in: activeUserIds }, job: { tenantId } },
       _avg: { score: true },
-      _count: { id: true }
-    }) as RatingAggRow[];
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+    }) as unknown as RatingAggRow[];
 
     const ratingByUser = new Map(
       ratingAggs.map((r) => [r.toUserId, { avg: r._avg.score ?? 0, total: r._count.id }])
@@ -167,8 +168,9 @@ export class MatchingRepository {
         professionalId: { in: activeUserIds },
         job: { tenantId, status: "COMPLETED", deletedAt: null }
       },
-      _count: { id: true }
-    }) as JobCountRow[];
+      _count: { id: true },
+      orderBy: { _count: { id: "desc" } },
+    }) as unknown as JobCountRow[];
 
     const completedByUser = new Map(completedCounts.map((r) => [r.professionalId, r._count.id]));
 
