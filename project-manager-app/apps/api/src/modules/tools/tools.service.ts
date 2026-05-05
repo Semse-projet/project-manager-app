@@ -12,6 +12,7 @@ import {
   calculateDrywall,
   calculateFlooring,
   calculateCarpentry,
+  calculateTile,
   calculateQuoteFromToolResult,
   calculateRoofing,
   type ExportBundle,
@@ -58,6 +59,8 @@ export class ToolsService {
         return calculateFlooring(payload as Parameters<typeof calculateFlooring>[0]);
       case "carpentry":
         return calculateCarpentry(payload as Parameters<typeof calculateCarpentry>[0]);
+      case "tile":
+        return calculateTile(payload as Parameters<typeof calculateTile>[0]);
       default:
         throw new BadRequestException(`Unsupported SEMSE tool: ${input.tool}`);
     }

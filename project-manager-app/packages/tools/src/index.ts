@@ -36,3 +36,5 @@ export { calculateFlooring, runFlooringEngine } from "./trades/flooring.engine.j
 export type { FlooringInput } from "./trades/flooring.engine.js";
 export { calculateCarpentry, runCarpentryEngine } from "./trades/carpentry.engine.js";
 export type { CarpentryInput } from "./trades/carpentry.engine.js";
+export { calculateTile, runTileEngine } from "./trades/tile.engine.js";
+export type { TileInput } from "./trades/tile.engine.js";
