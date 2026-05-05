@@ -2,6 +2,48 @@ import Link from "next/link";
 import { fetchPublicLandingOverviewServer } from "../../lib/public-landing";
 import { LandingIntake } from "../../components/landing/landing-intake";
 
+const HOW_IT_WORKS = [
+  { num: "01", title: "Publica tu proyecto", desc: "Describe qué necesitas: construcción, remodelación, mantenimiento, reparación o soporte administrativo." },
+  { num: "02", title: "Prometeo analiza la solicitud", desc: "La IA clasifica el tipo de trabajo, detecta urgencia, resume la necesidad y sugiere próximos pasos." },
+  { num: "03", title: "Recibe propuestas", desc: "Profesionales verificados envían propuestas con precio, tiempo estimado, experiencia y disponibilidad." },
+  { num: "04", title: "Elige con confianza", desc: "Compara propuestas, revisa reputación, historial y evidencias de trabajos anteriores." },
+  { num: "05", title: "Crea hitos y acuerdo", desc: "El proyecto se organiza por etapas claras: inicio, avance, revisión y entrega." },
+  { num: "06", title: "Protege el pago en escrow", desc: "El dinero queda bloqueado y se libera solo cuando apruebas cada hito completado." },
+  { num: "07", title: "Documenta evidencias", desc: "Fotos, videos, contratos, acuerdos y chats quedan guardados dentro del proyecto." },
+  { num: "08", title: "Cierra con historial completo", desc: "SEMSE genera reporte final, historial del trabajo y soporte asistido si hay disputa." },
+];
+
+const SERVICES = [
+  {
+    icon: "🏗️",
+    title: "Construcción y Remodelación",
+    color: "#3b82f6",
+    bg: "#eff6ff",
+    items: ["Drywall / Sheetrock", "Parches y resane blend to match", "Instalación y reparación", "Pintura residencial y comercial", "Remodelación residencial", "Remodelación comercial"],
+  },
+  {
+    icon: "🔧",
+    title: "Mantenimiento",
+    color: "#10b981",
+    bg: "#f0fdf4",
+    items: ["Mantenimiento preventivo", "Reparaciones menores", "Instalaciones técnicas", "Turnovers de propiedades", "Inspecciones", "Mantenimiento comercial"],
+  },
+  {
+    icon: "📋",
+    title: "Servicios Administrativos",
+    color: "#f59e0b",
+    bg: "#fffbeb",
+    items: ["Cotizaciones y facturas", "Organización de contratos", "Reportes de avance", "Seguimiento de acuerdos", "Documentación de proyectos", "Recibos y pagos"],
+  },
+  {
+    icon: "✦",
+    title: "Servicios con Prometeo IA",
+    color: "#8b5cf6",
+    bg: "#faf5ff",
+    items: ["Resumen automático de proyectos", "Clasificación de solicitudes", "Generación de checklists", "Revisión de evidencias", "Reportes de avance", "Soporte en disputas"],
+  },
+];
+
 const FEATURES = [
   {
     icon: "🔒",
@@ -102,95 +144,93 @@ export default async function LandingPage() {
 
   return (
     <main>
-      <section style={{ padding: "80px 24px 72px", textAlign: "center", maxWidth: 880, margin: "0 auto" }}>
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "5px 14px",
-            background: "#eff6ff",
-            border: "1px solid #bfdbfe",
-            borderRadius: 20,
-            fontSize: 13,
-            fontWeight: 700,
-            color: "#2563eb",
-            marginBottom: 28,
-          }}
-        >
-          Operación real + IA conectada
+      {/* ── HERO ── */}
+      <section style={{ padding: "80px 24px 72px", textAlign: "center", maxWidth: 920, margin: "0 auto" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#2563eb", marginBottom: 28 }}>
+          SEMSE Project — Ecosistema digital para servicios reales
         </div>
-        <h1
-          style={{
-            fontSize: "clamp(2.6rem, 7vw, 3.25rem)",
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
-            lineHeight: 1.08,
-            margin: "0 0 20px",
-            color: "#0f172a",
-          }}
-        >
-          Publica, ejecuta y cobra
+        <h1 style={{ fontSize: "clamp(2.4rem, 6.5vw, 3.2rem)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1, margin: "0 0 22px", color: "#0f172a" }}>
+          Gestiona tus proyectos con
           <br />
-          <span
-            style={{
-              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            en el mismo sistema
+          <span style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            profesionales verificados y pagos seguros
           </span>
         </h1>
-        <p
-          style={{
-            fontSize: 19,
-            color: "#64748b",
-            lineHeight: 1.6,
-            margin: "0 0 40px",
-            maxWidth: 680,
-            marginLeft: "auto",
-            marginRight: "auto",
-          }}
-        >
-          SEMSE combina marketplace, escrow, finanzas y copiloto operativo para que un trabajo no se rompa cuando pasa de la venta a la ejecución.
+        <p style={{ fontSize: 19, color: "#64748b", lineHeight: 1.65, margin: "0 0 12px", maxWidth: 720, marginLeft: "auto", marginRight: "auto" }}>
+          Publica tu proyecto, recibe propuestas comparativas, elige al profesional ideal, protege pagos por hitos y documenta cada avance.
+        </p>
+        <p style={{ fontSize: 15, color: "#94a3b8", lineHeight: 1.6, margin: "0 0 40px", maxWidth: 640, marginLeft: "auto", marginRight: "auto" }}>
+          Construcción · Remodelación · Mantenimiento · Servicios especializados · Asistencia con IA
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <Link
-            href="/client/jobs/new"
-            style={{
-              padding: "14px 32px",
-              borderRadius: 10,
-              background: "#3b82f6",
-              textDecoration: "none",
-              color: "#fff",
-              fontSize: 16,
-              fontWeight: 700,
-              boxShadow: "0 4px 14px rgba(59,130,246,.35)",
-            }}
-          >
-            Publicar mi trabajo
+          <Link href="/client/jobs/new" style={{ padding: "15px 34px", borderRadius: 10, background: "#3b82f6", textDecoration: "none", color: "#fff", fontSize: 16, fontWeight: 700, boxShadow: "0 4px 14px rgba(59,130,246,.35)" }}>
+            Publicar mi proyecto
           </Link>
-          <Link
-            href="/login?from=/worker/dashboard"
-            style={{
-              padding: "14px 32px",
-              borderRadius: 10,
-              background: "#fff",
-              textDecoration: "none",
-              color: "#374151",
-              fontSize: 16,
-              fontWeight: 600,
-              border: "1px solid #e2e8f0",
-            }}
-          >
-            Soy profesional
+          <Link href="/login?from=/worker/dashboard" style={{ padding: "15px 34px", borderRadius: 10, background: "#fff", textDecoration: "none", color: "#374151", fontSize: 16, fontWeight: 600, border: "1px solid #e2e8f0" }}>
+            Unirme como profesional
+          </Link>
+          <Link href="/login?from=/admin/dashboard" style={{ padding: "15px 34px", borderRadius: 10, background: "#fff", textDecoration: "none", color: "#7c3aed", fontSize: 16, fontWeight: 600, border: "1px solid #ddd6fe" }}>
+            Panel Admin
           </Link>
         </div>
       </section>
 
       <LandingIntake />
 
+      {/* ── CÓMO FUNCIONA ── */}
+      <section style={{ padding: "80px 24px", maxWidth: 1100, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", marginBottom: 56 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#15803d", marginBottom: 20 }}>
+            Flujo completo de principio a fin
+          </div>
+          <h2 style={{ fontSize: 34, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 12 }}>Cómo funciona SEMSE Project</h2>
+          <p style={{ fontSize: 17, color: "#64748b", maxWidth: 600, margin: "0 auto" }}>
+            Desde publicar hasta cobrar — todo en un solo ecosistema, sin saltar entre sistemas ni perder el contexto.
+          </p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20 }}>
+          {HOW_IT_WORKS.map((step) => (
+            <div key={step.num} style={{ padding: "28px 24px", borderRadius: 16, border: "1px solid #e2e8f0", background: "#fafafa", position: "relative" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "#3b82f6", letterSpacing: "0.08em", marginBottom: 12, opacity: 0.6 }}>{step.num}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 8 }}>{step.title}</div>
+              <div style={{ fontSize: 14, color: "#64748b", lineHeight: 1.6 }}>{step.desc}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── SERVICIOS ── */}
+      <section style={{ background: "#fff", borderTop: "1px solid #e2e8f0", padding: "80px 24px" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 56 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#7c3aed", marginBottom: 20 }}>
+              Cobertura completa del ecosistema
+            </div>
+            <h2 style={{ fontSize: 34, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 12 }}>Servicios que gestiona la plataforma</h2>
+            <p style={{ fontSize: 17, color: "#64748b", maxWidth: 580, margin: "0 auto" }}>
+              No es solo construcción. Es la capa operativa para cualquier servicio que necesite confianza, pagos seguros y documentación.
+            </p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
+            {SERVICES.map((service) => (
+              <div key={service.title} style={{ padding: "28px 24px", borderRadius: 16, background: service.bg, border: `1px solid ${service.color}25` }}>
+                <div style={{ fontSize: 36, marginBottom: 16 }}>{service.icon}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a", marginBottom: 16 }}>{service.title}</div>
+                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+                  {service.items.map((item) => (
+                    <li key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "#374151" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: service.color, flexShrink: 0 }} />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── STATS ── */}
       <section
         style={{
           background: "#fff",
