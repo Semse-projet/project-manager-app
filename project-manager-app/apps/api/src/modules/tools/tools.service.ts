@@ -8,6 +8,7 @@ import {
   calculateElectrical,
   calculateHvac,
   calculatePlumbing,
+  calculatePainting,
   calculateQuoteFromToolResult,
   calculateRoofing,
   type ExportBundle,
@@ -46,6 +47,8 @@ export class ToolsService {
         return calculatePlumbing(payload as Parameters<typeof calculatePlumbing>[0]);
       case "hvac":
         return calculateHvac(payload as Parameters<typeof calculateHvac>[0]);
+      case "painting":
+        return calculatePainting(payload as Parameters<typeof calculatePainting>[0]);
       default:
         throw new BadRequestException(`Unsupported SEMSE tool: ${input.tool}`);
     }

@@ -28,3 +28,5 @@ export { calculatePlumbing, runPlumbingEngine } from "./trades/plumbing.engine.j
 export type { PlumbingInput } from "./trades/plumbing.engine.js";
 export { calculateHvac, runHvacEngine } from "./trades/hvac.engine.js";
 export type { HvacInput } from "./trades/hvac.engine.js";
+export { calculatePainting, runPaintingEngine } from "./trades/painting.engine.js";
+export type { PaintingInput } from "./trades/painting.engine.js";
