@@ -11,6 +11,7 @@ import {
   calculateDeck,
   calculateFencing,
   calculateLandscaping,
+  calculateProjectManager,
   calculateHvac,
   calculatePlumbing,
   calculatePainting,
@@ -62,6 +63,12 @@ export class ToolsService {
         return calculateFencing(payload as Parameters<typeof calculateFencing>[0]);
       case "landscaping":
         return calculateLandscaping(payload as Parameters<typeof calculateLandscaping>[0]);
+      case "project-manager":
+      case "projectmanager":
+      case "construction-manager":
+      case "site-supervisor":
+      case "daily-field-ops":
+        return calculateProjectManager(payload as Parameters<typeof calculateProjectManager>[0]);
       case "roofing":
         return calculateRoofing(payload as Parameters<typeof calculateRoofing>[0]);
       case "plumbing":

@@ -259,6 +259,23 @@ export default function ToolsHubPage() {
           </div>
         </Card>
 
+        <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Construction Manager / Field Ops</h2>
+              <p className="text-sm text-muted">
+                Project setup, crew coordination, daily logs, change orders, inspections and closeout for active jobs.
+              </p>
+            </div>
+            <Link
+              href="/tools/project-manager"
+              className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright"
+            >
+              Open field ops flow
+            </Link>
+          </div>
+        </Card>
+
         <Card className="grid gap-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>

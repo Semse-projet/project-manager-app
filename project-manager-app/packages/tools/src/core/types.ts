@@ -17,6 +17,7 @@ export type TradeId =
   | "deck"
   | "fencing"
   | "landscaping"
+  | "project-manager"
   | "inspection";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
