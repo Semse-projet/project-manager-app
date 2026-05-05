@@ -48,3 +48,5 @@ export { calculateMasonry, runMasonryEngine } from "./trades/masonry.engine.js";
 export type { MasonryInput } from "./trades/masonry.engine.js";
 export { calculateDeck, runDeckEngine } from "./trades/deck.engine.js";
 export type { DeckInput } from "./trades/deck.engine.js";
+export { calculateFencing, runFencingEngine } from "./trades/fencing.engine.js";
+export type { FencingInput } from "./trades/fencing.engine.js";
