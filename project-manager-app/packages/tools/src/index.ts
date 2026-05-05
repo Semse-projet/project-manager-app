@@ -34,3 +34,5 @@ export { calculateDrywall, runDrywallEngine } from "./trades/drywall.engine.js";
 export type { DrywallInput } from "./trades/drywall.engine.js";
 export { calculateFlooring, runFlooringEngine } from "./trades/flooring.engine.js";
 export type { FlooringInput } from "./trades/flooring.engine.js";
+export { calculateCarpentry, runCarpentryEngine } from "./trades/carpentry.engine.js";
+export type { CarpentryInput } from "./trades/carpentry.engine.js";
