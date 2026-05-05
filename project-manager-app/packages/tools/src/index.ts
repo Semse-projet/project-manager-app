@@ -56,3 +56,5 @@ export { calculateProjectManager, runProjectManagerEngine } from "./trades/proje
 export type { ProjectManagerInput } from "./trades/project-manager.engine.js";
 export { calculateLabor, runLaborEngine } from "./trades/labor.engine.js";
 export type { LaborInput } from "./trades/labor.engine.js";
+export { calculateSolar, runSolarEngine } from "./trades/solar.engine.js";
+export type { SolarInput } from "./trades/solar.engine.js";

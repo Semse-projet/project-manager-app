@@ -326,6 +326,23 @@ export default function ToolsHubPage() {
             </Link>
           </div>
         </Card>
+
+        <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Solar / Renewable calculator</h2>
+              <p className="text-sm text-muted">
+                Roof suitability, panel count, electrical upgrade, permit and inspection-ready solar output.
+              </p>
+            </div>
+            <Link
+              href="/tools/solar"
+              className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright"
+            >
+              Open solar flow
+            </Link>
+          </div>
+        </Card>
       </div>
     </main>
   );
