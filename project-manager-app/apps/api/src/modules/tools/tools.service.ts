@@ -14,6 +14,7 @@ import {
   calculateCarpentry,
   calculateTile,
   calculateWindowsDoors,
+  calculateInsulation,
   calculateQuoteFromToolResult,
   calculateRoofing,
   type ExportBundle,
@@ -66,6 +67,8 @@ export class ToolsService {
       case "windows-doors":
       case "windows_doors":
         return calculateWindowsDoors(payload as Parameters<typeof calculateWindowsDoors>[0]);
+      case "insulation":
+        return calculateInsulation(payload as Parameters<typeof calculateInsulation>[0]);
       default:
         throw new BadRequestException(`Unsupported SEMSE tool: ${input.tool}`);
     }

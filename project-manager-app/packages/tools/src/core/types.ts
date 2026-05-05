@@ -9,6 +9,7 @@ export type TradeId =
   | "drywall"
   | "flooring"
   | "tile"
+  | "insulation"
   | "roofing"
   | "hvac"
   | "inspection";

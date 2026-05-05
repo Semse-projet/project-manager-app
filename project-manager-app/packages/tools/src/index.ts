@@ -40,3 +40,5 @@ export { calculateTile, runTileEngine } from "./trades/tile.engine.js";
 export type { TileInput } from "./trades/tile.engine.js";
 export { calculateWindowsDoors, runWindowsDoorsEngine } from "./trades/windows-doors.engine.js";
 export type { WindowsDoorsInput } from "./trades/windows-doors.engine.js";
+export { calculateInsulation, runInsulationEngine } from "./trades/insulation.engine.js";
+export type { InsulationInput } from "./trades/insulation.engine.js";

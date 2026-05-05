@@ -177,6 +177,23 @@ export default function ToolsHubPage() {
         <Card className="grid gap-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
+              <h2 className="text-xl font-semibold text-ink">Insulation calculator</h2>
+              <p className="text-sm text-muted">
+                Area, R-value, air sealing, attic / wall / crawlspace access and evidence-ready energy efficiency output.
+              </p>
+            </div>
+            <Link
+              href="/tools/insulation"
+              className="inline-flex items-center justify-center rounded-lg border border-white/[0.1] bg-white/[0.04] px-4 py-2 text-sm font-semibold text-ink transition-all hover:border-white/[0.18] hover:bg-white/[0.07]"
+            >
+              Open insulation flow
+            </Link>
+          </div>
+        </Card>
+
+        <Card className="grid gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
               <h2 className="text-xl font-semibold text-ink">Windows / Doors calculator</h2>
               <p className="text-sm text-muted">
                 Replacement windows, doors, flashing, trim and weatherproofing with evidence-ready closeout.
