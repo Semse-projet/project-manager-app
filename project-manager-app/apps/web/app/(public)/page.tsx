@@ -178,7 +178,7 @@ export default async function LandingPage() {
       <LandingIntake />
 
       {/* ── CÓMO FUNCIONA ── */}
-      <section style={{ padding: "80px 24px", maxWidth: 1100, margin: "0 auto" }}>
+      <section id="como-funciona" style={{ padding: "80px 24px", maxWidth: 1100, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 56 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#15803d", marginBottom: 20 }}>
             Flujo completo de principio a fin
@@ -200,7 +200,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── SERVICIOS ── */}
-      <section style={{ background: "#fff", borderTop: "1px solid #e2e8f0", padding: "80px 24px" }}>
+      <section id="servicios" style={{ background: "#fff", borderTop: "1px solid #e2e8f0", padding: "80px 24px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#7c3aed", marginBottom: 20 }}>
@@ -375,6 +375,7 @@ export default async function LandingPage() {
       )}
 
       <section
+        id="profesionales"
         style={{
           background: "#fff",
           padding: "72px 24px",
@@ -501,7 +502,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      <section style={{ padding: "72px 24px", maxWidth: 860, margin: "0 auto", textAlign: "center" }}>
+      <section id="prometeo" style={{ padding: "72px 24px", maxWidth: 860, margin: "0 auto", textAlign: "center" }}>
         <div
           style={{
             display: "inline-flex",
@@ -543,6 +544,53 @@ export default async function LandingPage() {
         >
           Ver agentes →
         </Link>
+      </section>
+
+      {/* ── CONTACTO / LEAD CAPTURE ── */}
+      <section id="contacto" style={{ background: "#fff", borderTop: "1px solid #e2e8f0", padding: "80px 24px" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 20, fontSize: 13, fontWeight: 700, color: "#2563eb", marginBottom: 24 }}>
+            Empieza hoy
+          </div>
+          <h2 style={{ fontSize: 36, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 16 }}>
+            ¿Tienes un proyecto en mente?
+          </h2>
+          <p style={{ fontSize: 17, color: "#64748b", lineHeight: 1.7, marginBottom: 40, maxWidth: 560, margin: "0 auto 40px" }}>
+            Publica tu proyecto gratis, recibe propuestas comparativas de profesionales verificados y gestiona todo desde SEMSE Project.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 40 }}>
+            {[
+              { icon: "🏗️", label: "Construcción y drywall", color: "#3b82f6" },
+              { icon: "🔧", label: "Mantenimiento y reparaciones", color: "#10b981" },
+              { icon: "⚡", label: "Electricidad e instalaciones", color: "#f59e0b" },
+              { icon: "🏠", label: "Remodelación residencial", color: "#8b5cf6" },
+              { icon: "🏢", label: "Proyectos comerciales", color: "#06b6d4" },
+              { icon: "📋", label: "Soporte administrativo", color: "#ef4444" },
+            ].map((item) => (
+              <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 18px", borderRadius: 12, border: "1px solid #e2e8f0", background: "#fafafa", textAlign: "left" }}>
+                <span style={{ fontSize: 22 }}>{item.icon}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{item.label}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link
+              href="/client/jobs/new"
+              style={{ padding: "16px 40px", borderRadius: 12, background: "#3b82f6", textDecoration: "none", color: "#fff", fontSize: 17, fontWeight: 800, boxShadow: "0 4px 20px rgba(59,130,246,.4)" }}
+            >
+              Publicar mi proyecto gratis
+            </Link>
+            <Link
+              href="/login?from=/worker/dashboard"
+              style={{ padding: "16px 40px", borderRadius: 12, background: "#f8fafc", textDecoration: "none", color: "#374151", fontSize: 17, fontWeight: 600, border: "1px solid #e2e8f0" }}
+            >
+              Soy profesional
+            </Link>
+          </div>
+          <p style={{ marginTop: 20, fontSize: 13, color: "#94a3b8" }}>
+            Sin costo de publicación · Pagos protegidos por escrow · Prometeo IA incluido
+          </p>
+        </div>
       </section>
 
       <section
