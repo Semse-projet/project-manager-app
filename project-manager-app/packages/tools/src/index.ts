@@ -54,3 +54,5 @@ export { calculateLandscaping, runLandscapingEngine } from "./trades/landscaping
 export type { LandscapingInput } from "./trades/landscaping.engine.js";
 export { calculateProjectManager, runProjectManagerEngine } from "./trades/project-manager.engine.js";
 export type { ProjectManagerInput } from "./trades/project-manager.engine.js";
+export { calculateLabor, runLaborEngine } from "./trades/labor.engine.js";
+export type { LaborInput } from "./trades/labor.engine.js";

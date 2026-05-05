@@ -12,6 +12,7 @@ import {
   calculateFencing,
   calculateLandscaping,
   calculateProjectManager,
+  calculateLabor,
   calculateHvac,
   calculatePlumbing,
   calculatePainting,
@@ -69,6 +70,8 @@ export class ToolsService {
       case "site-supervisor":
       case "daily-field-ops":
         return calculateProjectManager(payload as Parameters<typeof calculateProjectManager>[0]);
+      case "labor":
+        return calculateLabor(payload as Parameters<typeof calculateLabor>[0]);
       case "roofing":
         return calculateRoofing(payload as Parameters<typeof calculateRoofing>[0]);
       case "plumbing":
