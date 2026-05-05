@@ -44,3 +44,5 @@ export { calculateInsulation, runInsulationEngine } from "./trades/insulation.en
 export type { InsulationInput } from "./trades/insulation.engine.js";
 export { calculateDemolition, runDemolitionEngine } from "./trades/demolition.engine.js";
 export type { DemolitionInput } from "./trades/demolition.engine.js";
+export { calculateMasonry, runMasonryEngine } from "./trades/masonry.engine.js";
+export type { MasonryInput } from "./trades/masonry.engine.js";

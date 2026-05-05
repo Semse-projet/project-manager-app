@@ -7,6 +7,7 @@ import {
   calculateConcrete,
   calculateElectrical,
   calculateDemolition,
+  calculateMasonry,
   calculateHvac,
   calculatePlumbing,
   calculatePainting,
@@ -50,6 +51,8 @@ export class ToolsService {
         return calculateElectrical(payload as Parameters<typeof calculateElectrical>[0]);
       case "demolition":
         return calculateDemolition(payload as Parameters<typeof calculateDemolition>[0]);
+      case "masonry":
+        return calculateMasonry(payload as Parameters<typeof calculateMasonry>[0]);
       case "roofing":
         return calculateRoofing(payload as Parameters<typeof calculateRoofing>[0]);
       case "plumbing":
