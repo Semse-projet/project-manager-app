@@ -130,6 +130,14 @@ export class BuildOpsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  @Get("milestones")
+  @RequirePermissions("projects:read")
+  async listMilestones(@Req() req: FastifyRequest) {
+    const c = ctx(req);
+    const data = await this.buildOpsService.listMilestones(c.tenantId);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Post("tasks")
   @RequirePermissions("projects:create")
   async createTask(@Req() req: FastifyRequest, @Body() body: Record<string, unknown>) {

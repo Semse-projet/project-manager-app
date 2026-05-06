@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
+  type BuildOpsMilestoneDto,
   type BuildOpsOverviewDto,
   type BuildOpsProjectDto,
   type BuildOpsTaskDto,
@@ -58,9 +59,25 @@ type StoredBuildOpsTask = {
   updatedAt: Date;
 };
 
+type StoredBuildOpsMilestone = {
+  id: string;
+  projectId: string;
+  title: string;
+  description: string | null;
+  amount: Prisma.Decimal;
+  sequence: number;
+  status: string;
+  approvedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  project: { job: { title: string } };
+  _count?: { evidence: number };
+};
+
 const RISK_LEVELS = new Set<BuildOpsRiskLevel>(["low", "medium", "high", "critical"]);
 const TASK_STATUSES = new Set<BuildOpsTaskStatus>(["todo", "in_progress", "blocked", "done", "canceled"]);
 const TASK_PRIORITIES = new Set<BuildOpsTaskPriority>(["low", "medium", "high", "urgent"]);
+const MILESTONE_STATUSES = new Set<BuildOpsMilestoneDto["status"]>(["draft", "awaiting_review", "submitted", "approved", "rejected", "paid"]);
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -156,6 +173,22 @@ export class BuildOpsService {
     })) as StoredBuildOpsTask[];
 
     return tasks.map((task) => this.toTaskDto(task));
+  }
+
+  async listMilestones(tenantId: string): Promise<BuildOpsMilestoneDto[]> {
+    const milestones = (await this.prisma.milestone.findMany({
+      where: {
+        deletedAt: null,
+        project: { tenantId },
+      },
+      include: {
+        project: { select: { job: { select: { title: true } } } },
+        _count: { select: { evidence: true } },
+      },
+      orderBy: [{ projectId: "asc" }, { sequence: "asc" }],
+    })) as StoredBuildOpsMilestone[];
+
+    return milestones.map((milestone) => this.toMilestoneDto(milestone));
   }
 
   async getTask(tenantId: string, taskId: string): Promise<BuildOpsTaskDto> {
@@ -377,6 +410,24 @@ export class BuildOpsService {
       projectTitle: task.project?.title ?? null,
       createdAt: task.createdAt.toISOString(),
       updatedAt: task.updatedAt.toISOString(),
+    };
+  }
+
+  private toMilestoneDto(milestone: StoredBuildOpsMilestone): BuildOpsMilestoneDto {
+    const status = String(milestone.status).toLowerCase() as BuildOpsMilestoneDto["status"];
+    return {
+      id: milestone.id,
+      projectId: milestone.projectId,
+      projectTitle: milestone.project.job.title,
+      title: milestone.title,
+      description: milestone.description,
+      amount: milestone.amount.toNumber(),
+      sequence: milestone.sequence,
+      status: MILESTONE_STATUSES.has(status) ? status : "draft",
+      evidenceCount: milestone._count?.evidence ?? 0,
+      approvedAt: toDateString(milestone.approvedAt),
+      createdAt: milestone.createdAt.toISOString(),
+      updatedAt: milestone.updatedAt.toISOString(),
     };
   }
 }

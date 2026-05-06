@@ -69,6 +69,23 @@ export type BuildOpsTask = {
   updatedAt: string;
 };
 
+export type BuildOpsMilestoneStatus = "draft" | "awaiting_review" | "submitted" | "approved" | "rejected" | "paid";
+
+export type BuildOpsMilestone = {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  title: string;
+  description: string | null;
+  amount: number;
+  sequence: number;
+  status: BuildOpsMilestoneStatus;
+  evidenceCount: number;
+  approvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 async function parseBuildOpsResponse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => ({} as { error?: { message?: string } }));
   if (!response.ok) {
@@ -100,6 +117,11 @@ export async function fetchBuildOpsTasks(): Promise<BuildOpsTask[]> {
 export async function fetchBuildOpsTask(taskId: string): Promise<BuildOpsTask> {
   const response = await fetch(`/api/semse/buildops/tasks/${encodeURIComponent(taskId)}`, { cache: "no-store" });
   return parseBuildOpsResponse<BuildOpsTask>(response);
+}
+
+export async function fetchBuildOpsMilestones(): Promise<BuildOpsMilestone[]> {
+  const response = await fetch("/api/semse/buildops/milestones", { cache: "no-store" });
+  return parseBuildOpsResponse<BuildOpsMilestone[]>(response);
 }
 
 export async function createBuildOpsProject(input: {

@@ -34,7 +34,7 @@ const INITIAL_INPUT: TaskInput = {
 export default function NewBuildOpsTaskPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const projectIdFromQuery = searchParams.get("projectId") ?? "";
+  const projectIdFromQuery = searchParams?.get("projectId") ?? "";
   const [input, setInput] = useState<TaskInput>({
     ...INITIAL_INPUT,
     projectId: projectIdFromQuery,

@@ -14,6 +14,8 @@ export type BuildOpsRiskLevel = "low" | "medium" | "high" | "critical";
 export type BuildOpsTaskStatus = "todo" | "in_progress" | "blocked" | "done" | "canceled";
 export type BuildOpsTaskPriority = "low" | "medium" | "high" | "urgent";
 
+export type BuildOpsMilestoneStatus = "draft" | "awaiting_review" | "submitted" | "approved" | "rejected" | "paid";
+
 export type BuildOpsOverviewDto = {
   activeProjects: number;
   draftEstimates: number;
@@ -67,6 +69,21 @@ export type BuildOpsTaskDto = {
   sourceTool: string | null;
   evidenceRequired: Record<string, unknown> | null;
   projectTitle: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BuildOpsMilestoneDto = {
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  title: string;
+  description: string | null;
+  amount: number;
+  sequence: number;
+  status: BuildOpsMilestoneStatus;
+  evidenceCount: number;
+  approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
