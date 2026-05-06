@@ -121,13 +121,13 @@ export default function BuildOpsProjectDetailPage() {
           <Card className="grid gap-4">
             <h2 className="text-lg font-semibold text-ink">Quick actions</h2>
             <div className="grid gap-3">
-              <button disabled className="inline-flex items-center justify-between rounded-xl border border-brand/20 bg-brand/[0.04] px-4 py-3 text-sm font-semibold text-ink opacity-60">
+              <Link href={`/buildops/tasks/new?projectId=${project.id}`} className="inline-flex items-center justify-between rounded-xl border border-brand/20 bg-brand/[0.04] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-brand/[0.08]">
                 <span className="inline-flex items-center gap-2">
                   <Plus size={16} />
-                  Add task
+                  Create task
                 </span>
                 <ArrowLeft size={14} />
-              </button>
+              </Link>
               <button disabled className="inline-flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-semibold text-ink opacity-60">
                 <span className="inline-flex items-center gap-2">
                   <FileText size={16} />

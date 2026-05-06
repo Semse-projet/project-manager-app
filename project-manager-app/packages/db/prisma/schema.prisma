@@ -149,6 +149,7 @@ model Tenant {
   // Contractor CRM
   contractorLeads    ContractorLead[]
   buildOpsProjects   BuildOpsProject[]
+  buildOpsTasks      BuildOpsTask[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 }
@@ -167,6 +168,7 @@ model Org {
   professionalContracts Contract[] @relation("ContractProfessionalOrg")
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   buildOpsProjects BuildOpsProject[]
+  buildOpsTasks     BuildOpsTask[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -1887,10 +1889,41 @@ model BuildOpsProject {
 
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tasks            BuildOpsTask[]
 
   @@index([tenantId, status])
   @@index([tenantId, trade])
   @@index([tenantId, createdBy])
+}
+
+/// Task or action item tracked inside BuildOps and optionally linked to a project.
+model BuildOpsTask {
+  id              String   @id @default(cuid())
+  tenantId        String
+  orgId           String
+  projectId       String?
+  createdBy       String
+  title           String
+  description     String?
+  status          String   @default("todo") // todo | in_progress | blocked | done | canceled
+  priority        String   @default("medium") // low | medium | high | urgent
+  assigneeName    String?
+  assigneeUserId  String?
+  dueDate         DateTime?
+  completion      Int      @default(0)
+  sourceTool      String?
+  evidenceRequired Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org             Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project         BuildOpsProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, projectId])
+  @@index([tenantId, priority])
 }
 
 /// Conversation session for the assistant flow.

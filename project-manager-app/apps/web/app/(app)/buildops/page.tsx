@@ -47,7 +47,7 @@ export default function BuildOpsPage() {
   const dashboardCards = [
     { title: "Active Projects", value: String(overview.activeProjects), hint: "Jobs in progress", href: "/buildops/projects", icon: Briefcase, accent: "brand" as const },
     { title: "Draft Estimates", value: String(overview.draftEstimates), hint: "Tool results ready to save", href: "/tools", icon: FileText, accent: "neutral" as const },
-    { title: "Tasks Due", value: String(overview.tasksDue), hint: "Today and next 24h", href: "/worker/tasks", icon: CheckSquare, accent: "neutral" as const },
+    { title: "Tasks Due", value: String(overview.tasksDue), hint: "Today and next 24h", href: "/buildops/tasks", icon: CheckSquare, accent: "neutral" as const },
     { title: "Milestones Pending", value: String(overview.milestonesPending), hint: "Awaiting approval", href: "/client/milestones", icon: ClipboardList, accent: "neutral" as const },
     { title: "Evidence Pending", value: String(overview.evidencePending), hint: "Photos / docs to upload", href: "/worker/evidence", icon: FolderKanban, accent: "neutral" as const },
     { title: "Risk Alerts", value: String(overview.riskAlerts), hint: "Needs review", href: "/admin/ops", icon: AlertTriangle, accent: "warning" as const },
@@ -123,6 +123,13 @@ export default function BuildOpsPage() {
                 <span className="inline-flex items-center gap-2">
                   <Plus size={16} />
                   New project
+                </span>
+                <ArrowRight size={14} />
+              </Link>
+              <Link href="/buildops/tasks/new" className="inline-flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-white/[0.06]">
+                <span className="inline-flex items-center gap-2">
+                  <CheckSquare size={16} />
+                  New task
                 </span>
                 <ArrowRight size={14} />
               </Link>

@@ -45,6 +45,30 @@ export type BuildOpsOverview = {
   recentActivity: string[];
 };
 
+export type BuildOpsTaskStatus = "todo" | "in_progress" | "blocked" | "done" | "canceled";
+export type BuildOpsTaskPriority = "low" | "medium" | "high" | "urgent";
+
+export type BuildOpsTask = {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  projectId: string | null;
+  createdBy: string;
+  title: string;
+  description: string | null;
+  status: BuildOpsTaskStatus;
+  priority: BuildOpsTaskPriority;
+  assigneeName: string | null;
+  assigneeUserId: string | null;
+  dueDate: string | null;
+  completion: number;
+  sourceTool: string | null;
+  evidenceRequired: Record<string, unknown> | null;
+  projectTitle: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 async function parseBuildOpsResponse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => ({} as { error?: { message?: string } }));
   if (!response.ok) {
@@ -66,6 +90,16 @@ export async function fetchBuildOpsProjects(): Promise<BuildOpsProject[]> {
 export async function fetchBuildOpsProject(projectId: string): Promise<BuildOpsProject> {
   const response = await fetch(`/api/semse/buildops/projects/${encodeURIComponent(projectId)}`, { cache: "no-store" });
   return parseBuildOpsResponse<BuildOpsProject>(response);
+}
+
+export async function fetchBuildOpsTasks(): Promise<BuildOpsTask[]> {
+  const response = await fetch("/api/semse/buildops/tasks", { cache: "no-store" });
+  return parseBuildOpsResponse<BuildOpsTask[]>(response);
+}
+
+export async function fetchBuildOpsTask(taskId: string): Promise<BuildOpsTask> {
+  const response = await fetch(`/api/semse/buildops/tasks/${encodeURIComponent(taskId)}`, { cache: "no-store" });
+  return parseBuildOpsResponse<BuildOpsTask>(response);
 }
 
 export async function createBuildOpsProject(input: {
@@ -109,4 +143,24 @@ export async function createBuildOpsProjectFromToolResult(input: {
     body: JSON.stringify(input),
   });
   return parseBuildOpsResponse<BuildOpsProject>(response);
+}
+
+export async function createBuildOpsTask(input: {
+  title: string;
+  description?: string;
+  projectId?: string | null;
+  status?: BuildOpsTaskStatus;
+  priority?: BuildOpsTaskPriority;
+  assigneeName?: string;
+  assigneeUserId?: string;
+  dueDate?: string;
+  sourceTool?: string;
+  evidenceRequired?: Record<string, unknown>;
+}): Promise<BuildOpsTask> {
+  const response = await fetch("/api/semse/buildops/tasks", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  return parseBuildOpsResponse<BuildOpsTask>(response);
 }

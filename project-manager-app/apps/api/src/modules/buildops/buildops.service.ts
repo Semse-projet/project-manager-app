@@ -4,6 +4,9 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
   type BuildOpsOverviewDto,
   type BuildOpsProjectDto,
+  type BuildOpsTaskDto,
+  type BuildOpsTaskPriority,
+  type BuildOpsTaskStatus,
   type BuildOpsProjectStatus,
   type BuildOpsRiskLevel
 } from "./buildops.types.js";
@@ -34,7 +37,30 @@ type StoredBuildOpsProject = {
   updatedAt: Date;
 };
 
+type StoredBuildOpsTask = {
+  id: string;
+  tenantId: string;
+  orgId: string;
+  projectId: string | null;
+  createdBy: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  assigneeName: string | null;
+  assigneeUserId: string | null;
+  dueDate: Date | null;
+  completion: number;
+  sourceTool: string | null;
+  evidenceRequired: Prisma.JsonValue | null;
+  project?: { title: string } | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 const RISK_LEVELS = new Set<BuildOpsRiskLevel>(["low", "medium", "high", "critical"]);
+const TASK_STATUSES = new Set<BuildOpsTaskStatus>(["todo", "in_progress", "blocked", "done", "canceled"]);
+const TASK_PRIORITIES = new Set<BuildOpsTaskPriority>(["low", "medium", "high", "urgent"]);
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -64,23 +90,13 @@ export class BuildOpsService {
         where: { tenantId },
         select: { status: true, riskLevel: true },
       }),
-      this.prisma.$transaction([
-        this.prisma.jobTask.count({
-          where: {
-            tenantId,
-            deletedAt: null,
-            dueDate: { lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-            status: { in: ["pending", "in_progress", "blocked"] },
-          },
-        }),
-        this.prisma.workOrder.count({
-          where: {
-            tenantId,
-            dueAt: { lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-            status: { in: ["open", "assigned", "in_progress"] },
-          },
-        }),
-      ]),
+      this.prisma.buildOpsTask.count({
+        where: {
+          tenantId,
+          dueDate: { lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+          status: { in: ["todo", "in_progress", "blocked"] },
+        },
+      }),
       this.prisma.milestone.count({
         where: {
           project: { tenantId },
@@ -104,7 +120,7 @@ export class BuildOpsService {
 
     const activeProjects = projects.filter((project) => ["approved", "in_progress", "paused"].includes(project.status)).length;
     const draftEstimates = projects.filter((project) => ["draft", "estimating"].includes(project.status)).length;
-    const tasksDue = tasks[0] + tasks[1];
+    const tasksDue = tasks;
     const milestonesPending = milestones;
     const evidencePending = evidence;
     const riskAlerts =
@@ -126,6 +142,33 @@ export class BuildOpsService {
       riskAlerts,
       recentActivity: recentActivity.length > 0 ? recentActivity : ["No activity yet"],
     };
+  }
+
+  async listTasks(tenantId: string, filters?: { projectId?: string | null; status?: string | null }): Promise<BuildOpsTaskDto[]> {
+    const tasks = (await this.prisma.buildOpsTask.findMany({
+      where: {
+        tenantId,
+        ...(filters?.projectId ? { projectId: filters.projectId } : {}),
+        ...(filters?.status ? { status: filters.status } : {}),
+      },
+      orderBy: [{ dueDate: "asc" }, { updatedAt: "desc" }],
+      include: { project: { select: { title: true } } },
+    })) as StoredBuildOpsTask[];
+
+    return tasks.map((task) => this.toTaskDto(task));
+  }
+
+  async getTask(tenantId: string, taskId: string): Promise<BuildOpsTaskDto> {
+    const task = (await this.prisma.buildOpsTask.findFirst({
+      where: { tenantId, id: taskId },
+      include: { project: { select: { title: true } } },
+    })) as StoredBuildOpsTask | null;
+
+    if (!task) {
+      throw new NotFoundException("BuildOps task not found");
+    }
+
+    return this.toTaskDto(task);
   }
 
   async listProjects(tenantId: string): Promise<BuildOpsProjectDto[]> {
@@ -249,6 +292,43 @@ export class BuildOpsService {
     });
   }
 
+  async createTask(input: {
+    tenantId: string;
+    orgId: string;
+    createdBy: string;
+    title: string;
+    description?: string | null;
+    projectId?: string | null;
+    status?: BuildOpsTaskStatus;
+    priority?: BuildOpsTaskPriority;
+    assigneeName?: string | null;
+    assigneeUserId?: string | null;
+    dueDate?: string | null;
+    sourceTool?: string | null;
+    evidenceRequired?: Record<string, unknown> | null;
+  }): Promise<BuildOpsTaskDto> {
+    const task = (await this.prisma.buildOpsTask.create({
+      data: {
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        createdBy: input.createdBy,
+        title: input.title,
+        description: input.description ?? null,
+        projectId: input.projectId ?? null,
+        status: input.status ?? "todo",
+        priority: input.priority ?? "medium",
+        assigneeName: input.assigneeName ?? null,
+        assigneeUserId: input.assigneeUserId ?? null,
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        sourceTool: input.sourceTool ?? null,
+        evidenceRequired: input.evidenceRequired ? (input.evidenceRequired as Prisma.InputJsonValue) : undefined,
+      },
+      include: { project: { select: { title: true } } },
+    })) as StoredBuildOpsTask;
+
+    return this.toTaskDto(task);
+  }
+
   private toDto(project: StoredBuildOpsProject): BuildOpsProjectDto {
     return {
       id: project.id,
@@ -274,6 +354,29 @@ export class BuildOpsService {
       completion: project.completion,
       createdAt: project.createdAt.toISOString(),
       updatedAt: project.updatedAt.toISOString(),
+    };
+  }
+
+  private toTaskDto(task: StoredBuildOpsTask): BuildOpsTaskDto {
+    return {
+      id: task.id,
+      tenantId: task.tenantId,
+      orgId: task.orgId,
+      projectId: task.projectId,
+      createdBy: task.createdBy,
+      title: task.title,
+      description: task.description,
+      status: task.status as BuildOpsTaskStatus,
+      priority: task.priority as BuildOpsTaskPriority,
+      assigneeName: task.assigneeName,
+      assigneeUserId: task.assigneeUserId,
+      dueDate: toDateString(task.dueDate),
+      completion: task.completion,
+      sourceTool: task.sourceTool,
+      evidenceRequired: toJsonObject(task.evidenceRequired),
+      projectTitle: task.project?.title ?? null,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
     };
   }
 }

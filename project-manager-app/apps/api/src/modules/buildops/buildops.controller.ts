@@ -23,6 +23,8 @@ const PROJECT_STATUSES = new Set([
 ]);
 
 const RISK_LEVELS = new Set(["low", "medium", "high", "critical"]);
+const TASK_STATUSES = new Set(["todo", "in_progress", "blocked", "done", "canceled"]);
+const TASK_PRIORITIES = new Set(["low", "medium", "high", "urgent"]);
 
 @Controller("v1/buildops")
 export class BuildOpsController {
@@ -104,6 +106,52 @@ export class BuildOpsController {
       clientName: typeof body.clientName === "string" ? body.clientName : null,
       professionalName: typeof body.professionalName === "string" ? body.professionalName : null,
       location: typeof body.location === "string" ? body.location : null,
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get("tasks")
+  @RequirePermissions("projects:read")
+  async listTasks(@Req() req: FastifyRequest) {
+    const c = ctx(req);
+    const query = req.query as Record<string, unknown> | undefined;
+    const projectId = typeof query?.projectId === "string" ? query.projectId : null;
+    const status = typeof query?.status === "string" && TASK_STATUSES.has(query.status) ? query.status : null;
+    const data = await this.buildOpsService.listTasks(c.tenantId, { projectId, status });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get("tasks/:taskId")
+  @RequirePermissions("projects:read")
+  async detailTask(@Req() req: FastifyRequest, @Param("taskId") taskId: string) {
+    const c = ctx(req);
+    const data = await this.buildOpsService.getTask(c.tenantId, taskId);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("tasks")
+  @RequirePermissions("projects:create")
+  async createTask(@Req() req: FastifyRequest, @Body() body: Record<string, unknown>) {
+    const c = ctx(req);
+    if (typeof body.title !== "string") {
+      throw new BadRequestException("Missing task title");
+    }
+
+    const data = await this.buildOpsService.createTask({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      createdBy: c.userId,
+      title: body.title.trim(),
+      description: typeof body.description === "string" ? body.description.trim() : null,
+      projectId: typeof body.projectId === "string" ? body.projectId : null,
+      status: typeof body.status === "string" && TASK_STATUSES.has(body.status) ? body.status as any : undefined,
+      priority: typeof body.priority === "string" && TASK_PRIORITIES.has(body.priority) ? body.priority as any : undefined,
+      assigneeName: typeof body.assigneeName === "string" ? body.assigneeName.trim() : null,
+      assigneeUserId: typeof body.assigneeUserId === "string" ? body.assigneeUserId.trim() : null,
+      dueDate: typeof body.dueDate === "string" ? body.dueDate : null,
+      sourceTool: typeof body.sourceTool === "string" ? body.sourceTool.trim() : null,
+      evidenceRequired: body.evidenceRequired && typeof body.evidenceRequired === "object" ? body.evidenceRequired as Record<string, unknown> : null,
     });
 
     return ok(resolveRequestId(req.headers ?? {}), data);
