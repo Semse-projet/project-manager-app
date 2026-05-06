@@ -8,7 +8,9 @@ test.describe("BuildOps — milestones page", () => {
   test("redirects to login when unauthenticated", async ({ page, baseURL }) => {
     const startedAt = new Date().toISOString();
     await page.goto("/buildops/milestones");
+    // Use domcontentloaded instead of networkidle — the page may keep polling
     await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(500);
 
     const redirected = await isRedirectedToLogin(page);
 

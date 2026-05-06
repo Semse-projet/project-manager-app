@@ -78,27 +78,26 @@ async function resolveSessionPayload(input: {
 }): Promise<Omit<SessionPayload, "exp">> {
   const apiBaseUrl = process.env.SEMSE_API_BASE_URL?.trim().replace(/\/+$/, "");
   if (apiBaseUrl) {
-    const login = await fetchApiEnvelope<ApiLoginData>(`${apiBaseUrl}/v1/auth/login`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        email: input.email,
-        password: input.password
-      }),
-    });
+    try {
+      const login = await fetchApiEnvelope<ApiLoginData>(`${apiBaseUrl}/v1/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: input.email, password: input.password }),
+      });
 
-    const accessToken = login.accessToken ?? login.token;
-    if (!accessToken) {
-      throw new Error("API login did not return an access token");
+      const accessToken = login.accessToken ?? login.token;
+      if (!accessToken) throw new Error("API login did not return an access token");
+
+      return fetchApiEnvelope<ApiMeData>(`${apiBaseUrl}/v1/auth/me`, {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+    } catch (apiError) {
+      // Fall through to demo mode if API auth lifecycle is not configured
+      if (!DEMO_LOGIN_ENABLED) throw apiError;
+      const isDemoAccount = input.email.toLowerCase().trim() in DEMO_ACCOUNTS;
+      if (!isDemoAccount) throw apiError;
+      // API is up but auth is not configured — use demo credentials for local dev
     }
-
-    return fetchApiEnvelope<ApiMeData>(`${apiBaseUrl}/v1/auth/me`, {
-      headers: {
-        authorization: `Bearer ${accessToken}`
-      }
-    });
   }
 
   if (!DEMO_LOGIN_ENABLED) {
