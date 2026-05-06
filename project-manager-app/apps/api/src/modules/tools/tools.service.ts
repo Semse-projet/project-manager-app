@@ -25,12 +25,16 @@ import {
   calculateInsulation,
   calculateQuoteFromToolResult,
   calculateRoofing,
+  calculateChangeOrderImpact,
+  calculateDisputeRisk,
   type ExportBundle,
   type MilestonePlan,
   type EvidenceChecklist,
   type QuoteSummary,
   type SemseToolResult,
   type ToolMode,
+  type ChangeOrderImpact,
+  type DisputeRiskSnapshot,
 } from "../../../../../packages/tools/dist/index.js";
 
 export type ToolCalculateInput = {
@@ -120,5 +124,13 @@ export class ToolsService {
 
   escrow(result: SemseToolResult) {
     return buildEscrowPlan(result);
+  }
+
+  changeOrder(result: SemseToolResult, deltaPercent: number): ChangeOrderImpact {
+    return calculateChangeOrderImpact(result, deltaPercent);
+  }
+
+  disputeRisk(result: SemseToolResult): DisputeRiskSnapshot {
+    return calculateDisputeRisk(result);
   }
 }

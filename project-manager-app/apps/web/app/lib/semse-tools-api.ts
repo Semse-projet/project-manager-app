@@ -103,6 +103,87 @@ export type ToolCalculateRequest = {
   input: Record<string, unknown>;
 };
 
+export type QuoteSummary = {
+  materials: number;
+  labor: number;
+  overhead: number;
+  profit: number;
+  semseFee: number;
+  contingency: number;
+  taxes: number;
+  subtotal: number;
+  total: number;
+  recommendedDeposit: number;
+  recommendedEscrow: number;
+  currency: "USD";
+  notes: string[];
+};
+
+export type EscrowPlan = {
+  trade: string;
+  totalAmount: number;
+  initialDeposit: number;
+  holdback: number;
+  releaseSchedule: number[];
+  recommendedReserve: number;
+  notes: string[];
+};
+
+export type MilestonePlan = {
+  trade: string;
+  totalAmount: number;
+  riskLevel: RiskLevel;
+  milestones: Milestone[];
+  fundingSchedule: number[];
+};
+
+export type ChangeOrderImpact = {
+  trade: string;
+  deltaPercent: number;
+  deltaAmount: number;
+  recommendedDepositAdjustment: number;
+  notes: string[];
+};
+
+export type DisputeRiskSnapshot = {
+  trade: string;
+  score: number;
+  level: RiskLevel;
+  factors: string[];
+};
+
+async function postToolEndpoint<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const payload = (await response.json()) as { data?: T; error?: { message?: string } };
+  if (!response.ok) throw new Error(payload.error?.message ?? `Error calling ${path}`);
+  if (!payload.data) throw new Error(`No data returned from ${path}`);
+  return payload.data;
+}
+
+export async function fetchToolQuote(result: SemseToolResult): Promise<QuoteSummary> {
+  return postToolEndpoint<QuoteSummary>("/api/semse/tools/quote", { result });
+}
+
+export async function fetchToolMilestonePlan(result: SemseToolResult): Promise<MilestonePlan> {
+  return postToolEndpoint<MilestonePlan>("/api/semse/tools/milestones", { result });
+}
+
+export async function fetchToolEscrowPlan(result: SemseToolResult): Promise<EscrowPlan> {
+  return postToolEndpoint<EscrowPlan>("/api/semse/tools/escrow", { result });
+}
+
+export async function fetchToolChangeOrder(result: SemseToolResult, deltaPercent: number): Promise<ChangeOrderImpact> {
+  return postToolEndpoint<ChangeOrderImpact>("/api/semse/tools/change-order", { result, deltaPercent });
+}
+
+export async function fetchToolDisputeRisk(result: SemseToolResult): Promise<DisputeRiskSnapshot> {
+  return postToolEndpoint<DisputeRiskSnapshot>("/api/semse/tools/dispute-risk", { result });
+}
+
 export async function calculateSemseTool(input: ToolCalculateRequest): Promise<SemseToolResult> {
   const response = await fetch("/api/semse/tools/calculate", {
     method: "POST",

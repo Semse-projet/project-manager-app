@@ -21,6 +21,23 @@ export default function ToolsHubPage() {
           </p>
         </section>
 
+        <Card className="grid gap-4 border-white/10 bg-white/[0.03]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Unified Dashboard</h2>
+              <p className="text-sm text-muted">
+                Vista operativa combinada: proyectos, milestones, riesgo, escrow sandbox y acceso rápido a todos los trade engines.
+              </p>
+            </div>
+            <Link
+              href="/tools/dashboard"
+              className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright"
+            >
+              Open dashboard
+            </Link>
+          </div>
+        </Card>
+
         <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>

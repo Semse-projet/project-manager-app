@@ -49,4 +49,18 @@ export class ToolsController {
     const result = this.toolsService.escrow(body.result as never);
     return ok(rid, result);
   }
+
+  @Post("change-order")
+  changeOrder(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown>; deltaPercent: number }) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = this.toolsService.changeOrder(body.result as never, body.deltaPercent ?? 0);
+    return ok(rid, result);
+  }
+
+  @Post("dispute-risk")
+  disputeRisk(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = this.toolsService.disputeRisk(body.result as never);
+    return ok(rid, result);
+  }
 }
