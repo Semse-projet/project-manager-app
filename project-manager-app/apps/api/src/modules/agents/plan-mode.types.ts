@@ -27,7 +27,27 @@ export type PlanStepCapability =
   | "testing"
   | "waiting"
   | "worker"
-  | "delegating";
+  | "delegating"
+  // Browser automation — QA Sentinel layer
+  | "browser-inspect"      // risk: low  — read-only page inspection
+  | "browser-test"         // risk: medium — run Playwright specs
+  | "browser-screenshot"   // risk: medium — capture visual evidence
+  | "browser-audit"        // risk: medium — full page audit
+  | "browser-evidence"     // risk: medium — capture and store evidence
+  | "browser-form";        // risk: high, requiresApproval: true — fill and submit forms
+
+/** Risk and approval policy for browser capabilities. */
+export const BROWSER_CAPABILITY_POLICY: Record<
+  Extract<PlanStepCapability, `browser-${string}`>,
+  { risk: "low" | "medium" | "high"; requiresApproval: boolean }
+> = {
+  "browser-inspect":     { risk: "low",    requiresApproval: false },
+  "browser-test":        { risk: "medium", requiresApproval: false },
+  "browser-screenshot":  { risk: "medium", requiresApproval: false },
+  "browser-audit":       { risk: "medium", requiresApproval: false },
+  "browser-evidence":    { risk: "medium", requiresApproval: false },
+  "browser-form":        { risk: "high",   requiresApproval: true  },
+};
 
 export type CopilotPlanBoundAction = {
   actionType: string;

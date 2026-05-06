@@ -27,20 +27,24 @@ const CAPABILITY_TOOL_MAP: Record<PlanStepCapability, string[]> = {
   waiting: ["wait_background_terminal", "read_background_result"],
   worker: ["enqueue_worker_job", "inspect_worker_status", "propose_milestone_approval", "propose_escrow_release", "propose_dispute_resolve"],
   delegating: ["delegate_task", "request_agent_help", "transfer_control"],
+  // Browser automation — QA Sentinel
+  "browser-inspect":    ["browser_goto", "browser_read_dom", "browser_get_text"],
+  "browser-test":       ["browser_run_spec", "browser_assert", "browser_wait"],
+  "browser-screenshot": ["browser_screenshot", "browser_full_page_shot"],
+  "browser-audit":      ["browser_audit_page", "browser_check_status", "browser_network_log"],
+  "browser-evidence":   ["browser_capture_evidence", "browser_save_trace", "browser_write_report"],
+  "browser-form":       ["browser_fill_input", "browser_click_submit", "browser_select_option"],
 };
 
+const KNOWN_CAPABILITIES = new Set<PlanStepCapability>([
+  "dispute", "searching", "perambulating", "composing", "clouding",
+  "shelling", "editing", "testing", "waiting", "worker", "delegating",
+  "browser-inspect", "browser-test", "browser-screenshot",
+  "browser-audit", "browser-evidence", "browser-form",
+]);
+
 function isCapability(value: unknown): value is PlanStepCapability {
-  return value === "dispute" ||
-    value === "searching" ||
-    value === "perambulating" ||
-    value === "composing" ||
-    value === "clouding" ||
-    value === "shelling" ||
-    value === "editing" ||
-    value === "testing" ||
-    value === "waiting" ||
-    value === "worker" ||
-    value === "delegating";
+  return KNOWN_CAPABILITIES.has(value as PlanStepCapability);
 }
 
 export function normalizePlanToolName(toolName: string): string {
