@@ -50,6 +50,7 @@ import { PdfModule } from "./common/pdf/pdf.module.js";
 import { ContractorModule } from "./modules/contractor/contractor.module.js";
 import { AssistantModule } from "./modules/assistant/assistant.module.js";
 import { ToolsModule } from "./modules/tools/tools.module.js";
+import { BuildOpsModule } from "./modules/buildops/buildops.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -113,6 +114,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     ContractorModule,
     AssistantModule,
     ToolsModule,
+    BuildOpsModule,
   ],
   controllers: [HealthController],
   providers: [

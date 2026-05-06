@@ -1,24 +1,58 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight, AlertTriangle, Briefcase, CheckSquare, ClipboardList, FileText, FolderKanban, Plus, Radar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowRight, Briefcase, CheckSquare, ClipboardList, FileText, FolderKanban, Plus, Radar } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { fetchBuildOpsOverview, type BuildOpsOverview } from "../../lib/buildops-api";
 
-const dashboardCards = [
-  { title: "Active Projects", value: "12", hint: "Jobs in progress", href: "/buildops/projects", icon: Briefcase, accent: "brand" },
-  { title: "Draft Estimates", value: "7", hint: "Tool results ready to save", href: "/tools", icon: FileText, accent: "neutral" },
-  { title: "Tasks Due", value: "19", hint: "Today and next 24h", href: "/worker/tasks", icon: CheckSquare, accent: "neutral" },
-  { title: "Milestones Pending", value: "8", hint: "Awaiting approval", href: "/client/milestones", icon: ClipboardList, accent: "neutral" },
-  { title: "Evidence Pending", value: "14", hint: "Photos / docs to upload", href: "/worker/evidence", icon: FolderKanban, accent: "neutral" },
-  { title: "Risk Alerts", value: "3", hint: "Needs review", href: "/admin/ops", icon: AlertTriangle, accent: "warning" },
-];
-
-const recentActivity = [
-  "Roofing estimate saved from /tools/roofing",
-  "Project scope updated for bathroom remodel",
-  "Inspection evidence pending on electrical job",
-  "Change order waiting on client approval",
-];
+const fallbackCards = {
+  activeProjects: 0,
+  draftEstimates: 0,
+  tasksDue: 0,
+  milestonesPending: 0,
+  evidencePending: 0,
+  riskAlerts: 0,
+  recentActivity: ["No activity yet"],
+};
 
 export default function BuildOpsPage() {
+  const [overview, setOverview] = useState<BuildOpsOverview>(fallbackCards);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      try {
+        const data = await fetchBuildOpsOverview();
+        if (!alive) return;
+        setOverview(data);
+      } catch (err) {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : "BuildOps error");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const dashboardCards = [
+    { title: "Active Projects", value: String(overview.activeProjects), hint: "Jobs in progress", href: "/buildops/projects", icon: Briefcase, accent: "brand" as const },
+    { title: "Draft Estimates", value: String(overview.draftEstimates), hint: "Tool results ready to save", href: "/tools", icon: FileText, accent: "neutral" as const },
+    { title: "Tasks Due", value: String(overview.tasksDue), hint: "Today and next 24h", href: "/worker/tasks", icon: CheckSquare, accent: "neutral" as const },
+    { title: "Milestones Pending", value: String(overview.milestonesPending), hint: "Awaiting approval", href: "/client/milestones", icon: ClipboardList, accent: "neutral" as const },
+    { title: "Evidence Pending", value: String(overview.evidencePending), hint: "Photos / docs to upload", href: "/worker/evidence", icon: FolderKanban, accent: "neutral" as const },
+    { title: "Risk Alerts", value: String(overview.riskAlerts), hint: "Needs review", href: "/admin/ops", icon: AlertTriangle, accent: "warning" as const },
+  ];
+
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
@@ -30,6 +64,8 @@ export default function BuildOpsPage() {
           <p className="max-w-3xl text-sm text-muted">
             Tool results turn into estimates, projects, tasks, milestones, evidence and reports. This shell is the workbench for field execution.
           </p>
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {loading ? <p className="text-sm text-muted">Loading BuildOps...</p> : null}
         </section>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -72,7 +108,7 @@ export default function BuildOpsPage() {
               </div>
             </div>
             <div className="grid gap-2">
-              {recentActivity.map((item) => (
+              {overview.recentActivity.map((item) => (
                 <div key={item} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
                   {item}
                 </div>

@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, BadgeCheck, CheckCircle2, ClipboardList, FileText, Hammer, ShieldAlert } from "lucide-react";
 import { Badge, Card, MetricCard } from "@/components/ui";
 import type { SemseToolResult } from "@/app/lib/semse-tools-api";
+import { createBuildOpsProjectFromToolResult } from "@/app/lib/buildops-api";
 
 const RISK_LABELS: Record<SemseToolResult["risk"]["level"], string> = {
   low: "Low risk",
@@ -57,6 +60,34 @@ function Metric({ label, value, sub }: { label: string; value: string; sub?: str
 export function ToolResultPanel({ result }: { result: SemseToolResult }) {
   const riskVariant = RISK_VARIANTS[result.risk.level];
   const safetyCritical = result.trade === "electrical" || result.risk.level === "critical";
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  async function handleSaveToBuildOps() {
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const project = await createBuildOpsProjectFromToolResult({
+        sourceTool: result.toolId,
+        sourceToolInput: result.inputs,
+        sourceToolResult: result,
+        title: `${result.projectType} estimate`,
+        trade: result.trade,
+        projectType: result.projectType,
+        clientName: "Client",
+        location: "TBD",
+      });
+      setSavedProjectId(project.id);
+      router.push(`/buildops/projects/${project.id}`);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "No se pudo guardar en BuildOps.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="grid gap-6">
@@ -78,6 +109,19 @@ export function ToolResultPanel({ result }: { result: SemseToolResult }) {
             <p className="text-xs uppercase tracking-[0.2em] text-muted">Total estimate</p>
             <p className="text-3xl font-bold text-brand">{formatCurrency(result.costs.total)}</p>
           </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void handleSaveToBuildOps()}
+            disabled={saving}
+            className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright disabled:opacity-60"
+          >
+            {saving ? "Saving..." : "Save to BuildOps"}
+          </button>
+          {savedProjectId ? <Badge variant="info">Saved: {savedProjectId}</Badge> : null}
+          {saveError ? <span className="text-sm text-rose-300">{saveError}</span> : null}
         </div>
 
         <div className="grid gap-3 md:grid-cols-4">

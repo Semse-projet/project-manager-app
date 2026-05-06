@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { ArrowLeft, Save } from "lucide-react";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
+import { createBuildOpsProject, type BuildOpsProjectStatus } from "../../../../lib/buildops-api";
 
 type BuildOpsProjectInput = {
   title: string;
@@ -34,7 +36,37 @@ const INITIAL_INPUT: BuildOpsProjectInput = {
 };
 
 export default function NewBuildOpsProjectPage() {
+  const router = useRouter();
   const [input, setInput] = useState<BuildOpsProjectInput>(INITIAL_INPUT);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+
+    try {
+      const project = await createBuildOpsProject({
+        title: input.title.trim(),
+        description: input.description.trim() || undefined,
+        trade: input.trade,
+        projectType: input.projectType,
+        clientName: input.clientName.trim(),
+        professionalName: input.professionalName.trim() || undefined,
+        location: input.location.trim(),
+        budgetEstimate: input.budgetEstimate.trim() ? Number(input.budgetEstimate) : undefined,
+        status: input.status as BuildOpsProjectStatus,
+        startDate: input.startDate || undefined,
+        dueDate: input.dueDate || undefined,
+      });
+
+      router.push(`/buildops/projects/${project.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar el proyecto.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6">
@@ -50,8 +82,9 @@ export default function NewBuildOpsProjectPage() {
         <section className="grid gap-2">
           <h1 className="text-3xl font-bold tracking-tight text-ink">New project</h1>
           <p className="max-w-2xl text-sm text-muted">
-            Shell only. Save flow comes later when DB wiring lands.
+            Save a BuildOps project or an estimate shell into Prisma.
           </p>
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
         </section>
 
         <Card className="grid gap-4">
@@ -68,6 +101,10 @@ export default function NewBuildOpsProjectPage() {
               <option value="flooring">Flooring</option>
               <option value="carpentry">Carpentry</option>
               <option value="tile">Tile</option>
+              <option value="windows-doors">Windows / Doors</option>
+              <option value="insulation">Insulation</option>
+              <option value="demolition">Demolition</option>
+              <option value="masonry">Masonry</option>
             </Select>
             <Input label="Client name" value={input.clientName} onChange={(event) => setInput({ ...input, clientName: event.target.value })} />
             <Input label="Professional name" value={input.professionalName} onChange={(event) => setInput({ ...input, professionalName: event.target.value })} />
@@ -84,6 +121,7 @@ export default function NewBuildOpsProjectPage() {
               <option value="estimating">Estimating</option>
               <option value="quoted">Quoted</option>
               <option value="approved">Approved</option>
+              <option value="in_progress">In progress</option>
             </Select>
             <Input label="Start date" type="date" value={input.startDate} onChange={(event) => setInput({ ...input, startDate: event.target.value })} />
             <Input label="Due date" type="date" value={input.dueDate} onChange={(event) => setInput({ ...input, dueDate: event.target.value })} />
@@ -98,10 +136,10 @@ export default function NewBuildOpsProjectPage() {
           </div>
 
           <div className="flex items-center justify-between border-t border-white/[0.08] pt-4">
-            <p className="text-sm text-muted">No DB yet. Form is ready for next phase.</p>
-            <Button type="button" disabled>
+            <p className="text-sm text-muted">Saved to Prisma as a BuildOps project.</p>
+            <Button type="button" onClick={() => void handleSave()} disabled={saving}>
               <Save size={16} />
-              Save project
+              {saving ? "Saving..." : "Save project"}
             </Button>
           </div>
         </Card>

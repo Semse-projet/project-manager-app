@@ -1,24 +1,68 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { ArrowLeft, CheckSquare, FileText, FolderKanban, MessageSquare, Plus } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { fetchBuildOpsProject, type BuildOpsProject } from "../../../../lib/buildops-api";
 
-const project = {
-  id: "p-1001",
-  title: "Bathroom remodel",
-  trade: "Tile + Plumbing",
-  projectType: "Remodel",
-  status: "In progress",
-  clientName: "Client demo",
-  professionalName: "Pro demo",
-  location: "Austin, TX",
-  budgetEstimate: "$45,000",
-  riskScore: 62,
-  milestones: 4,
-  tasks: 12,
-  evidence: 9,
+const fallbackProject: BuildOpsProject = {
+  id: "loading",
+  tenantId: "",
+  orgId: "",
+  createdBy: "",
+  title: "Loading...",
+  description: null,
+  trade: "",
+  projectType: "",
+  clientName: "",
+  professionalName: null,
+  location: "",
+  budgetEstimate: null,
+  status: "draft",
+  riskScore: 0,
+  riskLevel: "low",
+  startDate: null,
+  dueDate: null,
+  sourceTool: null,
+  sourceToolInput: null,
+  sourceToolResult: null,
+  completion: 0,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 };
 
 export default function BuildOpsProjectDetailPage() {
+  const params = useParams<{ projectId: string }>();
+  const projectId = typeof params?.projectId === "string" ? params.projectId : "";
+  const [project, setProject] = useState<BuildOpsProject>(fallbackProject);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      try {
+        const data = await fetchBuildOpsProject(projectId);
+        if (!alive) return;
+        setProject(data);
+      } catch (err) {
+        if (!alive) return;
+        setError(err instanceof Error ? err.message : "BuildOps error");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    void load();
+
+    return () => {
+      alive = false;
+    };
+  }, [projectId]);
+
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
@@ -36,15 +80,17 @@ export default function BuildOpsProjectDetailPage() {
             <h1 className="text-3xl font-bold tracking-tight text-ink">{project.title}</h1>
           </div>
           <p className="max-w-3xl text-sm text-muted">
-            Shell detail page. Later this will connect to DB, tasks, estimates, evidence and reports.
+            Shell detail page. Later this will connect to tasks, evidence and reports.
           </p>
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {loading ? <p className="text-sm text-muted">Loading project...</p> : null}
         </section>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[
             { label: "Trade", value: project.trade },
             { label: "Status", value: project.status },
-            { label: "Budget", value: project.budgetEstimate },
+            { label: "Budget", value: project.budgetEstimate != null ? `$${project.budgetEstimate.toLocaleString()}` : "—" },
             { label: "Risk score", value: `${project.riskScore}/100` },
           ].map((item) => (
             <Card key={item.label} className="grid gap-2">
@@ -59,15 +105,16 @@ export default function BuildOpsProjectDetailPage() {
             <h2 className="text-lg font-semibold text-ink">Project summary</h2>
             <div className="grid gap-3 text-sm text-muted">
               <div><span className="text-ink font-semibold">Client:</span> {project.clientName}</div>
-              <div><span className="text-ink font-semibold">Professional:</span> {project.professionalName}</div>
+              <div><span className="text-ink font-semibold">Professional:</span> {project.professionalName ?? "—"}</div>
               <div><span className="text-ink font-semibold">Location:</span> {project.location}</div>
               <div><span className="text-ink font-semibold">Type:</span> {project.projectType}</div>
+              <div><span className="text-ink font-semibold">Source tool:</span> {project.sourceTool ?? "manual"}</div>
               <div><span className="text-ink font-semibold">Project ID:</span> {project.id}</div>
             </div>
             <div className="flex flex-wrap gap-2 pt-2">
-              <Badge variant="info">{project.milestones} milestones</Badge>
-              <Badge variant="info">{project.tasks} tasks</Badge>
-              <Badge variant="info">{project.evidence} evidence items</Badge>
+              <Badge variant="info">{project.completion}% complete</Badge>
+              <Badge variant="info">Risk {project.riskLevel}</Badge>
+              <Badge variant="info">{project.sourceTool ? "From tool result" : "Manual project"}</Badge>
             </div>
           </Card>
 
