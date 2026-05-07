@@ -1,5 +1,5 @@
-FROM node:20-alpine AS base
-RUN apk add --no-cache openssl python3 make g++
+FROM node:20-slim AS base
+RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
 WORKDIR /app
@@ -42,7 +42,7 @@ RUN npm run build --workspace @semse/autonomy
 RUN npm run build --workspace @semse/tools
 RUN npm run build --workspace @semse/web
 
-FROM base AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
