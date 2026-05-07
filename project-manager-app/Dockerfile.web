@@ -41,6 +41,7 @@ RUN npm run build --workspace @semse/agents
 RUN npm run build --workspace @semse/autonomy
 RUN npm run build --workspace @semse/tools
 RUN npm run build --workspace @semse/web
+RUN mkdir -p apps/web/public
 
 FROM node:20-slim AS runner
 WORKDIR /app
