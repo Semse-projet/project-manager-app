@@ -54,4 +54,5 @@ COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
 
 EXPOSE 4000
 
-CMD ["node", "apps/api/dist/main.js"]
+# Run migrations before starting the API
+CMD ["sh", "-c", "npm run db:migrate && node apps/api/dist/main.js"]
