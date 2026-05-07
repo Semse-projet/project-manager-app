@@ -2,10 +2,9 @@
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
     "builder": "DOCKERFILE",
-    "dockerfilePath": "project-manager-app/Dockerfile.api"
+    "dockerfilePath": "Dockerfile.api"
   },
   "deploy": {
-    "preDeployCommand": "npm run db:migrate",
     "healthcheckPath": "/v1/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
