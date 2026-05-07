@@ -32,9 +32,9 @@ ENV NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=$NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED
 ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
+RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/shared
 RUN npm run build --workspace @semse/auth
-RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/knowledge
 RUN npm run build --workspace @semse/agents
 RUN npm run build --workspace @semse/autonomy
