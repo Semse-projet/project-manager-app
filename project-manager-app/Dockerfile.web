@@ -17,6 +17,7 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/knowledge/package.json ./packages/knowledge/
 COPY packages/schemas/package.json ./packages/schemas/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN npm ci
