@@ -91,12 +91,17 @@ STRIPE_SECRET_KEY=<optional, Block B>
 
 ## 6. Set Web variables
 
-Use Railway private networking for server-to-server API calls:
+Use Railway private networking for server-to-server API calls.
+
+**Important:** Set ALL of these as **Service Variables** (runtime), not Build Variables.
+`SEMSE_API_BASE_URL` and `SEMSE_WEB_SESSION_SECRET` in particular must be Service Variables
+because Next.js API Routes and middleware read them when handling requests, not during `docker build`.
 
 ```env
 PORT=3000
 HOSTNAME=0.0.0.0
 SEMSE_API_BASE_URL=http://semse-api.railway.internal:4000
+SEMSE_WEB_SESSION_SECRET=<same 64+ char secret as AUTH_SECRET>
 NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=true
 NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false
 SEMSE_TENANT_ID=tenant_default
@@ -107,7 +112,9 @@ SEMSE_ROLES=OPS_ADMIN
 
 Notes:
 
-- On the Web service, `SEMSE_API_BASE_URL` should be the private API URL, not the public API domain.
+- `SEMSE_API_BASE_URL` must be the private internal URL (not the public API domain) so requests stay on Railway's internal network.
+- `SEMSE_WEB_SESSION_SECRET` must also be a Service Variable (needed at runtime to decode session cookies in Next.js middleware).
+- `NEXT_PUBLIC_*` vars are baked into the client bundle at build time via the Dockerfile `ARG`/`ENV` — set them as Build Variables too.
 - Keep `NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false` in production.
 
 ## 7. Set Worker variables

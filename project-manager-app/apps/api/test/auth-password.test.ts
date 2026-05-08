@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hashPassword, sha256, verifyPassword } from "../src/common/auth-password.ts";
+import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../src/common/auth-password.ts";
 
 test("hashPassword and verifyPassword round-trip", () => {
   const hashed = hashPassword("VeryStrongPass123!");
@@ -15,4 +15,17 @@ test("verifyPassword accepts legacy sha256 hashes", () => {
 
   assert.equal(verifyPassword("demo1234", legacyHash), true);
   assert.equal(verifyPassword("wrong-password", legacyHash), false);
+});
+
+test("verifyPassword rejects malformed scrypt hash", () => {
+  assert.equal(verifyPassword("password", "s1$badsalt"), false);
+  assert.equal(verifyPassword("password", "s2$abc$def"), false);
+});
+
+test("generateOpaqueToken returns unique base64url strings", () => {
+  const t1 = generateOpaqueToken();
+  const t2 = generateOpaqueToken();
+  assert.equal(typeof t1, "string");
+  assert.ok(t1.length > 0);
+  assert.notEqual(t1, t2);
 });

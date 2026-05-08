@@ -37,9 +37,9 @@ ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 # needs the secret embedded in the bundle.
 ARG SEMSE_WEB_SESSION_SECRET
 ENV SEMSE_WEB_SESSION_SECRET=$SEMSE_WEB_SESSION_SECRET
-
-ARG SEMSE_API_BASE_URL
-ENV SEMSE_API_BASE_URL=$SEMSE_API_BASE_URL
+# NOTE: SEMSE_API_BASE_URL is NOT baked here — it is a server-side env var read
+# at request time by Next.js API Routes. Set it as a Railway Service Variable
+# (runtime), not a Build Variable. Railway private URL: http://semse-api.railway.internal:4000
 
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
 RUN npm run build --workspace @semse/schemas
