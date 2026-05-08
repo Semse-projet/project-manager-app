@@ -9,10 +9,10 @@ package-lock.legacy.json
 playwright-report/
 test-results/
 # QA Sentinel evidence — generated artifacts, keep .gitkeep
-artifacts/evidence/playwright/test-results/
-artifacts/evidence/playwright/html/
-artifacts/evidence/playwright/report.json
-artifacts/evidence/playwright/*.json
+**/artifacts/evidence/playwright/test-results/
+**/artifacts/evidence/playwright/html/
+**/artifacts/evidence/playwright/report.json
+**/artifacts/evidence/playwright/*.json
 coverage/
 .nyc_output/
 apps/api/skills/.curator_state.json
