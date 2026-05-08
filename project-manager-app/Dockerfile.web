@@ -41,6 +41,9 @@ ENV SEMSE_WEB_SESSION_SECRET=$SEMSE_WEB_SESSION_SECRET
 ARG SEMSE_API_BASE_URL
 ENV SEMSE_API_BASE_URL=$SEMSE_API_BASE_URL
 
+ARG NEXT_PUBLIC_SEMSE_API_BASE_URL
+ENV NEXT_PUBLIC_SEMSE_API_BASE_URL=$NEXT_PUBLIC_SEMSE_API_BASE_URL
+
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
 RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/shared
