@@ -32,6 +32,12 @@ ARG NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false
 ENV NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=$NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED
 ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 
+# Bake session secret at build time so Edge Middleware can access it.
+# Railway injects runtime vars after container start; Edge Middleware
+# needs the secret embedded in the bundle.
+ARG SEMSE_WEB_SESSION_SECRET
+ENV SEMSE_WEB_SESSION_SECRET=$SEMSE_WEB_SESSION_SECRET
+
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
 RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/shared
