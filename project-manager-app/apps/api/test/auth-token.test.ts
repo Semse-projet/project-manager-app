@@ -39,6 +39,19 @@ test("verifyToken rejects tampered token", () => {
   assert.throws(() => verifyToken(`${token}broken`, "x".repeat(32)), /Invalid token signature/);
 });
 
+test("verifyToken throws on missing dot separator", () => {
+  assert.throws(() => verifyToken("nodottoken", "x".repeat(32)), /Invalid token format/);
+});
+
+test("verifyToken throws on expired token", () => {
+  const token = signToken(
+    { userId: "u", tenantId: "t", orgId: "o", roles: [] },
+    "x".repeat(32),
+    -1
+  );
+  assert.throws(() => verifyToken(token, "x".repeat(32)), /Token expired/);
+});
+
 test("signToken emits unique jti values across sequential tokens", () => {
   const one = verifyToken(
     signToken(

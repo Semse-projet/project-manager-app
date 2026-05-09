@@ -92,7 +92,7 @@ export class AgentApprovalService {
           riskLevel: approval.riskLevel,
           riskScore: new Prisma.Decimal(approval.riskScore),
           policyDecision: approval.policyDecision,
-          requiredApprovals: approval.requiredApprovals as typeof Prisma.JsonNull | typeof Prisma.DbNull | object,
+          requiredApprovals: approval.requiredApprovals as unknown as import("@prisma/client").Prisma.InputJsonValue,
           contextSummary: approval.contextSummary ?? null
         },
         create: {
@@ -108,7 +108,7 @@ export class AgentApprovalService {
           riskLevel: approval.riskLevel,
           riskScore: new Prisma.Decimal(approval.riskScore),
           policyDecision: approval.policyDecision,
-          requiredApprovals: approval.requiredApprovals as typeof Prisma.JsonNull | typeof Prisma.DbNull | object,
+          requiredApprovals: approval.requiredApprovals as unknown as import("@prisma/client").Prisma.InputJsonValue,
           contextSummary: approval.contextSummary ?? null,
           requestedAt: new Date(approval.requestedAt)
         }

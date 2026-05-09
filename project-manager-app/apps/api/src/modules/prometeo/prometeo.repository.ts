@@ -31,7 +31,7 @@ export class PrometeoRepository {
       data: {
         tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId,
         title: input.title, sourceType: input.sourceType, sourceRef: input.sourceRef,
-        uploadedById: input.uploadedById, metadataJson: input.metadataJson ?? {},
+        uploadedById: input.uploadedById, metadataJson: (input.metadataJson ?? {}) as unknown as import("@prisma/client").Prisma.InputJsonValue,
         status: "processing",
       },
     }) as Promise<PrometeoDocumentRecord>;
@@ -93,7 +93,7 @@ export class PrometeoRepository {
 
   async createAsset(input: { tenantId: string; orgId: string; projectId?: string; name: string; category?: string; serialNumber?: string; location?: string; metadataJson?: Record<string, unknown> }) {
     return this.prisma.prometeoAsset.create({
-      data: { tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId, name: input.name, category: input.category ?? "general", serialNumber: input.serialNumber, location: input.location, metadataJson: input.metadataJson ?? {} },
+      data: { tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId, name: input.name, category: input.category ?? "general", serialNumber: input.serialNumber, location: input.location, metadataJson: (input.metadataJson ?? {}) as unknown as import("@prisma/client").Prisma.InputJsonValue },
     });
   }
 

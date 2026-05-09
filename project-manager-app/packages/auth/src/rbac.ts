@@ -93,6 +93,7 @@ export const rolePermissions: Record<string, string[]> = {
     "disputes:archive",
     "disputes:restore",
     "projects:read",
+    "projects:create",
     "projects:financials:read",
     "projects:financials:write",
     "projects:status:update",

@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   computeTrackerElapsedSeconds,
   mergeTrackerNotes,
-  toTrackerSessionView
+  toTrackerSessionView,
+  trimTrackerNotes,
 } from "../src/modules/field-ops/tracker-session.ts";
 
 test("computeTrackerElapsedSeconds accumulates wall clock time while session is running", () => {
@@ -46,7 +47,27 @@ test("toTrackerSessionView preserves job linkage and serializes timestamps", () 
   assert.equal(view.startedAt, "2026-04-09T13:00:00.000Z");
 });
 
+test("computeTrackerElapsedSeconds returns accumulated seconds when not running", () => {
+  assert.equal(
+    computeTrackerElapsedSeconds({ accumulatedSeconds: 120, status: "PAUSED", resumedAt: null }, new Date()),
+    120
+  );
+  assert.equal(
+    computeTrackerElapsedSeconds({ accumulatedSeconds: 60, status: "RUNNING", resumedAt: null }, new Date()),
+    60
+  );
+});
+
 test("mergeTrackerNotes keeps previous note when new input is blank", () => {
   assert.equal(mergeTrackerNotes("nota previa", "   "), "nota previa");
   assert.equal(mergeTrackerNotes(null, "  nueva nota "), "nueva nota");
+  assert.equal(mergeTrackerNotes(undefined, undefined), undefined);
+  assert.equal(mergeTrackerNotes(undefined, "  "), undefined);
+});
+
+test("trimTrackerNotes returns trimmed string or undefined", () => {
+  assert.equal(trimTrackerNotes("  hola  "), "hola");
+  assert.equal(trimTrackerNotes(""), undefined);
+  assert.equal(trimTrackerNotes("   "), undefined);
+  assert.equal(trimTrackerNotes(undefined), undefined);
 });

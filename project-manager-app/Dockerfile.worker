@@ -17,6 +17,7 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/knowledge/package.json ./packages/knowledge/
 COPY packages/schemas/package.json ./packages/schemas/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN npm ci
@@ -27,12 +28,13 @@ WORKDIR /app
 COPY . .
 
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
+RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/shared
 RUN npm run build --workspace @semse/auth
-RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/knowledge
 RUN npm run build --workspace @semse/agents
 RUN npm run build --workspace @semse/autonomy
+RUN npm run build --workspace @semse/tools
 
 FROM base AS runner
 WORKDIR /app

@@ -137,8 +137,10 @@ export class SkillLoaderService implements OnModuleInit {
         result[key] = nested;
       } else if (rawVal.startsWith("[")) {
         result[key] = rawVal.slice(1, -1).split(",").map((v) => v.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean);
+        i++;
       } else {
         result[key] = rawVal.replace(/^['"]|['"]$/g, "");
+        i++;
       }
     }
 

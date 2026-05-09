@@ -1,5 +1,5 @@
-FROM node:20-alpine AS base
-RUN apk add --no-cache openssl python3 make g++
+FROM node:20-slim AS base
+RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
 WORKDIR /app
@@ -17,6 +17,7 @@ COPY packages/db/package.json ./packages/db/
 COPY packages/knowledge/package.json ./packages/knowledge/
 COPY packages/schemas/package.json ./packages/schemas/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 
 RUN npm ci
@@ -31,20 +32,30 @@ ARG NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=false
 ENV NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED=$NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED
 ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 
+# Bake session secret at build time so Edge Middleware can access it.
+# Railway injects runtime vars after container start; Edge Middleware
+# needs the secret embedded in the bundle.
+ARG SEMSE_WEB_SESSION_SECRET
+ENV SEMSE_WEB_SESSION_SECRET=$SEMSE_WEB_SESSION_SECRET
+# NOTE: SEMSE_API_BASE_URL is NOT baked here — it is a server-side env var read
+# at request time by Next.js API Routes. Set it as a Railway Service Variable
+# (runtime), not a Build Variable. Railway private URL: http://semse-api.railway.internal:4000
+
 RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
+RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/shared
 RUN npm run build --workspace @semse/auth
-RUN npm run build --workspace @semse/schemas
 RUN npm run build --workspace @semse/knowledge
 RUN npm run build --workspace @semse/agents
 RUN npm run build --workspace @semse/autonomy
+RUN npm run build --workspace @semse/tools
 RUN npm run build --workspace @semse/web
+RUN mkdir -p apps/web/public
 
-FROM base AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
 COPY --from=builder /app/apps/web/.next/standalone ./
@@ -53,4 +64,5 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
 
-CMD ["node", "apps/web/server.js"]
+# Force port 3000 in CMD so Railway's dynamic PORT injection doesn't override it
+CMD ["sh", "-c", "PORT=3000 node apps/web/server.js"]

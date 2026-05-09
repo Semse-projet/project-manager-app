@@ -56,9 +56,9 @@ Thumbs.db
 *.tgz
 
 # Legacy / historical sources — quarantined outside the canonical monorepo
-app semse/
-app/
-archive/
-semse-mobile-app/
-semse-storage/
-semse/
+/app semse/
+/app/
+/archive/
+/semse-mobile-app/
+/semse-storage/
+/semse/

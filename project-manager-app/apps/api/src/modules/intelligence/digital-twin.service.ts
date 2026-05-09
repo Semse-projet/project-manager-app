@@ -91,7 +91,7 @@ export class DigitalTwinService {
     const totalValue = Math.max(escrowTotal, invoiceTotal);
 
     type MRow = { approvedAt: Date | null; dueAt: Date | null; status: string };
-    const onTimeMilestones = milestones.filter((m: MRow) => m.approvedAt && m.dueAt
+    const onTimeMilestones = (milestones as unknown as MRow[]).filter((m) => m.approvedAt && m.dueAt
       ? new Date(m.approvedAt) <= new Date(m.dueAt)
       : m.status === "APPROVED").length;
 
@@ -119,7 +119,7 @@ export class DigitalTwinService {
       stats: {
         durationDays,
         milestoneCount: milestones.length,
-        milestonesApproved: milestones.filter((m: MRow) => m.status === "APPROVED").length,
+        milestonesApproved: (milestones as unknown as MRow[]).filter((m) => m.status === "APPROVED").length,
         onTimeMilestones,
         onTimeRate: milestones.length > 0 ? onTimeMilestones / milestones.length : 0,
         evidenceCount: evidences.length,
@@ -154,7 +154,7 @@ export class DigitalTwinService {
     };
 
     type MilestoneRow = MRow & { id: string; title: string; sequence: number; amount: unknown; reviews: unknown[] };
-    const milestonesJson = milestones.map((m: MilestoneRow) => ({
+    const milestonesJson = (milestones as unknown as MilestoneRow[]).map((m) => ({
       id: m.id,
       title: m.title,
       sequence: m.sequence,
@@ -173,9 +173,9 @@ export class DigitalTwinService {
       jobId: project.jobId,
       archivedBy: input.archivedBy,
       status: "complete",
-      snapshotJson,
-      financialJson,
-      milestonesJson,
+      snapshotJson: snapshotJson as unknown as import("@prisma/client").Prisma.InputJsonValue,
+      financialJson: financialJson as unknown as import("@prisma/client").Prisma.InputJsonValue,
+      milestonesJson: milestonesJson as unknown as import("@prisma/client").Prisma.InputJsonValue,
       contractorId: null,
       contractorOrgId: project.assignedProOrgId,
       clientOrgId: project.job.clientOrgId,
