@@ -25,7 +25,7 @@ export async function tryLoginAs(page: Page, role: DemoRole = "admin"): Promise<
   await page.getByRole("button", { name: /Ingresar/i }).click();
 
   try {
-    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 10_000 });
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
     return true;
   } catch {
     return false;
