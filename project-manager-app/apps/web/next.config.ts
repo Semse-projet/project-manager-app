@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   experimental: {
     webpackBuildWorker: false,
     useWasmBinary: true,
+    // @ts-expect-error — nodeMiddleware exists at runtime in Next.js 15 but types not yet updated
     nodeMiddleware: true,
   },
   outputFileTracingRoot: path.join(import.meta.dirname, "../..")
