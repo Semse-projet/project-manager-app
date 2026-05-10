@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   experimental: {
     webpackBuildWorker: false,
     useWasmBinary: true,
+    nodeMiddleware: true,
   },
   outputFileTracingRoot: path.join(import.meta.dirname, "../..")
 };

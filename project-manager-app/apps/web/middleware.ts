@@ -1,5 +1,10 @@
+// Run in Node.js runtime so Railway Service Variables (AUTH_SECRET,
+// SEMSE_WEB_SESSION_SECRET) are accessible via process.env at runtime.
+// Edge runtime does not guarantee access to non-NEXT_PUBLIC_ secrets.
+export const runtime = "nodejs";
+
 /**
- * Next.js Edge Middleware — route protection
+ * Next.js Middleware — route protection
  *
  * Protected routes: all paths under the (app) route group
  *   /worker/*, /client/*, /admin/*, /agents
