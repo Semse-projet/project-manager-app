@@ -85,6 +85,10 @@ const TRANSLATIONS: Record<LanguagePreference, Record<string, string>> = {
     "nav.documents": "Documentos",
     "nav.reviews": "Reseñas",
     "nav.financeHub": "Hub Financiero",
+    // Dashboard quick-action descriptions
+    "dash.fieldOpsDesc": "Ir a unidades y trabajo de campo",
+    "dash.quickActions": "Acciones rápidas",
+    "dash.fastManagement": "Gestión rápida",
     // Sections
     "section.main": "Principal",
     "section.control": "Control",
@@ -167,6 +171,10 @@ const TRANSLATIONS: Record<LanguagePreference, Record<string, string>> = {
     "nav.documents": "Documents",
     "nav.reviews": "Reviews",
     "nav.financeHub": "Finance Hub",
+    // Dashboard quick-action descriptions
+    "dash.fieldOpsDesc": "Go to units and field work",
+    "dash.quickActions": "Quick actions",
+    "dash.fastManagement": "Quick management",
     // Sections
     "section.main": "Main",
     "section.control": "Control",
