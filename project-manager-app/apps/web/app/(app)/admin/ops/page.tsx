@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { Activity, Bot, CheckCircle, Clock3, Filter, Radar, Search, ShieldAlert, Sparkles, Workflow, XCircle } from "lucide-react";
 import {
@@ -63,6 +64,7 @@ function nextActionForAgent(agentType: string, status: string, requiresHumanRevi
 }
 
 export default function AdminOpsPage() {
+  const { t } = useLanguage();
   const runtimeEnabled = semseRuntimeEnabled();
   const [runtime, setRuntime] = useState<AgentRuntimeList | null>(null);
   const [runtimeTrace, setRuntimeTrace] = useState<AgentRuntimeTrace | null>(null);
@@ -401,7 +403,7 @@ export default function AdminOpsPage() {
               Ops Runtime
             </p>
             <h1 style={{ fontSize: "28px", fontWeight: 800, color: "var(--ink)", marginBottom: "6px" }}>
-              Tablero operativo agentic
+              {t("page.operations")}
             </h1>
             <p style={{ fontSize: "14px", color: "var(--muted)", maxWidth: "760px" }}>
               Seguimiento vivo de eventos, disparos de agentes y auditoría por correlationId. El enfoque visual toma ideas del `web-assistant-portal`: layout modular, foco en selección rápida y lectura limpia del detalle.
@@ -1036,7 +1038,7 @@ export default function AdminOpsPage() {
                                   opacity: isActing ? 0.6 : 1
                                 }}
                               >
-                                {isActing ? "..." : "Reintentar"}
+                                {isActing ? "..." : t("ops.retry")}
                               </button>
                             ) : null}
                             {run.deadLettered ? (
@@ -1056,7 +1058,7 @@ export default function AdminOpsPage() {
                                   opacity: isActing ? 0.6 : 1
                                 }}
                               >
-                                {isActing ? "..." : "Reencolar"}
+                                {isActing ? "..." : t("ops.requeue")}
                               </button>
                             ) : null}
                           </div>
@@ -1178,7 +1180,7 @@ export default function AdminOpsPage() {
             disabled={approvalsLoading}
             style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, cursor: "pointer", opacity: approvalsLoading ? 0.5 : 1 }}
           >
-            {approvalsLoading ? "Cargando..." : "Refrescar"}
+            {approvalsLoading ? "Cargando..." : t("ui.refresh")}
           </button>
         </div>
 
@@ -1227,7 +1229,7 @@ export default function AdminOpsPage() {
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: "#34d399", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: isBusy ? 0.5 : 1 }}
                 >
                   <CheckCircle size={13} />
-                  {isBusy ? "Procesando..." : "Aprobar y ejecutar"}
+                  {isBusy ? "Procesando..." : t("ops.approve")}
                 </button>
                 <button
                   onClick={() => void handleApprovalDecision(approval.id, "rejected")}

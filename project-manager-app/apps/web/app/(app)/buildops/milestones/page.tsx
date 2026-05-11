@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useState } from "react";
 import { ArrowRight, ClipboardList, Clock3, FolderKanban } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
@@ -16,6 +17,7 @@ function badgeVariant(status: BuildOpsMilestone["status"]) {
 }
 
 export default function BuildOpsMilestonesPage() {
+  const { t } = useLanguage();
   const [milestones, setMilestones] = useState<BuildOpsMilestone[]>(fallbackMilestones);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export default function BuildOpsMilestonesPage() {
         <section className="flex items-start justify-between gap-4">
           <div className="grid gap-2">
             <Badge variant="brand" className="w-fit">BuildOps</Badge>
-            <h1 className="text-3xl font-bold tracking-tight text-ink">Milestones</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-ink">{t("page.buildOpsMilestones")}</h1>
             <p className="max-w-3xl text-sm text-muted">
               Project milestones with evidence counts. This view sits on top of the existing milestone table and keeps the release flow visible.
             </p>

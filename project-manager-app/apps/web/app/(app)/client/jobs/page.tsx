@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Plus, Search, Briefcase, DollarSign, ArrowRight } from "lucide-react";
@@ -49,6 +50,7 @@ const FILTERS = [
 ];
 
 export default function ClientJobsPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

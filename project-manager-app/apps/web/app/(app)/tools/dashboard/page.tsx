@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -58,6 +59,7 @@ function formatCurrency(value: number) {
 }
 
 export default function ToolsDashboardPage() {
+  const { t } = useLanguage();
   const [overview, setOverview] = useState<BuildOpsOverview | null>(null);
   const [milestones, setMilestones] = useState<BuildOpsMilestone[]>([]);
   const [loading, setLoading] = useState(true);

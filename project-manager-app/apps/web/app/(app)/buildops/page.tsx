@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../lib/language-context";
 import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight, Briefcase, CheckSquare, ClipboardList, FileText, FolderKanban, Plus, Radar } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
@@ -17,6 +18,7 @@ const fallbackCards = {
 };
 
 export default function BuildOpsPage() {
+  const { t } = useLanguage();
   const [overview, setOverview] = useState<BuildOpsOverview>(fallbackCards);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

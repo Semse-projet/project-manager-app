@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Briefcase, Search, DollarSign } from "lucide-react";
@@ -37,6 +38,7 @@ const TABS = ["Todos", "Activos", "Completados"] as const;
 type Tab = typeof TABS[number];
 
 export default function WorkerJobsPage() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const [jobs, setJobs]       = useState<JobRecordView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function WorkerJobsPage() {
           <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Mis trabajos</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.myJobs")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Gestiona tus proyectos activos y revisa el historial</p>
         </div>
         <NotificationBanner audience="worker" />

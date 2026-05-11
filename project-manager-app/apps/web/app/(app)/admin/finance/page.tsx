@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import {
   AlertTriangle, CheckCircle, Clock, DollarSign,
   FileText, Receipt, RefreshCw, TrendingDown,
@@ -63,6 +64,7 @@ function smBtn(bg: string, color: string): React.CSSProperties {
 }
 
 export default function AdminFinancePage() {
+  const { t } = useLanguage();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<ProjectExpense[]>([]);
   const [loading, setLoading] = useState(true);

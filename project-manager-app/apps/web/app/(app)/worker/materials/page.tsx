@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, ChevronDown, Clock, DollarSign, RefreshCw, Inbox } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
@@ -45,6 +46,7 @@ function rawToReq(m: Record<string, unknown>, jobTitleMap: Record<string, string
 }
 
 export default function WorkerMaterialsPage() {
+  const { t } = useLanguage();
   const [requests, setRequests] = useState<MaterialRequest[]>([]);
   const [loading, setLoading]   = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -116,7 +118,7 @@ export default function WorkerMaterialsPage() {
           <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Materiales</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.materials")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Solicita y rastrea materiales para tus trabajos activos</p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { AlertCircle, AlertTriangle, CheckCircle, Clock, DollarSign, FileText, Plus, Receipt, RefreshCw, Scan, TrendingUp, X } from "lucide-react";
 import { DownloadPdfButton } from "../../../../components/finance/download-pdf-button";
@@ -72,6 +73,7 @@ function fmt(n: number, currency = "USD") {
 }
 
 export default function FinancePage() {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<"invoices" | "expenses">("invoices");
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [expenses, setExpenses] = useState<ProjectExpense[]>([]);

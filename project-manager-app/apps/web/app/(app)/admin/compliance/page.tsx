@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { Shield, AlertTriangle, CheckCircle, Clock, ExternalLink, RefreshCw } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
@@ -154,6 +155,7 @@ async function buildChecks(): Promise<ComplianceItem[]> {
 }
 
 export default function AdminCompliancePage() {
+  const { t } = useLanguage();
   const [items, setItems]   = useState<ComplianceItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -188,7 +190,7 @@ export default function AdminCompliancePage() {
           <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Compliance</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.compliance")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Estado regulatorio y legal del ecosistema SEMSE</p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>

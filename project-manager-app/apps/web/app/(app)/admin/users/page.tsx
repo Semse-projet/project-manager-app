@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Inbox, Scale } from "lucide-react";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -76,6 +77,7 @@ function normalizeUserStatus(status: string): UserStatus {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useLanguage();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -213,7 +215,7 @@ export default function AdminUsersPage() {
           <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Usuarios</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.users")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Gestión de clientes y profesionales del marketplace</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "24px" }}>

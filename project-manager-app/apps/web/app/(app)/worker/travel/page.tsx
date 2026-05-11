@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Calendar, DollarSign, Plus, RefreshCw, Inbox, PlaneTakeoff, ChevronRight } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
@@ -101,6 +102,7 @@ function rawToRow(
 }
 
 export default function WorkerTravelPage() {
+  const { t } = useLanguage();
   const [travels, setTravels]     = useState<TravelRow[]>([]);
   const [loading, setLoading]     = useState(true);
   const [filter, setFilter]       = useState<"all" | "active" | "pending" | "closed">("all");
