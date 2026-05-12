@@ -9,6 +9,14 @@ export type BuildOpsProjectStatus =
   | "dispute"
   | "closed";
 
+export type BuildOpsPlanApprovalStatus =
+  | "pending"
+  | "approved"
+  | "changes_requested"
+  | "rejected";
+
+export type BuildOpsPlanApprovalSource = "client" | "admin_override";
+
 export type BuildOpsProject = {
   id: string;
   tenantId: string;
@@ -31,8 +39,24 @@ export type BuildOpsProject = {
   sourceToolInput: Record<string, unknown> | null;
   sourceToolResult: Record<string, unknown> | null;
   completion: number;
+  clientPlanApprovalStatus: BuildOpsPlanApprovalStatus;
+  clientPlanApprovedAt: string | null;
+  clientPlanApprovedById: string | null;
+  clientPlanApprovalSource: BuildOpsPlanApprovalSource | null;
+  clientPlanReviewedAt: string | null;
+  clientPlanReviewComment: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type PlanApprovalResult = {
+  id: string;
+  clientPlanApprovalStatus: BuildOpsPlanApprovalStatus;
+  clientPlanApprovedAt: string | null;
+  clientPlanApprovedById: string | null;
+  clientPlanApprovalSource: BuildOpsPlanApprovalSource | null;
+  clientPlanReviewedAt: string | null;
+  clientPlanReviewComment: string | null;
 };
 
 export type BuildOpsOverview = {
@@ -185,4 +209,48 @@ export async function createBuildOpsTask(input: {
     body: JSON.stringify(input),
   });
   return parseBuildOpsResponse<BuildOpsTask>(response);
+}
+
+async function planApprovalAction(
+  action: "approve" | "request-changes" | "reject" | "unapprove",
+  projectId: string,
+  body: Record<string, unknown>,
+): Promise<PlanApprovalResult> {
+  const response = await fetch(
+    `/api/semse/buildops/plans/${encodeURIComponent(projectId)}/${action}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  return parseBuildOpsResponse<PlanApprovalResult>(response);
+}
+
+export async function approveClientPlan(
+  projectId: string,
+  opts?: { reason?: string; source?: BuildOpsPlanApprovalSource },
+): Promise<PlanApprovalResult> {
+  return planApprovalAction("approve", projectId, { reason: opts?.reason ?? null, source: opts?.source ?? "client" });
+}
+
+export async function requestPlanChanges(
+  projectId: string,
+  comment: string,
+): Promise<PlanApprovalResult> {
+  return planApprovalAction("request-changes", projectId, { comment });
+}
+
+export async function rejectClientPlan(
+  projectId: string,
+  reason: string,
+): Promise<PlanApprovalResult> {
+  return planApprovalAction("reject", projectId, { reason });
+}
+
+export async function unapproveClientPlan(
+  projectId: string,
+  reason: string,
+): Promise<PlanApprovalResult> {
+  return planApprovalAction("unapprove", projectId, { reason });
 }

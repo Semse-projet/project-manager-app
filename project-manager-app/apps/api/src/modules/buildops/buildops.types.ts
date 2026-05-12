@@ -30,6 +30,7 @@ export type BuildOpsProjectDto = {
   id: string;
   tenantId: string;
   orgId: string;
+  jobId: string | null;
   createdBy: string;
   title: string;
   description: string | null;
@@ -47,6 +48,14 @@ export type BuildOpsProjectDto = {
   sourceTool: string | null;
   sourceToolInput: Record<string, unknown> | null;
   sourceToolResult: Record<string, unknown> | null;
+  clientPlanApprovalStatus: "pending" | "approved" | "changes_requested" | "rejected";
+  clientPlanApprovedAt: string | null;
+  clientPlanApprovedById: string | null;
+  clientPlanApprovalSource: "client" | "admin_override" | null;
+  clientPlanReviewedAt: string | null;
+  clientPlanReviewComment: string | null;
+  legacyPromotionStatus: string;
+  legacyPromotedAt: string | null;
   completion: number;
   createdAt: string;
   updatedAt: string;

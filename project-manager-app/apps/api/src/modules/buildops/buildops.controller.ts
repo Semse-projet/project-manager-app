@@ -4,6 +4,8 @@ import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import type { BuildOpsPlanApprovalSource } from "./buildops-plan-approval.types.js";
+import { BuildOpsPlanApprovalService } from "./buildops-plan-approval.service.js";
 import { BuildOpsService } from "./buildops.service.js";
 
 function ctx(req: FastifyRequest) {
@@ -25,10 +27,14 @@ const PROJECT_STATUSES = new Set([
 const RISK_LEVELS = new Set(["low", "medium", "high", "critical"]);
 const TASK_STATUSES = new Set(["todo", "in_progress", "blocked", "done", "canceled"]);
 const TASK_PRIORITIES = new Set(["low", "medium", "high", "urgent"]);
+const PLAN_APPROVAL_SOURCES = new Set(["client", "admin_override"]);
 
 @Controller("v1/buildops")
 export class BuildOpsController {
-  constructor(private readonly buildOpsService: BuildOpsService) {}
+  constructor(
+    private readonly buildOpsService: BuildOpsService,
+    private readonly buildOpsPlanApprovalService: BuildOpsPlanApprovalService,
+  ) {}
 
   @Get("overview")
   @RequirePermissions("projects:read")
@@ -160,6 +166,104 @@ export class BuildOpsController {
       dueDate: typeof body.dueDate === "string" ? body.dueDate : null,
       sourceTool: typeof body.sourceTool === "string" ? body.sourceTool.trim() : null,
       evidenceRequired: body.evidenceRequired && typeof body.evidenceRequired === "object" ? body.evidenceRequired as Record<string, unknown> : null,
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/recover-stale-promotions")
+  @RequirePermissions("ops:dashboard:write")
+  async recoverStalePromotions(@Req() req: FastifyRequest, @Body() body: Record<string, unknown>) {
+    const c = ctx(req);
+    const olderThanMinutes = typeof body.olderThanMinutes === "number" ? body.olderThanMinutes : undefined;
+    const data = await this.buildOpsService.recoverStalePromotions({
+      tenantId: c.tenantId,
+      olderThanMinutes,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/:buildOpsProjectId/approve")
+  @RequirePermissions("projects:status:update")
+  async approvePlan(
+    @Req() req: FastifyRequest,
+    @Param("buildOpsProjectId") buildOpsProjectId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const c = ctx(req);
+    if (typeof body.source !== "string" || !PLAN_APPROVAL_SOURCES.has(body.source)) {
+      throw new BadRequestException("Invalid approval source");
+    }
+    const source = body.source as BuildOpsPlanApprovalSource;
+
+    const data = await this.buildOpsPlanApprovalService.approveClientPlan({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      roles: c.roles,
+      buildOpsProjectId,
+      source,
+      reason: typeof body.reason === "string" ? body.reason : null,
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/:buildOpsProjectId/request-changes")
+  @RequirePermissions("projects:status:update")
+  async requestPlanChanges(
+    @Req() req: FastifyRequest,
+    @Param("buildOpsProjectId") buildOpsProjectId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const c = ctx(req);
+    const data = await this.buildOpsPlanApprovalService.requestChanges({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      roles: c.roles,
+      buildOpsProjectId,
+      comment: typeof body.comment === "string" ? body.comment : "",
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/:buildOpsProjectId/reject")
+  @RequirePermissions("projects:status:update")
+  async rejectPlan(
+    @Req() req: FastifyRequest,
+    @Param("buildOpsProjectId") buildOpsProjectId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const c = ctx(req);
+    const data = await this.buildOpsPlanApprovalService.rejectClientPlan({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      roles: c.roles,
+      buildOpsProjectId,
+      comment: typeof body.comment === "string" ? body.comment : "",
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/:buildOpsProjectId/unapprove")
+  @RequirePermissions("projects:status:update")
+  async unapprovePlan(
+    @Req() req: FastifyRequest,
+    @Param("buildOpsProjectId") buildOpsProjectId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const c = ctx(req);
+    const data = await this.buildOpsPlanApprovalService.unapproveClientPlan({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      roles: c.roles,
+      buildOpsProjectId,
+      reason: typeof body.reason === "string" ? body.reason : "",
     });
 
     return ok(resolveRequestId(req.headers ?? {}), data);
