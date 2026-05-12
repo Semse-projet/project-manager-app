@@ -326,6 +326,7 @@ model Job {
   messages        MessageThread[]
   trackerSessions TrackerSession[]
   travelAssignments TravelAssignment[]
+  buildOpsProject BuildOpsProject?
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientOrg       Org              @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
   project         Project?
@@ -1861,11 +1862,53 @@ model ProjectDraft {
   @@index([tenantId, status])
 }
 
+model ProjectIntake {
+  id                     String   @id
+  tenantId               String
+  userId                 String?
+  sessionToken           String?
+  publishedJobId         String?
+  rawDescription         String
+  providedTitle          String?
+  normalizedTitle        String
+  selectedCategoryId     String?
+  selectedSubcategoryId  String?
+  detectedCategory       String
+  detectedSubcategory    String?
+  modality               String?
+  city                   String?
+  urgency                String?
+  detectedLanguage       String   @default("es")
+  categoryConfidence     Float    @default(0)
+  accuracyScore          Int      @default(0)
+  accuracyLevel          String   @default("low")
+  missingFields          String[] @default([])
+  recommendedFields      String[] @default([])
+  answersJson            Json?
+  uploadedImagesJson     Json?
+  estimatePreferenceJson Json?
+  projectScopeJson       Json?
+  generatedEstimateJson  Json?
+  generatedMilestonesJson Json?
+  activeWarningsJson     Json?
+  status                 String   @default("draft")
+  claimedAt              DateTime?
+  publishedAt            DateTime?
+  expiresAt              DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([tenantId, sessionToken])
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+}
+
 /// BuildOps project shell persisted from estimates, tool results and draft work.
 model BuildOpsProject {
   id               String   @id @default(cuid())
   tenantId         String
   orgId            String
+  jobId            String?  @unique
   createdBy        String
   title            String
   description      String?
@@ -1883,10 +1926,23 @@ model BuildOpsProject {
   sourceTool       String?
   sourceToolInput  Json?
   sourceToolResult Json?
+  clientPlanApprovalStatus   String   @default("pending")
+  clientPlanApprovedAt       DateTime?
+  clientPlanApprovedById     String?
+  clientPlanApprovalSource   String?
+  clientPlanApprovalReason   String?
+  clientPlanReviewedAt       DateTime?
+  clientPlanReviewComment    String?
+  clientPlanUnapprovedAt     DateTime?
+  clientPlanUnapprovedById   String?
+  clientPlanUnapprovalReason String?
+  legacyPromotionStatus      String   @default("pending")
+  legacyPromotedAt           DateTime?
   completion       Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
+  job              Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   tasks            BuildOpsTask[]
@@ -1894,6 +1950,9 @@ model BuildOpsProject {
   @@index([tenantId, status])
   @@index([tenantId, trade])
   @@index([tenantId, createdBy])
+  @@index([tenantId, jobId])
+  @@index([tenantId, clientPlanApprovalStatus])
+  @@index([tenantId, legacyPromotionStatus])
 }
 
 /// Task or action item tracked inside BuildOps and optionally linked to a project.
@@ -1902,6 +1961,7 @@ model BuildOpsTask {
   tenantId        String
   orgId           String
   projectId       String?
+  templateKey     String?
   createdBy       String
   title           String
   description     String?
@@ -1924,6 +1984,8 @@ model BuildOpsTask {
   @@index([tenantId, dueDate])
   @@index([tenantId, projectId])
   @@index([tenantId, priority])
+  @@index([tenantId, templateKey])
+  @@unique([projectId, templateKey])
 }
 
 /// Conversation session for the assistant flow.

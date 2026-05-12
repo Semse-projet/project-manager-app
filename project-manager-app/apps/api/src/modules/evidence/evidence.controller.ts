@@ -11,6 +11,7 @@ import { toVisibleEvidence } from "../../common/visible-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { buildTenantStorageKey } from "../../infrastructure/storage/storage-key.js";
 import { EvidenceService } from "./evidence.service.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -55,6 +56,7 @@ export class EvidenceController {
     : path.join("/tmp", "semse-multipart-sessions");
 
   private buildUploadPlan(input: {
+    tenantId: string;
     domain: "evidence" | "contract" | "dispute" | "travel";
     filename: string;
     contentType: string;
@@ -93,8 +95,12 @@ export class EvidenceController {
           : "Carga directa recomendada para tickets, facturas y recibos de viaje."
     };
 
-    const ext = path.extname(input.filename) || "";
-    const key = `${input.domain ?? "evidence"}/${Date.now()}-${randomUUID()}${ext}`;
+    const key = buildTenantStorageKey({
+      tenantId: input.tenantId,
+      domain: input.domain ?? "evidence",
+      filename: input.filename,
+      nonce: `${Date.now()}-${randomUUID()}`,
+    });
     const apiBase = (process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000").replace(/\/+$/, "");
 
     return {
@@ -150,6 +156,7 @@ export class EvidenceController {
   }
 
   private createMultipartSession(input: {
+    tenantId: string;
     domain: "evidence" | "contract" | "dispute" | "travel";
     filename: string;
     contentType: string;
@@ -213,9 +220,11 @@ export class EvidenceController {
     }
 
     const requestId = resolveRequestId(req.headers ?? {});
+    const actor = resolveRequestContext(req);
     return ok(
       requestId,
       this.buildUploadPlan({
+        tenantId: actor.tenantId,
         domain: "evidence",
         filename: parsed.data.filename,
         contentType: parsed.data.contentType,
@@ -234,7 +243,8 @@ export class EvidenceController {
     }
 
     const requestId = resolveRequestId(req.headers ?? {});
-    return ok(requestId, this.buildUploadPlan(parsed.data));
+    const actor = resolveRequestContext(req);
+    return ok(requestId, this.buildUploadPlan({ ...parsed.data, tenantId: actor.tenantId }));
   }
 
   @Post("v1/uploads/multipart-session")
@@ -246,7 +256,8 @@ export class EvidenceController {
     }
 
     const requestId = resolveRequestId(req.headers ?? {});
-    const manifest = this.createMultipartSession(parsed.data, req.headers ?? {});
+    const actor = resolveRequestContext(req);
+    const manifest = this.createMultipartSession({ ...parsed.data, tenantId: actor.tenantId }, req.headers ?? {});
     return this.saveMultipartManifest(manifest).then(() => ok(requestId, this.toMultipartResponse(manifest)));
   }
 

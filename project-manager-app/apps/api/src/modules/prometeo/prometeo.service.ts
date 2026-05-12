@@ -150,8 +150,8 @@ export class PrometeoService {
     return this.repo.listDocuments({ tenantId, projectId });
   }
 
-  async deleteDocument(id: string) {
-    return this.repo.deleteDocument(id);
+  async deleteDocument(input: { tenantId: string; id: string }) {
+    return this.repo.deleteDocument(input);
   }
 
   // ── Assets ──────────────────────────────────────────────────────────────────
@@ -164,8 +164,8 @@ export class PrometeoService {
     return this.repo.listAssets(input);
   }
 
-  async updateAssetStatus(id: string, status: string) {
-    return this.repo.updateAssetStatus(id, status);
+  async updateAssetStatus(input: { tenantId: string; id: string; status: string }) {
+    return this.repo.updateAssetStatus(input);
   }
 
   // ── Work Orders ─────────────────────────────────────────────────────────────
@@ -178,7 +178,7 @@ export class PrometeoService {
     return this.repo.listWorkOrders(input);
   }
 
-  async updateWorkOrderStatus(id: string, status: string) {
-    return this.repo.updateWorkOrderStatus(id, status);
+  async updateWorkOrderStatus(input: { tenantId: string; id: string; status: string }) {
+    return this.repo.updateWorkOrderStatus(input);
   }
 }

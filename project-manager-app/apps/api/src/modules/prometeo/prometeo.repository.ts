@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { EmbeddingVector } from "./embedding.service.js";
 
@@ -68,8 +68,16 @@ export class PrometeoRepository {
     return this.prisma.prometeoDocument.findUnique({ where: { id } }) as Promise<PrometeoDocumentRecord | null>;
   }
 
-  async deleteDocument(id: string): Promise<void> {
-    await this.prisma.prometeoDocument.delete({ where: { id } });
+  async deleteDocument(input: { tenantId: string; id: string }): Promise<void> {
+    const result = await this.prisma.prometeoDocument.deleteMany({
+      where: {
+        id: input.id,
+        tenantId: input.tenantId,
+      },
+    });
+    if (result.count !== 1) {
+      throw new NotFoundException(`Prometeo document '${input.id}' not found`);
+    }
   }
 
   async loadChunksForSearch(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoChunkSearchRow[]> {
@@ -104,8 +112,18 @@ export class PrometeoRepository {
     });
   }
 
-  async updateAssetStatus(id: string, status: string) {
-    return this.prisma.prometeoAsset.update({ where: { id }, data: { status, updatedAt: new Date() } });
+  async updateAssetStatus(input: { tenantId: string; id: string; status: string }) {
+    const result = await this.prisma.prometeoAsset.updateMany({
+      where: {
+        id: input.id,
+        tenantId: input.tenantId,
+      },
+      data: { status: input.status, updatedAt: new Date() },
+    });
+    if (result.count !== 1) {
+      throw new NotFoundException(`Prometeo asset '${input.id}' not found`);
+    }
+    return { id: input.id, status: input.status };
   }
 
   async createWorkOrder(input: { tenantId: string; orgId: string; projectId?: string; jobId?: string; title: string; description?: string; priority?: string; assignedToId?: string; scheduledAt?: Date; dueAt?: Date }) {
@@ -121,7 +139,21 @@ export class PrometeoRepository {
     });
   }
 
-  async updateWorkOrderStatus(id: string, status: string) {
-    return this.prisma.workOrder.update({ where: { id }, data: { status, ...(status === "closed" ? { closedAt: new Date() } : {}), updatedAt: new Date() } });
+  async updateWorkOrderStatus(input: { tenantId: string; id: string; status: string }) {
+    const result = await this.prisma.workOrder.updateMany({
+      where: {
+        id: input.id,
+        tenantId: input.tenantId,
+      },
+      data: {
+        status: input.status,
+        ...(input.status === "closed" ? { closedAt: new Date() } : {}),
+        updatedAt: new Date(),
+      },
+    });
+    if (result.count !== 1) {
+      throw new NotFoundException(`Prometeo work order '${input.id}' not found`);
+    }
+    return { id: input.id, status: input.status };
   }
 }

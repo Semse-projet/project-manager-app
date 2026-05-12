@@ -42,8 +42,9 @@ export class PrometeoController {
   @Delete("documents/:id")
   @RequirePermissions("agents:run:create")
   async deleteDocument(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    await this.svc.deleteDocument(id);
+    await this.svc.deleteDocument({ tenantId: actor.tenantId, id });
     return ok(rid, { deleted: true });
   }
 
@@ -107,8 +108,9 @@ export class PrometeoController {
   @Patch("assets/:id/status")
   @RequirePermissions("agents:run:create")
   async updateAssetStatus(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string, @Body() body: { status: string }) {
+    const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.updateAssetStatus(id, body.status));
+    return ok(rid, await this.svc.updateAssetStatus({ tenantId: actor.tenantId, id, status: body.status }));
   }
 
   // ── Work Orders ─────────────────────────────────────────────────────────────
@@ -144,7 +146,8 @@ export class PrometeoController {
   @Patch("work-orders/:id/status")
   @RequirePermissions("agents:run:create")
   async updateWorkOrderStatus(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string, @Body() body: { status: string }) {
+    const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.updateWorkOrderStatus(id, body.status));
+    return ok(rid, await this.svc.updateWorkOrderStatus({ tenantId: actor.tenantId, id, status: body.status }));
   }
 }

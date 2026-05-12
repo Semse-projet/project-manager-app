@@ -1,6 +1,11 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import {
+  isLegacyDomainStorageKey,
+  isTenantScopedStorageKey,
+  normalizeStorageKey,
+} from "../../infrastructure/storage/storage-key.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
 import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor, type EvidenceOwnership } from "./evidence.policy.js";
 
@@ -52,6 +57,7 @@ export class EvidenceRepository {
     await this.actorContextService.ensureActorContext(input);
     const scope = await this.resolveScope(input);
     assertEvidenceWritable(this.toActor(input), scope.ownership);
+    const bucketKey = normalizeEvidenceBucketKey(input.key, input.tenantId);
 
     const evidence = await this.prisma.evidence.create({
       data: {
@@ -59,7 +65,7 @@ export class EvidenceRepository {
         milestoneId: scope.milestoneId,
         uploadedById: input.userId,
         kind: input.kind,
-        bucketKey: input.key,
+        bucketKey,
         metadataJson: {
           jobId: scope.jobId
         }
@@ -291,4 +297,21 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
   }
 
   return undefined;
+}
+
+function normalizeEvidenceBucketKey(key: string, tenantId: string): string {
+  try {
+    const normalized = normalizeStorageKey(key);
+    if (isTenantScopedStorageKey({ key: normalized, tenantId, domain: "evidence" })) {
+      return normalized;
+    }
+
+    if (process.env.NODE_ENV !== "production" && isLegacyDomainStorageKey(normalized, "evidence")) {
+      return normalized;
+    }
+  } catch {
+    // Normalize all malformed-key failures to a stable 400.
+  }
+
+  throw new BadRequestException("Evidence key must be a tenant-scoped storage key");
 }

@@ -51,6 +51,8 @@ import { ContractorModule } from "./modules/contractor/contractor.module.js";
 import { AssistantModule } from "./modules/assistant/assistant.module.js";
 import { ToolsModule } from "./modules/tools/tools.module.js";
 import { BuildOpsModule } from "./modules/buildops/buildops.module.js";
+import { SmartIntakeModule } from "./modules/smart-intake/smart-intake.module.js";
+import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge/intake-operations-bridge.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -115,6 +117,8 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     AssistantModule,
     ToolsModule,
     BuildOpsModule,
+    SmartIntakeModule,
+    IntakeOperationsBridgeModule,
   ],
   controllers: [HealthController],
   providers: [

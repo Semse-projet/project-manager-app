@@ -24,6 +24,7 @@ type SearchParamsLike = {
 
 export type JobIntakePrefill = {
   source: string | null;
+  intakeId: string;
   categoryId: string;
   subcategoryId: string;
   title: string;
@@ -113,6 +114,7 @@ export function parseJobIntakePrefill(params: SearchParamsLike | null | undefine
 
   return {
     source: readText(params, "source") || null,
+    intakeId: readText(params, "intakeId") || readText(params, "intake"),
     categoryId: readText(params, "category"),
     subcategoryId: readText(params, "subcategory"),
     title: readText(params, "title"),
@@ -148,6 +150,7 @@ export function buildJobIntakeHref(prefill: Partial<JobIntakePrefill>): string {
   };
 
   setIf("source", prefill.source ?? "landing");
+  setIf("intakeId", prefill.intakeId);
   setIf("category", prefill.categoryId);
   setIf("subcategory", prefill.subcategoryId);
   setIf("title", prefill.title);

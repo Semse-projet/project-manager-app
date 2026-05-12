@@ -6,8 +6,12 @@ import {
   defaultDashboardForRole,
   type SessionPayload,
 } from "@/lib/auth";
+import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 
 const TTL_SECONDS = 8 * 60 * 60;
+const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_RATE_LIMIT_MAX = 5;
+const GENERIC_LOGIN_ERROR = "No se pudo iniciar sesión con esas credenciales";
 const DEMO_LOGIN_ENABLED =
   process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
 
@@ -48,11 +52,58 @@ type ApiLoginData = {
 
 type ApiMeData = Omit<SessionPayload, "exp">;
 
-function resolveSafeRedirectPath(input: unknown, fallback: string): string {
-  if (typeof input !== "string") return fallback;
-  const value = input.trim();
-  if (!value.startsWith("/") || value.startsWith("//")) return fallback;
-  return value;
+type LoginRateLimitBucket = {
+  count: number;
+  resetAt: number;
+};
+
+const loginRateLimitBuckets = new Map<string, LoginRateLimitBucket>();
+
+function getClientIp(req: NextRequest): string {
+  const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwardedFor || req.headers.get("x-real-ip")?.trim() || "unknown";
+}
+
+function consumeLoginAttempt(req: NextRequest, email: string): { limited: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  for (const [key, bucket] of loginRateLimitBuckets) {
+    if (bucket.resetAt <= now) {
+      loginRateLimitBuckets.delete(key);
+    }
+  }
+
+  const keys = [
+    `ip:${getClientIp(req)}`,
+    `email:${email.toLowerCase().trim()}`,
+  ];
+
+  let retryAfterSeconds = 0;
+  for (const key of keys) {
+    const bucket = loginRateLimitBuckets.get(key);
+    if (bucket && bucket.count >= LOGIN_RATE_LIMIT_MAX && bucket.resetAt > now) {
+      retryAfterSeconds = Math.max(retryAfterSeconds, Math.ceil((bucket.resetAt - now) / 1000));
+    }
+  }
+
+  if (retryAfterSeconds > 0) {
+    return { limited: true, retryAfterSeconds };
+  }
+
+  for (const key of keys) {
+    const bucket = loginRateLimitBuckets.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      loginRateLimitBuckets.set(key, { count: 1, resetAt: now + LOGIN_RATE_LIMIT_WINDOW_MS });
+    } else {
+      bucket.count += 1;
+    }
+  }
+
+  return { limited: false };
+}
+
+function clearLoginAttempts(req: NextRequest, email: string): void {
+  loginRateLimitBuckets.delete(`ip:${getClientIp(req)}`);
+  loginRateLimitBuckets.delete(`email:${email.toLowerCase().trim()}`);
 }
 
 async function fetchApiEnvelope<T>(url: string, init?: RequestInit): Promise<T> {
@@ -126,6 +177,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "email and password are required" }, { status: 400 });
   }
 
+  const rateLimit = consumeLoginAttempt(req, email);
+  if (rateLimit.limited) {
+    return NextResponse.json(
+      { error: "Demasiados intentos. Intenta de nuevo más tarde." },
+      {
+        status: 429,
+        headers: {
+          "retry-after": String(rateLimit.retryAfterSeconds ?? Math.ceil(LOGIN_RATE_LIMIT_WINDOW_MS / 1000)),
+          "cache-control": "no-store",
+        },
+      },
+    );
+  }
+
   try {
     const identity = await resolveSessionPayload({ email, password });
     const now = Math.floor(Date.now() / 1000);
@@ -135,7 +200,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const redirectTo = resolveSafeRedirectPath(body.redirectTo, defaultDashboardForRole(role));
     const isHttps = req.nextUrl.protocol === "https:";
 
-    const res = NextResponse.json({ ok: true, redirectTo });
+    clearLoginAttempts(req, email);
+    const res = NextResponse.json({ ok: true, redirectTo }, { headers: { "cache-control": "no-store" } });
     res.cookies.set({
       name: SESSION_COOKIE,
       value: await encodeSession(payload),
@@ -156,9 +222,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     return res;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "No se pudo iniciar sesión";
-    const status = message === "Credenciales incorrectas" ? 401 : 503;
-    return NextResponse.json({ error: message }, { status });
+  } catch {
+    return NextResponse.json(
+      { error: GENERIC_LOGIN_ERROR },
+      { status: 401, headers: { "cache-control": "no-store" } },
+    );
   }
 }
