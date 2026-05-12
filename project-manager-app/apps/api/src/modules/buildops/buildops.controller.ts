@@ -4,6 +4,7 @@ import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { BuildOpsLegacyPromotionService } from "./buildops-legacy-promotion.service.js";
 import type { BuildOpsPlanApprovalSource } from "./buildops-plan-approval.types.js";
 import { BuildOpsPlanApprovalService } from "./buildops-plan-approval.service.js";
 import { BuildOpsService } from "./buildops.service.js";
@@ -34,6 +35,7 @@ export class BuildOpsController {
   constructor(
     private readonly buildOpsService: BuildOpsService,
     private readonly buildOpsPlanApprovalService: BuildOpsPlanApprovalService,
+    private readonly buildOpsLegacyPromotionService: BuildOpsLegacyPromotionService,
   ) {}
 
   @Get("overview")
@@ -264,6 +266,24 @@ export class BuildOpsController {
       roles: c.roles,
       buildOpsProjectId,
       reason: typeof body.reason === "string" ? body.reason : "",
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/:buildOpsProjectId/promote-legacy")
+  @RequirePermissions("projects:status:update")
+  async promoteLegacy(
+    @Req() req: FastifyRequest,
+    @Param("buildOpsProjectId") buildOpsProjectId: string,
+  ) {
+    const c = ctx(req);
+    const data = await this.buildOpsLegacyPromotionService.promoteApprovedPlanToLegacy({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      roles: c.roles,
+      buildOpsProjectId,
     });
 
     return ok(resolveRequestId(req.headers ?? {}), data);

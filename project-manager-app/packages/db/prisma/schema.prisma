@@ -412,6 +412,9 @@ model Project {
   tenantId        String
   jobId           String          @unique
   assignedProOrgId String
+  promotedFromBuildOpsProjectId String? @unique
+  promotedAt      DateTime?
+  promotedByUserId String?
   status          ProjectStatus   @default(OPEN)
   startAt         DateTime?
   dueAt           DateTime?
@@ -429,6 +432,7 @@ model Project {
   updatedAt       DateTime        @updatedAt
 
   @@index([tenantId, status])
+  @@index([tenantId, promotedFromBuildOpsProjectId])
 }
 
 model Milestone {
@@ -441,6 +445,9 @@ model Milestone {
   status        MilestoneStatus   @default(DRAFT)
   approvedById  String?
   approvedAt    DateTime?
+  promotedFromBuildOpsProjectId String?
+  promotedAt    DateTime?
+  promotedByUserId String?
   // ── Active-model fields ──────────────────────────────────────────────────
   checklistSchema      Json?       // { items: [{ id, label, required: bool, evidenceRequired: bool }] }
   requiredEvidenceTypes String[]   @default([])  // ["PHOTO","VIDEO","DOCUMENT"]
@@ -456,6 +463,8 @@ model Milestone {
 
   @@index([projectId, sequence])
   @@index([projectId, deletedAt])
+  @@index([projectId, promotedFromBuildOpsProjectId])
+  @@unique([projectId, promotedFromBuildOpsProjectId, sequence])
 }
 
 model MilestoneReview {
@@ -513,6 +522,9 @@ model Evidence {
   uploadedById String
   kind         EvidenceKind
   bucketKey    String
+  promotedFromBuildOpsProjectId String?
+  promotedAt   DateTime?
+  promotedByUserId String?
   checksum     String?
   metadataJson Json?
   capturedAt   DateTime?
@@ -528,6 +540,8 @@ model Evidence {
   createdAt    DateTime     @default(now())
 
   @@index([projectId, createdAt])
+  @@index([projectId, promotedFromBuildOpsProjectId])
+  @@unique([projectId, promotedFromBuildOpsProjectId, bucketKey])
 }
 
 model MessageThread {
@@ -1239,6 +1253,10 @@ model JobTask {
   status      String   @default("pending") // pending | in_progress | done | blocked
   assignedTo  String?  // userId
   createdBy   String
+  promotedFromBuildOpsProjectId String?
+  promotedFromBuildOpsTaskId String?
+  promotedAt  DateTime?
+  promotedByUserId String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
@@ -1248,6 +1266,8 @@ model JobTask {
   @@index([tenantId, jobId, status])
   @@index([tenantId, assignedTo, status])
   @@index([tenantId, deletedAt])
+  @@index([tenantId, promotedFromBuildOpsProjectId])
+  @@unique([jobId, promotedFromBuildOpsTaskId])
 }
 
 /// Incident reported during a job (safety, damage, delay, etc.).
