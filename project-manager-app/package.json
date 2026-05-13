@@ -25,6 +25,7 @@
     "check": "npm run test:unit && npm run prisma:generate --workspace @semse/db && npm run build:api && npm run build:web",
     "bootstrap:semse": "npm install --workspaces",
     "db:generate": "npm run prisma:generate --workspace @semse/db",
+    "db:dedup": "psql $DATABASE_URL < scripts/dedup-db.sql",
     "db:migrate": "npm run prisma:deploy --workspace @semse/db",
     "db:repair-soft-delete": "npm run prisma:repair-soft-delete --workspace @semse/db",
     "db:seed": "npm run prisma:seed --workspace @semse/db",

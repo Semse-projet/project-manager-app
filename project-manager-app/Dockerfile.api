@@ -1,5 +1,5 @@
 FROM node:20-alpine AS base
-RUN apk add --no-cache openssl python3 make g++
+RUN apk add --no-cache openssl python3 make g++ postgresql-client
 
 FROM base AS deps
 WORKDIR /app
@@ -51,8 +51,9 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/skills ./apps/api/skills
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 4000
 
-# Run migrations before starting the API
-CMD ["sh", "-c", "npm run db:migrate && (npm run db:seed || true) && node apps/api/dist/main.js"]
+# Run dedup, then migrations before starting the API
+CMD ["sh", "-c", "(npm run db:dedup || true) && npm run db:migrate && (npm run db:seed || true) && node apps/api/dist/main.js"]
