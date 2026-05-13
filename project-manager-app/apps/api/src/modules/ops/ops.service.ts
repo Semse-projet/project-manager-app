@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { OperatorContext } from "@semse/shared";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
@@ -88,7 +89,8 @@ export class OpsService {
     private readonly trustService: TrustService,
     private readonly agentQueueService: AgentQueueService,
     private readonly agentApprovalService: AgentApprovalService,
-    private readonly workspaceMemoryRepository: WorkspaceMemoryRepository
+    private readonly workspaceMemoryRepository: WorkspaceMemoryRepository,
+    private readonly prisma: PrismaService
   ) {}
 
   async audit(input: {
@@ -623,5 +625,68 @@ export class OpsService {
       status: run.status.toLowerCase(),
       deadLettered: run.deadLettered
     };
+  }
+
+  async runDedup(): Promise<{ steps: Array<{ table: string; deleted: number }>; totalDeleted: number }> {
+    const steps: Array<{ table: string; deleted: number }> = [];
+
+    const runDelete = async (table: string, sql: string): Promise<number> => {
+      const result = await this.prisma.$executeRawUnsafe(sql);
+      steps.push({ table, deleted: result });
+      return result;
+    };
+
+    await runDelete("Milestone", `
+      DELETE FROM "Milestone" m1
+      USING "Milestone" m2
+      WHERE m1."projectId" = m2."projectId"
+        AND m1."sequence" = m2."sequence"
+        AND m1."deletedAt" IS NULL
+        AND m2."deletedAt" IS NULL
+        AND m1.id > m2.id
+    `);
+
+    await runDelete("BuildOpsTask", `
+      DELETE FROM "BuildOpsTask" t1
+      USING "BuildOpsTask" t2
+      WHERE t1."projectId" = t2."projectId"
+        AND t1."templateKey" = t2."templateKey"
+        AND t1.id > t2.id
+    `);
+
+    await runDelete("BuildOpsProject", `
+      DELETE FROM "BuildOpsProject" b1
+      USING "BuildOpsProject" b2
+      WHERE b1."jobId" = b2."jobId"
+        AND b1.id > b2.id
+    `);
+
+    await runDelete("Evidence", `
+      DELETE FROM "Evidence" e1
+      USING "Evidence" e2
+      WHERE e1."projectId" = e2."projectId"
+        AND e1."promotedFromBuildOpsProjectId" = e2."promotedFromBuildOpsProjectId"
+        AND e1."bucketKey" = e2."bucketKey"
+        AND e1.id > e2.id
+    `);
+
+    await runDelete("JobTask", `
+      DELETE FROM "JobTask" jt1
+      USING "JobTask" jt2
+      WHERE jt1."jobId" = jt2."jobId"
+        AND jt1."promotedFromBuildOpsTaskId" = jt2."promotedFromBuildOpsTaskId"
+        AND jt1.id > jt2.id
+    `);
+
+    await runDelete("Project", `
+      DELETE FROM "Project" p1
+      USING "Project" p2
+      WHERE p1."promotedFromBuildOpsProjectId" = p2."promotedFromBuildOpsProjectId"
+        AND p1."promotedFromBuildOpsProjectId" IS NOT NULL
+        AND p1.id > p2.id
+    `);
+
+    const totalDeleted = steps.reduce((s, r) => s + r.deleted, 0);
+    return { steps, totalDeleted };
   }
 }

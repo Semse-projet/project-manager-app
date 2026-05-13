@@ -230,4 +230,12 @@ export class OpsController {
     });
     return ok(requestId, data);
   }
+
+  @Post("db/dedup")
+  @RequirePermissions("ops:dashboard:read")
+  async runDedup(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.opsService.runDedup();
+    return ok(requestId, result);
+  }
 }
