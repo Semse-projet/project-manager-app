@@ -643,7 +643,204 @@ function buildConfidenceReasons(intake: ProjectIntakeRecord): string[] {
   return reasons;
 }
 
+// ── generic multi-category estimator ─────────────────────────────────────────
+
+function resolveFirstAnswer(answers: IntakeAnswer[], questionId: string): string | null {
+  const a = answers.find(x => x.questionId === questionId);
+  if (!a || a.isNotSure) return null;
+  return a.selectedValues[0] ?? a.customText ?? null;
+}
+
+const HIGH_COMPLEXITY_SIGNALS = new Set([
+  "full_remodel", "new_install", "replacement", "structural", "relocate", "scaffolding",
+  "post_construction", "premium", "premium_appliances", "full_exterior", "moisture_mold",
+  "structural_damage", "water_damage", "pest", "3_plus", "over_2000_sqft", "over_500_sqft",
+  "extra_large", "significant",
+]);
+
+const LOW_COMPLEXITY_SIGNALS = new Set([
+  "cosmetic", "repair_only", "patches", "good", "no_move", "fixtures_only",
+  "no_appliances", "budget", "no", "minor", "standard", "one_time", "under_500",
+  "under_500_sqft",
+]);
+
+function resolveComplexity(intake: ProjectIntakeRecord): "low" | "medium" | "high" {
+  for (const answer of intake.answers) {
+    for (const val of answer.selectedValues) {
+      if (HIGH_COMPLEXITY_SIGNALS.has(val)) return "high";
+    }
+  }
+  for (const answer of intake.answers) {
+    for (const val of answer.selectedValues) {
+      if (LOW_COMPLEXITY_SIGNALS.has(val)) return "low";
+    }
+  }
+  return "medium";
+}
+
+function resolveAreaFromAnswers(intake: ProjectIntakeRecord): { min: number; max: number } {
+  // Exterior painting area ranges
+  const extArea = resolveFirstAnswer(intake.answers, "ext_painting_area");
+  if (extArea) {
+    const extRanges: Record<string, { min: number; max: number }> = {
+      "under_500_sqft": { min: 200, max: 500 },
+      "500_1000_sqft": { min: 500, max: 1000 },
+      "1000_2000_sqft": { min: 1000, max: 2000 },
+      "over_2000_sqft": { min: 2000, max: 3500 },
+    };
+    if (extRanges[extArea]) return extRanges[extArea];
+  }
+
+  // Drywall area ranges
+  const drywallArea = resolveFirstAnswer(intake.answers, "drywall_area");
+  if (drywallArea) {
+    const drywallRanges: Record<string, { min: number; max: number }> = {
+      "patches": { min: 2, max: 10 },
+      "10_100_sqft": { min: 10, max: 100 },
+      "100_500_sqft": { min: 100, max: 500 },
+      "over_500_sqft": { min: 500, max: 900 },
+    };
+    if (drywallRanges[drywallArea]) return drywallRanges[drywallArea];
+  }
+
+  // Painting area (existing scope)
+  return resolveArea(intake.projectScope.area);
+}
+
+function resolveHoursFromSize(intake: ProjectIntakeRecord): { min: number; max: number } {
+  const size = resolveFirstAnswer(intake.answers, "cleaning_size");
+  const typeVal = resolveFirstAnswer(intake.answers, "cleaning_type");
+  const deepMultiplier = typeVal === "deep" || typeVal === "post_construction" ? 1.6 : 1.0;
+  const sizeHours: Record<string, { min: number; max: number }> = {
+    "under_500": { min: 2, max: 4 },
+    "500_1000": { min: 3, max: 6 },
+    "1000_2000": { min: 5, max: 10 },
+    "over_2000": { min: 8, max: 16 },
+  };
+  const base = (size && sizeHours[size]) ? sizeHours[size] : { min: 4, max: 8 };
+  return {
+    min: Math.round(base.min * deepMultiplier),
+    max: Math.round(base.max * deepMultiplier),
+  };
+}
+
+function resolveSizeMultiplier(intake: ProjectIntakeRecord): number {
+  switch (intake.detectedCategory) {
+    case "bathroom_remodel": {
+      const size = resolveFirstAnswer(intake.answers, "bathroom_size");
+      return size === "small" ? 0.65 : size === "large" ? 1.4 : size === "extra_large" ? 1.9 : 1.0;
+    }
+    case "kitchen_remodel": {
+      const size = resolveFirstAnswer(intake.answers, "kitchen_size");
+      return size === "small" ? 0.55 : size === "large" ? 1.4 : size === "extra_large" ? 1.85 : 1.0;
+    }
+    case "general_carpentry": {
+      const units = resolveFirstAnswer(intake.answers, "carpentry_units");
+      return units === "small" ? 0.5 : units === "large" ? 2.1 : 1.0;
+    }
+    default:
+      return 1.0;
+  }
+}
+
+function resolveMaterialMultiplier(intake: ProjectIntakeRecord): number {
+  for (const answer of intake.answers) {
+    for (const val of answer.selectedValues) {
+      if (val === "premium" || val === "premium_appliances") return 1.5;
+      if (val === "budget") return 0.65;
+    }
+  }
+  return 1.0;
+}
+
+function buildGenericAssumptions(intake: ProjectIntakeRecord, complexity: string): string[] {
+  const def = CATEGORY_REGISTRY[intake.detectedCategory];
+  const assumptions = [`Category: ${def.label.en}`, `Complexity level: ${complexity}`];
+  if (intake.uploadedImages.length === 0) {
+    assumptions.push("No photos uploaded — estimate may vary after site inspection.");
+  }
+  if (intake.answers.length < 2) {
+    assumptions.push("Limited information provided — ranges are broad.");
+  }
+  return assumptions;
+}
+
+function generateGenericEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
+  const def = CATEGORY_REGISTRY[intake.detectedCategory];
+  const complexity = resolveComplexity(intake);
+  const complexityMult = def.rates.complexityMultiplier[complexity];
+  const materialMult = resolveMaterialMultiplier(intake);
+
+  let laborMin: number;
+  let laborMax: number;
+
+  if (def.rates.unit === "sqft") {
+    const area = resolveAreaFromAnswers(intake);
+    const accessAnswer = resolveFirstAnswer(intake.answers, "ext_painting_access");
+    const accessMult = accessAnswer === "scaffolding" ? 1.4 : accessAnswer === "ladder" ? 1.15 : 1.0;
+    laborMin = Math.round(area.min * def.rates.baseMin * complexityMult * accessMult);
+    laborMax = Math.round(area.max * def.rates.baseMax * complexityMult * accessMult);
+  } else if (def.rates.unit === "hourly") {
+    const hours = resolveHoursFromSize(intake);
+    laborMin = Math.round(hours.min * def.rates.baseMin * complexityMult);
+    laborMax = Math.round(hours.max * def.rates.baseMax * complexityMult);
+  } else {
+    // fixed
+    const sizeMult = resolveSizeMultiplier(intake);
+    laborMin = Math.round(def.rates.baseMin * complexityMult * sizeMult * materialMult);
+    laborMax = Math.round(def.rates.baseMax * complexityMult * sizeMult * materialMult);
+  }
+
+  // Clamp to fallback minimum
+  if (laborMin < def.rates.fallbackMin) {
+    laborMin = def.rates.fallbackMin;
+    laborMax = Math.max(laborMax, def.rates.fallbackMax);
+  }
+
+  const contingencyRate = getContingencyRate(intake.accuracyScore);
+  const contingency = {
+    min: Math.round(laborMin * contingencyRate),
+    max: Math.round(laborMax * contingencyRate),
+    currency: "USD" as const,
+  };
+
+  return {
+    id: randomUUID(),
+    intakeId: intake.id,
+    totalRange: {
+      min: laborMin + contingency.min,
+      max: laborMax + contingency.max,
+      currency: "USD",
+    },
+    breakdown: {
+      labor: intake.estimatePreference.includeLabor
+        ? { min: laborMin, max: laborMax, currency: "USD" }
+        : undefined,
+      contingency,
+    },
+    includes: ["Labor", ...(intake.estimatePreference.includeMaterials ? ["Materials"] : [])],
+    excludes: ["Permits", "Structural engineering", "Hazardous material removal"],
+    assumptions: buildGenericAssumptions(intake, complexity),
+    confidence: intake.accuracyScore >= 60 ? "high" : intake.accuracyScore >= 35 ? "medium" : "low",
+    confidenceReasons: [
+      intake.answers.length >= 3 ? "Multiple questions answered." : "Limited answers — confidence is low.",
+      intake.uploadedImages.length > 0 ? "Photos uploaded." : "No photos uploaded.",
+    ],
+    accuracyScoreAtGeneration: intake.accuracyScore,
+    generatedAt: new Date().toISOString(),
+    generatedBy: "smart_intake_formula",
+  };
+}
+
 export function generateEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
+  // Painting categories use the detailed painting estimator
+  if (intake.detectedCategory === "interior_painting" || intake.detectedCategory === "exterior_painting") {
+    return generatePaintingEstimate(intake);
+  }
+  return generateGenericEstimate(intake);
+}
+
+function generatePaintingEstimate(intake: ProjectIntakeRecord): ProjectEstimate {
   const area = resolveArea(intake.projectScope.area);
   const conditionKey = intake.projectScope.condition?.value ?? "not_sure";
   const conditionMultiplier = PAINTING_RATES.conditionMultiplier[conditionKey] ?? PAINTING_RATES.conditionMultiplier.not_sure;
@@ -733,6 +930,13 @@ function rebalancePaymentPercentages(milestones: ProjectMilestone[]): ProjectMil
 }
 
 export function generateMilestones(intake: ProjectIntakeRecord): ProjectMilestone[] {
+  if (intake.detectedCategory === "interior_painting" || intake.detectedCategory === "exterior_painting") {
+    return generatePaintingMilestones(intake);
+  }
+  return generateGenericMilestones(intake);
+}
+
+function generatePaintingMilestones(intake: ProjectIntakeRecord): ProjectMilestone[] {
   const condition = intake.projectScope.condition?.value;
   const filteredTemplate = PAINTING_MILESTONE_TEMPLATE.filter((milestone) => {
     if (condition === "good" && (milestone.sourceOrder === 3 || milestone.sourceOrder === 4)) {
@@ -760,6 +964,26 @@ export function generateMilestones(intake: ProjectIntakeRecord): ProjectMileston
   return rebalancePaymentPercentages(preview);
 }
 
+function generateGenericMilestones(intake: ProjectIntakeRecord): ProjectMilestone[] {
+  const def = CATEGORY_REGISTRY[intake.detectedCategory];
+  const templates = def.milestones;
+
+  const preview = templates.map((tmpl, index) => ({
+    id: `milestone_${index + 1}`,
+    intakeId: intake.id,
+    order: tmpl.order,
+    title: tmpl.title,
+    description: tmpl.description,
+    estimatedDurationHours: undefined,
+    dependencies: index === 0 ? [] : [`milestone_${index}`],
+    paymentPercentage: tmpl.paymentPercentage,
+    requiresEvidence: tmpl.requiresEvidence,
+    status: "pending" as const,
+  }));
+
+  return rebalancePaymentPercentages(preview);
+}
+
 export function buildLiveSummary(intake: ProjectIntakeRecord): LiveSummary {
   const area = intake.projectScope.area?.range ?? (intake.projectScope.area?.value ? `${intake.projectScope.area.value} sqft` : undefined);
   const condition = intake.projectScope.condition?.value?.replaceAll("_", " ");
@@ -774,8 +998,10 @@ export function buildLiveSummary(intake: ProjectIntakeRecord): LiveSummary {
       : undefined;
   const duration = intake.projectScope.durationPreference?.value?.replaceAll("_", " ");
 
+  const categoryLabel = CATEGORY_REGISTRY[intake.detectedCategory]?.label.en ?? "Home Improvement";
+
   return {
-    category: "Interior painting",
+    category: categoryLabel,
     area,
     condition,
     coats: coatsValue ? `${coatsValue} coat${coatsValue > 1 ? "s" : ""}` : undefined,
