@@ -7,6 +7,7 @@ import {
   buildJobIntakeHref,
   JOB_CATEGORIES,
   JOB_URGENCY_OPTIONS,
+  SMART_INTAKE_CATEGORY_IDS,
   type JobLocationType,
 } from "../../lib/job-intake";
 import { useIntake } from "../../hooks/use-intake";
@@ -93,7 +94,7 @@ export function LandingIntake() {
   } = useIntake();
 
   const category = useMemo(() => JOB_CATEGORIES.find((item) => item.id === categoryId), [categoryId]);
-  const isSmartIntakeCategory = categoryId === "pintura" && subcategoryId === "interior";
+  const isSmartIntakeCategory = SMART_INTAKE_CATEGORY_IDS.has(categoryId);
   const legacyAnalysisKey = JSON.stringify([categoryId, subcategoryId, title.trim(), description.trim(), city.trim()]);
   const legacyAnalysisIsFresh = lastLegacyAnalysisKey === legacyAnalysisKey;
   const visibleLegacyBudget = useMemo(
@@ -286,7 +287,7 @@ export function LandingIntake() {
               Describe tu trabajo y entra al wizard real
             </h2>
             <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.6 }}>
-              La landing ahora prepara mejor el contexto antes del wizard. En MVP, el modo inteligente guiado aplica a <strong>Pintura interior</strong>.
+              Selecciona una categoría y describe el trabajo. El wizard inteligente aplica a Pintura, Drywall, Baño, Cocina, Limpieza y Carpintería.
             </p>
           </div>
 
