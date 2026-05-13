@@ -41,6 +41,68 @@ export type BridgeEvidenceRequirementSummary = {
   milestone: number | null;
 };
 
+export type IntakeOperationsBridgeRerunContext = {
+  runReason: string;
+  clientPlanReviewComment: string | null;
+  previousVersionId: string | null;
+  previousVersionNumber: number | null;
+  triggeredByUserId: string;
+};
+
+export type IntakeOperationsBridgeTaskTemplate = {
+  templateKey: string;
+  title: string;
+  description: string;
+  priority: "low" | "medium" | "high" | "urgent";
+  evidenceRequired: Record<string, unknown>;
+};
+
+export type IntakeOperationsBridgeComputationResult = {
+  jobId: string;
+  projectIntakeId: string | null;
+  projectPatch: {
+    title: string;
+    description: string;
+    trade: string;
+    projectType: string;
+    clientName: string;
+    location: string;
+    budgetEstimate: number | null;
+    status: string;
+    riskScore: number;
+    riskLevel: "low" | "medium" | "high" | "critical";
+    sourceTool: string;
+    completion: number;
+  };
+  sourceToolInput: Record<string, unknown>;
+  sourceToolResult: Record<string, unknown>;
+  taskTemplates: IntakeOperationsBridgeTaskTemplate[];
+  estimate: {
+    status: BridgeEstimateStatus;
+    scopeSummary: string;
+    missingInputs: string[];
+    tool: string | null;
+    quoteTotal: number | null;
+  };
+  matching: BridgeMatchingSummary;
+  milestones: {
+    count: number;
+    items: BridgeMilestoneSummary[];
+  };
+  evidenceRequirements: {
+    count: number;
+    items: BridgeEvidenceRequirementSummary[];
+  };
+  paymentReadiness: {
+    status: BridgePaymentReadinessStatus;
+    ready: boolean;
+    reason: string | null;
+    suggestedDeposit: number | null;
+    suggestedEscrow: number | null;
+    checks: Record<string, boolean>;
+  };
+};
+
 export type IntakeOperationsBridgeResult = {
   projectIntakeId: string | null;
   jobId: string;

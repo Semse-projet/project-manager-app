@@ -149,6 +149,7 @@ model Tenant {
   // Contractor CRM
   contractorLeads    ContractorLead[]
   buildOpsProjects   BuildOpsProject[]
+  buildOpsPlanVersions BuildOpsPlanVersion[]
   buildOpsTasks      BuildOpsTask[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
@@ -1966,6 +1967,7 @@ model BuildOpsProject {
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   tasks            BuildOpsTask[]
+  planVersions     BuildOpsPlanVersion[]
 
   @@index([tenantId, status])
   @@index([tenantId, trade])
@@ -1973,6 +1975,35 @@ model BuildOpsProject {
   @@index([tenantId, jobId])
   @@index([tenantId, clientPlanApprovalStatus])
   @@index([tenantId, legacyPromotionStatus])
+}
+
+model BuildOpsPlanVersion {
+  id                               String   @id @default(cuid())
+  tenantId                         String
+  buildOpsProjectId                String
+  versionNumber                    Int
+  sourceToolInputJson              Json?
+  sourceToolResultJson             Json?
+  inputSnapshotJson                Json?
+  clientPlanReviewCommentSnapshot  String?
+  runReason                        String
+  triggeredByUserId                String
+  triggeredAt                      DateTime @default(now())
+  completedAt                      DateTime?
+  previousVersionId                String?
+  status                           String   @default("running")
+  errorMessage                     String?
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  tenant                           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buildOpsProject                  BuildOpsProject      @relation(fields: [buildOpsProjectId], references: [id], onDelete: Cascade)
+  previousVersion                  BuildOpsPlanVersion? @relation("BuildOpsPlanVersionHistory", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions                     BuildOpsPlanVersion[] @relation("BuildOpsPlanVersionHistory")
+
+  @@unique([buildOpsProjectId, versionNumber])
+  @@index([tenantId, buildOpsProjectId, status])
+  @@index([buildOpsProjectId, previousVersionId])
 }
 
 /// Task or action item tracked inside BuildOps and optionally linked to a project.

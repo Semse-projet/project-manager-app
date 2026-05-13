@@ -26,7 +26,10 @@ import type {
   BridgeMatchingSummary,
   BridgeMilestoneSummary,
   BridgePaymentReadinessStatus,
+  IntakeOperationsBridgeComputationResult,
+  IntakeOperationsBridgeRerunContext,
   IntakeOperationsBridgeResult,
+  IntakeOperationsBridgeTaskTemplate,
 } from "./intake-operations-bridge.types.js";
 
 type StoredJob = {
@@ -98,13 +101,7 @@ type StoredBuildOpsTask = {
   templateKey: string | null;
 };
 
-type TaskTemplate = {
-  templateKey: string;
-  title: string;
-  description: string;
-  priority: "low" | "medium" | "high" | "urgent";
-  evidenceRequired: Record<string, unknown>;
-};
+type TaskTemplate = IntakeOperationsBridgeTaskTemplate;
 
 type BridgeArtifacts = {
   sourceKind: "smart_intake" | "job_only";
@@ -856,6 +853,220 @@ export class IntakeOperationsBridgeService {
         reusedMilestones,
         reusedEvidenceRequirements,
       },
+    };
+  }
+
+  async computeBridgePlan(input: {
+    jobId: string;
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    rerunContext?: IntakeOperationsBridgeRerunContext | null;
+  }): Promise<IntakeOperationsBridgeComputationResult> {
+    const job = await this.findJobOrThrow(input.tenantId, input.jobId);
+    this.assertAccess(input, job);
+
+    const intake = await this.findIntakeByJob(job.tenantId, job.id);
+    const artifacts = this.buildBridgeArtifacts(job, intake);
+    const matching = await this.buildMatchingSummary(job.tenantId, job.id);
+    const rawPaymentReadiness = await this.paymentsService.paymentReadinessByJob({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      roles: input.roles,
+      jobId: job.id,
+    });
+
+    const paymentStatus = this.derivePaymentStatus(rawPaymentReadiness.ready, artifacts.quoteSummary != null);
+    const paymentReason =
+      rawPaymentReadiness.reasons[0]
+      ?? (paymentStatus === "draft"
+        ? "Estimate and escrow draft are prepared; assignment, project link, and contract are still pending."
+        : null);
+
+    const sourceToolInput = {
+      sourceKind: artifacts.sourceKind,
+      jobId: job.id,
+      projectIntakeId: intake?.id ?? null,
+      trade: artifacts.trade,
+      tool: artifacts.toolName,
+      toolInput: artifacts.toolInput,
+      missingInputs: artifacts.missingInputs,
+      rerunContext: input.rerunContext ?? null,
+    };
+
+    const sourceToolResult = {
+      schemaVersion: SOURCE_TOOL_RESULT_SCHEMA_VERSION,
+      bridgeVersion: 1,
+      sourceKind: artifacts.sourceKind,
+      projectIntakeId: intake?.id ?? null,
+      rerunContext: input.rerunContext ?? null,
+      job: {
+        id: job.id,
+        title: job.title,
+        category: job.category,
+        status: job.status,
+        location: job.location,
+        urgency: job.urgency,
+      },
+      estimate: {
+        status: artifacts.estimateStatus,
+        scopeSummary: artifacts.scopeSummary,
+        missingInputs: artifacts.missingInputs,
+        tool: artifacts.toolName,
+        quoteSummary: artifacts.quoteSummary,
+      },
+      toolResult: artifacts.toolResult,
+      matching,
+      milestonePlan: artifacts.milestonePlan,
+      evidenceChecklist: artifacts.evidenceChecklist,
+      escrowPlan: artifacts.escrowPlan,
+      paymentReadiness: {
+        status: paymentStatus,
+        ready: rawPaymentReadiness.ready,
+        checks: rawPaymentReadiness.checks,
+        reasons: rawPaymentReadiness.reasons,
+        reservationId: rawPaymentReadiness.reservationId,
+        contractId: rawPaymentReadiness.contractId,
+      },
+      warnings: artifacts.warnings,
+      recommendations: artifacts.recommendations,
+      syncedAt: new Date().toISOString(),
+    };
+
+    const taskTemplates = buildTaskTemplates({
+      scopeSummary: artifacts.scopeSummary,
+      missingInputs: artifacts.missingInputs,
+      matching,
+      estimateStatus: artifacts.estimateStatus,
+      quoteTotal: artifacts.quoteSummary?.total ?? null,
+      milestoneCount: artifacts.milestoneItems.length,
+      evidenceCount: artifacts.evidenceItems.length,
+      paymentStatus,
+    });
+
+    return {
+      jobId: job.id,
+      projectIntakeId: intake?.id ?? null,
+      projectPatch: {
+        title: job.title,
+        description: artifacts.scopeSummary,
+        trade: artifacts.trade,
+        projectType: artifacts.projectType,
+        clientName: job.clientOrg.name,
+        location: job.location ?? intake?.city ?? "TBD",
+        budgetEstimate: artifacts.budgetEstimate,
+        status: "estimating",
+        riskScore: artifacts.riskScore,
+        riskLevel: artifacts.riskLevel,
+        sourceTool: "intake_operations_bridge",
+        completion: artifacts.estimateStatus === "ready" ? 15 : 5,
+      },
+      sourceToolInput,
+      sourceToolResult,
+      taskTemplates,
+      estimate: {
+        status: artifacts.estimateStatus,
+        scopeSummary: artifacts.scopeSummary,
+        missingInputs: artifacts.missingInputs,
+        tool: artifacts.toolName,
+        quoteTotal: artifacts.quoteSummary?.total ?? null,
+      },
+      matching,
+      milestones: {
+        count: artifacts.milestoneItems.length,
+        items: artifacts.milestoneItems,
+      },
+      evidenceRequirements: {
+        count: artifacts.evidenceItems.length,
+        items: artifacts.evidenceItems,
+      },
+      paymentReadiness: {
+        status: paymentStatus,
+        ready: rawPaymentReadiness.ready,
+        reason: paymentReason,
+        suggestedDeposit: artifacts.quoteSummary?.recommendedDeposit ?? artifacts.escrowPlan?.initialDeposit ?? null,
+        suggestedEscrow: artifacts.quoteSummary?.recommendedEscrow ?? artifacts.escrowPlan?.totalAmount ?? null,
+        checks: rawPaymentReadiness.checks,
+      },
+    };
+  }
+
+  async syncProjectedBuildOpsTasks(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    buildOpsProjectId: string;
+    taskTemplates: IntakeOperationsBridgeTaskTemplate[];
+    tx?: Prisma.TransactionClient & Pick<PrismaService, "buildOpsTask">;
+  }): Promise<{ taskIds: string[]; tasksCreated: number; tasksReused: number }> {
+    const db = input.tx ?? this.prisma;
+    const existingTasks = (await db.buildOpsTask.findMany({
+      where: {
+        tenantId: input.tenantId,
+        projectId: input.buildOpsProjectId,
+        templateKey: { not: null },
+      },
+      select: {
+        id: true,
+        projectId: true,
+        templateKey: true,
+      },
+    })) as StoredBuildOpsTask[];
+
+    const existingTaskByTemplate = new Map(
+      existingTasks
+        .filter((task): task is StoredBuildOpsTask & { templateKey: string } => typeof task.templateKey === "string")
+        .map((task) => [task.templateKey, task]),
+    );
+
+    const taskIds: string[] = [];
+    let tasksCreated = 0;
+    let tasksReused = 0;
+
+    for (const template of input.taskTemplates) {
+      const existingTask = existingTaskByTemplate.get(template.templateKey);
+      if (existingTask) {
+        const updated = await db.buildOpsTask.update({
+          where: { id: existingTask.id },
+          data: {
+            title: template.title,
+            description: template.description,
+            priority: template.priority,
+            sourceTool: "intake_operations_bridge",
+            evidenceRequired: toJson(template.evidenceRequired),
+          },
+          select: { id: true },
+        });
+        taskIds.push(updated.id);
+        tasksReused += 1;
+        continue;
+      }
+
+      const created = await db.buildOpsTask.create({
+        data: {
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          projectId: input.buildOpsProjectId,
+          templateKey: template.templateKey,
+          createdBy: input.userId,
+          title: template.title,
+          description: template.description,
+          priority: template.priority,
+          sourceTool: "intake_operations_bridge",
+          evidenceRequired: toJson(template.evidenceRequired),
+        },
+        select: { id: true },
+      });
+      taskIds.push(created.id);
+      tasksCreated += 1;
+    }
+
+    return {
+      taskIds,
+      tasksCreated,
+      tasksReused,
     };
   }
 

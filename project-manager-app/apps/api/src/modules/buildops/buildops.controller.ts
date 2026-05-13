@@ -7,6 +7,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { BuildOpsLegacyPromotionService } from "./buildops-legacy-promotion.service.js";
 import type { BuildOpsPlanApprovalSource } from "./buildops-plan-approval.types.js";
 import { BuildOpsPlanApprovalService } from "./buildops-plan-approval.service.js";
+import { BuildOpsPlanRerunService } from "./buildops-plan-rerun.service.js";
 import { BuildOpsService } from "./buildops.service.js";
 
 function ctx(req: FastifyRequest) {
@@ -36,6 +37,7 @@ export class BuildOpsController {
     private readonly buildOpsService: BuildOpsService,
     private readonly buildOpsPlanApprovalService: BuildOpsPlanApprovalService,
     private readonly buildOpsLegacyPromotionService: BuildOpsLegacyPromotionService,
+    private readonly buildOpsPlanRerunService: BuildOpsPlanRerunService,
   ) {}
 
   @Get("overview")
@@ -279,6 +281,24 @@ export class BuildOpsController {
   ) {
     const c = ctx(req);
     const data = await this.buildOpsLegacyPromotionService.promoteApprovedPlanToLegacy({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      roles: c.roles,
+      buildOpsProjectId,
+    });
+
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("plans/:buildOpsProjectId/rerun-bridge")
+  @RequirePermissions("projects:status:update")
+  async rerunBridge(
+    @Req() req: FastifyRequest,
+    @Param("buildOpsProjectId") buildOpsProjectId: string,
+  ) {
+    const c = ctx(req);
+    const data = await this.buildOpsPlanRerunService.rerunBridge({
       tenantId: c.tenantId,
       orgId: c.orgId,
       userId: c.userId,
