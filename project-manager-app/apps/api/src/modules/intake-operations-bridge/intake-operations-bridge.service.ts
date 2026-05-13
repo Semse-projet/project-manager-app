@@ -1192,9 +1192,9 @@ export class IntakeOperationsBridgeService {
         ? []
         : ["project_intake", "measurements", "photos"];
 
-    const paintingArtifacts = this.tryBuildPaintingArtifacts(job, intake, scopeSummary, missingInputs, warnings);
-    if (paintingArtifacts) {
-      return paintingArtifacts;
+    const toolArtifacts = this.tryBuildToolArtifacts(job, intake, scopeSummary, missingInputs, warnings);
+    if (toolArtifacts) {
+      return toolArtifacts;
     }
 
     const fallbackEstimate = intake
@@ -1240,73 +1240,219 @@ export class IntakeOperationsBridgeService {
     };
   }
 
-  private tryBuildPaintingArtifacts(
+  /**
+   * Dispatches to the correct trade engine based on intake.detectedCategory.
+   * Returns null if no matching engine or insufficient data.
+   */
+  private tryBuildToolArtifacts(
     job: StoredJob,
     intake: ProjectIntakeRecord | null,
     scopeSummary: string,
     missingInputs: string[],
     warnings: string[],
   ): BridgeArtifacts | null {
-    if (!intake || mapDetectedTrade({ intake, job }) !== "painting") {
+    if (!intake) return null;
+
+    const category = intake.detectedCategory;
+    const resolvedTrade = mapDetectedTrade({ intake, job });
+    const resolvedProjectType = mapProjectType({ intake, trade: resolvedTrade });
+
+    // Helper: find a specific answer value
+    const answer = (qId: string): string | null =>
+      intake.answers.find(a => a.questionId === qId && !a.isNotSure)?.selectedValues[0] ?? null;
+
+    let toolName: string;
+    let toolInput: Record<string, unknown>;
+
+    // ── Painting (interior) ────────────────────────────────────────────────
+    if (category === "interior_painting" || category === "exterior_painting") {
+      const areaSqft = resolveAreaSqft(intake);
+      if (!areaSqft || areaSqft <= 0) return null;
+
+      const wallHeightFt = 9;
+      const baseSide = Math.max(6, round2(areaSqft / (4 * wallHeightFt)));
+      const isExterior = category === "exterior_painting";
+      toolName = "painting";
+      toolInput = {
+        roomLengthFt: round2(baseSide * 1.1),
+        roomWidthFt: round2(baseSide),
+        wallHeightFt,
+        doors: areaSqft >= 320 ? 2 : 1,
+        windows: areaSqft >= 450 ? 2 : 1,
+        coats: Math.min(4, Math.max(1, intake.projectScope.paintCoats?.value ?? 2)),
+        surfaceType: isExterior ? "exterior" : mapConditionToSurfaceType(intake.projectScope.condition?.value),
+        includeCeiling: false,
+        includePrimer: ["extensive_prep", "peeling_paint", "mold_or_moisture"].includes(
+          intake.projectScope.condition?.value ?? "",
+        ),
+        paintQuality: "standard",
+      };
+    }
+
+    // ── Drywall repair ─────────────────────────────────────────────────────
+    else if (category === "drywall_repair") {
+      const drywallAreaMap: Record<string, number> = {
+        patches: 6, "10_100_sqft": 55, "100_500_sqft": 300, "over_500_sqft": 700,
+      };
+      const areaKey = answer("drywall_area") ?? "10_100_sqft";
+      const wallArea = drywallAreaMap[areaKey] ?? 55;
+      toolName = "drywall";
+      toolInput = {
+        wallAreaSqft: wallArea,
+        ceilingAreaSqft: 0,
+        panelType: answer("drywall_condition") === "water_damage" ? "moisture-resistant" : "regular",
+        panelSize: "4x8",
+        finishLevel: answer("drywall_finish") === "full_finish" ? 4 : answer("drywall_finish") === "paint_ready" ? 3 : 1,
+        includeCeiling: false,
+        repairMode: answer("drywall_type") === "repair" || answer("drywall_type") === "finishing",
+        textureMatch: false,
+      };
+    }
+
+    // ── Bathroom remodel ───────────────────────────────────────────────────
+    else if (category === "bathroom_remodel") {
+      const scopeMap: Record<string, "cosmetic" | "tile_floor" | "tub_shower" | "full_remodel"> = {
+        cosmetic: "cosmetic", tile_floor: "tile_floor",
+        tub_shower: "tub_shower", full_remodel: "full_remodel",
+      };
+      const sizeMap: Record<string, "small" | "medium" | "large" | "extra_large"> = {
+        small: "small", medium: "medium", large: "large", extra_large: "extra_large",
+      };
+      const plumbingMap: Record<string, "no_move" | "fixtures_only" | "relocate"> = {
+        no_move: "no_move", fixtures_only: "fixtures_only", relocate: "relocate",
+      };
+      const matMap: Record<string, "budget" | "standard" | "premium"> = {
+        budget: "budget", standard: "standard", premium: "premium",
+      };
+      const scope = scopeMap[answer("bathroom_scope") ?? "full_remodel"] ?? "full_remodel";
+      toolName = "bathroom";
+      toolInput = {
+        scope,
+        bathroomSqFt: sizeMap[answer("bathroom_size") ?? "medium"] ?? "medium",
+        plumbingWork: plumbingMap[answer("bathroom_plumbing") ?? "no_move"] ?? "no_move",
+        materialQuality: matMap[answer("bathroom_materials") ?? "standard"] ?? "standard",
+        includesShower: scope !== "cosmetic",
+        includesTub: false,
+        demoRequired: scope === "full_remodel" || scope === "tile_floor",
+        clientProvidesMaterials: false,
+      };
+    }
+
+    // ── Kitchen remodel ────────────────────────────────────────────────────
+    else if (category === "kitchen_remodel") {
+      const scopeMap: Record<string, "cabinet_update" | "countertops" | "flooring" | "full_remodel"> = {
+        cabinet_update: "cabinet_update", countertops: "countertops",
+        flooring: "flooring", full_remodel: "full_remodel",
+      };
+      const sizeMap: Record<string, "small" | "medium" | "large" | "extra_large"> = {
+        small: "small", medium: "medium", large: "large", extra_large: "extra_large",
+      };
+      const applianceMap: Record<string, "no_appliances" | "basic_appliances" | "premium_appliances"> = {
+        no_appliances: "no_appliances", basic_appliances: "basic_appliances", premium_appliances: "premium_appliances",
+      };
+      const matMap: Record<string, "budget" | "standard" | "premium"> = {
+        budget: "budget", standard: "standard", premium: "premium",
+      };
+      const plumbingMap: Record<string, "no" | "minor" | "relocate"> = {
+        no: "no", minor: "minor", relocate: "relocate",
+      };
+      toolName = "kitchen";
+      toolInput = {
+        scope: scopeMap[answer("kitchen_scope") ?? "full_remodel"] ?? "full_remodel",
+        kitchenSize: sizeMap[answer("kitchen_size") ?? "medium"] ?? "medium",
+        appliances: applianceMap[answer("kitchen_appliances") ?? "no_appliances"] ?? "no_appliances",
+        materialQuality: matMap[answer("kitchen_materials") ?? "standard"] ?? "standard",
+        plumbingElectrical: plumbingMap[answer("kitchen_plumbing") ?? "no"] ?? "no",
+        clientProvidesMaterials: false,
+      };
+    }
+
+    // ── Cleaning ───────────────────────────────────────────────────────────
+    else if (category === "cleaning") {
+      const typeMap: Record<string, "standard" | "deep" | "move_inout" | "post_construction" | "commercial"> = {
+        standard: "standard", deep: "deep", move_inout: "move_inout",
+        post_construction: "post_construction", commercial: "commercial",
+      };
+      const sizeToSqFt: Record<string, number> = {
+        under_500: 350, "500_1000": 750, "1000_2000": 1500, over_2000: 2500,
+      };
+      const freqMap: Record<string, "one_time" | "weekly" | "biweekly" | "monthly"> = {
+        one_time: "one_time", weekly: "weekly", biweekly: "biweekly", monthly: "monthly",
+      };
+      const cleaningType = typeMap[answer("cleaning_type") ?? "deep"] ?? "deep";
+      toolName = "cleaning";
+      toolInput = {
+        serviceType: cleaningType,
+        squareFt: sizeToSqFt[answer("cleaning_size") ?? "1000_2000"] ?? 1500,
+        bedrooms: 2,
+        bathrooms: 2,
+        condition: cleaningType === "post_construction" ? "post_construction" : "moderate",
+        addOns: answer("cleaning_extras") === "windows" ? ["windows"] : [],
+        frequency: freqMap[answer("cleaning_frequency") ?? "one_time"] ?? "one_time",
+        suppliesIncluded: true,
+      };
+    }
+
+    // ── General carpentry ──────────────────────────────────────────────────
+    else if (category === "general_carpentry") {
+      toolName = "carpentry";
+      const unitsMap: Record<string, number> = { small: 2, medium: 6, large: 12 };
+      const matMap: Record<string, "standard" | "premium"> = {
+        budget: "standard", standard: "standard", premium: "premium",
+      };
+      toolInput = {
+        linearFt: unitsMap[answer("carpentry_units") ?? "medium"] ?? 6,
+        materialType: answer("carpentry_type") ?? "doors",
+        woodSpecies: matMap[answer("carpentry_material") ?? "standard"] === "premium" ? "oak" : "poplar",
+        finishType: "painted",
+        includesInstallation: true,
+      };
+    }
+
+    // ── No matching engine ─────────────────────────────────────────────────
+    else {
       return null;
     }
 
-    const areaSqft = resolveAreaSqft(intake);
-    if (!areaSqft || areaSqft <= 0) {
+    try {
+      const toolResult = this.toolsService.calculate({
+        tool: toolName,
+        mode: "professional",
+        input: toolInput,
+      }) as SemseToolResult;
+      const quoteSummary    = this.toolsService.quote(toolResult);
+      const milestonePlan   = this.toolsService.milestones(toolResult);
+      const evidenceChecklist = this.toolsService.evidence(toolResult);
+      const escrowPlan      = this.toolsService.escrow(toolResult);
+      const milestoneItems  = toBridgeMilestones(milestonePlan);
+      const evidenceItems   = toBridgeEvidence(evidenceChecklist);
+
+      return {
+        sourceKind: "smart_intake",
+        trade: resolvedTrade,
+        projectType: resolvedProjectType,
+        scopeSummary,
+        missingInputs,
+        estimateStatus: toolResult.isValid ? "ready" : "needs_more_info",
+        toolName,
+        toolInput,
+        toolResult,
+        quoteSummary,
+        milestonePlan,
+        milestoneItems,
+        evidenceChecklist,
+        evidenceItems,
+        escrowPlan,
+        riskLevel: toolResult.risk.level,
+        riskScore: toolResult.risk.score,
+        budgetEstimate: quoteSummary.total,
+        warnings: Array.from(new Set([...warnings, ...toolResult.warnings])),
+        recommendations: toolResult.recommendations,
+      };
+    } catch {
+      // If the engine fails, fall through to fallback
       return null;
     }
-
-    const wallHeightFt = 9;
-    const baseSide = Math.max(6, round2(areaSqft / (4 * wallHeightFt)));
-    const toolInput = {
-      roomLengthFt: round2(baseSide * 1.1),
-      roomWidthFt: round2(baseSide),
-      wallHeightFt,
-      doors: areaSqft >= 320 ? 2 : 1,
-      windows: areaSqft >= 450 ? 2 : 1,
-      coats: Math.min(4, Math.max(1, intake.projectScope.paintCoats?.value ?? 2)),
-      surfaceType: mapConditionToSurfaceType(intake.projectScope.condition?.value),
-      includeCeiling: false,
-      includePrimer: ["extensive_prep", "peeling_paint", "mold_or_moisture"].includes(
-        intake.projectScope.condition?.value ?? "",
-      ),
-      paintQuality: "standard" as const,
-    };
-
-    const toolResult = this.toolsService.calculate({
-      tool: "painting",
-      mode: "professional",
-      input: toolInput,
-    }) as SemseToolResult;
-    const quoteSummary = this.toolsService.quote(toolResult);
-    const milestonePlan = this.toolsService.milestones(toolResult);
-    const evidenceChecklist = this.toolsService.evidence(toolResult);
-    const escrowPlan = this.toolsService.escrow(toolResult);
-    const milestoneItems = toBridgeMilestones(milestonePlan);
-    const evidenceItems = toBridgeEvidence(evidenceChecklist);
-
-    return {
-      sourceKind: "smart_intake",
-      trade: "painting",
-      projectType: "interior-painting",
-      scopeSummary,
-      missingInputs,
-      estimateStatus: toolResult.isValid ? "ready" : "needs_more_info",
-      toolName: "painting",
-      toolInput,
-      toolResult,
-      quoteSummary,
-      milestonePlan,
-      milestoneItems,
-      evidenceChecklist,
-      evidenceItems,
-      escrowPlan,
-      riskLevel: toolResult.risk.level,
-      riskScore: toolResult.risk.score,
-      budgetEstimate: quoteSummary.total,
-      warnings: Array.from(new Set([...warnings, ...toolResult.warnings])),
-      recommendations: toolResult.recommendations,
-    };
   }
 
   private async buildMatchingSummary(tenantId: string, jobId: string): Promise<BridgeMatchingSummary> {

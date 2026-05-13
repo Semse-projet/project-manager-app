@@ -20,7 +20,12 @@ export type TradeId =
   | "project-manager"
   | "labor"
   | "solar"
-  | "inspection";
+  | "inspection"
+  | "remodeling"
+  | "cleaning"
+  | "windows-doors"
+  | "bathroom"
+  | "kitchen";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type ToolMode = "client" | "professional" | "admin";
