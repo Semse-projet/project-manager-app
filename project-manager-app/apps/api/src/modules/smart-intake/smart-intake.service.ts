@@ -25,6 +25,7 @@ import {
   refreshDerivedState,
   updateAnswerSet,
 } from "./smart-intake.logic.js";
+import { CATEGORY_REGISTRY } from "./config/category-registry.js";
 import type {
   IntakeAnswer,
   IntakeImage,
@@ -36,6 +37,7 @@ import type {
   ProjectEstimate,
   ProjectIntakeRecord,
   ProjectMilestone,
+  SmartIntakeCategory,
 } from "./smart-intake.types.js";
 
 type StoredIntake = {
@@ -129,7 +131,7 @@ export class SmartIntakeService {
       normalizedTitle: row.normalizedTitle,
       selectedCategoryId: row.selectedCategoryId,
       selectedSubcategoryId: row.selectedSubcategoryId,
-      detectedCategory: "interior_painting",
+      detectedCategory: (row.detectedCategory as SmartIntakeCategory) ?? "interior_painting",
       detectedSubcategory: row.detectedSubcategory,
       modality: (row.modality as ProjectIntakeRecord["modality"]) ?? null,
       city: row.city,
@@ -286,14 +288,6 @@ export class SmartIntakeService {
   async analyze(input: AnalyzeInput) {
     if (input.rawDescription.trim().length < 10) {
       throw new BadRequestException("rawDescription must be at least 10 characters");
-    }
-
-    if (!isPaintingCategory({
-      selectedCategoryId: input.category ?? null,
-      selectedSubcategoryId: input.subcategory ?? null,
-      rawDescription: input.rawDescription,
-    })) {
-      throw new UnprocessableEntityException("Smart intake MVP currently supports interior painting only");
     }
 
     let intake: ProjectIntakeRecord;
@@ -552,8 +546,9 @@ export class SmartIntakeService {
     }
 
     const estimate = intake.generatedEstimate ?? (intake.accuracyScore >= 36 && input.confirmEstimate ? generateEstimate(intake) : null);
-    const title = input.title?.trim() || intake.normalizedTitle || intake.providedTitle || "Interior painting request";
-    const category = input.category?.trim() || (intake.selectedSubcategoryId === "interior" ? "Pintura interior" : "Pintura");
+    const categoryDef = CATEGORY_REGISTRY[intake.detectedCategory as keyof typeof CATEGORY_REGISTRY];
+    const title = input.title?.trim() || intake.normalizedTitle || intake.providedTitle || categoryDef?.label.en || "Home improvement request";
+    const category = input.category?.trim() || categoryDef?.label.es || intake.normalizedTitle || "Trabajo en el hogar";
     const scope = input.description?.trim() || intake.rawDescription;
     const budgetType = input.budgetType?.trim() || (estimate ? "range" : undefined);
     const budgetMin = input.budgetMin ?? estimate?.totalRange.min;
