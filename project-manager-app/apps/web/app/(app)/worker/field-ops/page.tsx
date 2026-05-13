@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -870,6 +871,7 @@ const TABS = [
 type TabId = typeof TABS[number]["id"];
 
 export default function FieldOpsPage() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>("units");
 
   return (
@@ -887,7 +889,7 @@ export default function FieldOpsPage() {
                 🔧
               </div>
               <div>
-                <h1 className="text-xl font-bold text-[var(--ink,#f7f8fa)]">Field Ops</h1>
+                <h1 className="text-xl font-bold text-[var(--ink,#f7f8fa)]">{t("page.workerFieldOps")}</h1>
                 <p className="text-xs text-[var(--muted,#94979e)]">
                   Gestión de unidades de campo, avances diarios y base de conocimiento
                 </p>

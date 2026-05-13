@@ -11,6 +11,7 @@ import { Activity, Users, AlertTriangle, DollarSign, CheckSquare, TrendingUp, Re
 import { HtmlInCanvasPanel, StatCard, StatusBadge, useHtmlInCanvasSupport } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { useLanguage } from "../../../../lib/language-context";
 
 type AlertSeverity = "error" | "warning" | "info";
 
@@ -32,6 +33,7 @@ const FALLBACK_ALERTS: OpsAlert[] = [
 
 export default function AdminDashboardPage() {
   const canvasSupported = useHtmlInCanvasSupport();
+  const { t } = useLanguage();
   const [jobs, setJobs]           = useState<JobRecordView[]>([]);
   const [loading, setLoading]     = useState(true);
   const [apiError, setApiError]   = useState<string | null>(null);
@@ -200,18 +202,18 @@ export default function AdminDashboardPage() {
         <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>Gestión rápida</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
           {[
-            { label: "Operaciones",   href: "/admin/ops",           icon: Activity,      color: "#3b82f6" },
-            { label: "Usuarios",      href: "/admin/users",         icon: Users,         color: "#8b5cf6" },
-            { label: "Disputas",      href: "/admin/disputes",      icon: AlertTriangle, color: "#ef4444" },
-            { label: "Finanzas",      href: "/admin/finance",       icon: DollarSign,    color: "#10b981" },
-            { label: "Compliance",    href: "/admin/compliance",    icon: Shield,        color: "#f59e0b" },
-            { label: "Autonomía IA",  href: "/admin/autonomy",      icon: Bot,           color: "#a855f7" },
-            { label: "LLM Metrics",   href: "/admin/llm-metrics",   icon: Activity,      color: "#6366f1" },
-            { label: "Reportes",      href: "/admin/reports",       icon: BarChart2,     color: "#06b6d4" },
-            { label: "Field Ops",     href: "/admin/field-ops",     icon: Wrench,        color: "#84cc16" },
-            { label: "QA",            href: "/admin/qa",            icon: CheckSquare,   color: "#f97316" },
-            { label: "Configuración", href: "/admin/settings",      icon: Settings,      color: "#64748b" },
-            { label: "Domain Events", href: "/admin/domain-events", icon: FileText,      color: "#ec4899" },
+            { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "#3b82f6" },
+            { label: t("nav.users"),        href: "/admin/users",         icon: Users,         color: "#8b5cf6" },
+            { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "#ef4444" },
+            { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "#10b981" },
+            { label: t("nav.compliance"),   href: "/admin/compliance",    icon: Shield,        color: "#f59e0b" },
+            { label: t("nav.autonomy"),     href: "/admin/autonomy",      icon: Bot,           color: "#a855f7" },
+            { label: t("nav.llmMetrics"),   href: "/admin/llm-metrics",   icon: Activity,      color: "#6366f1" },
+            { label: t("nav.reports"),      href: "/admin/reports",       icon: BarChart2,     color: "#06b6d4" },
+            { label: t("nav.fieldOps"),     href: "/admin/field-ops",     icon: Wrench,        color: "#84cc16" },
+            { label: t("nav.qaCenter"),     href: "/admin/qa",            icon: CheckSquare,   color: "#f97316" },
+            { label: t("nav.settings"),     href: "/admin/settings",      icon: Settings,      color: "#64748b" },
+            { label: t("nav.domainEvents"), href: "/admin/domain-events", icon: FileText,      color: "#ec4899" },
           ].map(action => {
             const Icon = action.icon;
             return (

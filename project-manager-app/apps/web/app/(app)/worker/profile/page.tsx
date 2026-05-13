@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Building2, Check, Mail, MapPin, Phone, Scale, Shield, Star, User, X } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
@@ -51,6 +52,7 @@ const card: React.CSSProperties = {
 };
 
 export default function WorkerProfilePage() {
+  const { t } = useLanguage();
   const [currentUser, setCurrentUser] = useState<UserView | null>(null);
   const [profile, setProfile] = useState<UserProfileView | null>(null);
   const [memberships, setMemberships] = useState<UserMembershipView[]>([]);
@@ -170,7 +172,7 @@ export default function WorkerProfilePage() {
           >
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Mi perfil</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.profile")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Identidad canónica y perfil público editable</p>
         </div>
         <NotificationBanner audience="worker" />
@@ -243,7 +245,7 @@ export default function WorkerProfilePage() {
                   disabled={saving}
                   style={{ padding: "7px 14px", borderRadius: "9px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "5px", opacity: saving ? 0.7 : 1 }}
                 >
-                  <Check size={13} /> {saving ? "Guardando…" : "Guardar"}
+                  <Check size={13} /> {saving ? "Guardando…" : t("ui.save")}
                 </button>
               </div>
             )}

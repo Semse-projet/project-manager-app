@@ -24,6 +24,7 @@ type SearchParamsLike = {
 
 export type JobIntakePrefill = {
   source: string | null;
+  intakeId: string;
   categoryId: string;
   subcategoryId: string;
   title: string;
@@ -84,7 +85,45 @@ export const JOB_CATEGORIES: JobCategory[] = [
       { id: "poda", name: "Poda de árboles", basePrice: 120 },
     ],
   },
+  {
+    id: "drywall", name: "Drywall / Tablaroca", subcategories: [
+      { id: "reparacion", name: "Reparación de agujeros y grietas", basePrice: 150 },
+      { id: "instalacion", name: "Instalación nueva", basePrice: 400 },
+      { id: "acabado", name: "Acabado y textura", basePrice: 200 },
+    ],
+  },
+  {
+    id: "bano", name: "Remodelación de Baño", subcategories: [
+      { id: "cosmetico", name: "Actualización cosmética", basePrice: 500 },
+      { id: "completo", name: "Remodelación completa", basePrice: 4000 },
+      { id: "ducha", name: "Tina / ducha nueva", basePrice: 1500 },
+    ],
+  },
+  {
+    id: "cocina", name: "Remodelación de Cocina", subcategories: [
+      { id: "gabinetes", name: "Gabinetes y encimeras", basePrice: 2000 },
+      { id: "completo", name: "Remodelación completa", basePrice: 8000 },
+      { id: "piso", name: "Piso y azulejos", basePrice: 800 },
+    ],
+  },
+  {
+    id: "limpieza", name: "Limpieza", subcategories: [
+      { id: "profunda", name: "Limpieza profunda", basePrice: 180 },
+      { id: "mudanza", name: "Antes / después de mudanza", basePrice: 250 },
+      { id: "postconstruccion", name: "Post-construcción", basePrice: 350 },
+    ],
+  },
 ];
+
+/** Category IDs that have full smart-intake wizard support */
+export const SMART_INTAKE_CATEGORY_IDS = new Set([
+  "pintura",
+  "drywall",
+  "bano",
+  "cocina",
+  "limpieza",
+  "carpinteria",
+]);
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
   { value: "low", label: "Baja", description: "Sin prisa, flexible", color: "#10b981" },
@@ -113,6 +152,7 @@ export function parseJobIntakePrefill(params: SearchParamsLike | null | undefine
 
   return {
     source: readText(params, "source") || null,
+    intakeId: readText(params, "intakeId") || readText(params, "intake"),
     categoryId: readText(params, "category"),
     subcategoryId: readText(params, "subcategory"),
     title: readText(params, "title"),
@@ -148,6 +188,7 @@ export function buildJobIntakeHref(prefill: Partial<JobIntakePrefill>): string {
   };
 
   setIf("source", prefill.source ?? "landing");
+  setIf("intakeId", prefill.intakeId);
   setIf("category", prefill.categoryId);
   setIf("subcategory", prefill.subcategoryId);
   setIf("title", prefill.title);

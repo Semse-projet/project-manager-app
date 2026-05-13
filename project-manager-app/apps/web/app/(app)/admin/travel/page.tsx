@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlaneTakeoff, RefreshCw, Inbox, Wallet, AlertTriangle, Clock3, ChevronRight, ChevronDown } from "lucide-react";
@@ -89,6 +90,7 @@ function rawToRow(
 }
 
 export default function AdminTravelPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -382,8 +384,8 @@ export default function AdminTravelPage() {
           <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Travel Ops</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>Control operativo de viajes, viáticos y liquidaciones fuera de ciudad</p>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.travelOps")}</h1>
+          <p style={{ fontSize: "13px", color: "var(--muted)" }}>{t("page.travelOps.sub")}</p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <NotificationBanner audience="admin" />

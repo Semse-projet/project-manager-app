@@ -66,3 +66,4 @@ EXPOSE 3000
 
 # Force port 3000 in CMD so Railway's dynamic PORT injection doesn't override it
 CMD ["sh", "-c", "PORT=3000 node apps/web/server.js"]
+# build: 2026-05-09

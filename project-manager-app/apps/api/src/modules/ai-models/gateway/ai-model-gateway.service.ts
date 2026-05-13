@@ -7,6 +7,7 @@ import { DeepSeekProvider } from "../providers/deepseek.provider.js";
 import { KimiProvider } from "../providers/kimi.provider.js";
 import { createContextEngine } from "../context/token-budget-engine.js";
 import type { ContextEngine, ContextEngineStatus } from "../context/context-engine.interface.js";
+import { buildSafeSystemPrompt, wrapOperationalContext, wrapUserInput } from "../prompt-safety.js";
 
 @Injectable()
 export class AiModelGatewayService {
@@ -89,9 +90,14 @@ export class AiModelGatewayService {
     const startedAt = Date.now();
 
     const result = await this.llmOrchestrator.chat({
-      systemPrompt: request.systemPrompt ?? "You are a helpful AI assistant for SEMSEproject.",
+      systemPrompt: buildSafeSystemPrompt(
+        request.systemPrompt,
+        "You are a helpful AI assistant for SEMSEproject.",
+      ),
       history: [],
-      userMessage: request.context ? `${request.context}\n\n${request.input}` : request.input,
+      userMessage: request.context
+        ? `${wrapOperationalContext(request.context)}\n\n${wrapUserInput(request.input)}`
+        : wrapUserInput(request.input),
       context: {
         preferredProvider: providerName as "anthropic" | "openai" | "ollama" | "template" | undefined,
         taskType: "chat",

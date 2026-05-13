@@ -4,6 +4,7 @@ import { mkdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
+import { normalizeStorageKey } from "./storage-key.js";
 
 export type UploadPlan = {
   uploadUrl: string;
@@ -56,17 +57,18 @@ export class StorageService {
     contentType: string;
   }): Promise<StoredFile> {
     await this.ensureLocalRoot();
-    const filePath = this.localPath(input.key);
+    const key = normalizeStorageKey(input.key);
+    const filePath = this.localPath(key);
     await mkdir(path.dirname(filePath), { recursive: true });
 
     const ws = createWriteStream(filePath);
     await pipeline(input.stream, ws);
 
     const stats = await stat(filePath);
-    this.logger.log({ key: input.key, sizeBytes: stats.size }, "file stored");
+    this.logger.log({ key, sizeBytes: stats.size }, "file stored");
 
     return {
-      key: input.key,
+      key,
       contentType: input.contentType,
       sizeBytes: stats.size,
       createdAt: new Date().toISOString(),
@@ -100,8 +102,13 @@ export class StorageService {
   }
 
   private localPath(key: string): string {
-    const safe = key.replace(/\.\./g, "_");
-    return path.join(this.localRoot, safe);
+    const safe = normalizeStorageKey(key);
+    const filePath = path.resolve(this.localRoot, safe);
+    const rootPrefix = `${this.localRoot}${path.sep}`;
+    if (filePath !== this.localRoot && !filePath.startsWith(rootPrefix)) {
+      throw new Error("Invalid storage key");
+    }
+    return filePath;
   }
 
   private async ensureLocalRoot(): Promise<void> {

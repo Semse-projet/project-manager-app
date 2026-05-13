@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Plus, ChevronDown, Clock, RefreshCw, Inbox, ShieldAlert } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
@@ -57,6 +58,7 @@ function rawToIncident(i: Record<string, unknown>, jobTitleMap: Record<string, s
 }
 
 export default function WorkerIncidentsPage() {
+  const { t } = useLanguage();
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [loading, setLoading]     = useState(true);
   const [showForm, setShowForm]   = useState(false);
@@ -122,7 +124,7 @@ export default function WorkerIncidentsPage() {
           <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Incidencias</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.incidents")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Reporta y gestiona incidencias en tus trabajos activos</p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>

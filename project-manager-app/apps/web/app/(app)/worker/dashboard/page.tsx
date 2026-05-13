@@ -20,6 +20,7 @@ import {
 import { HtmlInCanvasPanel, JobCard, StatCard } from "@semse/ui";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import type { Job, JobRecordView } from "@semse/schemas";
+import { useLanguage } from "../../../../lib/language-context";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-US", {
@@ -79,6 +80,7 @@ function EmptyPanel({
 }
 
 export default function WorkerDashboardPage() {
+  const { t } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -330,7 +332,7 @@ export default function WorkerDashboardPage() {
               { href: "/worker/materials", label: "Materiales", description: "Solicitar o rastrear materiales", icon: Package, color: "#f59e0b" },
               { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "#ef4444" },
               { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "#ff6a00" },
-              { href: "/worker/field-ops", label: "Field Ops", description: "Ir a unidades y trabajo de campo", icon: Wrench, color: "#a78bfa" },
+              { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },
             ].map((action) => {
               const Icon = action.icon;
               return (

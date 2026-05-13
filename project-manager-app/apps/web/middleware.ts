@@ -1,5 +1,10 @@
+// Run in Node.js runtime so Railway Service Variables (AUTH_SECRET,
+// SEMSE_WEB_SESSION_SECRET) are accessible via process.env at runtime.
+// Edge runtime does not guarantee access to non-NEXT_PUBLIC_ secrets.
+export const runtime = "nodejs";
+
 /**
- * Next.js Edge Middleware — route protection
+ * Next.js Middleware — route protection
  *
  * Protected routes: all paths under the (app) route group
  *   /worker/*, /client/*, /admin/*, /agents
@@ -10,6 +15,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole } from "@/lib/auth";
+import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 
 // Paths that are always public
 const PUBLIC_PREFIXES = ["/login", "/logout", "/api/", "/_next/", "/favicon"];
@@ -38,14 +44,6 @@ function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof
   requestHeaders.set("x-semse-roles", session.roles.join(","));
 
   return NextResponse.next({ request: { headers: requestHeaders } });
-}
-
-function resolveSafeRedirectPath(input: string | null | undefined, fallback: string): string {
-  const value = input?.trim();
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return fallback;
-  }
-  return value;
 }
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {

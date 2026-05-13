@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import {
   Wrench,
@@ -657,6 +658,7 @@ const TAB_CONFIG = [
 type TabId = (typeof TAB_CONFIG)[number]["id"];
 
 export default function FieldOpsPage() {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<TabId>("units");
   const [unitsState, setUnitsState] = useState<RemoteState<FieldUnit[]>>({ data: [], loading: true, error: null });
   const [worklogsState, setWorklogsState] = useState<RemoteState<WorklogEntry[]>>({ data: [], loading: true, error: null });
@@ -803,7 +805,7 @@ export default function FieldOpsPage() {
               <Wrench size={20} style={{ color: "#10b981" }} />
             </div>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Field Operations</h1>
+              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{t("page.fieldOps")}</h1>
               <div style={{ fontSize: 13, color: "var(--muted)" }}>Unidades, registros de campo, conocimiento y proveedores</div>
             </div>
           </div>

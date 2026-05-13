@@ -1,14 +1,17 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useState } from "react";
 import { ArrowRight, FolderKanban, Plus } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { buildOpsProjectStatusLabel, buildOpsRiskLabel, buildOpsTradeLabel } from "../../../lib/buildops-i18n";
 import { fetchBuildOpsProjects, type BuildOpsProject } from "../../../lib/buildops-api";
 
 const sampleProjects: BuildOpsProject[] = [];
 
 export default function BuildOpsProjectsPage() {
+  const { t } = useLanguage();
   const [projects, setProjects] = useState<BuildOpsProject[]>(sampleProjects);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +26,7 @@ export default function BuildOpsProjectsPage() {
         setProjects(data);
       } catch (err) {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : "BuildOps error");
+        setError(err instanceof Error ? err.message : t("common.serverError"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -34,7 +37,7 @@ export default function BuildOpsProjectsPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [t]);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -44,24 +47,24 @@ export default function BuildOpsProjectsPage() {
             <Badge variant="brand" className="w-fit">
               BuildOps
             </Badge>
-            <h1 className="text-3xl font-bold tracking-tight text-ink">Projects</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-ink">{t("page.buildOpsProjects")}</h1>
             <p className="max-w-3xl text-sm text-muted">
-              Track active jobs, drafts and quotes. Real BuildOps data comes from Prisma now.
+              {t("page.buildOpsProjects.sub")}
             </p>
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
-            {loading ? <p className="text-sm text-muted">Loading projects...</p> : null}
+            {loading ? <p className="text-sm text-muted">{t("buildops.loadingProjects")}</p> : null}
           </div>
           <Link href="/buildops/projects/new" className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright">
             <Plus size={16} />
-            New project
+            {t("buildops.newProject")}
           </Link>
         </section>
 
         <div className="grid gap-3">
           {projects.length === 0 ? (
             <Card className="grid gap-2 text-sm text-muted">
-              <div className="text-ink font-semibold">No projects yet</div>
-              <div>Create one from a tool result or start a fresh BuildOps project.</div>
+              <div className="text-ink font-semibold">{t("buildops.noProjectsYet")}</div>
+              <div>{t("buildops.noProjectsHint")}</div>
             </Card>
           ) : null}
           {projects.map((project) => (
@@ -72,19 +75,21 @@ export default function BuildOpsProjectsPage() {
                     <FolderKanban size={16} className="text-brand" />
                     <h2 className="text-lg font-semibold text-ink">{project.title}</h2>
                   </div>
-                  <p className="text-sm text-muted">{project.trade}</p>
+                  <p className="text-sm text-muted">{buildOpsTradeLabel(t, project.trade)}</p>
                   <p className="text-xs text-muted">{project.clientName} · {project.location}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={project.riskLevel === "critical" || project.riskLevel === "high" ? "warn" : project.riskLevel === "medium" ? "info" : "default"}>{project.riskLevel} risk</Badge>
-                  <Badge variant="info">{project.status}</Badge>
-                  <Badge variant="brand">{project.budgetEstimate != null ? `$${project.budgetEstimate.toLocaleString()}` : "No budget"}</Badge>
+                  <Badge variant={project.riskLevel === "critical" || project.riskLevel === "high" ? "warn" : project.riskLevel === "medium" ? "info" : "default"}>
+                    {t("buildops.risk")} {buildOpsRiskLabel(t, project.riskLevel)}
+                  </Badge>
+                  <Badge variant="info">{buildOpsProjectStatusLabel(t, project.status)}</Badge>
+                  <Badge variant="brand">{project.budgetEstimate != null ? `$${project.budgetEstimate.toLocaleString()}` : t("buildops.noBudget")}</Badge>
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-sm text-muted">
                 <span>{project.id}</span>
                 <Link href={`/buildops/projects/${project.id}`} className="inline-flex items-center gap-2 text-brand">
-                  Open <ArrowRight size={14} />
+                  {t("buildops.openProject")} <ArrowRight size={14} />
                 </Link>
               </div>
             </Card>

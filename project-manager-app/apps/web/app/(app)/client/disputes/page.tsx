@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, Inbox, MessageSquare, RefreshCw, ShieldAlert } from "lucide-react";
@@ -45,6 +46,7 @@ function normalizeDisputeStatus(value: unknown): DisputeRow["status"] {
 }
 
 export default function ClientDisputesPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -231,9 +233,9 @@ export default function ClientDisputesPage() {
   return (
     <div style={{ maxWidth: "940px", margin: "0 auto" }}>
       <ClientPageHeader
-        title="Disputas"
+        title={t("page.clientDisputes")}
         subtitle="Sigue conflictos abiertos, aporta contexto y cierra disputas cuando ya existe acuerdo o resolución."
-        breadcrumbs={[{ label: "Disputas" }]}
+        breadcrumbs={[{ label: t("page.clientDisputes") }]}
         minHeight={92}
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

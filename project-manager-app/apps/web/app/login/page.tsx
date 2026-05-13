@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
 
 const DEMO_LOGIN_ENABLED =
   process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED?.trim() === "true" ||
@@ -41,7 +42,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState(DEMO_LOGIN_ENABLED ? "demo1234" : "");
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
-  const redirectTo = searchParams?.get("from") ?? undefined;
+  const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
 
   const activePreset = DEMO_LOGIN_ENABLED ? PRESETS.find(p => p.email === email) ?? null : null;
 

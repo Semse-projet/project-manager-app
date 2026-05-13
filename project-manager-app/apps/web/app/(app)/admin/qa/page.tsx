@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { ShieldCheck, AlertTriangle, CheckCircle, XCircle, Activity, Clock, RefreshCw } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
@@ -49,6 +50,7 @@ const FALLBACK_CHECKS: QACheck[] = [
 ];
 
 export default function AdminQAPage() {
+  const { t } = useLanguage();
   const [checks, setChecks]   = useState<QACheck[]>(FALLBACK_CHECKS);
   const [running, setRunning] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>("—");
@@ -183,7 +185,7 @@ export default function AdminQAPage() {
           <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>QA Center</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.qaCenter")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Validaciones automáticas del pipeline operativo</p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>

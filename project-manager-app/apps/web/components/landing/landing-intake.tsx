@@ -2,14 +2,22 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { CheckCircle, ExternalLink, MapPin, Sparkles, Star, Users } from "lucide-react";
-import type { BudgetSuggestion } from "../../app/semse-api";
+import { CheckCircle, ExternalLink, MapPin, Sparkles, Star, Upload, Users } from "lucide-react";
 import {
   buildJobIntakeHref,
   JOB_CATEGORIES,
   JOB_URGENCY_OPTIONS,
+  SMART_INTAKE_CATEGORY_IDS,
   type JobLocationType,
 } from "../../lib/job-intake";
+import { useIntake } from "../../hooks/use-intake";
+import { AccuracyMeter } from "../project-intake/accuracy-meter";
+import { LiveScopeSummary } from "../project-intake/live-scope-summary";
+import { MilestonePreview } from "../project-intake/milestone-preview";
+import { PreliminaryEstimateCard } from "../project-intake/preliminary-estimate-card";
+import { QuestionCard } from "../project-intake/question-card";
+import { TipsPanel } from "../project-intake/tips-panel";
+import { WarningBanner } from "../project-intake/warning-banner";
 
 function optionCard(selected: boolean, accent = "#2563eb"): CSSProperties {
   return {
@@ -43,6 +51,8 @@ type RecommendedProfessional = {
   matchReason: string;
 };
 
+const LEGACY_DESCRIPTION_MIN = 20;
+
 export function LandingIntake() {
   const [categoryId, setCategoryId] = useState("");
   const [subcategoryId, setSubcategoryId] = useState("");
@@ -51,30 +61,56 @@ export function LandingIntake() {
   const [locationType, setLocationType] = useState<JobLocationType>("on_site");
   const [city, setCity] = useState("");
   const [urgency, setUrgency] = useState("medium");
-  const [budgetSuggestion, setBudgetSuggestion] = useState<BudgetSuggestion | null>(null);
   const [recommendedPros, setRecommendedPros] = useState<RecommendedProfessional[]>([]);
   const [selectedProfessionalUserId, setSelectedProfessionalUserId] = useState<string>("");
-  const [lastAnalysisKey, setLastAnalysisKey] = useState<string | null>(null);
-  const [budgetLoading, setBudgetLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [legacyBudget, setLegacyBudget] = useState<{
+    min: number;
+    max: number;
+    median: number;
+    currency: string;
+    confidence: string;
+    similarJobsFound: number;
+    aiNarrative: string;
+  } | null>(null);
+  const [legacyBudgetLoading, setLegacyBudgetLoading] = useState(false);
+  const [legacyError, setLegacyError] = useState<string | null>(null);
+  const [lastLegacyAnalysisKey, setLastLegacyAnalysisKey] = useState<string | null>(null);
+
+  const {
+    intakeId,
+    intake,
+    nextQuestion,
+    warnings,
+    tips,
+    liveSummary,
+    estimate,
+    milestones,
+    estimateUnlocked,
+    isLoading: intakeLoading,
+    analyzeDescription,
+    submitAnswer,
+    uploadImages,
+    requestEstimate,
+  } = useIntake();
 
   const category = useMemo(() => JOB_CATEGORIES.find((item) => item.id === categoryId), [categoryId]);
-  const canContinue = categoryId && subcategoryId && title.trim().length >= 5 && description.trim().length >= 20;
-  const analysisKey = JSON.stringify([
-    categoryId,
-    subcategoryId,
-    title.trim(),
-    description.trim(),
-    city.trim(),
-  ]);
-  const analysisIsFresh = lastAnalysisKey === analysisKey;
-  const visibleBudgetSuggestion = analysisIsFresh ? budgetSuggestion : null;
-  const visibleRecommendedPros = analysisIsFresh ? recommendedPros : [];
+  const isSmartIntakeCategory = SMART_INTAKE_CATEGORY_IDS.has(categoryId);
+  const legacyAnalysisKey = JSON.stringify([categoryId, subcategoryId, title.trim(), description.trim(), city.trim()]);
+  const legacyAnalysisIsFresh = lastLegacyAnalysisKey === legacyAnalysisKey;
+  const visibleLegacyBudget = useMemo(
+    () => (legacyAnalysisIsFresh ? legacyBudget : null),
+    [legacyAnalysisIsFresh, legacyBudget],
+  );
+  const visibleRecommendedPros = useMemo(
+    () => (legacyAnalysisIsFresh ? recommendedPros : []),
+    [legacyAnalysisIsFresh, recommendedPros],
+  );
   const selectedProfessional = visibleRecommendedPros.find((professional) => professional.userId === selectedProfessionalUserId)
     ?? visibleRecommendedPros[0]
     ?? null;
   const nextHref = buildJobIntakeHref({
     source: "landing",
+    intakeId: isSmartIntakeCategory ? intakeId ?? undefined : undefined,
     categoryId,
     subcategoryId,
     title,
@@ -83,8 +119,8 @@ export function LandingIntake() {
     city,
     urgency,
     budgetType: "range",
-    budgetMin: visibleBudgetSuggestion?.min,
-    budgetMax: visibleBudgetSuggestion?.max,
+    budgetMin: estimate?.totalRange.min ?? visibleLegacyBudget?.min,
+    budgetMax: estimate?.totalRange.max ?? visibleLegacyBudget?.max,
     step: 3,
     preferredProfessionalUserId: selectedProfessional?.userId,
     preferredProfessionalName: selectedProfessional?.displayName,
@@ -92,19 +128,80 @@ export function LandingIntake() {
   });
 
   useEffect(() => {
-    if (!analysisIsFresh || visibleRecommendedPros.length === 0) return;
+    if (!isSmartIntakeCategory || description.trim().length < 10 || title.trim().length < 3) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void analyzeDescription({
+        rawDescription: description,
+        title,
+        category: categoryId,
+        subcategory: subcategoryId,
+        modality: locationType,
+        city,
+        urgency: urgency as "low" | "medium" | "high" | "urgent",
+      }).catch(() => {
+        // Surface errors through the estimate/request flows instead of every debounce tick.
+      });
+    }, 800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    analyzeDescription,
+    categoryId,
+    city,
+    description,
+    isSmartIntakeCategory,
+    locationType,
+    subcategoryId,
+    title,
+    urgency,
+  ]);
+
+  useEffect(() => {
+    if (!legacyAnalysisIsFresh || visibleRecommendedPros.length === 0) return;
     const stillExists = visibleRecommendedPros.some((professional) => professional.userId === selectedProfessionalUserId);
     if (!stillExists) {
       setSelectedProfessionalUserId(visibleRecommendedPros[0]?.userId ?? "");
     }
-  }, [analysisIsFresh, selectedProfessionalUserId, visibleRecommendedPros]);
+  }, [legacyAnalysisIsFresh, selectedProfessionalUserId, visibleRecommendedPros]);
 
-  async function runBudgetPreview() {
-    if (!title.trim() || description.trim().length < 20) return;
-    setBudgetLoading(true);
-    setError(null);
+  async function fetchProfessionalPreview() {
+    const payload = {
+      title,
+      scope: description,
+      category: categoryId || undefined,
+      subcategory: subcategoryId || undefined,
+      location: city || undefined,
+      limit: 3,
+    };
+
+    const professionalsResponse = await fetch("/api/semse/public/professionals/preview", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const professionalsJson = await professionalsResponse.json() as {
+      data?: { candidates?: RecommendedProfessional[] };
+      error?: { message?: string };
+    };
+
+    if (!professionalsResponse.ok || !professionalsJson.data) {
+      throw new Error(professionalsJson.error?.message ?? "No se pudieron sugerir profesionales.");
+    }
+
+    setRecommendedPros(professionalsJson.data.candidates ?? []);
+    setSelectedProfessionalUserId(professionalsJson.data.candidates?.[0]?.userId ?? "");
+    return professionalsJson.data.candidates ?? [];
+  }
+
+  async function runLegacyPreview() {
+    if (!title.trim() || description.trim().length < LEGACY_DESCRIPTION_MIN) return;
+    setLegacyBudgetLoading(true);
+    setLegacyError(null);
     try {
-      const nextAnalysisKey = analysisKey;
+      const nextAnalysisKey = legacyAnalysisKey;
       const payload = {
         title,
         scope: description,
@@ -113,55 +210,58 @@ export function LandingIntake() {
         location: city || undefined,
         limit: 3,
       };
-      const [budgetResponse, professionalsResponse] = await Promise.all([
-        fetch("/api/semse/public/budget/suggest", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        }),
-        fetch("/api/semse/public/professionals/preview", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        }),
-      ]);
-      const [budgetJson, professionalsJson] = await Promise.all([
-        budgetResponse.json() as Promise<{ data?: BudgetSuggestion; error?: { message?: string } }>,
-        professionalsResponse.json() as Promise<{
-          data?: { candidates?: RecommendedProfessional[] };
-          error?: { message?: string };
-        }>,
-      ]);
+      const budgetResponse = await fetch("/api/semse/public/budget/suggest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const budgetJson = await budgetResponse.json() as {
+        data?: {
+          min: number;
+          max: number;
+          median: number;
+          currency: string;
+          confidence: string;
+          similarJobsFound: number;
+          aiNarrative: string;
+        };
+        error?: { message?: string };
+      };
 
-      const nextErrors: string[] = [];
-
-      if (budgetResponse.ok && budgetJson.data) {
-        setBudgetSuggestion(budgetJson.data);
-      } else {
-        nextErrors.push(budgetJson.error?.message ?? "No se pudo calcular la estimación.");
+      if (!budgetResponse.ok || !budgetJson.data) {
+        throw new Error(budgetJson.error?.message ?? "No se pudo calcular la estimacion.");
       }
 
-      if (professionalsResponse.ok && professionalsJson.data) {
-        setRecommendedPros(professionalsJson.data.candidates ?? []);
-        setSelectedProfessionalUserId(professionalsJson.data.candidates?.[0]?.userId ?? "");
-      } else {
-        setRecommendedPros([]);
-        setSelectedProfessionalUserId("");
-        nextErrors.push(professionalsJson.error?.message ?? "No se pudieron sugerir profesionales.");
-      }
-
-      if ((budgetResponse.ok && budgetJson.data) || (professionalsResponse.ok && professionalsJson.data)) {
-        setLastAnalysisKey(nextAnalysisKey);
-      }
-
-      if (nextErrors.length > 0) {
-        setError(nextErrors[0]);
-      }
-    } catch {
-      setError("No se pudo calcular la estimación.");
+      await fetchProfessionalPreview();
+      setLegacyBudget(budgetJson.data);
+      setLastLegacyAnalysisKey(nextAnalysisKey);
+    } catch (error) {
+      setLegacyError(error instanceof Error ? error.message : "No se pudo calcular la estimacion.");
     } finally {
-      setBudgetLoading(false);
+      setLegacyBudgetLoading(false);
     }
+  }
+
+  async function runSmartPreview() {
+    setLegacyBudgetLoading(true);
+    setLegacyError(null);
+    try {
+      await requestEstimate();
+      await fetchProfessionalPreview();
+      setLastLegacyAnalysisKey(legacyAnalysisKey);
+    } catch (error) {
+      setLegacyError(error instanceof Error ? error.message : "No se pudo calcular la estimacion.");
+    } finally {
+      setLegacyBudgetLoading(false);
+    }
+  }
+
+  async function runPreview() {
+    if (isSmartIntakeCategory) {
+      await runSmartPreview();
+      return;
+    }
+    await runLegacyPreview();
   }
 
   return (
@@ -187,12 +287,12 @@ export function LandingIntake() {
               Describe tu trabajo y entra al wizard real
             </h2>
             <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.6 }}>
-              Esta entrada pública no reemplaza el flujo real. Prepara el contexto, calcula presupuesto y te deja caer en el paso correcto de publicación.
+              Selecciona una categoría y describe el trabajo. El wizard inteligente aplica a Pintura, Drywall, Baño, Cocina, Limpieza y Carpintería.
             </p>
           </div>
 
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 10 }}>Categoría</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 10 }}>Categoria</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               {JOB_CATEGORIES.map((item) => (
                 <button
@@ -211,7 +311,7 @@ export function LandingIntake() {
             </div>
           </div>
 
-          {category && (
+          {category ? (
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 10 }}>Especialidad</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
@@ -226,20 +326,20 @@ export function LandingIntake() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{item.name}</div>
                       <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>desde ${item.basePrice.toLocaleString("es-MX")}</div>
                     </div>
-                    {subcategoryId === item.id && <CheckCircle size={15} color="#2563eb" />}
+                    {subcategoryId === item.id ? <CheckCircle size={15} color="#2563eb" /> : null}
                   </button>
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Título</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Titulo</label>
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                placeholder="Ej: Renovación de baño principal"
+                placeholder="Ej: Renovacion de bano principal"
                 style={{
                   width: "100%",
                   padding: "12px 14px",
@@ -251,11 +351,11 @@ export function LandingIntake() {
               />
             </div>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Descripción</label>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Descripcion</label>
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Qué necesitas, dimensiones, materiales, problema actual y expectativas."
+                placeholder="Que necesitas, dimensiones, materiales, problema actual y expectativas."
                 style={{
                   width: "100%",
                   minHeight: 112,
@@ -267,17 +367,18 @@ export function LandingIntake() {
                   resize: "vertical",
                 }}
               />
-              <div style={{ fontSize: 11, color: description.trim().length >= 20 ? "#64748b" : "#ef4444", marginTop: 6 }}>
-                {description.trim().length}/20 caracteres mínimo
+              <div style={{ fontSize: 11, color: description.trim().length >= (isSmartIntakeCategory ? 10 : LEGACY_DESCRIPTION_MIN) ? "#64748b" : "#ef4444", marginTop: 6 }}>
+                {description.trim().length}/{isSmartIntakeCategory ? 10 : LEGACY_DESCRIPTION_MIN} caracteres minimo
               </div>
             </div>
+
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Modalidad</label>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))", gap: 8 }}>
                 {([
                   { value: "on_site" as const, label: "Sitio" },
                   { value: "remote" as const, label: "Remoto" },
-                  { value: "hybrid" as const, label: "Híbrido" },
+                  { value: "hybrid" as const, label: "Hibrido" },
                 ]).map((item) => (
                   <button key={item.value} type="button" onClick={() => setLocationType(item.value)} style={optionCard(locationType === item.value, "#0f766e")}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{item.label}</div>
@@ -285,6 +386,7 @@ export function LandingIntake() {
                 ))}
               </div>
             </div>
+
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Ciudad</label>
               <div style={{ position: "relative" }}>
@@ -317,6 +419,64 @@ export function LandingIntake() {
               ))}
             </div>
           </div>
+
+          {isSmartIntakeCategory ? (
+            <>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Fotos del espacio (opcional)</label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: 14,
+                    borderRadius: 12,
+                    border: "1px dashed rgba(37,99,235,.22)",
+                    background: "rgba(37,99,235,.04)",
+                    color: "#2563eb",
+                    cursor: intakeLoading ? "wait" : "pointer",
+                  }}
+                >
+                  <Upload size={16} />
+                  <span style={{ fontSize: 12, fontWeight: 800 }}>
+                    {intakeLoading ? "Subiendo..." : "Subir fotos antes de pedir estimate"}
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={(event) => {
+                      const files = event.target.files ? Array.from(event.target.files) : [];
+                      if (files.length > 0) {
+                        void uploadImages(files, "before");
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+
+              {warnings.length > 0 ? (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {warnings.map((warning) => (
+                    <WarningBanner key={warning.id} warning={warning} language={intake?.detectedLanguage ?? "es"} />
+                  ))}
+                </div>
+              ) : null}
+
+              <QuestionCard
+                question={nextQuestion}
+                language={intake?.detectedLanguage ?? "es"}
+                warnings={warnings}
+                onAnswer={(answer) => void submitAnswer(answer)}
+                isSubmitting={intakeLoading}
+              />
+            </>
+          ) : (
+            <div style={{ padding: 14, borderRadius: 14, background: "rgba(148,163,184,.08)", border: "1px solid rgba(148,163,184,.12)", fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+              El flujo guiado de Smart Intake esta activo solo para <strong>Pintura interior</strong>. Las demas categorias siguen usando el brief y el preview actuales.
+            </div>
+          )}
         </div>
 
         <div
@@ -338,14 +498,33 @@ export function LandingIntake() {
               Calcula un rango antes de entrar
             </h3>
             <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.6 }}>
-              Usa el mismo motor de presupuesto del wizard real y una vista previa de matching para llegar con contexto y no empezar en blanco.
+              En Pintura interior, el estimate se desbloquea con score real. En las demas categorias, se mantiene el preview actual mientras llega la siguiente ronda del intake.
             </p>
           </div>
 
+          {isSmartIntakeCategory && intake ? (
+            <>
+              <AccuracyMeter
+                score={intake.accuracyScore}
+                level={intake.accuracyLevel}
+                missingFields={intake.missingFields}
+                estimateUnlocked={estimateUnlocked}
+              />
+              <TipsPanel tips={tips} language={intake.detectedLanguage} />
+              <LiveScopeSummary summary={liveSummary} />
+            </>
+          ) : null}
+
           <button
             type="button"
-            disabled={budgetLoading || !title.trim() || description.trim().length < 20}
-            onClick={() => void runBudgetPreview()}
+            disabled={
+              legacyBudgetLoading ||
+              (isSmartIntakeCategory
+                ? !estimateUnlocked
+                : !title.trim() || description.trim().length < LEGACY_DESCRIPTION_MIN)
+            }
+            onClick={() => void runPreview()}
+            title={isSmartIntakeCategory && !estimateUnlocked ? "Completa mas detalles para desbloquear el presupuesto" : undefined}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -357,39 +536,49 @@ export function LandingIntake() {
               background: "rgba(79,70,229,.08)",
               color: "#4f46e5",
               fontWeight: 800,
-              cursor: budgetLoading ? "not-allowed" : "pointer",
-              opacity: !title.trim() || description.trim().length < 20 ? 0.5 : 1,
+              cursor: legacyBudgetLoading ? "not-allowed" : "pointer",
+              opacity: isSmartIntakeCategory
+                ? estimateUnlocked ? 1 : 0.5
+                : (!title.trim() || description.trim().length < LEGACY_DESCRIPTION_MIN ? 0.5 : 1),
+              boxShadow: isSmartIntakeCategory && estimateUnlocked ? "0 0 0 1px rgba(79,70,229,.14), 0 12px 28px rgba(79,70,229,.14)" : "none",
             }}
           >
             <Sparkles size={15} />
-            {budgetLoading ? "Analizando..." : "Analizar presupuesto y perfiles"}
+            {legacyBudgetLoading ? "Analizando..." : "Analizar presupuesto y perfiles"}
           </button>
 
-          {!analysisIsFresh && lastAnalysisKey && (
+          {!isSmartIntakeCategory && !legacyAnalysisIsFresh && lastLegacyAnalysisKey ? (
             <div style={{ padding: 12, borderRadius: 12, background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.2)", color: "#b45309", fontSize: 12, lineHeight: 1.6 }}>
-              El brief cambió después del último análisis. Vuelve a correrlo para actualizar presupuesto y candidatos.
+              El brief cambio despues del ultimo analisis. Ejecutalo de nuevo para actualizar presupuesto y candidatos.
             </div>
-          )}
+          ) : null}
 
-          {visibleBudgetSuggestion ? (
+          {isSmartIntakeCategory ? (
+            <>
+              <PreliminaryEstimateCard estimate={estimate} />
+              <MilestonePreview milestones={milestones} />
+            </>
+          ) : visibleLegacyBudget ? (
             <div style={{ padding: 16, borderRadius: 16, background: "#fff", border: "1px solid rgba(37,99,235,.12)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>Rango sugerido</span>
                 <span style={{ fontSize: 10, fontWeight: 800, color: "#0f766e", background: "rgba(16,185,129,.12)", borderRadius: 999, padding: "4px 8px", textTransform: "uppercase" }}>
-                  {visibleBudgetSuggestion.confidence}
+                  {visibleLegacyBudget.confidence}
                 </span>
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 6 }}>
-                ${visibleBudgetSuggestion.min.toLocaleString("es-MX")} - ${visibleBudgetSuggestion.max.toLocaleString("es-MX")} {visibleBudgetSuggestion.currency}
+                ${visibleLegacyBudget.min.toLocaleString("es-MX")} - ${visibleLegacyBudget.max.toLocaleString("es-MX")} {visibleLegacyBudget.currency}
               </div>
               <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
-                Mediana ${visibleBudgetSuggestion.median.toLocaleString("es-MX")} · {visibleBudgetSuggestion.similarJobsFound} referencias
+                Mediana ${visibleLegacyBudget.median.toLocaleString("es-MX")} · {visibleLegacyBudget.similarJobsFound} referencias
               </div>
-              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>{visibleBudgetSuggestion.aiNarrative}</p>
+              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>{visibleLegacyBudget.aiNarrative}</p>
             </div>
           ) : (
             <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.65)", border: "1px dashed rgba(37,99,235,.16)", fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
-              Completa categoría, título y descripción para calcular un rango antes de entrar al wizard.
+              {isSmartIntakeCategory
+                ? "Responde las preguntas guiadas hasta cruzar el umbral de score para desbloquear el estimate."
+                : "Completa categoria, titulo y descripcion para calcular un rango antes de entrar al wizard."}
             </div>
           )}
 
@@ -423,12 +612,12 @@ export function LandingIntake() {
                         <span>{Math.round(pro.score * 100)}% match</span>
                         <span>{pro.trustScore} trust</span>
                         <span>{pro.completedProjects || pro.completedJobs} trabajos</span>
-                        {pro.avgRating > 0 && (
+                        {pro.avgRating > 0 ? (
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#d97706" }}>
                             <Star size={11} fill="#d97706" />
                             {pro.avgRating.toFixed(1)}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     {pro.publicSlug ? (
@@ -440,12 +629,10 @@ export function LandingIntake() {
                         Perfil <ExternalLink size={12} />
                       </Link>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>
-                        Perfil privado
-                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>Perfil privado</span>
                     )}
                   </div>
-                  {pro.specialties.length > 0 && (
+                  {pro.specialties.length > 0 ? (
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {pro.specialties.slice(0, 3).map((specialty) => (
                         <span
@@ -463,11 +650,11 @@ export function LandingIntake() {
                         </span>
                       ))}
                     </div>
-                  )}
+                  ) : null}
                   <div style={{ fontSize: 11, color: "#64748b" }}>
                     {pro.matchReason}
                     {" · "}
-                    {pro.verifiedAt ? "Credencial pública activa" : "Reputación detectada por historial operativo"}
+                    {pro.verifiedAt ? "Credencial publica activa" : "Reputacion detectada por historial operativo"}
                     {pro.badges.length > 0 ? ` · ${pro.badges.slice(0, 2).join(" · ")}` : ""}
                   </div>
                   <button
@@ -496,19 +683,23 @@ export function LandingIntake() {
             </div>
           ) : (
             <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.65)", border: "1px dashed rgba(37,99,235,.16)", fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
-              Cuando analices el brief, aquí aparecerá una vista previa de profesionales compatibles.
+              Cuando analices el brief, aqui aparecera una vista previa de profesionales compatibles.
             </div>
           )}
 
-          {error && (
+          {legacyError ? (
             <div style={{ padding: 12, borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", color: "#b91c1c", fontSize: 13 }}>
-              {error}
+              {legacyError}
             </div>
-          )}
+          ) : null}
 
           <Link
-            href={canContinue ? nextHref : "#"}
-            aria-disabled={!canContinue}
+            href={nextHref}
+            onClick={() => {
+              if (intakeId) {
+                window.localStorage.setItem("intake_draft_id", intakeId);
+              }
+            }}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -516,25 +707,24 @@ export function LandingIntake() {
               gap: 8,
               padding: "14px 18px",
               borderRadius: 12,
-              background: canContinue ? "linear-gradient(135deg, #2563eb, #7c3aed)" : "#cbd5e1",
+              background: "linear-gradient(135deg, #2563eb, #7c3aed)",
               color: "#fff",
               fontSize: 14,
               fontWeight: 800,
               textDecoration: "none",
-              pointerEvents: canContinue ? "auto" : "none",
             }}
           >
             Continuar al wizard completo →
           </Link>
 
-          {selectedProfessional && (
+          {selectedProfessional ? (
             <div style={{ padding: 12, borderRadius: 12, background: "rgba(79,70,229,.08)", border: "1px solid rgba(79,70,229,.18)", color: "#4338ca", fontSize: 12, lineHeight: 1.6 }}>
-              El wizard llevará marcado a <strong>{selectedProfessional.displayName}</strong> como perfil objetivo y, al publicar, te llevará directo al matching del job.
+              El wizard llevara marcado a <strong>{selectedProfessional.displayName}</strong> como perfil objetivo y, al publicar, te llevara directo al matching del job.
             </div>
-          )}
+          ) : null}
 
           <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
-            Si no has iniciado sesión, el sistema te pedirá entrar y luego volverá exactamente a este trabajo con los datos precargados.
+            Si no has iniciado sesion, el sistema te pedira entrar y luego volvera al wizard con el intake recuperado cuando aplique.
           </div>
         </div>
       </div>

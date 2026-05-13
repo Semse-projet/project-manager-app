@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLanguage } from "../../../../../lib/language-context";
 import { ArrowLeft, BadgeCheck, CheckSquare } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { buildOpsTaskPriorityLabel, buildOpsTaskStatusLabel } from "../../../../lib/buildops-i18n";
 import { createBuildOpsTask, type BuildOpsTaskPriority, type BuildOpsTaskStatus } from "../../../../lib/buildops-api";
 
 type TaskInput = {
@@ -32,6 +34,7 @@ const INITIAL_INPUT: TaskInput = {
 };
 
 export default function NewBuildOpsTaskPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectIdFromQuery = searchParams?.get("projectId") ?? "";
@@ -60,7 +63,7 @@ export default function NewBuildOpsTaskPage() {
       });
       router.push(`/buildops/tasks/${task.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo guardar la tarea.");
+      setError(err instanceof Error ? err.message : t("common.serverError"));
     } finally {
       setSaving(false);
     }
@@ -72,7 +75,7 @@ export default function NewBuildOpsTaskPage() {
         <div className="flex items-center justify-between gap-3">
           <Link href="/buildops/tasks" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
             <ArrowLeft size={16} />
-            Back to tasks
+            {t("buildops.backToTasks")}
           </Link>
           <Badge variant="brand">BuildOps</Badge>
         </div>
@@ -80,64 +83,64 @@ export default function NewBuildOpsTaskPage() {
         <section className="grid gap-2">
           <div className="flex items-center gap-2">
             <CheckSquare size={18} className="text-brand" />
-            <h1 className="text-3xl font-bold tracking-tight text-ink">New task</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-ink">{t("buildops.newTask")}</h1>
           </div>
           <p className="max-w-3xl text-sm text-muted">
-            Create a BuildOps task for execution, due dates, assignment and project tracking.
+            {t("buildops.newTaskIntro")}
           </p>
-          {projectIdFromQuery ? <p className="text-sm text-muted">Project context: {projectIdFromQuery}</p> : null}
+          {projectIdFromQuery ? <p className="text-sm text-muted">{t("buildops.projectContext")}: {projectIdFromQuery}</p> : null}
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
         </section>
 
         <Card className="grid gap-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Title">
+            <Field label={t("buildops.title")}>
               <input className={inputClass} value={input.title} onChange={(event) => setInput({ ...input, title: event.target.value })} />
             </Field>
-            <Field label="Project ID">
+            <Field label={t("buildops.projectIdLabel")}>
               <input className={inputClass} value={input.projectId} onChange={(event) => setInput({ ...input, projectId: event.target.value })} />
             </Field>
-            <Field label="Assignee name">
+            <Field label={t("buildops.assigneeName")}>
               <input className={inputClass} value={input.assigneeName} onChange={(event) => setInput({ ...input, assigneeName: event.target.value })} />
             </Field>
-            <Field label="Assignee user ID">
+            <Field label={t("buildops.assigneeUserId")}>
               <input className={inputClass} value={input.assigneeUserId} onChange={(event) => setInput({ ...input, assigneeUserId: event.target.value })} />
             </Field>
-            <Field label="Status">
+            <Field label={t("buildops.statusLabel")}>
               <select className={inputClass} value={input.status} onChange={(event) => setInput({ ...input, status: event.target.value as BuildOpsTaskStatus })}>
-                <option value="todo">Todo</option>
-                <option value="in_progress">In progress</option>
-                <option value="blocked">Blocked</option>
-                <option value="done">Done</option>
-                <option value="canceled">Canceled</option>
+                <option value="todo">{buildOpsTaskStatusLabel(t, "todo")}</option>
+                <option value="in_progress">{buildOpsTaskStatusLabel(t, "in_progress")}</option>
+                <option value="blocked">{buildOpsTaskStatusLabel(t, "blocked")}</option>
+                <option value="done">{buildOpsTaskStatusLabel(t, "done")}</option>
+                <option value="canceled">{buildOpsTaskStatusLabel(t, "canceled")}</option>
               </select>
             </Field>
-            <Field label="Priority">
+            <Field label={t("buildops.priority")}>
               <select className={inputClass} value={input.priority} onChange={(event) => setInput({ ...input, priority: event.target.value as BuildOpsTaskPriority })}>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
+                <option value="low">{buildOpsTaskPriorityLabel(t, "low")}</option>
+                <option value="medium">{buildOpsTaskPriorityLabel(t, "medium")}</option>
+                <option value="high">{buildOpsTaskPriorityLabel(t, "high")}</option>
+                <option value="urgent">{buildOpsTaskPriorityLabel(t, "urgent")}</option>
               </select>
             </Field>
-            <Field label="Due date">
+            <Field label={t("buildops.dueDate")}>
               <input className={inputClass} type="date" value={input.dueDate} onChange={(event) => setInput({ ...input, dueDate: event.target.value })} />
             </Field>
-            <Field label="Source tool">
+            <Field label={t("buildops.sourceToolLabel")}>
               <input className={inputClass} value={input.sourceTool} onChange={(event) => setInput({ ...input, sourceTool: event.target.value })} />
             </Field>
           </div>
 
-          <Field label="Description">
+          <Field label={t("buildops.description")}>
             <textarea className={`${inputClass} min-h-[120px]`} value={input.description} onChange={(event) => setInput({ ...input, description: event.target.value })} />
           </Field>
 
           <div className="flex items-center gap-3">
             <button onClick={() => void handleSave()} disabled={saving || !input.title.trim()} className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright disabled:opacity-60">
               <BadgeCheck size={16} />
-              {saving ? "Saving..." : "Save task"}
+              {saving ? t("buildops.savingTask") : t("buildops.saveTask")}
             </button>
-            <span className="text-sm text-muted">Saved to Prisma as a BuildOps task.</span>
+            <span className="text-sm text-muted">{t("buildops.savedTaskPrisma")}</span>
           </div>
         </Card>
       </div>

@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useState } from "react";
 import { ArrowRight, ClipboardList, Clock3, FolderKanban } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
+import { buildOpsMilestoneStatusLabel } from "../../../lib/buildops-i18n";
 import { fetchBuildOpsMilestones, type BuildOpsMilestone } from "../../../lib/buildops-api";
 
 const fallbackMilestones: BuildOpsMilestone[] = [];
@@ -16,6 +18,7 @@ function badgeVariant(status: BuildOpsMilestone["status"]) {
 }
 
 export default function BuildOpsMilestonesPage() {
+  const { t } = useLanguage();
   const [milestones, setMilestones] = useState<BuildOpsMilestone[]>(fallbackMilestones);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +33,7 @@ export default function BuildOpsMilestonesPage() {
         setMilestones(data);
       } catch (err) {
         if (!alive) return;
-        setError(err instanceof Error ? err.message : "BuildOps error");
+        setError(err instanceof Error ? err.message : t("common.serverError"));
       } finally {
         if (alive) setLoading(false);
       }
@@ -41,7 +44,7 @@ export default function BuildOpsMilestonesPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [t]);
 
   const pendingCount = milestones.filter((milestone) => ["draft", "awaiting_review", "submitted"].includes(milestone.status)).length;
   const approvedCount = milestones.filter((milestone) => milestone.status === "approved").length;
@@ -53,38 +56,38 @@ export default function BuildOpsMilestonesPage() {
         <section className="flex items-start justify-between gap-4">
           <div className="grid gap-2">
             <Badge variant="brand" className="w-fit">BuildOps</Badge>
-            <h1 className="text-3xl font-bold tracking-tight text-ink">Milestones</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-ink">{t("page.buildOpsMilestones")}</h1>
             <p className="max-w-3xl text-sm text-muted">
-              Project milestones with evidence counts. This view sits on top of the existing milestone table and keeps the release flow visible.
+              {t("buildops.milestoneLayerDesc")}
             </p>
             <div className="flex flex-wrap gap-2 pt-1 text-sm text-muted">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1">
                 <Clock3 size={14} />
-                Pending {pendingCount}
+                {t("buildops.pending")} {pendingCount}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1">
                 <ClipboardList size={14} />
-                Approved {approvedCount}
+                {t("buildops.approved")} {approvedCount}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1">
                 <FolderKanban size={14} />
-                Paid {paidCount}
+                {t("buildops.paid")} {paidCount}
               </span>
             </div>
             {error ? <p className="text-sm text-red-400">{error}</p> : null}
-            {loading ? <p className="text-sm text-muted">Loading milestones...</p> : null}
+            {loading ? <p className="text-sm text-muted">{t("buildops.loadingMilestones")}</p> : null}
           </div>
           <Link href="/buildops/projects" className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-brand-bright">
             <ArrowRight size={16} />
-            Projects
+            {t("buildops.projects")}
           </Link>
         </section>
 
         <div className="grid gap-3">
           {milestones.length === 0 ? (
             <Card className="grid gap-2 text-sm text-muted">
-              <div className="text-ink font-semibold">No milestones yet</div>
-              <div>Create projects and milestones from the core job flow; BuildOps will surface them here once they exist.</div>
+              <div className="text-ink font-semibold">{t("buildops.noMilestonesYet")}</div>
+              <div>{t("buildops.noMilestonesHint")}</div>
             </Card>
           ) : null}
           {milestones.map((milestone) => (
@@ -96,20 +99,20 @@ export default function BuildOpsMilestonesPage() {
                     <h2 className="text-lg font-semibold text-ink">{milestone.title}</h2>
                   </div>
                   <p className="text-sm text-muted">
-                    {milestone.projectTitle} · Sequence {milestone.sequence} · ${milestone.amount.toFixed(2)}
+                    {milestone.projectTitle} · {t("buildops.sequence")} {milestone.sequence} · ${milestone.amount.toFixed(2)}
                   </p>
                   <p className="text-xs text-muted">
-                    {milestone.description ?? "No description"}
+                    {milestone.description ?? t("buildops.noDescription")}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={badgeVariant(milestone.status)}>{milestone.status}</Badge>
-                  <Badge variant="default">{milestone.evidenceCount} evidence</Badge>
+                  <Badge variant={badgeVariant(milestone.status)}>{buildOpsMilestoneStatusLabel(t, milestone.status)}</Badge>
+                  <Badge variant="default">{milestone.evidenceCount} {t("buildops.evidenceCount")}</Badge>
                 </div>
               </div>
               <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-sm text-muted">
                 <span>{milestone.id}</span>
-                <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : "Not approved"}</span>
+                <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : t("buildops.notApproved")}</span>
               </div>
             </Card>
           ))}

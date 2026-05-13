@@ -6,7 +6,7 @@
  * Adaptado: React Router → Next.js, Supabase → API REST
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
@@ -23,6 +23,11 @@ import {
   JOB_URGENCY_OPTIONS,
   parseJobIntakePrefill,
 } from "../../../../../lib/job-intake";
+import type { ProjectIntake } from "../../../../../lib/smart-intake";
+import {
+  clearPersistedIntakeId,
+  getPersistedIntakeId,
+} from "../../../../../hooks/use-intake";
 
 // ──────────────────────────────────────────────
 // DATA
@@ -104,6 +109,8 @@ export default function NewJobPage() {
   const [step, setStep] = useState(() => computeInitialJobWizardStep(prefill));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [activeIntakeId, setActiveIntakeId] = useState(prefill.intakeId);
+  const [intakeRecovered, setIntakeRecovered] = useState(false);
 
   // Step 1
   const [categoryId, setCategoryId] = useState(prefill.categoryId);
@@ -144,6 +151,76 @@ export default function NewJobPage() {
     return true;
   };
 
+  useEffect(() => {
+    let cancelled = false;
+    const draftId = prefill.intakeId || getPersistedIntakeId();
+
+    if (!draftId) {
+      return;
+    }
+
+    const recoveredDraftId = draftId;
+
+    async function hydrateFromIntake() {
+      try {
+        const claimResponse = await fetch(`/api/semse/intake/${encodeURIComponent(recoveredDraftId)}/claim`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        const claimJson = (await claimResponse.json()) as {
+          data?: { intakeId: string };
+          error?: { message?: string };
+        };
+        if (!claimResponse.ok) {
+          throw new Error(claimJson.error?.message ?? "No se pudo reclamar el intake.");
+        }
+
+        const intakeResponse = await fetch(`/api/semse/public/intake/${encodeURIComponent(recoveredDraftId)}`, {
+          cache: "no-store",
+        });
+        const intakeJson = (await intakeResponse.json()) as {
+          data?: ProjectIntake;
+          error?: { message?: string };
+        };
+        if (!intakeResponse.ok || !intakeJson.data) {
+          throw new Error(intakeJson.error?.message ?? "No se pudo recuperar el intake.");
+        }
+
+        if (cancelled) {
+          return;
+        }
+
+        const intake = intakeJson.data;
+        setActiveIntakeId(intake.id);
+        setCategoryId((current) => current || intake.selectedCategoryId || "");
+        setSubcategoryId((current) => current || intake.selectedSubcategoryId || "");
+        setTitle((current) => current || intake.normalizedTitle || intake.providedTitle || "");
+        setDescription((current) => current || intake.rawDescription || "");
+        setLocationType((current) => intake.modality ?? current);
+        setCity((current) => current || intake.city || "");
+        setUrgency((current) => intake.urgency ?? current);
+        if (intake.generatedEstimate?.totalRange) {
+          setBudgetType("range");
+          setBudgetMin((current) => current > 0 ? current : intake.generatedEstimate?.totalRange.min ?? current);
+          setBudgetMax((current) => current > 0 ? current : intake.generatedEstimate?.totalRange.max ?? current);
+        }
+        setStep((current) => Math.max(current, 3));
+        setIntakeRecovered(true);
+        clearPersistedIntakeId();
+      } catch {
+        if (!cancelled) {
+          setIntakeRecovered(false);
+        }
+      }
+    }
+
+    void hydrateFromIntake();
+    return () => {
+      cancelled = true;
+    };
+  }, [prefill.intakeId]);
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setSubmitError(null);
@@ -169,18 +246,50 @@ export default function NewJobPage() {
         } : {}),
       };
 
-      const res = await fetch("/api/semse/jobs", {
+      const endpoint = activeIntakeId
+        ? `/api/semse/intake/${encodeURIComponent(activeIntakeId)}/publish`
+        : "/api/semse/jobs";
+      const requestBody = activeIntakeId
+        ? {
+            confirmEstimate: true,
+            title,
+            description,
+            category: subcategory?.name ?? category?.name,
+            categoryId,
+            subcategoryId,
+            locationType,
+            urgency,
+            budgetType,
+            budgetMin,
+            budgetMax: budgetType === "range" ? budgetMax : budgetMin,
+            ...(city ? { city } : {}),
+            ...(deadline ? { deadline } : {}),
+            ...(preferredProfessional ? {
+              preferredProfessional: {
+                userId: preferredProfessional.userId,
+                displayName: preferredProfessional.name,
+                ...(preferredProfessional.slug ? { publicSlug: preferredProfessional.slug } : {}),
+              },
+            } : {}),
+          }
+        : payload;
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(requestBody),
       });
-      const data = (await res.json()) as { data?: { id?: string }; error?: { message: string } };
+      const data = (await res.json()) as {
+        data?: { id?: string; jobId?: string; jobUrl?: string };
+        error?: { message: string };
+      };
       if (!res.ok || data.error) {
         setSubmitError(data.error?.message ?? `Error ${res.status}`);
         setSubmitting(false);
         return;
       }
-      const jobId = data.data?.id;
+      clearPersistedIntakeId();
+      const jobId = data.data?.jobId ?? data.data?.id;
       if (jobId && preferredProfessional) {
         const qs = new URLSearchParams();
         qs.set("jobId", jobId);
@@ -190,7 +299,7 @@ export default function NewJobPage() {
         router.push(`/client/professionals?${qs.toString()}`);
         return;
       }
-      router.push(jobId ? `/client/jobs/${jobId}` : "/client/jobs");
+      router.push(data.data?.jobUrl ?? (jobId ? `/client/jobs/${jobId}` : "/client/jobs"));
     } catch {
       setSubmitError("No se pudo conectar con el servidor");
       setSubmitting(false);
@@ -241,9 +350,11 @@ export default function NewJobPage() {
         }
       />
 
-      {prefill.source === "landing" && (
+      {(prefill.source === "landing" || intakeRecovered || Boolean(activeIntakeId)) && (
         <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.18)", color: "#bfdbfe", fontSize: "13px" }}>
-          Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación.
+          {intakeRecovered
+            ? "Recuperamos el intake de la landing y rellenamos el wizard con el borrador guardado."
+            : "Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación."}
         </div>
       )}
 

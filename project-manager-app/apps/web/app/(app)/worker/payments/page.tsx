@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
@@ -24,6 +25,7 @@ const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info"; l
 };
 
 export default function WorkerPaymentsPage() {
+  const { t } = useLanguage();
   const [tab, setTab]             = useState<"todos" | "liberados" | "escrow">("todos");
   const [showPayout, setShowPayout] = useState(false);
   const [payments, setPayments]   = useState<PayRow[]>([]);
@@ -122,7 +124,7 @@ export default function WorkerPaymentsPage() {
           <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Pagos</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.workerPayments")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>Historial de pagos y fondos en escrow</p>
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>

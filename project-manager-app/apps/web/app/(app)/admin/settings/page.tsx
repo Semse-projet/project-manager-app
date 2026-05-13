@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { Settings, Bell, Shield, Globe, Database, Key } from "lucide-react";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -9,12 +10,13 @@ type SettingSection = "general" | "notifications" | "security" | "integrations";
 
 const SECTIONS: { id: SettingSection; label: string; labelEn: string; icon: typeof Settings }[] = [
   { id: "general",       label: "General",        labelEn: "General",        icon: Globe },
-  { id: "notifications", label: "Notificaciones", labelEn: "Notifications",  icon: Bell },
-  { id: "security",      label: "Seguridad",       labelEn: "Security",      icon: Shield },
-  { id: "integrations",  label: "Integraciones",   labelEn: "Integrations",  icon: Key },
+  { id: "notifications", label: "Notificaciones", labelEn: "Notificaciones",  icon: Bell },
+  { id: "security",      label: "Seguridad",       labelEn: "Seguridad",      icon: Shield },
+  { id: "integrations",  label: "Integraciones",   labelEn: "Integraciones",  icon: Key },
 ];
 
 export default function AdminSettingsPage() {
+  const { t } = useLanguage();
   const [active, setActive] = useState<SettingSection>("general");
 
   return (
@@ -28,7 +30,7 @@ export default function AdminSettingsPage() {
             <Settings size={20} color="#818cf8" />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800 }}>Configuración</h1>
+            <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800 }}>{t("page.settings")}</h1>
             <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>Ajustes del sistema SEMSE OS</p>
           </div>
         </div>

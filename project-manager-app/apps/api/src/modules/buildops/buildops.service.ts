@@ -16,6 +16,7 @@ type StoredBuildOpsProject = {
   id: string;
   tenantId: string;
   orgId: string;
+  jobId: string | null;
   createdBy: string;
   title: string;
   description: string | null;
@@ -33,6 +34,14 @@ type StoredBuildOpsProject = {
   sourceTool: string | null;
   sourceToolInput: Prisma.JsonValue | null;
   sourceToolResult: Prisma.JsonValue | null;
+  clientPlanApprovalStatus: string;
+  clientPlanApprovedAt: Date | null;
+  clientPlanApprovedById: string | null;
+  clientPlanApprovalSource: string | null;
+  clientPlanReviewedAt: Date | null;
+  clientPlanReviewComment: string | null;
+  legacyPromotionStatus: string;
+  legacyPromotedAt: Date | null;
   completion: number;
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +87,7 @@ const RISK_LEVELS = new Set<BuildOpsRiskLevel>(["low", "medium", "high", "critic
 const TASK_STATUSES = new Set<BuildOpsTaskStatus>(["todo", "in_progress", "blocked", "done", "canceled"]);
 const TASK_PRIORITIES = new Set<BuildOpsTaskPriority>(["low", "medium", "high", "urgent"]);
 const MILESTONE_STATUSES = new Set<BuildOpsMilestoneDto["status"]>(["draft", "awaiting_review", "submitted", "approved", "rejected", "paid"]);
+const BUILDOPS_SOURCE_TOOL_RESULT_SCHEMA_VERSION = "1.0";
 
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -95,6 +105,13 @@ function toDateString(value: Date | null | undefined): string | null {
 function toJsonObject(value: Prisma.JsonValue | null): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+function normalizeSourceToolResult(value: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...value,
+    schemaVersion: BUILDOPS_SOURCE_TOOL_RESULT_SCHEMA_VERSION,
+  };
 }
 
 @Injectable()
@@ -225,6 +242,26 @@ export class BuildOpsService {
     return this.toDto(project);
   }
 
+  async recoverStalePromotions(input: { tenantId: string; olderThanMinutes?: number }): Promise<{ recovered: number; cutoff: string }> {
+    const olderThanMinutes = Math.max(5, Math.min(input.olderThanMinutes ?? 15, 24 * 60));
+    const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
+    const result = await this.prisma.buildOpsProject.updateMany({
+      where: {
+        tenantId: input.tenantId,
+        legacyPromotionStatus: "promoting",
+        updatedAt: { lt: cutoff },
+      },
+      data: {
+        legacyPromotionStatus: "failed",
+      },
+    });
+
+    return {
+      recovered: result.count,
+      cutoff: cutoff.toISOString(),
+    };
+  }
+
   async createProject(input: {
     tenantId: string;
     orgId: string;
@@ -267,7 +304,9 @@ export class BuildOpsService {
         sourceTool: input.sourceTool ?? null,
         completion: input.status && input.status !== "draft" ? 15 : 0,
         sourceToolInput: input.sourceToolInput ? (input.sourceToolInput as Prisma.InputJsonValue) : undefined,
-        sourceToolResult: input.sourceToolResult ? (input.sourceToolResult as Prisma.InputJsonValue) : undefined,
+        sourceToolResult: input.sourceToolResult
+          ? (normalizeSourceToolResult(input.sourceToolResult) as Prisma.InputJsonValue)
+          : undefined,
       },
     })) as StoredBuildOpsProject;
 
@@ -321,7 +360,7 @@ export class BuildOpsService {
       riskLevel,
       sourceTool: input.sourceTool,
       sourceToolInput: input.sourceToolInput,
-      sourceToolResult: input.sourceToolResult,
+      sourceToolResult: normalizeSourceToolResult(input.sourceToolResult),
     });
   }
 
@@ -340,6 +379,20 @@ export class BuildOpsService {
     sourceTool?: string | null;
     evidenceRequired?: Record<string, unknown> | null;
   }): Promise<BuildOpsTaskDto> {
+    if (input.projectId) {
+      const project = await this.prisma.buildOpsProject.findFirst({
+        where: {
+          id: input.projectId,
+          tenantId: input.tenantId,
+        },
+        select: { id: true },
+      });
+
+      if (!project) {
+        throw new NotFoundException("BuildOps project not found");
+      }
+    }
+
     const task = (await this.prisma.buildOpsTask.create({
       data: {
         tenantId: input.tenantId,
@@ -367,6 +420,7 @@ export class BuildOpsService {
       id: project.id,
       tenantId: project.tenantId,
       orgId: project.orgId,
+      jobId: project.jobId,
       createdBy: project.createdBy,
       title: project.title,
       description: project.description,
@@ -384,6 +438,17 @@ export class BuildOpsService {
       sourceTool: project.sourceTool,
       sourceToolInput: toJsonObject(project.sourceToolInput),
       sourceToolResult: toJsonObject(project.sourceToolResult),
+      clientPlanApprovalStatus: project.clientPlanApprovalStatus as BuildOpsProjectDto["clientPlanApprovalStatus"],
+      clientPlanApprovedAt: toDateString(project.clientPlanApprovedAt),
+      clientPlanApprovedById: project.clientPlanApprovedById,
+      clientPlanApprovalSource:
+        project.clientPlanApprovalSource === "client" || project.clientPlanApprovalSource === "admin_override"
+          ? project.clientPlanApprovalSource
+          : null,
+      clientPlanReviewedAt: toDateString(project.clientPlanReviewedAt),
+      clientPlanReviewComment: project.clientPlanReviewComment,
+      legacyPromotionStatus: project.legacyPromotionStatus,
+      legacyPromotedAt: toDateString(project.legacyPromotedAt),
       completion: project.completion,
       createdAt: project.createdAt.toISOString(),
       updatedAt: project.updatedAt.toISOString(),

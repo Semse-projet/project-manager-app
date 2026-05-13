@@ -1,0 +1,91 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const CARPENTRY_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "carpentry_type",
+    category: "general_carpentry",
+    step: 1,
+    label: {
+      es: "¿Qué tipo de trabajo de carpintería necesita?",
+      en: "What type of carpentry work is needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Instalación de puertas", en: "Door installation" }, value: "doors" },
+      { label: { es: "Instalación de ventanas", en: "Window installation" }, value: "windows" },
+      { label: { es: "Instalación de pisos de madera", en: "Hardwood floor installation" }, value: "flooring" },
+      { label: { es: "Construcción de armarios o closets", en: "Cabinet or closet build" }, value: "cabinets" },
+      { label: { es: "Deck o terraza exterior", en: "Deck or outdoor patio" }, value: "deck" },
+      { label: { es: "Reparaciones generales de madera", en: "General wood repairs" }, value: "repairs" },
+    ],
+  },
+  {
+    id: "carpentry_units",
+    category: "general_carpentry",
+    step: 2,
+    label: {
+      es: "¿Cuántas unidades o qué área está involucrada?",
+      en: "How many units or what area is involved?",
+    },
+    description: {
+      es: "Por ejemplo: número de puertas, ventanas, o área en sq ft.",
+      en: "For example: number of doors, windows, or area in sq ft.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "1 – 3 unidades / área pequeña (< 100 sq ft)", en: "1 – 3 units / small area (< 100 sq ft)" }, value: "small" },
+      { label: { es: "4 – 8 unidades / área mediana (100 – 300 sq ft)", en: "4 – 8 units / medium area (100 – 300 sq ft)" }, value: "medium" },
+      { label: { es: "9+ unidades / área grande (> 300 sq ft)", en: "9+ units / large area (> 300 sq ft)" }, value: "large" },
+    ],
+  },
+  {
+    id: "carpentry_material",
+    category: "general_carpentry",
+    step: 3,
+    label: {
+      es: "¿Qué tipo de material prefiere?",
+      en: "What type of material do you prefer?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Económico (MDF, madera básica)", en: "Budget (MDF, basic wood)" }, value: "budget" },
+      { label: { es: "Estándar (madera de calidad)", en: "Standard (quality wood)" }, value: "standard" },
+      { label: { es: "Premium (madera sólida, importada)", en: "Premium (solid or imported wood)" }, value: "premium" },
+    ],
+  },
+  {
+    id: "carpentry_existing",
+    category: "general_carpentry",
+    step: 4,
+    label: {
+      es: "¿Necesita quitar o demoler material existente?",
+      en: "Is removal or demolition of existing material needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "No — instalación en espacio vacío", en: "No — installation in empty space" }, value: "no" },
+      { label: { es: "Sí — remoción menor (puertas, marcos)", en: "Yes — minor removal (doors, frames)" }, value: "minor" },
+      { label: { es: "Sí — demolición significativa", en: "Yes — significant demolition" }, value: "significant" },
+    ],
+  },
+];

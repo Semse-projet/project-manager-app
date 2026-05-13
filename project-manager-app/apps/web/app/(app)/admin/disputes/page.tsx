@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -107,6 +108,7 @@ const RESOLVE_OPTIONS = [
 // ─────────────────────────────────────────────────────────────
 
 export default function AdminDisputesPage() {
+  const { t } = useLanguage();
   const searchParams = useSearchParams();
   const [disputes, setDisputes]     = useState<DisputeRecord[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -380,7 +382,7 @@ export default function AdminDisputesPage() {
           <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
             <span style={{ fontSize: "14px" }}>←</span> Dashboard
           </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Disputas</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.disputes")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>
             Resolución de conflictos entre clientes y profesionales
             {lastUpdated && <span> · actualizado {lastUpdated.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</span>}

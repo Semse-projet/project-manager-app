@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../lib/language-context";
 import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight, Briefcase, CheckSquare, ClipboardList, FileText, FolderKanban, Plus, Radar } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
@@ -13,10 +14,11 @@ const fallbackCards = {
   milestonesPending: 0,
   evidencePending: 0,
   riskAlerts: 0,
-  recentActivity: ["No activity yet"],
+  recentActivity: [],
 };
 
 export default function BuildOpsPage() {
+  const { t } = useLanguage();
   const [overview, setOverview] = useState<BuildOpsOverview>(fallbackCards);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +47,12 @@ export default function BuildOpsPage() {
   }, []);
 
   const dashboardCards = [
-    { title: "Active Projects", value: String(overview.activeProjects), hint: "Jobs in progress", href: "/buildops/projects", icon: Briefcase, accent: "brand" as const },
-    { title: "Draft Estimates", value: String(overview.draftEstimates), hint: "Tool results ready to save", href: "/tools", icon: FileText, accent: "neutral" as const },
-    { title: "Tasks Due", value: String(overview.tasksDue), hint: "Today and next 24h", href: "/buildops/tasks", icon: CheckSquare, accent: "neutral" as const },
-    { title: "Milestones Pending", value: String(overview.milestonesPending), hint: "Awaiting approval", href: "/buildops/milestones", icon: ClipboardList, accent: "neutral" as const },
-    { title: "Evidence Pending", value: String(overview.evidencePending), hint: "Photos / docs to upload", href: "/worker/evidence", icon: FolderKanban, accent: "neutral" as const },
-    { title: "Risk Alerts", value: String(overview.riskAlerts), hint: "Needs review", href: "/admin/ops", icon: AlertTriangle, accent: "warning" as const },
+    { title: t("buildops.activeProjects"), value: String(overview.activeProjects), hint: t("buildops.jobsInProgressHint"), href: "/buildops/projects", icon: Briefcase, accent: "brand" as const },
+    { title: t("buildops.draftEstimates"), value: String(overview.draftEstimates), hint: t("buildops.toolResultsHint"), href: "/tools", icon: FileText, accent: "neutral" as const },
+    { title: t("buildops.tasksDue"), value: String(overview.tasksDue), hint: t("buildops.todayNext24hHint"), href: "/buildops/tasks", icon: CheckSquare, accent: "neutral" as const },
+    { title: t("buildops.milestonesPending"), value: String(overview.milestonesPending), hint: t("buildops.awaitingApprovalHint"), href: "/buildops/milestones", icon: ClipboardList, accent: "neutral" as const },
+    { title: t("buildops.evidencePending"), value: String(overview.evidencePending), hint: t("buildops.uploadDocsHint"), href: "/worker/evidence", icon: FolderKanban, accent: "neutral" as const },
+    { title: t("buildops.riskAlerts"), value: String(overview.riskAlerts), hint: t("buildops.needsReviewHint"), href: "/admin/ops", icon: AlertTriangle, accent: "warning" as const },
   ];
 
   return (
@@ -60,12 +62,12 @@ export default function BuildOpsPage() {
           <Badge variant="brand" className="w-fit">
             SEMSE BuildOps
           </Badge>
-          <h1 className="text-3xl font-bold tracking-tight text-ink">BuildOps dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-ink">{t("page.buildOps")}</h1>
           <p className="max-w-3xl text-sm text-muted">
-            Tool results turn into estimates, projects, tasks, milestones, evidence and reports. This shell is the workbench for field execution.
+            {t("buildops.workbenchDesc")}
           </p>
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
-          {loading ? <p className="text-sm text-muted">Loading BuildOps...</p> : null}
+          {loading ? <p className="text-sm text-muted">{t("buildops.loadingOverview")}</p> : null}
         </section>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -88,7 +90,7 @@ export default function BuildOpsPage() {
                     href={card.href}
                     className="inline-flex items-center gap-2 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-semibold text-ink transition-all hover:border-white/[0.18] hover:bg-white/[0.07]"
                   >
-                    Open <ArrowRight size={14} />
+                    {t("ui.open")} <ArrowRight size={14} />
                   </Link>
                 </div>
               </Card>
@@ -103,12 +105,16 @@ export default function BuildOpsPage() {
                 <Radar size={18} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-ink">Recent activity</h2>
-                <p className="text-sm text-muted">Latest BuildOps events from tools and field work.</p>
+                <h2 className="text-lg font-semibold text-ink">{t("buildops.recentActivity")}</h2>
+                <p className="text-sm text-muted">{t("buildops.latestEvents")}</p>
               </div>
             </div>
             <div className="grid gap-2">
-              {overview.recentActivity.map((item) => (
+              {overview.recentActivity.length === 0 ? (
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-muted">
+                  {t("ui.noData")}
+                </div>
+              ) : overview.recentActivity.map((item) => (
                 <div key={item} className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
                   {item}
                 </div>
@@ -117,40 +123,40 @@ export default function BuildOpsPage() {
           </Card>
 
           <Card className="grid gap-4">
-            <h2 className="text-lg font-semibold text-ink">Quick actions</h2>
+            <h2 className="text-lg font-semibold text-ink">{t("dash.quickActions")}</h2>
             <div className="grid gap-3">
               <Link href="/buildops/projects/new" className="inline-flex items-center justify-between rounded-xl border border-brand/20 bg-brand/[0.04] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-brand/[0.08]">
                 <span className="inline-flex items-center gap-2">
                   <Plus size={16} />
-                  New project
+                  {t("buildops.newProject")}
                 </span>
                 <ArrowRight size={14} />
               </Link>
               <Link href="/buildops/tasks/new" className="inline-flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-white/[0.06]">
                 <span className="inline-flex items-center gap-2">
                   <CheckSquare size={16} />
-                  New task
+                  {t("buildops.newTask")}
                 </span>
                 <ArrowRight size={14} />
               </Link>
               <Link href="/buildops/milestones" className="inline-flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-white/[0.06]">
                 <span className="inline-flex items-center gap-2">
                   <ClipboardList size={16} />
-                  Review milestones
+                  {t("buildops.reviewMilestones")}
                 </span>
                 <ArrowRight size={14} />
               </Link>
               <Link href="/tools" className="inline-flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-white/[0.06]">
                 <span className="inline-flex items-center gap-2">
                   <FolderKanban size={16} />
-                  Open tools hub
+                  {t("buildops.openToolsHub")}
                 </span>
                 <ArrowRight size={14} />
               </Link>
               <Link href="/admin/ops" className="inline-flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm font-semibold text-ink transition-all hover:bg-white/[0.06]">
                 <span className="inline-flex items-center gap-2">
                   <Briefcase size={16} />
-                  Review operations
+                  {t("buildops.reviewOperations")}
                 </span>
                 <ArrowRight size={14} />
               </Link>

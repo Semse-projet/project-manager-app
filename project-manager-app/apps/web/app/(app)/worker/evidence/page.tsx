@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { Upload, Camera, FileText, Image as ImageIcon, Clock, ChevronDown, RefreshCw, CheckCircle2, AlertTriangle, Eye } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
@@ -62,6 +63,7 @@ function evidenceStatus(row: EvidenceRow) {
 }
 
 export default function WorkerEvidencePage() {
+  const { t } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [milestones, setMilestones] = useState<MilestoneRow[]>([]);

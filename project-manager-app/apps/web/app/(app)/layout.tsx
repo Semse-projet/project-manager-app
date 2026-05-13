@@ -2,7 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
@@ -50,120 +51,88 @@ import {
 
 type NavRole = "worker" | "client" | "admin";
 type ThemePreference = "dark" | "light";
-type LanguagePreference = "es" | "en";
 
 interface NavItem {
-  label: string;
-  labelEn?: string;
+  labelKey: string;
   href: string;
   icon: typeof LayoutDashboard;
   section?: string;
 }
 
-const NAV: Record<NavRole, { label: string; labelEn: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
+const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
-    label: "Profesional",
-    labelEn: "Worker",
+    labelKey: "role.worker",
     color: "#10b981",
     icon: HardHat,
     items: [
-      { label: "Dashboard", labelEn: "Dashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "Principal" },
-      { label: "Agenda", labelEn: "Agenda", href: "/worker/agenda", icon: Calendar },
-      { label: "Mis trabajos", labelEn: "My jobs", href: "/worker/jobs", icon: Briefcase },
-      { label: "Tareas", labelEn: "Tasks", href: "/worker/tasks", icon: CheckSquare },
-      { label: "Time Tracker", labelEn: "Time Tracker", href: "/worker/tracker", icon: Clock },
-      { label: "Evidencia", labelEn: "Evidence", href: "/worker/evidence", icon: Camera },
-      { label: "Materiales", labelEn: "Materials", href: "/worker/materials", icon: Package },
-      { label: "Incidencias", labelEn: "Incidents", href: "/worker/incidents", icon: AlertTriangle },
-      { label: "Pagos", labelEn: "Payments", href: "/worker/payments", icon: CreditCard },
-      { label: "Movilidad", labelEn: "Travel Ops", href: "/worker/travel", icon: PlaneTakeoff },
-      { label: "Field Ops", labelEn: "Field Ops", href: "/worker/field-ops", icon: Wrench, section: "Campo" },
-      { label: "Mi perfil", labelEn: "My profile", href: "/worker/profile", icon: User },
-      { label: "Asistente IA", labelEn: "AI Settings", href: "/worker/settings", icon: Settings },
-      { label: "Agentes", labelEn: "Agents", href: "/agents", icon: Bot, section: "IA" },
+      { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
+      { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
+      { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
+      { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
+      { labelKey: "nav.timeTracker", href: "/worker/tracker", icon: Clock },
+      { labelKey: "nav.evidence", href: "/worker/evidence", icon: Camera },
+      { labelKey: "nav.materials", href: "/worker/materials", icon: Package },
+      { labelKey: "nav.incidents", href: "/worker/incidents", icon: AlertTriangle },
+      { labelKey: "nav.payments", href: "/worker/payments", icon: CreditCard },
+      { labelKey: "nav.travel", href: "/worker/travel", icon: PlaneTakeoff },
+      { labelKey: "nav.fieldOps", href: "/worker/field-ops", icon: Wrench, section: "section.field" },
+      { labelKey: "nav.myProfile", href: "/worker/profile", icon: User },
+      { labelKey: "nav.aiSettings", href: "/worker/settings", icon: Settings },
+      { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
     ],
   },
   client: {
-    label: "Cliente",
-    labelEn: "Client",
+    labelKey: "role.client",
     color: "#3b82f6",
     icon: Building,
     items: [
-      { label: "Dashboard", labelEn: "Dashboard", href: "/client/dashboard", icon: LayoutDashboard, section: "Principal" },
-      { label: "Leads & Clientes", labelEn: "Leads & Clients", href: "/client/leads", icon: Users },
-      { label: "Publicar trabajo", labelEn: "Post job", href: "/client/jobs/new", icon: Plus },
-      { label: "Mis proyectos", labelEn: "My projects", href: "/client/jobs", icon: FolderKanban },
-      { label: "Copiloto IA", labelEn: "AI Copilot", href: "/client/projects", icon: Bot },
-      { label: "Milestones", labelEn: "Milestones", href: "/client/milestones", icon: CheckSquare },
-      { label: "Profesionales", labelEn: "Professionals", href: "/client/professionals", icon: Users },
-      { label: "Documentos", labelEn: "Documents", href: "/client/documents", icon: FileText },
-      { label: "Reseñas", labelEn: "Reviews", href: "/client/reviews", icon: Star },
-      { label: "Pagos", labelEn: "Payments", href: "/client/payments", icon: CreditCard },
-      { label: "Finance Hub", labelEn: "Finance Hub", href: "/client/finance", icon: DollarSign },
-      { label: "Agentes", labelEn: "Agents", href: "/agents", icon: Bot, section: "IA" },
+      { labelKey: "nav.dashboard", href: "/client/dashboard", icon: LayoutDashboard, section: "section.main" },
+      { labelKey: "nav.leads", href: "/client/leads", icon: Users },
+      { labelKey: "nav.postJob", href: "/client/jobs/new", icon: Plus },
+      { labelKey: "nav.myProjects", href: "/client/jobs", icon: FolderKanban },
+      { labelKey: "nav.aiCopilot", href: "/client/projects", icon: Bot },
+      { labelKey: "nav.milestones", href: "/client/milestones", icon: CheckSquare },
+      { labelKey: "nav.professionals", href: "/client/professionals", icon: Users },
+      { labelKey: "nav.documents", href: "/client/documents", icon: FileText },
+      { labelKey: "nav.reviews", href: "/client/reviews", icon: Star },
+      { labelKey: "nav.payments", href: "/client/payments", icon: CreditCard },
+      { labelKey: "nav.financeHub", href: "/client/finance", icon: DollarSign },
+      { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
     ],
   },
   admin: {
-    label: "Admin",
-    labelEn: "Admin",
+    labelKey: "role.admin",
     color: "#8b5cf6",
     icon: ShieldCheck,
     items: [
-      { label: "Dashboard", labelEn: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard, section: "Principal" },
-      { label: "Operaciones", labelEn: "Operations", href: "/admin/ops", icon: Activity },
-      { label: "Autonomía", labelEn: "Autonomy", href: "/admin/autonomy", icon: GitBranch },
-      { label: "Developer Runtime", labelEn: "Developer Runtime", href: "/admin/developer-runtime", icon: Bot },
-      { label: "Domain Events", labelEn: "Domain Events", href: "/admin/domain-events", icon: Bell },
-      { label: "Usuarios", labelEn: "Users", href: "/admin/users", icon: Users },
-      { label: "Disputas", labelEn: "Disputes", href: "/admin/disputes", icon: AlertTriangle },
-      { label: "QA Center", labelEn: "QA Center", href: "/admin/qa", icon: ShieldCheck, section: "Control" },
-      { label: "Compliance", labelEn: "Compliance", href: "/admin/compliance", icon: CheckSquare },
-      { label: "Finanzas", labelEn: "Finance", href: "/admin/finance", icon: CreditCard },
-      { label: "Travel Ops", labelEn: "Travel Ops", href: "/admin/travel", icon: PlaneTakeoff },
-      { label: "Reportes", labelEn: "Reports", href: "/admin/reports", icon: BarChart2 },
-      { label: "Field Ops", labelEn: "Field Ops", href: "/admin/field-ops", icon: Wrench, section: "Operaciones" },
-      { label: "Config", labelEn: "Settings", href: "/admin/settings", icon: Settings },
-      { label: "HTML Canvas", labelEn: "HTML Canvas", href: "/admin/html-in-canvas", icon: Layers, section: "Lab" },
-      { label: "BuildOps", labelEn: "BuildOps", href: "/buildops", icon: FolderKanban, section: "Lab" },
-      { label: "SEMSE Tools", labelEn: "SEMSE Tools", href: "/tools", icon: Wrench, section: "Lab" },
-      { label: "Agentes", labelEn: "Agents", href: "/agents", icon: Bot, section: "IA" },
-      { label: "Coordinator", labelEn: "Coordinator", href: "/admin/coordinator", icon: GitBranch },
-      { label: "Métricas LLM", labelEn: "LLM Metrics", href: "/admin/llm-metrics", icon: BarChart2 },
-      { label: "AI Mission Control", labelEn: "AI Mission Control", href: "/admin/ai-mission-control", icon: Activity },
-      { label: "PMO Automatizado", labelEn: "PMO Dashboard", href: "/admin/pmo", icon: BarChart2 },
-      { label: "SEMSE_X", labelEn: "SEMSE_X", href: "/admin/semse-x", icon: Infinity },
-      { label: "Agent Memory", labelEn: "Agent Memory", href: "/admin/memory", icon: Brain },
-      { label: "Prometeo RAG", labelEn: "Prometeo RAG", href: "/admin/prometeo", icon: BookOpen },
+      { labelKey: "nav.dashboard", href: "/admin/dashboard", icon: LayoutDashboard, section: "section.main" },
+      { labelKey: "nav.operations", href: "/admin/ops", icon: Activity },
+      { labelKey: "nav.autonomy", href: "/admin/autonomy", icon: GitBranch },
+      { labelKey: "nav.developerRuntime", href: "/admin/developer-runtime", icon: Bot },
+      { labelKey: "nav.domainEvents", href: "/admin/domain-events", icon: Bell },
+      { labelKey: "nav.users", href: "/admin/users", icon: Users },
+      { labelKey: "nav.disputes", href: "/admin/disputes", icon: AlertTriangle },
+      { labelKey: "nav.qaCenter", href: "/admin/qa", icon: ShieldCheck, section: "section.control" },
+      { labelKey: "nav.compliance", href: "/admin/compliance", icon: CheckSquare },
+      { labelKey: "nav.finance", href: "/admin/finance", icon: CreditCard },
+      { labelKey: "nav.travelOps", href: "/admin/travel", icon: PlaneTakeoff },
+      { labelKey: "nav.reports", href: "/admin/reports", icon: BarChart2 },
+      { labelKey: "nav.fieldOps", href: "/admin/field-ops", icon: Wrench, section: "section.operations" },
+      { labelKey: "nav.settings", href: "/admin/settings", icon: Settings },
+      { labelKey: "nav.htmlCanvas", href: "/admin/html-in-canvas", icon: Layers, section: "section.lab" },
+      { labelKey: "nav.buildOps", href: "/buildops", icon: FolderKanban, section: "section.lab" },
+      { labelKey: "nav.semseTools", href: "/tools", icon: Wrench, section: "section.lab" },
+      { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
+      { labelKey: "nav.coordinator", href: "/admin/coordinator", icon: GitBranch },
+      { labelKey: "nav.llmMetrics", href: "/admin/llm-metrics", icon: BarChart2 },
+      { labelKey: "nav.aiMissionControl", href: "/admin/ai-mission-control", icon: Activity },
+      { labelKey: "nav.pmo", href: "/admin/pmo", icon: BarChart2 },
+      { labelKey: "nav.semseX", href: "/admin/semse-x", icon: Infinity },
+      { labelKey: "nav.agentMemory", href: "/admin/memory", icon: Brain },
+      { labelKey: "nav.prometeo", href: "/admin/prometeo", icon: BookOpen },
     ],
   },
 };
-
-const COPY: Record<LanguagePreference, Record<string, string>> = {
-  es: {
-    signOut: "Salir",
-    language: "Idioma",
-    theme: "Tema",
-    dark: "Oscuro",
-    light: "Claro",
-    notifications: "Notificaciones",
-  },
-  en: {
-    signOut: "Sign out",
-    language: "Language",
-    theme: "Theme",
-    dark: "Dark",
-    light: "Light",
-    notifications: "Notifications",
-  },
-};
-
-function navLabel(role: NavRole, language: LanguagePreference) {
-  return language === "en" ? NAV[role].labelEn : NAV[role].label;
-}
-
-function itemLabel(item: NavItem, language: LanguagePreference) {
-  return language === "en" ? item.labelEn ?? item.label : item.label;
-}
 
 function Sidebar({
   role,
@@ -171,19 +140,17 @@ function Sidebar({
   onToggle,
   onClose,
   mobile,
-  language,
 }: {
   role: NavRole;
   collapsed: boolean;
   onToggle: () => void;
   onClose?: () => void;
   mobile?: boolean;
-  language: LanguagePreference;
 }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const nav = NAV[role];
   const RoleIcon = nav.icon;
-  const copy = COPY[language];
 
   return (
     <aside
@@ -230,7 +197,7 @@ function Sidebar({
             </div>
             <div>
               <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
-              <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{navLabel(role, language)}</p>
+              <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
             </div>
           </div>
         )}
@@ -271,7 +238,7 @@ function Sidebar({
         {nav.items.map((item) => {
           const Icon = item.icon;
           const active = (pathname ?? "").startsWith(item.href);
-          const label = itemLabel(item, language);
+          const label = t(item.labelKey);
 
           return (
             <Link
@@ -320,7 +287,7 @@ function Sidebar({
             }}
           >
             <LogOut size={15} />
-            {copy.signOut}
+            {t("ui.signOut")}
           </Link>
         </div>
       )}
@@ -331,19 +298,15 @@ function Sidebar({
 function Topbar({
   title,
   onMenuOpen,
-  language,
   theme,
-  onLanguageChange,
   onThemeChange,
 }: {
   title?: string;
   onMenuOpen: () => void;
-  language: LanguagePreference;
   theme: ThemePreference;
-  onLanguageChange: (value: LanguagePreference) => void;
   onThemeChange: (value: ThemePreference) => void;
 }) {
-  const copy = COPY[language];
+  const { language, setLanguage, t } = useLanguage();
 
   return (
     <header
@@ -378,21 +341,21 @@ function Topbar({
       {title ? <h1 style={{ fontSize: "16px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>{title}</h1> : null}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
         <label style={toolbarLabelStyle()}>
-          <span>{copy.language}</span>
-          <select value={language} onChange={(event) => onLanguageChange(event.target.value as LanguagePreference)} style={toolbarSelectStyle()}>
+          <span>{t("ui.language")}</span>
+          <select value={language} onChange={(event) => setLanguage(event.target.value as LanguagePreference)} style={toolbarSelectStyle()}>
             <option value="es">ES</option>
             <option value="en">EN</option>
           </select>
         </label>
         <label style={toolbarLabelStyle()}>
-          <span>{copy.theme}</span>
+          <span>{t("ui.theme")}</span>
           <select value={theme} onChange={(event) => onThemeChange(event.target.value as ThemePreference)} style={toolbarSelectStyle()}>
-            <option value="dark">{copy.dark}</option>
-            <option value="light">{copy.light}</option>
+            <option value="dark">{t("ui.dark")}</option>
+            <option value="light">{t("ui.light")}</option>
           </select>
         </label>
         <button
-          title={copy.notifications}
+          title={t("ui.notifications")}
           style={{
             padding: "6px",
             borderRadius: "8px",
@@ -431,39 +394,28 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
-  const [language, setLanguage] = useState<LanguagePreference>("es");
+  const { language, t } = useLanguage();
   const nav = NAV[role];
   const RoleIcon = nav.icon;
-  const copy = COPY[language];
 
-  useEffect(() => {
+  useState(() => {
+    if (typeof window === "undefined") return;
     const savedTheme = window.localStorage.getItem("semse-theme");
-    const savedLanguage = window.localStorage.getItem("semse-language");
+    if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
+  });
 
-    if (savedTheme === "dark" || savedTheme === "light") {
-      setTheme(savedTheme);
-    }
-    if (savedLanguage === "es" || savedLanguage === "en") {
-      setLanguage(savedLanguage);
-    }
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem("semse-theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
-    document.documentElement.lang = language;
-    window.localStorage.setItem("semse-language", language);
-  }, [language]);
+  const handleThemeChange = (value: ThemePreference) => {
+    setTheme(value);
+    document.documentElement.dataset.theme = value;
+    window.localStorage.setItem("semse-theme", value);
+  };
 
   const shellNavItems = useMemo(
     () =>
       nav.items.map((item) => {
         const Icon = item.icon;
         const active = (pathname ?? "").startsWith(item.href);
-        const label = itemLabel(item, language);
+        const label = t(item.labelKey);
 
         return {
           key: item.href,
@@ -486,7 +438,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           ),
         };
       }),
-    [nav.items, pathname, collapsed, language],
+    [nav.items, pathname, collapsed, language, t],
   );
 
   return (
@@ -512,7 +464,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
               {!collapsed ? (
                 <div>
                   <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
-                  <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{navLabel(role, language)}</p>
+                  <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
                 </div>
               ) : null}
             </div>
@@ -538,7 +490,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                 }}
               >
                 <LogOut size={15} />
-                {copy.signOut}
+                {t("ui.signOut")}
               </Link>
             ) : null
           }
@@ -561,7 +513,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
             }}
           />
           <div style={{ position: "fixed", left: 0, top: 0, bottom: 0, zIndex: 101 }}>
-            <Sidebar role={role} collapsed={false} onToggle={() => {}} onClose={() => setMobileOpen(false)} mobile language={language} />
+            <Sidebar role={role} collapsed={false} onToggle={() => {}} onClose={() => setMobileOpen(false)} mobile />
           </div>
         </>
       ) : null}
@@ -569,10 +521,8 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <Topbar
           onMenuOpen={() => setMobileOpen(true)}
-          language={language}
           theme={theme}
-          onLanguageChange={setLanguage}
-          onThemeChange={setTheme}
+          onThemeChange={handleThemeChange}
         />
         <main style={{ flex: 1, padding: "24px", overflow: "auto" }}>{children}</main>
       </div>
@@ -595,11 +545,13 @@ function AdminOnlyBanner() {
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <AgentPanelStateProvider>
-      <AppLayoutInner>{children}</AppLayoutInner>
-      <AgentChatPanel />
-      <AdminOnlyBanner />
-    </AgentPanelStateProvider>
+    <LanguageProvider>
+      <AgentPanelStateProvider>
+        <AppLayoutInner>{children}</AppLayoutInner>
+        <AgentChatPanel />
+        <AdminOnlyBanner />
+      </AgentPanelStateProvider>
+    </LanguageProvider>
   );
 }
 

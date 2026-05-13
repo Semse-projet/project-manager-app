@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { ChevronDown, Clock, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
@@ -93,6 +94,7 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
 };
 
 export default function WorkerTrackerPage() {
+  const { t } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [sessions, setSessions] = useState<TrackerSessionView[]>([]);
   const [activeSession, setActiveSession] = useState<TrackerSessionView | null>(null);
@@ -394,7 +396,7 @@ export default function WorkerTrackerPage() {
       <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }} canvasClassName="rounded-2xl" minHeight={90}>
         <div>
           <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}><span style={{ fontSize: "14px" }}>←</span> Dashboard</Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Time Tracker</h1>
+          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.timeTracker")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>
             Sesión persistente por trabajo. Si sales de la web, el tiempo sigue corriendo hasta pausar o detener.
           </p>

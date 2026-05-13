@@ -211,6 +211,81 @@ function mapEventToNotifications(
       }];
     }
 
+    case "buildops.plan.approved": {
+      // Client approved the plan — notify the OPS user who created it
+      const opsUserId = extractStr(payload, "createdBy");
+      if (!opsUserId) return [];
+      return [{
+        userId: opsUserId,
+        type: "buildops_plan_approved",
+        title: "Plan aprobado por el cliente",
+        body: "El cliente aprobó el plan de obra. Puedes proceder con la promoción.",
+        payload: {
+          buildOpsProjectId: payload.buildOpsProjectId,
+          jobId: payload.jobId,
+          approvedAt: payload.approvedAt,
+        },
+      }];
+    }
+
+    case "buildops.plan.changes_requested": {
+      // Client requested changes — notify the OPS user who created the plan
+      const opsUserId = extractStr(payload, "createdBy");
+      if (!opsUserId) return [];
+      return [{
+        userId: opsUserId,
+        type: "buildops_plan_changes_requested",
+        title: "El cliente solicitó cambios en el plan",
+        body: typeof payload.comment === "string" && payload.comment
+          ? `Comentario: ${payload.comment}`
+          : "El cliente revisó el plan y solicitó ajustes antes de aprobar.",
+        payload: {
+          buildOpsProjectId: payload.buildOpsProjectId,
+          jobId: payload.jobId,
+          comment: payload.comment,
+          reviewedAt: payload.reviewedAt,
+        },
+      }];
+    }
+
+    case "buildops.plan.rejected": {
+      // Client rejected the plan — notify the OPS user who created it
+      const opsUserId = extractStr(payload, "createdBy");
+      if (!opsUserId) return [];
+      return [{
+        userId: opsUserId,
+        type: "buildops_plan_rejected",
+        title: "El cliente rechazó el plan",
+        body: typeof payload.comment === "string" && payload.comment
+          ? `Motivo: ${payload.comment}`
+          : "El cliente rechazó el plan de obra. Revisa el caso antes de generar un nuevo plan.",
+        payload: {
+          buildOpsProjectId: payload.buildOpsProjectId,
+          jobId: payload.jobId,
+          comment: payload.comment,
+          reviewedAt: payload.reviewedAt,
+        },
+      }];
+    }
+
+    case "buildops.plan.rerun_completed": {
+      // OPS reran the bridge — notify the plan creator so they know a new version is ready
+      const actorUserId = extractStr(payload, "actorUserId");
+      if (!actorUserId) return [];
+      return [{
+        userId: actorUserId,
+        type: "buildops_plan_rerun_completed",
+        title: "Nueva versión del plan lista",
+        body: `El plan fue regenerado (v${payload.activeVersionNumber ?? "?"}) y está pendiente de aprobación del cliente.`,
+        payload: {
+          buildOpsProjectId: payload.buildOpsProjectId,
+          activeVersionId: payload.activeVersionId,
+          activeVersionNumber: payload.activeVersionNumber,
+          rerunCompletedAt: payload.rerunCompletedAt,
+        },
+      }];
+    }
+
     default:
       return [];
   }

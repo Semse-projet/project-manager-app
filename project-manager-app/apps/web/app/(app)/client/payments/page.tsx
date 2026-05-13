@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DollarSign, Lock, CheckCircle, Clock, Plus, ChevronRight, RefreshCw, Inbox, AlertTriangle, Scale } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
@@ -55,6 +56,7 @@ const TYPE_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "n
 };
 
 export default function ClientPaymentsPage() {
+  const { t } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -240,9 +242,9 @@ export default function ClientPaymentsPage() {
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
       <ClientPageHeader
-        title="Pagos"
+        title={t("page.clientPayments")}
         subtitle="Escrow activo, readiness y transacciones por proyecto"
-        breadcrumbs={[{ label: "Pagos" }]}
+        breadcrumbs={[{ label: t("page.clientPayments") }]}
         minHeight={92}
         actions={
           <>

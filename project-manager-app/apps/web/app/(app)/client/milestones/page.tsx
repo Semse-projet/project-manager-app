@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { useLanguage } from "../../../../lib/language-context";
 import { CheckSquare, Clock, DollarSign, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
@@ -32,6 +33,7 @@ const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info" | 
 };
 
 export default function ClientMilestonesPage() {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [groups, setGroups] = useState<Array<{
     jobId: string;
@@ -129,9 +131,9 @@ export default function ClientMilestonesPage() {
   return (
     <div style={{ maxWidth: "800px", margin: "0 auto" }}>
       <ClientPageHeader
-        title="Milestones"
+        title={t("page.clientMilestones")}
         subtitle="Hitos de pago por proyecto: revisa entregas, aprueba avance y destraba liberaciones."
-        breadcrumbs={[{ label: "Milestones" }]}
+        breadcrumbs={[{ label: t("page.clientMilestones") }]}
         minHeight={82}
         actions={<NotificationBanner audience="client" />}
       />
