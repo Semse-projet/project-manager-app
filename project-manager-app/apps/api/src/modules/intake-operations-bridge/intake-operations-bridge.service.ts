@@ -1145,7 +1145,7 @@ export class IntakeOperationsBridgeService {
       normalizedTitle: row.normalizedTitle,
       selectedCategoryId: row.selectedCategoryId,
       selectedSubcategoryId: row.selectedSubcategoryId,
-      detectedCategory: "interior_painting",
+      detectedCategory: (row.detectedCategory as import("../smart-intake/smart-intake.types.js").SmartIntakeCategory) ?? "interior_painting",
       detectedSubcategory: row.detectedSubcategory,
       modality: (row.modality as ProjectIntakeRecord["modality"]) ?? null,
       city: row.city,
