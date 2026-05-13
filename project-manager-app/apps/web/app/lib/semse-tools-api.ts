@@ -1,5 +1,5 @@
 export type ToolMode = "client" | "professional" | "admin";
-export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors" | "insulation" | "demolition" | "masonry" | "deck" | "fencing" | "landscaping" | "project-manager" | "labor" | "solar";
+export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors" | "insulation" | "demolition" | "masonry" | "deck" | "fencing" | "landscaping" | "project-manager" | "labor" | "solar" | "bathroom" | "bathroom-remodel" | "bathroom_remodel" | "kitchen" | "kitchen-remodel" | "kitchen_remodel" | "cleaning" | "residential-cleaning";
 
 export type ValidationIssue = {
   field: string;
