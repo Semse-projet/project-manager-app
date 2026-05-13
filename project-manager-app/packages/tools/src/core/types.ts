@@ -198,4 +198,31 @@ export type SemseToolResult = {
   recommendations: string[];
   assumptions: string[];
   createdAt: string;
+
+  // ── Extended metrics (optional — populated by enhanced engines) ──────────────
+
+  /** How reliable is this estimate? (0-100) */
+  confidenceScore?: import("./extended-metrics.js").ConfidenceScore;
+  /** Probability of client-professional dispute (0-100) */
+  disputeRisk?: import("./extended-metrics.js").DisputeRiskScore;
+  /** Is the project ready to proceed? (0-100) */
+  readinessScore?: import("./extended-metrics.js").ReadinessScore;
+  /** Explicit scope: included, excluded, assumptions, change order triggers */
+  scope?: import("./extended-metrics.js").ScopeOutput;
+  /** Day-by-day production phases with crew sizes */
+  productionSchedule?: import("./extended-metrics.js").ProductionSchedule;
+  /** Low / mid / high price bands with context */
+  priceBands?: import("./extended-metrics.js").PriceBands;
+  /** Simple client summary + professional technical notes */
+  explained?: import("./extended-metrics.js").ExplainedOutput;
+  /** Limited warranty terms */
+  warranty?: import("./extended-metrics.js").WarrantyTerms;
+  /** Upsell / adjacent service opportunities */
+  upsells?: import("./extended-metrics.js").UpsellOpportunity[];
+  /** ROI analysis for renovation projects */
+  roi?: import("./extended-metrics.js").RoiEstimate;
+  /** Hidden damage probability assessment */
+  hiddenDamageAssessment?: import("./extended-metrics.js").HiddenDamageAssessment;
+  /** Schedule delay risk */
+  scheduleRisk?: import("./extended-metrics.js").ScheduleRisk;
 };

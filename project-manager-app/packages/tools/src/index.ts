@@ -1,5 +1,6 @@
 // Core
 export * from "./core/types.js";
+export * from "./core/extended-metrics.js";
 export * from "./core/labor-engine.js";
 export * from "./core/material-engine.js";
 export * from "./core/validation-engine.js";

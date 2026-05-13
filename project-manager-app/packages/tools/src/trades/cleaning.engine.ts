@@ -5,6 +5,17 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore,
+  computeDisputeRisk,
+  computeReadinessScore,
+  computePriceBands,
+  buildProductionSchedule,
+  buildScope,
+  buildExplainedOutput,
+  buildWarranty,
+  assessScheduleRisk,
+} from "../core/extended-metrics.js";
 
 export type CleaningInput = {
   /** Type of cleaning service */
@@ -192,6 +203,148 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     ...(!input.suppliesIncluded ? ["El cliente provee los suministros. Asegurarse de que estén disponibles en el momento del servicio."] : []),
   ];
 
+  // ── Extended metrics ────────────────────────────────────────────────────────
+  const confidenceScore = computeConfidenceScore({
+    hasMeasurements:      input.squareFt > 0,
+    hasPhotos:            false,
+    hasConditionData:     input.condition !== undefined,
+    hasMaterialSelection: true,
+    hasScopeConfirmed:    true,
+    clientProvidesMaterials: !input.suppliesIncluded,
+    hasUnknownConditions: input.condition === "heavy",
+    extraConfirmedFields: input.addOns.length + (input.frequency !== "one_time" ? 1 : 0),
+  });
+
+  const disputeRisk = computeDisputeRisk({
+    scopeAmbiguous:          false,
+    clientProvidesMaterials: !input.suppliesIncluded,
+    noPhotosRequired:        false,
+    hasChangeOrderPolicy:    true,
+    hasEvidenceRequired:     true,
+    hasMilestones:           milestones.length > 0,
+    hasHighRiskConditions:   input.condition === "heavy" || input.serviceType === "post_construction",
+    priceIsFixed:            input.frequency !== "one_time",
+    clientExpectationMismatch: input.serviceType === "standard" && input.condition === "heavy",
+  });
+
+  const readinessScore = computeReadinessScore({
+    measurementsConfirmed:  input.squareFt > 0,
+    materialsAvailable:     input.suppliesIncluded,
+    siteAccessConfirmed:    true,
+    permitsAddressed:       true,
+    scopeApproved:          true,
+    depositPaid:            false,
+    clientApproval:         false,
+    otherTradesCoordinated: true,
+  });
+
+  const priceBands = computePriceBands(
+    costs.total,
+    0.80,
+    1.45,
+    {
+      low:  "Light condition, standard cleaning, no add-ons, client provides supplies.",
+      mid:  "Moderate condition, selected add-ons, professional supplies.",
+      high: "Heavy/post-construction, all add-ons, multiple passes required.",
+    }
+  );
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Arrival & inspection",        daysMin: 0, daysMax: 0, crew: crewSize, description: "Quick walkthrough, before photos" },
+    { name: "Kitchen & bathrooms",         daysMin: 0, daysMax: 0, crew: crewSize, description: "Deep clean high-priority wet areas first" },
+    ...(input.serviceType === "post_construction"
+      ? [{ name: "Dust removal — first pass", daysMin: 0, daysMax: 0, crew: crewSize, description: "Remove construction dust from all surfaces" }]
+      : []),
+    { name: "Bedrooms & common areas",     daysMin: 0, daysMax: 0, crew: crewSize, description: "Vacuum, mop, wipe down surfaces" },
+    { name: "Floors",                      daysMin: 0, daysMax: 0, crew: crewSize, description: "Sweep, vacuum, mop all floor types" },
+    ...(input.addOns.includes("windows")
+      ? [{ name: "Window cleaning",        daysMin: 0, daysMax: 0, crew: 1, description: "Interior windows and tracks" }]
+      : []),
+    { name: "Final walkthrough & photos",  daysMin: 0, daysMax: 0, crew: 1,        description: "Quality check, after photos, client sign-off" },
+  ]);
+
+  const addOnList = input.addOns.map(ao => {
+    const names: Record<string, string> = {
+      windows: "Interior window cleaning", carpet: "Carpet cleaning",
+      disinfection: "Disinfection treatment", laundry: "Laundry",
+      oven: "Inside oven cleaning", fridge: "Inside refrigerator cleaning",
+      extras: "Additional extra services",
+    };
+    return names[ao] ?? ao;
+  });
+
+  const scope = buildScope(
+    [
+      `${input.serviceType.replace("_", " ")} cleaning — ${input.squareFt} sqft`,
+      `${input.bedrooms} bedroom(s), ${input.bathrooms} bathroom(s)`,
+      "Kitchen surfaces, appliance exteriors, countertops",
+      "Bathroom fixtures, mirrors, floors",
+      "All floors (sweep, vacuum, mop)",
+      "Dusting of accessible surfaces",
+      "Trash removal (from interior bins)",
+      ...addOnList,
+    ],
+    [
+      "Moving heavy furniture",
+      "Carpet stain removal (requires specialized equipment)",
+      "Mold or biohazard treatment",
+      "Exterior window cleaning",
+      "Organizing or decluttering",
+      "Repair or maintenance work",
+      ...(input.suppliesIncluded ? [] : ["Professional supplies (client must provide)"]),
+      "Post-cleaning odor from external sources",
+    ],
+    [
+      "Water and electricity are available at the property",
+      "Property is accessible at the agreed time",
+      "Heavy furniture does not need to be moved",
+    ],
+    [
+      "Property is significantly dirtier than described",
+      "Client adds rooms or areas not included in original quote",
+      "Access is delayed causing crew time loss",
+      "Post-construction has multiple layers of dust requiring repeat visits",
+      "Mold or biohazard discovered requiring specialized treatment",
+    ]
+  );
+
+  const freqLabel = input.frequency === "one_time" ? "one-time visit" : `${input.frequency} service`;
+
+  const explained = buildExplainedOutput(
+    `Your ${input.serviceType.replace("_", " ")} cleaning (${freqLabel}) for ${input.squareFt} sqft is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `The crew of ${crewSize} will complete the work in approximately ${Math.round(estimatedHours)} hours. ` +
+    `Before and after photos are required for each visit to protect both client and professional.`,
+    [
+      `Service: ${input.serviceType} — condition: ${input.condition} — freq: ${input.frequency}`,
+      `Area: ${input.squareFt} sqft — ${input.bedrooms} bed / ${input.bathrooms} bath — crew: ${crewSize}`,
+      `Est. hours: ${estimatedHours.toFixed(1)} — condition multiplier: ${conditionMult}x`,
+      ...(input.addOns.length > 0 ? [`Add-ons: ${input.addOns.join(", ")}`] : []),
+      ...(input.condition === "post_construction" ? ["POST-CONSTRUCTION: Plan for 2+ passes. Fine dust resettles after first clean."] : []),
+      ...(input.condition === "heavy" ? ["HEAVY CONDITION: On-site inspection recommended before committing to fixed price."] : []),
+      "ALWAYS take before photos — critical for dispute prevention on move-out cleans",
+    ]
+  );
+
+  const warranty = buildWarranty(
+    2,
+    `${input.serviceType.replace("_", " ")} cleaning service`,
+    [
+      "Re-soiling after service completion",
+      "Odors from structural sources (mold, plumbing)",
+      "Stains that cannot be removed with standard cleaning products",
+      "Damage caused by existing wear or pre-existing conditions",
+    ]
+  );
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide:     false,
+    materialsOnSite:      input.suppliesIncluded,
+    weatherDependent:     false,
+    scopeIsLarge:         input.squareFt > 3000,
+    hasComplexDetails:    input.condition === "post_construction",
+  });
+
   return {
     toolId:       `cleaning-${Date.now()}`,
     trade:        "cleaning",
@@ -218,6 +371,16 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
       "No incluye mudanza de muebles pesados, reparaciones ni tratamiento de moho.",
       "Alfombras con manchas severas pueden requerir servicio especializado adicional.",
     ],
+    // Extended metrics
+    confidenceScore,
+    disputeRisk,
+    readinessScore,
+    priceBands,
+    productionSchedule,
+    scope,
+    explained,
+    warranty,
+    scheduleRisk,
     createdAt: new Date().toISOString(),
   };
 }

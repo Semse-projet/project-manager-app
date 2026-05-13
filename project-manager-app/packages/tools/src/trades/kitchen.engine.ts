@@ -5,6 +5,18 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore,
+  computeDisputeRisk,
+  computeReadinessScore,
+  computePriceBands,
+  buildProductionSchedule,
+  buildScope,
+  buildExplainedOutput,
+  buildWarranty,
+  computeRenovationRoi,
+  assessScheduleRisk,
+} from "../core/extended-metrics.js";
 
 export type KitchenInput = {
   /** Scope of kitchen work */
@@ -209,6 +221,147 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
     ...(input.scope === "full_remodel" ? ["Remodelación completa: no cerrar rough-in sin foto aprobada. El template de countertop va después de gabinetes instalados."] : []),
   ];
 
+  // ── Extended metrics ────────────────────────────────────────────────────────
+  const confidenceScore = computeConfidenceScore({
+    hasMeasurements:      linearFt > 0,
+    hasPhotos:            false,
+    hasConditionData:     true,
+    hasMaterialSelection: input.materialQuality !== undefined,
+    hasScopeConfirmed:    input.scope !== undefined,
+    clientProvidesMaterials: input.clientProvidesMaterials,
+    hasUnknownConditions: input.plumbingElectrical === "relocate",
+    extraConfirmedFields: [
+      input.appliances !== "no_appliances",
+      !input.clientProvidesMaterials,
+      input.plumbingElectrical === "no",
+    ].filter(Boolean).length,
+  });
+
+  const disputeRisk = computeDisputeRisk({
+    scopeAmbiguous:          input.scope === "full_remodel" && input.plumbingElectrical !== "no",
+    clientProvidesMaterials: input.clientProvidesMaterials,
+    noPhotosRequired:        false,
+    hasChangeOrderPolicy:    true,
+    hasEvidenceRequired:     true,
+    hasMilestones:           milestones.length > 0,
+    hasHighRiskConditions:   input.plumbingElectrical === "relocate",
+    priceIsFixed:            false,
+    clientExpectationMismatch: input.appliances === "premium_appliances" && input.materialQuality === "budget",
+  });
+
+  const readinessScore = computeReadinessScore({
+    measurementsConfirmed:  linearFt > 0,
+    materialsAvailable:     !input.clientProvidesMaterials,
+    siteAccessConfirmed:    true,
+    permitsAddressed:       input.plumbingElectrical === "no",
+    scopeApproved:          true,
+    depositPaid:            false,
+    clientApproval:         false,
+    otherTradesCoordinated: input.plumbingElectrical === "no",
+    designApproved:         input.scope === "cabinet_update",
+  });
+
+  const priceBands = computePriceBands(
+    costs.total,
+    0.65,
+    1.55,
+    {
+      low:  "Cabinet update only, budget materials, no plumbing/electrical changes.",
+      mid:  "Standard scope and materials, minor trade coordination.",
+      high: "Full remodel, premium materials, appliances, plumbing/electrical relocation.",
+    }
+  );
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Measurement & design approval", daysMin: 1, daysMax: 3,  crew: 1, description: "Final measurements, layout, material confirmation" },
+    { name: "Material procurement",          daysMin: 3, daysMax: 14, crew: 0, description: "Cabinet lead time — varies by brand" },
+    ...(input.scope === "full_remodel" ? [
+      { name: "Demo & disposal",             daysMin: 1, daysMax: 3,  crew: 2, description: "Remove existing cabinets, countertops, backsplash" },
+      { name: "Rough-in plumbing/electrical",daysMin: 1, daysMax: 4,  crew: 2, description: "Plumbing and electrical rough-in if applicable" },
+    ] : []),
+    { name: "Cabinet installation",          daysMin: 2, daysMax: 5,  crew: 2, description: "Base and wall cabinet install, leveling, alignment" },
+    { name: "Countertop template & install", daysMin: 3, daysMax: 7,  crew: 2, description: "Template after cabinets settled, fabrication, install" },
+    { name: "Backsplash & appliances",       daysMin: 1, daysMax: 3,  crew: 2, description: "Tile, appliance connections, sink, faucet" },
+    { name: "Punch list & cleanup",          daysMin: 1, daysMax: 1,  crew: 1, description: "Adjustments, final photos, client walkthrough" },
+  ]);
+
+  const scope = buildScope(
+    [
+      `${input.scope === "cabinet_update" ? "Cabinet update" : "Cabinet installation"} (${linearFt} lin.ft)`,
+      ...(input.scope !== "flooring" && input.scope !== "cabinet_update" ? ["Countertop installation (countertop template separate)"] : []),
+      ...(input.scope === "flooring" || input.scope === "full_remodel" ? ["Kitchen flooring"] : []),
+      "Backsplash tile (basic pattern)",
+      "Sink, faucet, and garbage disposal connection",
+      "Cabinet hardware installation",
+      "Basic cleanup and debris removal",
+    ],
+    [
+      "Countertop fabrication lead time (external vendor)",
+      "Appliance purchase (unless in scope)",
+      "Full room painting",
+      "Flooring beyond kitchen area",
+      "Electrical panel upgrade",
+      ...(input.plumbingElectrical === "no" ? ["Plumbing or electrical relocation"] : []),
+      "Structural wall changes",
+      "Design services",
+      "Permits unless included",
+    ],
+    [
+      "Cabinet dimensions match available space",
+      "Appliances are confirmed before cabinet layout is finalized",
+      "Countertop template is done after cabinets are leveled and secured",
+    ],
+    [
+      "Client changes layout or cabinet design after order is placed",
+      "Hidden plumbing or electrical discovered during demo",
+      "Uneven walls or floors requiring extra shimming",
+      "Appliance doesn't fit the space as designed",
+      "Countertop vendor delay beyond estimated timeline",
+    ]
+  );
+
+  const explained = buildExplainedOutput(
+    `Your kitchen ${input.scope.replace("_", " ")} is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `This covers ${linearFt} lin.ft of cabinets, countertop coordination, backsplash, and sink/faucet. ` +
+    `${input.appliances !== "no_appliances" ? "Appliance installation is included. " : ""}` +
+    `Work is structured in milestones with photos required before each payment release.`,
+    [
+      `Scope: ${input.scope} — size: ${input.kitchenSize} — ${linearFt} lin.ft cabinets`,
+      `Material tier: ${input.materialQuality} — appliances: ${input.appliances}`,
+      "CRITICAL: countertop template must be done AFTER cabinets are leveled. Do not rush.",
+      ...(input.plumbingElectrical !== "no" ? [`Plumbing/electrical: ${input.plumbingElectrical} — coordinate licensed sub before cabinet day`] : []),
+      "Measure appliance spaces 3x before ordering cabinets — wrong size = expensive change order",
+      "Client must confirm cabinet door style, hardware, and color BEFORE ordering",
+    ]
+  );
+
+  const warranty = buildWarranty(
+    120,
+    `Kitchen ${input.scope.replace("_", " ")} — labor on cabinet installation, alignment, and hardware`,
+    [
+      "Cabinet manufacturer defects (covered by manufacturer warranty)",
+      "Countertop cracks from impact or improper use",
+      "Appliance malfunction",
+      "Backsplash grout cracking from structural movement",
+    ]
+  );
+
+  const roi = computeRenovationRoi(
+    costs.total,
+    input.scope === "full_remodel" ? 1.75 : 1.40,
+    "Kitchen renovations typically return 60-80% in home value. Full remodels in Florida market have strong resale appeal.",
+    48
+  );
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: input.plumbingElectrical !== "no",
+    clientMustDecide:     input.clientProvidesMaterials || input.scope === "full_remodel",
+    materialsOnSite:      !input.clientProvidesMaterials,
+    weatherDependent:     false,
+    scopeIsLarge:         input.scope === "full_remodel",
+    hasComplexDetails:    input.appliances === "premium_appliances",
+  });
+
   return {
     toolId:       `kitchen-${Date.now()}`,
     trade:        "remodeling",
@@ -235,6 +388,17 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
       "Pintura de cocina no incluida en este cálculo.",
       "Diseño/layout debe aprobarse antes de comprar gabinetes.",
     ],
+    // Extended metrics
+    confidenceScore,
+    disputeRisk,
+    readinessScore,
+    priceBands,
+    productionSchedule,
+    scope,
+    explained,
+    warranty,
+    roi,
+    scheduleRisk,
     createdAt: new Date().toISOString(),
   };
 }
