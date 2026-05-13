@@ -18,6 +18,7 @@ import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { SmartIntakeService } from "./smart-intake.service.js";
+import { getAccuracyDetail } from "./smart-intake.logic.js";
 
 const analyzeSchema = z.object({
   intakeId: z.string().min(1).optional(),
@@ -127,6 +128,7 @@ export class SmartIntakeController {
       urgency: parsed.data.urgency,
     });
 
+    const detail = getAccuracyDetail(result.intake);
     return ok(resolveRequestId(req.headers ?? {}), {
       intakeId: result.intake.id,
       detectedCategory: result.intake.detectedCategory,
@@ -134,6 +136,9 @@ export class SmartIntakeController {
       accuracyScore: result.intake.accuracyScore,
       accuracyLevel: result.intake.accuracyLevel,
       missingFields: result.intake.missingFields,
+      missingCriticalFields: detail.missingCriticalFields,
+      missingRecommendedFields: detail.missingRecommendedFields,
+      riskFlags: detail.riskFlags,
       tips: result.tips,
       nextQuestion: result.nextQuestion,
       estimateUnlocked: result.estimateUnlocked,

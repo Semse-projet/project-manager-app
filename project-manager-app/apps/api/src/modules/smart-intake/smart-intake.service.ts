@@ -17,6 +17,7 @@ import {
   detectCategoryConfidence,
   detectLanguage,
   derivePaintingScope,
+  getAccuracyDetail,
   generateEstimate,
   generateMilestones,
   generateTips,
@@ -26,6 +27,7 @@ import {
   updateAnswerSet,
 } from "./smart-intake.logic.js";
 import { CATEGORY_REGISTRY } from "./config/category-registry.js";
+import { getScoringProfile } from "./config/scoring-profiles.js";
 import type {
   IntakeAnswer,
   IntakeImage,
@@ -248,7 +250,7 @@ export class SmartIntakeService {
       nextQuestion: getNextQuestion(intake),
       tips: generateTips(intake),
       liveSummary: buildLiveSummary(intake),
-      estimateUnlocked: intake.accuracyScore >= 36,
+      estimateUnlocked: getAccuracyDetail(intake).estimateReady,
     };
   }
 
@@ -405,7 +407,7 @@ export class SmartIntakeService {
       intake: saved,
       accuracyScoreDelta: saved.accuracyScore - previousScore,
       newAccuracyScore: saved.accuracyScore,
-      estimateUnlocked: saved.accuracyScore >= 36,
+      estimateUnlocked: getAccuracyDetail(saved).estimateReady,
     };
   }
 
@@ -417,11 +419,13 @@ export class SmartIntakeService {
     const intake = await this.findById(input.intakeId);
     this.assertSessionAccess(intake, input.sessionToken);
 
-    if (intake.accuracyScore < 36) {
+    const detail = getAccuracyDetail(intake);
+    if (!detail.estimateReady) {
       throw new BadRequestException({
         currentScore: intake.accuracyScore,
-        requiredScore: 36,
+        requiredScore: getScoringProfile(intake.detectedCategory).estimateReadyThreshold,
         missingFields: intake.missingFields,
+        missingCriticalFields: detail.missingCriticalFields,
       });
     }
 
@@ -545,7 +549,7 @@ export class SmartIntakeService {
       };
     }
 
-    const estimate = intake.generatedEstimate ?? (intake.accuracyScore >= 36 && input.confirmEstimate ? generateEstimate(intake) : null);
+    const estimate = intake.generatedEstimate ?? (getAccuracyDetail(intake).estimateReady && input.confirmEstimate ? generateEstimate(intake) : null);
     const categoryDef = CATEGORY_REGISTRY[intake.detectedCategory as keyof typeof CATEGORY_REGISTRY];
     const title = input.title?.trim() || intake.normalizedTitle || intake.providedTitle || categoryDef?.label.en || "Home improvement request";
     const category = input.category?.trim() || categoryDef?.label.es || intake.normalizedTitle || "Trabajo en el hogar";

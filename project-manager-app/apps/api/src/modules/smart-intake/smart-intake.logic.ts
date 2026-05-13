@@ -7,6 +7,7 @@ import {
   detectCategoryFromText,
   getCategoryConfidence,
 } from "./config/category-registry.js";
+import { getScoringProfile, type CategoryScoringProfile } from "./config/scoring-profiles.js";
 import type {
   AccuracyLevel,
   BilingualString,
@@ -417,24 +418,114 @@ function resolveFieldStatus(intake: ProjectIntakeRecord, weight: ScoringWeight):
   return { present: false, isApproximate: false, isNotSure: false };
 }
 
-export function calculateAccuracyScore(intake: ProjectIntakeRecord): number {
-  let score = 0;
+// ── multi-category scoring engine ─────────────────────────────────────────────
 
-  for (const weight of PAINTING_WEIGHTS) {
-    const resolution = resolveFieldStatus(intake, weight);
-    if (!resolution.present) continue;
-    if (resolution.isNotSure) {
-      score += weight.notSureAnswer ?? 0;
-      continue;
+function scoreGenericProfile(intake: ProjectIntakeRecord, profile: CategoryScoringProfile): number {
+  let score = 0;
+  if (intake.rawDescription.trim().length >= 10) score += profile.rawDescriptionScore;
+  if (intake.uploadedImages.length > 0) score += profile.imagesScore;
+  for (const weight of profile.weights) {
+    const answer = findAnswer(intake.answers, weight.questionId);
+    if (!answer) continue;
+    score += answer.isNotSure ? weight.notSure : weight.exact;
+  }
+  return Math.min(100, Math.round(score));
+}
+
+function resolveGenericMissingFields(
+  intake: ProjectIntakeRecord,
+  profile: CategoryScoringProfile,
+  filterFn: (w: CategoryScoringProfile["weights"][number]) => boolean,
+): string[] {
+  const missing: string[] = [];
+  for (const weight of profile.weights) {
+    if (!filterFn(weight)) continue;
+    const answer = findAnswer(intake.answers, weight.questionId);
+    if (!answer || (answer.selectedValues.length === 0 && !answer.isNotSure)) {
+      missing.push(weight.questionId);
     }
-    if (resolution.isApproximate) {
-      score += weight.approximateMatch ?? weight.exactMatch;
-      continue;
+  }
+  if (intake.uploadedImages.length === 0) missing.push("uploadedImages");
+  return missing;
+}
+
+function resolveGenericRiskFlags(intake: ProjectIntakeRecord, profile: CategoryScoringProfile): string[] {
+  const flags: string[] = [];
+  if (!profile.riskTriggers) return flags;
+  for (const trigger of profile.riskTriggers) {
+    const answer = findAnswer(intake.answers, trigger.questionId);
+    if (answer?.selectedValues.includes(trigger.value)) {
+      flags.push(trigger.flag);
     }
-    score += weight.exactMatch;
+  }
+  return flags;
+}
+
+// ── public API ────────────────────────────────────────────────────────────────
+
+export type AccuracyDetail = {
+  score: number;
+  estimateReady: boolean;
+  confidence: "low" | "medium" | "high";
+  category: string;
+  missingCriticalFields: string[];
+  missingRecommendedFields: string[];
+  riskFlags: string[];
+};
+
+export function calculateAccuracyScore(intake: ProjectIntakeRecord): number {
+  if (intake.detectedCategory === "interior_painting" || intake.detectedCategory === "exterior_painting") {
+    // Interior painting: detailed field-based scoring (area from scope, condition from scope)
+    if (intake.detectedCategory === "interior_painting") {
+      let score = 0;
+      for (const weight of PAINTING_WEIGHTS) {
+        const resolution = resolveFieldStatus(intake, weight);
+        if (!resolution.present) continue;
+        if (resolution.isNotSure) { score += weight.notSureAnswer ?? 0; continue; }
+        if (resolution.isApproximate) { score += weight.approximateMatch ?? weight.exactMatch; continue; }
+        score += weight.exactMatch;
+      }
+      return Math.min(Math.round(score), 100);
+    }
+    // Exterior painting: use the scoring profile
+    return scoreGenericProfile(intake, getScoringProfile("exterior_painting"));
+  }
+  const profile = getScoringProfile(intake.detectedCategory);
+  return scoreGenericProfile(intake, profile);
+}
+
+export function getAccuracyDetail(intake: ProjectIntakeRecord): AccuracyDetail {
+  const score = calculateAccuracyScore(intake);
+  const category = intake.detectedCategory;
+
+  if (category === "interior_painting") {
+    const missing = getMissingFields(intake);
+    const recommended = getRecommendedFields(intake);
+    return {
+      score,
+      estimateReady: score >= 36,
+      confidence: score >= 70 ? "high" : score >= 36 ? "medium" : "low",
+      category,
+      missingCriticalFields: missing.filter(f => !["pricingMode", "durationPreference", "uploadedImages"].includes(f)),
+      missingRecommendedFields: recommended,
+      riskFlags: [],
+    };
   }
 
-  return Math.min(Math.round(score), 100);
+  const profile = getScoringProfile(category);
+  const criticalMissing = resolveGenericMissingFields(intake, profile, w => w.critical);
+  const recommendedMissing = resolveGenericMissingFields(intake, profile, w => w.recommended && !w.critical);
+  const riskFlags = resolveGenericRiskFlags(intake, profile);
+
+  return {
+    score,
+    estimateReady: score >= profile.estimateReadyThreshold,
+    confidence: score >= 70 ? "high" : score >= profile.estimateReadyThreshold ? "medium" : "low",
+    category,
+    missingCriticalFields: criticalMissing,
+    missingRecommendedFields: recommendedMissing,
+    riskFlags,
+  };
 }
 
 export function getAccuracyLevel(score: number): AccuracyLevel {
@@ -445,30 +536,30 @@ export function getAccuracyLevel(score: number): AccuracyLevel {
 }
 
 export function getMissingFields(intake: ProjectIntakeRecord): string[] {
-  const missing: string[] = [];
-  if (!intake.projectScope.area || (!intake.projectScope.area.value && !intake.projectScope.area.range && !intake.projectScope.area.customText)) {
-    missing.push("area");
+  if (intake.detectedCategory === "interior_painting") {
+    const missing: string[] = [];
+    if (!intake.projectScope.area || (!intake.projectScope.area.value && !intake.projectScope.area.range && !intake.projectScope.area.customText)) {
+      missing.push("area");
+    }
+    if (!intake.projectScope.condition?.value) {
+      missing.push("condition");
+    }
+    if (!findAnswer(intake.answers, "painting_estimate_preference")) missing.push("estimatePreference");
+    if (!findAnswer(intake.answers, "painting_pricing_mode")) missing.push("pricingMode");
+    if (!findAnswer(intake.answers, "painting_duration")) missing.push("durationPreference");
+    if (intake.uploadedImages.length === 0) missing.push("uploadedImages");
+    return missing;
   }
-  if (!intake.projectScope.condition?.value) {
-    missing.push("condition");
-  }
-  if (!findAnswer(intake.answers, "painting_estimate_preference")) {
-    missing.push("estimatePreference");
-  }
-  if (!findAnswer(intake.answers, "painting_pricing_mode")) {
-    missing.push("pricingMode");
-  }
-  if (!findAnswer(intake.answers, "painting_duration")) {
-    missing.push("durationPreference");
-  }
-  if (intake.uploadedImages.length === 0) {
-    missing.push("uploadedImages");
-  }
-  return missing;
+  const profile = getScoringProfile(intake.detectedCategory);
+  return resolveGenericMissingFields(intake, profile, () => true);
 }
 
 export function getRecommendedFields(intake: ProjectIntakeRecord): string[] {
-  return getMissingFields(intake).filter((fieldId) => ["pricingMode", "durationPreference", "uploadedImages"].includes(fieldId));
+  if (intake.detectedCategory === "interior_painting") {
+    return getMissingFields(intake).filter(f => ["pricingMode", "durationPreference", "uploadedImages"].includes(f));
+  }
+  const profile = getScoringProfile(intake.detectedCategory);
+  return resolveGenericMissingFields(intake, profile, w => w.recommended);
 }
 
 function warningById(warningId: string): IntakeWarning | undefined {
