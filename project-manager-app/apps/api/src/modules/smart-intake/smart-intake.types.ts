@@ -28,7 +28,14 @@ export type AnswerType =
 
 export type ShowWhenOperator = "equals" | "includes" | "exists" | "not_exists";
 
-export type SmartIntakeCategory = "interior_painting";
+export type SmartIntakeCategory =
+  | "interior_painting"
+  | "exterior_painting"
+  | "drywall_repair"
+  | "bathroom_remodel"
+  | "kitchen_remodel"
+  | "cleaning"
+  | "general_carpentry";
 
 export type ConfidenceLevel = "exact" | "estimated" | "unknown";
 

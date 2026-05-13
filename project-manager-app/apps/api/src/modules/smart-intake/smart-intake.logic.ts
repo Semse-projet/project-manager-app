@@ -2,6 +2,11 @@ import { randomUUID } from "node:crypto";
 import { PAINTING_QUESTIONS } from "./config/questions/painting.questions.js";
 import { PAINTING_WEIGHTS, type ScoringWeight } from "./config/scoring-weights.js";
 import { WARNING_RULES } from "./config/warning-rules.js";
+import {
+  CATEGORY_REGISTRY,
+  detectCategoryFromText,
+  getCategoryConfidence,
+} from "./config/category-registry.js";
 import type {
   AccuracyLevel,
   BilingualString,
@@ -260,12 +265,8 @@ export function isPaintingCategory(input: {
   selectedSubcategoryId?: string | null;
   rawDescription: string;
 }): boolean {
-  if (input.selectedCategoryId === "pintura" && (!input.selectedSubcategoryId || input.selectedSubcategoryId === "interior")) {
-    return true;
-  }
-
-  const lower = input.rawDescription.toLowerCase();
-  return ["paint", "painting", "wall", "walls", "pintar", "pintura", "pared", "paredes"].some((token) => lower.includes(token));
+  const detected = detectCategoryFromText(input);
+  return detected === "interior_painting" || detected === "exterior_painting";
 }
 
 export function detectCategoryConfidence(input: {
@@ -273,18 +274,19 @@ export function detectCategoryConfidence(input: {
   selectedSubcategoryId?: string | null;
   rawDescription: string;
 }): number {
-  if (input.selectedCategoryId === "pintura" && input.selectedSubcategoryId === "interior") {
-    return 0.98;
-  }
-  if (input.selectedCategoryId === "pintura") {
-    return 0.9;
-  }
-  return isPaintingCategory(input) ? 0.72 : 0.24;
+  const detected = detectCategoryFromText(input);
+  return getCategoryConfidence({ ...input, detectedCategory: detected });
 }
 
-export function buildNormalizedTitle(input: { providedTitle?: string | null; rawDescription: string }): string {
+export function buildNormalizedTitle(input: {
+  providedTitle?: string | null;
+  rawDescription: string;
+  detectedCategory?: SmartIntakeCategory | null;
+}): string {
   const titleSource = input.providedTitle?.trim() || truncateWords(input.rawDescription, 8);
-  return titleCase(titleSource || "Interior Painting Scope");
+  if (titleSource) return titleCase(titleSource);
+  const def = input.detectedCategory ? CATEGORY_REGISTRY[input.detectedCategory] : null;
+  return def?.label.en ?? "Home Improvement Project";
 }
 
 function evaluateShowWhen(
@@ -823,6 +825,12 @@ export function buildInitialIntake(input: {
   city?: string | null;
   urgency?: "low" | "medium" | "high" | "urgent" | null;
 }): ProjectIntakeRecord {
+  const detectedCategory = detectCategoryFromText({
+    selectedCategoryId: input.selectedCategoryId ?? null,
+    selectedSubcategoryId: input.selectedSubcategoryId ?? null,
+    rawDescription: input.rawDescription,
+  });
+
   const intake: ProjectIntakeRecord = {
     id: input.id,
     tenantId: input.tenantId,
@@ -834,11 +842,12 @@ export function buildInitialIntake(input: {
     normalizedTitle: buildNormalizedTitle({
       providedTitle: input.providedTitle ?? null,
       rawDescription: input.rawDescription,
+      detectedCategory,
     }),
     selectedCategoryId: input.selectedCategoryId?.trim() || null,
     selectedSubcategoryId: input.selectedSubcategoryId?.trim() || null,
-    detectedCategory: "interior_painting",
-    detectedSubcategory: "interior",
+    detectedCategory,
+    detectedSubcategory: input.selectedSubcategoryId?.trim() || null,
     modality: input.modality ?? null,
     city: input.city?.trim() || null,
     urgency: input.urgency ?? null,
@@ -875,5 +884,5 @@ export function updateAnswerSet(answers: IntakeAnswer[], nextAnswer: IntakeAnswe
 }
 
 export function getSupportedQuestions(category: SmartIntakeCategory): IntakeQuestion[] {
-  return category === "interior_painting" ? PAINTING_QUESTIONS : [];
+  return CATEGORY_REGISTRY[category]?.questions ?? PAINTING_QUESTIONS;
 }

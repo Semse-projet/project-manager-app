@@ -9,6 +9,7 @@ import type {
 } from "../../../../../packages/tools/dist/index.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { buildLiveSummary, generateEstimate, generateMilestones } from "../smart-intake/smart-intake.logic.js";
+import { CATEGORY_REGISTRY } from "../smart-intake/config/category-registry.js";
 import type {
   IntakeAnswer,
   IntakeImage,
@@ -171,19 +172,24 @@ function resolveAreaSqft(intake: ProjectIntakeRecord | null): number | null {
 }
 
 function mapDetectedTrade(input: { intake: ProjectIntakeRecord | null; job: StoredJob }): string {
-  if (input.intake?.detectedCategory === "interior_painting") {
-    return "painting";
+  if (input.intake?.detectedCategory) {
+    const def = CATEGORY_REGISTRY[input.intake.detectedCategory as keyof typeof CATEGORY_REGISTRY];
+    if (def) return def.trade;
   }
   const lowerCategory = `${input.job.category ?? ""} ${input.job.title} ${input.job.scope}`.toLowerCase();
-  if (/(paint|painting|pintura|pared)/.test(lowerCategory)) {
-    return "painting";
-  }
+  if (/(paint|painting|pintura|pared)/.test(lowerCategory)) return "painting";
+  if (/(drywall|sheetrock|yeso|placa)/.test(lowerCategory)) return "drywall";
+  if (/(bath|bathroom|bano|ducha|shower)/.test(lowerCategory)) return "remodeling";
+  if (/(kitchen|cocina|gabinete|cabinet)/.test(lowerCategory)) return "remodeling";
+  if (/(clean|limpieza|limpiar)/.test(lowerCategory)) return "cleaning";
+  if (/(door|window|puerta|ventana|floor|piso|deck|wood|madera)/.test(lowerCategory)) return "carpentry";
   return "project-manager";
 }
 
 function mapProjectType(input: { intake: ProjectIntakeRecord | null; trade: string }): string {
-  if (input.intake?.detectedCategory === "interior_painting") {
-    return "interior-painting";
+  if (input.intake?.detectedCategory) {
+    const def = CATEGORY_REGISTRY[input.intake.detectedCategory as keyof typeof CATEGORY_REGISTRY];
+    if (def) return def.projectType;
   }
   return input.trade === "project-manager" ? "general-operations" : `${input.trade}-operations`;
 }
