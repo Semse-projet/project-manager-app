@@ -5,6 +5,19 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore,
+  computeDisputeRisk,
+  computeReadinessScore,
+  computePriceBands,
+  buildProductionSchedule,
+  buildScope,
+  buildExplainedOutput,
+  buildWarranty,
+  computeRenovationRoi,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
+} from "../core/extended-metrics.js";
 
 export type BathroomInput = {
   /** What type of work is needed */
@@ -187,6 +200,148 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
     ...(input.scope === "full_remodel" ? ["Remodelación completa: no cerrar paredes sin foto de rough-in."] : []),
   ];
 
+  // ── Extended metrics ────────────────────────────────────────────────────────
+  const confidenceScore = computeConfidenceScore({
+    hasMeasurements:      input.bathroomSqFt !== undefined,
+    hasPhotos:            false,
+    hasConditionData:     true,
+    hasMaterialSelection: input.materialQuality !== undefined,
+    hasScopeConfirmed:    input.scope !== undefined,
+    clientProvidesMaterials: input.clientProvidesMaterials,
+    hasUnknownConditions: false,
+    extraConfirmedFields: [input.includesShower, input.includesTub, input.demoRequired].filter(Boolean).length,
+  });
+
+  const disputeRisk = computeDisputeRisk({
+    scopeAmbiguous:             false,
+    clientProvidesMaterials:    input.clientProvidesMaterials,
+    noPhotosRequired:           false,
+    hasChangeOrderPolicy:       true,
+    hasEvidenceRequired:        true,
+    hasMilestones:              milestones.length > 0,
+    hasHighRiskConditions:      input.plumbingWork === "relocate" || input.scope === "full_remodel",
+    priceIsFixed:               false,
+    clientExpectationMismatch:  input.scope === "full_remodel" && input.materialQuality === "budget",
+  });
+
+  const readinessScore = computeReadinessScore({
+    measurementsConfirmed:    true,
+    materialsAvailable:       !input.clientProvidesMaterials,
+    siteAccessConfirmed:      true,
+    permitsAddressed:         input.plumbingWork !== "relocate",
+    scopeApproved:            true,
+    depositPaid:              false,
+    clientApproval:           false,
+    otherTradesCoordinated:   input.plumbingWork === "no_move",
+    designApproved:           input.scope === "cosmetic",
+  });
+
+  const priceBands = computePriceBands(
+    costs.total,
+    0.72,
+    1.45,
+    {
+      low:  "Cosmetic scope, budget materials, no demo, no plumbing changes.",
+      mid:  "Standard scope and materials, normal conditions.",
+      high: "Full remodel, premium materials, plumbing relocation, hidden damage.",
+    }
+  );
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Site prep & protection",  daysMin: 0, daysMax: 1, crew: 1, description: "Protect floors and adjacent areas" },
+    ...(input.demoRequired ? [{ name: "Demo", daysMin: 1, daysMax: 2, crew: 2, description: "Remove existing fixtures and finishes" }] : []),
+    ...(input.plumbingWork !== "no_move" ? [{ name: "Rough-in plumbing", daysMin: 1, daysMax: 3, crew: 2, description: "Plumbing rough-in and inspection" }] : []),
+    ...(input.includesShower ? [{ name: "Waterproofing", daysMin: 1, daysMax: 2, crew: 1, description: "Cement board + waterproofing membrane + cure time" }] : []),
+    { name: "Tile installation",       daysMin: 2, daysMax: 4, crew: 2, description: "Floor + wall tile, grouting, caulking" },
+    { name: "Fixtures & hardware",     daysMin: 1, daysMax: 2, crew: 2, description: "Vanity, toilet, shower, faucets, mirrors" },
+    { name: "Punch list & cleanup",    daysMin: 0, daysMax: 1, crew: 1, description: "Touch-ups, final walkthrough, photos" },
+  ]);
+
+  const scope = buildScope(
+    [
+      "Bathroom prep and area protection",
+      ...(input.demoRequired ? ["Demo of existing finishes"] : []),
+      ...(input.scope !== "cosmetic" ? ["Tile installation (floor and/or walls)"] : []),
+      ...(input.includesShower ? ["Shower installation with waterproofing"] : []),
+      ...(input.includesTub ? ["Tub installation"] : []),
+      ...(!input.clientProvidesMaterials ? ["Vanity, sink, toilet, and basic fixtures"] : []),
+      "Grout, caulk, and sealant",
+      "Basic cleanup",
+    ],
+    [
+      "Electrical work (GFCI, lighting, exhaust fan) unless specified",
+      "Painting of bathroom walls",
+      "Structural framing repair",
+      "Mold remediation",
+      ...(input.plumbingWork === "no_move" ? ["Plumbing relocation"] : []),
+      ...(input.clientProvidesMaterials ? [] : ["Specialty or custom fixtures beyond standard"]),
+      "Permits (may be required for plumbing — verify locally)",
+    ],
+    [
+      "Wall and floor are structurally sound",
+      "Water has been shut off before work begins",
+      "Existing plumbing is in functional condition unless noted",
+    ],
+    [
+      "Hidden water damage or rot discovered after demo",
+      "Mold found behind existing finishes",
+      "Plumbing relocation not included in original scope",
+      "Client changes material or scope after approval",
+      "Subfloor damage requires repair before tile",
+    ]
+  );
+
+  const explained = buildExplainedOutput(
+    `Your bathroom ${input.scope.replace("_", " ")} is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `This covers ${input.includesShower ? "shower, " : ""}tile, vanity, and standard fixtures. ` +
+    `${input.plumbingWork === "relocate" ? "Plumbing relocation is included and will require a permit. " : ""}` +
+    `Payments are broken into milestones with photo evidence required at each stage to protect both parties.`,
+    [
+      `Scope: ${input.scope} — size: ${input.bathroomSqFt} — plumbing: ${input.plumbingWork}`,
+      `Material tier: ${input.materialQuality} — multiplier: ${MATERIAL_MULTIPLIER[input.materialQuality]}x`,
+      ...(input.includesShower ? ["Waterproofing membrane required before tile — photo mandatory before covering"] : []),
+      ...(input.plumbingWork === "relocate" ? ["Permit required. Coordinate with licensed plumber before scheduling tile"] : []),
+      `Hidden damage probability: ${risk.score > 50 ? "high" : "medium"} — document all pre-existing conditions`,
+      "Do not close rough-in without approved photo — this protects against future disputes",
+    ]
+  );
+
+  const warranty = buildWarranty(
+    90,
+    `Bathroom ${input.scope.replace("_", " ")} — labor on tile installation, fixture installation, and waterproofing`,
+    [
+      "Plumbing leaks caused by supply line or manufacturer defect",
+      "Grout cracking due to structural settlement",
+      "Caulk separation due to building movement",
+      "Water damage from client use or external sources",
+    ]
+  );
+
+  const roi = computeRenovationRoi(
+    costs.total,
+    input.scope === "full_remodel" ? 1.65 : 1.30,
+    `Bathroom ${input.scope.replace("_", " ")} typically recovers 60-80% of investment in home value in Florida market.`,
+    36
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(
+    undefined,
+    false,
+    false,
+    input.demoRequired,
+    false,
+    false
+  );
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: input.plumbingWork !== "no_move",
+    clientMustDecide:     input.clientProvidesMaterials,
+    materialsOnSite:      !input.clientProvidesMaterials,
+    weatherDependent:     false,
+    scopeIsLarge:         input.scope === "full_remodel",
+    hasComplexDetails:    input.materialQuality === "premium",
+  });
+
   return {
     toolId:       `bathroom-${Date.now()}`,
     trade:        "remodeling",
@@ -213,6 +368,18 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
       "Electricidad básica del baño no incluida salvo que esté en alcance.",
       "Pintura de paredes no incluida en este cálculo.",
     ],
+    // Extended metrics
+    confidenceScore,
+    disputeRisk,
+    readinessScore,
+    priceBands,
+    productionSchedule,
+    scope,
+    explained,
+    warranty,
+    roi,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
     createdAt: new Date().toISOString(),
   };
 }

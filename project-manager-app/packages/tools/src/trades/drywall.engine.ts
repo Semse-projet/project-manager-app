@@ -5,6 +5,10 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore, computeDisputeRisk, computePriceBands,
+  buildScope, buildExplainedOutput, buildWarranty, assessHiddenDamageProbability,
+} from "../core/extended-metrics.js";
 
 export type DrywallInput = {
   wallAreaSqft: number;
@@ -155,6 +159,98 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
 
   const evidenceRequired: EvidenceItem[] = evidence.items;
 
+  const confidenceScore = computeConfidenceScore({
+    hasMeasurements:      input.wallAreaSqft > 0,
+    hasPhotos:            false,
+    hasConditionData:     true,
+    hasMaterialSelection: true,
+    hasScopeConfirmed:    true,
+    hasUnknownConditions: input.repairMode && !input.textureMatch,
+    extraConfirmedFields: [input.includeCeiling, input.repairMode, input.textureMatch].filter(Boolean).length,
+  });
+
+  const disputeRisk = computeDisputeRisk({
+    scopeAmbiguous:       input.textureMatch,
+    clientProvidesMaterials: false,
+    noPhotosRequired:     false,
+    hasChangeOrderPolicy: true,
+    hasEvidenceRequired:  true,
+    hasMilestones:        milestones.length > 0,
+    hasHighRiskConditions: input.finishLevel === 5 || input.includeCeiling,
+    priceIsFixed:         false,
+    clientExpectationMismatch: input.textureMatch,
+  });
+
+  const priceBands = computePriceBands(
+    costs.total, 0.70, 1.40,
+    {
+      low:  "Hang-only or basic repair, no texture match, standard finish.",
+      mid:  "Standard finish with tape/mud/sand, moderate complexity.",
+      high: "Level 5 finish, ceiling work, texture match, moisture-resistant panels.",
+    }
+  );
+
+  const scope = buildScope(
+    [
+      `${input.repairMode ? "Drywall repair" : "Drywall installation"} — ${adjustedArea.toFixed(0)} sqft`,
+      `${input.panelType} panels (${input.panelSize})`,
+      "Tape, joint compound, sanding",
+      `Finish level ${input.finishLevel}`,
+      ...(input.includeCeiling ? ["Ceiling drywall included"] : []),
+      ...(input.textureMatch ? ["Texture match attempt"] : []),
+      "Basic cleanup",
+    ],
+    [
+      "Painting or priming (unless specified)",
+      "Structural framing repair",
+      "Insulation behind drywall",
+      "Plumbing or electrical behind walls",
+      "Mold remediation",
+      ...(input.includeCeiling ? [] : ["Ceiling drywall"]),
+    ],
+    ["Wall framing is structurally sound and plumb", "No active moisture or leaks behind drywall area"],
+    [
+      "Hidden moisture or mold discovered behind existing drywall",
+      "Structural framing damage found",
+      "Electrical or plumbing obstruction",
+      "Texture match requires more passes than estimated",
+    ]
+  );
+
+  const explained = buildExplainedOutput(
+    `Your drywall ${input.repairMode ? "repair" : "installation"} (${adjustedArea.toFixed(0)} sqft, finish level ${input.finishLevel}) is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `${input.includeCeiling ? "Ceiling work is included. " : ""}` +
+    `${input.textureMatch ? "Texture matching is included — client must approve visually before painting. " : ""}` +
+    `Photos are required at key stages before covering the substrate.`,
+    [
+      `Area: ${adjustedArea.toFixed(0)} sqft — finish level: ${input.finishLevel} — repair mode: ${input.repairMode}`,
+      `Panel type: ${input.panelType} — size: ${input.panelSize}`,
+      "Do NOT paint before final sanding is approved and documented",
+      ...(input.textureMatch ? ["TEXTURE: require client approval before painting — disputes often start here"] : []),
+      ...(input.includeCeiling ? ["Ceiling: ensure lift/scaffolding safety before starting"] : []),
+      "Before photos are non-negotiable — document pre-existing cracks or damage",
+    ]
+  );
+
+  const warranty = buildWarranty(
+    60,
+    `Drywall ${input.repairMode ? "repair" : "installation"} — labor warranty on tape joints, finish, and patches`,
+    [
+      "Cracks from structural settlement or building movement",
+      "Damage from moisture or flooding after completion",
+      "Painting or texturing done by others after drywall is finished",
+    ]
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(
+    undefined,
+    input.panelType === "moisture-resistant",
+    false,
+    input.repairMode,
+    false,
+    false
+  );
+
   return {
     toolId: `drywall-${Date.now()}`,
     trade: "drywall",
@@ -176,6 +272,13 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
       "No incluye pintura final ni reparación estructural mayor.",
       "Finish level 5 requiere control adicional de luz y acabado.",
     ],
+    confidenceScore,
+    disputeRisk,
+    priceBands,
+    scope,
+    explained,
+    warranty,
+    hiddenDamageAssessment: hiddenDamage,
     createdAt: new Date().toISOString(),
   };
 }
