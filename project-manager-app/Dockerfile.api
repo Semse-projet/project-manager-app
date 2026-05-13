@@ -51,8 +51,12 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder /app/apps/api/skills ./apps/api/skills
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 4000
 
-# Run migrations before starting the API
-CMD ["sh", "-c", "npm run db:migrate && (npm run db:seed || true) && node apps/api/dist/main.js"]
+# 1. Remove duplicate rows that would block unique-constraint migrations
+# 2. Apply pending Prisma migrations safely
+# 3. Optionally seed (ignored on subsequent deploys)
+# 4. Start the API
+CMD ["sh", "-c", "node scripts/pre-migrate.mjs ; npm run db:migrate && (npm run db:seed || true) && node apps/api/dist/main.js"]
