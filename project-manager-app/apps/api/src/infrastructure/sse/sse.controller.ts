@@ -149,4 +149,18 @@ export class SseController {
 
     return merge(global$, tenant$, keepalive$());
   }
+
+  @Sse("buildops")
+  @Public()
+  buildopsStream(
+    @Headers("x-tenant-id") tenantId: string,
+  ): Observable<MessageEvent> {
+    if (!tenantId) return keepalive$();
+    return merge(
+      this.bus.on<unknown>(`buildops:${tenantId}`).pipe(
+        map(e => toMsgEvent(e.data, e.event)),
+      ),
+      keepalive$(),
+    );
+  }
 }

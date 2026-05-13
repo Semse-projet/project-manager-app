@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type {
   ApproveClientPlanInput,
@@ -23,6 +24,8 @@ import type {
 type StoredPlan = {
   id: string;
   tenantId: string;
+  orgId: string;
+  createdBy: string;
   jobId: string | null;
   clientPlanApprovalStatus: string;
   clientPlanApprovedAt: Date | null;
@@ -87,6 +90,7 @@ export class BuildOpsPlanApprovalService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly sseBus?: SseEventBusService,
   ) {}
 
   async approveClientPlan(input: ApproveClientPlanInput): Promise<BuildOpsPlanApprovalResult> {
@@ -142,6 +146,13 @@ export class BuildOpsPlanApprovalService {
       return this.toResult(await this.findPlanOrThrow(tx, input.tenantId, input.buildOpsProjectId));
     });
     await this.appendPlanAudit(input, "buildops.plan.approve", result, { source: input.source, reason });
+    this.emitSsePlanEvent(input.tenantId, "buildops-plan-approved", {
+      buildOpsProjectId: result.buildOpsProjectId,
+      approvalStatus: result.clientPlanApprovalStatus,
+      actorUserId: input.userId,
+      jobId: result.buildOpsProjectId,
+      approvedAt: result.clientPlanApprovedAt,
+    });
     return result;
   }
 
@@ -149,6 +160,13 @@ export class BuildOpsPlanApprovalService {
     const comment = requireText(input.comment, "comment");
     const result = await this.transitionToReviewState(input, "changes_requested", comment);
     await this.appendPlanAudit(input, "buildops.plan.request_changes", result, { comment });
+    this.emitSsePlanEvent(input.tenantId, "buildops-plan-changes-requested", {
+      buildOpsProjectId: result.buildOpsProjectId,
+      approvalStatus: result.clientPlanApprovalStatus,
+      actorUserId: input.userId,
+      comment,
+      reviewedAt: result.clientPlanReviewedAt,
+    });
     return result;
   }
 
@@ -156,6 +174,13 @@ export class BuildOpsPlanApprovalService {
     const comment = requireText(input.comment, "comment");
     const result = await this.transitionToReviewState(input, "rejected", comment);
     await this.appendPlanAudit(input, "buildops.plan.reject", result, { comment });
+    this.emitSsePlanEvent(input.tenantId, "buildops-plan-rejected", {
+      buildOpsProjectId: result.buildOpsProjectId,
+      approvalStatus: result.clientPlanApprovalStatus,
+      actorUserId: input.userId,
+      comment,
+      reviewedAt: result.clientPlanReviewedAt,
+    });
     return result;
   }
 
@@ -210,6 +235,12 @@ export class BuildOpsPlanApprovalService {
       return this.toResult(await this.findPlanOrThrow(tx, input.tenantId, input.buildOpsProjectId));
     });
     await this.appendPlanAudit(input, "buildops.plan.unapprove", result, { reason });
+    this.emitSsePlanEvent(input.tenantId, "buildops-plan-unapproved", {
+      buildOpsProjectId: result.buildOpsProjectId,
+      approvalStatus: result.clientPlanApprovalStatus,
+      actorUserId: input.userId,
+      reason,
+    });
     return result;
   }
 
@@ -299,6 +330,8 @@ export class BuildOpsPlanApprovalService {
       select: {
         id: true,
         tenantId: true,
+        orgId: true,
+        createdBy: true,
         jobId: true,
         clientPlanApprovalStatus: true,
         clientPlanApprovedAt: true,
@@ -450,5 +483,9 @@ export class BuildOpsPlanApprovalService {
         clientPlanReviewedAt: result.clientPlanReviewedAt,
       },
     });
+  }
+
+  private emitSsePlanEvent(tenantId: string, event: string, data: Record<string, unknown>): void {
+    this.sseBus?.emit(`buildops:${tenantId}`, event, data);
   }
 }

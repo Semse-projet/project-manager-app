@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { IntakeOperationsBridgeService } from "../intake-operations-bridge/intake-operations-bridge.service.js";
 import type { IntakeOperationsBridgeComputationResult } from "../intake-operations-bridge/intake-operations-bridge.types.js";
@@ -134,6 +135,7 @@ export class BuildOpsPlanRerunService {
     private readonly prisma: PrismaService,
     private readonly intakeOperationsBridgeService: IntakeOperationsBridgeService,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly sseBus?: SseEventBusService,
   ) {}
 
   async rerunBridge(input: RerunBuildOpsPlanInput): Promise<BuildOpsPlanRerunResult> {
@@ -159,6 +161,15 @@ export class BuildOpsPlanRerunService {
 
       const result = await this.runSerializable((tx) => this.finalizeRerun(tx, input, prepared!, computed));
       await this.appendAudit(input, result);
+      this.sseBus?.emit(`buildops:${input.tenantId}`, "buildops-plan-rerun-completed", {
+        buildOpsProjectId: result.buildOpsProjectId,
+        activeVersionId: result.activeVersionId,
+        activeVersionNumber: result.activeVersionNumber,
+        previousVersionId: result.previousVersionId,
+        approvalStatus: result.approvalStatus,
+        actorUserId: input.userId,
+        rerunCompletedAt: result.rerunCompletedAt,
+      });
       return result;
     } catch (error) {
       if (prepared?.runningVersion.id) {
