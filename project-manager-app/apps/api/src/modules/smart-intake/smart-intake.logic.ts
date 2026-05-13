@@ -312,9 +312,10 @@ function evaluateShowWhen(
 
 export function getNextQuestion(intake: ProjectIntakeRecord): IntakeQuestion | null {
   const answered = new Set(intake.answers.map((answer) => answer.questionId));
+  const questions = getSupportedQuestions(intake.detectedCategory);
 
   return (
-    PAINTING_QUESTIONS
+    questions
       .filter((question) => !answered.has(question.id))
       .filter((question) => evaluateShowWhen(question.showWhen, intake))
       .sort((left, right) => left.step - right.step)[0] ?? null
