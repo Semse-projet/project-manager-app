@@ -2129,3 +2129,34 @@ model MilestoneEvidenceItem {
   @@index([milestoneId])
   @@index([milestoneId, status])
 }
+
+/// Tracks change orders from engine predictions through client approval.
+model ChangeOrderCandidate {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  buildOpsProjectId  String?
+  jobId              String?
+  milestoneId        String?
+  algorithmRunId     String?
+  title              String
+  description        String?
+  trigger            String                         // condition that triggers this CO
+  pricingMode        String    @default("time_and_materials")
+  estimatedMin       Decimal?  @db.Decimal(12, 2)
+  estimatedMax       Decimal?  @db.Decimal(12, 2)
+  status             String    @default("predicted") // predicted | submitted | approved | rejected | voided
+  submittedById      String?
+  submittedAt        DateTime?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  clientNote         String?
+  probability        Int?
+  evidenceJson       Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, status])
+  @@index([buildOpsProjectId])
+  @@index([jobId])
+  @@index([createdAt])
+}

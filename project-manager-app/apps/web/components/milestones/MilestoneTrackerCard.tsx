@@ -18,7 +18,7 @@ import {
 
 type EvidenceStatus = "missing" | "submitted" | "approved" | "rejected";
 type ApprovalStatus = "pending" | "approved" | "changes_requested" | "rejected" | "disputed";
-type PaymentReadiness = "not_ready" | "ready_to_release" | "released" | "held";
+type PaymentReadiness = "not_ready" | "ready_to_release" | "released" | "held" | "disputed";
 type MilestoneStatus = "DRAFT" | "AWAITING_REVIEW" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PAID";
 
 type EvidenceItem = {
@@ -136,11 +136,13 @@ function PaymentReadinessBar({ readiness }: { readiness?: PaymentReadiness }) {
     ready_to_release: "border-green-500/30 bg-green-950/20 text-green-300",
     released:         "border-emerald-500/30 bg-emerald-950/20 text-emerald-300",
     held:             "border-orange-500/30 bg-orange-950/20 text-orange-300",
+    disputed:         "border-red-500/30 bg-red-950/20 text-red-300",
   };
   const labels = {
     ready_to_release: "✓ Payment ready to release",
     released:         "✓ Payment released",
     held:             "⚠ Payment on hold",
+    disputed:         "⚠ Payment disputed",
   };
   return (
     <div className={`rounded-lg border px-3 py-2 text-xs font-semibold ${colors[readiness]}`}>
