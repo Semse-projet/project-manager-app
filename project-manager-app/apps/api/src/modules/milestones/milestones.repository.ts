@@ -479,4 +479,174 @@ export class MilestonesRepository {
 
     return milestone;
   }
+
+  // ── Evidence Items ──────────────────────────────────────────────────────────
+
+  async listEvidenceItems(milestoneId: string) {
+    return this.prisma.milestoneEvidenceItem.findMany({
+      where:   { milestoneId },
+      orderBy: [{ phase: "asc" }, { createdAt: "asc" }],
+    });
+  }
+
+  async seedEvidenceItems(milestoneId: string, items: Array<{
+    label: string;
+    description?: string;
+    kind?: "PHOTO" | "VIDEO" | "DOCUMENT";
+    phase?: "before" | "during" | "after";
+    required?: boolean;
+  }>) {
+    // Idempotent — skip if items already seeded
+    const existing = await this.prisma.milestoneEvidenceItem.count({ where: { milestoneId } });
+    if (existing > 0) return;
+
+    if (items.length === 0) return;
+
+    await this.prisma.milestoneEvidenceItem.createMany({
+      data: items.map(item => ({
+        id:          `mev_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        milestoneId,
+        label:       item.label,
+        description: item.description ?? null,
+        kind:        item.kind ?? "PHOTO",
+        phase:       item.phase ?? "after",
+        required:    item.required ?? true,
+        status:      "missing",
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  async updateEvidenceItemStatus(input: {
+    milestoneId:  string;
+    itemId:       string;
+    status:       "submitted" | "approved" | "rejected";
+    evidenceId?:  string;
+    reviewNote?:  string;
+    reviewedById?: string;
+  }) {
+    return this.prisma.milestoneEvidenceItem.update({
+      where: { id: input.itemId, milestoneId: input.milestoneId },
+      data: {
+        status:       input.status,
+        evidenceId:   input.evidenceId ?? undefined,
+        reviewNote:   input.reviewNote ?? undefined,
+        reviewedById: input.reviewedById ?? undefined,
+        reviewedAt:   new Date(),
+        updatedAt:    new Date(),
+      },
+    });
+  }
+
+  // ── Payment Readiness ────────────────────────────────────────────────────────
+
+  async computePaymentReadiness(milestoneId: string, tenantId: string): Promise<{
+    status:       "not_ready" | "ready_to_release" | "released" | "held" | "disputed";
+    reasons:      string[];
+    blockers:     string[];
+    nextAction:   string;
+    milestone?:   { status: string; paymentReadiness: string; evidenceReadiness: string };
+  }> {
+    const milestone = await this.prisma.milestone.findFirst({
+      where:   { id: milestoneId, project: { tenantId } },
+      include: {
+        evidenceItems: true,
+        disputes:      { where: { status: { in: ["OPEN", "UNDER_REVIEW"] } } },
+        paymentTxns:   { orderBy: { createdAt: "desc" }, take: 1 },
+      },
+    });
+
+    if (!milestone) return {
+      status:     "not_ready",
+      reasons:    [],
+      blockers:   ["Milestone not found"],
+      nextAction: "Verify milestone ID",
+    };
+
+    const reasons:  string[] = [];
+    const blockers: string[] = [];
+    let status: "not_ready" | "ready_to_release" | "released" | "held" | "disputed" = "not_ready";
+
+    // Dispute check
+    if (milestone.disputes.length > 0) {
+      blockers.push("Active dispute — payment held until resolution");
+      return { status: "disputed", reasons, blockers, nextAction: "Resolve open dispute", milestone: {
+        status: milestone.status, paymentReadiness: milestone.paymentReadiness, evidenceReadiness: milestone.evidenceReadiness,
+      }};
+    }
+
+    // Already paid
+    if (milestone.status === "PAID") {
+      reasons.push("Milestone has been paid");
+      return { status: "released", reasons, blockers, nextAction: "Milestone complete", milestone: {
+        status: milestone.status, paymentReadiness: milestone.paymentReadiness, evidenceReadiness: milestone.evidenceReadiness,
+      }};
+    }
+
+    // Evidence checklist
+    const requiredItems = milestone.evidenceItems.filter(e => e.required);
+    const approvedItems = requiredItems.filter(e => e.status === "approved");
+    const missingItems  = requiredItems.filter(e => e.status === "missing");
+    const rejectedItems = requiredItems.filter(e => e.status === "rejected");
+    const submittedItems = requiredItems.filter(e => e.status === "submitted");
+
+    if (requiredItems.length > 0) {
+      if (approvedItems.length === requiredItems.length) {
+        reasons.push(`All ${requiredItems.length} required evidence item(s) approved`);
+      } else {
+        if (missingItems.length > 0)  blockers.push(`${missingItems.length} required evidence item(s) still missing`);
+        if (rejectedItems.length > 0) blockers.push(`${rejectedItems.length} evidence item(s) rejected — must be resubmitted`);
+        if (submittedItems.length > 0) reasons.push(`${submittedItems.length} evidence item(s) submitted — pending review`);
+      }
+    }
+
+    // Approval check
+    const milestoneApproved = milestone.status === "APPROVED";
+    if (milestoneApproved) {
+      reasons.push("Client approved this milestone");
+    } else {
+      if (milestone.status === "SUBMITTED" || milestone.status === "AWAITING_REVIEW") {
+        blockers.push("Waiting for client approval");
+      } else if (milestone.status === "REJECTED") {
+        blockers.push("Client rejected — changes required before resubmission");
+      } else {
+        blockers.push("Milestone not yet submitted for approval");
+      }
+    }
+
+    // Determine final status
+    if (blockers.length === 0 && milestoneApproved) {
+      status = "ready_to_release";
+    } else if (blockers.some(b => b.includes("rejected"))) {
+      status = "held";
+    }
+
+    // Update DB status if it changed
+    if (milestone.paymentReadiness !== status) {
+      await this.prisma.milestone.update({
+        where: { id: milestoneId },
+        data: {
+          paymentReadiness:  status,
+          evidenceReadiness: requiredItems.length === 0 ? "complete"
+            : approvedItems.length === requiredItems.length ? "complete"
+            : submittedItems.length > 0 ? "partial" : "missing",
+        },
+      });
+    }
+
+    const nextAction =
+      status === "ready_to_release" ? "Release payment to professional" :
+      milestone.disputes.length > 0 ? "Resolve open dispute" :
+      milestone.status === "SUBMITTED" ? "Awaiting client review" :
+      blockers.some(b => b.includes("evidence")) ? "Upload required evidence photos" :
+      "Submit milestone for client approval";
+
+    return {
+      status,
+      reasons,
+      blockers,
+      nextAction,
+      milestone: { status: milestone.status, paymentReadiness: status, evidenceReadiness: milestone.evidenceReadiness },
+    };
+  }
 }
