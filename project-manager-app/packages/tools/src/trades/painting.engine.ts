@@ -5,6 +5,19 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore,
+  computeDisputeRisk,
+  computeReadinessScore,
+  computePriceBands,
+  buildScope,
+  buildExplainedOutput,
+  buildWarranty,
+  computeSafeToProceed,
+  ALGORITHM_VERSIONS,
+  buildAlgorithmTrace,
+  buildProductionSchedule,
+} from "../core/extended-metrics.js";
 
 export type PaintingInput = {
   roomLengthFt: number;
@@ -144,15 +157,166 @@ export function calculatePainting(input: PaintingInput): SemseToolResult {
 
   const evidenceRequired: EvidenceItem[] = evidence.items;
 
+  const evidenceRequiredList = evidenceRequired;
+
+  // ── Extended metrics ──────────────────────────────────────────────────────
+  const netPaintSqFt = Math.round(adjustedArea);
+  const isExterior     = input.surfaceType === "exterior";
+  const hasRisk        = input.surfaceType === "newDrywall" || input.surfaceType === "textured";
+  const highQuality    = input.paintQuality === "premium";
+
+  const confidenceScore = computeConfidenceScore({
+    hasMeasurements:      input.roomLengthFt > 0 && input.roomWidthFt > 0,
+    hasPhotos:            false,
+    hasConditionData:     input.surfaceType !== undefined,
+    hasMaterialSelection: input.paintQuality !== undefined,
+    hasScopeConfirmed:    true,
+    hasUnknownConditions: false,
+    extraConfirmedFields: [
+      input.includeCeiling !== undefined ? 1 : 0,
+      input.includePrimer  !== undefined ? 1 : 0,
+      input.coats > 0 ? 1 : 0,
+    ].reduce((a, b) => a + b, 0),
+  });
+
+  const disputeRisk = computeDisputeRisk({
+    scopeAmbiguous:          false,
+    clientProvidesMaterials: false,
+    noPhotosRequired:        false,
+    hasChangeOrderPolicy:    true,
+    hasEvidenceRequired:     true,
+    hasMilestones:           milestones.length > 0,
+    hasHighRiskConditions:   hasRisk || isExterior,
+    priceIsFixed:            true,
+    clientExpectationMismatch: input.coats === 1 && (input.surfaceType === "newDrywall"),
+  });
+
+  const readinessScore = computeReadinessScore({
+    measurementsConfirmed:  input.roomLengthFt > 0,
+    materialsAvailable:     true,
+    siteAccessConfirmed:    true,
+    permitsAddressed:       true,
+    scopeApproved:          true,
+    depositPaid:            false,
+    clientApproval:         false,
+  });
+
+  const priceBands = computePriceBands(
+    costs.total,
+    0.78,
+    1.35,
+    {
+      low:  "Smooth surfaces, economy paint, no primer, no repairs.",
+      mid:  "Standard conditions, quality paint, 2 coats, basic prep.",
+      high: "New drywall, primer required, exterior, premium paint, repairs needed.",
+    }
+  );
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Prep & protection",  daysMin: 0, daysMax: 1, crew: 1, description: "Protect floors, furniture, tape trim" },
+    ...(input.includePrimer ? [{ name: "Primer coat", daysMin: 0, daysMax: 1, crew: 1, description: "Prime — allow to dry 4-6 hrs" }] : []),
+    { name: "Paint application",  daysMin: 0, daysMax: 2, crew: input.coats >= 3 ? 2 : 1, description: `${input.coats} coat(s) — allow 2-4 hrs between coats` },
+    { name: "Cleanup & walkthrough", daysMin: 0, daysMax: 0, crew: 1, description: "Touch-ups, remove tape/plastic, final photos" },
+  ]);
+
+  const scope = buildScope(
+    [
+      `${netPaintSqFt} sqft paintable area (${input.roomLengthFt}×${input.roomWidthFt} ft, ${input.wallHeightFt} ft walls)`,
+      `${input.coats} coat(s) — ${input.paintQuality} quality paint`,
+      ...(input.includePrimer ? ["Primer coat included"] : []),
+      ...(input.includeCeiling ? ["Ceiling included"] : []),
+      "Floor and furniture protection",
+      "Painter's tape on trim",
+      "Basic cleanup",
+    ],
+    [
+      "Major drywall repair",
+      "Trim/baseboard painting",
+      "Doors (unless in scope)",
+      "Exterior of windows",
+      "Carpet or floor treatment",
+      "Mold remediation",
+      "Lead paint remediation (if applicable)",
+      ...(input.includeCeiling ? [] : ["Ceiling"]),
+    ],
+    [
+      `Surface type: ${input.surfaceType} — multiplier applied`,
+      `${input.doors} doors and ${input.windows} windows deducted from area`,
+    ],
+    [
+      "Major wall damage discovered during prep",
+      "Client changes color after work begins",
+      "Additional coats needed due to dark-to-light change",
+      "Ceiling added after approval",
+      "Trim/baseboards requested after approval",
+    ]
+  );
+
+  const explained = buildExplainedOutput(
+    `Your painting project (${netPaintSqFt} sqft, ${input.coats} coat(s)) is estimated at $${Math.round(costs.total).toLocaleString()} using ${input.paintQuality} paint. ` +
+    `${input.includePrimer ? "Primer is included. " : ""}` +
+    `${input.surfaceType === "newDrywall" ? "New drywall requires careful prep — primer is strongly recommended. " : ""}` +
+    `Payments are structured by milestone with photo evidence at each stage.`,
+    [
+      `Area: ${netPaintSqFt} sqft — ${input.coats} coats — ${input.paintQuality} paint — surface: ${input.surfaceType}`,
+      ...(input.surfaceType === "newDrywall" ? ["NEW DRYWALL: must prime before painting or topcoat may not adhere properly."] : []),
+      ...(input.surfaceType === "exterior" ? ["EXTERIOR: check weather forecast 48hrs ahead. No painting below 50°F or above 90°F."] : []),
+      ...(input.coats === 1 ? ["1 COAT: verify surface color is similar — 1 coat on a dark color will show bleed-through."] : []),
+      "BEFORE PHOTOS are mandatory — document existing damage to avoid dispute responsibility.",
+    ]
+  );
+
+  const warranty = buildWarranty(
+    90,
+    "Interior/exterior painting — labor warranty on paint application and prep",
+    [
+      "Paint fading or chalking from UV exposure (manufacturer warranty)",
+      "Damage from moisture, flooding, or structural movement",
+      "Touch-up needed due to normal wall use after completion",
+      "Color shift due to lighting conditions (not workmanship)",
+    ]
+  );
+
+  const safeToProceed = computeSafeToProceed({
+    hasMinimalData:      netPaintSqFt > 0,
+    readinessScore:      readinessScore.score,
+    hasCriticalBlockers: false,
+    hasMilestones:       milestones.length > 0,
+    hasEvidencePlan:     true,
+    confidenceScore:     confidenceScore.score,
+    noCriticalBlockers:  true,
+    scopeIsComplete:     true,
+  });
+
+  const algorithmTrace = buildAlgorithmTrace(
+    ALGORITHM_VERSIONS.painting,
+    "painting",
+    ["roomLengthFt", "roomWidthFt", "wallHeightFt", "coats", "surfaceType", "paintQuality"],
+    [],
+    [
+      `Net paintable area: ${netPaintSqFt} sqft`,
+      `Surface multiplier: ${SURFACE_MULTIPLIERS[input.surfaceType]}x`,
+      `Quality unit cost: $${QUALITY_UNIT_COST[input.paintQuality]}/gallon`,
+    ],
+    [
+      { ruleId: "SURFACE_TEXTURED",  label: "Textured surface",    triggered: input.surfaceType === "textured",   points: 15, reason: "Textured surface increases paint consumption" },
+      { ruleId: "NEW_DRYWALL",       label: "New drywall",         triggered: input.surfaceType === "newDrywall", points: 10, reason: "New drywall requires primer — absorption risk" },
+      { ruleId: "EXTERIOR",          label: "Exterior work",       triggered: isExterior,                        points: 20, reason: "Exterior adds weather risk and complexity" },
+      { ruleId: "PREMIUM_PAINT",     label: "Premium quality",     triggered: highQuality,                       points: 8,  reason: "Higher material cost for premium paint" },
+      { ruleId: "MULTI_COAT",        label: "3+ coats",            triggered: input.coats >= 3,                  points: 12, reason: "More coats = proportionally more labor" },
+      { ruleId: "CEILING_INCLUDED",  label: "Ceiling included",    triggered: input.includeCeiling,              points: 10, reason: "Ceiling adds overhead work complexity" },
+    ]
+  );
+
   return {
-    toolId: `painting-${Date.now()}`,
-    trade: "painting",
-    projectType: input.surfaceType === "exterior" ? "exterior-painting" : "interior-painting",
-    mode: input.mode,
-    inputs: { ...input },
+    toolId:           `painting-${Date.now()}`,
+    trade:            "painting",
+    projectType:      isExterior ? "exterior-painting" : "interior-painting",
+    mode:             input.mode,
+    inputs:           { ...input },
     validationIssues: issues,
-    isValid: isValid(issues),
-    materials: mats,
+    isValid:          isValid(issues),
+    materials:        mats,
     labor,
     costs,
     risk,
@@ -165,6 +329,17 @@ export function calculatePainting(input: PaintingInput): SemseToolResult {
       "Cobertura aproximada por galón: 350 sqft por capa.",
       "No incluye reparación mayor de drywall o carpintería.",
     ],
+    // Extended metrics — constitution principle: "every tool must produce more than a calculation"
+    confidenceScore,
+    disputeRisk,
+    readinessScore,
+    priceBands,
+    productionSchedule,
+    scope,
+    explained,
+    warranty,
+    safeToProceed,
+    algorithmTrace,
     createdAt: new Date().toISOString(),
   };
 }
