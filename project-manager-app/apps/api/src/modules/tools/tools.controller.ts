@@ -1,17 +1,34 @@
 import { Body, Controller, Post, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ok } from "../../common/api-response.js";
+import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ToolsService, type ToolCalculateInput } from "./tools.service.js";
+import { AlgorithmRunService } from "./algorithm-run.service.js";
 
 @Controller("v1/tools")
 export class ToolsController {
-  constructor(private readonly toolsService: ToolsService) {}
+  constructor(
+    private readonly toolsService: ToolsService,
+    private readonly algorithmRunService: AlgorithmRunService,
+  ) {}
 
   @Post("calculate")
   calculate(@Req() req: FastifyRequest, @Body() body: ToolCalculateInput) {
-    const rid = resolveRequestId(req.headers ?? {});
+    const rid    = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.calculate(body);
+
+    // Record algorithm run asynchronously — never blocks response
+    void (async () => {
+      try {
+        const actor = resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
+        await this.algorithmRunService.record(body.tool, body.input ?? {}, result, {
+          tenantId: actor.tenantId,
+          userId:   actor.userId,
+        });
+      } catch { /* swallowed */ }
+    })();
+
     return ok(rid, result);
   }
 

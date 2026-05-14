@@ -6,6 +6,7 @@ import { AlertTriangle, BadgeCheck, CheckCircle2, ClipboardList, FileText, Hamme
 import { Badge, Card, MetricCard } from "@/components/ui";
 import type { SemseToolResult } from "@/app/lib/semse-tools-api";
 import { createBuildOpsProjectFromToolResult } from "@/app/lib/buildops-api";
+import { SemseIntelligencePanel } from "@/components/tools/SemseIntelligencePanel";
 
 const RISK_LABELS: Record<SemseToolResult["risk"]["level"], string> = {
   low: "Low risk",
@@ -89,8 +90,20 @@ export function ToolResultPanel({ result }: { result: SemseToolResult }) {
     }
   }
 
+  // Show Intelligence Panel when extended metrics are present (Algorithm Engine v2+)
+  const hasExtended = !!(
+    (result as any).confidenceScore ||
+    (result as any).priceBands ||
+    (result as any).safeToProceed
+  );
+
   return (
     <div className="grid gap-6">
+      {/* SEMSE Intelligence Panel — shown for all v2 engines */}
+      {hasExtended && (
+        <SemseIntelligencePanel result={result} />
+      )}
+
       <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="grid gap-1">
