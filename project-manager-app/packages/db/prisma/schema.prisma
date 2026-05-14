@@ -452,15 +452,22 @@ model Milestone {
   // ── Active-model fields ──────────────────────────────────────────────────
   checklistSchema      Json?       // { items: [{ id, label, required: bool, evidenceRequired: bool }] }
   requiredEvidenceTypes String[]   @default([])  // ["PHOTO","VIDEO","DOCUMENT"]
+  // ── Evidence + approval + payment readiness ──────────────────────────────
+  paymentReadiness    String    @default("not_ready")   // not_ready | ready_to_release | released | held
+  evidenceReadiness   String    @default("missing")     // missing | partial | complete
+  clientNote          String?
+  clientReviewedAt    DateTime?
+  clientReviewedById  String?
   // ─────────────────────────────────────────────────────────────────────────
-  evidence      Evidence[]
-  reviews       MilestoneReview[]
-  disputes      Dispute[]
-  paymentTxns   PaymentTxn[]
-  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  deletedAt     DateTime?
+  evidence        Evidence[]
+  reviews         MilestoneReview[]
+  disputes        Dispute[]
+  paymentTxns     PaymentTxn[]
+  evidenceItems   MilestoneEvidenceItem[]
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
 
   @@index([projectId, sequence])
   @@index([projectId, deletedAt])
@@ -2067,4 +2074,57 @@ model AssistantActionLog {
 
   @@index([tenantId, userId])
   @@index([tenantId, draftId])
+}
+
+/// Stores each ProTools algorithm run for auditing, analytics and learning.
+model AlgorithmRun {
+  id                 String    @id @default(cuid())
+  tenantId           String?
+  userId             String?
+  jobId              String?
+  buildOpsProjectId  String?
+  trade              String
+  toolName           String
+  algorithmVersion   String    @default("unknown-v1.0.0")
+  inputJson          Json      @default("{}")
+  outputJson         Json      @default("{}")
+  confidenceScore    Int?
+  riskScore          Int?
+  readinessScore     Int?
+  disputeRiskScore   Int?
+  priceBandLow       Decimal?  @db.Decimal(12, 2)
+  priceBandMid       Decimal?  @db.Decimal(12, 2)
+  priceBandHigh      Decimal?  @db.Decimal(12, 2)
+  canPublish         Boolean   @default(true)
+  canCreateBuildOps  Boolean   @default(false)
+  canCreateContract  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+
+  @@index([trade, createdAt])
+  @@index([userId])
+  @@index([jobId])
+  @@index([buildOpsProjectId])
+  @@index([createdAt])
+}
+
+/// Per-milestone evidence requirement tracking (before/during/after).
+model MilestoneEvidenceItem {
+  id            String    @id @default(cuid())
+  milestoneId   String
+  label         String
+  description   String?
+  kind          String    @default("PHOTO")     // PHOTO | VIDEO | DOCUMENT
+  phase         String    @default("after")     // before | during | after
+  required      Boolean   @default(true)
+  status        String    @default("missing")   // missing | submitted | approved | rejected
+  evidenceId    String?
+  reviewNote    String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([milestoneId])
+  @@index([milestoneId, status])
 }
