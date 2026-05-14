@@ -65,3 +65,5 @@ export { calculateKitchenRemodel, runKitchenEngine } from "./trades/kitchen.engi
 export type { KitchenInput } from "./trades/kitchen.engine.js";
 export { calculateCleaning, runCleaningEngine } from "./trades/cleaning.engine.js";
 export type { CleaningInput } from "./trades/cleaning.engine.js";
+export { calculateSiding, runSidingEngine } from "./trades/siding.engine.js";
+export type { SidingInput, SidingMaterial } from "./trades/siding.engine.js";

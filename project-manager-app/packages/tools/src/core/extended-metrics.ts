@@ -377,3 +377,257 @@ export function assessScheduleRisk(params: {
 
   return { delayProbability: delayProb, bufferDaysRecommended: bufferDays, delayFactors: factors };
 }
+
+// ─── Algorithm Versioning ─────────────────────────────────────────────────────
+
+export const ALGORITHM_VERSIONS = {
+  shared:       "shared-v1.1.0",
+  painting:     "painting-v1.1.0",
+  drywall:      "drywall-v1.1.0",
+  bathroom:     "bathroom-v1.0.0",
+  kitchen:      "kitchen-v1.0.0",
+  cleaning:     "cleaning-v1.0.0",
+  siding:       "siding-v1.0.0",
+  demolition:   "demolition-v1.0.0",
+  carpentry:    "carpentry-v1.0.0",
+  flooring:     "flooring-v1.0.0",
+  roofing:      "roofing-v1.0.0",
+  windows_doors: "windows-doors-v1.0.0",
+} as const;
+
+// ─── Task Matrix (for cleaning, demolition, etc.) ─────────────────────────────
+
+export type TaskMatrixItem = {
+  task: string;
+  phase: "before" | "during" | "after";
+  required: boolean;
+  evidenceRequired: boolean;
+  notes?: string;
+};
+
+export type TaskMatrix = {
+  tasks: TaskMatrixItem[];
+  estimatedMinutes: number;
+  complexity: "basic" | "standard" | "detailed" | "specialized";
+};
+
+export function buildTaskMatrix(
+  tasks: TaskMatrixItem[],
+  estimatedMinutes: number,
+  complexity: TaskMatrix["complexity"] = "standard"
+): TaskMatrix {
+  return { tasks, estimatedMinutes, complexity };
+}
+
+// ─── Recurring Pricing ────────────────────────────────────────────────────────
+
+export type RecurringPricingOption = {
+  frequency: "weekly" | "biweekly" | "monthly" | "quarterly";
+  label: string;
+  pricePerVisit: number;
+  discountPercent: number;
+  monthlyValue: number;
+  annualValue: number;
+  notes: string;
+};
+
+export type RecurringPricing = {
+  oneTimePrice: number;
+  options: RecurringPricingOption[];
+  recommendedFrequency?: string;
+  savingsNote: string;
+};
+
+export function buildRecurringPricing(
+  oneTimePrice: number,
+  multipliers?: { weekly?: number; biweekly?: number; monthly?: number; quarterly?: number }
+): RecurringPricing {
+  const weeklyDiscount    = multipliers?.weekly    ?? 0.20;
+  const biweeklyDiscount  = multipliers?.biweekly  ?? 0.15;
+  const monthlyDiscount   = multipliers?.monthly   ?? 0.10;
+  const quarterlyDiscount = multipliers?.quarterly ?? 0.05;
+
+  const weeklyPrice    = Math.round(oneTimePrice * (1 - weeklyDiscount));
+  const biweeklyPrice  = Math.round(oneTimePrice * (1 - biweeklyDiscount));
+  const monthlyPrice   = Math.round(oneTimePrice * (1 - monthlyDiscount));
+  const quarterlyPrice = Math.round(oneTimePrice * (1 - quarterlyDiscount));
+
+  return {
+    oneTimePrice,
+    options: [
+      {
+        frequency: "weekly",
+        label: "Weekly service",
+        pricePerVisit: weeklyPrice,
+        discountPercent: Math.round(weeklyDiscount * 100),
+        monthlyValue: weeklyPrice * 4,
+        annualValue: weeklyPrice * 52,
+        notes: "Best value for high-traffic properties",
+      },
+      {
+        frequency: "biweekly",
+        label: "Bi-weekly service",
+        pricePerVisit: biweeklyPrice,
+        discountPercent: Math.round(biweeklyDiscount * 100),
+        monthlyValue: biweeklyPrice * 2,
+        annualValue: biweeklyPrice * 26,
+        notes: "Most popular frequency",
+      },
+      {
+        frequency: "monthly",
+        label: "Monthly service",
+        pricePerVisit: monthlyPrice,
+        discountPercent: Math.round(monthlyDiscount * 100),
+        monthlyValue: monthlyPrice,
+        annualValue: monthlyPrice * 12,
+        notes: "Good for lightly used spaces",
+      },
+      {
+        frequency: "quarterly",
+        label: "Quarterly service",
+        pricePerVisit: quarterlyPrice,
+        discountPercent: Math.round(quarterlyDiscount * 100),
+        monthlyValue: Math.round(quarterlyPrice / 3),
+        annualValue: quarterlyPrice * 4,
+        notes: "Seasonal deep clean",
+      },
+    ],
+    recommendedFrequency: "biweekly",
+    savingsNote: `Save up to ${Math.round(weeklyDiscount * 100)}% vs one-time pricing with regular service.`,
+  };
+}
+
+// ─── Safe To Proceed Gates ────────────────────────────────────────────────────
+
+export type SafeToProceed = {
+  canEstimate:             boolean;
+  canPublish:              boolean;
+  canCreateBuildOpsPlan:   boolean;
+  canCreateContract:       boolean;
+  canRequestPayment:       boolean;
+  reasons:                 string[];
+};
+
+export type SafeToProceedInput = {
+  hasMinimalData:          boolean;
+  readinessScore:          number;
+  hasCriticalBlockers:     boolean;
+  hasMilestones:           boolean;
+  hasEvidencePlan:         boolean;
+  confidenceScore:         number;
+  noCriticalBlockers:      boolean;
+  scopeIsComplete:         boolean;
+};
+
+export function computeSafeToProceed(input: SafeToProceedInput): SafeToProceed {
+  const reasons: string[] = [];
+
+  const canEstimate = input.hasMinimalData;
+  if (!canEstimate) reasons.push("Insufficient information to estimate");
+
+  const canPublish = canEstimate && input.readinessScore >= 40 && !input.hasCriticalBlockers;
+  if (!canPublish && canEstimate) {
+    if (input.readinessScore < 40) reasons.push(`Readiness score too low (${input.readinessScore}/100 — need 40+)`);
+    if (input.hasCriticalBlockers) reasons.push("Critical blockers must be resolved before publishing");
+  }
+
+  const canCreateBuildOpsPlan = canPublish && input.hasMilestones && input.hasEvidencePlan;
+  if (!canCreateBuildOpsPlan && canPublish) {
+    if (!input.hasMilestones) reasons.push("Milestone plan required for BuildOps");
+    if (!input.hasEvidencePlan) reasons.push("Evidence plan required for BuildOps");
+  }
+
+  const canCreateContract = canCreateBuildOpsPlan && input.confidenceScore >= 65 && input.scopeIsComplete;
+  if (!canCreateContract && canCreateBuildOpsPlan) {
+    if (input.confidenceScore < 65) reasons.push(`Estimate confidence too low (${input.confidenceScore}/100 — need 65+)`);
+    if (!input.scopeIsComplete) reasons.push("Scope must be confirmed before contract");
+  }
+
+  const canRequestPayment = false; // Controlled by BuildOps milestone flow, not the tool
+  if (reasons.length === 0) reasons.push("Ready to proceed");
+
+  return { canEstimate, canPublish, canCreateBuildOpsPlan, canCreateContract, canRequestPayment, reasons };
+}
+
+// ─── Smart Questions (ranked by impact) ──────────────────────────────────────
+
+export type SmartQuestion = {
+  id:       string;
+  question: string;
+  field:    string;
+  impact:   "price" | "risk" | "schedule" | "evidence" | "payment";
+  priority: number; // 1 = highest
+  options?: string[];
+  why:      string;
+};
+
+export function rankSmartQuestions(questions: SmartQuestion[]): SmartQuestion[] {
+  return [...questions].sort((a, b) => a.priority - b.priority);
+}
+
+// ─── Inspection Gate ──────────────────────────────────────────────────────────
+
+export type InspectionGate = {
+  required:       boolean;
+  trigger:        string;
+  description:    string;
+  evidenceRequired: string[];
+  clientMustApprove: boolean;
+  blocksPaymentRelease: boolean;
+  changeOrderTrigger: string;
+};
+
+export function buildInspectionGate(
+  trigger: string,
+  evidenceRequired: string[],
+  changeOrderTrigger: string,
+  description?: string
+): InspectionGate {
+  return {
+    required: true,
+    trigger,
+    description: description ?? `Inspection required: ${trigger}`,
+    evidenceRequired,
+    clientMustApprove: true,
+    blocksPaymentRelease: true,
+    changeOrderTrigger,
+  };
+}
+
+// ─── Algorithm Trace ──────────────────────────────────────────────────────────
+
+export type AlgorithmTraceRule = {
+  ruleId:       string;
+  label:        string;
+  triggered:    boolean;
+  points?:      number;
+  priceImpact?: number;
+  reason:       string;
+};
+
+export type AlgorithmTrace = {
+  algorithmVersion: string;
+  trade:            string;
+  inputUsed:        string[];
+  missingInputs:    string[];
+  assumptions:      string[];
+  rulesTriggered:   AlgorithmTraceRule[];
+};
+
+export function buildAlgorithmTrace(
+  algorithmVersion: string,
+  trade: string,
+  inputUsed: string[],
+  missingInputs: string[],
+  assumptions: string[],
+  rules: AlgorithmTraceRule[]
+): AlgorithmTrace {
+  return {
+    algorithmVersion,
+    trade,
+    inputUsed,
+    missingInputs,
+    assumptions,
+    rulesTriggered: rules.filter(r => r.triggered),
+  };
+}

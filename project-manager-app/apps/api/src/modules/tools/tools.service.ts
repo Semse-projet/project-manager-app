@@ -26,6 +26,7 @@ import {
   calculateBathroomRemodel,
   calculateKitchenRemodel,
   calculateCleaning,
+  calculateSiding,
   calculateQuoteFromToolResult,
   calculateRoofing,
   calculateChangeOrderImpact,
@@ -115,6 +116,10 @@ export class ToolsService {
       case "cleaning":
       case "residential-cleaning":
         return calculateCleaning(payload as Parameters<typeof calculateCleaning>[0]);
+      case "siding":
+      case "exterior-siding":
+      case "siding-installation":
+        return calculateSiding(payload as Parameters<typeof calculateSiding>[0]);
       default:
         throw new BadRequestException(`Unsupported SEMSE tool: ${input.tool}`);
     }

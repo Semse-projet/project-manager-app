@@ -15,6 +15,11 @@ import {
   buildExplainedOutput,
   buildWarranty,
   assessScheduleRisk,
+  buildTaskMatrix,
+  buildRecurringPricing,
+  computeSafeToProceed,
+  ALGORITHM_VERSIONS,
+  buildAlgorithmTrace,
 } from "../core/extended-metrics.js";
 
 export type CleaningInput = {
@@ -203,6 +208,49 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     ...(!input.suppliesIncluded ? ["El cliente provee los suministros. Asegurarse de que estén disponibles en el momento del servicio."] : []),
   ];
 
+  // ── Task matrix by service type ──────────────────────────────────────────
+  const TASK_MATRICES: Record<CleaningInput["serviceType"], string[]> = {
+    standard:          ["Sweep/vacuum all floors", "Mop floors", "Clean bathrooms", "Wipe kitchen surfaces", "Remove trash", "Dust accessible surfaces"],
+    deep:              ["Sweep/vacuum all floors", "Mop floors", "Deep-clean bathrooms", "Clean appliance exteriors", "Wipe baseboards", "Clean cabinet exteriors", "Remove trash", "Dust all surfaces", "Clean mirrors and glass"],
+    move_inout:        ["Inside cabinets cleaned", "Inside appliances if selected", "Closets emptied and cleaned", "Baseboards and trim", "Full bathroom/kitchen reset", "Wipe all surfaces", "Floors", "Remove debris"],
+    post_construction: ["Construction dust removal — first pass", "Wipe all surfaces", "Clean window sills and frames", "Sweep/vacuum/mop floors", "Clean bathrooms", "Remove light debris", "Final walkthrough — second pass for fine dust"],
+    commercial:        ["All floors swept/mopped", "Bathrooms sanitized", "Common areas dusted", "Trash removed", "Kitchen/break room cleaned", "High-touch surfaces disinfected", "Glass/mirrors cleaned"],
+  };
+
+  const taskItems = TASK_MATRICES[input.serviceType] ?? TASK_MATRICES.standard;
+  const taskMatrix = buildTaskMatrix(
+    taskItems.map((task, idx) => ({
+      task,
+      phase: (idx === 0 ? "before" : idx === taskItems.length - 1 ? "after" : "during") as "before" | "during" | "after",
+      required: true,
+      evidenceRequired: idx === 0 || idx === taskItems.length - 1,
+    })),
+    Math.round(estimatedHours * 60),
+    input.condition === "post_construction" ? "specialized" as const :
+    ["deep", "move_inout"].includes(input.serviceType) ? "detailed" as const : "standard" as const
+  );
+
+  // ── Recurring pricing ──────────────────────────────────────────────────────
+  const recurringPricing = buildRecurringPricing(costs.total);
+
+  // ── Algorithm trace ────────────────────────────────────────────────────────
+  const algorithmTrace = buildAlgorithmTrace(
+    ALGORITHM_VERSIONS.cleaning,
+    "cleaning",
+    ["serviceType", "squareFt", "bedrooms", "bathrooms", "condition", "frequency"],
+    input.addOns.length === 0 ? ["addOns — none selected"] : [],
+    [
+      `Condition multiplier: ${conditionMult}x`,
+      `Frequency discount: ${FREQUENCY_MULT[input.frequency]}x`,
+      `Base rate: $${BASE_RATE_PER_SQFT[input.serviceType]}/sqft`,
+    ],
+    [
+      { ruleId: "POST_CONSTRUCTION", label: "Post-construction",    triggered: input.serviceType === "post_construction", points: 20, reason: "Requires multiple passes" },
+      { ruleId: "HEAVY_CONDITION",   label: "Heavy condition",      triggered: input.condition === "heavy",              points: 18, reason: "Heavy soil increases labor significantly" },
+      { ruleId: "MOVE_INOUT",        label: "Move-in/out",          triggered: input.serviceType === "move_inout",       points: 12, reason: "Inside cabinets/appliances add significant time" },
+    ]
+  );
+
   // ── Extended metrics ────────────────────────────────────────────────────────
   const confidenceScore = computeConfidenceScore({
     hasMeasurements:      input.squareFt > 0,
@@ -381,6 +429,17 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     explained,
     warranty,
     scheduleRisk,
+    taskMatrix,
+    recurringPricing,
+    safeToProceed: {
+      canEstimate:           input.squareFt > 0,
+      canPublish:            readinessScore.score >= 40,
+      canCreateBuildOpsPlan: milestones.length > 0 && evidence.items.length > 0,
+      canCreateContract:     confidenceScore.score >= 65,
+      canRequestPayment:     false,
+      reasons:               readinessScore.blockers,
+    },
+    algorithmTrace,
     createdAt: new Date().toISOString(),
   };
 }
