@@ -30,22 +30,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: pnpm
 
-      - name: Install root dependencies
-        run: npm ci
-
-      - name: Install API dependencies
-        run: npm --prefix apps/api install --no-audit --no-fund
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Start API
         run: |
-          npm --prefix apps/api run dev > /tmp/semse-api-integration.log 2>&1 &
+          pnpm --filter @semse/api dev > /tmp/semse-api-integration.log 2>&1 &
           echo $! > /tmp/semse-api-integration.pid
 
       - name: Wait for healthcheck

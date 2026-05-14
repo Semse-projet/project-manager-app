@@ -39,7 +39,7 @@ async function main() {
   });
 
   if (config.runMigrations) {
-    await runCommand("npm", ["run", "db:migrate"], { env: apiEnv });
+    await runCommand("pnpm", ["db:migrate"], { env: apiEnv });
   }
 
   apiProcess = spawn("node", ["apps/api/dist/main.js"], {

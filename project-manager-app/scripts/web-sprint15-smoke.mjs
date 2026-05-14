@@ -401,8 +401,8 @@ async function startApiServer() {
 
 function startNextServer() {
   nextChild = spawn(
-    "npm",
-    ["run", "start", "--workspace", "@semse/web", "--", "--hostname", HOST, "--port", String(WEB_PORT)],
+    "pnpm",
+    ["--filter", "@semse/web", "start", "--", "--hostname", HOST, "--port", String(WEB_PORT)],
     {
       cwd: process.cwd(),
       stdio: "inherit",
@@ -547,7 +547,7 @@ async function main() {
 
   if (missingPackages.length > 0) {
     throw new Error(
-      `Missing workspace dependencies: ${missingPackages.join(", ")}. Run npm run bootstrap:semse before smoke:web:sprint15.`
+      `Missing workspace dependencies: ${missingPackages.join(", ")}. Run pnpm install before smoke:web:sprint15.`
     );
   }
 
@@ -557,10 +557,10 @@ async function main() {
   log("api", `stub server listening on ${API_ORIGIN}`);
 
   log("prep", "building shared schemas for apps/web");
-  await runCommand("npm", ["run", "build", "--workspace", "@semse/schemas"]);
+  await runCommand("pnpm", ["--filter", "@semse/schemas", "build"]);
 
   log("prep", "building production web bundle for stable smoke");
-  await runCommand("npm", ["run", "build", "--workspace", "@semse/web"]);
+  await runCommand("pnpm", ["--filter", "@semse/web", "build"]);
 
   log("web", "starting Next production server");
   startNextServer();

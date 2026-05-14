@@ -71,7 +71,7 @@ const requiredDocuments = [
       "Validacion",
       "drill:operacion-asistida:bcp",
       "SEMSE_BCP_DRILL_MODE=api",
-      "npm run smoke:operacion-asistida"
+      "pnpm smoke:operacion-asistida"
     ]
   },
   {

@@ -67,11 +67,11 @@ export const SEMSE_DEVELOPER_RUNTIME_PROVIDER_PREFERENCES: Record<
 };
 
 export const SEMSE_DEVELOPER_RUNTIME_COMMAND_TEMPLATES = {
-  "npm.build.api": "npm run build:api",
-  "npm.build.web": "npm run build:web",
-  "npm.test.unit": "npm run test:unit",
-  "npm.typecheck": "npm run typecheck",
-  "npm.smoke.agents": "npm run smoke:agents",
+  "pnpm.build.api": "pnpm build:api",
+  "pnpm.build.web": "pnpm build:web",
+  "pnpm.test.unit": "pnpm test:unit",
+  "pnpm.typecheck": "pnpm typecheck",
+  "pnpm.smoke.agents": "pnpm smoke:agents",
 } as const;
 
 export type SemseDeveloperRuntimeCommandTemplate =
@@ -85,27 +85,27 @@ export const SEMSE_DEVELOPER_RUNTIME_COMMAND_TEMPLATE_POLICIES: Record<
     notes: string;
   }
 > = {
-  "npm.build.api": {
+  "pnpm.build.api": {
     allowArgs: false,
     maxArgs: 0,
     notes: "Build canonico de API sin argumentos variables.",
   },
-  "npm.build.web": {
+  "pnpm.build.web": {
     allowArgs: false,
     maxArgs: 0,
     notes: "Build canonico de web sin argumentos variables.",
   },
-  "npm.test.unit": {
+  "pnpm.test.unit": {
     allowArgs: false,
     maxArgs: 0,
     notes: "Suite unitaria canonica sin filtros libres.",
   },
-  "npm.typecheck": {
+  "pnpm.typecheck": {
     allowArgs: false,
     maxArgs: 0,
     notes: "Typecheck global sin banderas dinamicas.",
   },
-  "npm.smoke.agents": {
+  "pnpm.smoke.agents": {
     allowArgs: false,
     maxArgs: 0,
     notes: "Smoke oficial de agentes sin argumentos adicionales.",

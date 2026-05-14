@@ -8,6 +8,6 @@
     "dev": "node --watch src/server.mjs"
   },
   "dependencies": {
-    "@semse/autonomy": "*"
+    "@semse/autonomy": "workspace:*"
   }
 }

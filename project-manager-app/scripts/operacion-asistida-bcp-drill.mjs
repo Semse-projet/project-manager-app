@@ -283,8 +283,8 @@ function buildReport({ mode: reportMode, checks, evidence }) {
       rpo: "15m"
     },
     switch: {
-      local: "SEMSE_BCP_DRILL_MODE=local npm run drill:operacion-asistida:bcp",
-      api: "SEMSE_BCP_DRILL_MODE=api SEMSE_API_URL=http://127.0.0.1:4000 npm run drill:operacion-asistida:bcp"
+      local: "SEMSE_BCP_DRILL_MODE=local pnpm drill:operacion-asistida:bcp",
+      api: "SEMSE_BCP_DRILL_MODE=api SEMSE_API_URL=http://127.0.0.1:4000 pnpm drill:operacion-asistida:bcp"
     },
     evidenceFiles: {
       latest: config.reportPath,

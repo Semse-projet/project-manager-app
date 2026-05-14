@@ -13,7 +13,7 @@ printf '[demo] web port: %s | api port: %s\n' "$WEB_PORT" "$API_PORT"
 
 if [ ! -d node_modules ]; then
   printf '[demo] node_modules missing -> running bootstrap:semse\n'
-  npm run bootstrap:semse
+  pnpm install
 fi
 
 if ss -ltn "( sport = :$WEB_PORT or sport = :$API_PORT )" | tail -n +2 | grep -q .; then

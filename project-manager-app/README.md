@@ -35,7 +35,7 @@ Para evolucionarlo a **SEMSEproject (ConTech + Marketplace + FSM + Evidence + Es
 
 Nota operativa LLM local:
 - para autonomía útil, el baseline recomendado ya no es `llama3.2:1b`
-- usar `qwen2.5:3b` con `npm run dev:api:local-llm` o `npm run start:api:local-llm`
+- usar `qwen2.5:3b` con `pnpm dev:api:local-llm` o `pnpm start:api:local-llm`
 
 ### Avance técnico Fase 0 ya agregado
 
@@ -67,6 +67,15 @@ Mientras se integra auth real, el scaffold de `apps/api` resuelve actor/tenant d
 - `x-org-id`
 - `x-roles` (CSV, por ejemplo: `OPS_ADMIN`, `CLIENT,PRO` o `WORKER`)
 - `x-idempotency-key` (opcional, para deduplicar `POST /v1/agents/runs`)
+
+### Package manager
+
+El monorepo usa `pnpm@10.30.3` con workspaces declarados en `pnpm-workspace.yaml`. Durante la migración desde npm se mantiene `.npmrc` con:
+
+- `shamefully-hoist=true`
+- `node-linker=hoisted`
+
+Esto funciona como puente temporal de compatibilidad: hace que `pnpm` se comporte más parecido a npm, reduce riesgos con paquetes que esperan un `node_modules` plano y permite cerrar la migración sin reescribir dependencias internas. Más adelante se puede intentar volver a un linker aislado cuando los gates de API, web, worker, Prisma y CI pasen sin ese puente.
 
 ## Badges
 
@@ -113,27 +122,27 @@ Configurados para `Samuelcastella/project-manager-app`:
 ### Unitarios (Node test runner)
 
 ```bash
-npm run test:unit
+pnpm test:unit
 ```
 
 ### Cobertura con c8 (con umbrales)
 
 ```bash
-npm run coverage
+pnpm coverage
 # o:
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ### Pipeline local equivalente a CI
 
 ```bash
-npm run test:ci
+pnpm test:ci
 ```
 
 ### Verificación estructural del workspace
 
 ```bash
-npm run verify:workspace
+pnpm verify:workspace
 ```
 
 Este comando ejecuta:
@@ -158,7 +167,7 @@ Cobertura actual:
 ### E2E (Playwright)
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
 
 Escenarios actuales:
@@ -177,24 +186,24 @@ Escenarios actuales:
 Si es la primera vez:
 
 ```bash
-npm install
-npx playwright install chromium
+pnpm install
+pnpm exec playwright install chromium
 ```
 
 ## CI
 
 Se agregó pipeline en [`.github/workflows/ci.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/ci.yml) con jobs de calidad y cobertura:
 - `quality-gates`: ejecuta `lint` API/web, tests unitarios API, `build:api` y `tsc --noEmit` del web.
-- `unit-coverage`: ejecuta `npm run test:coverage` sobre `@semse/api`, valida umbrales y publica resumen de cobertura en el run.
-- `e2e`: ejecuta Playwright (`chromium`) con `npm run test:e2e` y sube artefactos para debugging.
+- `unit-coverage`: ejecuta `pnpm test:coverage` sobre `@semse/api`, valida umbrales y publica resumen de cobertura en el run.
+- `e2e`: ejecuta Playwright (`chromium`) con `pnpm test:e2e` y sube artefactos para debugging.
 - Smoke API de agentes en [`.github/workflows/api-smoke.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/api-smoke.yml):
   levanta `apps/api` y ejecuta `scripts/agent-flow-smoke.sh` (manual y en cambios relevantes).
 - Integración API de dominio en [`.github/workflows/api-integration.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/api-integration.yml):
   levanta `apps/api` y ejecuta `node scripts/api-integration.mjs`.
 - Verificación BCP + API de operación asistida en [`.github/workflows/operacion-asistida-api.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/operacion-asistida-api.yml):
-  levanta `postgres` y `redis`, construye `apps/api`, ejecuta `npm run verify:operacion-asistida:api-local`,
-  `npm run review:operacion-asistida:risk` y `npm run drill:operacion-asistida:restore`.
-  El cierre operativo completo del módulo queda disponible además con `npm run verify:operacion-asistida:module`.
+  levanta `postgres` y `redis`, construye `apps/api`, ejecuta `pnpm verify:operacion-asistida:api-local`,
+  `pnpm review:operacion-asistida:risk` y `pnpm drill:operacion-asistida:restore`.
+  El cierre operativo completo del módulo queda disponible además con `pnpm verify:operacion-asistida:module`.
 
 ### Reporte externo de cobertura (Codecov)
 
@@ -208,22 +217,22 @@ Se agregó pipeline en [`.github/workflows/ci.yml`](/home/yoni/labsemse/project-
 
 - Se agregó [`.github/dependabot.yml`](/home/yoni/labsemse/project-manager-app/.github/dependabot.yml).
 - Dependabot revisa semanalmente:
-  - Dependencias `npm`.
+  - Dependencias del ecosistema npm gestionadas con pnpm.
   - Versiones de `GitHub Actions`.
 
 ## Releases
 
 - Se agregó workflow de release en [`.github/workflows/release.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/release.yml).
 - Al hacer push de un tag `v*.*.*`, el pipeline:
-  - Ejecuta la suite completa (`npm run test:ci`).
+  - Ejecuta la suite completa (`pnpm test:ci`).
   - Crea un GitHub Release automático con notas generadas.
 
 Comandos para versionar:
 
 ```bash
-npm run release:patch   # v1.0.0 -> v1.0.1
-npm run release:minor   # v1.0.0 -> v1.1.0
-npm run release:major   # v1.0.0 -> v2.0.0
+pnpm release:patch   # v1.0.0 -> v1.0.1
+pnpm release:minor   # v1.0.0 -> v1.1.0
+pnpm release:major   # v1.0.0 -> v2.0.0
 git push --follow-tags
 ```
 

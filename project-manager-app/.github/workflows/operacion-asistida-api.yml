@@ -76,35 +76,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: npm run db:generate
+        run: pnpm db:generate
 
       - name: Build API runtime
-        run: npm run build:api
+        run: pnpm build:api
 
       - name: Verify operacion asistida dedicated store
-        run: npm run verify:operacion-asistida:dedicated-store
+        run: pnpm verify:operacion-asistida:dedicated-store
 
       - name: Generate operacion asistida risk review
-        run: npm run review:operacion-asistida:risk
+        run: pnpm review:operacion-asistida:risk
 
       - name: Audit workspace memory legacy state
-        run: npm run audit:operacion-asistida:workspace-memory-legacy
+        run: pnpm audit:operacion-asistida:workspace-memory-legacy
 
       - name: Sync operacion asistida governance artifacts
-        run: npm run review:operacion-asistida:governance
+        run: pnpm review:operacion-asistida:governance
 
       - name: Run operacion asistida multienv restore simulation
-        run: npm run drill:operacion-asistida:restore:multienv
+        run: pnpm drill:operacion-asistida:restore:multienv
 
       - name: Upload BCP evidence
         if: always()

@@ -346,7 +346,7 @@ function detectCollisions(satellites, queue, canonical) {
     collisions.push({
       id: "C004", type: "PENDING_DB_MIGRATION", severity: "ERROR",
       message: "Schema Prisma tiene modelos nuevos (RefreshToken, BidStatus.WITHDRAWN) sin migración ejecutada",
-      action: `cd 'project-manager-app/packages/db' && npx prisma migrate dev --name sprint21_refresh_tokens_bid_withdrawn`,
+      action: `cd 'project-manager-app' && pnpm --filter @semse/db prisma migrate dev --name sprint21_refresh_tokens_bid_withdrawn`,
       affected: ["project-manager-app/packages/db"],
     });
   }
@@ -356,7 +356,7 @@ function detectCollisions(satellites, queue, canonical) {
     collisions.push({
       id: "C005", type: "NO_BUILD", severity: "ERROR",
       message: "No existe build del canónico — apps/api/dist/main.js no encontrado",
-      action: "cd 'project-manager-app' && npm run build:api",
+      action: "cd 'project-manager-app' && pnpm build:api",
       affected: ["project-manager-app/apps/api"],
     });
   }
@@ -431,7 +431,7 @@ function generateRecommendations(canonical, satellites, collisions, queue, visio
 
   // Prioridad 2: Migración DB pendiente (si no está en errores ya)
   if (canonical.hasPendingMigration && !collisions.some(c => c.id === "C004")) {
-    recs.push({ priority: 1, icon: "🔴", text: "Migración DB pendiente", action: "npx prisma migrate dev" });
+    recs.push({ priority: 1, icon: "🔴", text: "Migración DB pendiente", action: "pnpm --filter @semse/db prisma migrate dev" });
   }
 
   // Prioridad 3: Sprint siguiente definido

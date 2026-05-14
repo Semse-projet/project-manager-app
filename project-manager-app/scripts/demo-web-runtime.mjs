@@ -249,8 +249,8 @@ function createApiServer(state) {
 
 function startNextServer() {
   nextChild = spawn(
-    "npm",
-    ["run", "dev", "--workspace", "@semse/web", "--", "--hostname", HOST, "--port", String(WEB_PORT)],
+    "pnpm",
+    ["--filter", "@semse/web", "dev", "--", "--hostname", HOST, "--port", String(WEB_PORT)],
     {
       cwd: process.cwd(),
       stdio: "inherit",
@@ -295,7 +295,7 @@ async function assertDeps() {
     }
   });
   if (missingPackages.length) {
-    throw new Error(`Missing workspace dependencies: ${missingPackages.join(", ")}. Run npm run bootstrap:semse first.`);
+    throw new Error(`Missing workspace dependencies: ${missingPackages.join(", ")}. Run pnpm install first.`);
   }
 }
 
@@ -336,7 +336,7 @@ async function main() {
 
   log("prep", "building shared schemas for apps/web");
   await new Promise((resolve, reject) => {
-    const child = spawn("npm", ["run", "build", "--workspace", "@semse/schemas"], { stdio: "inherit", cwd: process.cwd() });
+    const child = spawn("pnpm", ["--filter", "@semse/schemas", "build"], { stdio: "inherit", cwd: process.cwd() });
     child.on("exit", (code) => code === 0 ? resolve() : reject(new Error(`schema build failed with code ${code}`)));
   });
 

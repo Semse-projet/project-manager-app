@@ -57,7 +57,6 @@ async function detectPackageManager(rootPath) {
     if (typeof packageJson.packageManager === "string") {
       if (packageJson.packageManager.startsWith("pnpm")) return "pnpm";
       if (packageJson.packageManager.startsWith("yarn")) return "yarn";
-      if (packageJson.packageManager.startsWith("npm")) return "npm";
     }
   } catch {
     // noop
@@ -76,7 +75,7 @@ async function detectPackageManager(rootPath) {
     // noop
   }
 
-  return "npm";
+  return "pnpm";
 }
 
 function commandForStep(step) {
@@ -235,7 +234,7 @@ async function executeInstallDependencies({ rootPath }) {
     ? "pnpm install"
     : manager === "yarn"
       ? "yarn install"
-      : "npm install --workspaces";
+      : "pnpm install";
   const result = await runShellCommand(command, rootPath);
   return {
     ...result,

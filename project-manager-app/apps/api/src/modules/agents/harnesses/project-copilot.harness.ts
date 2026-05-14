@@ -980,16 +980,16 @@ export class ProjectCopilotHarness {
           summary = await this.executeRunCommand(runtime, payload);
           break;
         case "RUN_BUILD":
-          summary = await this.executeRunCommand(runtime, { command: "npm run build" });
+          summary = await this.executeRunCommand(runtime, { command: "pnpm build:api && pnpm build:web" });
           break;
         case "RUN_TYPECHECK":
-          summary = await this.executeRunCommand(runtime, { command: "npm run typecheck" });
+          summary = await this.executeRunCommand(runtime, { command: "pnpm typecheck" });
           break;
         case "EDIT_FILE":
           summary = await this.executeEditFile(runtime, payload);
           break;
         case "RUN_TESTS":
-          summary = await this.executeRunCommand(runtime, { command: "npm test" });
+          summary = await this.executeRunCommand(runtime, { command: "pnpm test" });
           break;
         case "DELEGATE_TASK":
           summary = await this.executeDelegateTask(runtime, payload);

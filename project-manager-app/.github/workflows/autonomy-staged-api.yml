@@ -71,23 +71,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: npm run db:generate
+        run: pnpm db:generate
 
       - name: Apply database migrations
-        run: npm run db:migrate
+        run: pnpm db:migrate
 
       - name: Build API runtime
-        run: npm run build:api
+        run: pnpm build:api
 
       - name: Start API runtime
         run: |
@@ -108,7 +113,7 @@ jobs:
           exit 1
 
       - name: Run staged autonomy smoke
-        run: npm run smoke:autonomy:staged
+        run: pnpm smoke:autonomy:staged
 
       - name: Stop API runtime
         if: always()

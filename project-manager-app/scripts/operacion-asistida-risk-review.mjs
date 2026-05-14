@@ -84,7 +84,7 @@ function buildRecommendedActions(risks) {
 
   const actions = [];
   if (risks.some((entry) => entry.code === "missing_api_coverage")) {
-    actions.push("Ejecutar `npm run verify:operacion-asistida:api-local` en el entorno con Postgres/Redis disponible.");
+    actions.push("Ejecutar `pnpm verify:operacion-asistida:api-local` en el entorno con Postgres/Redis disponible.");
   }
   if (risks.some((entry) => entry.code === "stale_latest_drill")) {
     actions.push("Programar una corrida nueva del drill para refrescar el manifiesto BCP.");

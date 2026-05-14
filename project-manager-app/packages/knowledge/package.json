@@ -16,7 +16,7 @@
     "build": "tsc -p tsconfig.json && mkdir -p dist/anatomy/seed dist/repo/seed dist/runtime/seed && cp src/anatomy/seed/anatomy.seed.json dist/anatomy/seed/anatomy.seed.json && cp src/repo/seed/repo.seed.json dist/repo/seed/repo.seed.json && cp src/runtime/seed/runtime.seed.json dist/runtime/seed/runtime.seed.json"
   },
   "dependencies": {
-    "@semse/schemas": "*"
+    "@semse/schemas": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"

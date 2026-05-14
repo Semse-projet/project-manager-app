@@ -84,7 +84,7 @@ export class TechnicalRuntimeService {
 
   async runCommand(command: string): Promise<{ stdout: string; stderr: string; exitCode: number }> {
     // Lista de comandos permitidos ( whitelist )
-    const allowedPrefixes = ["npm run ", "npm test", "npm build", "ls ", "grep ", "cat ", "echo "];
+    const allowedPrefixes = ["pnpm build", "pnpm test", "pnpm typecheck", "pnpm lint", "pnpm smoke:", "pnpm verify:", "ls ", "grep ", "cat ", "echo "];
     const isAllowed = allowedPrefixes.some(prefix => command.startsWith(prefix));
 
     if (!isAllowed) {
