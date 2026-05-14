@@ -5,14 +5,15 @@
  * Vista de todos los hitos de pago por proyecto activo
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import { CheckSquare, Clock, DollarSign, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
+import { HtmlInCanvasPanel } from "@semse/ui";
 import { fetchJobMilestones, fetchJobs, mutateMilestone } from "../../../semse-api";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { MilestoneTrackerCard } from "@/components/milestones/MilestoneTrackerCard";
 
 type MilestoneRecord = {
   id: string;
@@ -21,15 +22,6 @@ type MilestoneRecord = {
   status?: string;
   sequence?: number;
   jobId?: string;
-};
-
-const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "neutral"; label: string }> = {
-  APPROVED:        { variant: "success", label: "Aprobado" },
-  PAID:            { variant: "success", label: "Pagado" },
-  SUBMITTED:       { variant: "warning", label: "Enviado" },
-  AWAITING_REVIEW: { variant: "warning", label: "En revisión" },
-  REJECTED:        { variant: "info", label: "Rechazado" },
-  DRAFT:           { variant: "neutral", label: "Pendiente" },
 };
 
 export default function ClientMilestonesPage() {
@@ -43,8 +35,6 @@ export default function ClientMilestonesPage() {
   }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [reasonByMilestone, setReasonByMilestone] = useState<Record<string, string>>({});
-  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const toggle = (id: string) => setExpanded(e => ({ ...e, [id]: !e[id] }));
 
@@ -101,26 +91,58 @@ export default function ClientMilestonesPage() {
     return { completed, inProgress, escrow };
   }, [groups]);
 
-  async function handleAction(milestoneId: string, action: "approve" | "reject") {
-    if (pendingAction) return;
-    if (action === "reject" && !(reasonByMilestone[milestoneId] ?? "").trim()) {
-      setError("Escribe una razón para rechazar el milestone.");
-      return;
-    }
-
-    setPendingAction(`${action}:${milestoneId}`);
-    setError(null);
+  // Fetch evidence items and payment readiness for a milestone
+  const fetchMilestoneDetail = useCallback(async (milestoneId: string) => {
     try {
-      await mutateMilestone(
-        milestoneId,
-        action,
-        action === "reject" ? { reason: reasonByMilestone[milestoneId] } : undefined
-      );
+      const [evRes, prRes] = await Promise.all([
+        fetch(`/api/semse/milestones/${milestoneId}/evidence-items`),
+        fetch(`/api/semse/milestones/${milestoneId}/payment-readiness`),
+      ]);
+      const evData   = evRes.ok   ? await evRes.json()   : null;
+      const prData   = prRes.ok   ? await prRes.json()   : null;
+      return {
+        evidenceItems:   evData?.data   ?? [],
+        paymentReadiness: prData?.data?.status,
+      };
+    } catch { return { evidenceItems: [], paymentReadiness: undefined }; }
+  }, []);
+
+  const [milestoneDetails, setMilestoneDetails] = useState<Record<string, {
+    evidenceItems: any[];
+    paymentReadiness?: string;
+    loading: boolean;
+  }>>({});
+
+  const loadMilestoneDetail = useCallback(async (milestoneId: string) => {
+    let shouldLoad = false;
+    setMilestoneDetails(prev => {
+      if (prev[milestoneId]) return prev;
+      shouldLoad = true;
+      return { ...prev, [milestoneId]: { evidenceItems: [], loading: true } };
+    });
+    if (!shouldLoad) return;
+    const detail = await fetchMilestoneDetail(milestoneId);
+    setMilestoneDetails(prev => ({ ...prev, [milestoneId]: { ...detail, loading: false } }));
+  }, [fetchMilestoneDetail]);
+
+  const openMilestoneIds = useMemo(() => groups.flatMap(group =>
+    (expanded[group.jobId] ?? true) ? group.milestones.map(milestone => milestone.id) : []
+  ), [groups, expanded]);
+
+  useEffect(() => {
+    openMilestoneIds.forEach((milestoneId) => {
+      if (!milestoneDetails[milestoneId]) void loadMilestoneDetail(milestoneId);
+    });
+  }, [openMilestoneIds, milestoneDetails, loadMilestoneDetail]);
+
+  async function handleTrackerAction(milestoneId: string, action: "submit" | "approve" | "reject" | "request-changes", payload?: { comment?: string }) {
+    try {
+      await mutateMilestone(milestoneId, action as any, payload?.comment ? { reason: payload.comment } : undefined);
       await loadMilestones();
+      // Reload detail
+      setMilestoneDetails(prev => { const next = { ...prev }; delete next[milestoneId]; return next; });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo actualizar el milestone.");
-    } finally {
-      setPendingAction(null);
     }
   }
 
@@ -172,7 +194,7 @@ export default function ClientMilestonesPage() {
       ) : (
       <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={380}>
         {groups.map(group => {
-          const done   = group.milestones.filter(m => m.status === "approved").length;
+          const done   = group.milestones.filter(m => m.status === "APPROVED" || m.status === "PAID").length;
           const total  = group.milestones.length;
           const pct    = Math.round((done / total) * 100);
           const isOpen = expanded[group.jobId] ?? true;
@@ -215,98 +237,29 @@ export default function ClientMilestonesPage() {
                 </div>
               </button>
 
-              {/* Milestones */}
+              {/* Milestones — use MilestoneTrackerCard for evidence + approval flow */}
               {isOpen && (
-                <div>
+                <div style={{ padding: "8px 12px", display: "grid", gap: "8px" }}>
                   {group.milestones.map((m, i) => {
-                    const s = STATUS_CONFIG[m.status ?? "DRAFT"] ?? STATUS_CONFIG.DRAFT;
-                    const canApprove = m.status === "SUBMITTED" || m.status === "AWAITING_REVIEW";
+                    const detail = milestoneDetails[m.id];
+
                     return (
-                      <div
+                      <MilestoneTrackerCard
                         key={m.id}
-                        style={{
-                          display: "flex", alignItems: "center", gap: "14px",
-                          padding: "14px 18px",
-                          borderBottom: i < group.milestones.length - 1 ? "1px solid var(--border)" : "none",
-                          background: m.status === "review" ? "var(--accent)06" : "transparent",
+                        milestone={{
+                          id:              m.id,
+                          title:           m.title,
+                          amount:          m.amount ?? 0,
+                          sequence:        m.sequence ?? (i + 1),
+                          status:          (m.status ?? "DRAFT") as any,
+                          paymentReadiness: detail?.paymentReadiness as any,
+                          evidenceItems:   detail?.evidenceItems ?? [],
                         }}
-                      >
-                        {/* Step bubble */}
-                        <div style={{
-                          width: "28px", height: "28px", borderRadius: "50%", flexShrink: 0,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: "12px", fontWeight: 700,
-                          background: m.status === "approved" ? "#10b981" : "var(--border)",
-                          color: m.status === "approved" ? "#fff" : "var(--muted)",
-                        }}>
-                          {i + 1}
-                        </div>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px" }}>{m.title}</p>
-                          <p style={{ fontSize: "11px", color: "var(--muted)" }}>Secuencia {m.sequence ?? i + 1}</p>
-                        </div>
-
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
-                          <StatusBadge variant={s.variant} text={s.label} size="sm" />
-                          <p style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)", minWidth: "64px", textAlign: "right" }}>
-                            ${(m.amount ?? 0).toLocaleString()}
-                          </p>
-                          {canApprove && (
-                            <button
-                              onClick={() => void handleAction(m.id, "approve")}
-                              disabled={pendingAction === `approve:${m.id}`}
-                              style={{
-                              padding: "5px 12px", borderRadius: "6px", border: "none",
-                              background: "#10b981", color: "#fff",
-                              fontSize: "11px", fontWeight: 700, cursor: "pointer",
-                            }}
-                            >
-                              Aprobar
-                            </button>
-                          )}
-                          {canApprove && (
-                            <button
-                              onClick={() => void handleAction(m.id, "reject")}
-                              disabled={pendingAction === `reject:${m.id}`}
-                              style={{
-                                padding: "5px 12px", borderRadius: "6px", border: "1px solid var(--border)",
-                                background: "var(--surface)", color: "var(--ink)",
-                                fontSize: "11px", fontWeight: 700, cursor: "pointer",
-                              }}
-                            >
-                              Rechazar
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                        role="client"
+                        onAction={handleTrackerAction}
+                      />
                     );
                   })}
-                  {group.milestones.some((milestone) => milestone.status === "SUBMITTED" || milestone.status === "AWAITING_REVIEW") ? (
-                    <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)", display: "grid", gap: "8px" }}>
-                      {group.milestones
-                        .filter((milestone) => milestone.status === "SUBMITTED" || milestone.status === "AWAITING_REVIEW")
-                        .map((milestone) => (
-                          <input
-                            key={`${milestone.id}-reason`}
-                            value={reasonByMilestone[milestone.id] ?? ""}
-                            onChange={(event) => setReasonByMilestone((current) => ({ ...current, [milestone.id]: event.target.value }))}
-                            placeholder={`Razón para rechazar ${milestone.title}`}
-                            style={{
-                              width: "100%",
-                              padding: "9px 12px",
-                              borderRadius: "8px",
-                              border: "1px solid var(--border)",
-                              background: "var(--bg)",
-                              color: "var(--ink)",
-                              fontSize: "12px",
-                              boxSizing: "border-box",
-                              outline: "none",
-                            }}
-                          />
-                        ))}
-                    </div>
-                  ) : null}
                 </div>
               )}
             </div>

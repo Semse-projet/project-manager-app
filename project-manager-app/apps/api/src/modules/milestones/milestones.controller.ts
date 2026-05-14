@@ -186,7 +186,7 @@ export class MilestonesController {
   }
 
   @Patch("v1/milestones/:milestoneId/evidence-items/:itemId")
-  @RequirePermissions("milestones:update")
+  @RequirePermissions("milestones:approve")
   async updateEvidenceItem(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
