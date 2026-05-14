@@ -16,12 +16,14 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { OpsService } from "./ops.service.js";
+import { AlgorithmRunService } from "../tools/algorithm-run.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
   constructor(
     private readonly opsService: OpsService,
     private readonly llmOrchestrator: LLMOrchestrator,
+    private readonly algorithmRunService: AlgorithmRunService,
   ) {}
 
   @Get("llm/metrics")
@@ -237,5 +239,26 @@ export class OpsController {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.opsService.runDedup();
     return ok(requestId, result);
+  }
+
+  // ── Algorithm Engine Dashboard ─────────────────────────────────────────────
+
+  @Get("algorithm-engine/stats")
+  @RequirePermissions("ops:dashboard:read")
+  async algorithmEngineStats(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const stats = await this.algorithmRunService.getStats();
+    return ok(requestId, stats);
+  }
+
+  @Get("algorithm-engine/runs/:trade")
+  @RequirePermissions("ops:dashboard:read")
+  async algorithmEngineRunsByTrade(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("trade") trade: string,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const runs = await this.algorithmRunService.listByTrade(trade, 50);
+    return ok(requestId, runs);
   }
 }

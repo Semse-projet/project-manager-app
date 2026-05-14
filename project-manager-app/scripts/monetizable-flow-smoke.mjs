@@ -88,6 +88,8 @@ async function seedFixture() {
 
 async function cleanup(tenantId, userIds) {
   // Clean up in correct order respecting FK constraints
+  await prisma.changeOrderCandidate.deleteMany({ where: { tenantId } }).catch(() => {});
+  await prisma.algorithmRun.deleteMany({ where: { tenantId } }).catch(() => {});
   await prisma.milestoneEvidenceItem.deleteMany({ where: { milestone: { project: { tenantId } } } }).catch(() => {});
   await prisma.milestoneEvidenceItem.deleteMany({ where: { milestone: { project: { job: { tenantId } } } } }).catch(() => {});
   await prisma.milestoneReview.deleteMany({ where: { milestone: { project: { tenantId } } } }).catch(() => {});
@@ -153,11 +155,13 @@ async function main() {
 
     // Verify AlgorithmRun was persisted
     await new Promise(r => setTimeout(r, 300)); // allow async record
+    let algorithmRunId = null;
     const algoRun = await prisma.algorithmRun.findFirst({
       where:   { trade: "painting" },
       orderBy: { createdAt: "desc" },
     });
     if (algoRun) {
+      algorithmRunId = algoRun.id;
       pass(`AlgorithmRun persisted — v: ${algoRun.algorithmVersion} | risk: ${algoRun.riskScore} | confidence: ${algoRun.confidenceScore}`);
     } else {
       fail("AlgorithmRun persisted in DB", "No record found");
@@ -310,6 +314,61 @@ async function main() {
     }
     if (dbMilestone?.evidenceItems?.every(i => i.status === "approved")) {
       pass(`DB: all ${dbMilestone.evidenceItems.length} evidence items = approved`);
+    }
+
+    // ── Step 10: Change order flow ─────────────────────────────────────────
+    console.log("\n  ─── Step 10: Change order flow ───");
+    const coCreateRes = await api("POST", "/v1/change-orders", {
+      actorHeaders: proActor,
+      body: {
+        jobId: fx.jobId,
+        milestoneId,
+        algorithmRunId,
+        title: "Additional wall repair after prep",
+        description: "Hidden wall damage found during prep requires patching before final coat.",
+        trigger: "Hidden damage discovered after evidence-backed prep inspection",
+        pricingMode: "fixed_range",
+        estimatedMin: 300,
+        estimatedMax: 900,
+        probability: 78,
+        evidenceJson: { evidenceIds: dbMilestone?.evidenceItems?.map(item => item.evidenceId).filter(Boolean) ?? [] },
+      },
+    });
+
+    const changeOrderId = coCreateRes.json?.data?.id;
+    if ((coCreateRes.status === 200 || coCreateRes.status === 201) && changeOrderId) {
+      pass(`Change order created — status: ${coCreateRes.json?.data?.status}`);
+    } else {
+      fail("Change order create", `Got ${coCreateRes.status}: ${coCreateRes.text.slice(0,200)}`);
+    }
+
+    if (changeOrderId) {
+      const coSubmitRes = await api("POST", `/v1/change-orders/${changeOrderId}/submit`, {
+        actorHeaders: proActor,
+        body: {},
+      });
+      if (coSubmitRes.status === 200 || coSubmitRes.status === 201) {
+        pass(`Change order submitted — status: ${coSubmitRes.json?.data?.status}`);
+      } else {
+        fail("Change order submit", `Got ${coSubmitRes.status}: ${coSubmitRes.text.slice(0,200)}`);
+      }
+
+      const coApproveRes = await api("POST", `/v1/change-orders/${changeOrderId}/approve`, {
+        actorHeaders: clientActor,
+        body: { clientNote: "Approved after reviewing evidence." },
+      });
+      if (coApproveRes.status === 200 || coApproveRes.status === 201) {
+        pass(`Change order approved — status: ${coApproveRes.json?.data?.status}`);
+      } else {
+        fail("Change order approve", `Got ${coApproveRes.status}: ${coApproveRes.text.slice(0,200)}`);
+      }
+
+      const dbChangeOrder = await prisma.changeOrderCandidate.findUnique({ where: { id: changeOrderId } });
+      if (dbChangeOrder?.status === "approved") {
+        pass("DB: changeOrder.status = approved");
+      } else {
+        fail("DB change order status", `Got: ${dbChangeOrder?.status}`);
+      }
     }
 
   } finally {
