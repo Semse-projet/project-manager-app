@@ -18,7 +18,7 @@ Flujo API implementado:
 
 ```bash
 cd /home/yoni/labsemse/project-manager-app/apps/worker
-npm run start
+pnpm start
 ```
 
 ## Variables de entorno

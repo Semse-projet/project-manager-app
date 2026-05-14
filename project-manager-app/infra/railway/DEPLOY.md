@@ -154,7 +154,7 @@ Deploy all three services.
 The API config runs:
 
 ```bash
-npm run db:migrate
+pnpm db:migrate
 ```
 
 as a Railway pre-deploy command before the new deployment starts.
@@ -170,7 +170,7 @@ Important Railway detail:
 Run this once after Postgres is ready:
 
 ```bash
-railway run --service semse-api npm run db:seed
+railway run --service semse-api pnpm db:seed
 ```
 
 This seeds the demo tenant and demo users:

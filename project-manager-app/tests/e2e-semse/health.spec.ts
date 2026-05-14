@@ -55,7 +55,7 @@ test.describe("Health — SEMSE app loads", () => {
       buildReport("health-admin-login", status, startedAt, baseURL ?? "", {
         recommendedActions:
           status === "blocked"
-            ? ["Start SEMSE API on port 4000 (npm run dev:api) before running auth e2e tests"]
+            ? ["Start SEMSE API on port 4000 (pnpm dev:api) before running auth e2e tests"]
             : [],
       })
     );

@@ -44,11 +44,11 @@ Capa agentic-native de SEMSE para agentes runtime especializados.
 ## Comandos útiles
 
 - Build del paquete:
-  - `npm run build --workspace @semse/agents`
+  - `pnpm --filter @semse/agents build`
 - Tests integrados vía API:
-  - `npm run test:unit --workspace @semse/api`
+  - `pnpm --filter @semse/api test:unit`
 - Build integrado de backend:
-  - `npm run build:api`
+  - `pnpm build:api`
 
 ## Integración
 

@@ -69,7 +69,7 @@ test.describe("Pro Tools — Concrete Engine", () => {
       writeEvidenceReport(
         buildReport("concrete-calculate", "blocked", startedAt, baseURL ?? "", {
           errors: [errText],
-          recommendedActions: ["Start SEMSE API on port 4000 (npm run dev:api)"],
+          recommendedActions: ["Start SEMSE API on port 4000 (pnpm dev:api)"],
         })
       );
       test.skip(true, `API not available: ${errText}`);
