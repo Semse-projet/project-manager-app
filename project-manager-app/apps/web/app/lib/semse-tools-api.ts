@@ -1,5 +1,5 @@
 export type ToolMode = "client" | "professional" | "admin";
-export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors" | "insulation" | "demolition" | "masonry" | "deck" | "fencing" | "landscaping" | "project-manager" | "labor" | "solar" | "bathroom" | "bathroom-remodel" | "bathroom_remodel" | "kitchen" | "kitchen-remodel" | "kitchen_remodel" | "cleaning" | "residential-cleaning";
+export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors" | "insulation" | "demolition" | "masonry" | "deck" | "fencing" | "landscaping" | "project-manager" | "labor" | "solar" | "bathroom" | "bathroom-remodel" | "bathroom_remodel" | "kitchen" | "kitchen-remodel" | "kitchen_remodel" | "cleaning" | "residential-cleaning" | "siding" | "exterior-siding" | "siding-installation";
 
 export type ValidationIssue = {
   field: string;
@@ -54,6 +54,9 @@ export type RiskResult = {
   level: RiskLevel;
   score: number;
   factors: RiskFactor[];
+  reasons?: string[];
+  warnings?: string[];
+  blockers?: string[];
   requiresPermit: boolean;
   requiresLicense: boolean;
   requiresInspection: boolean;

@@ -25,7 +25,8 @@ export type TradeId =
   | "cleaning"
   | "windows-doors"
   | "bathroom"
-  | "kitchen";
+  | "kitchen"
+  | "siding";
 
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type ToolMode = "client" | "professional" | "admin";
@@ -225,4 +226,14 @@ export type SemseToolResult = {
   hiddenDamageAssessment?: import("./extended-metrics.js").HiddenDamageAssessment;
   /** Schedule delay risk */
   scheduleRisk?: import("./extended-metrics.js").ScheduleRisk;
+  /** Task matrix (cleaning, demolition) */
+  taskMatrix?: import("./extended-metrics.js").TaskMatrix;
+  /** Recurring pricing options (cleaning, maintenance) */
+  recurringPricing?: import("./extended-metrics.js").RecurringPricing;
+  /** Gate controls — what actions are safe to take */
+  safeToProceed?: import("./extended-metrics.js").SafeToProceed;
+  /** Inspection gate (siding, high-risk work) */
+  inspectionGate?: import("./extended-metrics.js").InspectionGate;
+  /** Algorithm trace for auditing and learning */
+  algorithmTrace?: import("./extended-metrics.js").AlgorithmTrace;
 };
