@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Req } from "@nestjs/common";
 import {
   milestoneCreateSchema,
   milestoneReasonSchema
@@ -10,10 +10,14 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { MilestonesService } from "./milestones.service.js";
+import { MilestonesRepository } from "./milestones.repository.js";
 
 @Controller()
 export class MilestonesController {
-  constructor(private readonly milestonesService: MilestonesService) {}
+  constructor(
+    private readonly milestonesService: MilestonesService,
+    private readonly milestonesRepository: MilestonesRepository,
+  ) {}
 
   @Post("v1/projects/:projectId/milestones")
   @RequirePermissions("milestones:create")
@@ -153,5 +157,66 @@ export class MilestonesController {
       requestId
     });
     return ok(requestId, toVisibleMilestone(milestone));
+  }
+
+  // ── Evidence Items ──────────────────────────────────────────────────────────
+
+  @Get("v1/milestones/:milestoneId/evidence-items")
+  @RequirePermissions("milestones:read")
+  async listEvidenceItems(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const items = await this.milestonesRepository.listEvidenceItems(milestoneId);
+    return ok(requestId, items);
+  }
+
+  @Post("v1/milestones/:milestoneId/evidence-items/seed")
+  @RequirePermissions("milestones:create")
+  async seedEvidenceItems(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+    @Body() body: { items: Array<{ label: string; description?: string; kind?: string; phase?: string; required?: boolean }> },
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    await this.milestonesRepository.seedEvidenceItems(milestoneId, body.items as Parameters<typeof this.milestonesRepository.seedEvidenceItems>[1]);
+    const items = await this.milestonesRepository.listEvidenceItems(milestoneId);
+    return ok(requestId, items);
+  }
+
+  @Patch("v1/milestones/:milestoneId/evidence-items/:itemId")
+  @RequirePermissions("milestones:update")
+  async updateEvidenceItem(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+    @Param("itemId") itemId: string,
+    @Body() body: { status: "submitted" | "approved" | "rejected"; evidenceId?: string; reviewNote?: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const item = await this.milestonesRepository.updateEvidenceItemStatus({
+      milestoneId,
+      itemId,
+      status:      body.status,
+      evidenceId:  body.evidenceId,
+      reviewNote:  body.reviewNote,
+      reviewedById: actor.userId,
+    });
+    return ok(requestId, item);
+  }
+
+  // ── Payment Readiness ────────────────────────────────────────────────────────
+
+  @Get("v1/milestones/:milestoneId/payment-readiness")
+  @RequirePermissions("milestones:read")
+  async getPaymentReadiness(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.milestonesRepository.computePaymentReadiness(milestoneId, actor.tenantId);
+    return ok(requestId, result);
   }
 }
