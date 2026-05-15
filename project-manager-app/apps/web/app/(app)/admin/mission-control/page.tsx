@@ -19,23 +19,32 @@ type OperationalSignal = {
   buildOpsProjectId?: string;
   milestoneId?: string;
   createdAt: string;
-  acknowledgedAt?: string;
-  resolvedAt?: string;
 };
 
 type IntelligenceRun = {
   id: string;
   agentName: string;
   triggerEvent: string;
-  entityType: string;
-  entityId: string;
   signalsCreated: string[];
   status: "completed" | "failed";
   durationMs?: number;
   createdAt: string;
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+type BuildOpsOverview = {
+  totalProjects?: number;
+  activeProjects?: number;
+  projectsByStatus?: Record<string, number>;
+  projectsByRisk?: Record<string, number>;
+  milestonesPendingReview?: number;
+  milestonesSubmitted?: number;
+  tasksDueToday?: number;
+  tasksBlocked?: number;
+  evidenceCount?: number;
+  openDisputes?: number;
+};
+
+// ── Constants ──────────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Record<string, string> = {
   critical: "#ef4444",
@@ -59,16 +68,60 @@ const TYPE_LABEL: Record<string, string> = {
   DISPUTE_RISK_HIGH: "Dispute Risk",
 };
 
+const TYPE_EMOJI: Record<string, string> = {
+  EVIDENCE_GAP: "📷",
+  PAYMENT_BLOCKED: "🔒",
+  LOW_CONFIDENCE_ESTIMATE: "📊",
+  CHANGE_ORDER_RECOMMENDED: "📋",
+  DISPUTE_RISK_HIGH: "⚠️",
+};
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// ── Signal Card ─────────────────────────────────────────────────────────────────
+// ── Stat Card ──────────────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  color = "#94a3b8",
+  emoji,
+  onClick,
+}: {
+  label: string;
+  value: number | string;
+  color?: string;
+  emoji?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: "var(--surface, #0c1017)",
+        border: "1px solid var(--border, #1f2d3d)",
+        borderRadius: "12px",
+        padding: "14px 16px",
+        cursor: onClick ? "pointer" : "default",
+        transition: "border-color 0.15s",
+        minWidth: "100px",
+      }}
+    >
+      {emoji && <div style={{ fontSize: "18px", marginBottom: "4px" }}>{emoji}</div>}
+      <div style={{ fontSize: "24px", fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginTop: "4px" }}>{label}</div>
+    </div>
+  );
+}
+
+// ── Signal Card ────────────────────────────────────────────────────────────────
 
 function SignalCard({
   signal,
@@ -83,123 +136,113 @@ function SignalCard({
 }) {
   const color = SEVERITY_COLOR[signal.severity] ?? "#94a3b8";
   const bg = SEVERITY_BG[signal.severity] ?? "transparent";
+  const isLoading = loading === signal.id;
 
   return (
     <div
       style={{
         background: "var(--surface, #0c1017)",
-        border: `1px solid ${color}40`,
+        border: `1px solid ${color}35`,
         borderLeft: `3px solid ${color}`,
         borderRadius: "12px",
-        padding: "16px",
-        marginBottom: "10px",
+        padding: "14px 16px",
+        marginBottom: "8px",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px", marginBottom: "8px" }}>
+        <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
           <span
             style={{
               background: bg,
               color,
               border: `1px solid ${color}40`,
-              borderRadius: "6px",
-              padding: "2px 8px",
+              borderRadius: "5px",
+              padding: "2px 7px",
               fontSize: "10px",
               fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.06em",
             }}
           >
-            {signal.severity.toUpperCase()}
+            {signal.severity}
           </span>
-          <span
-            style={{
-              background: "var(--raised, #111827)",
-              color: "var(--muted, #94a3b8)",
-              borderRadius: "6px",
-              padding: "2px 8px",
-              fontSize: "10px",
-              fontWeight: 600,
-            }}
-          >
-            {TYPE_LABEL[signal.type] ?? signal.type}
+          <span style={{ fontSize: "12px", color: "var(--muted, #94a3b8)" }}>
+            {TYPE_EMOJI[signal.type] ?? "●"} {TYPE_LABEL[signal.type] ?? signal.type}
           </span>
           {signal.status === "acknowledged" && (
-            <span style={{ color: "#eab308", fontSize: "10px", fontWeight: 600 }}>● Acknowledged</span>
+            <span style={{ fontSize: "10px", color: "#eab308", fontWeight: 600 }}>● Acknowledged</span>
           )}
         </div>
-        <span style={{ fontSize: "11px", color: "var(--faint, #4b6280)", whiteSpace: "nowrap" }}>
+        <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)", flexShrink: 0 }}>
           {timeAgo(signal.createdAt)}
         </span>
       </div>
 
-      <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "4px" }}>
+      <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink, #f1f5f9)", margin: "0 0 4px" }}>
         {signal.title}
       </p>
-      <p style={{ fontSize: "13px", color: "var(--muted, #94a3b8)", marginBottom: "10px", lineHeight: 1.5 }}>
+      <p style={{ fontSize: "12px", color: "var(--muted, #94a3b8)", margin: "0 0 10px", lineHeight: 1.5 }}>
         {signal.message}
       </p>
 
       {signal.recommendedAction && (
-        <div
-          style={{
-            background: "rgba(59,130,246,.08)",
-            border: "1px solid rgba(59,130,246,.2)",
-            borderRadius: "8px",
-            padding: "8px 12px",
-            fontSize: "12px",
-            color: "#93c5fd",
-            marginBottom: "12px",
-          }}
-        >
+        <div style={{
+          background: "rgba(59,130,246,.08)",
+          border: "1px solid rgba(59,130,246,.2)",
+          borderRadius: "7px",
+          padding: "7px 10px",
+          fontSize: "11px",
+          color: "#93c5fd",
+          marginBottom: "10px",
+        }}>
           💡 {signal.recommendedAction}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-        {signal.entityType === "Milestone" && signal.milestoneId && (
-          <span style={{ fontSize: "11px", color: "var(--faint, #4b6280)" }}>
-            Milestone · {signal.milestoneId.slice(-8)}
+      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+        {signal.buildOpsProjectId && (
+          <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>
+            BuildOps · {signal.buildOpsProjectId.slice(-6)}
           </span>
         )}
-        {signal.buildOpsProjectId && (
-          <span style={{ fontSize: "11px", color: "var(--faint, #4b6280)" }}>
-            BuildOps · {signal.buildOpsProjectId.slice(-8)}
+        {signal.milestoneId && (
+          <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>
+            Milestone · {signal.milestoneId.slice(-6)}
           </span>
         )}
         <div style={{ flex: 1 }} />
         {signal.status === "open" && (
           <button
             onClick={() => onAcknowledge(signal.id)}
-            disabled={loading === signal.id}
+            disabled={isLoading}
             style={{
-              padding: "5px 12px",
-              borderRadius: "7px",
+              padding: "4px 10px",
+              borderRadius: "6px",
               border: "1px solid var(--border, #1f2d3d)",
               background: "transparent",
               color: "var(--muted, #94a3b8)",
-              fontSize: "12px",
-              cursor: loading === signal.id ? "not-allowed" : "pointer",
+              fontSize: "11px",
+              cursor: isLoading ? "not-allowed" : "pointer",
             }}
           >
-            {loading === signal.id ? "…" : "Acknowledge"}
+            {isLoading ? "…" : "Acknowledge"}
           </button>
         )}
         {signal.status !== "resolved" && (
           <button
             onClick={() => onResolve(signal.id)}
-            disabled={loading === signal.id}
+            disabled={isLoading}
             style={{
-              padding: "5px 12px",
-              borderRadius: "7px",
+              padding: "4px 10px",
+              borderRadius: "6px",
               border: "1px solid rgba(34,197,94,.3)",
               background: "rgba(34,197,94,.08)",
               color: "#86efac",
-              fontSize: "12px",
-              cursor: loading === signal.id ? "not-allowed" : "pointer",
+              fontSize: "11px",
+              cursor: isLoading ? "not-allowed" : "pointer",
             }}
           >
-            {loading === signal.id ? "…" : "Resolve"}
+            {isLoading ? "…" : "Resolve"}
           </button>
         )}
       </div>
@@ -207,28 +250,34 @@ function SignalCard({
   );
 }
 
-// ── Main Page ───────────────────────────────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function MissionControlPage() {
   const [signals, setSignals] = useState<OperationalSignal[]>([]);
   const [runs, setRuns] = useState<IntelligenceRun[]>([]);
+  const [overview, setOverview] = useState<BuildOpsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "open" | "critical" | "high">("open");
+  const [filter, setFilter] = useState<"open" | "critical" | "high" | "all">("open");
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [sigRes, runRes] = await Promise.all([
+      const [sigRes, runRes, ovRes] = await Promise.all([
         fetch("/api/semse/operational-signals?limit=100", { credentials: "include" }),
         fetch("/api/semse/intelligence-runs?limit=10", { credentials: "include" }),
+        fetch("/api/semse/buildops/overview", { credentials: "include" }).catch(() => null),
       ]);
       const sigData = (await sigRes.json()) as { data?: OperationalSignal[] };
       const runData = (await runRes.json()) as { data?: IntelligenceRun[] };
       setSignals(sigData.data ?? []);
       setRuns(runData.data ?? []);
+      if (ovRes?.ok) {
+        const ovData = (await ovRes.json()) as { data?: BuildOpsOverview };
+        setOverview(ovData.data ?? null);
+      }
     } catch {
       setError("No se pudieron cargar las señales operacionales.");
     } finally {
@@ -241,28 +290,25 @@ export default function MissionControlPage() {
   async function handleAcknowledge(id: string) {
     setActionLoading(id);
     try {
-      await fetch(`/api/semse/operational-signals/${id}/acknowledge`, {
-        method: "PATCH",
-        credentials: "include",
-      });
-      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "acknowledged" } : s));
-    } finally {
-      setActionLoading(null);
-    }
+      await fetch(`/api/semse/operational-signals/${id}/acknowledge`, { method: "PATCH", credentials: "include" });
+      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "acknowledged" as const } : s));
+    } finally { setActionLoading(null); }
   }
 
   async function handleResolve(id: string) {
     setActionLoading(id);
     try {
-      await fetch(`/api/semse/operational-signals/${id}/resolve`, {
-        method: "PATCH",
-        credentials: "include",
-      });
-      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "resolved" } : s));
-    } finally {
-      setActionLoading(null);
-    }
+      await fetch(`/api/semse/operational-signals/${id}/resolve`, { method: "PATCH", credentials: "include" });
+      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "resolved" as const } : s));
+    } finally { setActionLoading(null); }
   }
+
+  const openSignals = signals.filter((s) => s.status === "open" || s.status === "acknowledged");
+  const criticalOpen = signals.filter((s) => s.severity === "critical" && s.status === "open");
+  const highOpen = signals.filter((s) => (s.severity === "high" || s.severity === "critical") && s.status === "open");
+  const evidenceGaps = signals.filter((s) => s.type === "EVIDENCE_GAP" && s.status === "open");
+  const paymentBlocked = signals.filter((s) => s.type === "PAYMENT_BLOCKED" && s.status === "open");
+  const disputeRisk = signals.filter((s) => s.type === "DISPUTE_RISK_HIGH" && s.status === "open");
 
   const filtered = signals.filter((s) => {
     if (filter === "open") return s.status === "open" || s.status === "acknowledged";
@@ -271,120 +317,102 @@ export default function MissionControlPage() {
     return true;
   });
 
-  const openCount = signals.filter((s) => s.status === "open").length;
-  const criticalCount = signals.filter((s) => s.severity === "critical" && s.status === "open").length;
-  const highCount = signals.filter((s) => (s.severity === "high" || s.severity === "critical") && s.status === "open").length;
+  const systemHealthColor = criticalOpen.length > 0 ? "#ef4444" : highOpen.length > 0 ? "#f97316" : openSignals.length > 0 ? "#eab308" : "#22c55e";
+  const systemHealthLabel = criticalOpen.length > 0 ? "CRITICAL" : highOpen.length > 0 ? "HIGH RISK" : openSignals.length > 0 ? "ATTENTION" : "HEALTHY";
 
   return (
-    <div style={{ padding: "24px", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={{ padding: "24px", maxWidth: "960px", margin: "0 auto" }}>
+
       {/* Header */}
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-          <div
-            style={{
-              width: "10px",
-              height: "10px",
-              borderRadius: "50%",
-              background: criticalCount > 0 ? "#ef4444" : highCount > 0 ? "#f97316" : "#22c55e",
-              boxShadow: criticalCount > 0 ? "0 0 8px #ef4444" : "none",
-            }}
-          />
+      <div style={{ marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
+          <div style={{
+            width: "10px", height: "10px", borderRadius: "50%",
+            background: systemHealthColor,
+            boxShadow: criticalOpen.length > 0 ? `0 0 8px ${systemHealthColor}` : "none",
+          }} />
           <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink, #f1f5f9)", margin: 0 }}>
             Mission Control
           </h1>
+          <span style={{
+            fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
+            color: systemHealthColor, padding: "2px 7px",
+            background: `${systemHealthColor}15`, border: `1px solid ${systemHealthColor}30`,
+            borderRadius: "4px",
+          }}>
+            {systemHealthLabel}
+          </span>
+          <div style={{ flex: 1 }} />
+          <button onClick={() => void fetchData()} style={{
+            padding: "6px 12px", borderRadius: "7px",
+            border: "1px solid var(--border, #1f2d3d)", background: "transparent",
+            color: "var(--muted, #94a3b8)", fontSize: "12px", cursor: "pointer",
+          }}>↻ Refresh</button>
         </div>
-        <p style={{ fontSize: "13px", color: "var(--muted, #94a3b8)", margin: 0 }}>
-          Señales operacionales del ecosistema SEMSE
+        <p style={{ fontSize: "12px", color: "var(--faint, #4b6280)", margin: 0 }}>
+          Monitorea proyectos, evidencia, pagos, bloqueos y riesgos operativos en tiempo real.
         </p>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
-        {[
-          { label: "Abiertas", count: openCount, color: "#3b82f6" },
-          { label: "Críticas", count: criticalCount, color: "#ef4444" },
-          { label: "Altas", count: highCount, color: "#f97316" },
-          { label: "Total", count: signals.length, color: "#94a3b8" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            style={{
-              background: "var(--surface, #0c1017)",
-              border: "1px solid var(--border, #1f2d3d)",
-              borderRadius: "10px",
-              padding: "12px 16px",
-              minWidth: "90px",
-            }}
-          >
-            <div style={{ fontSize: "22px", fontWeight: 800, color: stat.color }}>
-              {stat.count}
-            </div>
-            <div style={{ fontSize: "11px", color: "var(--muted, #94a3b8)" }}>{stat.label}</div>
-          </div>
-        ))}
-        <button
-          onClick={() => void fetchData()}
-          style={{
-            marginLeft: "auto",
-            padding: "8px 14px",
-            borderRadius: "8px",
-            border: "1px solid var(--border, #1f2d3d)",
-            background: "transparent",
-            color: "var(--muted, #94a3b8)",
-            fontSize: "12px",
-            cursor: "pointer",
-          }}
-        >
-          ↻ Refresh
-        </button>
+      {/* Executive Summary */}
+      <div style={{ marginBottom: "20px" }}>
+        <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--faint, #4b6280)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>
+          Resumen Operacional
+        </p>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <StatCard label="Señales abiertas" value={openSignals.length} color="#3b82f6" emoji="🔔" onClick={() => setFilter("open")} />
+          <StatCard label="Riesgo crítico" value={criticalOpen.length} color="#ef4444" emoji="🚨" onClick={() => setFilter("critical")} />
+          <StatCard label="Evidence gaps" value={evidenceGaps.length} color="#f97316" emoji="📷" />
+          <StatCard label="Pagos bloqueados" value={paymentBlocked.length} color="#eab308" emoji="🔒" />
+          <StatCard label="Riesgo disputa" value={disputeRisk.length} color="#ef4444" emoji="⚠️" />
+          {overview?.totalProjects !== undefined && (
+            <StatCard label="Proyectos activos" value={overview.activeProjects ?? overview.totalProjects} color="#22c55e" emoji="🏗️" />
+          )}
+          {overview?.milestonesPendingReview !== undefined && (
+            <StatCard label="Milestones pendientes" value={overview.milestonesPendingReview} color="#8b5cf6" emoji="✅" />
+          )}
+          {overview?.openDisputes !== undefined && overview.openDisputes > 0 && (
+            <StatCard label="Disputas abiertas" value={overview.openDisputes} color="#ef4444" emoji="⚖️" />
+          )}
+        </div>
       </div>
 
       {/* Filters */}
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "14px", flexWrap: "wrap" }}>
         {(["open", "high", "critical", "all"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{
-              padding: "6px 14px",
-              borderRadius: "7px",
-              border: `1px solid ${filter === f ? "#3b82f6" : "var(--border, #1f2d3d)"}`,
-              background: filter === f ? "rgba(59,130,246,.15)" : "transparent",
-              color: filter === f ? "#93c5fd" : "var(--muted, #94a3b8)",
-              fontSize: "12px",
-              fontWeight: filter === f ? 700 : 400,
-              cursor: "pointer",
-              textTransform: "capitalize",
-            }}
-          >
-            {f === "open" ? "Abiertas" : f === "high" ? "Alta prioridad" : f === "critical" ? "Críticas" : "Todas"}
+          <button key={f} onClick={() => setFilter(f)} style={{
+            padding: "5px 12px", borderRadius: "6px",
+            border: `1px solid ${filter === f ? "#3b82f6" : "var(--border, #1f2d3d)"}`,
+            background: filter === f ? "rgba(59,130,246,.15)" : "transparent",
+            color: filter === f ? "#93c5fd" : "var(--muted, #94a3b8)",
+            fontSize: "11px", fontWeight: filter === f ? 700 : 400, cursor: "pointer",
+          }}>
+            {f === "open" ? `Abiertas (${openSignals.length})` : f === "high" ? `Alta prioridad (${highOpen.length})` : f === "critical" ? `Críticas (${criticalOpen.length})` : `Todas (${signals.length})`}
           </button>
         ))}
       </div>
 
-      {/* Signals */}
+      {/* Signals Feed */}
       {loading ? (
-        <p style={{ color: "var(--muted, #94a3b8)", textAlign: "center", padding: "40px 0" }}>
-          Cargando señales…
-        </p>
+        <p style={{ color: "var(--muted, #94a3b8)", textAlign: "center", padding: "40px 0" }}>Cargando señales…</p>
       ) : error ? (
-        <div style={{ color: "#ef4444", textAlign: "center", padding: "20px" }}>{error}</div>
+        <div style={{ color: "#ef4444", padding: "16px", textAlign: "center" }}>{error}</div>
       ) : filtered.length === 0 ? (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "40px",
-            color: "var(--muted, #94a3b8)",
-            background: "var(--surface, #0c1017)",
-            border: "1px solid var(--border, #1f2d3d)",
-            borderRadius: "12px",
-          }}
-        >
+        <div style={{
+          textAlign: "center", padding: "40px",
+          background: "var(--surface, #0c1017)",
+          border: "1px solid var(--border, #1f2d3d)", borderRadius: "12px",
+        }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }}>✅</div>
-          <p style={{ fontSize: "14px" }}>No hay señales operacionales activas.</p>
+          <p style={{ fontSize: "14px", color: "var(--muted, #94a3b8)" }}>
+            {filter === "open" ? "No hay señales operacionales activas." : "No hay señales para este filtro."}
+          </p>
         </div>
       ) : (
         <div>
+          <p style={{ fontSize: "11px", color: "var(--faint, #4b6280)", marginBottom: "10px" }}>
+            {filtered.length} señal{filtered.length !== 1 ? "es" : ""}
+          </p>
           {filtered.map((signal) => (
             <SignalCard
               key={signal.id}
@@ -397,67 +425,55 @@ export default function MissionControlPage() {
         </div>
       )}
 
-      {/* Recent Agent Runs */}
-      {runs.length > 0 && (
-        <div style={{ marginTop: "32px" }}>
-          <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink, #f1f5f9)", marginBottom: "12px" }}>
+      {/* Recent Intelligence Runs */}
+      {!loading && runs.length > 0 && (
+        <div style={{ marginTop: "28px" }}>
+          <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--faint, #4b6280)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "10px" }}>
             Recent Intelligence Runs
-          </h2>
-          <div
-            style={{
-              background: "var(--surface, #0c1017)",
-              border: "1px solid var(--border, #1f2d3d)",
-              borderRadius: "12px",
-              overflow: "hidden",
-            }}
-          >
+          </p>
+          <div style={{
+            background: "var(--surface, #0c1017)",
+            border: "1px solid var(--border, #1f2d3d)", borderRadius: "12px", overflow: "hidden",
+          }}>
             {runs.slice(0, 8).map((run, i) => (
-              <div
-                key={run.id}
-                style={{
-                  padding: "10px 14px",
-                  borderBottom: i < runs.length - 1 ? "1px solid var(--border, #1f2d3d)" : "none",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: "12px",
-                }}
-              >
+              <div key={run.id} style={{
+                padding: "9px 14px",
+                borderBottom: i < Math.min(runs.length, 8) - 1 ? "1px solid var(--border, #1f2d3d)" : "none",
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px",
+              }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: "12px", color: "var(--ink, #f1f5f9)", fontWeight: 600 }}>
-                    {run.agentName}
-                  </span>
-                  <span style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginLeft: "8px" }}>
-                    {run.triggerEvent}
-                  </span>
+                  <span style={{ fontSize: "12px", color: "var(--ink, #f1f5f9)", fontWeight: 600 }}>{run.agentName}</span>
+                  <span style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", marginLeft: "8px" }}>{run.triggerEvent}</span>
                   {run.signalsCreated.length > 0 && (
-                    <span style={{ fontSize: "10px", color: "#f97316", marginLeft: "8px" }}>
+                    <span style={{ fontSize: "10px", color: "#f97316", marginLeft: "6px" }}>
                       +{run.signalsCreated.length} signal{run.signalsCreated.length > 1 ? "s" : ""}
                     </span>
                   )}
                 </div>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
-                  {run.durationMs !== undefined && (
-                    <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{run.durationMs}ms</span>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: run.status === "completed" ? "#22c55e" : "#ef4444",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {run.status}
-                  </span>
-                  <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>
-                    {timeAgo(run.createdAt)}
-                  </span>
+                  {run.durationMs != null && <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{run.durationMs}ms</span>}
+                  <span style={{ fontSize: "10px", color: run.status === "completed" ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{run.status}</span>
+                  <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{timeAgo(run.createdAt)}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
+
+      {/* Separator from AI Mission Control */}
+      <div style={{
+        marginTop: "32px",
+        padding: "12px 16px",
+        background: "rgba(139,92,246,.05)",
+        border: "1px solid rgba(139,92,246,.2)",
+        borderRadius: "10px",
+        fontSize: "11px",
+        color: "var(--faint, #4b6280)",
+      }}>
+        💡 <strong style={{ color: "var(--muted, #94a3b8)" }}>Mission Control</strong> monitorea operaciones reales — proyectos, pagos, evidencia y riesgos. Para salud de modelos LLM ve a{" "}
+        <a href="/admin/ai-mission-control" style={{ color: "#93c5fd", textDecoration: "none" }}>IA Mission Control →</a>
+      </div>
     </div>
   );
 }
