@@ -428,8 +428,9 @@ async function postJson(path, body, options = {}) {
 }
 
 main().catch((error) => {
-  logger.error({ error }, "fatal worker error");
+  logger.error({ err: error, message: error?.message ?? String(error) }, "fatal worker error");
   console.error("[worker] CRASH:", error?.message ?? String(error));
+  if (error?.stack) console.error("[worker] STACK:", error.stack);
   if (error?.cause) console.error("[worker] CAUSE:", error.cause);
   process.exit(1);
 });
