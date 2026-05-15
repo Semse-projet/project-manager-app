@@ -107,6 +107,7 @@ type RerunTx = Prisma.TransactionClient & Pick<
 >;
 
 const SERIALIZATION_CONFLICT_MESSAGE = "concurrent state change detected, please retry";
+const SERIALIZABLE_TRANSACTION_MAX_ATTEMPTS = 3;
 const PLAN_RERUN_BLOCKED_MESSAGE = "BuildOps plan must be in changes_requested before bridge re-run.";
 
 function isObject(value: Prisma.JsonValue | null): value is Prisma.JsonObject {
@@ -127,6 +128,10 @@ function isConcurrentConflict(error: unknown): boolean {
     return error.code === "P2034" || error.code === "P2002";
   }
   return error instanceof Error && /\b40001\b|serialize|deadlock|write conflict|unique constraint/i.test(error.message);
+}
+
+function backoff(attempt: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, attempt * 25));
 }
 
 @Injectable()
@@ -487,19 +492,27 @@ export class BuildOpsPlanRerunService {
   }
 
   private async runSerializable<T>(work: (tx: RerunTx) => Promise<T>): Promise<T> {
-    try {
-      return await this.prisma.$transaction(
-        async (tx) => work(tx as RerunTx),
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        },
-      );
-    } catch (error) {
-      if (isConcurrentConflict(error)) {
+    for (let attempt = 1; attempt <= SERIALIZABLE_TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => work(tx as RerunTx),
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          },
+        );
+      } catch (error) {
+        if (!isConcurrentConflict(error)) {
+          throw error;
+        }
+        if (attempt < SERIALIZABLE_TRANSACTION_MAX_ATTEMPTS) {
+          await backoff(attempt);
+          continue;
+        }
         throw new ConflictException(SERIALIZATION_CONFLICT_MESSAGE);
       }
-      throw error;
     }
+
+    throw new ConflictException(SERIALIZATION_CONFLICT_MESSAGE);
   }
 
   private async findPlanOrThrow(tx: RerunTx, tenantId: string, buildOpsProjectId: string): Promise<StoredPlan> {

@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { Observable, Subject } from "rxjs";
-import { filter, map } from "rxjs/operators";
+import { filter } from "rxjs/operators";
 
 export type SseEvent<T = unknown> = {
   channel: string;

@@ -47,6 +47,7 @@ type PlanTx = Prisma.TransactionClient &
   Pick<PrismaService, "buildOpsProject" | "jobReservation" | "milestone">;
 
 const SERIALIZATION_CONFLICT_MESSAGE = "concurrent state change detected, please retry";
+const SERIALIZABLE_TRANSACTION_MAX_ATTEMPTS = 3;
 const PLAN_APPROVAL_STATUSES = new Set<BuildOpsPlanApprovalStatus>([
   "pending",
   "approved",
@@ -83,6 +84,10 @@ function isSerializableConflict(error: unknown): boolean {
     return error.code === "P2034";
   }
   return error instanceof Error && /\b40001\b|serialize|deadlock|write conflict/i.test(error.message);
+}
+
+function backoff(attempt: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, attempt * 25));
 }
 
 @Injectable()
@@ -306,19 +311,27 @@ export class BuildOpsPlanApprovalService {
   }
 
   private async runSerializable<T>(work: (tx: PlanTx) => Promise<T>): Promise<T> {
-    try {
-      return await this.prisma.$transaction(
-        async (tx) => work(tx as PlanTx),
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        },
-      );
-    } catch (error) {
-      if (isSerializableConflict(error)) {
+    for (let attempt = 1; attempt <= SERIALIZABLE_TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => work(tx as PlanTx),
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          },
+        );
+      } catch (error) {
+        if (!isSerializableConflict(error)) {
+          throw error;
+        }
+        if (attempt < SERIALIZABLE_TRANSACTION_MAX_ATTEMPTS) {
+          await backoff(attempt);
+          continue;
+        }
         throw new ConflictException(SERIALIZATION_CONFLICT_MESSAGE);
       }
-      throw error;
     }
+
+    throw new ConflictException(SERIALIZATION_CONFLICT_MESSAGE);
   }
 
   private async findPlanOrThrow(tx: PlanTx, tenantId: string, buildOpsProjectId: string): Promise<StoredPlan> {
