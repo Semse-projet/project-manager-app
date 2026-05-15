@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Optional, Param, Patch, Post, Req } from "@nestjs/common";
 import {
   milestoneCreateSchema,
   milestoneReasonSchema
@@ -11,12 +11,14 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { MilestonesService } from "./milestones.service.js";
 import { MilestonesRepository } from "./milestones.repository.js";
+import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 
 @Controller()
 export class MilestonesController {
   constructor(
     private readonly milestonesService: MilestonesService,
     private readonly milestonesRepository: MilestonesRepository,
+    @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
   ) {}
 
   @Post("v1/projects/:projectId/milestones")
@@ -203,6 +205,13 @@ export class MilestonesController {
       reviewNote:  body.reviewNote,
       reviewedById: actor.userId,
     });
+
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: actor.tenantId,
+      milestoneId,
+      triggerEvent: `evidence_item.${body.status}`,
+    }).catch(() => undefined);
+
     return ok(requestId, item);
   }
 
