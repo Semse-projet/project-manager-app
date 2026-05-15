@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
 
@@ -324,7 +325,7 @@ export default function LoginPage() {
           {DEMO_LOGIN_ENABLED && (
             <p
               style={{
-                marginTop: "18px",
+                marginTop: "14px",
                 fontSize: "12px",
                 color: "var(--faint, #4b6280)",
                 textAlign: "center",
@@ -343,6 +344,34 @@ export default function LoginPage() {
               </code>
             </p>
           )}
+
+          {/* Footer links */}
+          <div
+            style={{
+              marginTop: "18px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: "13px",
+            }}
+          >
+            <Link
+              href="/forgot-password"
+              style={{ color: "var(--muted, #94a3b8)", textDecoration: "none" }}
+            >
+              Olvidé mi contraseña
+            </Link>
+            <Link
+              href="/register"
+              style={{
+                color: "#93c5fd",
+                textDecoration: "none",
+                fontWeight: 600,
+              }}
+            >
+              Crear cuenta →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

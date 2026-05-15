@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Injectable, InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
 const ACTIVE_RESET_STATUS = "ACTIVE";
@@ -147,6 +147,49 @@ export class AuthRepository {
         expiresAt: input.expiresAt,
         status: ACTIVE_RESET_STATUS
       }
+    });
+  }
+
+  async createUserWithOrg(input: {
+    email: string;
+    passwordHash: string;
+    name: string;
+    roleKey: "CLIENT" | "PRO";
+    tenantId: string;
+  }): Promise<{ userId: string; orgId: string; tenantId: string; roles: string[] }> {
+    return this.client.$transaction(async (tx) => {
+      const existing = await tx.user.findUnique({ where: { email: input.email }, select: { id: true } });
+      if (existing) throw new ConflictException("El email ya está registrado");
+
+      const role = await tx.role.findUnique({ where: { key: input.roleKey } });
+      if (!role) throw new InternalServerErrorException(`Rol '${input.roleKey}' no encontrado — ejecuta el seed primero`);
+
+      const user = await tx.user.create({
+        data: {
+          email: input.email,
+          passwordHash: input.passwordHash,
+          status: "active",
+          verificationStatus: "unverified",
+        },
+      });
+
+      const org = await tx.org.create({
+        data: {
+          tenantId: input.tenantId,
+          type: input.roleKey,
+          name: input.name,
+        },
+      });
+
+      await tx.membership.create({
+        data: { userId: user.id, orgId: org.id, roleId: role.id },
+      });
+
+      await tx.userProfile.create({
+        data: { userId: user.id, displayName: input.name },
+      });
+
+      return { userId: user.id, orgId: org.id, tenantId: input.tenantId, roles: [input.roleKey] };
     });
   }
 

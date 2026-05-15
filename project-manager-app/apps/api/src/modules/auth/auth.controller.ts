@@ -4,6 +4,7 @@ import {
   authPasswordResetConfirmSchema,
   authPasswordResetRequestSchema,
   authRefreshBodySchema,
+  authRegisterBodySchema,
   authTokenBodySchema
 } from "@semse/schemas";
 import { SEMSE_BOOTSTRAP_HEADER_NAME } from "@semse/shared";
@@ -83,6 +84,25 @@ export class AuthController {
     const data = await this.authService.refreshSession({
       refreshToken: parsed.refreshToken,
       requestId
+    });
+    return ok(requestId, data);
+  }
+
+  @Post("register")
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  async register(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: unknown
+  ) {
+    const parsed = parseWithSchema(authRegisterBodySchema, body);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.authService.register({
+      email: parsed.email,
+      password: parsed.password,
+      name: parsed.name,
+      role: parsed.role ?? "CLIENT",
+      requestId,
     });
     return ok(requestId, data);
   }

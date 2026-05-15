@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException
@@ -249,6 +250,53 @@ export class AuthService {
       sessionId: input.sessionId,
       status: "revoked"
     };
+  }
+
+  async register(input: {
+    email: string;
+    password: string;
+    name: string;
+    role: "CLIENT" | "PRO";
+    requestId: string;
+  }) {
+    const tenantId = process.env.SEMSE_DEFAULT_TENANT_ID?.trim() || "tenant_default";
+    const normalizedEmail = input.email.toLowerCase().trim();
+
+    let identity: { userId: string; orgId: string; tenantId: string; roles: string[] };
+    try {
+      identity = await this.authRepository.createUserWithOrg({
+        email: normalizedEmail,
+        passwordHash: hashPassword(input.password),
+        name: input.name,
+        roleKey: input.role,
+        tenantId,
+      });
+    } catch (err) {
+      if (err instanceof ConflictException) throw err;
+      throw new InternalServerErrorException("No se pudo crear la cuenta — intenta de nuevo");
+    }
+
+    await this.auditService.append({
+      id: `aud_${Date.now()}`,
+      tenantId: identity.tenantId,
+      orgId: identity.orgId,
+      actorUserId: identity.userId,
+      action: "auth.register",
+      entityType: "User",
+      entityId: identity.userId,
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: { email: normalizedEmail, role: input.role },
+    });
+
+    return this.issueSession({
+      userId: identity.userId,
+      tenantId: identity.tenantId,
+      orgId: identity.orgId,
+      roles: identity.roles,
+      ttlSeconds: 8 * 60 * 60,
+      requestId: input.requestId,
+    });
   }
 
   async requestPasswordReset(input: {

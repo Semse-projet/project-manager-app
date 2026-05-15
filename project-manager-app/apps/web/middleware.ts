@@ -18,11 +18,18 @@ import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole }
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 
 // Paths that are always public
-const PUBLIC_PREFIXES = ["/login", "/logout", "/api/", "/_next/", "/favicon"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/forgot-password", "/logout", "/api/", "/_next/", "/favicon"];
+
+// Auth pages that logged-in users should be redirected away from
+const AUTH_PAGES = ["/login", "/register", "/forgot-password"];
 
 function isPublic(pathname: string): boolean {
   if (pathname === "/") return true;
   return PUBLIC_PREFIXES.some(prefix => pathname.startsWith(prefix));
+}
+
+function isAuthPage(pathname: string): boolean {
+  return AUTH_PAGES.some(p => pathname.startsWith(p));
 }
 
 // Protected prefixes — routes that require a valid session
@@ -54,13 +61,11 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;
     const session = sessionCookie ? await decodeSession(sessionCookie) : null;
 
-    // If already logged in and going to /login, redirect to their dashboard
-    if (pathname === "/login" && session) {
-      if (session) {
-        const role = roleFromRoles(session.roles);
-        const redirectTarget = resolveSafeRedirectPath(req.nextUrl.searchParams.get("from"), defaultDashboardForRole(role));
-        return NextResponse.redirect(new URL(redirectTarget, req.url));
-      }
+    // If already logged in and visiting an auth page, redirect to their dashboard
+    if (isAuthPage(pathname) && session) {
+      const role = roleFromRoles(session.roles);
+      const redirectTarget = resolveSafeRedirectPath(req.nextUrl.searchParams.get("from"), defaultDashboardForRole(role));
+      return NextResponse.redirect(new URL(redirectTarget, req.url));
     }
 
     if (pathname.startsWith("/api/")) {
