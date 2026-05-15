@@ -2160,3 +2160,59 @@ model ChangeOrderCandidate {
   @@index([jobId])
   @@index([createdAt])
 }
+
+// ── Operational Intelligence ─────────────────────────────────────────────────
+
+/// Operational signal emitted by intelligence agents when a condition is detected.
+model OperationalSignal {
+  id                String    @id @default(cuid())
+  tenantId          String
+  type              String                          // EVIDENCE_GAP | PAYMENT_BLOCKED | LOW_CONFIDENCE_ESTIMATE | CHANGE_ORDER_RECOMMENDED | DISPUTE_RISK_HIGH
+  severity          String    @default("medium")   // low | medium | high | critical
+  status            String    @default("open")     // open | acknowledged | resolved | dismissed
+  title             String
+  message           String
+  recommendedAction String?
+  sourceAgent       String?
+  entityType        String
+  entityId          String
+  jobId             String?
+  buildOpsProjectId String?
+  milestoneId       String?
+  metadataJson      Json?
+  createdAt         DateTime  @default(now())
+  acknowledgedAt    DateTime?
+  resolvedAt        DateTime?
+
+  @@index([tenantId, status])
+  @@index([type])
+  @@index([severity])
+  @@index([status])
+  @@index([entityType, entityId])
+  @@index([jobId])
+  @@index([buildOpsProjectId])
+  @@index([milestoneId])
+  @@index([createdAt])
+}
+
+/// Traces each intelligence agent evaluation for auditability.
+model IntelligenceRun {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  agentName           String
+  triggerEvent        String
+  entityType          String
+  entityId            String
+  contextSnapshotJson Json?
+  decisionJson        Json?
+  signalsCreated      String[] @default([])
+  status              String   @default("completed") // completed | failed
+  error               String?
+  durationMs          Int?
+  createdAt           DateTime @default(now())
+
+  @@index([agentName])
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}

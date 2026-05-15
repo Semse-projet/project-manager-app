@@ -54,6 +54,7 @@ import { BuildOpsModule } from "./modules/buildops/buildops.module.js";
 import { SmartIntakeModule } from "./modules/smart-intake/smart-intake.module.js";
 import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge/intake-operations-bridge.module.js";
 import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module.js";
+import { OperationalIntelligenceModule } from "./modules/operational-intelligence/operational-intelligence.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -121,6 +122,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     SmartIntakeModule,
     IntakeOperationsBridgeModule,
     ChangeOrdersModule,
+    OperationalIntelligenceModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -6,6 +6,7 @@ import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-co
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { buildMilestoneWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 
 @Injectable()
@@ -15,6 +16,7 @@ export class MilestonesService {
     private readonly auditService: AuditService,
     private readonly domainEventBus: DomainEventBus,
     private readonly workspaceMemory: WorkspaceMemoryRepository,
+    @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
   ) {}
@@ -170,6 +172,12 @@ export class MilestonesService {
       evidenceCount: context.evidenceCount,
     }));
 
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      triggerEvent: "milestone.submitted",
+    }).catch(() => undefined);
+
     return milestone;
   }
 
@@ -213,6 +221,12 @@ export class MilestonesService {
     }));
 
     this.syncContext(input.tenantId, context.projectId, "milestone.approved", "milestone approved");
+
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      triggerEvent: "milestone.approved",
+    }).catch(() => undefined);
 
     return milestone;
   }
@@ -264,6 +278,12 @@ export class MilestonesService {
 
     this.syncContext(input.tenantId, context.projectId, "milestone.rejected", "milestone rejected");
 
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      triggerEvent: "milestone.rejected",
+    }).catch(() => undefined);
+
     return milestone;
   }
 
@@ -303,6 +323,12 @@ export class MilestonesService {
     });
 
     this.syncContext(input.tenantId, context.projectId, "milestone.changes_requested", "milestone changes requested");
+
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      triggerEvent: "milestone.changes_requested",
+    }).catch(() => undefined);
 
     return milestone;
   }
