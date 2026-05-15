@@ -5,6 +5,7 @@
     "dockerfilePath": "Dockerfile.api"
   },
   "deploy": {
+    "startCommand": "node scripts/pre-migrate.mjs ; pnpm db:migrate && (pnpm db:seed || true) && node apps/api/dist/main.js",
     "healthcheckPath": "/v1/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
