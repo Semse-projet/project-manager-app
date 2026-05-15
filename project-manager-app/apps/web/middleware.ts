@@ -18,10 +18,10 @@ import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole }
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 
 // Paths that are always public
-const PUBLIC_PREFIXES = ["/login", "/register", "/forgot-password", "/logout", "/api/", "/_next/", "/favicon"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/forgot-password", "/reset-password", "/logout", "/api/", "/_next/", "/favicon"];
 
 // Auth pages that logged-in users should be redirected away from
-const AUTH_PAGES = ["/login", "/register", "/forgot-password"];
+const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 function isPublic(pathname: string): boolean {
   if (pathname === "/") return true;

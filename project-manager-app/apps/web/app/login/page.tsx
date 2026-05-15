@@ -44,6 +44,7 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
+  const passwordReset = searchParams?.get("reset") === "1";
 
   const activePreset = DEMO_LOGIN_ENABLED ? PRESETS.find(p => p.email === email) ?? null : null;
 
@@ -147,6 +148,22 @@ export default function LoginPage() {
           >
             Iniciar sesión
           </h2>
+
+          {passwordReset && (
+            <div
+              style={{
+                marginBottom: "16px",
+                padding: "10px 12px",
+                borderRadius: "10px",
+                background: "rgba(34,197,94,.12)",
+                border: "1px solid rgba(34,197,94,.25)",
+                color: "#86efac",
+                fontSize: "12px",
+              }}
+            >
+              ✓ Contraseña actualizada. Ya puedes iniciar sesión con tu nueva contraseña.
+            </div>
+          )}
 
           {redirectTo && (
             <div
