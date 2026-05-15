@@ -419,6 +419,8 @@ async function postJson(path, body, options = {}) {
 
 main().catch((error) => {
   logger.error({ error }, "fatal worker error");
+  console.error("[worker] CRASH:", error?.message ?? String(error));
+  if (error?.cause) console.error("[worker] CAUSE:", error.cause);
   process.exit(1);
 });
 
