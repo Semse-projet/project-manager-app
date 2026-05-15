@@ -1,3 +1,13 @@
+// Catch errors that happen during module init (before main() is called)
+process.on("uncaughtException", (err) => {
+  console.error("[worker] UNCAUGHT:", err?.message ?? String(err));
+  process.exit(1);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("[worker] UNHANDLED REJECTION:", reason?.message ?? String(reason));
+  process.exit(1);
+});
+
 import { config as dotenvConfig } from "dotenv";
 import { setTimeout as sleep } from "node:timers/promises";
 import { resolve, dirname } from "node:path";
