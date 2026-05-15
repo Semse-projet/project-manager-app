@@ -60,4 +60,4 @@ EXPOSE 4000
 # 2. Apply pending Prisma migrations safely
 # 3. Optionally seed (ignored on subsequent deploys)
 # 4. Start the API
-CMD ["sh", "-c", "node scripts/pre-migrate.mjs ; npm run db:migrate && (npm run db:seed || true) && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "node scripts/pre-migrate.mjs ; bash scripts/db-migrate.sh && (npm run db:seed || true) && node apps/api/dist/main.js"]
