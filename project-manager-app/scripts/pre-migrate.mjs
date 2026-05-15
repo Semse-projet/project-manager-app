@@ -50,6 +50,7 @@ function run(cmd) {
 // ---------------------------------------------------------------------------
 
 async function baselineIfNeeded() {
+  // Step 1: ensure _prisma_migrations table exists
   const [row] = await prisma.$queryRaw`
     SELECT EXISTS (
       SELECT 1 FROM pg_tables
@@ -57,54 +58,64 @@ async function baselineIfNeeded() {
     ) AS exists
   `;
 
-  if (row.exists) {
-    console.log("[pre-migrate] _prisma_migrations present — no baseline needed");
-    return;
+  if (!row.exists) {
+    console.log("[pre-migrate] ⚠ _prisma_migrations missing — creating table");
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
+        "id"                  VARCHAR(36)  NOT NULL PRIMARY KEY,
+        "checksum"            VARCHAR(64)  NOT NULL,
+        "finished_at"         TIMESTAMPTZ,
+        "migration_name"      VARCHAR(255) NOT NULL,
+        "logs"                TEXT,
+        "rolled_back_at"      TIMESTAMPTZ,
+        "started_at"          TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "applied_steps_count" INTEGER      NOT NULL DEFAULT 0
+      )
+    `);
   }
 
-  console.log("[pre-migrate] ⚠ _prisma_migrations missing — running baseline");
-
-  // 1. Create _prisma_migrations table
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS "_prisma_migrations" (
-      "id"                  VARCHAR(36)  NOT NULL PRIMARY KEY,
-      "checksum"            VARCHAR(64)  NOT NULL,
-      "finished_at"         TIMESTAMPTZ,
-      "migration_name"      VARCHAR(255) NOT NULL,
-      "logs"                TEXT,
-      "rolled_back_at"      TIMESTAMPTZ,
-      "started_at"          TIMESTAMPTZ  NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "applied_steps_count" INTEGER      NOT NULL DEFAULT 0
-    )
-  `);
-
-  // 2. Read each migration file, compute its checksum, insert as applied
-  const entries = readdirSync(MIGRATIONS_DIR)
+  // Step 2: find migration files on disk
+  const diskMigrations = readdirSync(MIGRATIONS_DIR)
     .filter((d) => statSync(join(MIGRATIONS_DIR, d)).isDirectory())
     .sort();
 
-  const now = new Date().toISOString();
+  // Step 3: find which migrations are already recorded in the DB
+  const dbRows = await prisma.$queryRaw`
+    SELECT migration_name FROM "_prisma_migrations"
+  `;
+  const recorded = new Set(dbRows.map((r) => r.migration_name));
 
-  for (const name of entries) {
-    const sqlFile = join(MIGRATIONS_DIR, name, "migration.sql");
-    if (!existsSync(sqlFile)) continue;
+  const missing = diskMigrations.filter(
+    (name) => !recorded.has(name) && existsSync(join(MIGRATIONS_DIR, name, "migration.sql"))
+  );
 
-    const sql = readFileSync(sqlFile, "utf-8");
-    const checksum = createHash("sha256").update(sql).digest("hex");
-    const id = randomUUID();
-
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO "_prisma_migrations"
-        (id, checksum, finished_at, migration_name, applied_steps_count, started_at)
-      VALUES
-        ('${id}', '${checksum}', '${now}', '${name}', 1, '${now}')
-    `);
-
-    console.log(`  [pre-migrate] baseline: ${name}`);
+  if (missing.length === 0 && row.exists) {
+    console.log("[pre-migrate] _prisma_migrations complete — no baseline needed");
+    return;
   }
 
-  // 3. db push to add any tables/columns that are missing from the DB
-  //    (safe for additive changes; skip if destructive schema drift exists)
+  if (missing.length > 0) {
+    console.log(`[pre-migrate] ⚠ ${missing.length} migration(s) not recorded — inserting`);
+    const now = new Date().toISOString();
+
+    for (const name of missing) {
+      const sql = readFileSync(join(MIGRATIONS_DIR, name, "migration.sql"), "utf-8");
+      const checksum = createHash("sha256").update(sql).digest("hex");
+      const id = randomUUID();
+
+      await prisma.$executeRawUnsafe(`
+        INSERT INTO "_prisma_migrations"
+          (id, checksum, finished_at, migration_name, applied_steps_count, started_at)
+        VALUES
+          ('${id}', '${checksum}', '${now}', '${name}', 1, '${now}')
+      `);
+
+      console.log(`  [pre-migrate] baseline: ${name}`);
+    }
+  }
+
+  // Step 4: db push to add any tables/columns missing from DB
+  //         (safe for additive changes; non-fatal if destructive drift exists)
   const prismaCli = getPrismaCli();
   try {
     run(`${prismaCli} db push --schema "${SCHEMA}" --skip-generate --accept-data-loss=false`);
