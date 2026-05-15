@@ -528,20 +528,35 @@ async function ensureAuthSession() {
     bootstrapTokenSet: !!config.bootstrapToken,
   }));
 
-  const response = await fetch(`${config.apiBaseUrl}/v1/auth/token`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...(config.bootstrapToken ? { [SEMSE_BOOTSTRAP_HEADER_NAME]: config.bootstrapToken } : {})
-    },
-    body: JSON.stringify({
-      userId: config.userId,
-      tenantId: config.tenantId,
-      orgId: config.orgId,
-      roles: parseRoleList(config.roles),
-      ttlSeconds: 3600
-    })
-  });
+  let response;
+  try {
+    response = await fetch(`${config.apiBaseUrl}/v1/auth/token`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(config.bootstrapToken ? { [SEMSE_BOOTSTRAP_HEADER_NAME]: config.bootstrapToken } : {})
+      },
+      body: JSON.stringify({
+        userId: config.userId,
+        tenantId: config.tenantId,
+        orgId: config.orgId,
+        roles: parseRoleList(config.roles),
+        ttlSeconds: 3600
+      })
+    });
+  } catch (networkErr) {
+    // API unreachable (ConnectTimeoutError, ECONNREFUSED, etc.)
+    // Log and continue without JWT — worker will use identity headers only
+    console.error(JSON.stringify({
+      level: "warn", service: "semse-worker", label: "auth/token:network-error",
+      error: networkErr?.message ?? String(networkErr),
+      cause: networkErr?.cause?.code ?? null,
+      apiBaseUrl: config.apiBaseUrl,
+      timestamp: new Date().toISOString(),
+      note: "Worker will start without JWT auth. API calls use identity headers only.",
+    }));
+    return;
+  }
 
   const payload = await response.json();
   if (!response.ok) {
