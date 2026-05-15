@@ -1,10 +1,30 @@
-// Catch errors that happen during module init (before main() is called)
+// ── Fatal error helpers (defined before imports so they work during init) ────
+function serializeError(err) {
+  if (err instanceof Error) {
+    return { name: err.name, message: err.message, stack: err.stack, cause: err.cause };
+  }
+  return { type: typeof err, value: String(err) };
+}
+
+function logFatal(label, err, meta) {
+  console.error(JSON.stringify({
+    level: "fatal",
+    service: "semse-worker",
+    label,
+    error: serializeError(err),
+    meta: meta ?? {},
+    timestamp: new Date().toISOString(),
+    pid: process.pid,
+    nodeEnv: process.env.NODE_ENV ?? "unknown",
+  }));
+}
+
 process.on("uncaughtException", (err) => {
-  console.error("[worker] UNCAUGHT:", err?.message ?? String(err));
+  logFatal("uncaughtException", err);
   process.exit(1);
 });
 process.on("unhandledRejection", (reason) => {
-  console.error("[worker] UNHANDLED REJECTION:", reason?.message ?? String(reason));
+  logFatal("unhandledRejection", reason instanceof Error ? reason : new Error(String(reason)));
   process.exit(1);
 });
 
@@ -77,12 +97,12 @@ let authState = {
 
 process.on("SIGINT", () => {
   shouldStop = true;
-  logger.info("received SIGINT, draining worker");
+  console.log(JSON.stringify({ level: "info", service: "semse-worker", label: "SIGINT", timestamp: new Date().toISOString() }));
 });
 
 process.on("SIGTERM", () => {
   shouldStop = true;
-  logger.info("received SIGTERM, draining worker");
+  console.log(JSON.stringify({ level: "info", service: "semse-worker", label: "SIGTERM", timestamp: new Date().toISOString() }));
 });
 
 async function acquireWorkerLock() {
@@ -104,6 +124,24 @@ async function acquireWorkerLock() {
 }
 
 async function main() {
+  // ── Startup diagnostic — shows config state without secret values ──────────
+  console.log(JSON.stringify({
+    level: "info",
+    service: "semse-worker",
+    label: "startup",
+    timestamp: new Date().toISOString(),
+    pid: process.pid,
+    nodeEnv: process.env.NODE_ENV,
+    apiBaseUrl: config.apiBaseUrl,
+    redisUrl: config.redisUrl ? config.redisUrl.replace(/:[^:@]+@/, ":***@") : "MISSING",
+    authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
+    bootstrapToken: config.bootstrapToken ? "SET" : "NOT_SET",
+    workerId: config.workerId,
+    tenantId: config.tenantId,
+    userId: config.userId,
+    roles: config.roles,
+  }));
+
   await ensureAuthSession();
   const releaseLock = await acquireWorkerLock();
 
@@ -428,10 +466,7 @@ async function postJson(path, body, options = {}) {
 }
 
 main().catch((error) => {
-  logger.error({ err: error, message: error?.message ?? String(error) }, "fatal worker error");
-  console.error("[worker] CRASH:", error?.message ?? String(error));
-  if (error?.stack) console.error("[worker] STACK:", error.stack);
-  if (error?.cause) console.error("[worker] CAUSE:", error.cause);
+  logFatal("main() rejected", error instanceof Error ? error : new Error(String(error)));
   process.exit(1);
 });
 
@@ -487,6 +522,12 @@ async function ensureAuthSession() {
     throw new Error("SEMSE_BOOTSTRAP_TOKEN is required in production");
   }
 
+  console.log(JSON.stringify({
+    level: "info", service: "semse-worker", label: "auth/token:request",
+    url: `${config.apiBaseUrl}/v1/auth/token`, timestamp: new Date().toISOString(),
+    bootstrapTokenSet: !!config.bootstrapToken,
+  }));
+
   const response = await fetch(`${config.apiBaseUrl}/v1/auth/token`, {
     method: "POST",
     headers: {
@@ -505,6 +546,11 @@ async function ensureAuthSession() {
   const payload = await response.json();
   if (!response.ok) {
     const message = payload?.error?.message ?? payload;
+    console.error(JSON.stringify({
+      level: "fatal", service: "semse-worker", label: "auth/token:failed",
+      status: response.status, responseBody: JSON.stringify(payload).slice(0, 500),
+      timestamp: new Date().toISOString(),
+    }));
     throw new Error(`HTTP ${response.status} /v1/auth/token: ${JSON.stringify(message)}`);
   }
 
