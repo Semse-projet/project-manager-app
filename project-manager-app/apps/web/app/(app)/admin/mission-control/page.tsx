@@ -4,6 +4,24 @@ import { useEffect, useState, useCallback } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+type PrometeoBrief = {
+  generatedAt: string;
+  openSignalCount: number;
+  criticalCount: number;
+  highCount: number;
+  systemStatus: "healthy" | "attention" | "high_risk" | "critical";
+  summary: string;
+  topRecommendation: string | null;
+  nextAction: string | null;
+  sections: Array<{
+    priority: number;
+    severity: string;
+    headline: string;
+    action: string;
+    signals: Array<{ id: string; title: string; type: string }>;
+  }>;
+};
+
 type OperationalSignal = {
   id: string;
   type: string;
@@ -256,6 +274,7 @@ export default function MissionControlPage() {
   const [signals, setSignals] = useState<OperationalSignal[]>([]);
   const [runs, setRuns] = useState<IntelligenceRun[]>([]);
   const [overview, setOverview] = useState<BuildOpsOverview | null>(null);
+  const [brief, setBrief] = useState<PrometeoBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<"open" | "critical" | "high" | "all">("open");
@@ -265,10 +284,11 @@ export default function MissionControlPage() {
     setLoading(true);
     setError(null);
     try {
-      const [sigRes, runRes, ovRes] = await Promise.all([
+      const [sigRes, runRes, ovRes, briefRes] = await Promise.all([
         fetch("/api/semse/operational-signals?limit=100", { credentials: "include" }),
         fetch("/api/semse/intelligence-runs?limit=10", { credentials: "include" }),
         fetch("/api/semse/buildops/overview", { credentials: "include" }).catch(() => null),
+        fetch("/api/semse/prometeo-brief", { credentials: "include" }).catch(() => null),
       ]);
       const sigData = (await sigRes.json()) as { data?: OperationalSignal[] };
       const runData = (await runRes.json()) as { data?: IntelligenceRun[] };
@@ -277,6 +297,10 @@ export default function MissionControlPage() {
       if (ovRes?.ok) {
         const ovData = (await ovRes.json()) as { data?: BuildOpsOverview };
         setOverview(ovData.data ?? null);
+      }
+      if (briefRes?.ok) {
+        const briefData = (await briefRes.json()) as { data?: PrometeoBrief };
+        setBrief(briefData.data ?? null);
       }
     } catch {
       setError("No se pudieron cargar las señales operacionales.");
@@ -353,6 +377,75 @@ export default function MissionControlPage() {
           Monitorea proyectos, evidencia, pagos, bloqueos y riesgos operativos en tiempo real.
         </p>
       </div>
+
+      {/* Prometeo Brief */}
+      {!loading && brief && (
+        <div style={{
+          background: "linear-gradient(135deg, rgba(139,92,246,.08), rgba(59,130,246,.08))",
+          border: "1px solid rgba(139,92,246,.3)",
+          borderRadius: "14px",
+          padding: "16px 18px",
+          marginBottom: "20px",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+            <div style={{
+              width: "28px", height: "28px", borderRadius: "8px",
+              background: "linear-gradient(135deg, #8b5cf6, #3b82f6)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "14px",
+            }}>⚡</div>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink, #f1f5f9)" }}>
+              Prometeo Brief
+            </span>
+            <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)", marginLeft: "auto" }}>
+              {new Date(brief.generatedAt).toLocaleTimeString()}
+            </span>
+          </div>
+
+          <p style={{ fontSize: "13px", color: "var(--muted, #94a3b8)", lineHeight: 1.6, margin: "0 0 10px" }}>
+            {brief.summary}
+          </p>
+
+          {brief.sections.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "10px" }}>
+              {brief.sections.map((sec) => (
+                <div key={sec.priority} style={{
+                  display: "flex", gap: "8px", alignItems: "flex-start",
+                  fontSize: "12px",
+                }}>
+                  <span style={{
+                    color: sec.severity === "critical" ? "#ef4444" : sec.severity === "high" ? "#f97316" : "#eab308",
+                    fontWeight: 700, flexShrink: 0, minWidth: "56px",
+                    fontSize: "10px", textTransform: "uppercase",
+                  }}>
+                    {sec.priority}. {sec.severity}
+                  </span>
+                  <span style={{ color: "var(--ink, #f1f5f9)" }}>{sec.headline}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {brief.nextAction && (
+            <div style={{
+              background: "rgba(139,92,246,.1)",
+              border: "1px solid rgba(139,92,246,.2)",
+              borderRadius: "8px",
+              padding: "8px 12px",
+              fontSize: "12px",
+              color: "#c4b5fd",
+            }}>
+              🎯 <strong>Siguiente acción:</strong> {brief.nextAction}
+            </div>
+          )}
+
+          {brief.systemStatus === "healthy" && (
+            <div style={{ fontSize: "12px", color: "#22c55e" }}>
+              ✓ Sistema operando sin señales activas.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Executive Summary */}
       <div style={{ marginBottom: "20px" }}>

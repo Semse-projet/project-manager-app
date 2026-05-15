@@ -5,12 +5,14 @@ import { parseHeaderRequestContext } from "../../common/request-context.js";
 import { ok } from "../../common/api-response.js";
 import { OperationalSignalsService } from "./operational-signals.service.js";
 import { IntelligenceRunsService } from "./intelligence-runs.service.js";
+import { PrometeoBriefService } from "./prometeo-brief.service.js";
 
 @Controller("v1/operational-intelligence")
 export class OperationalIntelligenceController {
   constructor(
     private readonly signals: OperationalSignalsService,
     private readonly runs: IntelligenceRunsService,
+    private readonly brief: PrometeoBriefService,
   ) {}
 
   @Get("signals")
@@ -89,5 +91,14 @@ export class OperationalIntelligenceController {
       limit ? parseInt(limit, 10) : 20,
     );
     return ok(requestId, results);
+  }
+
+  @Get("brief")
+  @RequirePermissions("ops:dashboard:read")
+  async getBrief(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = parseHeaderRequestContext(req);
+    const result = await this.brief.generateBrief(ctx.tenantId);
+    return ok(requestId, result);
   }
 }
