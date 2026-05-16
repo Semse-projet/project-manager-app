@@ -195,13 +195,22 @@ async function runDedup() {
 // Main
 // ---------------------------------------------------------------------------
 
+// Hard timeout: if pre-migrate hangs >25s (DB unreachable), fail fast
+const PREMIGRATE_TIMEOUT = 25_000;
+const hangTimer = setTimeout(() => {
+  console.error("[pre-migrate] FATAL: timed out after 25s — DB may be unreachable");
+  process.exit(1);
+}, PREMIGRATE_TIMEOUT);
+
 try {
   await baselineIfNeeded();
 } catch (err) {
+  clearTimeout(hangTimer);
   console.error("[pre-migrate] FATAL: baseline failed:", err?.message ?? err);
   await prisma.$disconnect().catch(() => {});
   process.exit(1); // Fail loudly — do not proceed to migrate deploy
 }
+clearTimeout(hangTimer);
 
 try {
   await runDedup();
