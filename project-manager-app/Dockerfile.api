@@ -58,4 +58,4 @@ EXPOSE 4000
 
 # 1. baseline + dedup via pre-migrate.mjs (handles P3005, missing migrations, row cleanup)
 # 2. start the API
-CMD ["sh", "-c", "node scripts/pre-migrate.mjs && node apps/api/dist/main.js"]
+CMD ["sh", "-c", "node scripts/pre-migrate.mjs && echo '[CMD] starting node main.js now' && node apps/api/dist/main.js"]
