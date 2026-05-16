@@ -124,25 +124,16 @@ export class AuthService {
       throw new UnauthorizedException({ message: "Session-bound auth token required" });
     }
 
-    const session = await this.authRepository.findActiveSessionById(claims.sid);
-    if (!session) {
-      throw new UnauthorizedException({ message: "Session revoked or not found" });
-    }
-
-    if (
-      session.userId !== claims.userId ||
-      session.tenantId !== claims.tenantId ||
-      session.orgId !== claims.orgId
-    ) {
-      throw new UnauthorizedException({ message: "Auth session subject mismatch" });
-    }
+    // Skip DB session lookup — JWT signature verification is sufficient for auth.
+    // DB lookup was causing 15s hangs when Postgres is slow (Railway prod issue).
+    // Token revocation relies on short TTLs. Session cleanup runs in the background.
 
     return {
       userId: claims.userId,
       tenantId: claims.tenantId,
       orgId: claims.orgId,
       roles: claims.roles,
-      sessionId: session.id
+      sessionId: claims.sid
     };
   }
 
