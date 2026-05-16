@@ -7,12 +7,16 @@ const { PrismaClient } = prismaClientPackage as typeof import("../../../../../no
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   constructor(configService: ConfigService) {
+    const baseUrl = configService.getOrThrow<string>("DATABASE_URL");
+    // Add pool limits to prevent Railway Postgres connection exhaustion.
+    // connection_limit=5: max connections per API instance
+    // pool_timeout=8: fail-fast after 8s instead of hanging 15s+
+    const url = baseUrl.includes("connection_limit")
+      ? baseUrl
+      : `${baseUrl}${baseUrl.includes("?") ? "&" : "?"}connection_limit=5&pool_timeout=8`;
+
     super({
-      datasources: {
-        db: {
-          url: configService.getOrThrow<string>("DATABASE_URL")
-        }
-      },
+      datasources: { db: { url } },
       log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"]
     });
   }
