@@ -219,9 +219,12 @@ function SignalCard({
 
       <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
         {signal.buildOpsProjectId && (
-          <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>
-            BuildOps · {signal.buildOpsProjectId.slice(-6)}
-          </span>
+          <a
+            href={`/admin/intelligence-rooms/${signal.buildOpsProjectId}`}
+            style={{ fontSize: "10px", color: "#93c5fd", textDecoration: "none", padding: "2px 8px", border: "1px solid rgba(59,130,246,.25)", borderRadius: "4px" }}
+          >
+            🏠 Room →
+          </a>
         )}
         {signal.milestoneId && (
           <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>

@@ -54,9 +54,11 @@ const TYPE_DESCRIPTION: Record<string, string> = {
 export class PrometeoBriefService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateBrief(tenantId: string): Promise<PrometeoBrief> {
+  async generateBrief(tenantId: string, buildOpsProjectId?: string): Promise<PrometeoBrief> {
+    const where: Record<string, unknown> = { tenantId, status: { in: ["open", "acknowledged"] } };
+    if (buildOpsProjectId) where.buildOpsProjectId = buildOpsProjectId;
     const signals = await this.prisma.operationalSignal.findMany({
-      where: { tenantId, status: { in: ["open", "acknowledged"] } },
+      where,
       orderBy: [{ severity: "asc" }, { createdAt: "desc" }],
       take: 50,
     });

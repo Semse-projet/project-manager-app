@@ -95,10 +95,13 @@ export class OperationalIntelligenceController {
 
   @Get("brief")
   @RequirePermissions("ops:dashboard:read")
-  async getBrief(@Req() req: { headers?: Record<string, unknown> }) {
+  async getBrief(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("buildOpsProjectId") buildOpsProjectId?: string,
+  ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const ctx = parseHeaderRequestContext(req);
-    const result = await this.brief.generateBrief(ctx.tenantId);
+    const result = await this.brief.generateBrief(ctx.tenantId, buildOpsProjectId);
     return ok(requestId, result);
   }
 }
