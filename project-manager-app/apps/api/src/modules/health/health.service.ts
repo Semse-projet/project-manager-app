@@ -25,8 +25,10 @@ export class HealthService implements OnModuleInit, OnModuleDestroy {
   };
 
   async onModuleInit() {
-    await this.ensureRedis();
-    await this.refresh();
+    // Non-blocking — health checks run in background; don't delay Fastify startup
+    void this.ensureRedis()
+      .then(() => this.refresh())
+      .catch(() => undefined);
     this.timer = setInterval(() => { void this.refresh(); }, CHECK_INTERVAL_MS);
   }
 

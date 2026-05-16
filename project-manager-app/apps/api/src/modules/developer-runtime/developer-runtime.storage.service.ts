@@ -65,7 +65,7 @@ export class DeveloperRuntimeStorageService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
-    await this.ensureTables();
+    this.ensureTables().catch((err) => this.logger.warn(`ensureTables failed: ${(err as Error)?.message ?? String(err)}`));
   }
 
   async ensureTables(): Promise<void> {
