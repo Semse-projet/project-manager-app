@@ -26,7 +26,8 @@ export class DeveloperRuntimeQueueService implements OnModuleInit, OnModuleDestr
   private connectPromise: Promise<void> | null = null;
 
   async onModuleInit(): Promise<void> {
-    await this.ensureQueueConnected();
+    // Non-blocking — Redis connect must not delay NestJS startup
+    this.ensureQueueConnected().catch(() => undefined);
   }
 
   async enqueueExecution(input: DeveloperRuntimeQueueInput): Promise<void> {

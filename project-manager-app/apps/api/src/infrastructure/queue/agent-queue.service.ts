@@ -37,7 +37,8 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
   private connectPromise: Promise<void> | null = null;
 
   async onModuleInit(): Promise<void> {
-    await this.ensureQueueConnected();
+    // Non-blocking — Redis connect must not delay NestJS startup
+    this.ensureQueueConnected().catch(() => undefined);
   }
 
   async enqueueRun(input: QueueRunInput): Promise<void> {
