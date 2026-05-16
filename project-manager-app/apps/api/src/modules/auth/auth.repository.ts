@@ -17,6 +17,7 @@ export class AuthRepository {
   }
 
   createSession(input: {
+    id?: string;
     tenantId: string;
     orgId: string;
     userId: string;
@@ -27,6 +28,7 @@ export class AuthRepository {
   }) {
     return this.client.authSession.create({
       data: {
+        ...(input.id ? { id: input.id } : {}),
         tenantId: input.tenantId,
         orgId: input.orgId,
         userId: input.userId,

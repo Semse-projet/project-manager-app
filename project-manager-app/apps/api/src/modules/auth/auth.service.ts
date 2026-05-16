@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import {
   BadRequestException,
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   UnauthorizedException
 } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
@@ -35,6 +37,8 @@ function extractBearerToken(headers: Record<string, unknown>): string | null {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly auditService: AuditService
@@ -152,15 +156,21 @@ export class AuthService {
   }) {
     const accessTtlSeconds = this.accessTtlSeconds(input.ttlSeconds);
     const refreshToken = generateOpaqueToken();
-    const session = await this.authRepository.createSession({
+    // Generate session ID upfront — DB write is non-blocking so the JWT is issued immediately
+    const sessionId = randomUUID();
+    const accessExpiresAt = new Date(Date.now() + accessTtlSeconds * 1000);
+    const refreshExpiresAt = new Date(Date.now() + this.refreshTtlSeconds() * 1000);
+
+    void this.authRepository.createSession({
+      id: sessionId,
       tenantId: input.tenantId,
       orgId: input.orgId,
       userId: input.userId,
       roles: input.roles,
       refreshTokenHash: sha256(refreshToken),
-      accessExpiresAt: new Date(Date.now() + accessTtlSeconds * 1000),
-      refreshExpiresAt: new Date(Date.now() + this.refreshTtlSeconds() * 1000)
-    });
+      accessExpiresAt,
+      refreshExpiresAt,
+    }).catch((err) => this.logger.warn(`[auth] createSession failed for userId=${input.userId}: ${String(err?.message ?? err)}`));
 
     // Audit is non-critical — fire-and-forget so it never blocks the token response
     void this.auditService.append({
@@ -170,7 +180,7 @@ export class AuthService {
       actorUserId: input.userId,
       action: "auth.session.issued",
       entityType: "AuthSession",
-      entityId: session.id,
+      entityId: sessionId,
       requestId: input.requestId,
       timestamp: new Date().toISOString(),
       afterJson: {
@@ -181,7 +191,7 @@ export class AuthService {
     }).catch(() => undefined);
 
     return this.buildTokenResponse({
-      sessionId: session.id,
+      sessionId,
       userId: input.userId,
       tenantId: input.tenantId,
       orgId: input.orgId,
