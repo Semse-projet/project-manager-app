@@ -253,4 +253,68 @@ export class BuildOpsIntelligenceAgent {
       }).catch(() => undefined);
     }
   }
+
+  async evaluateBuildOpsProject(input: {
+    tenantId: string;
+    buildOpsProjectId: string;
+    jobId?: string;
+    triggerEvent: string;
+  }): Promise<void> {
+    const started = Date.now();
+    const signalsCreated: string[] = [];
+
+    try {
+      const project = await this.prisma.buildOpsProject.findUnique({
+        where: { id: input.buildOpsProjectId },
+        select: { id: true, tenantId: true, jobId: true, riskLevel: true, riskScore: true, status: true, sourceToolResult: true },
+      });
+
+      if (!project || project.tenantId !== input.tenantId) return;
+
+      const jobId = input.jobId ?? project.jobId ?? undefined;
+      const src = project.sourceToolResult as Record<string, unknown> | null;
+      const missingInputs = Array.isArray(src?.missingInputs) ? (src.missingInputs as string[]) : [];
+
+      if (missingInputs.length > 0) {
+        const r = await this.signals.upsertSignal({
+          tenantId: input.tenantId, type: "LOW_CONFIDENCE_ESTIMATE", severity: "medium",
+          title: "Información faltante en el estimate",
+          message: `El proyecto tiene ${missingInputs.length} campo(s) sin información que afectan la precisión del presupuesto.`,
+          recommendedAction: "Completar la información del intake para mejorar el presupuesto sugerido.",
+          sourceAgent: AGENT_NAME, entityType: "BuildOpsProject", entityId: project.id,
+          jobId, buildOpsProjectId: project.id,
+          metadataJson: { missingInputs: missingInputs.slice(0, 10) },
+        });
+        if (r.created) signalsCreated.push("LOW_CONFIDENCE_ESTIMATE");
+      }
+
+      if (project.riskLevel === "high" || project.riskLevel === "critical") {
+        const r = await this.signals.upsertSignal({
+          tenantId: input.tenantId, type: "DISPUTE_RISK_HIGH",
+          severity: project.riskLevel === "critical" ? "critical" : "high",
+          title: "Proyecto con riesgo elevado detectado",
+          message: `El análisis detectó riesgo ${project.riskLevel} en este proyecto.`,
+          recommendedAction: "Revisar scope, materiales y condiciones antes de asignar profesional.",
+          sourceAgent: AGENT_NAME, entityType: "BuildOpsProject", entityId: project.id,
+          jobId, buildOpsProjectId: project.id,
+          metadataJson: { riskLevel: project.riskLevel, riskScore: project.riskScore },
+        });
+        if (r.created) signalsCreated.push("DISPUTE_RISK_HIGH");
+      }
+
+      await this.runs.record({
+        tenantId: input.tenantId, agentName: AGENT_NAME, triggerEvent: input.triggerEvent,
+        entityType: "BuildOpsProject", entityId: project.id,
+        contextSnapshotJson: { riskLevel: project.riskLevel, missingInputsCount: missingInputs.length },
+        decisionJson: { signalsCreated }, signalsCreated, status: "completed",
+        durationMs: Date.now() - started,
+      });
+
+      if (signalsCreated.length > 0) {
+        this.logger.log(`[${AGENT_NAME}] buildops=${project.id} signals=${signalsCreated.join(",")}`);
+      }
+    } catch (err) {
+      this.logger.warn(`[${AGENT_NAME}] project evaluation failed: ${(err as Error)?.message ?? String(err)}`);
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import type {
   EvidenceChecklist,
@@ -19,6 +19,7 @@ import type {
   ProjectMilestone,
 } from "../smart-intake/smart-intake.types.js";
 import { MatchingService } from "../matching/matching.service.js";
+import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { PaymentsService } from "../payments/payments.service.js";
 import { ToolsService } from "../tools/tools.service.js";
 import type {
@@ -599,11 +600,14 @@ function isSupportedSourceToolResult(payload: Record<string, unknown>): boolean 
 
 @Injectable()
 export class IntakeOperationsBridgeService {
+  private readonly logger = new Logger(IntakeOperationsBridgeService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly matchingService: MatchingService,
     private readonly paymentsService: PaymentsService,
     private readonly toolsService: ToolsService,
+    @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
   ) {}
 
   async bridgePublishedJobToOperations(input: {
@@ -816,7 +820,7 @@ export class IntakeOperationsBridgeService {
       tasksCreated += 1;
     }
 
-    return {
+    const result: IntakeOperationsBridgeResult = {
       projectIntakeId: intake?.id ?? null,
       jobId: job.id,
       buildOpsProjectId: project.id,
@@ -860,6 +864,16 @@ export class IntakeOperationsBridgeService {
         reusedEvidenceRequirements,
       },
     };
+
+    // Trigger operational intelligence evaluation after bridge creates/updates project
+    void this.intelligenceAgent?.evaluateBuildOpsProject({
+      tenantId: input.tenantId,
+      buildOpsProjectId: project.id,
+      jobId: job.id,
+      triggerEvent: "buildops.bridge.completed",
+    }).catch((err) => this.logger.warn(`intelligence agent failed after bridge: ${(err as Error)?.message ?? String(err)}`));
+
+    return result;
   }
 
   async computeBridgePlan(input: {
