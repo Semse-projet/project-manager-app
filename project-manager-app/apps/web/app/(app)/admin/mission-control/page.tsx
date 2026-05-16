@@ -282,6 +282,7 @@ export default function MissionControlPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<"open" | "critical" | "high" | "all">("open");
   const [error, setError] = useState<string | null>(null);
+  const [liveAlert, setLiveAlert] = useState<{ type: string; severity: string; title: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -313,6 +314,23 @@ export default function MissionControlPage() {
   }, []);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
+
+  // SSE: listen for new operational signals in real-time
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const es = new EventSource("/api/semse/sse/mission-control");
+    es.addEventListener("operational-signal:created", (e: Event) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as OperationalSignal;
+        setLiveAlert({ type: data.type, severity: data.severity, title: data.title });
+        // Add to signals list so it appears immediately without full refresh
+        setSignals((prev) => [data, ...prev.filter((s) => s.id !== data.id)]);
+        // Auto-dismiss alert after 8 seconds
+        setTimeout(() => setLiveAlert(null), 8_000);
+      } catch { /* ignore */ }
+    });
+    return () => es.close();
+  }, []);
 
   async function handleAcknowledge(id: string) {
     setActionLoading(id);
@@ -380,6 +398,27 @@ export default function MissionControlPage() {
           Monitorea proyectos, evidencia, pagos, bloqueos y riesgos operativos en tiempo real.
         </p>
       </div>
+
+      {/* Live alert toast */}
+      {liveAlert && (
+        <div style={{
+          position: "fixed" as const, top: "20px", right: "20px", zIndex: 9999,
+          background: liveAlert.severity === "critical" ? "rgba(239,68,68,.95)" : "rgba(249,115,22,.95)",
+          border: `1px solid ${liveAlert.severity === "critical" ? "#ef4444" : "#f97316"}`,
+          borderRadius: "12px", padding: "12px 16px", maxWidth: "320px",
+          boxShadow: "0 4px 24px rgba(0,0,0,.4)",
+          display: "flex", gap: "10px", alignItems: "flex-start",
+        }}>
+          <span style={{ fontSize: "18px" }}>{liveAlert.severity === "critical" ? "🚨" : "⚠️"}</span>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: "12px", fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>
+              Nueva señal {liveAlert.severity.toUpperCase()}
+            </p>
+            <p style={{ fontSize: "11px", color: "rgba(255,255,255,.85)", margin: 0 }}>{liveAlert.title}</p>
+          </div>
+          <button onClick={() => setLiveAlert(null)} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,.7)", cursor: "pointer", fontSize: "16px", padding: 0 }}>×</button>
+        </div>
+      )}
 
       {/* Prometeo Brief */}
       {!loading && brief && (

@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 export type SignalType =
   | "EVIDENCE_GAP"
@@ -31,7 +32,10 @@ export interface CreateSignalInput {
 export class OperationalSignalsService {
   private readonly logger = new Logger(OperationalSignalsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly sse?: SseEventBusService,
+  ) {}
 
   async upsertSignal(input: CreateSignalInput): Promise<{ created: boolean; id: string }> {
     // Deduplication: skip if open signal with same type+entityType+entityId+milestoneId exists
@@ -68,6 +72,24 @@ export class OperationalSignalsService {
         metadataJson: (input.metadataJson ?? {}) as object,
       },
     });
+
+    // Emit real-time SSE notification for critical/high signals
+    if (input.severity === "critical" || input.severity === "high") {
+      this.sse?.emit(`mission-control:${input.tenantId}`, "operational-signal:created", {
+        id: signal.id,
+        type: input.type,
+        severity: input.severity,
+        title: input.title,
+        message: input.message,
+        recommendedAction: input.recommendedAction,
+        buildOpsProjectId: input.buildOpsProjectId,
+        milestoneId: input.milestoneId,
+        createdAt: signal.createdAt.toISOString(),
+      });
+      this.logger.log(
+        `[SSE] emitted operational-signal:created severity=${input.severity} type=${input.type} tenant=${input.tenantId}`,
+      );
+    }
 
     return { created: true, id: signal.id };
   }
