@@ -162,7 +162,8 @@ export class AuthService {
       refreshExpiresAt: new Date(Date.now() + this.refreshTtlSeconds() * 1000)
     });
 
-    await this.auditService.append({
+    // Audit is non-critical — fire-and-forget so it never blocks the token response
+    void this.auditService.append({
       id: `aud_${Date.now()}`,
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -177,7 +178,7 @@ export class AuthService {
         orgId: input.orgId,
         roles: input.roles
       }
-    });
+    }).catch(() => undefined);
 
     return this.buildTokenResponse({
       sessionId: session.id,

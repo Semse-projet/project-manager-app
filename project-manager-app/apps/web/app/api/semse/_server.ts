@@ -228,9 +228,12 @@ async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestIni
     authorizationHeader = `Bearer ${cachedToken.value}`;
   } else if (shouldBootstrapAccessToken) {
     try {
+      const tokenAbort = new AbortController();
+      const tokenTimeout = setTimeout(() => tokenAbort.abort(), 4_000);
       const authResponse = await fetch(`${config.apiBaseUrl}/v1/auth/token`, {
         method: "POST",
         cache: "no-store",
+        signal: tokenAbort.signal,
         headers: {
           ...buildBootstrapHeaders(),
           "content-type": "application/json"
@@ -241,7 +244,7 @@ async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestIni
           userId: config.userId,
           roles: parseRoleList(config.roles)
         })
-      });
+      }).finally(() => clearTimeout(tokenTimeout));
 
       if (authResponse.ok) {
         const envelope = (await authResponse.json()) as ApiEnvelope<AuthTokenResponse>;
