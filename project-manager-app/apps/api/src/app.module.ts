@@ -122,7 +122,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     SmartIntakeModule,
     IntakeOperationsBridgeModule,
     ChangeOrdersModule,
-    OperationalIntelligenceModule,
+    // OperationalIntelligenceModule, // temporarily disabled to diagnose startup crash
   ],
   controllers: [HealthController],
   providers: [
