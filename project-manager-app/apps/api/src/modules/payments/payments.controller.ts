@@ -162,6 +162,10 @@ export class PaymentsController {
       jobId
     });
 
+    if (!result) {
+      return ok(resolveRequestId(req.headers ?? {}), null);
+    }
+
     return ok(resolveRequestId(req.headers ?? {}), {
       ...result,
       escrow: toVisibleEscrow(result.escrow),

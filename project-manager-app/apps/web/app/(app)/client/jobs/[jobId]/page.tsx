@@ -210,9 +210,9 @@ export default function ClientJobDetailPage() {
     try {
       const [jobResult, milestonesResult, escrowResult, evidenceResult, paymentsResult, signalsResult] = await Promise.all([
         fetchJob(jobId),
-        fetchJobMilestones(jobId),
-        fetchJobEscrow(jobId),
-        fetchJobEvidence(jobId),
+        fetchJobMilestones(jobId).catch(() => []),
+        fetchJobEscrow(jobId).catch(() => null),
+        fetchJobEvidence(jobId).catch(() => []),
         fetchJobPayments(jobId).catch(() => []),
         fetchJobAgentSignals(jobId).catch(() => [])
       ]);

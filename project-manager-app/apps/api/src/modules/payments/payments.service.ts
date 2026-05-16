@@ -361,6 +361,13 @@ export class PaymentsService {
     roles: string[];
     jobId: string;
   }) {
+    // No project yet means no professional assigned — return null escrow
+    const project = await this.paymentsRepository.findProjectByJobOptional({
+      jobId: input.jobId,
+      tenantId: input.tenantId
+    });
+    if (!project) return null;
+
     const contract = await this.contractsRepository.findCurrentByJob({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -368,7 +375,6 @@ export class PaymentsService {
       roles: input.roles,
       jobId: input.jobId
     });
-    const project = await this.paymentsRepository.ensureProjectByJob(input);
     const escrowSummary = await this.projectsService.escrow({
       tenantId: input.tenantId,
       orgId: input.orgId,

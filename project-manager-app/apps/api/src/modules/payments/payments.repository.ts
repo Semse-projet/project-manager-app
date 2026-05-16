@@ -38,6 +38,13 @@ export class PaymentsRepository {
     return project;
   }
 
+  async findProjectByJobOptional(input: { tenantId: string; jobId: string }) {
+    return this.prisma.project.findFirst({
+      where: { jobId: input.jobId, tenantId: input.tenantId },
+      select: { id: true, assignedProOrgId: true, tenantId: true, jobId: true, status: true }
+    });
+  }
+
   async ensureMilestone(input: { tenantId: string; milestoneId: string; orgId: string; userId: string }) {
     await this.actorContextService.ensureActorContext(input);
 
