@@ -56,8 +56,6 @@ COPY --from=builder /app/scripts ./scripts
 
 EXPOSE 4000
 
-# 1. Remove duplicate rows that would block unique-constraint migrations
-# 2. Apply pending Prisma migrations safely
-# 3. Optionally seed (ignored on subsequent deploys)
-# 4. Start the API
-CMD ["sh", "-c", "node scripts/pre-migrate.mjs ; bash scripts/db-migrate.sh && (npm run db:seed || true) && node apps/api/dist/main.js"]
+# 1. baseline + dedup via pre-migrate.mjs (handles P3005, missing migrations, row cleanup)
+# 2. start the API
+CMD ["sh", "-c", "node scripts/pre-migrate.mjs && node apps/api/dist/main.js"]
