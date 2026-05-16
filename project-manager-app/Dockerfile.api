@@ -1,5 +1,5 @@
 FROM node:20-alpine AS base
-# build: 2026-05-14b — force cache bust for P3005 baseline fix
+# build: 2026-05-16a — force rebuild with auth hot-path fix (no DB on every request)
 RUN apk add --no-cache openssl python3 make g++
 
 FROM base AS deps
