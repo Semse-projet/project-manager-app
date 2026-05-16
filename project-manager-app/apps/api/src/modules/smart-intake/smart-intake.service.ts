@@ -10,6 +10,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { EvidenceService } from "../evidence/evidence.service.js";
+import { IntakeOperationsBridgeService } from "../intake-operations-bridge/intake-operations-bridge.service.js";
 import { JobsService } from "../jobs/jobs.service.js";
 import {
   buildInitialIntake,
@@ -122,6 +123,7 @@ export class SmartIntakeService {
     private readonly prisma: PrismaService,
     private readonly jobsService: JobsService,
     private readonly evidenceService: EvidenceService,
+    private readonly bridgeService: IntakeOperationsBridgeService,
   ) {}
 
   private hydrate(row: StoredIntake): ProjectIntakeRecord {
@@ -621,6 +623,18 @@ export class SmartIntakeService {
       publishedAt: new Date().toISOString(),
       status: "published",
       updatedAt: new Date().toISOString(),
+    });
+
+    // Auto-trigger BuildOps bridge — fire-and-forget so it never blocks the publish response.
+    // Creates BuildOpsProject + milestones from intake data asynchronously.
+    void this.bridgeService.bridgePublishedJobToOperations({
+      jobId: job.id,
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      roles: input.roles,
+    }).catch((err) => {
+      this.logger.warn(`[intake.publish] bridge failed for jobId=${job.id}: ${(err as Error)?.message ?? String(err)}`);
     });
 
     return {
