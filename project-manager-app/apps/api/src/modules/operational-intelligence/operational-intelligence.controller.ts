@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Query, Req } from "@nestjs/common";
+import { Controller, Get, Patch, Post, Param, Query, Req } from "@nestjs/common";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseHeaderRequestContext } from "../../common/request-context.js";
@@ -91,6 +91,62 @@ export class OperationalIntelligenceController {
       limit ? parseInt(limit, 10) : 20,
     );
     return ok(requestId, results);
+  }
+
+  @Post("seed-test")
+  @RequirePermissions("ops:dashboard:write")
+  async seedTestSignals(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = parseHeaderRequestContext(req);
+
+    const testSignals = [
+      {
+        tenantId: ctx.tenantId,
+        type: "EVIDENCE_GAP" as const,
+        severity: "high" as const,
+        title: "Evidencia incompleta — Test",
+        message: "Milestone de prueba con 2 evidencias faltantes.",
+        recommendedAction: "Solicitar evidencia faltante al profesional.",
+        sourceAgent: "test:seed",
+        entityType: "Milestone",
+        entityId: `test-milestone-${Date.now()}`,
+        milestoneId: `test-ms-${Date.now()}`,
+        metadataJson: { missingCount: 2, test: true },
+      },
+      {
+        tenantId: ctx.tenantId,
+        type: "PAYMENT_BLOCKED" as const,
+        severity: "high" as const,
+        title: "Pago bloqueado — Test",
+        message: "paymentReadiness=not_ready en milestone pendiente de aprobación.",
+        recommendedAction: "Revisar evidencia antes de aprobar el pago.",
+        sourceAgent: "test:seed",
+        entityType: "Milestone",
+        entityId: `test-milestone-pay-${Date.now()}`,
+        milestoneId: `test-ms-pay-${Date.now()}`,
+        metadataJson: { test: true },
+      },
+      {
+        tenantId: ctx.tenantId,
+        type: "DISPUTE_RISK_HIGH" as const,
+        severity: "critical" as const,
+        title: "Riesgo de disputa — Test",
+        message: "Evidencia rechazada + pago solicitado + change order activo.",
+        recommendedAction: "Revisar antes de liberar cualquier pago.",
+        sourceAgent: "test:seed",
+        entityType: "Milestone",
+        entityId: `test-milestone-dispute-${Date.now()}`,
+        milestoneId: `test-ms-dispute-${Date.now()}`,
+        metadataJson: { test: true },
+      },
+    ];
+
+    const results = await Promise.all(
+      testSignals.map((s) => this.signals.upsertSignal(s)),
+    );
+
+    const created = results.filter((r) => r.created).length;
+    return ok(requestId, { seeded: created, total: testSignals.length, message: "Test signals created — go to /admin/mission-control" });
   }
 
   @Get("brief")

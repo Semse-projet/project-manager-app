@@ -283,6 +283,7 @@ export default function MissionControlPage() {
   const [filter, setFilter] = useState<"open" | "critical" | "high" | "all">("open");
   const [error, setError] = useState<string | null>(null);
   const [liveAlert, setLiveAlert] = useState<{ type: string; severity: string; title: string } | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -539,9 +540,29 @@ export default function MissionControlPage() {
           border: "1px solid var(--border, #1f2d3d)", borderRadius: "12px",
         }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }}>✅</div>
-          <p style={{ fontSize: "14px", color: "var(--muted, #94a3b8)" }}>
+          <p style={{ fontSize: "14px", color: "var(--muted, #94a3b8)", marginBottom: "16px" }}>
             {filter === "open" ? "No hay señales operacionales activas." : "No hay señales para este filtro."}
           </p>
+          {filter === "open" && (
+            <button
+              onClick={async () => {
+                setSeeding(true);
+                try {
+                  await fetch("/api/semse/operational-signals/seed-test", { method: "POST", credentials: "include" });
+                  await fetchData();
+                } finally { setSeeding(false); }
+              }}
+              disabled={seeding}
+              style={{
+                padding: "8px 16px", borderRadius: "8px",
+                border: "1px solid rgba(139,92,246,.4)",
+                background: "rgba(139,92,246,.1)", color: "#c4b5fd",
+                fontSize: "12px", fontWeight: 600, cursor: seeding ? "not-allowed" : "pointer",
+              }}
+            >
+              {seeding ? "Creando señales…" : "⚡ Crear señales de prueba"}
+            </button>
+          )}
         </div>
       ) : (
         <div>
