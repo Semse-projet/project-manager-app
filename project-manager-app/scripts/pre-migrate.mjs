@@ -218,4 +218,7 @@ try {
   console.warn("[pre-migrate] warn: dedup error:", err?.message ?? err);
 }
 
-await prisma.$disconnect().catch(() => {});
+// Force exit — prisma.$disconnect() can hang keeping the process alive,
+// which prevents the && chain from starting node apps/api/dist/main.js
+prisma.$disconnect().catch(() => {});
+process.exit(0);
