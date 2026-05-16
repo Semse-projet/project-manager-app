@@ -1,4 +1,5 @@
 import "reflect-metadata";
+process.stdout.write(`[main] process started pid=${process.pid} node=${process.version} env=${process.env.NODE_ENV}\n`);
 // Load .env before NestJS bootstraps so providers (LLM, etc.) get keys at construction time
 import { config as dotenvConfig } from "dotenv";
 import { resolve, dirname } from "node:path";
