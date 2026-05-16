@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   UnprocessableEntityException,
 } from "@nestjs/common";
@@ -115,6 +116,8 @@ function asObject<T>(value: Prisma.JsonValue | null, fallback: T): T {
 
 @Injectable()
 export class SmartIntakeService {
+  private readonly logger = new Logger(SmartIntakeService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jobsService: JobsService,
@@ -579,19 +582,25 @@ export class SmartIntakeService {
       requestId: input.requestId,
     });
 
-    let attachedEvidenceCount = 0;
-    for (const image of intake.uploadedImages) {
-      await this.evidenceService.register({
-        tenantId: input.tenantId,
-        orgId: input.orgId,
-        userId: input.userId,
-        roles: input.roles,
-        requestId: input.requestId,
-        jobId: job.id,
-        key: image.key,
-        kind: "PHOTO",
-      });
-      attachedEvidenceCount += 1;
+    // Register all uploaded images in parallel — sequential was blocking N × DB latency
+    const evidenceResults = await Promise.allSettled(
+      intake.uploadedImages.map((image) =>
+        this.evidenceService.register({
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          userId: input.userId,
+          roles: input.roles,
+          requestId: input.requestId,
+          jobId: job.id,
+          key: image.key,
+          kind: "PHOTO",
+        }),
+      ),
+    );
+    const attachedEvidenceCount = evidenceResults.filter((r) => r.status === "fulfilled").length;
+    const failedEvidence = evidenceResults.filter((r) => r.status === "rejected").length;
+    if (failedEvidence > 0) {
+      this.logger.warn(`[intake.publish] ${failedEvidence}/${intake.uploadedImages.length} evidence registrations failed for jobId=${job.id}`);
     }
 
     await this.save({
