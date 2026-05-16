@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import prismaClientPackage from "../../../../../node_modules/.prisma/client/index.js";
 
@@ -6,6 +6,8 @@ const { PrismaClient } = prismaClientPackage as typeof import("../../../../../no
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
+
   constructor(configService: ConfigService) {
     super({
       datasources: {
@@ -16,7 +18,14 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
+    // Non-blocking connect — Prisma reconnects lazily on first query.
+    // Blocking $connect() caused NestJS startup to hang when DB was slow,
+    // preventing Fastify from ever listening → Railway healthcheck 502.
+    this.$connect()
+      .then(() => this.logger.log("Prisma connected"))
+      .catch((err: unknown) => {
+        this.logger.error(`Prisma connect failed: ${(err as Error)?.message ?? String(err)}`);
+      });
   }
 
   async onModuleDestroy(): Promise<void> {
