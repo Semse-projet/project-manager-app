@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Optional, UnprocessableEntityException } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
 import { type JobRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -14,6 +14,8 @@ import { JobsRepository } from "./jobs.repository.js";
 
 @Injectable()
 export class JobsService {
+  private readonly logger = new Logger(JobsService.name);
+
   constructor(
     private readonly jobsRepository: JobsRepository,
     private readonly auditService: AuditService,
@@ -213,6 +215,8 @@ export class JobsService {
       throw new BadRequestException("deadline is invalid");
     }
 
+    this.logger.log(`[POST /v1/jobs] creating job tenantId=${input.tenantId} userId=${input.userId} category=${input.category ?? "none"}`);
+
     const job = await this.jobsRepository.create({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -228,7 +232,11 @@ export class JobsService {
       deadline: storedDeadline,
     });
 
-    await this.auditService.append({
+    this.logger.log(`[POST /v1/jobs] Job created: jobId=${job.id} — firing background tasks`);
+
+    // ── Audit + events + workspace memory are non-critical background tasks.
+    // Run fire-and-forget so they never block or time-out the HTTP response.
+    void this.auditService.append({
       id: `aud_${Date.now()}`,
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -238,7 +246,7 @@ export class JobsService {
       entityId: job.id,
       requestId: input.requestId,
       timestamp: new Date().toISOString()
-    });
+    }).catch((err) => this.logger.warn(`[POST /v1/jobs] audit append failed: ${String(err?.message ?? err)}`));
 
     const event = {
       type: "job.created",
@@ -266,14 +274,14 @@ export class JobsService {
       triggers: ["pricing", "risk", "audit"]
     };
 
-    await this.domainEventBus.emit(event, {
+    void this.domainEventBus.emit(event, {
       tenantId: input.tenantId,
       orgId: input.orgId,
       userId: input.userId,
       requestId: input.requestId
-    });
+    }).catch((err) => this.logger.warn(`[POST /v1/jobs] domain event failed: ${String(err?.message ?? err)}`));
 
-    await this.workspaceMemoryRepository.append(
+    void this.workspaceMemoryRepository.append(
       buildJobWorkspaceMemoryRecord({
         tenantId: input.tenantId,
         orgId: input.orgId,
@@ -291,10 +299,10 @@ export class JobsService {
         deadline: job.deadline,
         action: "created"
       })
-    );
+    ).catch((err) => this.logger.warn(`[POST /v1/jobs] workspace memory failed: ${String(err?.message ?? err)}`));
 
     if (input.preferredProfessional) {
-      await this.workspaceMemoryRepository.append(
+      void this.workspaceMemoryRepository.append(
         buildJobPreferredProfessionalWorkspaceMemoryRecord({
           tenantId: input.tenantId,
           orgId: input.orgId,
@@ -304,9 +312,9 @@ export class JobsService {
           targetDisplayName: input.preferredProfessional.displayName,
           targetPublicSlug: input.preferredProfessional.publicSlug,
         }),
-      );
+      ).catch((err) => this.logger.warn(`[POST /v1/jobs] preferred pro memory failed: ${String(err?.message ?? err)}`));
 
-      await this.domainEventBus.emit(
+      void this.domainEventBus.emit(
         {
           type: "job.preferred_professional_selected",
           meta: {
@@ -331,9 +339,10 @@ export class JobsService {
           userId: input.userId,
           requestId: input.requestId,
         },
-      );
+      ).catch((err) => this.logger.warn(`[POST /v1/jobs] preferred-pro event failed: ${String(err?.message ?? err)}`));
     }
 
+    // Return immediately — background tasks run async
     return this.enrichJobWithPreferredProfessional({
       tenantId: input.tenantId,
       job,
