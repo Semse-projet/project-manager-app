@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../../lib/language-context";
 import { ArrowLeft, ArrowRight, CheckSquare, FileText, FolderKanban, MessageSquare, Plus, ShieldCheck } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsProjectStatusLabel, buildOpsProjectTypeLabel, buildOpsRiskLabel, buildOpsTradeLabel } from "../../../../lib/buildops-i18n";
 import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
+import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 import {
   fetchBuildOpsProject,
   approveClientPlan,
@@ -73,6 +74,25 @@ export default function BuildOpsProjectDetailPage() {
   const [approvalInput, setApprovalInput] = useState("");
   const [approvalSubmitting, setApprovalSubmitting] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
+
+  // SSE: refresh health panel when change orders or signals change on this project
+  const [healthRefreshKey, setHealthRefreshKey] = useState(0);
+  const refreshHealth = useCallback(() => setHealthRefreshKey((k) => k + 1), []);
+
+  useBuildOpsSSE({
+    onEvent: (evt) => {
+      const HEALTH_EVENTS = new Set([
+        "change-order:updated", "change-order:applied",
+        "operational-signal:created",
+      ]);
+      if (!HEALTH_EVENTS.has(evt.type)) return;
+      // Only refresh if event belongs to this project
+      const evtProjectId = (evt as Record<string, unknown>).buildOpsProjectId as string | undefined;
+      if (evtProjectId && evtProjectId !== projectId) return;
+      refreshHealth();
+    },
+    enabled: !!projectId && projectId !== "loading",
+  });
 
   useEffect(() => {
     let alive = true;
@@ -169,9 +189,12 @@ export default function BuildOpsProjectDetailPage() {
           {loading ? <p className="text-sm text-muted">{t("buildops.loadingProject")}</p> : null}
         </section>
 
-        {/* Project Health Panel — P1 endpoint */}
+        {/* Project Health Panel — auto-refresh via SSE */}
         {isLoaded && project.id !== "loading" && (
-          <BuildOpsProjectHealthPanel projectId={project.id} />
+          <BuildOpsProjectHealthPanel
+            key={`health-${project.id}-${healthRefreshKey}`}
+            projectId={project.id}
+          />
         )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
