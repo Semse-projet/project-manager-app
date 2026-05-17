@@ -1,10 +1,11 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
   OperationalSignalsService,
   type SignalSeverity,
 } from "./operational-signals.service.js";
 import { IntelligenceRunsService } from "./intelligence-runs.service.js";
+import { LLMNarrativeService } from "./llm-narrative.service.js";
 
 const AGENT_NAME = "BuildOpsIntelligenceAgent";
 const LOW_CONFIDENCE_THRESHOLD = 65; // confidenceScore is 0-100
@@ -17,6 +18,7 @@ export class BuildOpsIntelligenceAgent {
     private readonly prisma: PrismaService,
     private readonly signals: OperationalSignalsService,
     private readonly runs: IntelligenceRunsService,
+    @Optional() private readonly llmNarrative?: LLMNarrativeService,
   ) {}
 
   async evaluateMilestone(input: {
@@ -235,6 +237,22 @@ export class BuildOpsIntelligenceAgent {
         this.logger.log(
           `[${AGENT_NAME}] milestone=${input.milestoneId} trigger=${input.triggerEvent} signals=${signalsCreated.join(",")}`,
         );
+
+        // LLM enrichment — fire-and-forget, does not block the agent run
+        if (this.llmNarrative && missingItems.length > 0) {
+          this.llmNarrative.explainEvidenceReadiness({
+            milestoneTitle: (milestone as Record<string, unknown>).title as string ?? "Milestone",
+            milestoneStatus,
+            paymentReadiness,
+            evidenceReadiness,
+            missingLabels: missingItems.map((e) => e.label ?? e.kind ?? "unknown"),
+            rejectedLabels: rejectedItems.map((e) => e.label ?? e.kind ?? "unknown"),
+          }).then((narrative) => {
+            if (narrative) {
+              this.logger.log(`[${AGENT_NAME}][LLM] evidence narrative generated for milestone=${input.milestoneId}`);
+            }
+          }).catch(() => undefined);
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

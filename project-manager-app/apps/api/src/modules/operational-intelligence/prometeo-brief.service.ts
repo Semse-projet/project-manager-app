@@ -1,5 +1,6 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { LLMNarrativeService } from "./llm-narrative.service.js";
 
 export type BriefSignalItem = {
   id: string;
@@ -30,6 +31,7 @@ export type PrometeoBrief = {
   mediumCount: number;
   systemStatus: "healthy" | "attention" | "high_risk" | "critical";
   summary: string;
+  aiNarrative?: string;           // LLM-generated contextual narrative (optional)
   sections: PrometeoBriefSection[];
   topRecommendation: string | null;
   nextAction: string | null;
@@ -52,7 +54,10 @@ const TYPE_DESCRIPTION: Record<string, string> = {
 
 @Injectable()
 export class PrometeoBriefService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly llmNarrative?: LLMNarrativeService,
+  ) {}
 
   async generateBrief(tenantId: string, buildOpsProjectId?: string): Promise<PrometeoBrief> {
     const where: Record<string, unknown> = { tenantId, status: { in: ["open", "acknowledged"] } };
@@ -134,6 +139,19 @@ export class PrometeoBriefService {
     const topRecommendation = sections[0]?.action ?? null;
     const nextAction = this.buildNextAction(systemStatus, criticalCount, highCount, signals);
 
+    // LLM-enhanced narrative — non-blocking, optional enrichment
+    const aiNarrative = await this.llmNarrative?.generateMissionControlNarrative({
+      systemStatus,
+      openSignalCount,
+      criticalCount,
+      highCount,
+      topSignals: sections[0]?.signals.slice(0, 3).map((s) => ({
+        type: s.type,
+        severity: s.severity,
+        title: s.title,
+      })) ?? [],
+    }).catch(() => undefined);
+
     return {
       generatedAt: new Date().toISOString(),
       tenantId,
@@ -143,6 +161,7 @@ export class PrometeoBriefService {
       mediumCount,
       systemStatus,
       summary,
+      ...(aiNarrative ? { aiNarrative } : {}),
       sections,
       topRecommendation,
       nextAction,
