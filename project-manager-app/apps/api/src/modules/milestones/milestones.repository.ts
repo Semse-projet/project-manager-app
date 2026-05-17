@@ -489,6 +489,103 @@ export class MilestonesRepository {
     });
   }
 
+  /** Full detail of one evidence item including linked Evidence file metadata. */
+  async getEvidenceItemDetail(milestoneId: string, itemId: string, tenantId: string) {
+    const item = await this.prisma.milestoneEvidenceItem.findFirst({
+      where: { id: itemId, milestoneId, milestone: { project: { tenantId } } },
+    });
+    if (!item) return null;
+
+    const evidence = item.evidenceId
+      ? await this.prisma.evidence.findFirst({
+          where: { id: item.evidenceId },
+          select: { id: true, bucketKey: true, kind: true, validationStatus: true, aiQualityScore: true, createdAt: true, uploadedById: true },
+        })
+      : null;
+
+    const reviewer = item.reviewedById
+      ? await this.prisma.user.findFirst({ where: { id: item.reviewedById }, select: { id: true, email: true } })
+      : null;
+
+    const uploader = evidence?.uploadedById
+      ? await this.prisma.user.findFirst({ where: { id: evidence.uploadedById }, select: { id: true, email: true } })
+      : null;
+
+    return {
+      ...item,
+      file: evidence ? {
+        evidenceId:      evidence.id,
+        bucketKey:       evidence.bucketKey,
+        kind:            evidence.kind,
+        validationStatus: evidence.validationStatus,
+        aiQualityScore:  evidence.aiQualityScore,
+        uploadedAt:      evidence.createdAt,
+        uploadedBy:      uploader,
+      } : null,
+      reviewer,
+    };
+  }
+
+  /** History from AuditLog for this evidence item. */
+  async getEvidenceItemHistory(itemId: string, tenantId: string) {
+    return this.prisma.auditLog.findMany({
+      where: { entityType: "MilestoneEvidenceItem", entityId: itemId, tenantId },
+      orderBy: { occurredAt: "desc" },
+      take: 20,
+      select: {
+        id: true, action: true, beforeJson: true, afterJson: true,
+        occurredAt: true, actorUserId: true,
+        actor: { select: { id: true, email: true } },
+      },
+    });
+  }
+
+  /** Replace the file linked to an evidence item; writes AuditLog for trazabilidad. */
+  async replaceEvidenceItem(input: {
+    milestoneId:    string;
+    itemId:         string;
+    tenantId:       string;
+    newEvidenceId:  string;
+    replacedReason: string;
+    actorUserId:    string;
+  }) {
+    const item = await this.prisma.milestoneEvidenceItem.findFirst({
+      where: { id: input.itemId, milestoneId: input.milestoneId, milestone: { project: { tenantId: input.tenantId } } },
+    });
+    if (!item) return null;
+
+    const previousStatus = item.status;
+    const previousEvidenceId = item.evidenceId;
+
+    // Update item: new evidenceId + reset to submitted + clear AI review note
+    const updated = await this.prisma.milestoneEvidenceItem.update({
+      where: { id: input.itemId },
+      data: {
+        evidenceId:   input.newEvidenceId,
+        status:       "submitted",
+        reviewNote:   null,    // clear previous AI/admin review
+        reviewedById: null,
+        reviewedAt:   null,
+        updatedAt:    new Date(),
+      },
+    });
+
+    // Write AuditLog for history (no migration needed)
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId:    input.tenantId,
+        actorUserId: input.actorUserId,
+        entityType:  "MilestoneEvidenceItem",
+        entityId:    input.itemId,
+        action:      "evidence_replaced",
+        beforeJson:  { status: previousStatus, evidenceId: previousEvidenceId } as object,
+        afterJson:   { status: "submitted",    evidenceId: input.newEvidenceId, replacedReason: input.replacedReason } as object,
+      },
+    });
+
+    return { updated, previousStatus, previousEvidenceId };
+  }
+
   async seedEvidenceItems(milestoneId: string, items: Array<{
     label: string;
     description?: string;

@@ -18,7 +18,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle, Clock, FileText, RefreshCw, Upload, XCircle } from "lucide-react";
+import { Camera, CheckCircle, ChevronDown, ChevronUp, Clock, FileText, RefreshCw, Upload, XCircle } from "lucide-react";
+import { EvidenceItemDetailPanel } from "./EvidenceItemDetailPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ export function MilestoneEvidenceUploader({ milestoneId, onUploaded, showAll = f
   const [uploadStates, setUploadStates] = useState<Record<string, UploadState>>({});
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [reviewFindings, setReviewFindings] = useState<Record<string, string>>({});
+  const [expandedDetail, setExpandedDetail] = useState<Record<string, boolean>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = useCallback(async () => {
@@ -350,6 +352,25 @@ export function MilestoneEvidenceUploader({ milestoneId, onUploaded, showAll = f
               <div style={{ paddingLeft: 21, fontSize: 11, color: finding === "approved_suggestion" ? "#86efac" : "#fbbf24" }}>
                 Revisión IA: {finding.replace(/_/g, " ")}
               </div>
+            )}
+
+            {/* Ver detalle / historial */}
+            <div style={{ paddingLeft: 21 }}>
+              <button
+                type="button"
+                onClick={() => setExpandedDetail((d) => ({ ...d, [item.id]: !d[item.id] }))}
+                style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 10 }}
+              >
+                {expandedDetail[item.id] ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                {expandedDetail[item.id] ? "Ocultar detalle" : "Ver detalle / historial"}
+              </button>
+            </div>
+            {expandedDetail[item.id] && (
+              <EvidenceItemDetailPanel
+                milestoneId={milestoneId}
+                itemId={item.id}
+                onReplaced={() => { void load(); onUploaded?.(); }}
+              />
             )}
 
             {/* Rejected review note */}

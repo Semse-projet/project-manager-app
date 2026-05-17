@@ -298,6 +298,99 @@ export class MilestonesController {
 
   // ── P2 — Payment release governance ─────────────────────────────────────────
 
+  // ── Evidence CRUD advanced (Fase 1) ─────────────────────────────────────────
+
+  @Get("v1/milestones/:milestoneId/evidence-items/:itemId")
+  @RequirePermissions("milestones:read")
+  async getEvidenceItemDetail(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+    @Param("itemId") itemId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const detail = await this.milestonesRepository.getEvidenceItemDetail(milestoneId, itemId, actor.tenantId);
+    if (!detail) {
+      const { NotFoundException } = await import("@nestjs/common");
+      throw new NotFoundException("Evidence item not found");
+    }
+    return ok(requestId, detail);
+  }
+
+  @Get("v1/milestones/:milestoneId/evidence-items/:itemId/history")
+  @RequirePermissions("milestones:read")
+  async getEvidenceItemHistory(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") _milestoneId: string,
+    @Param("itemId") itemId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const history = await this.milestonesRepository.getEvidenceItemHistory(itemId, actor.tenantId);
+    return ok(requestId, history);
+  }
+
+  @Post("v1/milestones/:milestoneId/evidence-items/:itemId/replace")
+  @RequirePermissions("milestones:write")
+  async replaceEvidenceItem(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+    @Param("itemId") itemId: string,
+    @Body() body: { evidenceId: string; replacedReason: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+
+    if (!body.evidenceId?.trim()) {
+      const { BadRequestException } = await import("@nestjs/common");
+      throw new BadRequestException("evidenceId is required");
+    }
+    if (!body.replacedReason?.trim()) {
+      const { BadRequestException } = await import("@nestjs/common");
+      throw new BadRequestException("replacedReason is required for evidence replacement");
+    }
+
+    const result = await this.milestonesRepository.replaceEvidenceItem({
+      milestoneId,
+      itemId,
+      tenantId:       actor.tenantId,
+      newEvidenceId:  body.evidenceId.trim(),
+      replacedReason: body.replacedReason.trim(),
+      actorUserId:    actor.userId,
+    });
+
+    if (!result) {
+      const { NotFoundException } = await import("@nestjs/common");
+      throw new NotFoundException("Evidence item not found");
+    }
+
+    // Re-evaluate milestone intelligence
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: actor.tenantId, milestoneId, triggerEvent: "evidence_item.replaced",
+    }).catch(() => undefined);
+
+    // SSE: notify frontend
+    this.sse?.emit(`buildops:${actor.tenantId}`, "evidence-item:replaced", {
+      milestoneId,
+      itemId,
+      status:         "submitted",
+      previousStatus: result.previousStatus,
+      replaced:       true,
+      updatedAt:      new Date().toISOString(),
+    });
+    this.sse?.emit(`buildops:${actor.tenantId}`, "evidence-item:updated", {
+      milestoneId, itemId, status: "submitted", updatedAt: new Date().toISOString(),
+    });
+
+    return ok(requestId, {
+      evidenceItemId:            result.updated.id,
+      status:                    result.updated.status,
+      previousStatus:            result.previousStatus,
+      replaced:                  true,
+      governanceRefreshRecommended: true,
+    });
+  }
+
   // ── P3 — Evidence review agent ───────────────────────────────────────────────
 
   @Post("v1/milestones/:milestoneId/evidence-items/:itemId/run-review-agent")
