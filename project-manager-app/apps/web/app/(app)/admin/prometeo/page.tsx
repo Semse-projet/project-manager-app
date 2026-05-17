@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { BookOpen, Database, FileText, Loader, Plus, Search, Trash2, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { BookOpen, Database, FileText, Layers, Loader, Plus, Search, Trash2, Upload, Zap } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -12,9 +12,19 @@ type PrometeoDoc = {
   projectId?: string | null;
 };
 
+type PrometeoDocMeta = {
+  trade?: string; visibility?: string; originalFileName?: string;
+  mimeType?: string; pageCount?: number; parser?: string; parseWarnings?: string[];
+};
+
 type SearchResult = {
   documentId: string; documentTitle: string; chunkIndex: number;
   text: string; score: number;
+};
+
+type TradeLibEntry = {
+  trade: string; label: string; documentsCount: number;
+  indexedCount: number; chunksCount: number; lastIndexedAt: string | null; types: string[];
 };
 
 type WorkOrder = {
@@ -72,8 +82,15 @@ function StatusBadge({ status }: { status: string }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function PrometeoPage() {
-  const [tab, setTab] = useState<"docs" | "query" | "search" | "assets" | "workorders">("docs");
+  const [tab, setTab] = useState<"docs" | "query" | "search" | "library" | "assets" | "workorders">("docs");
   const [docs, setDocs] = useState<PrometeoDoc[]>([]);
+  const [tradeLibrary, setTradeLibrary] = useState<TradeLibEntry[]>([]);
+  const [filterTrade, setFilterTrade] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [ingestFile, setIngestFile] = useState<File | null>(null);
+  const [ingestTrade, setIngestTrade] = useState("general");
+  const [ingestVisibility, setIngestVisibility] = useState("public_training");
+  const [ingestMode, setIngestMode] = useState<"text" | "file">("text");
   const [assets, setAssets] = useState<Asset[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,6 +135,34 @@ export default function PrometeoPage() {
     finally { setLoading(false); }
   }
 
+  async function loadTradeLibrary() {
+    try { setTradeLibrary(await apiGet<TradeLibEntry[]>("/api/semse/prometeo/trade-library")); } catch { /**/ }
+  }
+
+  async function handleIngestFile() {
+    if (!ingestFile || !ingestTitle.trim()) return;
+    setIngesting(true);
+    setIngestError(null);
+    setIngestSuccess(false);
+    try {
+      // Convert file to base64
+      const ab = await ingestFile.arrayBuffer();
+      const fileBase64 = btoa(String.fromCharCode(...new Uint8Array(ab)));
+      await apiPost("/api/semse/prometeo/ingest-file", {
+        fileBase64, mimeType: ingestFile.type, fileName: ingestFile.name,
+        title: ingestTitle, trade: ingestTrade, visibility: ingestVisibility,
+        sourceType: ingestFile.type.includes("pdf") ? "pdf" : ingestFile.type.includes("word") ? "docx" : "text",
+      });
+      setIngestTitle(""); setIngestFile(null);
+      setIngestSuccess(true);
+      setTimeout(() => setIngestSuccess(false), 5000);
+      let attempts = 0;
+      const poll = setInterval(() => { attempts++; void loadDocs(); void loadTradeLibrary(); if (attempts >= 5) clearInterval(poll); }, 2000);
+    } catch (err) {
+      setIngestError(err instanceof Error ? err.message : "Error al ingestar archivo");
+    } finally { setIngesting(false); }
+  }
+
   async function loadAssets() {
     try { setAssets(await apiGet<Asset[]>("/api/semse/prometeo/assets")); } catch { /**/ }
   }
@@ -126,7 +171,7 @@ export default function PrometeoPage() {
     try { setWorkOrders(await apiGet<WorkOrder[]>("/api/semse/prometeo/work-orders")); } catch { /**/ }
   }
 
-  useEffect(() => { void loadDocs(); void loadAssets(); void loadWorkOrders(); }, []);
+  useEffect(() => { void loadDocs(); void loadAssets(); void loadWorkOrders(); void loadTradeLibrary(); }, []);
 
   async function handleIngest() {
     if (!ingestTitle.trim() || !ingestText.trim()) return;
@@ -152,7 +197,10 @@ export default function PrometeoPage() {
     setRagError(null);
     setRagResult(null);
     try {
-      const result = await apiPost<typeof ragResult>("/api/semse/prometeo/rag-query", { question: ragQuestion, locale: "es" });
+      const result = await apiPost<typeof ragResult>("/api/semse/prometeo/rag-query", {
+        question: ragQuestion, locale: "es",
+        ...(filterTrade ? { trade: filterTrade } : {}),
+      });
       setRagResult(result);
     } catch (err) {
       setRagError(err instanceof Error ? err.message : "Error en RAG query");
@@ -195,12 +243,23 @@ export default function PrometeoPage() {
   const input: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--ink)", fontSize: 13, outline: "none", boxSizing: "border-box" };
   const btn = (color = "#6366f1", bg = "rgba(99,102,241,.15)"): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 10, border: "none", background: bg, color, fontSize: 12, fontWeight: 700, cursor: "pointer" });
 
+  const TRADES = [
+    { value: "general", label: "General" }, { value: "electrical", label: "Electricidad" },
+    { value: "plumbing", label: "Plomería" }, { value: "drywall", label: "Drywall" },
+    { value: "painting", label: "Pintura" }, { value: "carpentry", label: "Carpintería" },
+    { value: "hvac", label: "HVAC" }, { value: "siding", label: "Siding" },
+    { value: "demolition", label: "Demolición" }, { value: "cleaning", label: "Limpieza" },
+    { value: "bathroom", label: "Baños" }, { value: "kitchen", label: "Cocinas" },
+    { value: "windows_doors", label: "Ventanas/Puertas" },
+  ] as const;
+
   const TABS = [
-    { id: "docs",       label: "Base RAG",           icon: Database },
-    { id: "query",      label: "Consultar con IA",   icon: BookOpen },
+    { id: "docs",       label: "Ingestar",           icon: Database },
+    { id: "library",    label: "Biblioteca",         icon: Layers },
+    { id: "query",      label: "Consultar IA",       icon: BookOpen },
     { id: "search",     label: "Búsqueda",           icon: Search },
     { id: "assets",     label: "Activos",            icon: Zap },
-    { id: "workorders", label: "Órdenes de Trabajo", icon: FileText },
+    { id: "workorders", label: "OTs",                icon: FileText },
   ] as const;
 
   return (
@@ -235,31 +294,75 @@ export default function PrometeoPage() {
           ))}
         </div>
 
-        {/* ── BASE RAG ── */}
+        {/* ── INGESTAR / BASE RAG ── */}
         {tab === "docs" && (
           <div style={{ display: "grid", gap: 14 }}>
             {/* Ingest form */}
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 14 }}>Ingestar documento</div>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Ingestar documento</div>
+              {/* Mode toggle */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {(["text", "file"] as const).map((m) => (
+                  <button key={m} onClick={() => setIngestMode(m)}
+                    style={{ ...btn(ingestMode === m ? "#fff" : "var(--muted)", ingestMode === m ? "#6366f1" : "transparent"), border: ingestMode === m ? "none" : "1px solid var(--border)", fontSize: 11 }}>
+                    {m === "text" ? <><Plus size={12} />Texto libre</> : <><Upload size={12} />Archivo (PDF/DOCX/TXT)</>}
+                  </button>
+                ))}
+              </div>
               <div style={{ display: "grid", gap: 10 }}>
                 <input value={ingestTitle} onChange={(e) => setIngestTitle(e.target.value)}
                   placeholder="Título del documento" style={input} />
-                <select value={ingestType} onChange={(e) => setIngestType(e.target.value)}
-                  style={{ ...input, cursor: "pointer" }}>
-                  <option value="text">Texto libre</option>
-                  <option value="contract">Contrato</option>
-                  <option value="scope">Alcance de trabajo</option>
-                  <option value="manual">Manual técnico</option>
-                  <option value="report">Reporte</option>
-                  <option value="evidence">Evidencia transcrita</option>
-                </select>
-                <textarea value={ingestText} onChange={(e) => setIngestText(e.target.value)}
-                  placeholder="Pega el contenido del documento aquí..." rows={6}
-                  style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
-                <button onClick={() => void handleIngest()} disabled={ingesting || !ingestTitle.trim() || !ingestText.trim()}
-                  style={{ ...btn(), opacity: ingesting ? 0.6 : 1, width: "fit-content" }}>
-                  {ingesting ? <><Loader size={13} />Procesando…</> : <><Plus size={13} />Ingestar</>}
-                </button>
+                {/* Trade + Type + Visibility */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <select value={ingestTrade} onChange={(e) => setIngestTrade(e.target.value)} style={{ ...input, cursor: "pointer" }}>
+                    {TRADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <select value={ingestType} onChange={(e) => setIngestType(e.target.value)} style={{ ...input, cursor: "pointer" }}>
+                    <option value="text">Texto libre</option>
+                    <option value="manual">Manual técnico</option>
+                    <option value="book">Libro</option>
+                    <option value="contract">Contrato</option>
+                    <option value="scope">Alcance de trabajo</option>
+                    <option value="report">Reporte</option>
+                    <option value="course">Curso</option>
+                    <option value="checklist">Checklist</option>
+                    <option value="evidence">Evidencia transcrita</option>
+                  </select>
+                  <select value={ingestVisibility} onChange={(e) => setIngestVisibility(e.target.value)} style={{ ...input, cursor: "pointer" }}>
+                    <option value="public_training">Público/Entrenamiento</option>
+                    <option value="tenant_private">Privado organización</option>
+                    <option value="project_private">Privado proyecto</option>
+                  </select>
+                </div>
+
+                {ingestMode === "text" ? (
+                  <>
+                    <textarea value={ingestText} onChange={(e) => setIngestText(e.target.value)}
+                      placeholder="Pega el contenido del documento aquí..." rows={6}
+                      style={{ ...input, resize: "vertical", fontFamily: "inherit" }} />
+                    <button onClick={() => void handleIngest()} disabled={ingesting || !ingestTitle.trim() || !ingestText.trim()}
+                      style={{ ...btn(), opacity: ingesting ? 0.6 : 1, width: "fit-content" }}>
+                      {ingesting ? <><Loader size={13} />Procesando…</> : <><Plus size={13} />Ingestar texto</>}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <input type="file" ref={fileInputRef} accept=".pdf,.docx,.doc,.txt,.md,.markdown"
+                      style={{ display: "none" }}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) setIngestFile(f); }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button type="button" onClick={() => fileInputRef.current?.click()}
+                        style={{ ...btn("var(--muted)", "rgba(255,255,255,.04)"), border: "1px solid var(--border)" }}>
+                        <Upload size={13} />{ingestFile ? ingestFile.name : "Seleccionar archivo"}
+                      </button>
+                      {ingestFile && <span style={{ fontSize: 11, color: "var(--muted)" }}>{(ingestFile.size / 1024).toFixed(0)} KB</span>}
+                    </div>
+                    <button onClick={() => void handleIngestFile()} disabled={ingesting || !ingestTitle.trim() || !ingestFile}
+                      style={{ ...btn(), opacity: ingesting ? 0.6 : 1, width: "fit-content" }}>
+                      {ingesting ? <><Loader size={13} />Procesando archivo…</> : <><Upload size={13} />Ingestar archivo</>}
+                    </button>
+                  </>
+                )}
                 {ingestSuccess && <span style={{ fontSize: 12, color: "#86efac" }}>✅ Documento enviado — indexando en segundo plano</span>}
                 {ingestError && <span style={{ fontSize: 12, color: "#fca5a5" }}>❌ {ingestError}</span>}
               </div>
@@ -292,6 +395,45 @@ export default function PrometeoPage() {
                         style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: 4 }}>
                         <Trash2 size={14} />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── BIBLIOTECA POR TRADE ── */}
+        {tab === "library" && (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div style={card}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <Layers size={16} color="#818cf8" />
+                <div style={{ fontWeight: 800, fontSize: 14 }}>Biblioteca por Oficio</div>
+                <button onClick={() => void loadTradeLibrary()} style={{ marginLeft: "auto", ...btn("var(--muted)", "transparent"), border: "1px solid var(--border)", fontSize: 11 }}>Actualizar</button>
+              </div>
+              {tradeLibrary.length === 0 ? (
+                <div style={{ color: "var(--muted)", fontSize: 13 }}>Cargando biblioteca…</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+                  {tradeLibrary.map((t) => (
+                    <div key={t.trade} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", display: "grid", gap: 6 }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: "var(--ink)" }}>{t.label}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.indexedCount}/{t.documentsCount} docs indexados · {t.chunksCount} chunks</div>
+                      {t.types.length > 0 && <div style={{ fontSize: 10, color: "var(--muted)" }}>{t.types.join(", ")}</div>}
+                      {t.indexedCount > 0 && (
+                        <button
+                          onClick={() => { setFilterTrade(t.trade); setTab("query"); }}
+                          style={{ ...btn("#818cf8", "rgba(99,102,241,.08)"), fontSize: 10, padding: "5px 8px", marginTop: 4 }}>
+                          <BookOpen size={10} />Consultar
+                        </button>
+                      )}
+                      {t.indexedCount === 0 && (
+                        <button onClick={() => { setIngestTrade(t.trade); setTab("docs"); }}
+                          style={{ ...btn("var(--muted)", "transparent"), fontSize: 10, padding: "5px 8px", border: "1px solid var(--border)" }}>
+                          <Plus size={10} />Ingestar primero
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

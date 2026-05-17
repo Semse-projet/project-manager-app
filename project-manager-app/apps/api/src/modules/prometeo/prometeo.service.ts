@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ChunkerService } from "./chunker.service.js";
+import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService, cosineSimilarity, type EmbeddingVector } from "./embedding.service.js";
 import { PrometeoRepository, type PrometeoChunkSearchRow, type PrometeoDocumentRecord } from "./prometeo.repository.js";
 
@@ -35,6 +36,7 @@ export class PrometeoService {
     private readonly repo: PrometeoRepository,
     private readonly chunker: ChunkerService,
     private readonly embedding: EmbeddingService,
+    private readonly parser: DocumentParserService,
   ) {}
 
   // ── Ingest ──────────────────────────────────────────────────────────────────
@@ -82,6 +84,98 @@ export class PrometeoService {
       this.logger.error(`[prometeo] processing failed doc=${docId}: ${msg}`);
       await this.repo.markFailed(docId, msg);
     }
+  }
+
+  /** Ingest a file buffer (PDF/DOCX/TXT/Markdown) — parse, chunk, embed, index. */
+  async ingestFile(input: {
+    tenantId: string; orgId: string; userId: string;
+    title: string; fileBuffer: Buffer; mimeType: string; fileName: string;
+    sourceType?: string; trade?: string; visibility?: string;
+    projectId?: string; metadataJson?: Record<string, unknown>;
+  }): Promise<PrometeoDocumentRecord & { parseWarnings?: string[] }> {
+    // 1. Create doc record with status=parsing
+    const doc = await this.repo.createDocument({
+      tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId,
+      title: input.title,
+      sourceType: input.mimeType.startsWith("application/pdf") ? "pdf"
+        : input.mimeType.includes("word") ? "docx" : "text",
+      uploadedById: input.userId,
+      metadataJson: {
+        ...input.metadataJson,
+        originalFileName: input.fileName,
+        mimeType: input.mimeType,
+        trade: input.trade ?? "general",
+        visibility: input.visibility ?? "public_training",
+        status: "parsing",
+      },
+    });
+
+    // 2. Parse + chunk + embed async
+    void this.processFileDocument(doc.id, input.tenantId, input.fileBuffer, input.mimeType, input.fileName);
+    return { ...doc, parseWarnings: [] };
+  }
+
+  private async processFileDocument(
+    docId: string, tenantId: string,
+    buffer: Buffer, mimeType: string, fileName: string,
+  ): Promise<void> {
+    try {
+      const parsed = await this.parser.parseBuffer(buffer, mimeType, fileName);
+
+      if (!parsed.text || parsed.charCount < 10) {
+        const warning = parsed.warnings[0] ?? "No se pudo extraer texto";
+        await this.repo.markFailed(docId, warning);
+        return;
+      }
+
+      await this.processDocument(docId, tenantId, parsed.text);
+
+      // Update metadataJson with parse info
+      await this.repo.updateMetadata(docId, {
+        pageCount: parsed.pageCount,
+        parser: parsed.parser,
+        charCount: parsed.charCount,
+        parseWarnings: parsed.warnings,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`[prometeo] file processing failed doc=${docId}: ${msg}`);
+      await this.repo.markFailed(docId, msg);
+    }
+  }
+
+  /** Get document counts organized by trade for the library view. */
+  async getTradeLibrary(tenantId: string) {
+    const docs = await this.repo.listDocuments({ tenantId });
+    const trades = [
+      "electrical", "plumbing", "drywall", "painting", "carpentry",
+      "hvac", "siding", "demolition", "cleaning", "bathroom", "kitchen",
+      "windows_doors", "general",
+    ];
+    const LABELS: Record<string, string> = {
+      electrical: "Electricidad", plumbing: "Plomería", drywall: "Drywall",
+      painting: "Pintura", carpentry: "Carpintería", hvac: "HVAC",
+      siding: "Siding", demolition: "Demolición", cleaning: "Limpieza",
+      bathroom: "Baños", kitchen: "Cocinas", windows_doors: "Ventanas/Puertas",
+      general: "General",
+    };
+
+    return trades.map((trade) => {
+      const tradeDocs = docs.filter((d) => {
+        const meta = (d.metadataJson ?? {}) as Record<string, unknown>;
+        return (meta.trade ?? "general") === trade;
+      });
+      const indexed = tradeDocs.filter((d) => d.status === "indexed");
+      return {
+        trade,
+        label: LABELS[trade] ?? trade,
+        documentsCount: tradeDocs.length,
+        indexedCount:   indexed.length,
+        chunksCount:    indexed.reduce((s, d) => s + d.chunkCount, 0),
+        lastIndexedAt:  indexed.length > 0 ? indexed[0]?.updatedAt?.toISOString() : null,
+        types:          [...new Set(tradeDocs.map((d) => d.sourceType))],
+      };
+    });
   }
 
   // ── Search ──────────────────────────────────────────────────────────────────

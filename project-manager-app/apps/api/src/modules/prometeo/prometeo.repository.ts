@@ -57,6 +57,15 @@ export class PrometeoRepository {
     await this.prisma.prometeoDocument.update({ where: { id: documentId }, data: { status: "failed", errorMsg: error.slice(0, 500), updatedAt: new Date() } });
   }
 
+  async updateMetadata(documentId: string, extra: Record<string, unknown>): Promise<void> {
+    const doc = await this.prisma.prometeoDocument.findUnique({ where: { id: documentId }, select: { metadataJson: true } });
+    const current = (doc?.metadataJson ?? {}) as Record<string, unknown>;
+    await this.prisma.prometeoDocument.update({
+      where: { id: documentId },
+      data: { metadataJson: { ...current, ...extra } as unknown as import("@prisma/client").Prisma.InputJsonValue },
+    });
+  }
+
   async listDocuments(input: { tenantId: string; projectId?: string; limit?: number }): Promise<PrometeoDocumentRecord[]> {
     return this.prisma.prometeoDocument.findMany({
       where: { tenantId: input.tenantId, ...(input.projectId ? { projectId: input.projectId } : {}) },

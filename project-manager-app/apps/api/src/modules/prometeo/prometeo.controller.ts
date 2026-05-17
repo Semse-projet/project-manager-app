@@ -23,6 +23,8 @@ export class PrometeoController {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
+    const trade      = typeof b.trade === "string" ? b.trade : "general";
+    const visibility = typeof b.visibility === "string" ? b.visibility : "public_training";
     const doc = await this.svc.ingestText({
       tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
       projectId: typeof b.projectId === "string" ? b.projectId : undefined,
@@ -30,18 +32,71 @@ export class PrometeoController {
       text: typeof b.text === "string" ? b.text : "",
       sourceType: typeof b.sourceType === "string" ? b.sourceType : "text",
       sourceRef: typeof b.sourceRef === "string" ? b.sourceRef : undefined,
-      metadataJson: typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : undefined,
+      metadataJson: { trade, visibility, ...(typeof b.metadataJson === "object" && b.metadataJson !== null ? b.metadataJson as Record<string, unknown> : {}) },
     });
     return ok(rid, doc);
   }
 
+  /** Ingest a file (PDF/DOCX/TXT/Markdown) as base64 payload */
+  @Post("ingest-file")
+  @RequirePermissions("agents:run:create")
+  async ingestFile(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const b = body as Record<string, unknown>;
+
+    const base64   = typeof b.fileBase64 === "string" ? b.fileBase64 : "";
+    const mimeType = typeof b.mimeType === "string" ? b.mimeType : "text/plain";
+    const fileName = typeof b.fileName === "string" ? b.fileName : "document";
+    const title    = typeof b.title === "string" ? b.title.trim() : fileName;
+
+    if (!base64) {
+      const { BadRequestException } = await import("@nestjs/common");
+      throw new BadRequestException("fileBase64 is required");
+    }
+
+    const buffer = Buffer.from(base64, "base64");
+    const doc = await this.svc.ingestFile({
+      tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId,
+      title: title || fileName,
+      fileBuffer: buffer,
+      mimeType,
+      fileName,
+      trade:      typeof b.trade === "string" ? b.trade : "general",
+      visibility: typeof b.visibility === "string" ? b.visibility : "public_training",
+      projectId:  typeof b.projectId === "string" ? b.projectId : undefined,
+    });
+    return ok(rid, doc);
+  }
+
+  @Get("trade-library")
+  @RequirePermissions("agents:run:create")
+  async getTradeLibrary(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const library = await this.svc.getTradeLibrary(actor.tenantId);
+    return ok(rid, library);
+  }
+
   @Get("documents")
   @RequirePermissions("agents:run:create")
-  async listDocuments(@Req() req: { headers?: Record<string, unknown> }, @Query("projectId") projectId?: string) {
+  async listDocuments(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("projectId") projectId?: string,
+    @Query("trade") _trade?: string,
+    @Query("status") _status?: string,
+  ) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const docs = await this.svc.listDocuments(actor.tenantId, projectId);
-    return ok(rid, docs);
+    // Client-side filter on metadataJson trade/status
+    const filtered = docs.filter((d) => {
+      const meta = (d.metadataJson ?? {}) as Record<string, unknown>;
+      if (_trade && meta.trade !== _trade) return false;
+      if (_status && d.status !== _status) return false;
+      return true;
+    });
+    return ok(rid, filtered);
   }
 
   @Delete("documents/:id")
@@ -91,17 +146,26 @@ export class PrometeoController {
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;
     const question = typeof b.question === "string" ? b.question.trim() : "";
-    const locale = typeof b.locale === "string" && b.locale === "en" ? "en" : "es";
+    const locale    = typeof b.locale === "string" && b.locale === "en" ? "en" : "es";
+    const tradeFilter = typeof b.trade === "string" ? b.trade : undefined;
 
     if (!question) return ok(rid, { answer: "La pregunta no puede estar vacía.", citations: [], confidence: 0, insufficientContext: true });
 
-    // 1. Build RAG context
+    // 1. Build RAG context (with optional trade filter applied post-retrieval)
     const ctx = await this.svc.buildRagContext({
       tenantId: actor.tenantId,
       projectId: typeof b.projectId === "string" ? b.projectId : undefined,
       query: question,
-      topK: 6,
+      topK: tradeFilter ? 10 : 6, // fetch more if filtering by trade
     });
+
+    // Apply trade filter if specified
+    if (tradeFilter) {
+      ctx.chunks = ctx.chunks.filter((c) => {
+        const meta = (c as Record<string, unknown> & { metadataJson?: unknown }).metadataJson as Record<string, unknown> | undefined;
+        return !meta?.trade || meta.trade === tradeFilter || meta.trade === "general";
+      });
+    }
 
     const INSUFFICIENT = ctx.chunks.length === 0;
 
