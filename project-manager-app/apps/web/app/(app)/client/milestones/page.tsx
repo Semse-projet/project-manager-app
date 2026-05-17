@@ -15,6 +15,7 @@ import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { MilestoneTrackerCard } from "@/components/milestones/MilestoneTrackerCard";
 import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
+import { MilestoneEvidenceUploader } from "@/components/milestones/MilestoneEvidenceUploader";
 
 type MilestoneRecord = {
   id: string;
@@ -113,6 +114,14 @@ export default function ClientMilestonesPage() {
     paymentReadiness?: string;
     loading: boolean;
   }>>({});
+
+  // Governance refresh key: increment to force MilestoneGovernancePanel to re-fetch
+  const [governanceRefreshKeys, setGovernanceRefreshKeys] = useState<Record<string, number>>({});
+  const refreshGovernance = (milestoneId: string) => {
+    setGovernanceRefreshKeys((k) => ({ ...k, [milestoneId]: (k[milestoneId] ?? 0) + 1 }));
+    // Also invalidate milestone detail so evidence counts update
+    setMilestoneDetails((prev) => { const next = { ...prev }; delete next[milestoneId]; return next; });
+  };
 
   const loadMilestoneDetail = useCallback(async (milestoneId: string) => {
     let shouldLoad = false;
@@ -243,8 +252,9 @@ export default function ClientMilestonesPage() {
                 <div style={{ padding: "8px 12px", display: "grid", gap: "8px" }}>
                   {group.milestones.map((m, i) => {
                     const detail = milestoneDetails[m.id];
-                    // Show governance panel for milestones that have payment implications
                     const showGovernance = ["SUBMITTED", "AWAITING_REVIEW", "APPROVED"].includes(m.status ?? "");
+                    const showUploader   = ["SUBMITTED", "AWAITING_REVIEW", "DRAFT"].includes(m.status ?? "");
+                    const governanceKey  = governanceRefreshKeys[m.id] ?? 0;
 
                     return (
                       <div key={m.id} style={{ display: "grid", gap: "8px" }}>
@@ -261,8 +271,17 @@ export default function ClientMilestonesPage() {
                           role="client"
                           onAction={handleTrackerAction}
                         />
+                        {/* Evidence uploader — visible when milestone has pending/missing evidence */}
+                        {showUploader && (
+                          <MilestoneEvidenceUploader
+                            milestoneId={m.id}
+                            onUploaded={() => refreshGovernance(m.id)}
+                          />
+                        )}
+                        {/* Governance panel — re-mounts when governanceKey changes */}
                         {showGovernance && (
                           <MilestoneGovernancePanel
+                            key={`gov-${m.id}-${governanceKey}`}
                             milestoneId={m.id}
                           />
                         )}
