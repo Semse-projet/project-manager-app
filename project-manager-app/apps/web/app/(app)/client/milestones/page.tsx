@@ -16,6 +16,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { MilestoneTrackerCard } from "@/components/milestones/MilestoneTrackerCard";
 import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
 import { MilestoneEvidenceUploader } from "@/components/milestones/MilestoneEvidenceUploader";
+import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 
 type MilestoneRecord = {
   id: string;
@@ -122,6 +123,15 @@ export default function ClientMilestonesPage() {
     // Also invalidate milestone detail so evidence counts update
     setMilestoneDetails((prev) => { const next = { ...prev }; delete next[milestoneId]; return next; });
   };
+
+  // SSE: auto-refresh governance when evidence changes on server
+  useBuildOpsSSE({
+    onEvent: (evt) => {
+      if (evt.type === "evidence-item:updated" || evt.type === "evidence-item:reviewed") {
+        refreshGovernance(evt.milestoneId);
+      }
+    },
+  });
 
   const loadMilestoneDetail = useCallback(async (milestoneId: string) => {
     let shouldLoad = false;

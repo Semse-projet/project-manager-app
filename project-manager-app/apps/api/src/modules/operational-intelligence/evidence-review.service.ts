@@ -3,6 +3,7 @@ import { z } from "zod";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { OperationalSignalsService } from "./operational-signals.service.js";
 
 // ── Zod schema for LLM structured output ──────────────────────────────────────
@@ -108,6 +109,7 @@ export class EvidenceReviewService {
     private readonly prisma: PrismaService,
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly signals?: OperationalSignalsService,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
 
   async runReview(input: {
@@ -261,7 +263,7 @@ export class EvidenceReviewService {
       });
     }
 
-    return {
+    const finalResult: EvidenceReviewResult = {
       ...reviewOutput,
       evidenceItemId:       item.id,
       milestoneId:          item.milestoneId,
@@ -275,6 +277,24 @@ export class EvidenceReviewService {
       structuredOutputValid,
       reviewedAt:           reviewedAt.toISOString(),
     };
+
+    // SSE: notify that AI review completed → frontend can refresh evidence + governance
+    const tenantId = milestoneBase ? (await this.prisma.project.findFirst({
+      where: { milestones: { some: { id: item.milestoneId } } },
+      select: { tenantId: true },
+    }))?.tenantId : undefined;
+
+    if (tenantId) {
+      this.sse?.emit(`buildops:${tenantId}`, "evidence-item:reviewed", {
+        milestoneId: item.milestoneId,
+        itemId:      item.id,
+        reviewStatus: reviewOutput.reviewStatus,
+        riskLevel:   reviewOutput.riskLevel,
+        reviewedAt:  finalResult.reviewedAt,
+      });
+    }
+
+    return finalResult;
   }
 
   async getLastReview(evidenceItemId: string, tenantId: string): Promise<EvidenceReviewResult | null> {

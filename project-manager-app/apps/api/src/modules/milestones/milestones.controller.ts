@@ -14,6 +14,7 @@ import { MilestonesRepository } from "./milestones.repository.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
 import { EvidenceReviewService } from "../operational-intelligence/evidence-review.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 @Controller()
 export class MilestonesController {
@@ -23,6 +24,7 @@ export class MilestonesController {
     @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
     @Optional() private readonly paymentGovernance?: PaymentGovernanceService,
     @Optional() private readonly evidenceReview?: EvidenceReviewService,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
 
   @Post("v1/projects/:projectId/milestones")
@@ -227,6 +229,14 @@ export class MilestonesController {
       milestoneId,
       triggerEvent: `evidence_item.${body.status}`,
     }).catch(() => undefined);
+
+    // SSE: notify frontend that evidence item changed → triggers governance refresh
+    this.sse?.emit(`buildops:${actor.tenantId}`, "evidence-item:updated", {
+      milestoneId,
+      itemId,
+      status: body.status,
+      updatedAt: new Date().toISOString(),
+    });
 
     return ok(requestId, item);
   }
