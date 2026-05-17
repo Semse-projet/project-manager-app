@@ -6,27 +6,67 @@
 AgentsService.chatWithTools()
     └── LLMService (facade)
             └── LLMOrchestrator
-                    ├── ProviderRouter (selectProvider + buildFallbackChain)
+                    ├── AdaptiveRouter (score-based + hard constraints)
+                    ├── OllamaProvider     ← NATIVO/LOCAL (registrado primero)
                     ├── AnthropicProvider  (tool_use nativo, prompt caching)
                     ├── OpenAIProvider     (function calling)
-                    ├── OllamaProvider     (prompt-based tool parsing)
                     └── TemplateProvider   (keyword matching, zero deps)
 ```
 
+## Filosofía local-first
+
+**Ollama es la inteligencia nativa.** Los proveedores externos son extensiones premium/fallback.
+
+```
+LLM_DEFAULT_PROVIDER=ollama   → Ollama por defecto
+fallback chain: ollama → anthropic → openai → template
+```
+
+Cada ejecución LLM loguea: `provider | model | routingReason | fallbackUsed | latencyMs | agentName | source`
+
 ## Providers
 
-| Provider | Tools | Cuándo usar |
-|----------|-------|-------------|
-| `anthropic` | nativo tool_use | riskLevel=high, requiresTools, default |
-| `openai` | function calling | structured output, fallback |
-| `ollama` | prompt parsing | privacyCritical, lowCost, local |
-| `template` | no | último recurso, sin API key |
+| Provider | Tier | Tools | Cuándo usar |
+|----------|------|-------|-------------|
+| `ollama` | 1 — nativo | prompt parsing | **default**, localOnly, privacyCritical, lowCost |
+| `anthropic` | 3 — premium | nativo tool_use | requiresTools, riskLevel=high |
+| `openai` | 3 — premium | function calling | requiresTools, fallback de anthropic |
+| `template` | 0 — fallback | no | último recurso, sin API key |
+
+## Agent Profiles (Tiers operacionales)
+
+| Agente | Tier | Provider | Razón |
+|--------|------|----------|-------|
+| `mission-control` | 1 | ollama (localOnly) | summaries baratos, sin salida a red |
+| `intake-interpreter` | 1 | ollama (localOnly) | clasificación de texto libre |
+| `evidence-analyzer` | 2 | ollama (privacyCritical) | fotos/datos privados del proyecto |
+| `change-order-detector` | 1 | ollama (localOnly) | detección en mensajes del cliente |
+| `risk-narrator` | 1 | ollama (localOnly) | narrativas de riesgo operacional |
+| `contract-reviewer` | 3 | anthropic (riskHigh) | razonamiento legal complejo |
+| `dispute-analyzer` | 3 | anthropic+tools | herramientas + razonamiento |
 
 ## Routing policy
 
 ```
-preferredProvider → privacyCritical → riskLevel=high → requiresTools → lowCost → default
+preferredProvider → localOnly → privacyCritical → riskLevel=high → requiresTools → lowCost → default(ollama)
 ```
+
+## Performance Ollama en CPU (sin GPU)
+
+| Modelo | Tamaño | Primera carga | Warm |
+|--------|--------|--------------|------|
+| `qwen2.5:0.5b` | 397 MB | ~8s | ~4s |
+| `qwen2.5:3b` | 1.9 GB | ~85s | ~16s |
+
+**Para iteración rápida sin GPU:** `OLLAMA_MODEL=qwen2.5:0.5b`
+**Para flujos reales y JSON estructurado:** `OLLAMA_MODEL=qwen2.5:3b` + `OLLAMA_TIMEOUT_MS=120000`
+**Con GPU:** cualquier modelo responde en <1s
+
+## Producción (Railway)
+
+Ollama no corre en Railway. Para producción:
+- Railway: `LLM_DEFAULT_PROVIDER=anthropic` (sin `ENABLE_OPEN_SOURCE_MODELS`)
+- Ollama puede correr en VPS/GPU separado y conectarse via `OLLAMA_BASE_URL`
 
 ## Human-in-the-loop
 
