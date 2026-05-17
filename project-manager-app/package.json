@@ -10,7 +10,7 @@
   "scripts": {
     "dev:web": "npm run build --workspace @semse/shared && npm run build --workspace @semse/auth && npm run build --workspace @semse/schemas && npm run build --workspace @semse/knowledge && npm run build --workspace @semse/agents && npm run build --workspace @semse/autonomy && npm run build --workspace @semse/tools && npm run dev --workspace @semse/web",
     "dev:api": "npm run build --workspace @semse/shared && npm run build --workspace @semse/auth && npm run build --workspace @semse/schemas && npm run build --workspace @semse/knowledge && npm run build --workspace @semse/agents && npm run build --workspace @semse/autonomy && npm run build --workspace @semse/tools && npm run dev --workspace @semse/api",
-    "dev:api:local-llm": "SEMSE_AUTONOMY_LLM_PROVIDER=ollama SEMSE_AUTONOMY_LLM_BASE_URL=http://127.0.0.1:11434/v1 SEMSE_AUTONOMY_LLM_MODEL=qwen2.5:3b SEMSE_AUTONOMY_LLM_API_KEY=ollama npm run dev:api",
+    "dev:api:local-llm": "HOST=127.0.0.1 PORT=4132 SEMSE_AUTONOMY_LLM_PROVIDER=ollama SEMSE_AUTONOMY_LLM_BASE_URL=http://127.0.0.1:11434/v1 SEMSE_AUTONOMY_LLM_MODEL=qwen2.5:3b SEMSE_AUTONOMY_LLM_API_KEY=ollama npm run dev:api",
     "dev:worker": "npm run build --workspace @semse/shared && npm run build --workspace @semse/auth && npm run build --workspace @semse/knowledge && npm run build --workspace @semse/agents && npm run build --workspace @semse/autonomy && npm run build --workspace @semse/tools && npm run dev --workspace @semse/worker",
     "llm:local:start": "node ./scripts/start-local-llm.mjs",
     "llm:local:pull": "node ./scripts/pull-local-llm.mjs",

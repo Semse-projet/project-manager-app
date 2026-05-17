@@ -17,7 +17,7 @@ function resolveOllamaBin() {
   return "ollama";
 }
 
-const model = process.env.SEMSE_LOCAL_LLM_MODEL?.trim() || "qwen2.5:3b";
+const model = process.env.SEMSE_LOCAL_LLM_MODEL?.trim() || "llama3.2:1b";
 const child = spawn(resolveOllamaBin(), ["pull", model], {
   stdio: "inherit",
   env: {

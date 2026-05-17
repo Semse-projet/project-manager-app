@@ -1,6 +1,6 @@
 const host = process.env.HOST?.trim() || "127.0.0.1";
 const port = process.env.PORT?.trim() || "4132";
-const model = process.env.SEMSE_AUTONOMY_LLM_MODEL?.trim() || "qwen2.5:3b";
+const model = process.env.SEMSE_AUTONOMY_LLM_MODEL?.trim() || "llama3.2:1b";
 const baseUrl = process.env.SEMSE_AUTONOMY_LLM_BASE_URL?.trim() || "http://127.0.0.1:11434/v1";
 const apiKey = process.env.SEMSE_AUTONOMY_LLM_API_KEY?.trim() || "ollama";
 

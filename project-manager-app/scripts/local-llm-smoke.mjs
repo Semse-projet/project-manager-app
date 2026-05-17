@@ -1,5 +1,5 @@
 const baseUrl = (process.env.SEMSE_LOCAL_LLM_BASE_URL?.trim() || "http://127.0.0.1:11434").replace(/\/$/, "");
-const model = process.env.SEMSE_LOCAL_LLM_MODEL?.trim() || "qwen2.5:3b";
+const model = process.env.SEMSE_LOCAL_LLM_MODEL?.trim() || "llama3.2:1b";
 const apiKey = process.env.SEMSE_LOCAL_LLM_API_KEY?.trim();
 
 function buildHeaders() {

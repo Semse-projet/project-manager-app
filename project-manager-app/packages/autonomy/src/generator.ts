@@ -32,6 +32,13 @@ function isLocalCompatibleEndpoint(baseUrl: string | undefined): boolean {
   }
 }
 
+// Ensure baseUrl ends with /v1 so that appending /chat/completions gives the correct OpenAI-compatible path.
+// Ollama's base URL is typically http://localhost:11434 (no /v1), while the OpenAI SDK convention is to include /v1.
+function normalizeOpenAiBaseUrl(url: string): string {
+  const stripped = url.replace(/\/+$/, "");
+  return /\/v\d+$/.test(stripped) ? stripped : `${stripped}/v1`;
+}
+
 function extractJson(text: string): string {
   const codeFence = text.match(/```json\s*([\s\S]+?)```/i);
   if (codeFence) return codeFence[1]!.trim();
@@ -131,11 +138,11 @@ export async function generateTaskPlan(input: {
       body.response_format = { type: "json_object" };
     }
 
-    const response = await fetch(`${llm.baseUrl ?? "https://api.openai.com/v1"}/chat/completions`, {
+    const response = await fetch(`${normalizeOpenAiBaseUrl(llm.baseUrl ?? "https://api.openai.com/v1")}/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(localCompatible ? 180000 : 60000)
+      signal: AbortSignal.timeout(localCompatible ? 600000 : 60000)
     });
 
     if (!response.ok) return fallbackPlan(input.task);

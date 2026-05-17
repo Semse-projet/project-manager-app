@@ -7,7 +7,8 @@ Conectar un runtime LLM local al ecosistema canónico de SEMSE sin depender de O
 ## Componentes
 
 - Runtime local: `Ollama`
-- Modelo sugerido base CPU: `qwen2.5:3b`
+- Modelo sugerido base CPU/RAM limitada: `llama3.2:1b`
+- Modelo alternativo con más memoria disponible: `qwen2.5:3b`
 - Integración SEMSE: `packages/autonomy` + `apps/api/src/modules/autonomy`
 
 ## Arranque
@@ -24,13 +25,13 @@ Por defecto:
 ## Descarga de modelo
 
 ```bash
-SEMSE_LOCAL_LLM_MODEL=qwen2.5:3b npm run llm:local:pull
+SEMSE_LOCAL_LLM_MODEL=llama3.2:1b npm run llm:local:pull
 ```
 
 ## Smoke
 
 ```bash
-SEMSE_LOCAL_LLM_MODEL=qwen2.5:3b npm run smoke:llm:local
+SEMSE_LOCAL_LLM_MODEL=llama3.2:1b npm run smoke:llm:local
 ```
 
 Este smoke valida:
@@ -46,13 +47,14 @@ SEMSE_API_URL=http://127.0.0.1:4132 npm run smoke:autonomy:local-llm
 ```
 
 Este smoke no solo valida conectividad: falla si la autonomía cae a `fallback`.
+Si `AUTH_SECRET` está configurado en `apps/api/.env`, el smoke genera un JWT local para la identidad de prueba. También acepta `SEMSE_AUTH_TOKEN` si quieres pasar un token explícito.
 
 ## Variables para conectar SEMSE
 
 ```bash
 SEMSE_AUTONOMY_LLM_PROVIDER=ollama
 SEMSE_AUTONOMY_LLM_BASE_URL=http://127.0.0.1:11434/v1
-SEMSE_AUTONOMY_LLM_MODEL=qwen2.5:3b
+SEMSE_AUTONOMY_LLM_MODEL=llama3.2:1b
 SEMSE_AUTONOMY_LLM_API_KEY=ollama
 ```
 
@@ -75,7 +77,7 @@ Binario compilado:
 npm run start:api:local-llm
 ```
 
-Ese comando ya levanta la API local sobre `127.0.0.1:4132` usando `qwen2.5:3b` por defecto.
+Ese comando ya levanta la API local sobre `127.0.0.1:4132` usando `llama3.2:1b` por defecto.
 
 Si quieres que la web en desarrollo use una API concreta, arráncala con:
 
@@ -97,9 +99,10 @@ La pantalla de autonomía mostrará:
 
 ## Estado validado en esta máquina
 
-Fecha de validación: `2026-04-16`
+Fecha de validación: `2026-05-16`
 
 - `Ollama` activo en `http://127.0.0.1:11434`
-- modelo recomendado operativo: `qwen2.5:3b`
+- modelo recomendado operativo: `llama3.2:1b`
+- `qwen2.5:3b` está descargado, pero en esta máquina puede tardar o agotar memoria durante la carga inicial
 - endpoint compatible validado: `POST /v1/chat/completions`
 - web validada vía `http://127.0.0.1:3000/api/semse/autonomy/provider`
