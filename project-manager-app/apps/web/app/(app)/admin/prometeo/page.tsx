@@ -32,16 +32,19 @@ type Asset = {
 
 async function apiGet<T>(path: string): Promise<T> {
   const res = await fetch(path, { cache: "no-store" });
-  const d = await res.json() as { data: T };
-  return d.data;
+  const d = await res.json() as { data?: T; error?: { message?: string } };
+  if (!res.ok) throw new Error(d?.error?.message ?? `Error ${res.status}`);
+  return d.data as T;
 }
 async function apiPost<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const d = await res.json() as { data: T };
-  return d.data;
+  const d = await res.json() as { data?: T; error?: { message?: string } };
+  if (!res.ok) throw new Error(d?.error?.message ?? `Error ${res.status}`);
+  return d.data as T;
 }
 async function apiDelete(path: string) {
-  await fetch(path, { method: "DELETE" });
+  const res = await fetch(path, { method: "DELETE" });
+  if (!res.ok) { const d = await res.json() as { error?: { message?: string } }; throw new Error(d?.error?.message ?? `Error ${res.status}`); }
 }
 
 // ── StatusBadge ────────────────────────────────────────────────────────────────
@@ -69,7 +72,7 @@ function StatusBadge({ status }: { status: string }) {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function PrometeoPage() {
-  const [tab, setTab] = useState<"docs" | "search" | "assets" | "workorders">("docs");
+  const [tab, setTab] = useState<"docs" | "query" | "search" | "assets" | "workorders">("docs");
   const [docs, setDocs] = useState<PrometeoDoc[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
@@ -83,6 +86,18 @@ export default function PrometeoPage() {
   const [ingestText, setIngestText] = useState("");
   const [ingestType, setIngestType] = useState("text");
   const [ingesting, setIngesting] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [ingestSuccess, setIngestSuccess] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // RAG query
+  const [ragQuestion, setRagQuestion] = useState("");
+  const [ragResult, setRagResult] = useState<{
+    answer: string; citations: Array<{ label: string; excerpt: string; score?: number }>; confidence: number;
+    nextBestAction?: string; insufficientContext?: boolean; provider: string; fallbackUsed: boolean;
+  } | null>(null);
+  const [ragLoading, setRagLoading] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
 
   // WO form
   const [woTitle, setWoTitle] = useState("");
@@ -97,8 +112,10 @@ export default function PrometeoPage() {
 
   async function loadDocs() {
     setLoading(true);
-    try { setDocs(await apiGet<PrometeoDoc[]>("/api/semse/prometeo/documents")); } catch { /**/ }
-    setLoading(false);
+    setLoadError(null);
+    try { setDocs(await apiGet<PrometeoDoc[]>("/api/semse/prometeo/documents")); }
+    catch (err) { setLoadError(err instanceof Error ? err.message : "Error al cargar documentos"); }
+    finally { setLoading(false); }
   }
 
   async function loadAssets() {
@@ -114,11 +131,32 @@ export default function PrometeoPage() {
   async function handleIngest() {
     if (!ingestTitle.trim() || !ingestText.trim()) return;
     setIngesting(true);
+    setIngestError(null);
+    setIngestSuccess(false);
     try {
       await apiPost("/api/semse/prometeo/ingest", { title: ingestTitle, text: ingestText, sourceType: ingestType });
       setIngestTitle(""); setIngestText("");
-      setTimeout(() => { void loadDocs(); }, 2000);
-    } catch { /**/ } finally { setIngesting(false); }
+      setIngestSuccess(true);
+      setTimeout(() => setIngestSuccess(false), 5000);
+      // Poll until indexed or 10s
+      let attempts = 0;
+      const poll = setInterval(() => { attempts++; void loadDocs(); if (attempts >= 5) clearInterval(poll); }, 2000);
+    } catch (err) {
+      setIngestError(err instanceof Error ? err.message : "Error al ingestar");
+    } finally { setIngesting(false); }
+  }
+
+  async function handleRagQuery() {
+    if (!ragQuestion.trim()) return;
+    setRagLoading(true);
+    setRagError(null);
+    setRagResult(null);
+    try {
+      const result = await apiPost<typeof ragResult>("/api/semse/prometeo/rag-query", { question: ragQuestion, locale: "es" });
+      setRagResult(result);
+    } catch (err) {
+      setRagError(err instanceof Error ? err.message : "Error en RAG query");
+    } finally { setRagLoading(false); }
   }
 
   async function handleSearch() {
@@ -158,9 +196,10 @@ export default function PrometeoPage() {
   const btn = (color = "#6366f1", bg = "rgba(99,102,241,.15)"): React.CSSProperties => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 14px", borderRadius: 10, border: "none", background: bg, color, fontSize: 12, fontWeight: 700, cursor: "pointer" });
 
   const TABS = [
-    { id: "docs",       label: "Base RAG",      icon: Database },
-    { id: "search",     label: "Búsqueda",      icon: Search },
-    { id: "assets",     label: "Activos",        icon: Zap },
+    { id: "docs",       label: "Base RAG",           icon: Database },
+    { id: "query",      label: "Consultar con IA",   icon: BookOpen },
+    { id: "search",     label: "Búsqueda",           icon: Search },
+    { id: "assets",     label: "Activos",            icon: Zap },
     { id: "workorders", label: "Órdenes de Trabajo", icon: FileText },
   ] as const;
 
@@ -221,6 +260,8 @@ export default function PrometeoPage() {
                   style={{ ...btn(), opacity: ingesting ? 0.6 : 1, width: "fit-content" }}>
                   {ingesting ? <><Loader size={13} />Procesando…</> : <><Plus size={13} />Ingestar</>}
                 </button>
+                {ingestSuccess && <span style={{ fontSize: 12, color: "#86efac" }}>✅ Documento enviado — indexando en segundo plano</span>}
+                {ingestError && <span style={{ fontSize: 12, color: "#fca5a5" }}>❌ {ingestError}</span>}
               </div>
             </div>
 
@@ -232,6 +273,7 @@ export default function PrometeoPage() {
                   Actualizar
                 </button>
               </div>
+              {loadError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {loadError}</div>}
               {loading ? <div style={{ color: "var(--muted)", fontSize: 13 }}>Cargando…</div> : docs.length === 0 ? (
                 <div style={{ color: "var(--muted)", fontSize: 13 }}>Sin documentos. Ingesta el primero arriba.</div>
               ) : (
@@ -252,6 +294,84 @@ export default function PrometeoPage() {
                       </button>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── CONSULTAR CON IA (RAG Query) ── */}
+        {tab === "query" && (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div style={card}>
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>Consultar base documental con IA</div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 14 }}>
+                Prometeo responde usando los documentos indexados. Las respuestas incluyen fuentes citadas.
+                {docs.filter((d) => d.status === "indexed").length === 0 && (
+                  <span style={{ color: "#fbbf24" }}> — Primero indexa documentos en "Base RAG".</span>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                <input
+                  value={ragQuestion}
+                  onChange={(e) => setRagQuestion(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void handleRagQuery()}
+                  placeholder="¿Qué quieres saber? Ej: ¿Qué pasos se recomiendan para instalación eléctrica?"
+                  style={{ ...input, flex: 1 }}
+                />
+                <button
+                  onClick={() => void handleRagQuery()}
+                  disabled={ragLoading || !ragQuestion.trim()}
+                  style={{ ...btn(), opacity: ragLoading ? 0.6 : 1, whiteSpace: "nowrap" }}
+                >
+                  {ragLoading ? <><Loader size={13} />Consultando…</> : <><BookOpen size={13} />Preguntar</>}
+                </button>
+              </div>
+
+              {ragError && <div style={{ fontSize: 12, color: "#fca5a5", marginBottom: 10 }}>⚠ {ragError}</div>}
+
+              {ragResult && (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {/* Answer */}
+                  <div style={{ padding: "14px 16px", borderRadius: 12, background: ragResult.insufficientContext ? "rgba(251,191,36,.06)" : "rgba(99,102,241,.06)", border: `1px solid ${ragResult.insufficientContext ? "rgba(251,191,36,.3)" : "rgba(99,102,241,.3)"}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: ragResult.insufficientContext ? "#fbbf24" : "#818cf8", marginBottom: 8, textTransform: "uppercase" }}>
+                      {ragResult.insufficientContext ? "Contexto insuficiente" : "Respuesta de Prometeo"}
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.7, color: "var(--ink)", whiteSpace: "pre-wrap" }}>{ragResult.answer}</div>
+                    {ragResult.nextBestAction && (
+                      <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(99,102,241,.08)", fontSize: 12, color: "#a5b4fc" }}>
+                        <strong>Siguiente acción:</strong> {ragResult.nextBestAction}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Citations */}
+                  {ragResult.citations.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", marginBottom: 8, textTransform: "uppercase" }}>
+                        Fuentes ({ragResult.citations.length})
+                      </div>
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {ragResult.citations.map((c, i) => (
+                          <div key={i} style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                              <strong style={{ fontSize: 12, color: "#818cf8" }}>{c.label}</strong>
+                              {c.score != null && <span style={{ fontSize: 10, color: "var(--muted)" }}>score {c.score.toFixed(3)}</span>}
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{c.excerpt}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Metadata */}
+                  <div style={{ fontSize: 10, color: "var(--muted)", display: "flex", gap: 16 }}>
+                    <span>Provider: <strong style={{ color: "var(--ink)" }}>{ragResult.provider}</strong></span>
+                    <span>Confianza: <strong style={{ color: "var(--ink)" }}>{Math.round(ragResult.confidence * 100)}%</strong></span>
+                    {ragResult.fallbackUsed && <span style={{ color: "#fbbf24" }}>fallback usado</span>}
+                    <span style={{ color: "#86efac" }}>🔒 privacyCritical — procesado localmente</span>
+                  </div>
                 </div>
               )}
             </div>
