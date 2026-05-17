@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle, RefreshCw, XCircle } from "lucide-react";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
-
 import { ChangeOrderImpactCard } from "../../../../components/change-orders/ChangeOrderImpactCard";
+import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 
 type ChangeOrder = {
   id: string;
@@ -41,6 +41,24 @@ export default function ClientChangeOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [noteById, setNoteById] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  // impactRefreshKeys: keyed by changeOrderId → increment to force ChangeOrderImpactCard re-fetch
+  const [impactRefreshKeys, setImpactRefreshKeys] = useState<Record<string, number>>({});
+
+  const refreshImpact = useCallback((changeOrderId: string) => {
+    setImpactRefreshKeys((k) => ({ ...k, [changeOrderId]: (k[changeOrderId] ?? 0) + 1 }));
+  }, []);
+
+  // SSE: auto-refresh list + impact cards when change orders change on server
+  useBuildOpsSSE({
+    onEvent: (evt) => {
+      if (evt.type === "change-order:updated" || evt.type === "change-order:applied") {
+        // Re-fetch the list to update status badges
+        void load();
+        // Refresh impact card for this specific CO
+        refreshImpact(evt.changeOrderId);
+      }
+    },
+  });
 
   async function load() {
     setLoading(true);
@@ -169,13 +187,14 @@ export default function ClientChangeOrdersPage() {
                   )}
                 </div>
 
-                {/* Impact card para approved/applied/submitted */}
+                {/* Impact card para approved/applied/submitted — re-monta con SSE key */}
                 {showImpact && (
                   <div className="mt-3">
                     <ChangeOrderImpactCard
+                      key={`impact-${item.id}-${impactRefreshKeys[item.id] ?? 0}`}
                       changeOrderId={item.id}
                       canApply={canApply}
-                      onApplied={() => void load()}
+                      onApplied={() => { void load(); refreshImpact(item.id); }}
                     />
                   </div>
                 )}

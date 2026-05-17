@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
 
 type ActorContext = {
@@ -65,7 +66,35 @@ export class ChangeOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly signals?: OperationalSignalsService,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
+
+  private emitCOEvent(
+    tenantId: string,
+    eventType: "change-order:updated" | "change-order:applied",
+    candidate: {
+      id: string;
+      status: string;
+      buildOpsProjectId?: string | null;
+      jobId?: string | null;
+      milestoneId?: string | null;
+      estimatedMin?: Prisma.Decimal | null;
+      estimatedMax?: Prisma.Decimal | null;
+    },
+    extra: Record<string, unknown> = {},
+  ): void {
+    this.sse?.emit(`buildops:${tenantId}`, eventType, {
+      changeOrderId:     candidate.id,
+      status:            candidate.status,
+      buildOpsProjectId: candidate.buildOpsProjectId ?? undefined,
+      milestoneId:       candidate.milestoneId ?? undefined,
+      jobId:             candidate.jobId ?? undefined,
+      costDeltaAvg:      candidate.estimatedMin && candidate.estimatedMax
+        ? (Number(candidate.estimatedMin) + Number(candidate.estimatedMax)) / 2
+        : 0,
+      ...extra,
+    });
+  }
 
   async list(actor: ActorContext, input: ListChangeOrdersInput) {
     return this.prisma.changeOrderCandidate.findMany({
@@ -118,14 +147,12 @@ export class ChangeOrdersService {
     if (!["predicted", "rejected"].includes(candidate.status)) {
       throw new BadRequestException(`Cannot submit change order while status is ${candidate.status}`);
     }
-    return this.prisma.changeOrderCandidate.update({
+    const updated = await this.prisma.changeOrderCandidate.update({
       where: { id },
-      data: {
-        status: "submitted",
-        submittedById: actor.userId,
-        submittedAt: new Date(),
-      },
+      data: { status: "submitted", submittedById: actor.userId, submittedAt: new Date() },
     });
+    this.emitCOEvent(actor.tenantId, "change-order:updated", updated);
+    return updated;
   }
 
   async approve(actor: ActorContext, id: string, clientNote?: string) {
@@ -133,15 +160,12 @@ export class ChangeOrdersService {
     if (candidate.status !== "submitted") {
       throw new BadRequestException("Only submitted change orders can be approved");
     }
-    return this.prisma.changeOrderCandidate.update({
+    const updated = await this.prisma.changeOrderCandidate.update({
       where: { id },
-      data: {
-        status: "approved",
-        reviewedById: actor.userId,
-        reviewedAt: new Date(),
-        clientNote: clientNote?.trim() || null,
-      },
+      data: { status: "approved", reviewedById: actor.userId, reviewedAt: new Date(), clientNote: clientNote?.trim() || null },
     });
+    this.emitCOEvent(actor.tenantId, "change-order:updated", updated);
+    return updated;
   }
 
   async reject(actor: ActorContext, id: string, clientNote?: string) {
@@ -152,15 +176,12 @@ export class ChangeOrdersService {
     if (!clientNote?.trim()) {
       throw new BadRequestException("Rejection note is required");
     }
-    return this.prisma.changeOrderCandidate.update({
+    const updated = await this.prisma.changeOrderCandidate.update({
       where: { id },
-      data: {
-        status: "rejected",
-        reviewedById: actor.userId,
-        reviewedAt: new Date(),
-        clientNote: clientNote.trim(),
-      },
+      data: { status: "rejected", reviewedById: actor.userId, reviewedAt: new Date(), clientNote: clientNote!.trim() },
     });
+    this.emitCOEvent(actor.tenantId, "change-order:updated", updated);
+    return updated;
   }
 
   async findOne(actor: ActorContext, id: string) {
@@ -175,7 +196,7 @@ export class ChangeOrdersService {
     if (!input.requiredActions?.length) {
       throw new BadRequestException("requiredActions must not be empty");
     }
-    return this.prisma.changeOrderCandidate.update({
+    const updated = await this.prisma.changeOrderCandidate.update({
       where: { id },
       data: {
         status: "changes_requested",
@@ -185,6 +206,8 @@ export class ChangeOrdersService {
         evidenceJson: { requiredActions: input.requiredActions, changesRequestedAt: new Date().toISOString() } as Prisma.InputJsonValue,
       },
     });
+    this.emitCOEvent(actor.tenantId, "change-order:updated", updated, { requiredActions: input.requiredActions });
+    return updated;
   }
 
   async computeImpact(actor: ActorContext, id: string): Promise<ImpactResult> {
@@ -278,6 +301,12 @@ export class ChangeOrdersService {
         this.logger.warn(`[ChangeOrders] Could not create signal for applied CO: ${err.message}`);
       });
     }
+
+    // SSE: notify all pages that the change order was applied
+    const appliedCandidate = await this.findOwned(actor, id);
+    this.emitCOEvent(actor.tenantId, "change-order:applied", appliedCandidate, {
+      applied: true, costDeltaAvg: impact.costDeltaAvg, riskLevel: impact.riskLevel,
+    });
 
     return { applied: true, alreadyApplied: false, impact };
   }

@@ -2,14 +2,18 @@
 
 import { useEffect, useRef } from "react";
 
-export type EvidenceUpdatedEvent  = { type: "evidence-item:updated";  milestoneId: string; itemId: string; status: string; updatedAt: string };
-export type EvidenceReviewedEvent = { type: "evidence-item:reviewed"; milestoneId: string; itemId: string; reviewStatus: string; riskLevel: string; reviewedAt: string };
-export type OperationalSignalEvent = { type: "operational-signal:created"; id: string; severity: string; milestoneId?: string; buildOpsProjectId?: string };
+export type EvidenceUpdatedEvent   = { type: "evidence-item:updated";  milestoneId: string; itemId: string; status: string; updatedAt: string };
+export type EvidenceReviewedEvent  = { type: "evidence-item:reviewed"; milestoneId: string; itemId: string; reviewStatus: string; riskLevel: string; reviewedAt: string };
+export type ChangeOrderUpdatedEvent = { type: "change-order:updated"; changeOrderId: string; status: string; milestoneId?: string; buildOpsProjectId?: string; costDeltaAvg?: number };
+export type ChangeOrderAppliedEvent = { type: "change-order:applied"; changeOrderId: string; status: string; milestoneId?: string; buildOpsProjectId?: string; costDeltaAvg?: number; riskLevel?: string; applied: boolean };
+export type OperationalSignalEvent  = { type: "operational-signal:created"; id: string; severity: string; milestoneId?: string; buildOpsProjectId?: string };
 export type KeepaliveEvent = { type: "keepalive" };
 
 export type BuildOpsSSEEvent =
   | EvidenceUpdatedEvent
   | EvidenceReviewedEvent
+  | ChangeOrderUpdatedEvent
+  | ChangeOrderAppliedEvent
   | OperationalSignalEvent
   | KeepaliveEvent;
 
@@ -62,9 +66,11 @@ export function useBuildOpsSSE({ onEvent, milestoneIds, enabled = true }: Option
         } catch { /* ignore malformed events */ }
       }
 
-      es.addEventListener("evidence-item:updated",  (e) => handleRaw(e, "evidence-item:updated"));
-      es.addEventListener("evidence-item:reviewed",  (e) => handleRaw(e, "evidence-item:reviewed"));
-      es.addEventListener("operational-signal:created", (e) => handleRaw(e, "operational-signal:created"));
+      es.addEventListener("evidence-item:updated",      (e) => handleRaw(e, "evidence-item:updated"));
+      es.addEventListener("evidence-item:reviewed",      (e) => handleRaw(e, "evidence-item:reviewed"));
+      es.addEventListener("change-order:updated",        (e) => handleRaw(e, "change-order:updated"));
+      es.addEventListener("change-order:applied",        (e) => handleRaw(e, "change-order:applied"));
+      es.addEventListener("operational-signal:created",  (e) => handleRaw(e, "operational-signal:created"));
 
       es.onerror = () => {
         es?.close();

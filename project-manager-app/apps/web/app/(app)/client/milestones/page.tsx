@@ -124,10 +124,13 @@ export default function ClientMilestonesPage() {
     setMilestoneDetails((prev) => { const next = { ...prev }; delete next[milestoneId]; return next; });
   };
 
-  // SSE: auto-refresh governance when evidence changes on server
+  // SSE: auto-refresh governance when evidence or change orders change on server
   useBuildOpsSSE({
     onEvent: (evt) => {
       if (evt.type === "evidence-item:updated" || evt.type === "evidence-item:reviewed") {
+        refreshGovernance(evt.milestoneId);
+      }
+      if ((evt.type === "change-order:updated" || evt.type === "change-order:applied") && evt.milestoneId) {
         refreshGovernance(evt.milestoneId);
       }
     },

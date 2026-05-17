@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, ClipboardList, Clock3, FolderKanban } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsMilestoneStatusLabel } from "../../../lib/buildops-i18n";
 import { fetchBuildOpsMilestones, type BuildOpsMilestone } from "../../../lib/buildops-api";
 import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
 import { EvidenceReviewAdminCard } from "@/components/milestones/EvidenceReviewAdminCard";
+import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 
 const fallbackMilestones: BuildOpsMilestone[] = [];
 
@@ -24,6 +25,17 @@ export default function BuildOpsMilestonesPage() {
   const [milestones, setMilestones] = useState<BuildOpsMilestone[]>(fallbackMilestones);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [govKeys, setGovKeys] = useState<Record<string, number>>({});
+  const refreshGov = useCallback((mid: string) => setGovKeys((k) => ({ ...k, [mid]: (k[mid] ?? 0) + 1 })), []);
+
+  useBuildOpsSSE({
+    onEvent: (evt) => {
+      if ((evt.type === "change-order:updated" || evt.type === "change-order:applied" ||
+           evt.type === "evidence-item:updated" || evt.type === "evidence-item:reviewed") && evt.milestoneId) {
+        refreshGov(evt.milestoneId);
+      }
+    },
+  });
 
   useEffect(() => {
     let alive = true;
@@ -121,8 +133,8 @@ export default function BuildOpsMilestonesPage() {
                     <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : t("buildops.notApproved")}</span>
                   </div>
                 </Card>
-                {showEvidenceReview && <EvidenceReviewAdminCard milestoneId={milestone.id} onReviewed={() => {}} />}
-                {showGovernance && <MilestoneGovernancePanel milestoneId={milestone.id} />}
+                {showEvidenceReview && <EvidenceReviewAdminCard milestoneId={milestone.id} onReviewed={() => refreshGov(milestone.id)} />}
+                {showGovernance && <MilestoneGovernancePanel key={`gov-${milestone.id}-${govKeys[milestone.id] ?? 0}`} milestoneId={milestone.id} />}
               </div>
             );
           })}
