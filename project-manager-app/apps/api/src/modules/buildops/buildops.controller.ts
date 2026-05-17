@@ -56,6 +56,14 @@ export class BuildOpsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  @Get("projects/:projectId/health")
+  @RequirePermissions("projects:read")
+  async getProjectHealth(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
+    const c = ctx(req);
+    const data = await this.buildOpsService.getProjectHealth(c.tenantId, projectId);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Get("projects/:projectId")
   @RequirePermissions("projects:read")
   async detail(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {

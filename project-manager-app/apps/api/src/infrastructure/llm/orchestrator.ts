@@ -70,6 +70,37 @@ export class LLMOrchestrator {
     return this.metrics.allSnapshots();
   }
 
+  async providerHealthSummary(): Promise<Record<string, {
+    registered: boolean;
+    healthy?: boolean;
+    localOnly: boolean;
+    avgLatencyMs: number;
+    successRate: number;
+    circuitState: string;
+  }>> {
+    const result: Record<string, { registered: boolean; healthy?: boolean; localOnly: boolean; avgLatencyMs: number; successRate: number; circuitState: string }> = {};
+
+    for (const [name, provider] of this.providers.entries()) {
+      const snap = this.metrics.snapshot(name, "chat");
+      let healthy: boolean | undefined;
+
+      if (provider.healthCheck) {
+        healthy = await provider.healthCheck().catch(() => false);
+      }
+
+      result[name] = {
+        registered: true,
+        healthy,
+        localOnly: name === "ollama" || name === "template",
+        avgLatencyMs: snap.avgLatencyMs,
+        successRate: snap.successRate,
+        circuitState: snap.circuitState,
+      };
+    }
+
+    return result;
+  }
+
   async chat(input: LLMChatInput): Promise<LLMChatResponse> {
     const ctx = input.context;
     const taskType: TaskType = this.adaptiveRouter.inferTaskType(ctx);

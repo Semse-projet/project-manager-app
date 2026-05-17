@@ -33,6 +33,49 @@ export class OpsController {
     return ok(requestId, this.llmOrchestrator.metricsSnapshot());
   }
 
+  // ── AI Mission Control ─────────────────────────────────────────────────────
+
+  @Get("ai-mission-control/summary")
+  @RequirePermissions("ops:dashboard:read")
+  async getAIMissionControlSummary(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const providers = this.llmOrchestrator.getRegisteredProviders();
+    const snapshots = this.llmOrchestrator.metricsSnapshot();
+
+    const totalCalls   = snapshots.reduce((s, p) => s + p.successCount + p.failureCount, 0);
+    const totalSuccess = snapshots.reduce((s, p) => s + p.successCount, 0);
+    const fallbacks    = snapshots.filter((p) => p.provider !== "ollama" && p.successCount > 0);
+    const ollamaSnap   = snapshots.find((p) => p.provider === "ollama" && p.taskType === "chat");
+
+    return ok(requestId, {
+      nativeProvider:    "ollama",
+      registeredProviders: providers,
+      totalLLMCalls:     totalCalls,
+      successRate:       totalCalls > 0 ? Math.round(totalSuccess / totalCalls * 100) : 100,
+      fallbackEvents:    fallbacks.reduce((s, p) => s + p.successCount, 0),
+      ollamaAvgLatencyMs: ollamaSnap?.avgLatencyMs ?? 0,
+      ollamaCircuitState: ollamaSnap?.circuitState ?? "closed",
+      privacyGuard:      { localOnlyEnforced: true, cloudBlockedForPrivateCritical: true },
+      llmDefaultProvider: process.env.LLM_DEFAULT_PROVIDER ?? "ollama",
+      generatedAt:       new Date().toISOString(),
+    });
+  }
+
+  @Get("ai-mission-control/providers")
+  @RequirePermissions("ops:dashboard:read")
+  async getAIProviders(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const health = await this.llmOrchestrator.providerHealthSummary();
+    return ok(requestId, health);
+  }
+
+  @Get("ai-mission-control/llm-runs")
+  @RequirePermissions("ops:dashboard:read")
+  getAILLMRuns(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    return ok(requestId, this.llmOrchestrator.metricsSnapshot());
+  }
+
   @Get("audit")
   @RequirePermissions("ops:audit:read")
   async audit(@Req() req: { headers?: Record<string, unknown> }) {

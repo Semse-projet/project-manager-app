@@ -242,6 +242,60 @@ export class BuildOpsService {
     return this.toDto(project);
   }
 
+  async getProjectHealth(tenantId: string, projectId: string) {
+    const [project, openSignals, openChangeCandidates, algorithmRun] = await Promise.all([
+      this.prisma.buildOpsProject.findFirst({
+        where: { tenantId, id: projectId },
+        select: { id: true, status: true, riskLevel: true, riskScore: true, completion: true, title: true, trade: true, jobId: true },
+      }),
+      this.prisma.operationalSignal.count({
+        where: { tenantId, buildOpsProjectId: projectId, status: "open" },
+      }),
+      this.prisma.changeOrderCandidate.count({
+        where: { tenantId, buildOpsProjectId: projectId, status: { in: ["predicted", "submitted"] } },
+      }),
+      this.prisma.algorithmRun.findFirst({
+        where: { buildOpsProjectId: projectId },
+        orderBy: { createdAt: "desc" },
+        select: { confidenceScore: true, riskScore: true, readinessScore: true },
+      }),
+    ]);
+
+    if (!project) {
+      const { NotFoundException } = await import("@nestjs/common");
+      throw new NotFoundException("BuildOps project not found");
+    }
+
+    // Derive signal breakdown
+    const criticalSignals = await this.prisma.operationalSignal.count({
+      where: { tenantId, buildOpsProjectId: projectId, status: "open", severity: { in: ["critical", "high"] } },
+    });
+
+    let nextBestAction = "Project is healthy — no pending actions";
+    if (criticalSignals > 0) nextBestAction = "Review critical signals in Mission Control";
+    else if (openChangeCandidates > 0) nextBestAction = "Review open change order candidates";
+    else if (openSignals > 0) nextBestAction = "Review open operational signals";
+
+    return {
+      projectId,
+      title: project.title,
+      trade: project.trade,
+      status: project.status,
+      completion: project.completion,
+      riskLevel: project.riskLevel,
+      riskScore: project.riskScore,
+      jobId: project.jobId,
+      openSignals,
+      criticalSignals,
+      openChangeCandidates,
+      algorithmConfidence: algorithmRun?.confidenceScore ?? null,
+      algorithmRisk: algorithmRun?.riskScore ?? null,
+      algorithmReadiness: algorithmRun?.readinessScore ?? null,
+      nextBestAction,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   async recoverStalePromotions(input: { tenantId: string; olderThanMinutes?: number }): Promise<{ recovered: number; cutoff: string }> {
     const olderThanMinutes = Math.max(5, Math.min(input.olderThanMinutes ?? 15, 24 * 60));
     const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);

@@ -228,4 +228,45 @@ export class MilestonesController {
     const result = await this.milestonesRepository.computePaymentReadiness(milestoneId, actor.tenantId);
     return ok(requestId, result);
   }
+
+  // ── Readiness summary (P1 — SEMSE se siente vivo) ───────────────────────────
+
+  @Get("v1/milestones/:milestoneId/readiness")
+  @RequirePermissions("milestones:read")
+  async getReadiness(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+
+    // computePaymentReadiness already loads milestone + evidenceItems + disputes
+    const readiness = await this.milestonesRepository.computePaymentReadiness(milestoneId, actor.tenantId);
+    const ms = readiness.milestone;
+
+    if (!ms) {
+      const { NotFoundException } = await import("@nestjs/common");
+      throw new NotFoundException("Milestone not found");
+    }
+
+    // evidenceReadiness from milestone field (string enum)
+    const evidenceReadiness = ms.evidenceReadiness ?? "unknown";
+    const paymentStatus = readiness.status;
+
+    let risk: "low" | "medium" | "high" = "low";
+    if (paymentStatus === "disputed" || readiness.blockers.length > 1) risk = "high";
+    else if (paymentStatus === "not_ready" || readiness.blockers.length > 0) risk = "medium";
+
+    return ok(requestId, {
+      milestoneId,
+      status:           ms.status,
+      evidenceReadiness,
+      paymentReadiness: paymentStatus,
+      blockers:         readiness.blockers,
+      reasons:          readiness.reasons,
+      risk,
+      nextAction:       readiness.nextAction,
+      generatedAt:      new Date().toISOString(),
+    });
+  }
 }
