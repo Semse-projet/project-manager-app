@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Optional, Param, Patch, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import {
   milestoneCreateSchema,
   milestoneReasonSchema
@@ -323,11 +323,67 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") _milestoneId: string,
     @Param("itemId") itemId: string,
+    @Query("limit") limit?: string,
+    @Query("cursor") cursor?: string,
   ) {
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
-    const history = await this.milestonesRepository.getEvidenceItemHistory(itemId, actor.tenantId);
-    return ok(requestId, history);
+    const result = await this.milestonesRepository.getEvidenceItemHistory(itemId, actor.tenantId, {
+      limit: limit ? Number(limit) : 20,
+      cursor: cursor ?? undefined,
+    });
+    return ok(requestId, result);
+  }
+
+  @Post("v1/milestones/:milestoneId/evidence-items/:itemId/archive")
+  @RequirePermissions("milestones:approve")
+  async archiveEvidenceItem(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+    @Param("itemId") itemId: string,
+    @Body() body: { archiveReason: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+
+    if (!body.archiveReason?.trim()) {
+      const { BadRequestException } = await import("@nestjs/common");
+      throw new BadRequestException("archiveReason is required to archive evidence");
+    }
+
+    const result = await this.milestonesRepository.archiveEvidenceItem({
+      milestoneId,
+      itemId,
+      tenantId:      actor.tenantId,
+      archiveReason: body.archiveReason.trim(),
+      actorUserId:   actor.userId,
+    });
+
+    if (!result) {
+      const { NotFoundException } = await import("@nestjs/common");
+      throw new NotFoundException("Evidence item not found");
+    }
+
+    // Re-evaluate milestone intelligence (governance may need to block)
+    void this.intelligenceAgent?.evaluateMilestone({
+      tenantId: actor.tenantId, milestoneId, triggerEvent: "evidence_item.archived",
+    }).catch(() => undefined);
+
+    // SSE
+    this.sse?.emit(`buildops:${actor.tenantId}`, "evidence-item:archived", {
+      milestoneId, itemId, status: "archived", previousStatus: result.previousStatus, archived: true,
+    });
+    this.sse?.emit(`buildops:${actor.tenantId}`, "evidence-item:updated", {
+      milestoneId, itemId, status: "archived", updatedAt: new Date().toISOString(),
+    });
+
+    return ok(requestId, {
+      evidenceItemId:               itemId,
+      status:                       "archived",
+      previousStatus:               result.previousStatus,
+      archived:                     true,
+      governanceRefreshRecommended: true,
+    });
   }
 
   @Post("v1/milestones/:milestoneId/evidence-items/:itemId/replace")

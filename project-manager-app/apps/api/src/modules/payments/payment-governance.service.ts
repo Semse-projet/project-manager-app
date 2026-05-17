@@ -64,9 +64,11 @@ export class PaymentGovernanceService {
       total:     allItems.length,
       required:  required.length,
       approved:  required.filter((e) => e.status === "approved").length,
-      missing:   required.filter((e) => e.status === "missing").length,
+      // archived is treated as missing for governance — needs active replacement
+      missing:   required.filter((e) => e.status === "missing" || e.status === "archived").length,
       rejected:  required.filter((e) => e.status === "rejected").length,
       submitted: required.filter((e) => e.status === "submitted").length,
+      archived:  required.filter((e) => e.status === "archived").length,
     };
 
     // 4. Open change order candidates that could block payment

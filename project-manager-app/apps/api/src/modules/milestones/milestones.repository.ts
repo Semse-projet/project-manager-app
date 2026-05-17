@@ -526,18 +526,65 @@ export class MilestonesRepository {
     };
   }
 
-  /** History from AuditLog for this evidence item. */
-  async getEvidenceItemHistory(itemId: string, tenantId: string) {
-    return this.prisma.auditLog.findMany({
-      where: { entityType: "MilestoneEvidenceItem", entityId: itemId, tenantId },
+  /** History from AuditLog for this evidence item — paginated. */
+  async getEvidenceItemHistory(itemId: string, tenantId: string, opts?: { limit?: number; cursor?: string }) {
+    const limit = Math.min(opts?.limit ?? 20, 50);
+    const events = await this.prisma.auditLog.findMany({
+      where: {
+        entityType: "MilestoneEvidenceItem",
+        entityId:   itemId,
+        tenantId,
+        ...(opts?.cursor ? { occurredAt: { lt: new Date(opts.cursor) } } : {}),
+      },
       orderBy: { occurredAt: "desc" },
-      take: 20,
+      take: limit + 1,
       select: {
         id: true, action: true, beforeJson: true, afterJson: true,
         occurredAt: true, actorUserId: true,
         actor: { select: { id: true, email: true } },
       },
     });
+
+    const hasMore = events.length > limit;
+    const page = hasMore ? events.slice(0, limit) : events;
+    const nextCursor = hasMore ? page[page.length - 1]?.occurredAt.toISOString() : undefined;
+
+    return { events: page, pageInfo: { hasMore, nextCursor } };
+  }
+
+  /** Archive an evidence item logically; no hard delete; writes AuditLog. */
+  async archiveEvidenceItem(input: {
+    milestoneId:    string;
+    itemId:         string;
+    tenantId:       string;
+    archiveReason:  string;
+    actorUserId:    string;
+  }) {
+    const item = await this.prisma.milestoneEvidenceItem.findFirst({
+      where: { id: input.itemId, milestoneId: input.milestoneId, milestone: { project: { tenantId: input.tenantId } } },
+    });
+    if (!item) return null;
+
+    const previousStatus = item.status;
+
+    const updated = await this.prisma.milestoneEvidenceItem.update({
+      where: { id: input.itemId },
+      data: { status: "archived", updatedAt: new Date() },
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId:    input.tenantId,
+        actorUserId: input.actorUserId,
+        entityType:  "MilestoneEvidenceItem",
+        entityId:    input.itemId,
+        action:      "evidence_archived",
+        beforeJson:  { status: previousStatus, evidenceId: item.evidenceId } as object,
+        afterJson:   { status: "archived", archiveReason: input.archiveReason, archivedAt: new Date().toISOString() } as object,
+      },
+    });
+
+    return { updated, previousStatus };
   }
 
   /** Replace the file linked to an evidence item; writes AuditLog for trazabilidad. */

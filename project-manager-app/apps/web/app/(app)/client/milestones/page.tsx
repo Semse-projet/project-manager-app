@@ -127,7 +127,7 @@ export default function ClientMilestonesPage() {
   // SSE: auto-refresh governance when evidence or change orders change on server
   useBuildOpsSSE({
     onEvent: (evt) => {
-      if (evt.type === "evidence-item:updated" || evt.type === "evidence-item:reviewed") {
+      if (evt.type === "evidence-item:updated" || evt.type === "evidence-item:reviewed" || evt.type === "evidence-item:archived") {
         refreshGovernance(evt.milestoneId);
       }
       if ((evt.type === "change-order:updated" || evt.type === "change-order:applied") && evt.milestoneId) {

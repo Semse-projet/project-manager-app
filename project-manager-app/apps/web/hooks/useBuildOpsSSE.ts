@@ -6,12 +6,14 @@ export type EvidenceUpdatedEvent   = { type: "evidence-item:updated";  milestone
 export type EvidenceReviewedEvent  = { type: "evidence-item:reviewed"; milestoneId: string; itemId: string; reviewStatus: string; riskLevel: string; reviewedAt: string };
 export type ChangeOrderUpdatedEvent = { type: "change-order:updated"; changeOrderId: string; status: string; milestoneId?: string; buildOpsProjectId?: string; costDeltaAvg?: number };
 export type ChangeOrderAppliedEvent = { type: "change-order:applied"; changeOrderId: string; status: string; milestoneId?: string; buildOpsProjectId?: string; costDeltaAvg?: number; riskLevel?: string; applied: boolean };
+export type EvidenceArchivedEvent   = { type: "evidence-item:archived"; milestoneId: string; itemId: string; status: "archived"; previousStatus: string; archived: boolean };
 export type OperationalSignalEvent  = { type: "operational-signal:created"; id: string; severity: string; milestoneId?: string; buildOpsProjectId?: string };
 export type KeepaliveEvent = { type: "keepalive" };
 
 export type BuildOpsSSEEvent =
   | EvidenceUpdatedEvent
   | EvidenceReviewedEvent
+  | EvidenceArchivedEvent
   | ChangeOrderUpdatedEvent
   | ChangeOrderAppliedEvent
   | OperationalSignalEvent
@@ -67,6 +69,7 @@ export function useBuildOpsSSE({ onEvent, milestoneIds, enabled = true }: Option
       }
 
       es.addEventListener("evidence-item:updated",      (e) => handleRaw(e, "evidence-item:updated"));
+      es.addEventListener("evidence-item:archived",     (e) => handleRaw(e, "evidence-item:archived"));
       es.addEventListener("evidence-item:reviewed",      (e) => handleRaw(e, "evidence-item:reviewed"));
       es.addEventListener("change-order:updated",        (e) => handleRaw(e, "change-order:updated"));
       es.addEventListener("change-order:applied",        (e) => handleRaw(e, "change-order:applied"));

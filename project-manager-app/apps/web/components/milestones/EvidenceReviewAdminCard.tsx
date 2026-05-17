@@ -12,13 +12,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, Bot, Camera, CheckCircle, Clock,
+  AlertTriangle, Archive, Bot, Camera, CheckCircle, ChevronDown, ChevronUp, Clock,
   FileText, RefreshCw, RotateCcw, Upload, XCircle
 } from "lucide-react";
+import { EvidenceItemDetailPanel } from "./EvidenceItemDetailPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type ItemStatus = "missing" | "submitted" | "approved" | "rejected" | "needs_reupload";
+type ItemStatus = "missing" | "submitted" | "approved" | "rejected" | "needs_reupload" | "archived";
 
 type EvidenceItem = {
   id:          string;
@@ -96,6 +97,7 @@ const STATUS_LABELS: Record<ItemStatus, string> = {
   rejected:      "Rechazada",
   needs_reupload: "Reupload requerido",
   missing:       "Faltante",
+  archived:      "Archivada",
 };
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -114,6 +116,10 @@ export function EvidenceReviewAdminCard({ milestoneId, onReviewed }: Props) {
   const [submitting, setSubmitting] = useState<Record<string, boolean>>({});
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [runningReview, setRunningReview] = useState<Record<string, boolean>>({});
+  const [expandedDetail, setExpandedDetail] = useState<Record<string, boolean>>({});
+  const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [archiveReason, setArchiveReason] = useState<Record<string, string>>({});
+  const [archiveErrors, setArchiveErrors] = useState<Record<string, string>>({});
   const [agentResults, setAgentResults] = useState<Record<string, AgentReview>>({});
 
   const load = useCallback(async () => {
@@ -394,15 +400,61 @@ export function EvidenceReviewAdminCard({ milestoneId, onReviewed }: Props) {
             {/* Re-run review option for already reviewed items */}
             {item.status === "submitted" && agentData && (
               <div style={{ paddingLeft: 21 }}>
-                <button
-                  type="button"
-                  disabled={isRunningReview}
-                  onClick={() => void runAgentReview(item)}
-                  style={{ fontSize: 10, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                >
+                <button type="button" disabled={isRunningReview} onClick={() => void runAgentReview(item)}
+                  style={{ fontSize: 10, color: "var(--muted)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}>
                   {isRunningReview ? "Analizando..." : "Re-run revisión IA"}
                 </button>
               </div>
+            )}
+
+            {/* Archive button — ops only, any non-archived status */}
+            {item.status !== "archived" && archivingId !== item.id && (
+              <div style={{ paddingLeft: 21 }}>
+                <button type="button" onClick={() => setArchivingId(item.id)}
+                  style={{ fontSize: 10, color: "#f87171", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                  <Archive size={10} /> Archivar evidencia
+                </button>
+              </div>
+            )}
+            {archivingId === item.id && (
+              <div style={{ paddingLeft: 21, display: "grid", gap: 6 }}>
+                <textarea rows={2} value={archiveReason[item.id] ?? ""}
+                  onChange={(e) => setArchiveReason((r) => ({ ...r, [item.id]: e.target.value }))}
+                  placeholder="Razón del archivado (obligatorio)"
+                  style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 11, resize: "none" }} />
+                {archiveErrors[item.id] && <div style={{ fontSize: 10, color: "#fca5a5" }}>{archiveErrors[item.id]}</div>}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button" onClick={async () => {
+                    const reason = archiveReason[item.id]?.trim();
+                    if (!reason) { setArchiveErrors((e) => ({ ...e, [item.id]: "La razón es obligatoria" })); return; }
+                    try {
+                      const res = await fetch(`/api/semse/milestones/${milestoneId}/evidence-items/${item.id}/archive`,
+                        { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ archiveReason: reason }) });
+                      if (!res.ok) throw new Error("Error al archivar");
+                      setArchivingId(null); setArchiveReason((r) => { const n = { ...r }; delete n[item.id]; return n; });
+                      await load(); onReviewed?.();
+                    } catch (err) { setArchiveErrors((e) => ({ ...e, [item.id]: (err as Error).message })); }
+                  }} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                    Confirmar archivado
+                  </button>
+                  <button type="button" onClick={() => { setArchivingId(null); setArchiveErrors({}); }}
+                    style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "none", color: "var(--muted)", fontSize: 10, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Ver detalle expandible */}
+            <div style={{ paddingLeft: 21 }}>
+              <button type="button" onClick={() => setExpandedDetail((d) => ({ ...d, [item.id]: !d[item.id] }))}
+                style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 10 }}>
+                {expandedDetail[item.id] ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                {expandedDetail[item.id] ? "Ocultar detalle" : "Ver detalle / historial"}
+              </button>
+            </div>
+            {expandedDetail[item.id] && (
+              <EvidenceItemDetailPanel milestoneId={milestoneId} itemId={item.id} onReplaced={() => { void load(); onReviewed?.(); }} />
             )}
           </div>
         );
