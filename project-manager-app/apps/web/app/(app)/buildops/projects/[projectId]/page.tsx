@@ -7,6 +7,7 @@ import { useLanguage } from "../../../../../lib/language-context";
 import { ArrowLeft, ArrowRight, CheckSquare, FileText, FolderKanban, MessageSquare, Plus, ShieldCheck } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsProjectStatusLabel, buildOpsProjectTypeLabel, buildOpsRiskLabel, buildOpsTradeLabel } from "../../../../lib/buildops-i18n";
+import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
 import {
   fetchBuildOpsProject,
   approveClientPlan,
@@ -167,6 +168,11 @@ export default function BuildOpsProjectDetailPage() {
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
           {loading ? <p className="text-sm text-muted">{t("buildops.loadingProject")}</p> : null}
         </section>
+
+        {/* Project Health Panel — P1 endpoint */}
+        {isLoaded && project.id !== "loading" && (
+          <BuildOpsProjectHealthPanel projectId={project.id} />
+        )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[

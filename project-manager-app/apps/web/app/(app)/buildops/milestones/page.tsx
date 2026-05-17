@@ -7,6 +7,7 @@ import { ArrowRight, ClipboardList, Clock3, FolderKanban } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsMilestoneStatusLabel } from "../../../lib/buildops-i18n";
 import { fetchBuildOpsMilestones, type BuildOpsMilestone } from "../../../lib/buildops-api";
+import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
 
 const fallbackMilestones: BuildOpsMilestone[] = [];
 
@@ -90,32 +91,38 @@ export default function BuildOpsMilestonesPage() {
               <div>{t("buildops.noMilestonesHint")}</div>
             </Card>
           ) : null}
-          {milestones.map((milestone) => (
-            <Card key={milestone.id} className="grid gap-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="grid gap-1">
-                  <div className="flex items-center gap-2">
-                    <ClipboardList size={16} className="text-brand" />
-                    <h2 className="text-lg font-semibold text-ink">{milestone.title}</h2>
+          {milestones.map((milestone) => {
+            const showGovernance = ["submitted", "awaiting_review", "approved"].includes(milestone.status);
+            return (
+              <div key={milestone.id} className="grid gap-2">
+                <Card className="grid gap-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="grid gap-1">
+                      <div className="flex items-center gap-2">
+                        <ClipboardList size={16} className="text-brand" />
+                        <h2 className="text-lg font-semibold text-ink">{milestone.title}</h2>
+                      </div>
+                      <p className="text-sm text-muted">
+                        {milestone.projectTitle} · {t("buildops.sequence")} {milestone.sequence} · ${milestone.amount.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {milestone.description ?? t("buildops.noDescription")}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={badgeVariant(milestone.status)}>{buildOpsMilestoneStatusLabel(t, milestone.status)}</Badge>
+                      <Badge variant="default">{milestone.evidenceCount} {t("buildops.evidenceCount")}</Badge>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted">
-                    {milestone.projectTitle} · {t("buildops.sequence")} {milestone.sequence} · ${milestone.amount.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-muted">
-                    {milestone.description ?? t("buildops.noDescription")}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={badgeVariant(milestone.status)}>{buildOpsMilestoneStatusLabel(t, milestone.status)}</Badge>
-                  <Badge variant="default">{milestone.evidenceCount} {t("buildops.evidenceCount")}</Badge>
-                </div>
+                  <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-sm text-muted">
+                    <span>{milestone.id}</span>
+                    <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : t("buildops.notApproved")}</span>
+                  </div>
+                </Card>
+                {showGovernance && <MilestoneGovernancePanel milestoneId={milestone.id} />}
               </div>
-              <div className="flex items-center justify-between border-t border-white/[0.06] pt-3 text-sm text-muted">
-                <span>{milestone.id}</span>
-                <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : t("buildops.notApproved")}</span>
-              </div>
-            </Card>
-          ))}
+            );
+          })}
         </div>
       </div>
     </main>

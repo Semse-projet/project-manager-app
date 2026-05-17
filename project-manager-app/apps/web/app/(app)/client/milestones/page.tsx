@@ -14,6 +14,7 @@ import { fetchJobMilestones, fetchJobs, mutateMilestone } from "../../../semse-a
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { MilestoneTrackerCard } from "@/components/milestones/MilestoneTrackerCard";
+import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
 
 type MilestoneRecord = {
   id: string;
@@ -242,22 +243,30 @@ export default function ClientMilestonesPage() {
                 <div style={{ padding: "8px 12px", display: "grid", gap: "8px" }}>
                   {group.milestones.map((m, i) => {
                     const detail = milestoneDetails[m.id];
+                    // Show governance panel for milestones that have payment implications
+                    const showGovernance = ["SUBMITTED", "AWAITING_REVIEW", "APPROVED"].includes(m.status ?? "");
 
                     return (
-                      <MilestoneTrackerCard
-                        key={m.id}
-                        milestone={{
-                          id:              m.id,
-                          title:           m.title,
-                          amount:          m.amount ?? 0,
-                          sequence:        m.sequence ?? (i + 1),
-                          status:          (m.status ?? "DRAFT") as any,
-                          paymentReadiness: detail?.paymentReadiness as any,
-                          evidenceItems:   detail?.evidenceItems ?? [],
-                        }}
-                        role="client"
-                        onAction={handleTrackerAction}
-                      />
+                      <div key={m.id} style={{ display: "grid", gap: "8px" }}>
+                        <MilestoneTrackerCard
+                          milestone={{
+                            id:              m.id,
+                            title:           m.title,
+                            amount:          m.amount ?? 0,
+                            sequence:        m.sequence ?? (i + 1),
+                            status:          (m.status ?? "DRAFT") as any,
+                            paymentReadiness: detail?.paymentReadiness as any,
+                            evidenceItems:   detail?.evidenceItems ?? [],
+                          }}
+                          role="client"
+                          onAction={handleTrackerAction}
+                        />
+                        {showGovernance && (
+                          <MilestoneGovernancePanel
+                            milestoneId={m.id}
+                          />
+                        )}
+                      </div>
                     );
                   })}
                 </div>
