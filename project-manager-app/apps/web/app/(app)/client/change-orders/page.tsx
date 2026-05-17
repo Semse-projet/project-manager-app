@@ -5,12 +5,14 @@ import { AlertTriangle, CheckCircle, RefreshCw, XCircle } from "lucide-react";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
+import { ChangeOrderImpactCard } from "../../../../components/change-orders/ChangeOrderImpactCard";
+
 type ChangeOrder = {
   id: string;
   title: string;
   description?: string | null;
   trigger: string;
-  status: "predicted" | "submitted" | "approved" | "rejected" | "voided";
+  status: "predicted" | "submitted" | "approved" | "rejected" | "voided" | "applied" | "changes_requested";
   estimatedMin?: string | number | null;
   estimatedMax?: string | number | null;
   probability?: number | null;
@@ -18,11 +20,13 @@ type ChangeOrder = {
   createdAt: string;
 };
 
-const statusClasses: Record<ChangeOrder["status"], string> = {
-  predicted: "border-slate-700 bg-slate-900/60 text-slate-300",
-  submitted: "border-yellow-700/50 bg-yellow-950/30 text-yellow-300",
-  approved: "border-green-700/50 bg-green-950/30 text-green-300",
-  rejected: "border-red-700/50 bg-red-950/30 text-red-300",
+const statusClasses: Partial<Record<ChangeOrder["status"], string>> = {
+  predicted:          "border-slate-700 bg-slate-900/60 text-slate-300",
+  submitted:          "border-yellow-700/50 bg-yellow-950/30 text-yellow-300",
+  approved:           "border-green-700/50 bg-green-950/30 text-green-300",
+  rejected:           "border-red-700/50 bg-red-950/30 text-red-300",
+  applied:            "border-indigo-700/50 bg-indigo-950/30 text-indigo-300",
+  changes_requested:  "border-orange-700/50 bg-orange-950/30 text-orange-300",
   voided: "border-slate-700 bg-slate-900/60 text-slate-500",
 };
 
@@ -129,21 +133,28 @@ export default function ClientChangeOrdersPage() {
       ) : (
         <div className="grid gap-3">
           {items.map(item => {
-            const canReview = item.status === "submitted";
+            const canReview  = item.status === "submitted";
+            const showImpact = ["approved", "applied", "submitted"].includes(item.status);
+            const canApply   = item.status === "approved";
+            const statusLabel: Record<ChangeOrder["status"], string> = {
+              predicted: "Detectado", submitted: "Enviado", approved: "Aprobado",
+              rejected: "Rechazado", voided: "Anulado", applied: "Aplicado",
+              changes_requested: "Cambios solicitados",
+            };
             return (
               <section key={item.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="text-base font-semibold text-ink">{item.title}</h2>
-                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClasses[item.status]}`}>
-                        {item.status}
+                      <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusClasses[item.status] ?? ""}`}>
+                        {statusLabel[item.status] ?? item.status}
                       </span>
                     </div>
                     {item.description && <p className="mt-1 text-sm text-muted">{item.description}</p>}
                   </div>
                   <div className="text-right text-sm font-bold text-ink">
-                    {money(item.estimatedMin)} - {money(item.estimatedMax)}
+                    {money(item.estimatedMin)} – {money(item.estimatedMax)}
                   </div>
                 </div>
 
@@ -154,9 +165,20 @@ export default function ClientChangeOrdersPage() {
                   </div>
                   <p className="mt-1 text-sm text-orange-100">{item.trigger}</p>
                   {typeof item.probability === "number" && (
-                    <p className="mt-1 text-xs text-orange-300">Probability: {item.probability}/100</p>
+                    <p className="mt-1 text-xs text-orange-300">Probabilidad: {item.probability}/100</p>
                   )}
                 </div>
+
+                {/* Impact card para approved/applied/submitted */}
+                {showImpact && (
+                  <div className="mt-3">
+                    <ChangeOrderImpactCard
+                      changeOrderId={item.id}
+                      canApply={canApply}
+                      onApplied={() => void load()}
+                    />
+                  </div>
+                )}
 
                 {item.clientNote && (
                   <div className="mt-3 rounded-xl border border-blue-500/20 bg-blue-950/10 p-3 text-sm text-blue-200">
