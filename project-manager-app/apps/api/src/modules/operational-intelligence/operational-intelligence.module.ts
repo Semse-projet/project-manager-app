@@ -6,6 +6,7 @@ import { IntelligenceRunsService } from "./intelligence-runs.service.js";
 import { BuildOpsIntelligenceAgent } from "./buildops-intelligence.agent.js";
 import { PrometeoBriefService } from "./prometeo-brief.service.js";
 import { LLMNarrativeService } from "./llm-narrative.service.js";
+import { EvidenceReviewService } from "./evidence-review.service.js";
 import { OperationalIntelligenceController } from "./operational-intelligence.controller.js";
 
 @Module({
@@ -17,6 +18,7 @@ import { OperationalIntelligenceController } from "./operational-intelligence.co
     BuildOpsIntelligenceAgent,
     PrometeoBriefService,
     LLMNarrativeService,
+    EvidenceReviewService,
   ],
   exports: [
     OperationalSignalsService,
@@ -24,6 +26,7 @@ import { OperationalIntelligenceController } from "./operational-intelligence.co
     BuildOpsIntelligenceAgent,
     PrometeoBriefService,
     LLMNarrativeService,
+    EvidenceReviewService,
   ],
 })
 export class OperationalIntelligenceModule {}

@@ -13,6 +13,7 @@ import { MilestonesService } from "./milestones.service.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
+import { EvidenceReviewService } from "../operational-intelligence/evidence-review.service.js";
 
 @Controller()
 export class MilestonesController {
@@ -21,6 +22,7 @@ export class MilestonesController {
     private readonly milestonesRepository: MilestonesRepository,
     @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
     @Optional() private readonly paymentGovernance?: PaymentGovernanceService,
+    @Optional() private readonly evidenceReview?: EvidenceReviewService,
   ) {}
 
   @Post("v1/projects/:projectId/milestones")
@@ -273,6 +275,49 @@ export class MilestonesController {
   }
 
   // ── P2 — Payment release governance ─────────────────────────────────────────
+
+  // ── P3 — Evidence review agent ───────────────────────────────────────────────
+
+  @Post("v1/milestones/:milestoneId/evidence-items/:itemId/run-review-agent")
+  @RequirePermissions("milestones:write")
+  async runEvidenceReviewAgent(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") _milestoneId: string,
+    @Param("itemId") itemId: string,
+    @Body() body: { locale?: "es" | "en"; forceRulesOnly?: boolean } = {},
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+
+    if (!this.evidenceReview) {
+      const { ServiceUnavailableException } = await import("@nestjs/common");
+      throw new ServiceUnavailableException("Evidence review agent not available");
+    }
+
+    const result = await this.evidenceReview.runReview({
+      evidenceItemId: itemId,
+      tenantId:       actor.tenantId,
+      reviewedById:   actor.userId,
+      locale:         body.locale ?? "es",
+      forceRulesOnly: body.forceRulesOnly,
+    });
+
+    return ok(requestId, result);
+  }
+
+  @Get("v1/milestones/:milestoneId/evidence-items/:itemId/review")
+  @RequirePermissions("milestones:read")
+  async getEvidenceReview(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") _milestoneId: string,
+    @Param("itemId") itemId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+
+    const review = await this.evidenceReview?.getLastReview(itemId, actor.tenantId) ?? null;
+    return ok(requestId, review);
+  }
 
   @Get("v1/milestones/:milestoneId/payment-governance")
   @RequirePermissions("milestones:read")
