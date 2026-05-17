@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { z } from "zod";
 import { getAgentProfile, type AgentProfileName } from "../../infrastructure/llm/agent-profiles.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
+import type { PrometeoService } from "../prometeo/prometeo.service.js";
 
 // ── Zod schemas (structured output validation) ────────────────────────────────
 
@@ -104,7 +105,10 @@ export class LLMNarrativeService {
   private readonly logger = new Logger(LLMNarrativeService.name);
   private readonly enabled: boolean;
 
-  constructor(@Optional() private readonly llm?: LLMOrchestrator) {
+  constructor(
+    @Optional() private readonly llm?: LLMOrchestrator,
+    @Optional() private readonly rag?: PrometeoService,
+  ) {
     this.enabled = !!llm && llm.hasLLMProvider;
     if (!this.enabled) {
       this.logger.log("[LLMNarrative] disabled — no LLM provider available");
@@ -146,10 +150,17 @@ export class LLMNarrativeService {
       return { data: fallback, structuredOutputValid: false, retried: false, parseError: "LLM not available" };
     }
 
+    // Enrich with RAG context (scope docs, contracts) if available
+    let ragBlock = "";
+    if (this.rag) {
+      const ragCtx = await this.rag.retrieveContext({ query: `scope ${scopeOriginal.slice(0, 200)}`, tenantId: "global", topK: 2 }).catch(() => null);
+      if (ragCtx?.available) ragBlock = `\n${ragCtx.contextBlock}\n`;
+    }
+
     const makePrompt = (strict: boolean) => [
       `Eres el detector de change orders de SEMSE. Determina si el nuevo mensaje implica`,
       `trabajo adicional fuera del scope original del contrato.`,
-      ``,
+      ragBlock,
       `SCOPE ORIGINAL:`,
       scopeOriginal,
       ``,

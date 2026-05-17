@@ -238,6 +238,52 @@ export class PrometeoService {
     };
   }
 
+  /**
+   * Agent-facing API: retrieve relevant document context for a query.
+   * Returns contextBlock (for prompt injection) + citations.
+   * Safe to call with @Optional injection — returns empty if no indexed docs.
+   */
+  async retrieveContext(input: {
+    query:      string;
+    tenantId:   string;
+    projectId?: string;
+    trade?:     string;
+    topK?:      number;
+  }): Promise<{
+    available:    boolean;
+    contextBlock: string;
+    citations:    Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }>;
+  }> {
+    try {
+      const ctx = await this.buildRagContext({ tenantId: input.tenantId, projectId: input.projectId, query: input.query, topK: input.topK ?? 4 });
+      if (!ctx.chunks.length) return { available: false, contextBlock: "", citations: [] };
+
+      // Filter by trade if specified
+      const filtered = input.trade
+        ? ctx.chunks.filter((c) => {
+            const meta = c as Record<string, unknown> & { metadataJson?: unknown };
+            const m = meta.metadataJson as Record<string, unknown> | undefined;
+            return !m?.trade || m.trade === input.trade || m.trade === "general";
+          })
+        : ctx.chunks;
+
+      if (!filtered.length) return { available: false, contextBlock: "", citations: [] };
+
+      const citations = filtered.slice(0, 4).map((c) => ({
+        documentId:    c.documentId,
+        documentTitle: c.documentTitle,
+        excerpt:       c.text.slice(0, 150),
+        score:         c.score,
+      }));
+
+      const contextLines = ["## Contexto documental (Prometeo RAG)", ...filtered.slice(0, 4).map((c) => `### ${c.documentTitle}\n${c.text.slice(0, 500)}`)];
+      return { available: true, contextBlock: contextLines.join("\n\n"), citations };
+    } catch (err) {
+      this.logger.warn(`[prometeo] retrieveContext failed: ${(err as Error).message}`);
+      return { available: false, contextBlock: "", citations: [] };
+    }
+  }
+
   // ── Document management ─────────────────────────────────────────────────────
 
   async listDocuments(tenantId: string, projectId?: string) {

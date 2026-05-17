@@ -4,6 +4,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { PrometeoService } from "../prometeo/prometeo.service.js";
 import { OperationalSignalsService } from "./operational-signals.service.js";
 
 // ── Zod schema for LLM structured output ──────────────────────────────────────
@@ -110,6 +111,7 @@ export class EvidenceReviewService {
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly signals?: OperationalSignalsService,
     @Optional() private readonly sse?: SseEventBusService,
+    @Optional() private readonly rag?: PrometeoService,
   ) {}
 
   async runReview(input: {
@@ -153,12 +155,25 @@ export class EvidenceReviewService {
     let structuredOutputValid = false;
 
     if (!input.forceRulesOnly && this.llm) {
+      // Enrich prompt with RAG context if available (trade-specific docs)
+      let ragContextBlock = "";
+      if (this.rag) {
+        const ragCtx = await this.rag.retrieveContext({
+          query:    `${item.label} ${item.kind} evidence review`,
+          tenantId: input.tenantId,
+          trade:    (milestoneBase as Record<string, unknown> & { title?: string }).title?.toLowerCase().includes("elect") ? "electrical" : "general",
+          topK:     3,
+        });
+        if (ragCtx.available) ragContextBlock = ragCtx.contextBlock;
+      }
+
       const prompt = this.buildPrompt(
         item,
         { title: milestoneTitle ?? null },
         approvedRequired,
         totalRequired,
         isEs,
+        ragContextBlock,
       );
 
       try {
@@ -328,6 +343,7 @@ export class EvidenceReviewService {
     approvedRequired: number,
     totalRequired: number,
     isEs: boolean,
+    ragContext?: string,
   ): string {
     if (isEs) {
       return [
@@ -338,6 +354,7 @@ export class EvidenceReviewService {
         `DESCRIPCIÓN: ${item.description ?? "Sin descripción"}`,
         `ESTADO ACTUAL: ${item.status}`,
         `PROGRESO: ${approvedRequired}/${totalRequired} items requeridos aprobados`,
+        ragContext ? `\n${ragContext}` : "",
         ``,
         `Responde SOLO con este JSON (sin texto adicional):`,
         `{`,
