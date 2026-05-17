@@ -1,9 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Optional, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
+import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
+import { OperationalRagContextService } from "../prometeo/operational-rag-context.service.js";
 import { BuildOpsLegacyPromotionService } from "./buildops-legacy-promotion.service.js";
 import type { BuildOpsPlanApprovalSource } from "./buildops-plan-approval.types.js";
 import { BuildOpsPlanApprovalService } from "./buildops-plan-approval.service.js";
@@ -38,6 +41,8 @@ export class BuildOpsController {
     private readonly buildOpsPlanApprovalService: BuildOpsPlanApprovalService,
     private readonly buildOpsLegacyPromotionService: BuildOpsLegacyPromotionService,
     private readonly buildOpsPlanRerunService: BuildOpsPlanRerunService,
+    @Optional() private readonly ragCtx?: OperationalRagContextService,
+    @Optional() private readonly llm?: LLMOrchestrator,
   ) {}
 
   @Get("overview")
@@ -297,6 +302,116 @@ export class BuildOpsController {
     });
 
     return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  /** Prometeo RAG — operational context query (Fase 3) */
+  @Post("projects/:projectId/rag-query")
+  @RequirePermissions("projects:read")
+  async operationalRagQuery(
+    @Req() req: FastifyRequest,
+    @Param("projectId") projectId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const c = ctx(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const question = typeof body.question === "string" ? body.question.trim() : "";
+    const locale   = body.locale === "en" ? "en" as const : "es" as const;
+
+    if (!question) return ok(rid, { answer: "La pregunta no puede estar vacía.", citations: [], confidence: 0, insufficientContext: true });
+
+    // Build operational context
+    const opCtx = this.ragCtx ? await this.ragCtx.build({
+      projectId,
+      tenantId:                c.tenantId,
+      milestoneId:             typeof body.milestoneId === "string" ? body.milestoneId : undefined,
+      evidenceItemId:          typeof body.evidenceItemId === "string" ? body.evidenceItemId : undefined,
+      changeOrderId:           typeof body.changeOrderId === "string" ? body.changeOrderId : undefined,
+      includeAuditTrail:       body.includeAuditTrail !== false,
+      includeOperationalSignals: body.includeOperationalSignals !== false,
+    }) : null;
+
+    const contextBlock = opCtx && this.ragCtx ? this.ragCtx.buildContextBlock(opCtx, locale) : "";
+    const citations    = opCtx && this.ragCtx ? this.ragCtx.buildCitations(opCtx) : [];
+    const missingSources = opCtx?.missingSources ?? [];
+
+    // Insufficient context guard
+    if (!opCtx || (!opCtx.paymentGovernance && !opCtx.milestone && !opCtx.evidenceItems.length && !opCtx.changeOrders.length)) {
+      return ok(rid, {
+        answer: locale === "es"
+          ? "No hay suficiente contexto operacional para responder. Verifica que el proyecto tenga milestones, evidencia o governance cargados."
+          : "Not enough operational context. Verify the project has milestones, evidence, or governance data.",
+        citations: [], confidence: 0, insufficientContext: true,
+        missingSources: ["milestone", "payment_governance", "evidence"],
+        provider: "rules", model: null, fallbackUsed: false, privacyMode: "privacyCritical",
+      });
+    }
+
+    // LLM call (privacyCritical → Ollama local)
+    const systemPrompt = locale === "es"
+      ? "Eres Prometeo, el motor de explicación operacional de SEMSE OS. Responde SOLO usando las fuentes del contexto. No inventes contratos, evidencia ni historial. Si falta contexto, marca insufficientContext=true. No liberes pagos automáticamente. Cita fuentes."
+      : "You are Prometeo, SEMSE OS operational explanation engine. Answer using ONLY the provided context. Do not invent data. Mark insufficientContext=true if missing info. Do not release payments automatically. Cite sources.";
+
+    const prompt = [
+      contextBlock,
+      `---`,
+      locale === "es" ? `Pregunta: ${question}` : `Question: ${question}`,
+      ``,
+      locale === "es"
+        ? `Responde en JSON: {"answer":"...","nextBestAction":"...","confidence":0.0-1.0,"insufficientContext":false,"missingSources":[]}`
+        : `Answer in JSON: {"answer":"...","nextBestAction":"...","confidence":0.0-1.0,"insufficientContext":false,"missingSources":[]}`,
+    ].join("\n");
+
+    let answer = "", confidence = 0.5, nextBestAction: string | undefined;
+    let insufficientContext = false;
+    let provider = "rules"; let model: string | undefined; let fallbackUsed = false;
+
+    if (this.llm) {
+      try {
+        const res = await this.llm.chat({
+          systemPrompt, history: [], userMessage: prompt,
+          context: { ...getAgentProfile("evidence-analyzer"), agentName: "prometeo-operational", source: "prometeo-rag-phase3" },
+        });
+        provider = res.provider; model = res.model; fallbackUsed = res.metadata.fallbackUsed;
+        const match = res.text.match(/\{[\s\S]*\}/);
+        if (match) {
+          try {
+            const p = JSON.parse(match[0]) as Record<string, unknown>;
+            answer = typeof p.answer === "string" ? p.answer : res.text;
+            confidence = typeof p.confidence === "number" ? p.confidence : 0.5;
+            nextBestAction = typeof p.nextBestAction === "string" ? p.nextBestAction : undefined;
+            insufficientContext = Boolean(p.insufficientContext);
+          } catch { answer = res.text; }
+        } else { answer = res.text; }
+      } catch {
+        // Fallback: use governance data directly
+        const gov = opCtx.paymentGovernance;
+        answer = gov
+          ? (locale === "es"
+              ? `El proyecto está en estado ${gov.releaseStatus ?? "?"}. canRelease=${gov.canRelease}. ${Array.isArray(gov.blockers) && gov.blockers.length > 0 ? `Bloqueadores: ${(gov.blockers as string[]).join("; ")}. ` : ""}${gov.nextBestAction ? `Siguiente acción: ${gov.nextBestAction}.` : ""}`
+              : `Project status: ${gov.releaseStatus}. canRelease=${gov.canRelease}. ${gov.nextBestAction ?? ""}`)
+          : (locale === "es" ? "No se pudo procesar la consulta con el LLM local. Revise Ollama." : "Could not process with local LLM. Check Ollama.");
+        nextBestAction = gov?.nextBestAction as string | undefined;
+        provider = "rules"; fallbackUsed = true;
+      }
+    } else {
+      // No LLM — deterministic template
+      const gov = opCtx.paymentGovernance;
+      answer = gov
+        ? `${locale === "es" ? "Estado de pago" : "Payment status"}: ${gov.releaseStatus}. canRelease=${gov.canRelease}. ${gov.nextBestAction ?? ""}`
+        : (locale === "es" ? "Sin datos de gobernanza disponibles." : "No governance data available.");
+      nextBestAction = gov?.nextBestAction as string | undefined;
+    }
+
+    return ok(rid, {
+      answer, citations, confidence, nextBestAction,
+      insufficientContext, missingSources,
+      provider, model, fallbackUsed,
+      privacyMode: "privacyCritical",
+      contextSourcesUsed: Object.keys(opCtx).filter((k) => {
+        const v = opCtx[k as keyof typeof opCtx];
+        return v !== null && (!Array.isArray(v) || (v as unknown[]).length > 0);
+      }),
+    });
   }
 
   @Post("plans/:buildOpsProjectId/rerun-bridge")

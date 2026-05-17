@@ -8,6 +8,7 @@ import { ArrowLeft, ArrowRight, CheckSquare, FileText, FolderKanban, MessageSqua
 import { Badge, Card } from "@/components/ui";
 import { buildOpsProjectStatusLabel, buildOpsProjectTypeLabel, buildOpsRiskLabel, buildOpsTradeLabel } from "../../../../lib/buildops-i18n";
 import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
+import { OperationalRagQueryPanel } from "@/components/buildops/OperationalRagQueryPanel";
 import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 import {
   fetchBuildOpsProject,
@@ -195,6 +196,11 @@ export default function BuildOpsProjectDetailPage() {
             key={`health-${project.id}-${healthRefreshKey}`}
             projectId={project.id}
           />
+        )}
+
+        {/* Prometeo RAG — operational explanation panel (Fase 3) */}
+        {isLoaded && project.id !== "loading" && (
+          <OperationalRagQueryPanel projectId={project.id} />
         )}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
