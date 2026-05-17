@@ -54,6 +54,12 @@ export class AdaptiveRouter {
   ): LLMProviderName[] {
     let candidates = [...providers];
 
+    // Local-only: never leave the machine
+    if (ctx?.localOnly) {
+      const localCandidates = candidates.filter((p) => PRIVATE.has(p));
+      if (localCandidates.length > 0) candidates = localCandidates;
+    }
+
     // Privacy: only local providers
     if (ctx?.privacyCritical) {
       const privCandidates = candidates.filter((p) => PRIVATE.has(p));

@@ -32,11 +32,15 @@ export type CopilotRoutingContext = {
   requiresTools?: boolean;
   riskLevel?: "low" | "medium" | "high";
   privacyCritical?: boolean;
+  localOnly?: boolean;       // force local (Ollama) provider only
   lowCost?: boolean;
   lowLatency?: boolean;
   preferredProvider?: LLMProviderName;
   fallbackOrder?: LLMProviderName[];
   taskType?: TaskType;
+  routingReason?: string;    // caller hint for log tracing
+  agentName?: string;        // which agent triggered this call
+  source?: string;           // prometeo | buildops | tools | hermes | etc.
 };
 
 // ── Chat input / output ───────────────────────────────────────────────────────

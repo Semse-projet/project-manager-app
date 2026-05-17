@@ -3,6 +3,7 @@ import type { CopilotRoutingContext, LLMProviderName } from "../types.js";
 export function selectProvider(ctx: CopilotRoutingContext | undefined): LLMProviderName {
   if (!ctx) return resolveDefault();
   if (ctx.preferredProvider) return ctx.preferredProvider;
+  if (ctx.localOnly) return "ollama";
   if (ctx.privacyCritical) return "ollama";
   if (ctx.riskLevel === "high") return "anthropic";
   if (ctx.requiresTools) return "anthropic";
@@ -15,7 +16,8 @@ function resolveDefault(): LLMProviderName {
   if (env === "anthropic" || env === "openai" || env === "ollama" || env === "template") {
     return env;
   }
-  return "anthropic";
+  // Ollama is the native default when LLM_DEFAULT_PROVIDER is not set
+  return "ollama";
 }
 
 export function buildFallbackChain(

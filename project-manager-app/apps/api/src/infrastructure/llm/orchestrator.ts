@@ -8,6 +8,7 @@ import { TemplateProvider } from "./providers/template.provider.js";
 import { AdaptiveRouter } from "./router/adaptive-router.js";
 import { buildFallbackChain } from "./router/routing-policy.js";
 import type {
+  CopilotRoutingContext,
   LLMChatInput,
   LLMChatResponse,
   LLMProvider,
@@ -28,6 +29,17 @@ export class LLMOrchestrator {
   }
 
   private initProviders(): void {
+    const defaultProvider = process.env.LLM_DEFAULT_PROVIDER ?? "ollama";
+
+    // Ollama — native/local primary. Registered whenever it is the default or explicitly enabled.
+    const ollamaEnabled =
+      defaultProvider === "ollama" ||
+      process.env.ENABLE_OPEN_SOURCE_MODELS === "true";
+    if (ollamaEnabled) {
+      this.providers.set("ollama", new OllamaProvider());
+      this.logger.log("Provider registered: ollama (native/local)");
+    }
+
     if (process.env.ANTHROPIC_API_KEY) {
       this.providers.set("anthropic", new AnthropicProvider(process.env.ANTHROPIC_API_KEY));
       this.logger.log("Provider registered: anthropic");
@@ -35,10 +47,6 @@ export class LLMOrchestrator {
     if (process.env.OPENAI_API_KEY) {
       this.providers.set("openai", new OpenAIProvider(process.env.OPENAI_API_KEY));
       this.logger.log("Provider registered: openai");
-    }
-    if (process.env.ENABLE_OPEN_SOURCE_MODELS === "true") {
-      this.providers.set("ollama", new OllamaProvider());
-      this.logger.log("Provider registered: ollama");
     }
     this.providers.set("template", new TemplateProvider((input) =>
       generateAgentResponse({
@@ -95,7 +103,7 @@ export class LLMOrchestrator {
           (final.usage?.inputTokens ?? 0) + (final.usage?.outputTokens ?? 0),
         );
 
-        this.logResult(final, taskType, i);
+        this.logResult(final, taskType, i, ctx);
         return final;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -115,16 +123,35 @@ export class LLMOrchestrator {
     return process.env.ENABLE_LLM_ROUTER !== "false";
   }
 
-  private logResult(res: LLMChatResponse, taskType: TaskType, attempt: number): void {
+  private deriveRoutingReason(ctx: CopilotRoutingContext | undefined, attempt: number): string {
+    if (attempt > 0) return "fallback";
+    if (!ctx) return "default";
+    if (ctx.routingReason) return ctx.routingReason;
+    if (ctx.localOnly) return "local-only";
+    if (ctx.privacyCritical) return "privacy-critical";
+    if (ctx.lowCost) return "low-cost";
+    if (ctx.requiresTools) return "tool-use";
+    if (ctx.riskLevel === "high") return "risk-high";
+    return "default";
+  }
+
+  private logResult(
+    res: LLMChatResponse,
+    taskType: TaskType,
+    attempt: number,
+    ctx: CopilotRoutingContext | undefined,
+  ): void {
     const u = res.usage;
     const snap = this.metrics.snapshot(res.provider, taskType);
+    const routingReason = this.deriveRoutingReason(ctx, attempt);
     this.logger.log(
       `[orchestrator] provider=${res.provider} model=${res.model ?? "?"} ` +
-      `taskType=${taskType} attempt=${attempt + 1} ` +
+      `taskType=${taskType} routingReason=${routingReason} attempt=${attempt + 1} ` +
       `latency=${res.metadata.latencyMs}ms ` +
       `in=${u?.inputTokens ?? 0} out=${u?.outputTokens ?? 0} ` +
       `cache_read=${u?.cacheReadTokens ?? 0} ` +
       `tools=${res.toolCalls.length} fallback=${res.metadata.fallbackUsed} ` +
+      `agentName=${ctx?.agentName ?? "-"} source=${ctx?.source ?? "-"} ` +
       `score=${snap.score} successRate=${(snap.successRate * 100).toFixed(0)}% ` +
       `avgLatency=${snap.avgLatencyMs}ms`,
     );

@@ -3,6 +3,7 @@ import type { LLMChatInput, LLMChatResponse, LLMProvider } from "../types.js";
 
 const DEFAULT_BASE_URL = "http://localhost:11434";
 const DEFAULT_MODEL = "llama3.1";
+const DEFAULT_TIMEOUT_MS = 60_000;
 
 type OllamaResponse = {
   message?: { content?: string };
@@ -17,10 +18,12 @@ export class OllamaProvider implements LLMProvider {
 
   private readonly baseUrl: string;
   private readonly model: string;
+  private readonly timeoutMs: number;
 
-  constructor(baseUrl?: string, model?: string) {
+  constructor(baseUrl?: string, model?: string, timeoutMs?: number) {
     this.baseUrl = (baseUrl ?? process.env.OLLAMA_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, "");
     this.model = model ?? process.env.OLLAMA_MODEL ?? DEFAULT_MODEL;
+    this.timeoutMs = timeoutMs ?? (Number(process.env.OLLAMA_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS);
   }
 
   isAvailable(): boolean { return true; }
@@ -49,7 +52,7 @@ export class OllamaProvider implements LLMProvider {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ model: this.model, messages, stream: false }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!res.ok) {
