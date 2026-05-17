@@ -197,16 +197,28 @@ export class MilestonesController {
     @Req() req: { headers?: Record<string, unknown> },
     @Param("milestoneId") milestoneId: string,
     @Param("itemId") itemId: string,
-    @Body() body: { status: "submitted" | "approved" | "rejected"; evidenceId?: string; reviewNote?: string },
+    @Body() body: {
+      status: "submitted" | "approved" | "rejected" | "needs_reupload" | "missing";
+      evidenceId?: string;
+      reviewNote?: string;
+      auditReason?: string;  // plain-text reason for rejection/reupload (required for rejected/needs_reupload)
+    },
   ) {
+    const { BadRequestException } = await import("@nestjs/common");
+    const requiresReason = body.status === "rejected" || body.status === "needs_reupload";
+    if (requiresReason && !body.reviewNote?.trim() && !body.auditReason?.trim()) {
+      throw new BadRequestException("auditReason or reviewNote is required when rejecting or requesting reupload");
+    }
+
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const item = await this.milestonesRepository.updateEvidenceItemStatus({
       milestoneId,
       itemId,
-      status:      body.status,
-      evidenceId:  body.evidenceId,
-      reviewNote:  body.reviewNote,
+      status:       body.status,
+      evidenceId:   body.evidenceId,
+      reviewNote:   body.reviewNote,
+      auditReason:  body.auditReason,
       reviewedById: actor.userId,
     });
 

@@ -8,6 +8,7 @@ import { Badge, Card } from "@/components/ui";
 import { buildOpsMilestoneStatusLabel } from "../../../lib/buildops-i18n";
 import { fetchBuildOpsMilestones, type BuildOpsMilestone } from "../../../lib/buildops-api";
 import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
+import { EvidenceReviewAdminCard } from "@/components/milestones/EvidenceReviewAdminCard";
 
 const fallbackMilestones: BuildOpsMilestone[] = [];
 
@@ -93,6 +94,7 @@ export default function BuildOpsMilestonesPage() {
           ) : null}
           {milestones.map((milestone) => {
             const showGovernance = ["submitted", "awaiting_review", "approved"].includes(milestone.status);
+            const showEvidenceReview = milestone.status === "submitted" || milestone.status === "awaiting_review";
             return (
               <div key={milestone.id} className="grid gap-2">
                 <Card className="grid gap-4">
@@ -119,6 +121,7 @@ export default function BuildOpsMilestonesPage() {
                     <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : t("buildops.notApproved")}</span>
                   </div>
                 </Card>
+                {showEvidenceReview && <EvidenceReviewAdminCard milestoneId={milestone.id} onReviewed={() => {}} />}
                 {showGovernance && <MilestoneGovernancePanel milestoneId={milestone.id} />}
               </div>
             );

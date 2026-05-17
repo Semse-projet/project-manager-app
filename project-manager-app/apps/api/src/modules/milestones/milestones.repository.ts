@@ -520,17 +520,22 @@ export class MilestonesRepository {
   async updateEvidenceItemStatus(input: {
     milestoneId:  string;
     itemId:       string;
-    status:       "submitted" | "approved" | "rejected";
+    status:       "submitted" | "approved" | "rejected" | "needs_reupload" | "missing";
     evidenceId?:  string;
-    reviewNote?:  string;
+    reviewNote?:  string;   // admin review note or agent JSON
+    auditReason?: string;   // human-readable reason (stored in reviewNote if no agent JSON)
     reviewedById?: string;
   }) {
+    // Merge admin auditReason into reviewNote if no explicit reviewNote provided
+    const reviewNote = input.reviewNote
+      ?? (input.auditReason ? JSON.stringify({ adminReview: { status: input.status, reason: input.auditReason, reviewedAt: new Date().toISOString() } }) : undefined);
+
     return this.prisma.milestoneEvidenceItem.update({
       where: { id: input.itemId, milestoneId: input.milestoneId },
       data: {
         status:       input.status,
         evidenceId:   input.evidenceId ?? undefined,
-        reviewNote:   input.reviewNote ?? undefined,
+        reviewNote:   reviewNote ?? undefined,
         reviewedById: input.reviewedById ?? undefined,
         reviewedAt:   new Date(),
         updatedAt:    new Date(),
