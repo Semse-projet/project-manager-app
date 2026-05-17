@@ -6,6 +6,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
+import { TradeGuideService } from "./trade-guide.service.js";
 
 @Controller("v1/prometeo")
 export class PrometeoController {
@@ -13,6 +14,7 @@ export class PrometeoController {
   constructor(
     private readonly svc: PrometeoService,
     @Optional() private readonly llm?: LLMOrchestrator,
+    @Optional() private readonly tradeGuide?: TradeGuideService,
   ) {}
 
   // ── RAG Documents ───────────────────────────────────────────────────────────
@@ -273,6 +275,32 @@ export class PrometeoController {
       privacyMode: "privacyCritical",
       documentsSearched: ctx.chunks.length,
     });
+  }
+
+  /** Training Agent — trade-specific guidance using indexed manuals/books. */
+  @Post("trade-guide")
+  @RequirePermissions("agents:run:create")
+  async tradeGuide(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const b = body as Record<string, unknown>;
+    const question = typeof b.question === "string" ? b.question.trim() : "";
+    const trade    = typeof b.trade === "string" ? b.trade : "general";
+    const locale   = b.locale === "en" ? "en" as const : "es" as const;
+
+    if (!question) return ok(rid, { answer: "La pregunta no puede estar vacía.", confidence: 0, insufficientContext: true });
+
+    if (!this.tradeGuide) {
+      return ok(rid, { answer: "Training Agent no está disponible.", confidence: 0, insufficientContext: true });
+    }
+
+    const result = await this.tradeGuide.guide({
+      question, trade, locale,
+      tenantId:  actor.tenantId,
+      projectId: typeof b.projectId === "string" ? b.projectId : undefined,
+    });
+
+    return ok(rid, result);
   }
 
   // ── Assets ──────────────────────────────────────────────────────────────────

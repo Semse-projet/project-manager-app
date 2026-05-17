@@ -109,9 +109,11 @@ export default function PrometeoPage() {
 
   // RAG query
   const [ragQuestion, setRagQuestion] = useState("");
+  const [ragMode, setRagMode] = useState<"rag" | "guide">("rag");
   const [ragResult, setRagResult] = useState<{
-    answer: string; citations: Array<{ label: string; excerpt: string; score?: number }>; confidence: number;
-    nextBestAction?: string; insufficientContext?: boolean; provider: string; fallbackUsed: boolean;
+    answer: string; citations: Array<{ label: string; excerpt: string; score?: number; documentTitle?: string }>; confidence: number;
+    nextBestAction?: string; steps?: string[]; warnings?: string[]; evidenceNeeded?: string[];
+    insufficientContext?: boolean; provider: string; fallbackUsed: boolean;
   } | null>(null);
   const [ragLoading, setRagLoading] = useState(false);
   const [ragError, setRagError] = useState<string | null>(null);
@@ -197,13 +199,15 @@ export default function PrometeoPage() {
     setRagError(null);
     setRagResult(null);
     try {
-      const result = await apiPost<typeof ragResult>("/api/semse/prometeo/rag-query", {
+      const endpoint = ragMode === "guide" ? "/api/semse/prometeo/trade-guide" : "/api/semse/prometeo/rag-query";
+      const result = await apiPost<typeof ragResult>(endpoint, {
         question: ragQuestion, locale: "es",
-        ...(filterTrade ? { trade: filterTrade } : {}),
+        trade: filterTrade || "general",
+        ...(ragMode === "rag" && filterTrade ? { trade: filterTrade } : {}),
       });
       setRagResult(result);
     } catch (err) {
-      setRagError(err instanceof Error ? err.message : "Error en RAG query");
+      setRagError(err instanceof Error ? err.message : "Error en consulta");
     } finally { setRagLoading(false); }
   }
 
@@ -442,23 +446,37 @@ export default function PrometeoPage() {
           </div>
         )}
 
-        {/* ── CONSULTAR CON IA (RAG Query) ── */}
+        {/* ── CONSULTAR CON IA (RAG Query + Trade Guide) ── */}
         {tab === "query" && (
           <div style={{ display: "grid", gap: 14 }}>
             <div style={card}>
-              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>Consultar base documental con IA</div>
-              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 14 }}>
-                Prometeo responde usando los documentos indexados. Las respuestas incluyen fuentes citadas.
-                {docs.filter((d) => d.status === "indexed").length === 0 && (
-                  <span style={{ color: "#fbbf24" }}> — Primero indexa documentos en "Base RAG".</span>
-                )}
+              <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Consultar con IA</div>
+              {/* Mode toggle */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {([["rag","📚 Base documental"],["guide","🔧 Guía por oficio"]] as const).map(([m,label]) => (
+                  <button key={m} onClick={() => setRagMode(m)}
+                    style={{ ...btn(ragMode === m ? "#fff" : "var(--muted)", ragMode === m ? "#6366f1" : "transparent"), border: ragMode === m ? "none" : "1px solid var(--border)", fontSize: 11 }}>
+                    {label}
+                  </button>
+                ))}
+                <select value={filterTrade} onChange={(e) => setFilterTrade(e.target.value)}
+                  style={{ ...input, width: "auto", fontSize: 11, padding: "5px 8px", cursor: "pointer" }}>
+                  <option value="">Todos los oficios</option>
+                  {TRADES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
+                {ragMode === "guide"
+                  ? `Training Agent: responde usando manuales de ${TRADES.find((t) => t.value === filterTrade)?.label ?? "tu oficio"} indexados en Prometeo.`
+                  : "Prometeo responde usando todos los documentos indexados con fuentes citadas."}
+                {docs.filter((d) => d.status === "indexed").length === 0 && <span style={{ color: "#fbbf24" }}> — Primero indexa documentos.</span>}
               </div>
               <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
                 <input
                   value={ragQuestion}
                   onChange={(e) => setRagQuestion(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && void handleRagQuery()}
-                  placeholder="¿Qué quieres saber? Ej: ¿Qué pasos se recomiendan para instalación eléctrica?"
+                  placeholder={ragMode === "guide" ? "¿Qué debo revisar antes de comenzar? ¿Qué herramientas necesito?" : "¿Qué quieres saber?"}
                   style={{ ...input, flex: 1 }}
                 />
                 <button
@@ -483,6 +501,25 @@ export default function PrometeoPage() {
                     {ragResult.nextBestAction && (
                       <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(99,102,241,.08)", fontSize: 12, color: "#a5b4fc" }}>
                         <strong>Siguiente acción:</strong> {ragResult.nextBestAction}
+                      </div>
+                    )}
+                    {/* Trade Guide extras */}
+                    {ragResult.steps && ragResult.steps.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#86efac", marginBottom: 4 }}>PASOS</div>
+                        {ragResult.steps.map((s, i) => <div key={i} style={{ fontSize: 12, color: "var(--muted)", paddingLeft: 8 }}>{i + 1}. {s}</div>)}
+                      </div>
+                    )}
+                    {ragResult.warnings && ragResult.warnings.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#fbbf24", marginBottom: 4 }}>⚠ ADVERTENCIAS</div>
+                        {ragResult.warnings.map((w, i) => <div key={i} style={{ fontSize: 12, color: "#fbbf24", paddingLeft: 8 }}>• {w}</div>)}
+                      </div>
+                    )}
+                    {ragResult.evidenceNeeded && ragResult.evidenceNeeded.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#818cf8", marginBottom: 4 }}>EVIDENCIA SEMSE REQUERIDA</div>
+                        {ragResult.evidenceNeeded.map((e, i) => <div key={i} style={{ fontSize: 12, color: "var(--muted)", paddingLeft: 8 }}>📷 {e}</div>)}
                       </div>
                     )}
                   </div>
