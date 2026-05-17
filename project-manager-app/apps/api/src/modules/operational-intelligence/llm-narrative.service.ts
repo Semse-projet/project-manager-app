@@ -11,9 +11,56 @@ export const ChangeOrderSchema = z.object({
   reason:          z.string().optional(),
   risk:            z.enum(["low", "medium", "high"]).optional(),
   suggestedAction: z.string().optional(),
+  evidenceGap:     z.boolean().optional(),  // falta evidencia para tomar decisión
+  guardrailApplied: z.boolean().optional(), // negocio sobrescribió el risk del LLM
 });
 
 export type ChangeOrderCandidateDetection = z.infer<typeof ChangeOrderSchema>;
+
+// ── Guardrails de negocio para ChangeOrder ────────────────────────────────────
+// No confiar únicamente en el risk generado por el LLM.
+// El negocio sobrescribe cuando hay condiciones objetivas.
+
+const HIGH_RISK_KEYWORDS = [
+  "humedad", "moisture", "daño oculto", "hidden damage", "estructura", "structural",
+  "electricidad", "electrical", "electric", "permiso", "permit", "demolición",
+  "demolition", "derrumbe", "mold", "moho", "asbestos", "plomería", "plumbing",
+  "gas", "cimientos", "foundation", "techo estructural", "roof structure",
+];
+
+const MEDIUM_RISK_MIN_KEYWORDS = [
+  "fuera de scope", "out of scope", "no incluido", "not included", "adicional",
+  "additional", "extra", "además", "also", "también", "encima", "on top",
+  "cambio de plan", "change of plan", "nuevo trabajo", "new work",
+];
+
+export function applyChangeOrderGuardrails(
+  result: ChangeOrderCandidateDetection,
+  newMessage: string,
+): ChangeOrderCandidateDetection {
+  if (!result.detected) return result;
+
+  const msg = newMessage.toLowerCase();
+  let applied = false;
+  let risk = result.risk;
+
+  // If any high-risk keyword detected → escalate to "high"
+  if (risk !== "high" && HIGH_RISK_KEYWORDS.some((kw) => msg.includes(kw))) {
+    risk = "high";
+    applied = true;
+  }
+
+  // If any out-of-scope keyword and risk is "low" → escalate to "medium"
+  if (risk === "low" && MEDIUM_RISK_MIN_KEYWORDS.some((kw) => msg.includes(kw))) {
+    risk = "medium";
+    applied = true;
+  }
+
+  // Evidence gap: if message contains uncertainty markers
+  const evidenceGap = /quizás|maybe|no sé|not sure|podría|might|depende|depends/.test(msg);
+
+  return { ...result, risk, evidenceGap: evidenceGap || undefined, guardrailApplied: applied || undefined };
+}
 
 export type StructuredOutputResult<T> = {
   data: T;
@@ -121,7 +168,7 @@ export class LLMNarrativeService {
     const first = this.parseStructured(raw, ChangeOrderSchema);
 
     if (first.structuredOutputValid) {
-      return { ...first, retried: false };
+      return { ...first, retried: false, data: applyChangeOrderGuardrails(first.data, newMessage) };
     }
 
     // Retry once with stricter prompt
@@ -132,6 +179,7 @@ export class LLMNarrativeService {
     return {
       ...second,
       retried: true,
+      data: second.structuredOutputValid ? applyChangeOrderGuardrails(second.data, newMessage) : second.data,
       rawOutput: second.structuredOutputValid ? undefined : (raw2 ?? undefined),
     };
   }
