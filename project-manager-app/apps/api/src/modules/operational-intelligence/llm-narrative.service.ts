@@ -1,6 +1,27 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { z } from "zod";
 import { getAgentProfile, type AgentProfileName } from "../../infrastructure/llm/agent-profiles.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
+
+// ── Zod schemas (structured output validation) ────────────────────────────────
+
+export const ChangeOrderSchema = z.object({
+  detected:        z.boolean(),
+  title:           z.string().optional(),
+  reason:          z.string().optional(),
+  risk:            z.enum(["low", "medium", "high"]).optional(),
+  suggestedAction: z.string().optional(),
+});
+
+export type ChangeOrderCandidateDetection = z.infer<typeof ChangeOrderSchema>;
+
+export type StructuredOutputResult<T> = {
+  data: T;
+  structuredOutputValid: boolean;
+  rawOutput?: string;
+  parseError?: string;
+  retried: boolean;
+};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -12,14 +33,6 @@ export type EvidenceReadinessInput = {
   missingLabels: string[];
   rejectedLabels: string[];
   trade?: string;
-};
-
-export type ChangeOrderCandidateDetection = {
-  detected: boolean;
-  title?: string;
-  reason?: string;
-  risk?: "low" | "medium" | "high";
-  suggestedAction?: string;
 };
 
 export type RiskNarrativeInput = {
@@ -80,13 +93,15 @@ export class LLMNarrativeService {
   async detectChangeOrderCandidate(
     scopeOriginal: string,
     newMessage: string,
-  ): Promise<ChangeOrderCandidateDetection> {
+  ): Promise<StructuredOutputResult<ChangeOrderCandidateDetection>> {
     const fallback: ChangeOrderCandidateDetection = { detected: false };
-    if (!this.isReady()) return fallback;
+    if (!this.isReady()) {
+      return { data: fallback, structuredOutputValid: false, retried: false, parseError: "LLM not available" };
+    }
 
-    const prompt = [
-      `Eres el detector de change orders de SEMSE. Tu tarea es determinar si un nuevo mensaje del cliente`,
-      `implica trabajo adicional fuera del scope original del contrato.`,
+    const makePrompt = (strict: boolean) => [
+      `Eres el detector de change orders de SEMSE. Determina si el nuevo mensaje implica`,
+      `trabajo adicional fuera del scope original del contrato.`,
       ``,
       `SCOPE ORIGINAL:`,
       scopeOriginal,
@@ -94,13 +109,31 @@ export class LLMNarrativeService {
       `NUEVO MENSAJE:`,
       newMessage,
       ``,
-      `Responde SOLO con JSON válido siguiendo este formato exacto:`,
-      `{"detected": true/false, "title": "título corto", "reason": "por qué es un change order", "risk": "low|medium|high", "suggestedAction": "acción recomendada"}`,
-      `Si no hay change order, responde: {"detected": false}`,
-    ].join("\n");
+      strict
+        ? `Responde ÚNICAMENTE con este JSON exacto, sin texto extra, sin markdown:`
+        : `Responde SOLO con JSON válido siguiendo este formato:`,
+      `{"detected": true, "title": "título corto", "reason": "explicación", "risk": "low|medium|high", "suggestedAction": "acción"}`,
+      `O si no hay change order: {"detected": false}`,
+      strict ? `NO agregues nada más. Solo el JSON.` : "",
+    ].filter(Boolean).join("\n");
 
-    const raw = await this.safeChat(prompt, "change-order-detector");
-    return this.parseJson<ChangeOrderCandidateDetection>(raw, fallback);
+    const raw = await this.safeChat(makePrompt(false), "change-order-detector");
+    const first = this.parseStructured(raw, ChangeOrderSchema);
+
+    if (first.structuredOutputValid) {
+      return { ...first, retried: false };
+    }
+
+    // Retry once with stricter prompt
+    this.logger.warn(`[LLMNarrative] ChangeOrder JSON inválido, reintentando con prompt estricto...`);
+    const raw2 = await this.safeChat(makePrompt(true), "change-order-detector");
+    const second = this.parseStructured(raw2, ChangeOrderSchema);
+
+    return {
+      ...second,
+      retried: true,
+      rawOutput: second.structuredOutputValid ? undefined : (raw2 ?? undefined),
+    };
   }
 
   // ── Risk narrative ─────────────────────────────────────────────────────────
@@ -199,6 +232,41 @@ export class LLMNarrativeService {
     } catch (err) {
       this.logger.warn(`[LLMNarrative] safeChat failed profile=${profileName}: ${(err as Error)?.message ?? String(err)}`);
       return null;
+    }
+  }
+
+  private parseStructured<T>(
+    raw: string | null,
+    schema: z.ZodType<T>,
+  ): StructuredOutputResult<T> {
+    const fallback = { structuredOutputValid: false, retried: false } as Omit<StructuredOutputResult<T>, "data">;
+    if (!raw) {
+      return { ...fallback, data: undefined as unknown as T, parseError: "empty response", rawOutput: undefined };
+    }
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) {
+      return { ...fallback, data: undefined as unknown as T, parseError: "no JSON object found", rawOutput: raw.slice(0, 300) };
+    }
+    try {
+      const parsed = JSON.parse(match[0]);
+      const result = schema.safeParse(parsed);
+      if (result.success) {
+        return { data: result.data, structuredOutputValid: true, retried: false };
+      }
+      return {
+        ...fallback,
+        data: parsed as T,
+        structuredOutputValid: false,
+        parseError: result.error.message,
+        rawOutput: match[0].slice(0, 300),
+      };
+    } catch (err) {
+      return {
+        ...fallback,
+        data: undefined as unknown as T,
+        parseError: `JSON.parse failed: ${(err as Error).message}`,
+        rawOutput: match[0].slice(0, 300),
+      };
     }
   }
 

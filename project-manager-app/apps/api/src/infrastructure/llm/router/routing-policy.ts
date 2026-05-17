@@ -20,6 +20,8 @@ function resolveDefault(): LLMProviderName {
   return "ollama";
 }
 
+const CLOUD_PROVIDERS: ReadonlySet<LLMProviderName> = new Set(["anthropic", "openai"]);
+
 export function buildFallbackChain(
   primary: LLMProviderName,
   ctx: CopilotRoutingContext | undefined,
@@ -32,7 +34,13 @@ export function buildFallbackChain(
   const chain: LLMProviderName[] = ctx?.fallbackOrder ?? fromEnv;
 
   // Ensure primary is first, template is last, no duplicates
-  const ordered = [primary, ...chain.filter((p) => p !== primary)];
+  let ordered = [primary, ...chain.filter((p) => p !== primary)];
   if (!ordered.includes("template")) ordered.push("template");
+
+  // localOnly / privacyCritical: strip cloud providers — never fallback silently to cloud
+  if (ctx?.localOnly || ctx?.privacyCritical) {
+    ordered = ordered.filter((p) => !CLOUD_PROVIDERS.has(p));
+  }
+
   return ordered;
 }

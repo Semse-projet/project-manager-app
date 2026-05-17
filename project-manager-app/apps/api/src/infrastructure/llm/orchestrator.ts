@@ -80,6 +80,19 @@ export class LLMOrchestrator {
       ? this.adaptiveRouter.rank(available, ctx, taskType)
       : buildFallbackChain(available[0] ?? "template", ctx);
 
+    // Enforce no-cloud policy for localOnly / privacyCritical
+    if (ctx?.localOnly || ctx?.privacyCritical) {
+      const cloudInChain = chain.filter(
+        (p) => p === "anthropic" || p === "openai",
+      );
+      if (cloudInChain.length > 0) {
+        this.logger.warn(
+          `[orchestrator] POLICY: removing cloud providers from chain due to ${ctx?.localOnly ? "localOnly" : "privacyCritical"}=true. Removed: ${cloudInChain.join(",")}`,
+        );
+        chain.splice(0, chain.length, ...chain.filter((p) => p !== "anthropic" && p !== "openai"));
+      }
+    }
+
     for (let i = 0; i < chain.length; i++) {
       const providerName = chain[i]!;
       const provider = this.providers.get(providerName);
