@@ -12,6 +12,7 @@ import { parseWithSchema } from "../../common/zod-validation.js";
 import { MilestonesService } from "./milestones.service.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
+import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
 
 @Controller()
 export class MilestonesController {
@@ -19,6 +20,7 @@ export class MilestonesController {
     private readonly milestonesService: MilestonesService,
     private readonly milestonesRepository: MilestonesRepository,
     @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
+    @Optional() private readonly paymentGovernance?: PaymentGovernanceService,
   ) {}
 
   @Post("v1/projects/:projectId/milestones")
@@ -268,5 +270,33 @@ export class MilestonesController {
       nextAction:       readiness.nextAction,
       generatedAt:      new Date().toISOString(),
     });
+  }
+
+  // ── P2 — Payment release governance ─────────────────────────────────────────
+
+  @Get("v1/milestones/:milestoneId/payment-governance")
+  @RequirePermissions("milestones:read")
+  async getPaymentGovernance(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+
+    if (!this.paymentGovernance) {
+      // Fallback to basic readiness if governance service not injected
+      const readiness = await this.milestonesRepository.computePaymentReadiness(milestoneId, actor.tenantId);
+      return ok(requestId, {
+        milestoneId,
+        releaseStatus: readiness.status === "ready_to_release" ? "ready" : readiness.status,
+        canRelease: readiness.status === "ready_to_release",
+        blockers: readiness.blockers,
+        nextBestAction: readiness.nextAction,
+        governedAt: new Date().toISOString(),
+      });
+    }
+
+    const result = await this.paymentGovernance.evaluate(milestoneId, actor.tenantId);
+    return ok(requestId, result);
   }
 }
