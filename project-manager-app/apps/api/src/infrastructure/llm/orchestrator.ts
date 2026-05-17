@@ -70,6 +70,10 @@ export class LLMOrchestrator {
     return this.metrics.allSnapshots();
   }
 
+  getOllamaProvider(): import("./providers/ollama.provider.js").OllamaProvider | undefined {
+    return this.providers.get("ollama") as import("./providers/ollama.provider.js").OllamaProvider | undefined;
+  }
+
   async providerHealthSummary(): Promise<Record<string, {
     registered: boolean;
     healthy?: boolean;

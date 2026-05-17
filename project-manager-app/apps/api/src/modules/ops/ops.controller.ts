@@ -76,6 +76,72 @@ export class OpsController {
     return ok(requestId, this.llmOrchestrator.metricsSnapshot());
   }
 
+  @Get("ai-mission-control/ollama/health")
+  @RequirePermissions("ops:dashboard:read")
+  async getOllamaHealth(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ollama = this.llmOrchestrator.getOllamaProvider();
+
+    if (!ollama) {
+      return ok(requestId, { registered: false, message: "Ollama provider not registered (check LLM_DEFAULT_PROVIDER and ENABLE_OPEN_SOURCE_MODELS)" });
+    }
+
+    const config = ollama.getConfig();
+    const t0 = Date.now();
+    const health = await ollama.modelHealthCheck();
+    const latencyMs = Date.now() - t0;
+
+    return ok(requestId, {
+      registered: true,
+      serverOk: health.serverOk,
+      modelLoaded: health.modelLoaded,
+      availableModels: health.availableModels,
+      configuredModel: config.model,
+      baseUrl: config.baseUrl.replace(/\/\/[^@]*@/, "//***@"), // mask credentials
+      isRemote: config.isRemote,
+      hasApiKey: config.hasApiKey,
+      timeoutMs: config.timeoutMs,
+      healthCheckLatencyMs: latencyMs,
+      localOnlySafe: true,
+      checkedAt: new Date().toISOString(),
+    });
+  }
+
+  @Post("ai-mission-control/ollama/test")
+  @RequirePermissions("ops:dashboard:write")
+  async testOllama(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ollama = this.llmOrchestrator.getOllamaProvider();
+
+    if (!ollama) {
+      return ok(requestId, { success: false, error: "Ollama not registered" });
+    }
+
+    const t0 = Date.now();
+    try {
+      const res = await this.llmOrchestrator.chat({
+        systemPrompt: "You are a SEMSE OS health check assistant.",
+        history: [],
+        userMessage: "Respond with only: {\"status\":\"ok\",\"provider\":\"ollama\"}",
+        context: { localOnly: true, source: "ai-mission-control:test", routingReason: "admin-test" },
+      });
+      return ok(requestId, {
+        success: true,
+        provider: res.provider,
+        model: res.model,
+        latencyMs: Date.now() - t0,
+        fallbackUsed: res.metadata.fallbackUsed,
+        responsePreview: res.text.slice(0, 100),
+      });
+    } catch (err) {
+      return ok(requestId, {
+        success: false,
+        latencyMs: Date.now() - t0,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   @Get("audit")
   @RequirePermissions("ops:audit:read")
   async audit(@Req() req: { headers?: Record<string, unknown> }) {
