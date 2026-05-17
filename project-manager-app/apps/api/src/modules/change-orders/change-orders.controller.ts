@@ -75,4 +75,44 @@ export class ChangeOrdersController {
     const data = await this.changeOrdersService.reject(actor, id, body.clientNote ?? body.reason);
     return ok(requestId, data);
   }
+
+  // ── P6 — Change order lifecycle ────────────────────────────────────────────
+
+  @Get(":id")
+  @RequirePermissions("change-orders:read")
+  async findOne(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.changeOrdersService.findOne(actor, id);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post(":id/request-changes")
+  @RequirePermissions("change-orders:approve")
+  async requestChanges(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: { requiredActions: string[]; note?: string },
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.changeOrdersService.requestChanges(actor, id, body);
+    return ok(requestId, data);
+  }
+
+  @Get(":id/impact")
+  @RequirePermissions("change-orders:read")
+  async getImpact(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.changeOrdersService.computeImpact(actor, id);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post(":id/apply-to-buildops")
+  @RequirePermissions("change-orders:approve")
+  async applyToBuildOps(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.changeOrdersService.applyToBuildOps(actor, id);
+    return ok(requestId, data);
+  }
 }
