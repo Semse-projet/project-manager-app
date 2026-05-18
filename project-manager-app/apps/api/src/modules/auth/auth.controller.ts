@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
@@ -33,7 +34,16 @@ function requireBootstrapToken(headers: Record<string, unknown> | undefined): vo
   }
 
   const provided = headers?.[SEMSE_BOOTSTRAP_HEADER_NAME];
-  if (typeof provided !== "string" || provided.trim() !== expected) {
+  if (typeof provided !== "string") {
+    throw new ForbiddenException("Bootstrap token required");
+  }
+
+  // Hash both sides so timingSafeEqual always receives equal-length buffers,
+  // preventing the length short-circuit from leaking information.
+  const expectedHash = crypto.createHash("sha256").update(expected).digest();
+  const providedHash = crypto.createHash("sha256").update(provided.trim()).digest();
+
+  if (!crypto.timingSafeEqual(expectedHash, providedHash)) {
     throw new ForbiddenException("Bootstrap token required");
   }
 }

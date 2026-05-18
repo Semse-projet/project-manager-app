@@ -1,5 +1,17 @@
 import crypto from "node:crypto";
 
+/**
+ * SEMSE Signed Token — format: `<encodedPayload>.<sig>`
+ *
+ * NOT a standard JWT. Has 2 parts (not 3):
+ *   encodedPayload = base64url(JSON.stringify(claims))
+ *   sig            = HMAC-SHA256(encodedPayload, AUTH_SECRET) encoded as base64url
+ *
+ * This format is intentional: SEMSE has no external integrations that require
+ * standard 3-part JWT. Standard claim names (jti, iat, exp, sub equivalents)
+ * are used for familiarity, but no JWT library should be used to verify these tokens.
+ */
+
 export type TokenClaims = {
   userId: string;
   tenantId: string;
