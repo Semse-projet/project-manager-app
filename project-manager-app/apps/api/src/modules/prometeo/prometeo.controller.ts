@@ -280,7 +280,7 @@ export class PrometeoController {
   /** Training Agent — trade-specific guidance using indexed manuals/books. */
   @Post("trade-guide")
   @RequirePermissions("agents:run:create")
-  async tradeGuide(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
+  async runTradeGuide(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
     const b = body as Record<string, unknown>;

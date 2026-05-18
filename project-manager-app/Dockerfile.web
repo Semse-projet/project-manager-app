@@ -1,11 +1,11 @@
 FROM node:20-slim AS base
-# build: 2026-05-15 — cache bust for mission-control + operational intelligence
+# build: 2026-05-18a — Ollama Railway integration
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package.json ./
 COPY apps/angular/package.json ./apps/angular/
 COPY apps/api/package.json ./apps/api/
 COPY apps/autonomy-server/package.json ./apps/autonomy-server/
@@ -21,7 +21,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 
-RUN npm ci
+RUN npm install --legacy-peer-deps
 
 FROM deps AS builder
 WORKDIR /app
