@@ -305,6 +305,82 @@ export class PrometeoService {
     };
   }
 
+  /** Backfill zero-vector chunks with real embeddings. Safe to run multiple times (idempotent). */
+  async backfillEmbeddings(input: {
+    tenantId?: string;
+    batchSize?: number;
+    dryRun?: boolean;
+  }): Promise<{
+    total: number;
+    alreadyEmbedded: number;
+    embedded: number;
+    failed: number;
+    dryRun: boolean;
+    provider: string;
+  }> {
+    const batchSize = input.batchSize ?? 16;
+    const dryRun = input.dryRun ?? false;
+    const stats = this.embedding.getStats();
+
+    if (!stats.available && !dryRun) {
+      throw new Error("EmbeddingService not available — OPENAI_API_KEY not configured");
+    }
+
+    // Load all indexed docs
+    const docs = await this.repo.listDocuments({ tenantId: input.tenantId ?? "tenant_default" });
+    const indexed = docs.filter((d) => d.status === "indexed");
+
+    if (!indexed.length) {
+      return { total: 0, alreadyEmbedded: 0, embedded: 0, failed: 0, dryRun, provider: stats.provider };
+    }
+
+    // Load all chunks for indexed docs
+    const allChunks = await this.repo.loadChunksForSearch({
+      tenantId: input.tenantId ?? "tenant_default",
+      limit: 5000,
+    });
+
+    const needsEmbedding = allChunks.filter((c) => {
+      const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as EmbeddingVector) : [];
+      return isZeroVector(vec);
+    });
+
+    const alreadyEmbedded = allChunks.length - needsEmbedding.length;
+
+    if (!needsEmbedding.length || dryRun) {
+      return { total: allChunks.length, alreadyEmbedded, embedded: 0, failed: 0, dryRun, provider: stats.provider };
+    }
+
+    let embedded = 0;
+    let failed = 0;
+
+    for (let i = 0; i < needsEmbedding.length; i += batchSize) {
+      const batch = needsEmbedding.slice(i, i + batchSize);
+      const texts = batch.map((c) => c.text);
+
+      try {
+        const vectors = await this.embedding.embedBatch(texts);
+
+        // Update each chunk via repository
+        for (let j = 0; j < batch.length; j++) {
+          const chunk = batch[j]!;
+          const vec = vectors[j] ?? [];
+          if (!isZeroVector(vec)) {
+            await this.repo.updateChunkEmbedding(chunk.documentId, chunk.chunkIndex, vec);
+            embedded++;
+          } else {
+            failed++;
+          }
+        }
+      } catch {
+        failed += batch.length;
+      }
+    }
+
+    this.logger.log(`[backfill] done — embedded=${embedded} failed=${failed} total=${allChunks.length}`);
+    return { total: allChunks.length, alreadyEmbedded, embedded, failed, dryRun, provider: stats.provider };
+  }
+
   // ── RAG context builder ─────────────────────────────────────────────────────
 
   async buildRagContext(input: {

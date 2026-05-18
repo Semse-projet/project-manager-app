@@ -108,6 +108,13 @@ export class PrometeoRepository {
     return new Map(docs.map((d: { id: string; title: string }) => [d.id, d.title]));
   }
 
+  async updateChunkEmbedding(documentId: string, chunkIndex: number, embedding: number[]): Promise<void> {
+    await this.prisma.documentChunk.updateMany({
+      where: { documentId, chunkIndex },
+      data: { embeddingJson: embedding as unknown as import("@prisma/client").Prisma.InputJsonValue },
+    });
+  }
+
   async createAsset(input: { tenantId: string; orgId: string; projectId?: string; name: string; category?: string; serialNumber?: string; location?: string; metadataJson?: Record<string, unknown> }) {
     return this.prisma.prometeoAsset.create({
       data: { tenantId: input.tenantId, orgId: input.orgId, projectId: input.projectId, name: input.name, category: input.category ?? "general", serialNumber: input.serialNumber, location: input.location, metadataJson: (input.metadataJson ?? {}) as unknown as import("@prisma/client").Prisma.InputJsonValue },

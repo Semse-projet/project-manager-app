@@ -145,6 +145,29 @@ export class OpsController {
     }
   }
 
+  /** Backfill zero-vector chunks with real embeddings (idempotent) */
+  @Post("ai-mission-control/backfill-embeddings")
+  @RequirePermissions("ops:dashboard:write")
+  async backfillEmbeddings(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+
+    if (!this.prometeoService) {
+      return ok(requestId, { error: "PrometeoService not available" });
+    }
+
+    const result = await this.prometeoService.backfillEmbeddings({
+      tenantId:  ctx.tenantId,
+      batchSize: typeof body.batchSize === "number" ? body.batchSize : 16,
+      dryRun:    body.dryRun === true,
+    });
+
+    return ok(requestId, result);
+  }
+
   /** Prometeo RAG + Embeddings health for Mission Control */
   @Get("ai-mission-control/rag")
   @RequirePermissions("ops:dashboard:read")
