@@ -375,4 +375,27 @@ export class PrometeoController {
     const rid = resolveRequestId(req.headers ?? {});
     return ok(rid, await this.svc.updateWorkOrderStatus({ tenantId: actor.tenantId, id, status: body.status }));
   }
+
+  // ── RAG Embeddings health + backfill ────────────────────────────────────────
+
+  @Get("embeddings/health")
+  @RequirePermissions("agents:run:create")
+  async embeddingsHealth(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    return ok(rid, await this.svc.getEmbeddingRagHealth(actor.tenantId));
+  }
+
+  @Post("embeddings/backfill")
+  @RequirePermissions("agents:run:create")
+  async backfillEmbeddings(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = await this.svc.backfillEmbeddings({
+      tenantId:  actor.tenantId,
+      batchSize: typeof body.batchSize === "number" ? body.batchSize : 16,
+      dryRun:    body.dryRun === true,
+    });
+    return ok(rid, result);
+  }
 }
