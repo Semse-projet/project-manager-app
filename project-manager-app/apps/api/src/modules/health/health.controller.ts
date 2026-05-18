@@ -14,7 +14,7 @@ export class HealthController {
       status: "ok",
       service: "semse-api",
       persistence: databaseEnabled() ? "prisma" : "memory",
-      build: "2026-05-16a",
+      build: "2026-05-18a",
       authMode: "jwt-crypto-only",
       timestamp: new Date().toISOString()
     });
