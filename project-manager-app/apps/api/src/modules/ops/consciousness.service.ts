@@ -462,11 +462,25 @@ export class ConsciousnessIndexService {
           userMessage,
           context: { localOnly: true, source: "semse-consciousness", routingReason: "internal-introspection" },
         });
-        answer = res.text?.trim() || answer;
         provider = res.provider;
         model = res.model;
+
+        // Only use LLM answer if it's not the generic template greeting
+        const isGenericTemplate = res.provider === "template" ||
+          !res.text ||
+          res.text.toLowerCase().includes("hola, soy prometeo") ||
+          res.text.length < 30;
+
+        if (!isGenericTemplate) {
+          answer = res.text.trim();
+        } else {
+          // Use our structured template answer instead
+          answer = this.templateAnswer(question, index);
+          provider = "consciousness-template";
+        }
       } catch (err) {
         this.logger.warn(`[Consciousness] LLM failed: ${(err as Error).message} — template fallback`);
+        answer = this.templateAnswer(question, index);
       }
     }
 
