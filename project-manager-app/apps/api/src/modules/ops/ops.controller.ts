@@ -19,6 +19,7 @@ import { OpsService } from "./ops.service.js";
 import { AlgorithmRunService } from "../tools/algorithm-run.service.js";
 import { Optional } from "@nestjs/common";
 import type { PrometeoService } from "../prometeo/prometeo.service.js";
+import { ConsciousnessIndexService } from "./consciousness.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -26,6 +27,7 @@ export class OpsController {
     private readonly opsService: OpsService,
     private readonly llmOrchestrator: LLMOrchestrator,
     private readonly algorithmRunService: AlgorithmRunService,
+    private readonly consciousness: ConsciousnessIndexService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -429,5 +431,33 @@ export class OpsController {
     const requestId = resolveRequestId(req.headers ?? {});
     const runs = await this.algorithmRunService.listByTrade(trade, 50);
     return ok(requestId, runs);
+  }
+
+  // ── SEMSE Consciousness — espejo interno del ecosistema ─────────────────────
+
+  /** Índice vivo del ecosistema: identidad, madurez, riesgos, recomendaciones. */
+  @Get("consciousness/index")
+  @RequirePermissions("ops:dashboard:read")
+  async getConsciousnessIndex(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const index = await this.consciousness.buildIndex(ctx.tenantId);
+    return ok(requestId, index);
+  }
+
+  /** Pregunta al sistema sobre sí mismo — diagnóstico en lenguaje natural. */
+  @Post("consciousness/query")
+  @RequirePermissions("ops:dashboard:read")
+  async queryConsciousness(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const question = typeof body.question === "string" ? body.question.trim() : "";
+    if (!question) return ok(requestId, { error: "question required" });
+
+    const result = await this.consciousness.queryConsciousness(question, ctx.tenantId);
+    return ok(requestId, result);
   }
 }
