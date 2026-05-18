@@ -1,0 +1,15 @@
+FROM ollama/ollama:latest
+
+# Model to preload (overridable via OLLAMA_MODEL env var)
+ARG OLLAMA_MODEL=qwen2.5:3b
+
+# Copy startup script
+COPY scripts/ollama-start.sh /ollama-start.sh
+RUN chmod +x /ollama-start.sh
+
+# Ollama stores models in /root/.ollama — mount a Railway volume here
+VOLUME ["/root/.ollama"]
+
+EXPOSE 11434
+
+CMD ["/ollama-start.sh"]
