@@ -17,6 +17,8 @@ import { parseWithSchema } from "../../common/zod-validation.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { OpsService } from "./ops.service.js";
 import { AlgorithmRunService } from "../tools/algorithm-run.service.js";
+import { Optional } from "@nestjs/common";
+import type { PrometeoService } from "../prometeo/prometeo.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -24,6 +26,7 @@ export class OpsController {
     private readonly opsService: OpsService,
     private readonly llmOrchestrator: LLMOrchestrator,
     private readonly algorithmRunService: AlgorithmRunService,
+    @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
   @Get("llm/metrics")
@@ -137,6 +140,40 @@ export class OpsController {
       return ok(requestId, {
         success: false,
         latencyMs: Date.now() - t0,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  /** Prometeo RAG + Embeddings health for Mission Control */
+  @Get("ai-mission-control/rag")
+  @RequirePermissions("ops:dashboard:read")
+  async getRagHealth(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+
+    if (!this.prometeoService) {
+      return ok(requestId, {
+        embeddingsProvider: "none",
+        embeddingsAvailable: false,
+        embeddingsHealthy: false,
+        totalDocuments: 0,
+        totalChunks: 0,
+        chunksWithEmbeddings: 0,
+        chunksMissingEmbeddings: 0,
+        retrievalMode: "fts_fallback",
+        error: "PrometeoService not available",
+      });
+    }
+
+    try {
+      const health = await this.prometeoService.getEmbeddingRagHealth(ctx.tenantId);
+      return ok(requestId, health);
+    } catch (err) {
+      return ok(requestId, {
+        embeddingsProvider: "unknown",
+        embeddingsAvailable: false,
+        embeddingsHealthy: false,
         error: err instanceof Error ? err.message : String(err),
       });
     }

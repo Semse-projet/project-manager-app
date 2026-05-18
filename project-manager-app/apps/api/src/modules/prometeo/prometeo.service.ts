@@ -1,15 +1,20 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
-import { EmbeddingService, cosineSimilarity, type EmbeddingVector } from "./embedding.service.js";
+import { EmbeddingService, cosineSimilarity, isZeroVector, type EmbeddingVector } from "./embedding.service.js";
 import { PrometeoRepository, type PrometeoChunkSearchRow, type PrometeoDocumentRecord } from "./prometeo.repository.js";
+
+export type RetrievalMode = "hybrid" | "semantic" | "fts_fallback";
 
 export type SearchResult = {
   documentId: string;
   documentTitle: string;
   chunkIndex: number;
   text: string;
-  score: number;
+  score: number;          // final hybrid score
+  semanticScore?: number; // cosine similarity (undefined if fts_fallback)
+  textScore?: number;     // FTS keyword score
+  retrievalMode: RetrievalMode;
 };
 
 type ScoredChunk = {
@@ -17,6 +22,9 @@ type ScoredChunk = {
   chunkIndex: number;
   text: string;
   score: number;
+  semanticScore?: number;
+  textScore?: number;
+  retrievalMode: RetrievalMode;
 };
 
 export type RagContext = {
@@ -25,6 +33,26 @@ export type RagContext = {
   tokenEstimate: number;
 };
 
+export type EmbeddingRagHealth = {
+  embeddingsProvider: string;
+  embeddingsModel: string;
+  embeddingsAvailable: boolean;
+  embeddingsHealthy: boolean;
+  totalDocuments: number;
+  totalChunks: number;
+  chunksWithEmbeddings: number;
+  chunksMissingEmbeddings: number;
+  avgEmbeddingLatencyMs: number;
+  fallbackCount: number;
+  successCount: number;
+  failureCount: number;
+  lastEmbeddingError?: string;
+  retrievalMode: RetrievalMode;
+};
+
+// Hybrid scoring weights
+const SEMANTIC_WEIGHT = 0.70;
+const FTS_WEIGHT      = 0.30;
 const BATCH_SIZE = 20;
 const MAX_CONTEXT_CHARS = 6_000;
 
@@ -182,34 +210,99 @@ export class PrometeoService {
 
   async search(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
+    trade?: string;
   }): Promise<SearchResult[]> {
     const topK = input.topK ?? 5;
     const queryVec = await this.embedding.embed(input.query);
+    const hasRealQueryEmbedding = !isZeroVector(queryVec);
 
     const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId });
     if (!chunks.length) return [];
 
     const scored: ScoredChunk[] = chunks.map((c: PrometeoChunkSearchRow) => {
       const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as EmbeddingVector) : [];
-      const score = vec.length > 0 ? cosineSimilarity(queryVec, vec) : this.ftsScore(c.text, input.query);
-      return { documentId: c.documentId, chunkIndex: c.chunkIndex, text: c.text, score };
+      const hasRealChunkEmbedding = vec.length > 0 && !isZeroVector(vec);
+
+      const textScore = this.ftsScore(c.text, input.query);
+
+      let semanticScore: number | undefined;
+      let score: number;
+      let retrievalMode: RetrievalMode;
+
+      if (hasRealQueryEmbedding && hasRealChunkEmbedding) {
+        semanticScore = cosineSimilarity(queryVec, vec);
+        score = SEMANTIC_WEIGHT * semanticScore + FTS_WEIGHT * textScore;
+        retrievalMode = "hybrid";
+      } else {
+        // Zero-vector detected — use FTS only (critical bug fix)
+        score = textScore;
+        retrievalMode = "fts_fallback";
+      }
+
+      return { documentId: c.documentId, chunkIndex: c.chunkIndex, text: c.text, score, semanticScore, textScore, retrievalMode };
     });
 
-    scored.sort((a: ScoredChunk, b: ScoredChunk) => b.score - a.score);
-    const top = scored.slice(0, topK);
+    // Filter by trade if specified (best-effort via metadataJson)
+    const filtered = input.trade
+      ? scored.filter((c) => {
+          const raw = chunks.find((ch) => ch.documentId === c.documentId && ch.chunkIndex === c.chunkIndex);
+          const meta = raw?.metadataJson as Record<string, unknown> | null | undefined;
+          return !meta?.trade || meta.trade === input.trade || meta.trade === "general";
+        })
+      : scored;
+
+    const sorted = (filtered.length > 0 ? filtered : scored)
+      .sort((a: ScoredChunk, b: ScoredChunk) => b.score - a.score);
+    const top = sorted.slice(0, topK);
 
     const uniqueDocIds = [...new Set(top.map((r: ScoredChunk) => r.documentId))];
     const titleMap = await this.repo.getDocumentTitles(uniqueDocIds);
     return top.map((r: ScoredChunk) => ({ ...r, documentTitle: titleMap.get(r.documentId) ?? "—" }));
   }
 
-  // Fallback when embeddings are zero vectors: keyword overlap score
+  /** Keyword overlap score — used as FTS fallback and hybrid component. */
   private ftsScore(text: string, query: string): number {
-    const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
     if (!words.length) return 0;
     const lower = text.toLowerCase();
     const hits = words.filter((w) => lower.includes(w)).length;
     return hits / words.length;
+  }
+
+  /** Embedding health + RAG stats for Mission Control. */
+  async getEmbeddingRagHealth(tenantId: string): Promise<EmbeddingRagHealth> {
+    const stats = this.embedding.getStats();
+    const docs = await this.repo.listDocuments({ tenantId });
+    const totalDocs = docs.length;
+    const indexedDocs = docs.filter((d) => d.status === "indexed");
+    const totalChunks = indexedDocs.reduce((s, d) => s + d.chunkCount, 0);
+
+    // Sample chunks to count real vs zero embeddings
+    const sampleChunks = await this.repo.loadChunksForSearch({ tenantId, limit: 200 });
+    const withEmbeddings = sampleChunks.filter((c) => {
+      const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as EmbeddingVector) : [];
+      return vec.length > 0 && !isZeroVector(vec);
+    }).length;
+    const missingEmbeddings = sampleChunks.length - withEmbeddings;
+
+    const retrievalMode: RetrievalMode = stats.available && withEmbeddings > 0 ? "hybrid" : "fts_fallback";
+
+    return {
+      embeddingsProvider:      stats.provider,
+      embeddingsModel:         stats.model,
+      embeddingsAvailable:     stats.available,
+      embeddingsHealthy:       stats.available && stats.failureCount === 0,
+      totalDocuments:          totalDocs,
+      totalChunks,
+      chunksWithEmbeddings:    withEmbeddings,
+      chunksMissingEmbeddings: missingEmbeddings,
+      avgEmbeddingLatencyMs:   stats.avgLatencyMs,
+      fallbackCount:           stats.fallbackCount,
+      successCount:            stats.successCount,
+      failureCount:            stats.failureCount,
+      lastEmbeddingError:      stats.lastError,
+      retrievalMode,
+    };
   }
 
   // ── RAG context builder ─────────────────────────────────────────────────────
