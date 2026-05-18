@@ -6,6 +6,7 @@ import {
 } from "./operational-signals.service.js";
 import { IntelligenceRunsService } from "./intelligence-runs.service.js";
 import { LLMNarrativeService } from "./llm-narrative.service.js";
+import type { PrometeoService } from "../prometeo/prometeo.service.js";
 
 const AGENT_NAME = "BuildOpsIntelligenceAgent";
 const LOW_CONFIDENCE_THRESHOLD = 65; // confidenceScore is 0-100
@@ -19,6 +20,7 @@ export class BuildOpsIntelligenceAgent {
     private readonly signals: OperationalSignalsService,
     private readonly runs: IntelligenceRunsService,
     @Optional() private readonly llmNarrative?: LLMNarrativeService,
+    @Optional() private readonly rag?: PrometeoService,
   ) {}
 
   async evaluateMilestone(input: {
@@ -215,6 +217,30 @@ export class BuildOpsIntelligenceAgent {
         if (result.created) signalsCreated.push("DISPUTE_RISK_HIGH");
       }
 
+      // RAG enrichment — query Prometeo for best-practice docs (fire-and-forget)
+      let ragSources: string[] = [];
+      if (this.rag && signalsCreated.length > 0) {
+        const trade = (milestone as Record<string, unknown>).trade as string | undefined;
+        const ragQuery = [
+          missingItems.length > 0 ? `evidencia faltante milestone ${milestoneStatus}` : "",
+          rejectedItems.length > 0 ? `evidencia rechazada disputa construcción` : "",
+          paymentReadiness === "not_ready" ? `pago bloqueado milestone verificación` : "",
+          trade ? `${trade} construcción procedimiento` : "",
+        ].filter(Boolean).join(" ").trim() || "milestone evaluación construcción";
+
+        this.rag.retrieveContext({
+          query: ragQuery,
+          tenantId: input.tenantId,
+          trade: trade ?? "general",
+          topK: 3,
+        }).then((ragCtx) => {
+          if (ragCtx.available) {
+            ragSources = ragCtx.citations.map((c) => c.documentTitle);
+            this.logger.debug(`[${AGENT_NAME}][RAG] milestone=${input.milestoneId} sources=${ragSources.join(",")}`);
+          }
+        }).catch(() => undefined);
+      }
+
       // Record the intelligence run
       await this.runs.record({
         tenantId: input.tenantId,
@@ -227,6 +253,9 @@ export class BuildOpsIntelligenceAgent {
           signalsCreated,
           rulesEvaluated: 5,
           skippedDueToDedup: signalsCreated.length === 0,
+          ragSources,
+          ragProvider: "prometeo-documental",
+          privacyMode: "localOnly",
         },
         signalsCreated,
         status: "completed",
@@ -320,11 +349,27 @@ export class BuildOpsIntelligenceAgent {
         if (r.created) signalsCreated.push("DISPUTE_RISK_HIGH");
       }
 
+      // RAG enrichment for project-level evaluation (fire-and-forget)
+      let projectRagSources: string[] = [];
+      if (this.rag && signalsCreated.length > 0) {
+        const riskQuery = project.riskLevel === "high" || project.riskLevel === "critical"
+          ? `riesgo ${project.riskLevel} proyecto construcción estimado`
+          : "información faltante presupuesto construcción scope";
+
+        this.rag.retrieveContext({ query: riskQuery, tenantId: input.tenantId, topK: 2 })
+          .then((ragCtx) => {
+            if (ragCtx.available) {
+              projectRagSources = ragCtx.citations.map((c) => c.documentTitle);
+            }
+          }).catch(() => undefined);
+      }
+
       await this.runs.record({
         tenantId: input.tenantId, agentName: AGENT_NAME, triggerEvent: input.triggerEvent,
         entityType: "BuildOpsProject", entityId: project.id,
         contextSnapshotJson: { riskLevel: project.riskLevel, missingInputsCount: missingInputs.length },
-        decisionJson: { signalsCreated }, signalsCreated, status: "completed",
+        decisionJson: { signalsCreated, ragSources: projectRagSources, privacyMode: "localOnly" },
+        signalsCreated, status: "completed",
         durationMs: Date.now() - started,
       });
 

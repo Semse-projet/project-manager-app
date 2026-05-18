@@ -42,6 +42,9 @@ export type EvidenceReviewResult = EvidenceReviewLLMOutput & {
   structuredOutputValid: boolean;
   rawOutputStored?:  boolean;
   reviewedAt:        string;
+  ragSources:        string[];
+  ragCitations:      Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }>;
+  ragUsed:           boolean;
 };
 
 // ── Fallback rule-based review (when LLM unavailable) ────────────────────────
@@ -153,6 +156,9 @@ export class EvidenceReviewService {
     let model: string | undefined;
     let fallbackUsed = false;
     let structuredOutputValid = false;
+    let ragSources: string[] = [];
+    let ragCitations: Array<{ documentId: string; documentTitle: string; excerpt: string; score: number }> = [];
+    let ragUsed = false;
 
     if (!input.forceRulesOnly && this.llm) {
       // Enrich prompt with RAG context if available (trade-specific docs)
@@ -164,7 +170,12 @@ export class EvidenceReviewService {
           trade:    (milestoneBase as Record<string, unknown> & { title?: string }).title?.toLowerCase().includes("elect") ? "electrical" : "general",
           topK:     3,
         });
-        if (ragCtx.available) ragContextBlock = ragCtx.contextBlock;
+        if (ragCtx.available) {
+          ragContextBlock = ragCtx.contextBlock;
+          ragCitations = ragCtx.citations;
+          ragSources = ragCtx.citations.map((c) => c.documentTitle);
+          ragUsed = true;
+        }
       }
 
       const prompt = this.buildPrompt(
@@ -240,6 +251,9 @@ export class EvidenceReviewService {
         model,
         fallbackUsed,
         structuredOutputValid,
+        ragUsed,
+        ragSources,
+        privacyMode: "privacyCritical",
         reviewedBy: "evidence-review-agent",
         reviewedById: input.reviewedById,
         reviewedAt: reviewedAt.toISOString(),
@@ -291,6 +305,9 @@ export class EvidenceReviewService {
       fallbackUsed,
       structuredOutputValid,
       reviewedAt:           reviewedAt.toISOString(),
+      ragUsed,
+      ragSources,
+      ragCitations,
     };
 
     // SSE: notify that AI review completed → frontend can refresh evidence + governance
@@ -329,7 +346,14 @@ export class EvidenceReviewService {
     try {
       const parsed = JSON.parse(item.reviewNote);
       if (parsed.__agentReview) {
-        return { ...parsed.__agentReview, evidenceItemId: item.id, milestoneId: item.milestoneId };
+        return {
+          ...parsed.__agentReview,
+          evidenceItemId: item.id,
+          milestoneId: item.milestoneId,
+          ragUsed: parsed.__agentReview.ragUsed ?? false,
+          ragSources: parsed.__agentReview.ragSources ?? [],
+          ragCitations: parsed.__agentReview.ragCitations ?? [],
+        };
       }
     } catch { /* invalid JSON */ }
     return null;

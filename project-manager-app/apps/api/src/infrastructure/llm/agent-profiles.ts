@@ -54,6 +54,13 @@ export const AGENT_PROFILES = {
     lowCost: true,
   },
 
+  "training-guide": {
+    agentName: "training-guide",
+    source: "prometeo-rag",
+    localOnly: true,
+    lowCost: true,
+  },
+
   // ── Tier 2 — local preferred, external allowed ──────────────────────────────
 
   "evidence-analyzer": {
