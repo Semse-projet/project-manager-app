@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, Users, AlertTriangle, DollarSign, CheckSquare, TrendingUp, RefreshCw, FileText, Shield, Bot, BarChart2, Settings, Wrench } from "lucide-react";
+import { Activity, Users, AlertTriangle, DollarSign, CheckSquare, TrendingUp, RefreshCw, FileText, Shield, Bot, BarChart2, Settings, Wrench, MessageSquare } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge, useHtmlInCanvasSupport } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -203,6 +203,7 @@ export default function AdminDashboardPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
           {[
             { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "#3b82f6" },
+            { label: t("nav.communications"), href: "/admin/communications", icon: MessageSquare, color: "#14b8a6" },
             { label: t("nav.users"),        href: "/admin/users",         icon: Users,         color: "#8b5cf6" },
             { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "#ef4444" },
             { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "#10b981" },
