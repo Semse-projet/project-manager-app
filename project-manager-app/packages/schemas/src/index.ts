@@ -30,6 +30,7 @@ export * from "./knowledge-domain.schema.js";
 export * from "./matching.schema.js";
 export * from "./reputation.schema.js";
 export * from "./developer-runtime.schema.js";
+export * from "./communication.schema.js";
 // Professional domain schemas (Zod)
 export * from "./professional.schema.js";
 // UI-facing TypeScript types (no Zod — pure interfaces for the frontend)

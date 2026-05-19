@@ -88,6 +88,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "ops:audit:read", "ops:dashboard:read", "ops:dashboard:write",
     "ops:risk:read", "ops:alerts:ack", "ops:runbooks:execute", "ops:incidents:create",
     "domain-events:read", "domain-events:emit",
+    "communications:read", "communications:write", "communications:admin",
     "agents:run:create", "agents:run:retry", "agents:run:manage", "agents:run:worker",
   ],
 };

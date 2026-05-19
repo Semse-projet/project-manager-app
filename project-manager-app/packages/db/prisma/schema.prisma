@@ -149,6 +149,12 @@ model Tenant {
   documentTemplates  DocumentTemplate[]
   // Contractor CRM
   contractorLeads    ContractorLead[]
+  communicationChannelAccounts CommunicationChannelAccount[]
+  conversationThreads ConversationThread[]
+  conversationMessages ConversationMessage[]
+  communicationMessageTemplates CommunicationMessageTemplate[]
+  outboundDeliveries OutboundDelivery[]
+  contactIdentities ContactIdentity[]
   buildOpsProjects   BuildOpsProject[]
   buildOpsPlanVersions BuildOpsPlanVersion[]
   buildOpsTasks      BuildOpsTask[]
@@ -166,6 +172,10 @@ model Org {
   bids        Bid[]
   projects    Project[]
   reservations JobReservation[]
+  communicationChannelAccounts CommunicationChannelAccount[]
+  conversationThreads ConversationThread[]
+  communicationMessageTemplates CommunicationMessageTemplate[]
+  contactIdentities ContactIdentity[]
   clientContracts Contract[] @relation("ContractClientOrg")
   professionalContracts Contract[] @relation("ContractProfessionalOrg")
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -204,6 +214,12 @@ model User {
   resolvedDisputes   Dispute[]         @relation("DisputeResolvedBy")
   auditEvents        AuditLog[]
   notifications      Notification[]
+  createdCommunicationChannelAccounts CommunicationChannelAccount[] @relation("CommunicationChannelAccountCreatedBy")
+  contactConversationThreads ConversationThread[] @relation("CommunicationThreadContactUser")
+  assignedConversationThreads ConversationThread[] @relation("CommunicationThreadAssignedUser")
+  sentConversationMessages ConversationMessage[] @relation("ConversationMessageSender")
+  requestedOutboundDeliveries OutboundDelivery[] @relation("OutboundDeliveryRequestedBy")
+  contactIdentities ContactIdentity[]
   passwordResetTokens PasswordResetToken[]
   profile            UserProfile?
   createdAt          DateTime          @default(now())
@@ -326,6 +342,7 @@ model Job {
   escrow          PaymentEscrow?
   ratings         Rating[]
   messages        MessageThread[]
+  conversationThreads ConversationThread[]
   trackerSessions TrackerSession[]
   travelAssignments TravelAssignment[]
   buildOpsProject BuildOpsProject?
@@ -425,6 +442,7 @@ model Project {
   disputes        Dispute[]
   escrow          PaymentEscrow?
   messageThreads  MessageThread[]
+  conversationThreads ConversationThread[]
   tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   job             Job             @relation(fields: [jobId], references: [id], onDelete: Restrict)
   assignedProOrg  Org             @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
@@ -880,6 +898,7 @@ enum NotificationChannel {
   EMAIL
   PUSH
   SMS
+  WHATSAPP
 }
 
 model Notification {
@@ -896,9 +915,214 @@ model Notification {
   createdAt   DateTime            @default(now())
 
   user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outboundDeliveries OutboundDelivery[]
 
   @@index([userId, readAt, createdAt])
   @@index([tenantId, type, createdAt])
+}
+
+// ── Communications / Channel Gateway ──────────────────────────────────────────
+// Normalizes WhatsApp, SMS, email and web chat into SEMSE operations.
+
+enum CommunicationProvider {
+  WHATSAPP_CLOUD
+  OPENWA_LAB
+  SMS
+  EMAIL
+  WEB_CHAT
+}
+
+enum CommunicationThreadStatus {
+  OPEN
+  PENDING
+  CLOSED
+  ARCHIVED
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommunicationMessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model CommunicationChannelAccount {
+  id                String                @id @default(cuid())
+  tenantId          String
+  orgId             String?
+  provider          CommunicationProvider
+  label             String
+  externalAccountId String?
+  phoneNumberId     String?
+  displayPhone      String?
+  status            String                @default("active")
+  settingsJson      Json?
+  secretRef         String?
+  createdByUserId   String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org               Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdBy         User?                 @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  threads           ConversationThread[]
+
+  @@unique([tenantId, provider, phoneNumberId])
+  @@index([tenantId, provider, status])
+  @@index([tenantId, orgId])
+}
+
+model ConversationThread {
+  id               String                      @id @default(cuid())
+  tenantId         String
+  orgId            String?
+  channel          CommunicationProvider
+  channelAccountId String?
+  externalThreadId String?
+  contactPhone     String?
+  contactName      String?
+  contactUserId    String?
+  contractorLeadId String?
+  jobId            String?
+  projectId        String?
+  status           CommunicationThreadStatus   @default(OPEN)
+  assignedToUserId String?
+  intent           String?
+  source           String                      @default("communications")
+  lastMessageAt    DateTime?
+  metadataJson     Json?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org              Org?                        @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  channelAccount   CommunicationChannelAccount? @relation(fields: [channelAccountId], references: [id], onDelete: SetNull)
+  contactUser      User?                       @relation("CommunicationThreadContactUser", fields: [contactUserId], references: [id], onDelete: SetNull)
+  assignedTo       User?                       @relation("CommunicationThreadAssignedUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  contractorLead   ContractorLead?             @relation(fields: [contractorLeadId], references: [id], onDelete: SetNull)
+  job              Job?                        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  project          Project?                    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages         ConversationMessage[]
+  deliveries       OutboundDelivery[]
+
+  @@unique([tenantId, channel, externalThreadId])
+  @@index([tenantId, status, lastMessageAt])
+  @@index([tenantId, contactPhone])
+  @@index([tenantId, jobId])
+  @@index([tenantId, projectId])
+  @@index([tenantId, contractorLeadId])
+}
+
+model ConversationMessage {
+  id                String                      @id @default(cuid())
+  tenantId          String
+  threadId          String
+  direction         CommunicationDirection
+  provider          CommunicationProvider
+  externalMessageId String?
+  senderUserId      String?
+  contactPhone      String?
+  body              String?
+  mediaJson         Json?
+  rawPayloadJson    Json?
+  status            CommunicationMessageStatus  @default(RECEIVED)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime                    @default(now())
+
+  tenant            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  thread            ConversationThread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender            User?                       @relation("ConversationMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, provider, externalMessageId])
+  @@index([tenantId, threadId, createdAt])
+  @@index([tenantId, direction, createdAt])
+  @@index([tenantId, status, createdAt])
+}
+
+model CommunicationMessageTemplate {
+  id            String                @id @default(cuid())
+  tenantId      String
+  orgId         String?
+  key           String
+  name          String
+  channel       CommunicationProvider
+  locale        String                @default("es")
+  category      String                @default("utility")
+  body          String
+  status        String                @default("draft")
+  variablesJson Json?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org           Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, channel, key, locale])
+  @@index([tenantId, channel, status])
+}
+
+model OutboundDelivery {
+  id                String                     @id @default(cuid())
+  tenantId          String
+  threadId          String?
+  notificationId    String?
+  channel           CommunicationProvider
+  recipientPhone    String?
+  templateKey       String?
+  body              String
+  payloadJson       Json?
+  status            CommunicationMessageStatus @default(QUEUED)
+  providerMessageId String?
+  error             String?
+  requestedByUserId String?
+  sentAt            DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  thread            ConversationThread?        @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  notification      Notification?              @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  requestedBy       User?                      @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, channel, status, createdAt])
+  @@index([tenantId, recipientPhone])
+  @@index([tenantId, threadId])
+  @@index([tenantId, notificationId])
+}
+
+model ContactIdentity {
+  id               String                @id @default(cuid())
+  tenantId         String
+  orgId            String?
+  channel          CommunicationProvider
+  externalContactId String?
+  phone            String?
+  email            String?
+  userId           String?
+  contractorLeadId String?
+  displayName      String?
+  metadataJson     Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org              Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contractorLead   ContractorLead?       @relation(fields: [contractorLeadId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, channel, externalContactId])
+  @@index([tenantId, phone])
+  @@index([tenantId, userId])
+  @@index([tenantId, contractorLeadId])
 }
 
 // ── Field Ops (ported from semse-control-mvp) ─────────────────────────────────
@@ -1643,6 +1867,8 @@ model ContractorLead {
   updatedAt    DateTime  @updatedAt
 
   tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationThreads ConversationThread[]
+  contactIdentities ContactIdentity[]
 
   @@index([tenantId, orgId, status, createdAt])
   @@index([tenantId, status])

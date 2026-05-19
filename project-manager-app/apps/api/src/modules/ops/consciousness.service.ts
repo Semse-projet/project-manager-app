@@ -1,11 +1,11 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
-import type { PrometeoService } from "../prometeo/prometeo.service.js";
+import { isZeroVector } from "../prometeo/embedding.service.js";
 import type { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
 import type {
   SemseConsciousnessIndex, ModuleHealth, ModuleMaturityScore,
-  Risk, LlmProviderStatus, ModuleStatus,
+  Risk, LlmProviderStatus, ModuleStatus, RagStatus,
 } from "./consciousness.types.js";
 
 // ── SEMSE Module Registry ─────────────────────────────────────────────────────
@@ -78,7 +78,6 @@ export class ConsciousnessIndexService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly llm?: LLMOrchestrator,
-    @Optional() private readonly prometeo?: PrometeoService,
     @Optional() private readonly signals?: OperationalSignalsService,
   ) {}
 
@@ -227,35 +226,56 @@ export class ConsciousnessIndexService {
   }
 
   private async buildMemoryMap(tenantId: string) {
-    let ragStatus = {
-      provider: "unknown", model: "unknown", available: false,
-      totalDocuments: 0, totalChunks: 0, chunksWithEmbeddings: 0,
-      retrievalMode: "unknown",
+    // Read RAG stats directly from Prisma — no circular dep via PrometeoService
+    const openaiKeySet = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 10;
+    const embeddingsModel = process.env.EMBEDDINGS_MODEL ?? "text-embedding-3-small";
+
+    let totalDocuments = 0;
+    let totalChunks = 0;
+    let chunksWithEmbeddings = 0;
+
+    try {
+      const docs = await this.prisma.prometeoDocument.findMany({
+        where: { tenantId, status: "indexed" },
+        select: { id: true, chunkCount: true },
+      });
+      totalDocuments = await this.prisma.prometeoDocument.count({ where: { tenantId } });
+      totalChunks = docs.reduce((s, d) => s + d.chunkCount, 0);
+
+      // Sample chunks to count real embeddings
+      const sample = await this.prisma.documentChunk.findMany({
+        where: { tenantId, documentId: { in: docs.slice(0, 50).map((d) => d.id) } },
+        select: { embeddingJson: true },
+        take: 500,
+      });
+      chunksWithEmbeddings = sample.filter((c) => {
+        const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as number[]) : [];
+        return !isZeroVector(vec);
+      }).length;
+    } catch { /* ignore — DB might not have table */ }
+
+    const retrievalMode = openaiKeySet && chunksWithEmbeddings > 0 ? "hybrid" : "fts_fallback";
+
+    const ragStatus = {
+      provider:             openaiKeySet ? "openai" : "none",
+      model:                embeddingsModel,
+      available:            openaiKeySet,
+      totalDocuments,
+      totalChunks,
+      chunksWithEmbeddings,
+      retrievalMode,
     };
 
-    if (this.prometeo) {
-      try {
-        const health = await this.prometeo.getEmbeddingRagHealth(tenantId);
-        ragStatus = {
-          provider: health.embeddingsProvider,
-          model: health.embeddingsModel,
-          available: health.embeddingsAvailable,
-          totalDocuments: health.totalDocuments,
-          totalChunks: health.totalChunks,
-          chunksWithEmbeddings: health.chunksWithEmbeddings,
-          retrievalMode: health.retrievalMode,
-        };
-      } catch { /* ignore */ }
-    }
-
-    const auditCount = await this.prisma.auditLog.count({ where: { tenantId } }).catch(() => 0);
-    const signalCount = await this.prisma.operationalSignal.count({ where: { tenantId } }).catch(() => 0);
+    const [auditCount, signalCount] = await Promise.all([
+      this.prisma.auditLog.count({ where: { tenantId } }).catch(() => 0),
+      this.prisma.operationalSignal.count({ where: { tenantId } }).catch(() => 0),
+    ]);
 
     return {
       ragStatus,
-      auditLogActive:          auditCount > 0,
+      auditLogActive:           auditCount > 0,
       operationalSignalsActive: signalCount > 0,
-      reportsDirectory:        "docs/reportes/",
+      reportsDirectory:         "docs/reportes/",
       memoryLayers: [
         "Prometeo RAG — documentos indexados + embeddings reales",
         "AuditLog — historial completo de mutaciones",
@@ -319,7 +339,7 @@ export class ConsciousnessIndexService {
   private detectRisks(
     modules: ModuleHealth[],
     brains: { providers: LlmProviderStatus[]; totalFallbacks: number },
-    memory: { ragStatus: { available: boolean; chunksWithEmbeddings: number; retrievalMode: string } },
+    memory: { ragStatus: RagStatus },
     operational: { criticalSignals: number; openSignals: number },
   ) {
     const critical: Risk[] = [];
@@ -338,8 +358,10 @@ export class ConsciousnessIndexService {
 
     if (!memory.ragStatus.available) {
       high.push({ severity: "high", area: "Embeddings", message: "OPENAI_API_KEY no configurada — Prometeo RAG usa FTS fallback sin semántica real", recommendation: "Configurar OPENAI_API_KEY en Railway" });
-    } else if (memory.ragStatus.chunksWithEmbeddings === 0 && memory.ragStatus.retrievalMode !== "hybrid") {
-      medium.push({ severity: "medium", area: "Embeddings", message: "Embeddings disponibles pero sin documentos indexados — RAG sin memoria documental", recommendation: "Subir manuales trade a la biblioteca de Prometeo" });
+    } else if (memory.ragStatus.totalDocuments === 0) {
+      medium.push({ severity: "medium", area: "Trade Knowledge", message: "Embeddings activos pero sin documentos indexados — RAG sin memoria documental real", recommendation: "Subir manuales trade (electrical, plumbing, HVAC) a la biblioteca de Prometeo" });
+    } else if (memory.ragStatus.retrievalMode !== "hybrid") {
+      medium.push({ severity: "medium", area: "Embeddings", message: `${memory.ragStatus.totalDocuments} docs indexados pero retrieval en FTS fallback — chunks sin embeddings reales`, recommendation: "Ejecutar backfill: POST /v1/prometeo/embeddings/backfill" });
     }
 
     const missingFrontend = modules.filter((m) => !m.hasFrontend && m.hasBackend);

@@ -7,7 +7,7 @@ export type LeadStatus =
 
 export type LeadUrgency = "asap" | "this_week" | "this_month" | "flexible";
 
-export type LeadSource = "referral" | "nextdoor" | "facebook" | "call" | "website" | "other";
+export type LeadSource = "referral" | "nextdoor" | "facebook" | "call" | "website" | "whatsapp" | "web_chat" | "other";
 
 export type CreateLeadInput = {
   tenantId: string;

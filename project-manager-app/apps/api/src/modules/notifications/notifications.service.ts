@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { CommunicationsOutboxService } from "../communications/communications-outbox.service.js";
 import { NotificationsRepository } from "./notifications.repository.js";
 
 type NotificationEventPayload = Record<string, unknown>;
@@ -295,7 +296,10 @@ function mapEventToNotifications(
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly repository: NotificationsRepository) {}
+  constructor(
+    private readonly repository: NotificationsRepository,
+    private readonly communicationsOutbox?: CommunicationsOutboxService,
+  ) {}
 
   async listForUser(input: {
     tenantId: string;
@@ -334,7 +338,7 @@ export class NotificationsService {
 
     for (const spec of specs) {
       try {
-        await this.repository.create({
+        const notification = await this.repository.create({
           tenantId: input.tenantId,
           userId: spec.userId,
           type: spec.type,
@@ -342,6 +346,25 @@ export class NotificationsService {
           body: spec.body,
           payload: spec.payload,
         });
+
+        if (this.communicationsOutbox) {
+          void this.communicationsOutbox.deliverNotification({
+            tenantId: input.tenantId,
+            notificationId: notification.id,
+            userId: spec.userId,
+            title: spec.title,
+            body: spec.body,
+            payload: {
+              type: spec.type,
+              ...(spec.payload ?? {}),
+            },
+          }).catch((error) => {
+            this.logger.warn(
+              { eventType: input.eventType, userId: spec.userId, notificationId: notification.id, error },
+              "Failed to deliver WhatsApp notification — skipping",
+            );
+          });
+        }
       } catch (error) {
         this.logger.warn(
           { eventType: input.eventType, userId: spec.userId, error },

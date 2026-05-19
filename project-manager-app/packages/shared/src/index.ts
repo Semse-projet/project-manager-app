@@ -112,6 +112,16 @@ export const apiEnvSchema = z
     SEMSE_AUTONOMY_OPENAI_API_KEY: z.string().trim().optional(),
     SEMSE_AUTONOMY_OPENAI_MODEL: z.string().trim().optional(),
     SEMSE_AUTONOMY_OPENAI_BASE_URL: z.string().trim().optional(),
+    SEMSE_COMMUNICATIONS_MODE: z.enum(["mock", "live"]).default("mock"),
+    SEMSE_COMMUNICATIONS_NOTIFICATION_WHATSAPP: z.enum(["true", "false"]).default("false"),
+    SEMSE_COMMUNICATIONS_TENANT_ID: nonEmptyString.default("tenant_default"),
+    SEMSE_COMMUNICATIONS_ORG_ID: nonEmptyString.default("org_admin_001"),
+    SEMSE_COMMUNICATIONS_ACTOR_USER_ID: nonEmptyString.default("usr_admin_001"),
+    WHATSAPP_CLOUD_ACCESS_TOKEN: z.string().trim().optional(),
+    WHATSAPP_CLOUD_PHONE_NUMBER_ID: z.string().trim().optional(),
+    WHATSAPP_CLOUD_VERIFY_TOKEN: z.string().trim().optional(),
+    WHATSAPP_CLOUD_API_VERSION: z.string().trim().default("v20.0"),
+    WHATSAPP_APP_SECRET: z.string().trim().optional(),
     PORT: z.coerce.number().int().positive().default(4000),
     HOST: nonEmptyString.default("0.0.0.0")
   })
@@ -122,6 +132,23 @@ export const apiEnvSchema = z
         path: ["AUTH_SECRET"],
         message: "AUTH_SECRET is required in production"
       });
+    }
+
+    if (env.SEMSE_COMMUNICATIONS_MODE === "live") {
+      if (!env.WHATSAPP_CLOUD_ACCESS_TOKEN) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["WHATSAPP_CLOUD_ACCESS_TOKEN"],
+          message: "WHATSAPP_CLOUD_ACCESS_TOKEN is required when SEMSE_COMMUNICATIONS_MODE=live"
+        });
+      }
+      if (!env.WHATSAPP_CLOUD_PHONE_NUMBER_ID) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["WHATSAPP_CLOUD_PHONE_NUMBER_ID"],
+          message: "WHATSAPP_CLOUD_PHONE_NUMBER_ID is required when SEMSE_COMMUNICATIONS_MODE=live"
+        });
+      }
     }
   });
 
