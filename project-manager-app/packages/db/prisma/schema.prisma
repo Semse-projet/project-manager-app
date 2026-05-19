@@ -1740,9 +1740,31 @@ model DocumentChunk {
   createdAt    DateTime @default(now())
 
   tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  document     PrometeoDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document     PrometeoDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  feedbacks    PrometeoChunkFeedback[]
 
   @@index([tenantId, documentId, chunkIndex])
+}
+
+/// Human feedback on a specific Prometeo chunk — powers the feedback memory loop.
+/// type: "confirm" (chunk was helpful), "correct" (chunk had errors), "flag" (chunk is wrong/irrelevant)
+model PrometeoChunkFeedback {
+  id         String   @id @default(cuid())
+  tenantId   String
+  chunkId    String
+  documentId String
+  userId     String
+  type       String   // confirm | correct | flag
+  note       String?  // optional correction or comment
+  query      String?  // query that surfaced this chunk
+  tradeTag   String?  // trade context at feedback time
+  createdAt  DateTime @default(now())
+
+  chunk      DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, chunkId])
+  @@index([tenantId, documentId])
+  @@index([tenantId, userId])
 }
 
 /// A reusable asset tracked by Prometeo (equipment, materials, physical resources).

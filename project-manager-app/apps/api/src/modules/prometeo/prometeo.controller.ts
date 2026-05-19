@@ -398,4 +398,48 @@ export class PrometeoController {
     });
     return ok(rid, result);
   }
+
+  // ── Human Feedback ─────────────────────────────────────────────────────────
+
+  /** Submit feedback on a specific chunk (confirm | correct | flag). */
+  @Post("chunks/:chunkId/feedback")
+  @RequirePermissions("agents:run:create")
+  async submitFeedback(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("chunkId") chunkId: string,
+    @Body() body: unknown,
+  ) {
+    const actor = resolveRequestContext(req);
+    const rid   = resolveRequestId(req.headers ?? {});
+    const b     = body as Record<string, unknown>;
+    const type  = typeof b.type === "string" ? b.type : "";
+
+    if (!["confirm", "correct", "flag"].includes(type)) {
+      return ok(rid, { error: "type must be: confirm | correct | flag" });
+    }
+
+    try {
+      const result = await this.svc.submitFeedback({
+        tenantId: actor.tenantId,
+        userId:   actor.userId,
+        chunkId,
+        type:     type as "confirm" | "correct" | "flag",
+        note:     typeof b.note === "string" ? b.note : undefined,
+        query:    typeof b.query === "string" ? b.query : undefined,
+        tradeTag: typeof b.tradeTag === "string" ? b.tradeTag : undefined,
+      });
+      return ok(rid, { id: result.id, chunkId, type, recorded: true });
+    } catch (err) {
+      return ok(rid, { error: err instanceof Error ? err.message : String(err), recorded: false });
+    }
+  }
+
+  /** Feedback stats for Mission Control dashboard. */
+  @Get("feedback/stats")
+  @RequirePermissions("agents:run:create")
+  async feedbackStats(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const rid   = resolveRequestId(req.headers ?? {});
+    return ok(rid, await this.svc.getFeedbackStats(actor.tenantId));
+  }
 }

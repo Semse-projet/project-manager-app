@@ -128,6 +128,80 @@ export class PrometeoRepository {
     });
   }
 
+  // ── Chunk Feedback ────────────────────────────────────────────────────────
+
+  async saveFeedback(input: {
+    tenantId: string; chunkId: string; documentId: string; userId: string;
+    type: string; note?: string; query?: string; tradeTag?: string;
+  }) {
+    return this.prisma.prometeoChunkFeedback.create({
+      data: {
+        tenantId: input.tenantId, chunkId: input.chunkId, documentId: input.documentId,
+        userId: input.userId, type: input.type,
+        note: input.note, query: input.query, tradeTag: input.tradeTag,
+      },
+    });
+  }
+
+  /** Returns a Map<chunkId, feedbackScore> where score ∈ [-1, 1].
+   *  confirm = +1.0, correct = +0.5, flag = -1.0 per entry. */
+  async getFeedbackScores(tenantId: string, chunkIds: string[]): Promise<Map<string, number>> {
+    if (!chunkIds.length) return new Map();
+    const rows = await this.prisma.prometeoChunkFeedback.findMany({
+      where: { tenantId, chunkId: { in: chunkIds } },
+      select: { chunkId: true, type: true },
+    });
+
+    const WEIGHTS: Record<string, number> = { confirm: 1.0, correct: 0.5, flag: -1.0 };
+    const acc = new Map<string, { sum: number; count: number }>();
+    for (const r of rows) {
+      const w = WEIGHTS[r.type] ?? 0;
+      const cur = acc.get(r.chunkId) ?? { sum: 0, count: 0 };
+      acc.set(r.chunkId, { sum: cur.sum + w, count: cur.count + 1 });
+    }
+
+    const result = new Map<string, number>();
+    for (const [id, { sum, count }] of acc) {
+      result.set(id, Math.max(-1, Math.min(1, sum / count)));
+    }
+    return result;
+  }
+
+  async getFeedbackStats(tenantId: string) {
+    const rows = await this.prisma.prometeoChunkFeedback.findMany({
+      where: { tenantId },
+      select: { chunkId: true, documentId: true, type: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+    });
+
+    const byType: Record<string, number> = {};
+    const byDoc: Record<string, number> = {};
+    for (const r of rows) {
+      byType[r.type] = (byType[r.type] ?? 0) + 1;
+      byDoc[r.documentId] = (byDoc[r.documentId] ?? 0) + 1;
+    }
+
+    const chunksWithFeedback = new Set(rows.map((r: { chunkId: string }) => r.chunkId)).size;
+    return {
+      totalFeedback: rows.length,
+      chunksWithFeedback,
+      byType,
+      topDocuments: Object.entries(byDoc)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([documentId, count]) => ({ documentId, count })),
+      lastFeedbackAt: rows[0]?.createdAt ?? null,
+    };
+  }
+
+  async getChunkById(tenantId: string, chunkId: string) {
+    return this.prisma.documentChunk.findFirst({
+      where: { id: chunkId, tenantId },
+      select: { id: true, documentId: true, chunkIndex: true, text: true },
+    });
+  }
+
   async updateAssetStatus(input: { tenantId: string; id: string; status: string }) {
     const result = await this.prisma.prometeoAsset.updateMany({
       where: {

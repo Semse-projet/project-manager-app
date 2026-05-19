@@ -10,20 +10,24 @@ export type SearchResult = {
   documentId: string;
   documentTitle: string;
   chunkIndex: number;
+  chunkId: string;
   text: string;
-  score: number;          // final hybrid score
-  semanticScore?: number; // cosine similarity (undefined if fts_fallback)
-  textScore?: number;     // FTS keyword score
+  score: number;           // final hybrid score (semantic + FTS + feedback boost)
+  semanticScore?: number;  // cosine similarity (undefined if fts_fallback)
+  textScore?: number;      // FTS keyword score
+  feedbackScore?: number;  // human feedback score ∈ [-1, 1], 0 = no feedback
   retrievalMode: RetrievalMode;
 };
 
 type ScoredChunk = {
   documentId: string;
+  chunkId: string;
   chunkIndex: number;
   text: string;
   score: number;
   semanticScore?: number;
   textScore?: number;
+  feedbackScore?: number;
   retrievalMode: RetrievalMode;
 };
 
@@ -51,8 +55,9 @@ export type EmbeddingRagHealth = {
 };
 
 // Hybrid scoring weights
-const SEMANTIC_WEIGHT = 0.70;
-const FTS_WEIGHT      = 0.30;
+const SEMANTIC_WEIGHT  = 0.70;
+const FTS_WEIGHT       = 0.30;
+const FEEDBACK_WEIGHT  = 0.15; // additive boost/penalty ∈ [-0.15, +0.15]
 const BATCH_SIZE = 20;
 const MAX_CONTEXT_CHARS = 6_000;
 
@@ -219,27 +224,36 @@ export class PrometeoService {
     const chunks = await this.repo.loadChunksForSearch({ tenantId: input.tenantId, projectId: input.projectId });
     if (!chunks.length) return [];
 
+    // Load feedback scores for all chunks (only when feedback data exists)
+    const chunkIds = chunks.map((c: PrometeoChunkSearchRow) => c.id);
+    const feedbackMap = await this.repo.getFeedbackScores(input.tenantId, chunkIds);
+
     const scored: ScoredChunk[] = chunks.map((c: PrometeoChunkSearchRow) => {
       const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as EmbeddingVector) : [];
       const hasRealChunkEmbedding = vec.length > 0 && !isZeroVector(vec);
 
-      const textScore = this.ftsScore(c.text, input.query);
+      const textScore     = this.ftsScore(c.text, input.query);
+      const feedbackScore = feedbackMap.get(c.id) ?? 0;
 
       let semanticScore: number | undefined;
-      let score: number;
+      let baseScore: number;
       let retrievalMode: RetrievalMode;
 
       if (hasRealQueryEmbedding && hasRealChunkEmbedding) {
         semanticScore = cosineSimilarity(queryVec, vec);
-        score = SEMANTIC_WEIGHT * semanticScore + FTS_WEIGHT * textScore;
+        baseScore     = SEMANTIC_WEIGHT * semanticScore + FTS_WEIGHT * textScore;
         retrievalMode = "hybrid";
       } else {
         // Zero-vector detected — use FTS only (critical bug fix)
-        score = textScore;
+        baseScore     = textScore;
         retrievalMode = "fts_fallback";
       }
 
-      return { documentId: c.documentId, chunkIndex: c.chunkIndex, text: c.text, score, semanticScore, textScore, retrievalMode };
+      // Additive feedback boost: confirmed chunks rank higher, flagged chunks rank lower
+      const score = baseScore + FEEDBACK_WEIGHT * feedbackScore;
+
+      return { documentId: c.documentId, chunkId: c.id, chunkIndex: c.chunkIndex, text: c.text,
+               score, semanticScore, textScore, feedbackScore: feedbackScore || undefined, retrievalMode };
     });
 
     // Filter by trade if specified (best-effort via metadataJson)
@@ -258,6 +272,42 @@ export class PrometeoService {
     const uniqueDocIds = [...new Set(top.map((r: ScoredChunk) => r.documentId))];
     const titleMap = await this.repo.getDocumentTitles(uniqueDocIds);
     return top.map((r: ScoredChunk) => ({ ...r, documentTitle: titleMap.get(r.documentId) ?? "—" }));
+  }
+
+  // ── Human Feedback ────────────────────────────────────────────────────────
+
+  async submitFeedback(input: {
+    tenantId: string; userId: string;
+    chunkId: string;
+    type: "confirm" | "correct" | "flag";
+    note?: string;
+    query?: string;
+    tradeTag?: string;
+  }) {
+    const VALID_TYPES = ["confirm", "correct", "flag"] as const;
+    if (!VALID_TYPES.includes(input.type)) {
+      throw new Error(`Invalid feedback type '${input.type}'. Must be: confirm | correct | flag`);
+    }
+
+    const chunk = await this.repo.getChunkById(input.tenantId, input.chunkId);
+    if (!chunk) {
+      throw new Error(`Chunk '${input.chunkId}' not found in tenant '${input.tenantId}'`);
+    }
+
+    return this.repo.saveFeedback({
+      tenantId: input.tenantId,
+      chunkId: input.chunkId,
+      documentId: chunk.documentId,
+      userId: input.userId,
+      type: input.type,
+      note: input.note,
+      query: input.query,
+      tradeTag: input.tradeTag,
+    });
+  }
+
+  async getFeedbackStats(tenantId: string) {
+    return this.repo.getFeedbackStats(tenantId);
   }
 
   /** Keyword overlap score — used as FTS fallback and hybrid component. */
