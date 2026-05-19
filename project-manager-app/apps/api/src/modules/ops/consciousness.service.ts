@@ -3,6 +3,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { isZeroVector } from "../prometeo/embedding.service.js";
 import type { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
+import { SystemObserverService, type ObservationSnapshot } from "./observer.service.js";
 import type {
   SemseConsciousnessIndex, ModuleHealth, ModuleMaturityScore,
   Risk, LlmProviderStatus, ModuleStatus, RagStatus,
@@ -77,24 +78,29 @@ export class ConsciousnessIndexService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly observer: SystemObserverService,
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly signals?: OperationalSignalsService,
   ) {}
 
   async buildIndex(tenantId: string): Promise<SemseConsciousnessIndex> {
+    // Observer is the single perception layer — runs first, feeds everything else
+    const snap = await this.observer.observe(tenantId);
+
     const [modules, brains, memory, operational] = await Promise.all([
       this.buildModuleMap(),
-      this.buildBrainsMap(),
-      this.buildMemoryMap(tenantId),
-      this.buildOperationalState(tenantId),
+      this.buildBrainsFromObserver(snap),
+      this.buildMemoryFromObserver(snap),
+      this.buildOperationalFromObserver(snap),
     ]);
 
     const maturity = this.computeMaturity(modules);
-    const risks    = this.detectRisks(modules, brains, memory, operational);
+    // Risks come from observer alerts + static module analysis
+    const risks    = this.mergeRisks(snap, modules);
     const recs     = this.generateRecommendations(maturity, risks, operational);
 
     return {
-      generatedAt: new Date().toISOString(),
+      generatedAt: snap.observedAt,
       version: "1",
 
       identity: {
@@ -114,7 +120,10 @@ export class ConsciousnessIndexService {
 
       body: {
         modules,
-        services: await this.buildServiceMap(),
+        // Services come from observer — single source of truth
+        services: snap.infrastructure.items.map((i) => ({
+          name: i.name, healthy: i.healthy, latencyMs: i.latencyMs, error: i.detail,
+        })),
         knownSSEChannels: KNOWN_SSE_CHANNELS,
         knownSSEEvents:   KNOWN_SSE_EVENTS,
       },
@@ -125,6 +134,19 @@ export class ConsciousnessIndexService {
       risks,
       operationalState: operational,
       recommendations: recs,
+
+      // Live observation — powered by SystemObserverService
+      observation: {
+        observedAt:      snap.observedAt,
+        healthScore:     snap.healthScore,
+        infraHealthy:    snap.infrastructure.allHealthy,
+        alertCount:      snap.alerts.length,
+        alertSummary:    snap.alerts.map((a) => `[${a.level.toUpperCase()}] ${a.area}: ${a.message}`),
+        patterns:        snap.patterns.map((p) => p.interpretation),
+        ollamaAvailable: snap.intelligenceHealth.ollamaAvailable,
+        ragMode:         snap.intelligenceHealth.embeddingsMode,
+        fromObserver:    true as const,
+      },
     };
   }
 
@@ -142,67 +164,31 @@ export class ConsciousnessIndexService {
     });
   }
 
-  private async buildServiceMap() {
-    const services = [];
+  // ── Observer-powered builders — no duplicate Prisma queries ──────────────────
 
-    // Postgres
-    try {
-      await this.prisma.$queryRaw`SELECT 1`;
-      services.push({ name: "Postgres", healthy: true });
-    } catch (e) {
-      services.push({ name: "Postgres", healthy: false, error: (e as Error).message });
-    }
+  /** Brains map from Observer's LLM intelligence health. */
+  private async buildBrainsFromObserver(snap: ObservationSnapshot) {
+    const providerRoles: Record<string, string> = {
+      ollama:    "Provider principal — privacidad, datos internos, costo bajo, razonamiento local",
+      anthropic: "Fallback #1 — razonamiento fuerte, código, planificación compleja",
+      openai:    "Fallback #2 + Embeddings RAG (exclusivo)",
+      template:  "Fallback final — sin LLM disponible",
+    };
 
-    // Redis (via worker lock detection)
-    try {
-      const redisLock = await this.prisma.$queryRaw`SELECT 1` as unknown[];
-      services.push({ name: "Redis", healthy: redisLock.length > 0 });
-    } catch {
-      services.push({ name: "Redis", healthy: false, error: "Cannot verify via Prisma" });
-    }
-
-    // LLM providers
-    if (this.llm) {
-      const providers = this.llm.getRegisteredProviders();
-      services.push({ name: "LLM Orchestrator", healthy: providers.length > 0 });
-    }
-
-    return services;
-  }
-
-  private async buildBrainsMap() {
+    // Build provider list from LLM orchestrator + observer availability
     const providers: LlmProviderStatus[] = [];
-    let totalCalls = 0;
-    let totalFallbacks = 0;
-
     if (this.llm) {
       const snapshots = this.llm.metricsSnapshot();
       const registered = this.llm.getRegisteredProviders();
-
-      const providerRoles: Record<string, string> = {
-        ollama:    "Provider principal — privacidad, datos internos, costo bajo, razonamiento local",
-        anthropic: "Fallback #1 — razonamiento fuerte, código, planificación compleja",
-        openai:    "Fallback #2 + Embeddings RAG (exclusivo)",
-        template:  "Fallback final — sin LLM disponible",
-      };
-
       for (const name of registered) {
-        const snap = snapshots.find((s) => s.provider === name);
+        const s = snapshots.find((p) => p.provider === name);
         const isDefault = name === (process.env.LLM_DEFAULT_PROVIDER ?? "ollama");
-        const success = snap?.successCount ?? 0;
-        const failure = snap?.failureCount ?? 0;
-        totalCalls += success + failure;
         providers.push({
           name, available: true, isDefault,
-          successCount: success, failureCount: failure,
+          successCount: s?.successCount ?? 0, failureCount: s?.failureCount ?? 0,
           role: providerRoles[name] ?? "Proveedor secundario",
         });
       }
-
-      // Count fallbacks (non-ollama providers that were called in default/local contexts)
-      totalFallbacks = snapshots
-        .filter((s) => s.provider !== "ollama" && s.provider !== "template")
-        .reduce((acc, s) => acc + s.successCount, 0);
     }
 
     return {
@@ -220,61 +206,30 @@ export class ConsciousnessIndexService {
         "default → ollama → anthropic → openai → template",
         "Embeddings OpenAI: solo documentos no privacyCritical",
       ],
-      totalLLMCalls: totalCalls,
-      totalFallbacks,
+      totalLLMCalls:  snap.intelligenceHealth.llmTotalCalls,
+      totalFallbacks: snap.intelligenceHealth.llmFallbacks,
     };
   }
 
-  private async buildMemoryMap(tenantId: string) {
-    // Read RAG stats directly from Prisma — no circular dep via PrometeoService
-    const openaiKeySet = typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.length > 10;
-    const embeddingsModel = process.env.EMBEDDINGS_MODEL ?? "text-embedding-3-small";
+  /** Memory map from Observer's RAG intelligence. */
+  private async buildMemoryFromObserver(snap: ObservationSnapshot) {
+    const intel = snap.intelligenceHealth;
+    const auditActive = await this.prisma.auditLog.count({ where: { tenantId: snap.tenantId } }).catch(() => 0);
 
-    let totalDocuments = 0;
-    let totalChunks = 0;
-    let chunksWithEmbeddings = 0;
-
-    try {
-      const docs = await this.prisma.prometeoDocument.findMany({
-        where: { tenantId, status: "indexed" },
-        select: { id: true, chunkCount: true },
-      });
-      totalDocuments = await this.prisma.prometeoDocument.count({ where: { tenantId } });
-      totalChunks = docs.reduce((s, d) => s + d.chunkCount, 0);
-
-      // Sample chunks to count real embeddings
-      const sample = await this.prisma.documentChunk.findMany({
-        where: { tenantId, documentId: { in: docs.slice(0, 50).map((d) => d.id) } },
-        select: { embeddingJson: true },
-        take: 500,
-      });
-      chunksWithEmbeddings = sample.filter((c) => {
-        const vec = Array.isArray(c.embeddingJson) ? (c.embeddingJson as number[]) : [];
-        return !isZeroVector(vec);
-      }).length;
-    } catch { /* ignore — DB might not have table */ }
-
-    const retrievalMode = openaiKeySet && chunksWithEmbeddings > 0 ? "hybrid" : "fts_fallback";
-
-    const ragStatus = {
-      provider:             openaiKeySet ? "openai" : "none",
-      model:                embeddingsModel,
-      available:            openaiKeySet,
-      totalDocuments,
-      totalChunks,
-      chunksWithEmbeddings,
-      retrievalMode,
+    const ragStatus: RagStatus = {
+      provider:             intel.embeddingsMode === "hybrid" ? "openai" : "none",
+      model:                process.env.EMBEDDINGS_MODEL ?? "text-embedding-3-small",
+      available:            intel.embeddingsMode === "hybrid",
+      totalDocuments:       intel.ragDocuments,
+      totalChunks:          intel.ragChunks,
+      chunksWithEmbeddings: intel.ragEmbedded,
+      retrievalMode:        intel.embeddingsMode,
     };
-
-    const [auditCount, signalCount] = await Promise.all([
-      this.prisma.auditLog.count({ where: { tenantId } }).catch(() => 0),
-      this.prisma.operationalSignal.count({ where: { tenantId } }).catch(() => 0),
-    ]);
 
     return {
       ragStatus,
-      auditLogActive:           auditCount > 0,
-      operationalSignalsActive: signalCount > 0,
+      auditLogActive:           auditActive > 0,
+      operationalSignalsActive: snap.operationalHealth.openSignals > 0,
       reportsDirectory:         "docs/reportes/",
       memoryLayers: [
         "Prometeo RAG — documentos indexados + embeddings reales",
@@ -283,32 +238,66 @@ export class ConsciousnessIndexService {
         "AlgorithmRun — runs de estimación BuildOps",
         "LLMInteractionLog — llamadas a modelos + provider + latencia",
         "EvidenceReviewNote — revisiones IA guardadas en reviewNote",
+        "SystemObserver — snapshots de salud del ecosistema (últimos 50)",
         "docs/reportes — reportes escritos de cada sesión de desarrollo",
       ],
     };
   }
 
-  private async buildOperationalState(tenantId: string) {
-    const [openSignals, criticalSignals, milestones] = await Promise.all([
-      this.prisma.operationalSignal.count({ where: { tenantId, status: "open" } }).catch(() => 0),
-      this.prisma.operationalSignal.count({ where: { tenantId, status: "open", severity: "critical" } }).catch(() => 0),
-      this.prisma.milestone.findMany({
-        where: { project: { tenantId } },
-        select: { paymentReadiness: true, evidenceReadiness: true },
-        take: 50,
-      }).catch(() => []),
-    ]);
+  /** Operational state from Observer's live signals and milestone data. */
+  private buildOperationalFromObserver(snap: ObservationSnapshot) {
+    const op = snap.operationalHealth;
+    const total = op.milestones.total;
+    const readyCount = op.milestones.readyPayment;
 
-    const readyCount = milestones.filter(
-      (m) => (m as Record<string, unknown>).paymentReadiness === "ready",
-    ).length;
+    return {
+      openSignals:          op.openSignals,
+      criticalSignals:      op.criticalSignals,
+      monetizableFlowReady: total > 0,
+      monetizableFlowStatus: total === 0
+        ? "Sin proyectos activos"
+        : `${readyCount}/${total} milestones listos para pago`,
+    };
+  }
 
-    const monetizableFlowReady = readyCount > 0 || milestones.length > 0;
-    const monetizableFlowStatus = milestones.length === 0
-      ? "Sin proyectos activos"
-      : `${readyCount}/${milestones.length} milestones listos para pago`;
+  /** Merge observer alerts with module-level risks into consciousness risk format. */
+  private mergeRisks(snap: ObservationSnapshot, modules: ModuleHealth[]) {
+    const critical: Risk[] = [];
+    const high: Risk[]     = [];
+    const medium: Risk[]   = [];
+    const low: Risk[]      = [];
 
-    return { openSignals, criticalSignals, monetizableFlowReady, monetizableFlowStatus };
+    // Map observer alerts directly to risks
+    for (const alert of snap.alerts) {
+      const risk: Risk = { severity: alert.level === "info" ? "low" : alert.level, area: alert.area, message: alert.message, recommendation: alert.recommendation };
+      if (alert.level === "critical") critical.push(risk);
+      else if (alert.level === "high") high.push(risk);
+      else if (alert.level === "medium") medium.push(risk);
+      else low.push(risk);
+    }
+
+    // Add module-level risks (static analysis — not in observer)
+    const missingFrontend = modules.filter((m) => !m.hasFrontend && m.hasBackend);
+    if (missingFrontend.length > 0) {
+      medium.push({ severity: "medium", area: "UI Coverage", message: `${missingFrontend.length} módulos con backend sin frontend: ${missingFrontend.map((m) => m.name).join(", ")}`, recommendation: "Priorizar UI para Contractors y Marketplace" });
+    }
+
+    const missingTests = modules.filter((m) => !m.hasTests && m.maturityScore > 30);
+    if (missingTests.length > 0) {
+      medium.push({ severity: "medium", area: "Test Coverage", message: `${missingTests.length} módulos sin tests: ${missingTests.map((m) => m.name).join(", ")}`, recommendation: "Agregar tests para AI Mission Control, Finance, Worker" });
+    }
+
+    const intel = snap.intelligenceHealth;
+    if (intel.llmFallbacks > 10 && intel.fallbackRate > 0.3) {
+      low.push({ severity: "low", area: "LLM Routing", message: `${intel.llmFallbacks} llamadas cloud — revisar si pueden ir a Ollama`, recommendation: "Auditar agent profiles para maximizar Ollama local" });
+    }
+
+    const marketplace = modules.find((m) => m.name === "Marketplace");
+    if (marketplace?.status === "missing") {
+      low.push({ severity: "low", area: "Producto", message: "Marketplace no implementado — limita la propuesta de valor SaaS", recommendation: "Roadmap: después de madurez operacional core" });
+    }
+
+    return { critical, high, medium, low };
   }
 
   // ── Maturity computation ───────────────────────────────────────────────────
@@ -336,57 +325,7 @@ export class ConsciousnessIndexService {
 
   // ── Risk detection ─────────────────────────────────────────────────────────
 
-  private detectRisks(
-    modules: ModuleHealth[],
-    brains: { providers: LlmProviderStatus[]; totalFallbacks: number },
-    memory: { ragStatus: RagStatus },
-    operational: { criticalSignals: number; openSignals: number },
-  ) {
-    const critical: Risk[] = [];
-    const high: Risk[]     = [];
-    const medium: Risk[]   = [];
-    const low: Risk[]      = [];
-
-    if (operational.criticalSignals > 0) {
-      critical.push({ severity: "critical", area: "Mission Control", message: `${operational.criticalSignals} señales críticas abiertas en el sistema`, recommendation: "Revisar /admin/ai-mission-control" });
-    }
-
-    const ollamaProvider = brains.providers.find((p) => p.name === "ollama");
-    if (!ollamaProvider) {
-      high.push({ severity: "high", area: "LLM Infrastructure", message: "Ollama no está registrado como provider — LLM local no disponible", recommendation: "Verificar OLLAMA_BASE_URL y modelo instalado" });
-    }
-
-    if (!memory.ragStatus.available) {
-      high.push({ severity: "high", area: "Embeddings", message: "OPENAI_API_KEY no configurada — Prometeo RAG usa FTS fallback sin semántica real", recommendation: "Configurar OPENAI_API_KEY en Railway" });
-    } else if (memory.ragStatus.totalDocuments === 0) {
-      medium.push({ severity: "medium", area: "Trade Knowledge", message: "Embeddings activos pero sin documentos indexados — RAG sin memoria documental real", recommendation: "Subir manuales trade (electrical, plumbing, HVAC) a la biblioteca de Prometeo" });
-    } else if (memory.ragStatus.retrievalMode !== "hybrid") {
-      medium.push({ severity: "medium", area: "Embeddings", message: `${memory.ragStatus.totalDocuments} docs indexados pero retrieval en FTS fallback — chunks sin embeddings reales`, recommendation: "Ejecutar backfill: POST /v1/prometeo/embeddings/backfill" });
-    }
-
-    const missingFrontend = modules.filter((m) => !m.hasFrontend && m.hasBackend);
-    if (missingFrontend.length > 0) {
-      medium.push({ severity: "medium", area: "UI Coverage", message: `${missingFrontend.length} módulos con backend sin frontend: ${missingFrontend.map((m) => m.name).join(", ")}`, recommendation: "Priorizar UI para Contractors y Marketplace" });
-    }
-
-    const missingTests = modules.filter((m) => !m.hasTests && m.maturityScore > 30);
-    if (missingTests.length > 0) {
-      medium.push({ severity: "medium", area: "Test Coverage", message: `${missingTests.length} módulos sin tests: ${missingTests.map((m) => m.name).join(", ")}`, recommendation: "Agregar tests unitarios para AI Mission Control, Finance, Worker" });
-    }
-
-    if (brains.totalFallbacks > 10) {
-      low.push({ severity: "low", area: "LLM Routing", message: `${brains.totalFallbacks} llamadas cloud detectadas — revisar si son necesarias o pueden ser locales`, recommendation: "Auditar agent profiles para maximizar uso de Ollama local" });
-    }
-
-    const marketplace = modules.find((m) => m.name === "Marketplace");
-    if (marketplace && marketplace.status === "missing") {
-      low.push({ severity: "low", area: "Producto", message: "Marketplace no implementado — limita la propuesta de valor como plataforma SaaS", recommendation: "Roadmap: después de madurez operacional core" });
-    }
-
-    return { critical, high, medium, low };
-  }
-
-  // ── Recommendations ────────────────────────────────────────────────────────
+  // ── Recommendations — reflect current real state ──────────────────────────
 
   private generateRecommendations(
     maturity: { globalScore: number; weakestAreas: string[] },
@@ -397,35 +336,42 @@ export class ConsciousnessIndexService {
     const doNotDoYet: string[]     = [];
     const strategicWarnings: string[] = [];
 
+    // Urgent: critical risks first
     if (risks.critical.length > 0) {
-      nextBestActions.push(`URGENTE: Resolver ${risks.critical.length} señal(es) crítica(s) antes de cualquier otro trabajo`);
+      nextBestActions.push(`URGENTE: Resolver ${risks.critical.length} riesgo(s) crítico(s) antes de cualquier otro trabajo`);
     }
 
-    if (risks.high.some((r) => r.area === "Embeddings")) {
-      nextBestActions.push("Subir manuales trade a Prometeo RAG (electrical, plumbing, HVAC) — embeddings reales ya activos");
-    }
+    // High priority from observer alerts
+    risks.high.forEach((r) => {
+      if (r.area === "LLM Intelligence") nextBestActions.push("Verificar Ollama en Railway — alta tasa de fallback cloud detectada");
+      if (r.area === "Mission Control") nextBestActions.push("Revisar señales de alta severidad antes de liberar pagos");
+    });
 
-    if (risks.high.some((r) => r.area === "LLM Infrastructure")) {
-      nextBestActions.push("Configurar y verificar Ollama en Railway");
-    }
-
-    nextBestActions.push("Trade Knowledge Library — manuales reales por oficio para activar hybrid retrieval");
-    nextBestActions.push("RAG Fase 5 — Human Feedback Memory Loop (qué chunks son útiles en decisiones reales)");
-    nextBestActions.push("SEMSE Internal Observer v1 — leer logs, señales y health para autodiagnóstico continuo");
-
-    if (maturity.globalScore < 60) {
-      strategicWarnings.push("Madurez global baja — priorizar completar módulos existentes antes de agregar nuevos features");
+    // Dynamic: based on actual system state
+    if (!risks.critical.length && !risks.high.length) {
+      // System is healthy — suggest evolution
+      nextBestActions.push("Sistema estable — foco en RAG Fase 5 Feedback Loop (marcar chunks útiles en decisiones reales)");
+      nextBestActions.push("Ampliar Trade Knowledge Library — agregar más manuales por oficio (roofing, flooring, tile)");
+      nextBestActions.push("Panel UI Observer — visualizar snapshots del Observer en /admin/ai-mission-control");
+      nextBestActions.push("Autonomy Level 2 — Recommendation Engine: que SEMSE proponga PRs con fixes de forma asistida");
     } else {
-      strategicWarnings.push("Madurez operacional suficiente para uso real — foco en consistencia y observabilidad");
+      nextBestActions.push("Resolver riesgos actuales antes de avanzar con nuevos features");
+      nextBestActions.push("Revisar alertas del Observer: GET /v1/ops/observer/snapshot");
     }
 
-    strategicWarnings.push("No implementar Self-Healing hasta tener Internal Observer estable (Nivel 0→1 antes de Nivel 4)");
-    strategicWarnings.push("No automatizar liberación de pagos — mantener aprobación humana obligatoria");
+    if (maturity.globalScore >= 65) {
+      strategicWarnings.push("Madurez operacional suficiente para producción real — foco en madurez de módulos débiles: " + maturity.weakestAreas.slice(0, 3).join(", "));
+    } else {
+      strategicWarnings.push("Madurez global < 65 — completar módulos existentes antes de agregar features");
+    }
 
-    doNotDoYet.push("Auto-healing / self-repair — requiere Internal Observer maduro primero");
-    doNotDoYet.push("Marketplace — requiere madurez operacional completa y trust scores funcionales");
+    strategicWarnings.push("Internal Observer opera en Nivel 0-1 — no avanzar a Self-Healing sin estabilidad probada del Observer");
+    strategicWarnings.push("No automatizar liberación de pagos — aprobación humana es invariante del sistema");
+
+    doNotDoYet.push("Auto-healing / self-repair — Nivel 4 requiere Observer + Reasoning maduros primero");
+    doNotDoYet.push("Marketplace — requiere trust scores funcionales y madurez completa del ciclo monetizable");
     doNotDoYet.push("Modificar payment governance core sin tests de regresión completos");
-    doNotDoYet.push("Agregar más LLM providers externos — primero maximizar Ollama local");
+    doNotDoYet.push("Agregar más LLM providers externos — maximizar Ollama local primero");
 
     return { nextBestActions, doNotDoYet, strategicWarnings };
   }

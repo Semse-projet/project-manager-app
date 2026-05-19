@@ -144,4 +144,17 @@ export type SemseConsciousnessIndex = {
     doNotDoYet: string[];
     strategicWarnings: string[];
   };
+
+  /** Live observation powered by SystemObserverService. */
+  observation: {
+    observedAt:   string;
+    healthScore:  number;
+    infraHealthy: boolean;
+    alertCount:   number;
+    alertSummary: string[];
+    patterns:     string[];
+    ollamaAvailable: boolean;
+    ragMode:      string;
+    fromObserver: true;
+  };
 };
