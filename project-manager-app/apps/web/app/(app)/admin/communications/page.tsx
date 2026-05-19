@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -310,6 +310,30 @@ export default function AdminCommunicationsPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const selectedThread = useMemo(
+    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
+    [threads, selectedThreadId],
+  );
+
+  const visibleThreads = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return threads;
+
+    return threads.filter((thread) => {
+      const fields = [
+        thread.contactName,
+        thread.contactPhone,
+        thread.contractorLeadId,
+        thread.projectId,
+        thread.jobId,
+        thread.intent,
+        thread.source,
+        metadataValue(thread, ["smartIntake", "summary"]),
+      ];
+      return fields.some((field) => field?.toLowerCase().includes(needle));
+    });
+  }, [threads, query]);
+
   // Keyboard: j/k navigate threads, r focus reply
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -360,30 +384,6 @@ export default function AdminCommunicationsPage() {
       cancelled = true;
     };
   }, [runtimeEnabled, selectedThreadId, refreshToken]);
-
-  const selectedThread = useMemo(
-    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
-    [threads, selectedThreadId],
-  );
-
-  const visibleThreads = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return threads;
-
-    return threads.filter((thread) => {
-      const fields = [
-        thread.contactName,
-        thread.contactPhone,
-        thread.contractorLeadId,
-        thread.projectId,
-        thread.jobId,
-        thread.intent,
-        thread.source,
-        metadataValue(thread, ["smartIntake", "summary"]),
-      ];
-      return fields.some((field) => field?.toLowerCase().includes(needle));
-    });
-  }, [threads, query]);
 
   const stats = useMemo(() => {
     const open = threads.filter((thread) => thread.status === "OPEN").length;
@@ -719,29 +719,31 @@ export default function AdminCommunicationsPage() {
                   {messages.map((message) => {
                     const outbound = message.direction === "OUTBOUND";
                     return (
-                      <div key={message.id} style={{ display: "flex", justifyContent: outbound ? "flex-end" : "flex-start" }}>
-                        <article
-                          style={{
-                            maxWidth: "min(680px, 82%)",
-                            border: `1px solid ${outbound ? "rgba(45,212,191,0.28)" : "var(--border)"}`,
-                            borderRadius: "8px",
-                            background: outbound ? "rgba(20,184,166,0.12)" : "var(--bg)",
-                            padding: "10px 12px",
-                            color: "var(--ink)",
-                          }}
-                        >
-                          <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "6px", color: outbound ? "#5eead4" : "#93c5fd", fontSize: "11px", fontWeight: 850 }}>
-                            {outbound ? <Send size={11} /> : <Phone size={11} />}
-                            {outbound ? "SEMSE" : selectedThread.contactName || selectedThread.contactPhone || "Contacto"}
-                            <span style={{ color: "var(--faint)", fontWeight: 650 }}>{message.status}</span>
-                          </div>
-                          <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "13px", lineHeight: 1.5, margin: 0 }}>
-                            {message.body || "[media]"}
-                          </p>
-                          <p style={{ fontSize: "11px", color: "var(--faint)", marginTop: "7px" }}>{formatTimestamp(message.createdAt)}</p>
-                        </article>
-                      </div>
-                      {message === messages[messages.length - 1] ? <div ref={messagesEndRef} /> : null}
+                      <Fragment key={message.id}>
+                        <div style={{ display: "flex", justifyContent: outbound ? "flex-end" : "flex-start" }}>
+                          <article
+                            style={{
+                              maxWidth: "min(680px, 82%)",
+                              border: `1px solid ${outbound ? "rgba(45,212,191,0.28)" : "var(--border)"}`,
+                              borderRadius: "8px",
+                              background: outbound ? "rgba(20,184,166,0.12)" : "var(--bg)",
+                              padding: "10px 12px",
+                              color: "var(--ink)",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "7px", marginBottom: "6px", color: outbound ? "#5eead4" : "#93c5fd", fontSize: "11px", fontWeight: 850 }}>
+                              {outbound ? <Send size={11} /> : <Phone size={11} />}
+                              {outbound ? "SEMSE" : selectedThread.contactName || selectedThread.contactPhone || "Contacto"}
+                              <span style={{ color: "var(--faint)", fontWeight: 650 }}>{message.status}</span>
+                            </div>
+                            <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: "13px", lineHeight: 1.5, margin: 0 }}>
+                              {message.body || "[media]"}
+                            </p>
+                            <p style={{ fontSize: "11px", color: "var(--faint)", marginTop: "7px" }}>{formatTimestamp(message.createdAt)}</p>
+                          </article>
+                        </div>
+                        {message === messages[messages.length - 1] ? <div ref={messagesEndRef} /> : null}
+                      </Fragment>
                     );
                   })}
                 </div>

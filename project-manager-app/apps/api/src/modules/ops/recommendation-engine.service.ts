@@ -148,7 +148,7 @@ export class RecommendationEngineService {
           draftPRScope:   [
             `Emitir evento SSE en mutaciones de ${mod.module}`,
             "Canal: `buildops:{tenantId}` o canal específico",
-            "Hook `use${mod.module.replace(/\s+/g, "")}SSE` en web",
+            `Hook \`use${mod.module.replace(/\s+/g, "")}SSE\` en web`,
             "Refresh automático en UI al recibir evento",
           ],
           autonomyNote: "Nivel 2 — Recomendación: el sistema propone, humano aprueba y actúa",
