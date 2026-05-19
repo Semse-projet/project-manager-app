@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import {
   ArrowLeft,
   Bot,
@@ -166,6 +166,23 @@ async function receiveCommunicationInbound(input: {
   });
 }
 
+async function updateCommunicationThread(threadId: string, input: {
+  status?: CommunicationThreadStatus;
+  intent?: string;
+}): Promise<CommunicationThread> {
+  return fetchSemse<CommunicationThread>(
+    `/api/semse/communications/threads/${encodeURIComponent(threadId)}`,
+    { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(input) },
+  );
+}
+
+const QUICK_REPLIES = [
+  { label: "Confirmación", body: "Hola, recibimos tu mensaje. Nuestro equipo estará en contacto contigo pronto." },
+  { label: "Solicitar fotos", body: "Para darte una cotización precisa, ¿podrías enviarnos fotos del área a trabajar?" },
+  { label: "Agendar visita", body: "Podemos agendar una visita para evaluar el trabajo. ¿Cuándo tienes disponibilidad esta semana?" },
+  { label: "Cotización lista", body: "Tu cotización ya está lista. Te la compartimos por este medio en breve." },
+];
+
 function formatTimestamp(value?: string | null) {
   if (!value) return "Sin actividad";
   return new Date(value).toLocaleString("es-MX", {
@@ -242,6 +259,9 @@ export default function AdminCommunicationsPage() {
   const [manualBody, setManualBody] = useState("Necesito una cotizacion para reparar mi cocina esta semana.");
   const [manualLoading, setManualLoading] = useState(false);
   const [manualFeedback, setManualFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
+  const [statusChanging, setStatusChanging] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const replyRef = useRef<HTMLTextAreaElement>(null);
 
   const loadWorkspace = useCallback(async (options?: { skipLoading?: boolean }) => {
     if (!runtimeEnabled) return;
@@ -271,6 +291,47 @@ export default function AdminCommunicationsPage() {
   useEffect(() => {
     void loadWorkspace();
   }, [loadWorkspace, refreshToken]);
+
+  // Auto-poll threads every 20s
+  useEffect(() => {
+    const timer = setInterval(() => void loadWorkspace({ skipLoading: true }), 20_000);
+    return () => clearInterval(timer);
+  }, [loadWorkspace]);
+
+  // Auto-poll messages every 8s while a thread is selected
+  useEffect(() => {
+    if (!runtimeEnabled || !selectedThreadId) return;
+    const timer = setInterval(() => setRefreshToken((t) => t + 1), 8_000);
+    return () => clearInterval(timer);
+  }, [runtimeEnabled, selectedThreadId]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Keyboard: j/k navigate threads, r focus reply
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (e.key === "j" || e.key === "ArrowDown") {
+        setSelectedThreadId((id) => {
+          const idx = visibleThreads.findIndex((t) => t.id === id);
+          return visibleThreads[Math.min(idx + 1, visibleThreads.length - 1)]?.id ?? id;
+        });
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        setSelectedThreadId((id) => {
+          const idx = visibleThreads.findIndex((t) => t.id === id);
+          return visibleThreads[Math.max(idx - 1, 0)]?.id ?? id;
+        });
+      } else if (e.key === "r") {
+        replyRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visibleThreads]);
 
   useEffect(() => {
     if (!runtimeEnabled || !selectedThreadId) {
@@ -366,6 +427,24 @@ export default function AdminCommunicationsPage() {
     } finally {
       setSending(false);
     }
+  }
+
+  async function handleStatusChange(newStatus: CommunicationThreadStatus) {
+    if (!selectedThread || statusChanging) return;
+    setStatusChanging(true);
+    try {
+      const updated = await updateCommunicationThread(selectedThread.id, { status: newStatus });
+      setThreads((prev) => prev.map((t) => t.id === updated.id ? { ...t, status: updated.status } : t));
+    } catch {
+      // silent — UI reflects old state
+    } finally {
+      setStatusChanging(false);
+    }
+  }
+
+  function handleQuickReply(body: string) {
+    setReply(body);
+    replyRef.current?.focus();
   }
 
   async function handleManualInbound(event: FormEvent<HTMLFormElement>) {
@@ -588,11 +667,26 @@ export default function AdminCommunicationsPage() {
                       <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{selectedThread.contactPhone || selectedThread.externalThreadId || shortId(selectedThread.id)}</p>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: "7px", flexWrap: "wrap", marginTop: "12px" }}>
+                  <div style={{ display: "flex", gap: "7px", flexWrap: "wrap", marginTop: "12px", alignItems: "center" }}>
                     <StatusPill value={selectedThread.status} />
-                    {selectedThread.contractorLeadId ? <span style={chipStyle("#60a5fa")}>Lead {shortId(selectedThread.contractorLeadId)}</span> : null}
+                    {selectedThread.contractorLeadId ? (
+                      <Link href={`/admin/contractor-leads/${selectedThread.contractorLeadId}`} style={{ textDecoration: "none" }}>
+                        <span style={{ ...chipStyle("#60a5fa"), cursor: "pointer" }}>Lead ↗ {shortId(selectedThread.contractorLeadId)}</span>
+                      </Link>
+                    ) : null}
                     {selectedThread.projectId ? <span style={chipStyle("#fbbf24")}>Proyecto {shortId(selectedThread.projectId)}</span> : null}
                     {selectedThread.jobId ? <span style={chipStyle("#34d399")}>Job {shortId(selectedThread.jobId)}</span> : null}
+                  </div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "10px" }}>
+                    {selectedThread.status !== "OPEN" && (
+                      <button onClick={() => void handleStatusChange("OPEN")} disabled={statusChanging} style={actionBtnStyle("#2dd4bf", statusChanging)}>Reabrir</button>
+                    )}
+                    {selectedThread.status !== "PENDING" && (
+                      <button onClick={() => void handleStatusChange("PENDING")} disabled={statusChanging} style={actionBtnStyle("#fbbf24", statusChanging)}>Pendiente</button>
+                    )}
+                    {selectedThread.status !== "CLOSED" && (
+                      <button onClick={() => void handleStatusChange("CLOSED")} disabled={statusChanging} style={actionBtnStyle("#94a3b8", statusChanging)}>Cerrar</button>
+                    )}
                   </div>
                 </div>
                 <div style={{ color: "var(--muted)", fontSize: "12px", textAlign: "right" }}>
@@ -647,6 +741,7 @@ export default function AdminCommunicationsPage() {
                           <p style={{ fontSize: "11px", color: "var(--faint)", marginTop: "7px" }}>{formatTimestamp(message.createdAt)}</p>
                         </article>
                       </div>
+                      {message === messages[messages.length - 1] ? <div ref={messagesEndRef} /> : null}
                     );
                   })}
                 </div>
@@ -655,10 +750,20 @@ export default function AdminCommunicationsPage() {
               <form onSubmit={handleSend} style={{ borderTop: "1px solid var(--border)", padding: "14px", display: "grid", gap: "9px", background: "var(--surface)" }}>
                 {sendError ? <p style={{ color: "#fca5a5", fontSize: "12px" }}>{sendError}</p> : null}
                 {sendSuccess ? <p style={{ color: "#5eead4", fontSize: "12px" }}>{sendSuccess}</p> : null}
+                <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
+                  {QUICK_REPLIES.map((qr) => (
+                    <button key={qr.label} type="button" onClick={() => handleQuickReply(qr.body)}
+                      style={{ fontSize: "11px", fontWeight: 700, padding: "3px 9px", borderRadius: "6px", border: "1px solid rgba(99,102,241,0.3)", background: "rgba(99,102,241,0.08)", color: "#a5b4fc", cursor: "pointer" }}>
+                      {qr.label}
+                    </button>
+                  ))}
+                </div>
                 <textarea
+                  ref={replyRef}
                   value={reply}
                   onChange={(event) => setReply(event.target.value)}
-                  placeholder="Responder"
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
+                  placeholder="Responder… (Enter envía, Shift+Enter nueva línea · j/k navegar · r enfocar)"
                   rows={3}
                   style={{ width: "100%", resize: "vertical", minHeight: "76px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", padding: "11px 12px", fontSize: "13px", lineHeight: 1.45 }}
                 />
@@ -812,6 +917,23 @@ function chipStyle(color: string): CSSProperties {
     color,
     fontSize: "11px",
     fontWeight: 800,
+  };
+}
+
+function actionBtnStyle(color: string, disabled: boolean): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    height: "26px",
+    padding: "0 10px",
+    borderRadius: "6px",
+    border: `1px solid ${color}40`,
+    background: `${color}14`,
+    color,
+    fontSize: "11px",
+    fontWeight: 800,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.5 : 1,
   };
 }
 

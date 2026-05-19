@@ -544,6 +544,24 @@ export class CommunicationsRepository {
     return toThreadRecord(row as ThreadRow);
   }
 
+  async updateThread(input: {
+    tenantId: string;
+    threadId: string;
+    status?: CommunicationThreadStatus;
+    assignedToUserId?: string;
+    intent?: string;
+  }): Promise<CommunicationThreadRecord> {
+    const row = await this.prisma.conversationThread.update({
+      where: { id: input.threadId, tenantId: input.tenantId },
+      data: {
+        ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.assignedToUserId !== undefined ? { assignedToUserId: input.assignedToUserId } : {}),
+        ...(input.intent !== undefined ? { intent: input.intent } : {}),
+      },
+    });
+    return toThreadRecord(row as ThreadRow);
+  }
+
   async createTemplate(actor: CommunicationsActor, input: {
     key: string;
     name: string;

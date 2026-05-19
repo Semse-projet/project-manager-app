@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
 import { CommunicationProvider, CommunicationThreadStatus } from "@prisma/client";
 import {
   communicationChannelAccountCreateSchema,
@@ -119,6 +119,23 @@ export class CommunicationsController {
       offset: parseOffset(offset),
     });
     return ok(rid, messages);
+  }
+
+  @Patch("threads/:threadId")
+  @RequirePermissions("communications:write")
+  async updateThread(
+    @Req() req: FastifyRequest,
+    @Param("threadId") threadId: string,
+    @Body() body: unknown,
+  ) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const input = body as Record<string, unknown>;
+    const result = await this.communications.updateThread(actor(req), threadId, {
+      status: typeof input.status === "string" ? input.status as CommunicationThreadStatus : undefined,
+      assignedToUserId: typeof input.assignedToUserId === "string" ? input.assignedToUserId : undefined,
+      intent: typeof input.intent === "string" ? input.intent : undefined,
+    });
+    return ok(rid, result);
   }
 
   @Post("inbound")

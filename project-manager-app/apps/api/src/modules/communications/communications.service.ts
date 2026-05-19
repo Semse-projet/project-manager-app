@@ -10,6 +10,7 @@ import { SmartIntakeService } from "../smart-intake/smart-intake.service.js";
 import { CommunicationsRepository } from "./communications.repository.js";
 import type {
   CommunicationsActor,
+  CommunicationThreadRecord,
   InboundCommunicationMessage,
   SendCommunicationMessage,
 } from "./communications.types.js";
@@ -152,6 +153,14 @@ export class CommunicationsService {
 
   async listTemplates(actor: CommunicationsActor) {
     return this.repository.listTemplates(actor);
+  }
+
+  async updateThread(actor: CommunicationsActor, threadId: string, input: {
+    status?: CommunicationThreadStatus;
+    assignedToUserId?: string;
+    intent?: string;
+  }): Promise<CommunicationThreadRecord> {
+    return this.repository.updateThread({ tenantId: actor.tenantId, threadId, ...input });
   }
 
   async receiveInbound(actor: CommunicationsActor, input: InboundCommunicationMessage) {
