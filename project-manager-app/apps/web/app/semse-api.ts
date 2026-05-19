@@ -281,6 +281,152 @@ export async function emitDomainEvent(event: SemseEvent): Promise<unknown> {
   return mutateSemse<unknown>("/api/semse/domain-events", event as unknown as Record<string, unknown>);
 }
 
+export type CommunicationProvider = "WHATSAPP_CLOUD" | "OPENWA_LAB" | "SMS" | "EMAIL" | "WEB_CHAT";
+export type CommunicationThreadStatus = "OPEN" | "PENDING" | "CLOSED" | "ARCHIVED";
+export type CommunicationDirection = "INBOUND" | "OUTBOUND";
+export type CommunicationMessageStatus = "RECEIVED" | "QUEUED" | "SENT" | "DELIVERED" | "READ" | "FAILED";
+
+export type CommunicationThread = {
+  id: string;
+  tenantId: string;
+  orgId: string | null;
+  channel: CommunicationProvider;
+  channelAccountId: string | null;
+  externalThreadId: string | null;
+  contactPhone: string | null;
+  contactName: string | null;
+  contactUserId: string | null;
+  contractorLeadId: string | null;
+  jobId: string | null;
+  projectId: string | null;
+  status: CommunicationThreadStatus;
+  assignedToUserId: string | null;
+  intent: string | null;
+  source: string;
+  lastMessageAt: string | null;
+  metadataJson: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CommunicationMessage = {
+  id: string;
+  tenantId: string;
+  threadId: string;
+  direction: CommunicationDirection;
+  provider: CommunicationProvider;
+  externalMessageId: string | null;
+  senderUserId: string | null;
+  contactPhone: string | null;
+  body: string | null;
+  mediaJson: Record<string, unknown>[] | null;
+  rawPayloadJson: Record<string, unknown> | null;
+  status: CommunicationMessageStatus;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type CommunicationChannelAccount = {
+  id: string;
+  tenantId: string;
+  orgId: string | null;
+  provider: CommunicationProvider;
+  label: string;
+  externalAccountId: string | null;
+  phoneNumberId: string | null;
+  displayPhone: string | null;
+  status: string;
+  settingsJson: Record<string, unknown> | null;
+  secretRef: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CommunicationSendInput = {
+  channel?: CommunicationProvider;
+  threadId?: string;
+  recipientPhone?: string;
+  templateKey?: string;
+  body: string;
+  payload?: Record<string, unknown>;
+  jobId?: string;
+  projectId?: string;
+  contractorLeadId?: string;
+};
+
+export type CommunicationInboundInput = {
+  channel?: CommunicationProvider;
+  externalThreadId?: string;
+  externalMessageId?: string;
+  contactPhone: string;
+  contactName?: string;
+  body?: string;
+  media?: Record<string, unknown>[];
+  rawPayload?: Record<string, unknown>;
+  receivedAt?: string;
+  jobId?: string;
+  projectId?: string;
+  contractorLeadId?: string;
+};
+
+export type CommunicationInboundResult = {
+  thread: CommunicationThread;
+  message: CommunicationMessage;
+  lead: { id: string } | null;
+  smartIntake: unknown;
+};
+
+export type CommunicationSendResult = {
+  delivery: Record<string, unknown>;
+  thread: CommunicationThread;
+  message: CommunicationMessage;
+  provider: unknown;
+};
+
+export async function fetchCommunicationChannelAccounts(): Promise<CommunicationChannelAccount[]> {
+  return fetchSemse<CommunicationChannelAccount[]>("/api/semse/communications/channel-accounts");
+}
+
+export async function fetchCommunicationThreads(input?: {
+  status?: CommunicationThreadStatus | "all";
+  limit?: number;
+  offset?: number;
+}): Promise<CommunicationThread[]> {
+  const search = new URLSearchParams();
+
+  if (input?.status && input.status !== "all") search.set("status", input.status);
+  if (input?.limit) search.set("limit", String(input.limit));
+  if (input?.offset) search.set("offset", String(input.offset));
+
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return fetchSemse<CommunicationThread[]>(`/api/semse/communications/threads${suffix}`);
+}
+
+export async function fetchCommunicationMessages(threadId: string, input?: {
+  limit?: number;
+  offset?: number;
+}): Promise<CommunicationMessage[]> {
+  const search = new URLSearchParams();
+
+  if (input?.limit) search.set("limit", String(input.limit));
+  if (input?.offset) search.set("offset", String(input.offset));
+
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return fetchSemse<CommunicationMessage[]>(
+    `/api/semse/communications/threads/${encodeURIComponent(threadId)}/messages${suffix}`,
+  );
+}
+
+export async function sendCommunicationMessage(input: CommunicationSendInput): Promise<CommunicationSendResult> {
+  return mutateSemse<CommunicationSendResult>("/api/semse/communications/send", input as Record<string, unknown>);
+}
+
+export async function receiveCommunicationInbound(input: CommunicationInboundInput): Promise<CommunicationInboundResult> {
+  return mutateSemse<CommunicationInboundResult>("/api/semse/communications/inbound", input as Record<string, unknown>);
+}
+
 export async function acknowledgeOpsAlert(alertId: string): Promise<OpsMutationResult> {
   return mutateSemse<OpsMutationResult>(`/api/semse/ops/alerts/${alertId}/ack`);
 }
@@ -560,6 +706,55 @@ export async function markNotificationRead(
 
 export async function fetchTrackerSnapshot(): Promise<TrackerSnapshotView> {
   return fetchSemse<TrackerSnapshotView>("/api/semse/tracker");
+}
+
+// ── Communications ─────────────────────────────────────────────────────────────
+
+export type CommThread = {
+  id: string;
+  channel: string;
+  contactPhone: string | null;
+  contactName: string | null;
+  status: string;
+  lastMessageAt: string | null;
+  contractorLeadId: string | null;
+  jobId: string | null;
+  createdAt: string;
+};
+
+export type CommMessage = {
+  id: string;
+  direction: "INBOUND" | "OUTBOUND";
+  body: string | null;
+  status: string;
+  contactPhone: string | null;
+  createdAt: string;
+};
+
+export async function fetchCommThreads(input?: {
+  status?: string;
+  limit?: number;
+}): Promise<CommThread[]> {
+  const params = new URLSearchParams();
+  if (input?.status) params.set("status", input.status);
+  if (input?.limit) params.set("limit", String(input.limit));
+  const qs = params.toString();
+  return fetchSemse<CommThread[]>(`/api/semse/communications/threads${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchCommMessages(threadId: string): Promise<CommMessage[]> {
+  return fetchSemse<CommMessage[]>(
+    `/api/semse/communications/threads/${encodeURIComponent(threadId)}/messages`,
+  );
+}
+
+export async function sendCommMessage(input: {
+  threadId: string;
+  channel: string;
+  body: string;
+  recipientPhone?: string;
+}): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/communications/send", input);
 }
 
 export async function fetchAutonomyRuns(): Promise<AutonomyRunListView> {
@@ -1495,9 +1690,38 @@ export type PrometeoDoc = {
 };
 
 export type PrometeoSearchResult = {
-  documentId: string; documentTitle: string; chunkIndex: number;
-  text: string; score: number;
+  documentId: string; documentTitle: string; chunkId: string; chunkIndex: number;
+  text: string; score: number; semanticScore?: number; textScore?: number;
+  feedbackScore?: number; retrievalMode?: string;
 };
+
+export type RagCitation = {
+  type: string;
+  id: string;
+  chunkId?: string;
+  label: string;
+  excerpt: string;
+  chunkIndex?: number;
+  score?: number;
+};
+
+export type FeedbackType = "confirm" | "correct" | "flag";
+
+export async function submitChunkFeedback(input: {
+  chunkId: string;
+  type: FeedbackType;
+  note?: string;
+  query?: string;
+}): Promise<{ recorded: boolean; id?: string }> {
+  const res = await fetch(`/api/semse/prometeo/chunks/${encodeURIComponent(input.chunkId)}/feedback`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ type: input.type, note: input.note, query: input.query }),
+  });
+  if (!res.ok) return { recorded: false };
+  const json = await res.json() as { data?: { recorded: boolean; id?: string } };
+  return json.data ?? { recorded: false };
+}
 
 export type PrometeoAsset = {
   id: string; name: string; category: string; status: string;
