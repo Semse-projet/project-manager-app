@@ -256,6 +256,7 @@ export class PrometeoController {
     const citations = ctx.chunks.slice(0, 5).map((c) => ({
       type:      "document",
       id:        c.documentId,
+      chunkId:   c.chunkId,
       label:     c.documentTitle,
       excerpt:   c.text.slice(0, 150),
       chunkIndex: c.chunkIndex,

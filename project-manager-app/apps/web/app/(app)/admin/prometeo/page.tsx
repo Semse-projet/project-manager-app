@@ -18,8 +18,13 @@ type PrometeoDocMeta = {
 };
 
 type SearchResult = {
-  documentId: string; documentTitle: string; chunkIndex: number;
-  text: string; score: number;
+  documentId: string; documentTitle: string; chunkId: string; chunkIndex: number;
+  text: string; score: number; semanticScore?: number; feedbackScore?: number; retrievalMode?: string;
+};
+
+type RagCitation = {
+  type: string; id: string; chunkId?: string;
+  label: string; excerpt: string; chunkIndex?: number; score?: number;
 };
 
 type TradeLibEntry = {
@@ -111,12 +116,31 @@ export default function PrometeoPage() {
   const [ragQuestion, setRagQuestion] = useState("");
   const [ragMode, setRagMode] = useState<"rag" | "guide">("rag");
   const [ragResult, setRagResult] = useState<{
-    answer: string; citations: Array<{ label: string; excerpt: string; score?: number; documentTitle?: string }>; confidence: number;
+    answer: string; citations: RagCitation[]; confidence: number;
     nextBestAction?: string; steps?: string[]; warnings?: string[]; evidenceNeeded?: string[];
     insufficientContext?: boolean; provider: string; fallbackUsed: boolean;
   } | null>(null);
   const [ragLoading, setRagLoading] = useState(false);
   const [ragError, setRagError] = useState<string | null>(null);
+
+  // Feedback state: Map<chunkId, "sending" | "confirm" | "correct" | "flag">
+  const [feedbackState, setFeedbackState] = useState<Record<string, string>>({});
+
+  async function handleFeedback(chunkId: string | undefined, type: "confirm" | "correct" | "flag", query?: string) {
+    if (!chunkId || feedbackState[chunkId]) return;
+    setFeedbackState(prev => ({ ...prev, [chunkId]: "sending" }));
+    try {
+      const res = await fetch(`/api/semse/prometeo/chunks/${encodeURIComponent(chunkId)}/feedback`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type, query }),
+      });
+      const json = await res.json() as { data?: { recorded: boolean } };
+      setFeedbackState(prev => ({ ...prev, [chunkId]: json.data?.recorded ? type : "error" }));
+    } catch {
+      setFeedbackState(prev => ({ ...prev, [chunkId]: "error" }));
+    }
+  }
 
   // WO form
   const [woTitle, setWoTitle] = useState("");
@@ -531,15 +555,41 @@ export default function PrometeoPage() {
                         Fuentes ({ragResult.citations.length})
                       </div>
                       <div style={{ display: "grid", gap: 8 }}>
-                        {ragResult.citations.map((c, i) => (
+                        {ragResult.citations.map((c, i) => {
+                          const fb = c.chunkId ? feedbackState[c.chunkId] : undefined;
+                          return (
                           <div key={i} style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                               <strong style={{ fontSize: 12, color: "#818cf8" }}>{c.label}</strong>
                               {c.score != null && <span style={{ fontSize: 10, color: "var(--muted)" }}>score {c.score.toFixed(3)}</span>}
                             </div>
-                            <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{c.excerpt}</div>
+                            <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5, marginBottom: 8 }}>{c.excerpt}</div>
+                            {c.chunkId && (
+                              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                {fb === "sending" && <span style={{ fontSize: 10, color: "var(--muted)" }}>Enviando…</span>}
+                                {fb === "confirm" && <span style={{ fontSize: 10, color: "#86efac" }}>✓ Útil registrado</span>}
+                                {fb === "correct" && <span style={{ fontSize: 10, color: "#fbbf24" }}>✓ Corrección registrada</span>}
+                                {fb === "flag"    && <span style={{ fontSize: 10, color: "#f87171" }}>✓ Irrelevante registrado</span>}
+                                {fb === "error"   && <span style={{ fontSize: 10, color: "#f87171" }}>Error al registrar</span>}
+                                {!fb && (<>
+                                  <button onClick={() => void handleFeedback(c.chunkId, "confirm", ragQuestion)}
+                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #86efac44", background: "rgba(134,239,172,.08)", color: "#86efac", cursor: "pointer" }}>
+                                    ✓ Útil
+                                  </button>
+                                  <button onClick={() => void handleFeedback(c.chunkId, "correct", ragQuestion)}
+                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #fbbf2444", background: "rgba(251,191,36,.08)", color: "#fbbf24", cursor: "pointer" }}>
+                                    ✎ Incorrecto
+                                  </button>
+                                  <button onClick={() => void handleFeedback(c.chunkId, "flag", ragQuestion)}
+                                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #f8717144", background: "rgba(248,113,113,.08)", color: "#f87171", cursor: "pointer" }}>
+                                    ✕ Irrelevante
+                                  </button>
+                                </>)}
+                              </div>
+                            )}
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -578,15 +628,44 @@ export default function PrometeoPage() {
               </div>
             )}
             <div style={{ display: "grid", gap: 10 }}>
-              {searchResults.map((r, i) => (
+              {searchResults.map((r, i) => {
+                const fb = r.chunkId ? feedbackState[r.chunkId] : undefined;
+                return (
                 <div key={i} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(99,102,241,.05)", border: "1px solid rgba(99,102,241,.15)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <strong style={{ fontSize: 12, color: "#818cf8" }}>{r.documentTitle}</strong>
-                    <span style={{ fontSize: 11, color: "var(--muted)" }}>chunk {r.chunkIndex} · score {r.score.toFixed(3)}</span>
+                    <span style={{ fontSize: 11, color: "var(--muted)" }}>
+                      chunk {r.chunkIndex} · score {r.score.toFixed(3)}
+                      {r.retrievalMode === "hybrid" && <span style={{ color: "#818cf8", marginLeft: 6 }}>hybrid</span>}
+                    </span>
                   </div>
-                  <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ink)" }}>{r.text.slice(0, 400)}{r.text.length > 400 ? "…" : ""}</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--ink)", marginBottom: 8 }}>{r.text.slice(0, 400)}{r.text.length > 400 ? "…" : ""}</div>
+                  {r.chunkId && (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {fb === "sending" && <span style={{ fontSize: 10, color: "var(--muted)" }}>Enviando…</span>}
+                      {fb === "confirm" && <span style={{ fontSize: 10, color: "#86efac" }}>✓ Útil registrado</span>}
+                      {fb === "correct" && <span style={{ fontSize: 10, color: "#fbbf24" }}>✓ Corrección registrada</span>}
+                      {fb === "flag"    && <span style={{ fontSize: 10, color: "#f87171" }}>✓ Irrelevante registrado</span>}
+                      {fb === "error"   && <span style={{ fontSize: 10, color: "#f87171" }}>Error al registrar</span>}
+                      {!fb && (<>
+                        <button onClick={() => void handleFeedback(r.chunkId, "confirm", searchQuery)}
+                          style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #86efac44", background: "rgba(134,239,172,.08)", color: "#86efac", cursor: "pointer" }}>
+                          ✓ Útil
+                        </button>
+                        <button onClick={() => void handleFeedback(r.chunkId, "correct", searchQuery)}
+                          style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #fbbf2444", background: "rgba(251,191,36,.08)", color: "#fbbf24", cursor: "pointer" }}>
+                          ✎ Incorrecto
+                        </button>
+                        <button onClick={() => void handleFeedback(r.chunkId, "flag", searchQuery)}
+                          style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, border: "1px solid #f8717144", background: "rgba(248,113,113,.08)", color: "#f87171", cursor: "pointer" }}>
+                          ✕ Irrelevante
+                        </button>
+                      </>)}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
