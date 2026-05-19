@@ -20,6 +20,7 @@ import { AlgorithmRunService } from "../tools/algorithm-run.service.js";
 import { Optional } from "@nestjs/common";
 import type { PrometeoService } from "../prometeo/prometeo.service.js";
 import { ConsciousnessIndexService } from "./consciousness.service.js";
+import { SystemObserverService } from "./observer.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -28,6 +29,7 @@ export class OpsController {
     private readonly llmOrchestrator: LLMOrchestrator,
     private readonly algorithmRunService: AlgorithmRunService,
     private readonly consciousness: ConsciousnessIndexService,
+    private readonly observer: SystemObserverService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -459,5 +461,50 @@ export class OpsController {
 
     const result = await this.consciousness.queryConsciousness(question, ctx.tenantId);
     return ok(requestId, result);
+  }
+
+  // ── SEMSE Internal Observer — observación automática del ecosistema ─────────
+
+  /** Snapshot de observación en tiempo real — lee infra, señales, LLM, RAG. */
+  @Get("observer/snapshot")
+  @RequirePermissions("ops:dashboard:read")
+  async observerSnapshot(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const snapshot = await this.observer.observe(ctx.tenantId);
+    return ok(requestId, snapshot);
+  }
+
+  /** Último snapshot cacheado en memoria (sin hacer nueva observación). */
+  @Get("observer/latest")
+  @RequirePermissions("ops:dashboard:read")
+  async observerLatest(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const latest = this.observer.getLatest();
+    if (!latest || latest.tenantId !== ctx.tenantId) {
+      // No cached snapshot — trigger one
+      const snapshot = await this.observer.observe(ctx.tenantId);
+      return ok(requestId, { ...snapshot, fromCache: false });
+    }
+    return ok(requestId, { ...latest, fromCache: true });
+  }
+
+  /** Historial de snapshots en memoria (últimos 50). */
+  @Get("observer/history")
+  @RequirePermissions("ops:dashboard:read")
+  async observerHistory(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const history = this.observer.getHistory();
+    return ok(requestId, {
+      count: history.length,
+      snapshots: history.slice(-10).map((s) => ({
+        observedAt: s.observedAt,
+        healthScore: s.healthScore,
+        alerts: s.alerts.length,
+        criticalSignals: s.operationalHealth.criticalSignals,
+        ragMode: s.intelligenceHealth.embeddingsMode,
+      })),
+    });
   }
 }
