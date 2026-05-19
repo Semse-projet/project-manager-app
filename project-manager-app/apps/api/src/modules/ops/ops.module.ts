@@ -14,6 +14,7 @@ import { TrustRepository } from "../trust/trust.repository.js";
 import { TrustService } from "../trust/trust.service.js";
 import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
+import { RecommendationEngineService } from "./recommendation-engine.service.js";
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { SystemObserverService } from "./observer.service.js";
     forwardRef(() => OperationalIntelligenceModule),
   ],
   controllers: [OpsController],
-  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService],
-  exports: [OpsService, ConsciousnessIndexService, SystemObserverService],
+  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService],
+  exports: [OpsService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService],
 })
 export class OpsModule {}

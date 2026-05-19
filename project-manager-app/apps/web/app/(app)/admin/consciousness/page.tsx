@@ -5,6 +5,7 @@ import {
   AlertTriangle, BookOpen, Brain, CheckCircle2, ChevronDown, ChevronUp,
   Clock, Cpu, Eye, GitBranch, RefreshCw, Shield, Sparkles, Zap,
 } from "lucide-react";
+import { RecommendationsPanel } from "@/components/semse/RecommendationsPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -395,6 +396,9 @@ export default function ConsciousnessPage() {
           </div>
         </div>
       )}
+
+          {/* Autonomy Level 2 — Recommendation Engine */}
+          <RecommendationsPanel />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>

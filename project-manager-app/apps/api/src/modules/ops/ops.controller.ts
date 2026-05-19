@@ -21,6 +21,7 @@ import { Optional } from "@nestjs/common";
 import type { PrometeoService } from "../prometeo/prometeo.service.js";
 import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
+import { RecommendationEngineService } from "./recommendation-engine.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -30,6 +31,7 @@ export class OpsController {
     private readonly algorithmRunService: AlgorithmRunService,
     private readonly consciousness: ConsciousnessIndexService,
     private readonly observer: SystemObserverService,
+    private readonly recommendationEngine: RecommendationEngineService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -506,5 +508,17 @@ export class OpsController {
         ragMode: s.intelligenceHealth.embeddingsMode,
       })),
     });
+  }
+
+  // ── Autonomy Level 2 — Recommendation Engine ────────────────────────────────
+
+  /** Genera recomendaciones estructuradas con PR draft. Solo propone — no modifica. */
+  @Get("recommendations")
+  @RequirePermissions("ops:dashboard:read")
+  async getRecommendations(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const report = await this.recommendationEngine.generate(ctx.tenantId);
+    return ok(requestId, report);
   }
 }
