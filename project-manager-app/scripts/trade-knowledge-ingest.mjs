@@ -24,13 +24,18 @@ const DRY_RUN = process.argv.includes("--dry-run");
 
 // Trade mapping: filename → trade slug
 const TRADE_MAP = {
-  "electrical.md":    "electrical",
-  "plumbing.md":      "plumbing",
-  "drywall.md":       "drywall",
-  "painting.md":      "painting",
-  "hvac.md":          "hvac",
-  "carpentry.md":     "carpentry",
-  "general-safety.md":"general",
+  "electrical.md":      "electrical",
+  "plumbing.md":        "plumbing",
+  "drywall.md":         "drywall",
+  "painting.md":        "painting",
+  "hvac.md":            "hvac",
+  "carpentry.md":       "carpentry",
+  "general-safety.md":  "general",
+  "bathroom-remodel.md":"bathroom",
+  "kitchen-remodel.md": "kitchen",
+  "windows-doors.md":   "windows_doors",
+  "siding-exterior.md": "siding",
+  "demolition.md":      "demolition",
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
