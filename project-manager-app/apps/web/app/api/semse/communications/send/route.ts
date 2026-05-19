@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { fetchSemseDataForRequest, handleServerError, isApiBaseConfigured, runtimeDisabledResponse } from "../../_server";
+import { requireCommunicationsSession } from "../_auth";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const authError = await requireCommunicationsSession(request);
+    if (authError) return authError;
+
     const body = await request.json();
     const data = await fetchSemseDataForRequest("/v1/communications/send", request, {
       method: "POST",
