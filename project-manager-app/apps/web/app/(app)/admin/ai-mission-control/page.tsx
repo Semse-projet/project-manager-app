@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Bot, BrainCircuit, Cpu, RefreshCw, Route, ShieldAlert } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
+import { ObserverPanel } from "@/components/semse/ObserverPanel";
 import {
   fetchAiModelLogs,
   fetchAiModelLogStats,
@@ -457,6 +458,9 @@ export default function AiMissionControlPage() {
             {" "}`demo` = simulado, `local` = runtime real local, `live` = servicios productivos.
           </div>
         </div>
+
+        {/* SEMSE Internal Observer */}
+        <ObserverPanel />
 
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
