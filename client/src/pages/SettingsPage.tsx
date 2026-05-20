@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { PageTransition } from "@/components/PageTransition";
-import { Settings, Code2, Sparkles, Palette, Save, Loader2, User, Keyboard, Command } from "lucide-react";
+import { Settings, Code2, Sparkles, Palette, Save, Loader2, User, Keyboard, Command, Cloud, Mail, HardDrive, Link2, Unlink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -29,11 +29,18 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { data: prefs, isLoading } = trpc.preferences.get.useQuery();
+  const { data: googleStatus, isLoading: googleLoading } = trpc.google.status.useQuery();
   const utils = trpc.useUtils();
   const updateMutation = trpc.preferences.update.useMutation({
     onSuccess: () => {
       toast.success("Configuración guardada");
       utils.preferences.get.invalidate();
+    },
+  });
+  const disconnectGoogleMutation = trpc.google.disconnect.useMutation({
+    onSuccess: async () => {
+      toast.success("Cuenta de Google desconectada");
+      await utils.google.status.invalidate();
     },
   });
 
@@ -193,6 +200,70 @@ export default function SettingsPage() {
                 <SelectItem value="pt">Português</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Cloud className="h-4 w-4 text-primary" />
+            Integraciones
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Conecta Google Drive y Gmail mediante OAuth para usar tu cuenta en el portal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border border-border/50 bg-muted/20 p-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="h-4 w-4 text-primary" />
+                  <Mail className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Google Drive + Gmail</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Scopes solicitados: perfil, email, acceso a archivos creados/abiertos por la app y envío de correos con Gmail.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Estado:{" "}
+                  {googleLoading
+                    ? "Comprobando..."
+                    : !googleStatus?.configured
+                      ? "Falta configurar credenciales en el servidor"
+                      : googleStatus.connected
+                        ? `Conectado${googleStatus.email ? ` como ${googleStatus.email}` : ""}`
+                        : "No conectado"}
+                </p>
+              </div>
+              {googleStatus?.connected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => disconnectGoogleMutation.mutate()}
+                  disabled={disconnectGoogleMutation.isPending}
+                >
+                  {disconnectGoogleMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Unlink className="h-4 w-4 mr-2" />
+                  )}
+                  Desconectar
+                </Button>
+              ) : (
+                <Button
+                  asChild
+                  size="sm"
+                  disabled={!googleStatus?.configured}
+                >
+                  <a href="/api/google/connect">
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Conectar Google
+                  </a>
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>

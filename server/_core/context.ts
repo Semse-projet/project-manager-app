@@ -1,5 +1,6 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
+import { ENV } from "./env";
 import { sdk } from "./sdk";
 
 export type TrpcContext = {
@@ -18,6 +19,21 @@ export async function createContext(
   } catch (error) {
     // Authentication is optional for public procedures.
     user = null;
+  }
+
+  // Local fallback so the app remains navigable without a configured OAuth server.
+  if (!user && !ENV.oAuthServerUrl) {
+    user = {
+      id: 1,
+      openId: "local-dev-user",
+      name: "Local Dev User",
+      email: "local@example.com",
+      loginMethod: "local-dev",
+      role: "admin",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    };
   }
 
   return {

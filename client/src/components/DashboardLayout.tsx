@@ -126,7 +126,11 @@ export default function DashboardLayout({
             </div>
 
             <Button
-              onClick={() => { window.location.href = getLoginUrl(); }}
+              onClick={() => {
+                const loginUrl = getLoginUrl();
+                if (!loginUrl) return;
+                window.location.href = loginUrl;
+              }}
               size="lg"
               className="w-full shadow-lg hover:shadow-xl transition-all h-12 text-base bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90"
             >

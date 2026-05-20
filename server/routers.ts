@@ -1,6 +1,7 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
+import { disconnectGoogle, getGoogleStatus } from "./_core/google";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
@@ -15,6 +16,16 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+      return { success: true } as const;
+    }),
+  }),
+
+  google: router({
+    status: protectedProcedure.query(async ({ ctx }) => {
+      return getGoogleStatus(ctx.user.id);
+    }),
+    disconnect: protectedProcedure.mutation(async ({ ctx }) => {
+      disconnectGoogle(ctx.user.id);
       return { success: true } as const;
     }),
   }),

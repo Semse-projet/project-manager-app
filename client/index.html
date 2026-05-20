@@ -16,10 +16,23 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script
-      defer
-      src="%VITE_ANALYTICS_ENDPOINT%/umami"
-      data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+    <script>
+      const analyticsEndpoint = "%VITE_ANALYTICS_ENDPOINT%";
+      const analyticsWebsiteId = "%VITE_ANALYTICS_WEBSITE_ID%";
+      const hasAnalyticsConfig =
+        analyticsEndpoint &&
+        analyticsWebsiteId &&
+        !analyticsEndpoint.includes("%VITE_") &&
+        !analyticsWebsiteId.includes("%VITE_");
+
+      if (hasAnalyticsConfig) {
+        const script = document.createElement("script");
+        script.defer = true;
+        script.src = `${analyticsEndpoint}/umami`;
+        script.dataset.websiteId = analyticsWebsiteId;
+        document.body.appendChild(script);
+      }
+    </script>
   </body>
 
 </html>
