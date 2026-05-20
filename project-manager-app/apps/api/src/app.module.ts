@@ -39,6 +39,7 @@ import { MaterialsModule } from "./modules/materials/materials.module.js";
 import { TravelModule } from "./modules/travel/travel.module.js";
 import { DeveloperRuntimeModule } from "./modules/developer-runtime/developer-runtime.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
+import { MarketplaceModule } from "./modules/marketplace/marketplace.module.js";
 import { PrometeoModule } from "./modules/prometeo/prometeo.module.js";
 import { AiModelsModule } from "./modules/ai-models/ai-models.module.js";
 import { StorageModule } from "./infrastructure/storage/storage.module.js";
@@ -110,6 +111,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     TravelModule,
     DeveloperRuntimeModule,
     NotificationsModule,
+    MarketplaceModule,
     PrometeoModule,
     AiModelsModule,
     StorageModule,

@@ -34,7 +34,7 @@ const MODULE_REGISTRY: Array<{
   { name: "Contractors / CRM", hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["ContractorLead CRM", "Tabla leads + stats", "Trust scoring", "26 tests unitarios"] },
   { name: "Trade Guide",       hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["TradeGuideService", "32 docs 12 trades", "Hybrid RAG activo"] },
   { name: "Worker",            hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["BullMQ queue metrics", "Worker UI /admin/worker", "Intelligence runs panel", "16 tests"] },
-  { name: "Marketplace",       hasBackend: false, hasFrontend: false, hasTests: false, hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["No implementado — roadmap post-madurez core"] },
+  { name: "Marketplace",       hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["v1: listings PUBLISHED, professionals, stats", "22 tests unitarios", "BFF routes + /admin/marketplace"] },
   { name: "Notifications",     hasBackend: true,  hasFrontend: true,  hasTests: false, hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["SSE dispatch notifications:{tenantId}:{userId}", "NotificationBell header", "handleEvent pipeline"] },
 ];
 
