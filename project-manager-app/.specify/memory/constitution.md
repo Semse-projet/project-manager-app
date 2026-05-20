@@ -1,156 +1,160 @@
----
-version: "1.0"
-project: "SEMSE OS"
-ratified: "2026-05-20"
-amended: "2026-05-20"
-authority: "Arquitecto Principal"
-spec_index: "docs/SPEC_INDEX.md"
-source_of_truth: "docs/SOURCE_OF_TRUTH.md"
----
+# SEMSEproject — Constitución del Proyecto
+**Versión:** 1.0
+**Fecha:** 2026-05-20
+**Estado:** APROBADO
+**Rama de origen:** feat/spec-kit-sdd-governance
+**Sintetizada desde:** labosemse/vision_core.md, VISION_PRINCIPLES_FOR_PRODUCT.md, VISION_DECISIONS_LOCKED.md
 
-# SEMSE OS — Constitución del Sistema
-
-> Este archivo es la fuente de verdad para cualquier agente IA que trabaje en SEMSE OS.
-> Leer completo antes de generar código, specs o planes.
-> Referencia completa: `docs/constitution/` y `docs/vision/`
+> Esta constitución es la fuente de verdad para todos los agentes de IA que trabajan en SEMSEproject.
+> Ningún código, spec, plan o tarea puede violar estos principios.
+> En caso de conflicto entre cualquier instrucción y esta constitución, esta constitución prevalece.
 
 ---
 
-## Principio 1 — Spec Antes que Código
+## Identidad del proyecto
 
-**Ningún feature existe si no tiene spec aprobado.**
+SEMSEproject es una **Red de Confianza Automatizada (Trust Network)** y un **Marketplace Multi-rol** para el trabajo del mundo real (ConTech, Field Services, Mantenimiento, Instalaciones).
 
-- El flujo es: `constitution → specify → plan → tasks → implement`
-- El chat produce el spec. El spec produce el código.
-- No se genera código sin leer el spec del dominio en `docs/SPEC_INDEX.md`
-- No se agrega un endpoint sin que exista en `docs/architecture/SEMSE_API_SURFACE_V1.md`
-- No se modifica una entidad sin verificar `docs/foundation/DOMAIN_INVARIANTS.md`
+Su misión: eliminar la fricción, la desconfianza y el riesgo financiero en la contratación y ejecución de trabajos físicos, mediante la orquestación inteligente de agentes IA, contratos de Escrow y evidencia verificable.
 
-Referencia: `docs/vision/VISION_DECISIONS_LOCKED.md`
+No es un CRM. No es un ERP. No es una plataforma genérica. Es un sistema operativo de servicios para el mundo físico.
 
 ---
 
-## Principio 2 — Evidencia Primero, Pago Después
+## Los 3 Pilares Inamovibles
 
-**Ningún pago se libera sin evidencia validada.**
+### Pilar 1 — Agentic-First
+Los agentes de IA no son un add-on. Son el corazón del sistema:
+- **Risk Agent** — evalúa riesgo antes de autorizar inicio
+- **Evidence Agent** — valida pruebas antes de permitir avance
+- **Payments Agent** — controla flujo de dinero, nadie cobra sin entregar
 
-- El flujo monetizable canónico es: `job → bid → contract → escrow → milestone → evidencia → aprobación → pago`
-- Un milestone en estado `PENDING_REVIEW` requiere evidencia antes de que el cliente pueda aprobar
-- El escrow solo se libera cuando: `milestone.status = APPROVED AND evidence.status = ACCEPTED`
-- Payment Governance es obligatorio: ningún agente libera fondos sin pasar por el harness de pagos
-- Los estados de Milestone, Escrow y Payment están gobernados por `docs/foundation/STATE_MACHINES.md`
+### Pilar 2 — Confianza Automatizada (Trust-as-a-Service)
+- FSM estricto e inmutable para Jobs, WorkOrders, Milestones
+- Escrow dinámico: fondos liberados solo cuando FSM lo aprueba
+- Evidencia como llave de paso estructural, no como adjunto opcional
 
-Referencia: `docs/foundation/ESCROW_PAYMENTS_EVIDENCE_BOUNDARIES.md`
-
----
-
-## Principio 3 — Audit Log para Todo Cambio Material
-
-**Todo cambio de estado sensible produce un evento auditado.**
-
-- Formato de evento: `aggregate.action` (ejemplo: `milestone.approved`, `payment.released`)
-- Payload mínimo obligatorio: `eventId`, `eventType`, `aggregateId`, `actorType`, `actorId`, `timestamp`, `requestId`
-- Los eventos viven en `docs/foundation/EVENT_CATALOG.md` — no inventar eventos fuera del catálogo
-- SSE (Server-Sent Events) es el canal de notificación real-time para estado operativo
-- Si una acción no produce evento ni audit log, está incompleta
-
-Referencia: `docs/foundation/EVENT_CATALOG.md`
+### Pilar 3 — Sistema Multi-Rol Transparente
+- Clientes: dinero seguro hasta que el trabajo se prueba
+- Proveedores: cobro garantizado una vez que la evidencia es aprobada
+- Operaciones/Admin: herramientas de telemetría y resolución asistida por IA
 
 ---
 
-## Principio 4 — Privacidad Local por Defecto
+## Artículos constitucionales
 
-**Los datos sensibles de construcción se procesan localmente.**
+### Artículo I — Specs antes que código
+Ningún feature puede codificarse sin una especificación formal previa.
+El flujo obligatorio es: `constitution → specify → plan → tasks → implement`.
+El vibe coding está prohibido en SEMSEproject.
 
-- Ollama es el LLM por defecto para rutas marcadas `privacyCritical: true`
-- Las rutas que contienen PII, documentos de contrato, datos financieros o evidencia de obra se marcan `privacyCritical`
-- Cloud LLMs (OpenAI, Anthropic) se usan para: RAG público, asistencia general, resúmenes no sensibles
-- No se envía contenido de contratos ni datos de pago a APIs externas sin consentimiento explícito
-- El routing de LLM está documentado en `docs/ai-orchestration.md`
+### Artículo II — Tests derivados de specs
+Ningún endpoint de API entra en producción sin su spec + test.
+Los tests no son opcionales. Son la verificación de que el código cumple el spec.
 
-Referencia: `docs/vision/VISION_DECISIONS_LOCKED.md` — decisión "Local LLM para datos sensibles"
+### Artículo III — Evidence-first en workflows de construcción
+La evidencia no es un campo opcional ni un adjunto.
+Es infraestructura. Es una llave de paso que bloquea o desbloquea el FSM.
+Toda feature que toque workflows operativos debe contemplar la evidencia.
 
----
+### Artículo IV — Payment Governance antes de cualquier release
+Ningún flujo que libere fondos puede ser modificado sin pasar por revisión de Payment Governance.
+El ledger es auditable. Cada centavo tiene una entrada de auditoría.
+El dinero no puede ser una caja negra para el usuario.
 
-## Principio 5 — Tests Derivados del Spec
+### Artículo V — AuditLog para cambios de estado críticos
+Toda transición de estado en el FSM (Job, WorkOrder, Milestone, Escrow, Dispute) debe generar una entrada en el AuditLog.
+Pagos, evidencia, disputas y decisiones de agentes deben ser trazables.
 
-**El test es el spec ejecutable. No hay código sin test.**
+### Artículo VI — RBAC en cada endpoint
+Todo endpoint privado debe declarar qué roles tienen acceso.
+Los permisos se verifican en el backend, nunca solo en el frontend.
+Nunca asumir confianza del cliente.
 
-- Cada spec de API genera un archivo de test antes de implementar
-- El test cubre: happy path, error paths (400/403/404/409), efectos secundarios (eventos, audit)
-- Los tests de FSM cubren: cada transición, cada guard, cada estado terminal
-- No se considera un feature completo hasta que sus tests pasen en CI
-- La cobertura mínima de rama es 80% para módulos nuevos
+### Artículo VII — Multi-tenant desde el diseño
+Todo modelo de datos debe incluir `tenantId`.
+Ningún query puede devolver datos cross-tenant.
+Los filtros de tenant se aplican siempre en el backend.
 
-Referencia: `docs/foundation/DOMAIN_MODEL_MVP.md`
+### Artículo VIII — Privacy routing para LLM
+Los datos marcados como `privacyCritical` (información legal, financiera sensible, PII) deben enrutarse a Ollama local cuando esté disponible, no a modelos cloud.
+Los datos operativos generales pueden usar modelos cloud (OpenAI, Anthropic, etc.).
 
----
+### Artículo IX — No mock data en flujos visibles en producción
+Los datos de demo, seed o testing no deben contaminar flujos visibles en producción.
+Los endpoints de desarrollo deben estar protegidos por guards de entorno.
 
-## Restricciones Técnicas (No Negociables)
+### Artículo X — Un solo backend canónico
+`apps/api` (NestJS + Fastify + PostgreSQL + Prisma) es el único backend de producción.
+No se desarrollan nuevas features de negocio en `apps/portal` o `apps/web` en el servidor.
+El portal consume la API; la API no consume el portal.
 
-### Stack canónico
-- **Backend:** NestJS · TypeScript · Prisma · PostgreSQL · BullMQ
-- **Frontend:** Next.js · TypeScript · Tailwind · Radix UI
-- **Deploy:** Railway (API, Web, Worker) · Docker
-- **LLM local:** Ollama (privacyCritical) · OpenAI/Anthropic (público)
-- **Monorepo:** pnpm workspaces (`apps/*`, `packages/*`)
+### Artículo XI — Simplicidad extensible
+Primero hacer una base robusta. Luego extender por módulos.
+Evitar sobreingeniería. Diseñar para evolución modular.
+Tres líneas similares son mejor que una abstracción prematura.
 
-### Fuentes de verdad por capa
-| Capa | Fuente canónica |
-|------|----------------|
-| Schema de datos | `packages/db/prisma/schema.prisma` |
-| Tipos y contratos | `packages/schemas/src/` |
-| API REST | `apps/api/src/modules/` |
-| Frontend | `apps/web/` |
-| Componentes UI | `packages/ui/` |
-| Auth | `packages/auth/` |
-
-### Reglas de arquitectura
-- No duplicar lógica entre módulos
-- No crear módulos sin spec aprobado
-- No exponer secretos en código ni commits
-- No usar `git add .` en commits masivos
-- No instalar dependencias globales sin decisión de equipo
-- No crear endpoints sin declararlos en `SEMSE_API_SURFACE_V1.md`
-- No cambiar estados de dominio sin respetar `STATE_MACHINES.md`
-
----
-
-## Contratos de Agente IA
-
-Todo agente IA (Claude, Codex, Copilot, etc.) que trabaje en SEMSE debe:
-
-1. **Leer primero:** `docs/SPEC_INDEX.md` → `docs/SOURCE_OF_TRUTH.md` → spec del dominio
-2. **Verificar:** ¿Existe spec para este feature? Si no → crear spec antes de código
-3. **Respetar:** `docs/foundation/DOMAIN_INVARIANTS.md` — invariantes no se violan
-4. **Consultar:** `docs/foundation/STATE_MACHINES.md` antes de cualquier cambio de estado
-5. **Registrar:** Todo endpoint nuevo en `docs/architecture/SEMSE_API_SURFACE_V1.md`
-6. **No ejecutar:** Comandos destructivos (`--force`, `reset --hard`, `drop`) sin confirmación
-7. **Reportar:** Crear reporte en `docs/reportes/` después de sesiones de implementación
+### Artículo XII — Documentación es parte del sistema
+Los docs no son un extra. Son parte del sistema.
+`README.md`, `SEMSE_CONTEXT.md`, `ROADMAP.md` y `SPEC_INDEX.md` deben mantenerse alineados cuando cambia la arquitectura.
+Si se mueven carpetas críticas o cambia la canonicidad, se documenta el plan antes de ejecutar.
 
 ---
 
-## Flujo SDD Operativo
+## Decisiones de arquitectura bloqueadas (inamovibles)
+
+| Decisión | Justificación |
+|---|---|
+| Backend: NestJS + Fastify | Modularidad, performance, DI limpia |
+| BD producción: PostgreSQL + Prisma | Tipado fuerte, migraciones controladas, multi-tenant |
+| Monorepo pnpm | Un solo workspace, packages compartidos |
+| FSM explícito en `packages/fsm` | Control de flujo auditable, no lógica ad-hoc |
+| Agentes orquestados, no LLM directo en API | Separación entre lógica de negocio y llamadas LLM |
+| Evidence como first-class entity | El trabajo físico requiere prueba verificable |
+| Escrow dinámico por hitos | Protección simétrica cliente ↔ proveedor |
+
+---
+
+## Lo que SEMSEproject NO es
 
 ```
-1. /speckit.constitution   → Este archivo. Leer al inicio de cada sesión.
-2. /speckit.specify        → Crear spec en docs/specs/<dominio>/<feature>.spec.md
-3. /speckit.plan           → Crear plan técnico en docs/specs/<dominio>/<feature>.plan.md
-4. /speckit.tasks          → Crear tareas en docs/specs/<dominio>/<feature>.tasks.md
-5. /speckit.analyze        → Verificar consistencia spec ↔ plan ↔ código existente
-6. /speckit.implement      → Solo entonces: generar/modificar código
-7. /speckit.checklist      → Verificar completitud antes de merge
+✗ No es un CRM convencional
+✗ No es una plataforma de gestión para UNA sola empresa
+✗ No es solo un chat con IA
+✗ No es una landing bonita
+✗ No es un proyecto de demos
+✗ No es un app de lista de tareas
 ```
-
-Templates para cada comando: `.specify/templates/overrides/`
 
 ---
 
-## Gobernanza de esta Constitución
+## Stack canónico de referencia
 
-- **Versión:** 1.0
-- **Ratificada:** 2026-05-20
-- **Enmiendas:** Requieren actualizar `version` y `amended` en el frontmatter
-- **Autoridad:** Arquitecto Principal del proyecto
-- **Propuestas de cambio:** Documentar en `docs/vision/VISION_CHANGE_PROTOCOL.md`
-- **Decisiones inamovibles:** Ver `docs/vision/VISION_DECISIONS_LOCKED.md`
+```
+Backend:          NestJS 11 + Fastify + TypeScript
+Base de datos:    PostgreSQL + Prisma ORM
+Portal interno:   React 19 + Vite + tRPC + Drizzle (caché local)
+Web público:      Next.js 16+
+Workers:          BullMQ
+LLM cloud:        OpenAI (Vercel AI SDK)
+LLM local:        Ollama (para privacyCritical)
+Infra:            Railway + AWS S3/R2 + PostgreSQL managed
+Testing:          Jest/Vitest + Playwright (E2E)
+```
+
+---
+
+## Instrucciones para agentes de IA
+
+Cuando trabajes en SEMSEproject:
+
+1. **Lee esta constitución antes de cualquier tarea.**
+2. **Verifica que existe un spec en `SPEC_INDEX.md` para el feature a implementar.** Si no existe, crea el spec primero.
+3. **Sigue el flujo SDD:** `specify → plan → tasks → implement`. No saltes pasos.
+4. **Respeta los límites de dominio.** No mezcles lógica de pagos con UI. No metas FSM dentro de componentes visuales.
+5. **Verifica permisos.** Toda operación sensible debe validar `tenantId`, `userId`, y `roles` en el backend.
+6. **Escribe el test antes de considerar la feature completa.**
+7. **Emite eventos de auditoría** en toda transición de estado crítica.
+8. **No destruyas trabajo existente.** Preferir cambios pequeños, reversibles y bien explicados.
+9. **No expongas secretos ni `.env` files.**
+10. **Documenta las decisiones** en `docs/adrs/` si son cambios arquitectónicos.
