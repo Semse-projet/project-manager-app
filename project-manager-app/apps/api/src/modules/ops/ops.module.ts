@@ -2,6 +2,7 @@ import { Module, forwardRef } from "@nestjs/common";
 import { AgentQueueModule } from "../../infrastructure/queue/agent-queue.module.js";
 import { LLMModule } from "../../infrastructure/llm/llm.module.js";
 import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
+import { SseInfraModule } from "../../infrastructure/sse/sse-infra.module.js";
 import { AgentsModule } from "../agents/agents.module.js";
 import { KnowledgeModule } from "../knowledge/knowledge.module.js";
 import { ToolsModule } from "../tools/tools.module.js";
@@ -19,7 +20,7 @@ import { SimulationEngineService } from "./simulation-engine.service.js";
 
 @Module({
   imports: [
-    AgentQueueModule, LLMModule, PrismaModule, AgentsModule, KnowledgeModule, ToolsModule,
+    AgentQueueModule, LLMModule, PrismaModule, SseInfraModule, AgentsModule, KnowledgeModule, ToolsModule,
     forwardRef(() => PrometeoModule),
     forwardRef(() => OperationalIntelligenceModule),
   ],

@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { isZeroVector } from "../prometeo/embedding.service.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -87,6 +88,7 @@ export class SystemObserverService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly llm?: LLMOrchestrator,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
 
   async observe(tenantId: string): Promise<ObservationSnapshot> {
@@ -117,6 +119,18 @@ export class SystemObserverService {
     // Keep last 50 in memory
     this.history.push(snapshot);
     if (this.history.length > 50) this.history.shift();
+
+    // SSE: emit to AI Mission Control channel when there are critical/high alerts
+    if (alerts.some((a) => a.level === "critical" || a.level === "high")) {
+      this.sse?.emit(`mission-control:${tenantId}`, "observer:alert", {
+        healthScore,
+        alertCount: alerts.length,
+        criticalCount: alerts.filter((a) => a.level === "critical").length,
+        highCount: alerts.filter((a) => a.level === "high").length,
+        topAlert: alerts[0] ? { level: alerts[0].level, area: alerts[0].area, message: alerts[0].message } : null,
+        observedAt: snapshot.observedAt,
+      });
+    }
 
     this.logger.log(`[Observer] snapshot tenantId=${tenantId} score=${healthScore} alerts=${alerts.length}`);
     return snapshot;

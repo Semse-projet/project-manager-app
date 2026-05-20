@@ -25,7 +25,7 @@ const MODULE_REGISTRY: Array<{
   { name: "Payment Governance",hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: true,  hasPermissions: true,  notes: ["canRelease", "blockers", "change order blockers", "governance panel"] },
   { name: "Change Orders",     hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: true,  hasPermissions: true,  notes: ["Lifecycle completo", "Impact", "Apply idempotente", "CO detector agent"] },
   { name: "Mission Control",   hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["Operational signals", "Incidents SSE", "Alert banner"] },
-  { name: "AI Mission Control",hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["LLM metrics", "Ollama health", "Provider status", "RAG health", "Observer integration"] },
+  { name: "AI Mission Control",hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: false, hasAudit: true,  hasPermissions: true,  notes: ["LLM metrics", "Ollama health", "RAG health", "Observer SSE emit", "Audit via ops.controller"] },
   { name: "Prometeo RAG",      hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["Fases 0-5", "Hybrid retrieval", "Real embeddings (32 docs/181 chunks)", "Trade guide", "Feedback loop"] },
   { name: "Smart Intake",      hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["7 categorías", "Scoring profiles", "Anonymous wizard", "Intake-ops bridge"] },
   { name: "SSE Infrastructure",hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["SseEventBusService", "Multi-channel", "BFF proxy", "Reconnect backoff"] },
@@ -33,9 +33,9 @@ const MODULE_REGISTRY: Array<{
   { name: "Auth",              hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: true,  hasPermissions: true,  notes: ["Signed tokens", "Session management", "RBAC", "timingSafeEqual"] },
   { name: "Contractors / CRM", hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["ContractorLead CRM", "Tabla leads + stats", "Trust scoring", "26 tests unitarios"] },
   { name: "Trade Guide",       hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["TradeGuideService", "32 docs 12 trades", "Hybrid RAG activo"] },
-  { name: "Worker",            hasBackend: true,  hasFrontend: false, hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["BullMQ", "Curator", "Field-ops", "Trust-match", "16 tests unitarios"] },
+  { name: "Worker",            hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["BullMQ queue metrics", "Worker UI /admin/worker", "Intelligence runs panel", "16 tests"] },
   { name: "Marketplace",       hasBackend: false, hasFrontend: false, hasTests: false, hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["No implementado — roadmap post-madurez core"] },
-  { name: "Notifications",     hasBackend: false, hasFrontend: false, hasTests: false, hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["Push notifications pendientes — SSE parcial"] },
+  { name: "Notifications",     hasBackend: true,  hasFrontend: true,  hasTests: false, hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["SSE dispatch notifications:{tenantId}:{userId}", "NotificationBell header", "handleEvent pipeline"] },
 ];
 
 const KNOWN_SSE_CHANNELS = [
