@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { createRuntimeJobSchema, listJobsQuerySchema } from "@semse/schemas";
 import { z } from "zod";
 
@@ -83,6 +83,34 @@ export class JobsController {
       urgency: parsed.data.urgency,
       deadline: parsed.data.deadline,
       preferredProfessional: parsed.data.preferredProfessional,
+      requestId
+    });
+
+    return ok(requestId, toVisibleJob(job));
+  }
+
+  @Patch(":jobId")
+  @RequirePermissions("jobs:update")
+  async update(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("jobId") jobId: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const patchSchema = createRuntimeJobSchema.partial();
+    const parsed = patchSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const job = await this.jobsService.update({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      jobId,
+      patch: parsed.data,
       requestId
     });
 

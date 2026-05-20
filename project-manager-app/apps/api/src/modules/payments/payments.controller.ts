@@ -22,6 +22,7 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Get("v1/workers/me/payout-method")
+  @RequirePermissions("workers:read")
   async workerPayoutMethod(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const result = await this.paymentsService.getWorkerPayoutMethod({
@@ -33,6 +34,7 @@ export class PaymentsController {
   }
 
   @Post("v1/workers/me/payout-method")
+  @RequirePermissions("workers:write")
   async saveWorkerPayoutMethod(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: Record<string, unknown>
@@ -124,6 +126,7 @@ export class PaymentsController {
   }
 
   @Get("v1/jobs/:jobId/payments")
+  @RequirePermissions("jobs:read")
   async listByJob(@Req() req: { headers?: Record<string, unknown> }, @Param("jobId") jobId: string) {
     const actor = resolveRequestContext(req);
     const result = await this.paymentsService.paymentsByJob({
@@ -138,6 +141,7 @@ export class PaymentsController {
   }
 
   @Get("v1/jobs/:jobId/payment-readiness")
+  @RequirePermissions("jobs:read")
   async paymentReadinessByJob(@Req() req: { headers?: Record<string, unknown> }, @Param("jobId") jobId: string) {
     const actor = resolveRequestContext(req);
     const result = await this.paymentsService.paymentReadinessByJob({
@@ -152,6 +156,7 @@ export class PaymentsController {
   }
 
   @Get("v1/jobs/:jobId/escrow")
+  @RequirePermissions("projects:financials:read")
   async escrowByJob(@Req() req: { headers?: Record<string, unknown> }, @Param("jobId") jobId: string) {
     const actor = resolveRequestContext(req);
     const result = await this.paymentsService.escrowByJob({

@@ -155,6 +155,78 @@ export class JobsService {
     return enriched;
   }
 
+  async update(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    jobId: string;
+    patch: Partial<{
+      title: string;
+      scope: string;
+      category: string;
+      budgetType: string;
+      budgetMin: number;
+      budgetMax: number;
+      locationType: string;
+      city: string;
+      urgency: string;
+      deadline: string;
+    }>;
+    requestId: string;
+  }): Promise<JobRecord> {
+    if (
+      input.patch.budgetMin !== undefined &&
+      input.patch.budgetMax !== undefined &&
+      input.patch.budgetMin > input.patch.budgetMax
+    ) {
+      throw new BadRequestException("budgetMin cannot be greater than budgetMax");
+    }
+
+    const storedLocation = input.patch.locationType || input.patch.city
+      ? this.buildStoredLocation({
+          locationType: input.patch.locationType as "remote" | "on_site" | "hybrid" | undefined,
+          city: input.patch.city,
+        })
+      : undefined;
+
+    const job = await this.jobsRepository.updateFields({
+      tenantId: input.tenantId,
+      jobId: input.jobId,
+      fields: {
+        ...(input.patch.title !== undefined && { title: input.patch.title }),
+        ...(input.patch.scope !== undefined && { scope: input.patch.scope }),
+        ...(input.patch.category !== undefined && { category: input.patch.category }),
+        ...(input.patch.budgetType !== undefined && { budgetType: input.patch.budgetType }),
+        ...(input.patch.budgetMin !== undefined && { budgetMin: input.patch.budgetMin }),
+        ...(input.patch.budgetMax !== undefined && { budgetMax: input.patch.budgetMax }),
+        ...(input.patch.urgency !== undefined && { urgency: input.patch.urgency }),
+        ...(input.patch.deadline !== undefined && { deadline: input.patch.deadline }),
+        ...(storedLocation !== undefined && { location: storedLocation }),
+      },
+    });
+
+    await this.auditService.append({
+      id: `aud_${Date.now()}`,
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.userId,
+      action: "job.update",
+      entityType: "Job",
+      entityId: input.jobId,
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: input.patch,
+    });
+
+    this.syncContext(input.tenantId, "job.updated", "job fields updated");
+
+    return this.enrichJobWithPreferredProfessional({
+      tenantId: input.tenantId,
+      job,
+    });
+  }
+
   async list(input: {
     tenantId: string;
     orgId: string;

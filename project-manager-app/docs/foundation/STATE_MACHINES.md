@@ -34,62 +34,66 @@ Regla:
 ### Estados canónicos
 
 - `DRAFT`
-- `POSTED`
+- `POSTED` (alias externo: `PUBLISHED`)
 - `RESERVED`
 - `ACCEPTED`
 - `IN_PROGRESS`
-- `WAITING_REVIEW`
-- `PARTIALLY_PAID`
+- `REVIEW` (equivalente a WAITING_REVIEW en especificaciones previas)
 - `COMPLETED`
-- `DISPUTED`
+- `DISPUTE`
 - `CANCELLED`
+- `AWARDED` (adjudicación directa sin bid — flujo alternativo)
+
+> **Nota de alineación (2026-05-20):** El estado `WAITING_REVIEW` de especificaciones
+> anteriores se implementa como `review` en el código actual. `PARTIALLY_PAID` se planificó
+> pero no fue implementado — el ciclo de pagos parciales se maneja a nivel de milestone
+> individual, no como estado visible del job. `AWARDED` y `PUBLISHED` son estados del código
+> no documentados en versiones anteriores de este archivo.
 
 ### Transiciones válidas
 
 - `DRAFT -> POSTED`
+- `DRAFT -> CANCELLED`
 - `POSTED -> RESERVED`
 - `POSTED -> CANCELLED`
+- `PUBLISHED -> RESERVED` (alias de POSTED)
+- `PUBLISHED -> CANCELLED`
 - `RESERVED -> ACCEPTED`
 - `RESERVED -> POSTED`
-- `RESERVED -> CANCELLED`
 - `ACCEPTED -> IN_PROGRESS`
 - `ACCEPTED -> CANCELLED`
-- `IN_PROGRESS -> WAITING_REVIEW`
-- `IN_PROGRESS -> DISPUTED`
-- `WAITING_REVIEW -> IN_PROGRESS`
-- `WAITING_REVIEW -> PARTIALLY_PAID`
-- `WAITING_REVIEW -> COMPLETED`
-- `WAITING_REVIEW -> DISPUTED`
-- `PARTIALLY_PAID -> IN_PROGRESS`
-- `PARTIALLY_PAID -> WAITING_REVIEW`
-- `PARTIALLY_PAID -> COMPLETED`
-- `PARTIALLY_PAID -> DISPUTED`
-- `DISPUTED -> IN_PROGRESS`
-- `DISPUTED -> WAITING_REVIEW`
-- `DISPUTED -> PARTIALLY_PAID`
-- `DISPUTED -> COMPLETED`
-- `DISPUTED -> CANCELLED`
+- `IN_PROGRESS -> REVIEW`
+- `IN_PROGRESS -> DISPUTE`
+- `REVIEW -> COMPLETED`
+- `REVIEW -> IN_PROGRESS`
+- `DISPUTE -> COMPLETED`
+- `DISPUTE -> CANCELLED`
+- `AWARDED -> IN_PROGRESS`
+
+### Autorización por transición
+
+- Solo CLIENT puede ejecutar: `COMPLETED`, `CANCELLED`
+- Solo PRO puede ejecutar: `REVIEW`, `DISPUTE`
+- OPS_ADMIN puede ejecutar cualquier transición
 
 ### Condiciones
 
 - `DRAFT -> POSTED`
-  requiere alcance mínimo, categoría, presupuesto y ownership válido.
+  requiere title (≥5 chars), scope (≥10 chars), ownership válido.
 - `POSTED -> RESERVED`
   requiere reserva activa válida y sin conflicto de concurrencia.
 - `RESERVED -> ACCEPTED`
   requiere reserva no expirada y aceptación válida del flujo comercial.
 - `ACCEPTED -> IN_PROGRESS`
   requiere base contractual mínima activa.
-- `IN_PROGRESS -> WAITING_REVIEW`
-  requiere trabajo ejecutado o milestone sometido a revisión.
-- `WAITING_REVIEW -> PARTIALLY_PAID`
-  requiere al menos un milestone pagado y trabajo no cerrado.
-- `WAITING_REVIEW -> COMPLETED`
-  requiere milestones resueltos, evidencia suficiente, cierre financiero y sin disputa abierta.
-- `* -> DISPUTED`
-  requiere causa formal y trazabilidad.
+- `IN_PROGRESS -> REVIEW`
+  requiere trabajo ejecutado; solo PRO puede solicitar review.
+- `REVIEW -> COMPLETED`
+  requiere revisión satisfactoria del cliente; milestones resueltos y escrow sin fondos retenidos abiertos.
+- `* -> DISPUTE`
+  requiere causa formal y trazabilidad; solo PRO puede abrir disputa.
 - `* -> CANCELLED`
-  requiere cierre operativo y financiero compatible.
+  requiere cierre operativo y financiero compatible; solo CLIENT u OPS_ADMIN.
 
 ## Reservation
 

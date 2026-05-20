@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Optional } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import {
@@ -11,6 +11,7 @@ import { type PaymentMethodType, type PaymentProviderKey } from "./payments.type
 import { ProjectsService } from "../projects/projects.service.js";
 import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 @Injectable()
 export class PaymentsService {
@@ -21,7 +22,8 @@ export class PaymentsService {
     private readonly projectsService: ProjectsService,
     private readonly contractsRepository: ContractsRepository,
     private readonly reservationsRepository: ReservationsRepository,
-    private readonly workspaceMemory: WorkspaceMemoryRepository
+    private readonly workspaceMemory: WorkspaceMemoryRepository,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -503,6 +505,14 @@ export class PaymentsService {
       currency: escrow.currency,
       action: "released",
     }));
+
+    this.sse?.emit(`project:${milestone.projectId}`, "payment.released", {
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      amount,
+      currency: escrow.currency,
+      transactionId: transaction.id,
+    });
 
     return {
       transaction,

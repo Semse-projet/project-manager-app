@@ -210,6 +210,38 @@ export class JobsRepository {
     };
   }
 
+  async updateFields(input: {
+    tenantId: string;
+    jobId: string;
+    fields: Partial<{
+      title: string;
+      scope: string;
+      category: string;
+      budgetType: string;
+      budgetMin: number;
+      budgetMax: number;
+      urgency: string;
+      deadline: string;
+      location: string;
+    }>;
+  }): Promise<JobRecord> {
+    const existing = await this.prisma.job.findFirst({
+      where: { id: input.jobId, tenantId: input.tenantId, deletedAt: null },
+      select: { id: true }
+    });
+
+    if (!existing) {
+      throw new NotFoundException(`Job '${input.jobId}' not found`);
+    }
+
+    const job = (await this.prisma.job.update({
+      where: { id: existing.id },
+      data: { ...input.fields }
+    })) as StoredJob;
+
+    return this.toRecord(job);
+  }
+
   async updateStatus(input: {
     tenantId: string;
     jobId: string;
