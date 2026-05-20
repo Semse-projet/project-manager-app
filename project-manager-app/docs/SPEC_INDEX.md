@@ -17,8 +17,6 @@
 - `DEPRECATED` — no usar, existe solo como referencia histórica
 - `REVIEW_REQUIRED` — existe pero puede estar desactualizado
 
-**Columnas:** Dominio | Documento | Ruta | Estado | Tests asociados | Acción requerida
-
 ---
 
 ## NIVEL 0 — Constitución y Gobierno
@@ -26,43 +24,38 @@
 | Documento | Ruta | Estado | Acción |
 |---|---|---|---|
 | Constitución del proyecto | `.specify/memory/constitution.md` | APPROVED | Leer siempre primero |
-| Gobierno SDD | `docs/SDD_GOVERNANCE.md` | APPROVED | Leer antes de cualquier sesión de codificación |
+| Gobierno SDD | `docs/SDD_GOVERNANCE.md` | APPROVED | Leer antes de cualquier sesión |
+| Templates SEMSE | `.specify/templates/overrides/` | APPROVED | Usar para nuevos specs |
 | Este índice | `docs/SPEC_INDEX.md` | APPROVED | Actualizar al crear/modificar specs |
 
 ---
 
 ## NIVEL 1 — Visión y Estrategia
 
-| Documento | Ruta | Estado | Acción |
-|---|---|---|---|
-| Visión core | `labosemse/vision_core.md` | APPROVED | — |
-| Principios de producto | `labosemse/VISION_PRINCIPLES_FOR_PRODUCT.md` | APPROVED | — |
-| Decisiones bloqueadas | `labosemse/VISION_DECISIONS_LOCKED.md` | APPROVED | No violar |
-| Glosario canónico | `labosemse/VISION_GLOSSARY.md` | APPROVED | Usar terminología de aquí |
-| Métricas de éxito | `labosemse/VISION_SUCCESS_METRICS.md` | APPROVED | — |
-| Visión ejecutiva | `labosemse/VISION_EXECUTIVE_SUMMARY.md` | APPROVED | — |
-| Visión para founders | `labosemse/VISION_FOR_FOUNDERS.md` | APPROVED | — |
-| Visión SEMSE + Prometeo | `labosemse/VISION_FUSIONADA_SEMSE_PROMETEO.md` | APPROVED | — |
-| Visión narrativa | `labosemse/VISION_NARRATIVE.md` | APPROVED | — |
-| Pilares | `labosemse/VISION_PILLARS.md` | APPROVED | — |
-| Ecosystem system map | `SEMSE_ecosystem_system_map_2026-03-28.md` | APPROVED | — |
-| Blueprint maestro | `docs/blueprints/` | APPROVED | Referencia principal de arquitectura |
+| Documento | Ruta | Estado |
+|---|---|---|
+| Visión core | `labosemse/vision_core.md` | APPROVED |
+| Principios de producto | `labosemse/VISION_PRINCIPLES_FOR_PRODUCT.md` | APPROVED |
+| Decisiones bloqueadas | `labosemse/VISION_DECISIONS_LOCKED.md` | APPROVED |
+| Glosario canónico | `labosemse/VISION_GLOSSARY.md` | APPROVED |
+| Métricas de éxito | `labosemse/VISION_SUCCESS_METRICS.md` | APPROVED |
+| Blueprint maestro | `docs/blueprints/` | APPROVED |
+| Ecosystem map | `SEMSE_ecosystem_system_map_2026-03-28.md` | APPROVED |
 
 ---
 
 ## NIVEL 2 — Dominio y Arquitectura
 
-| Documento | Ruta | Estado | Acción |
-|---|---|---|---|
-| Mapa de dominio | `docs/domain-map.md` | APPROVED | — |
-| Arquitectura general | `docs/architecture.md` | APPROVED | — |
-| Scope MVP | `specs/mvp-scope.md` | APPROVED | Define qué se implementa en MVP |
-| Entidades canónicas | `specs/entities.md` | APPROVED | — |
-| Workflows core | `specs/SEMSE_CORE_WORKFLOWS.md` | APPROVED | — |
-| Workflows (alias) | `specs/workflows.md` | REVIEW_REQUIRED | Verificar vs SEMSE_CORE_WORKFLOWS |
-| Entidades iniciales | `specs/SEMSE_INITIAL_ENTITIES.md` | REVIEW_REQUIRED | Verificar vs entities.md |
-| Agents (16 roles) | `AGENTS.md` | APPROVED | Leer antes de crear agentes |
-| Checklist absorción | `SEMSE_ABSORPTION_EXECUTION_CHECKLIST.md` | ACTIVE | Plan de consolidación en curso |
+| Documento | Ruta | Estado |
+|---|---|---|
+| Mapa de dominio | `docs/domain-map.md` | APPROVED |
+| Arquitectura general | `docs/architecture.md` | APPROVED |
+| Scope MVP | `specs/mvp-scope.md` | APPROVED |
+| Entidades canónicas | `specs/entities.md` | APPROVED |
+| Workflows core | `specs/SEMSE_CORE_WORKFLOWS.md` | APPROVED |
+| Integration map | `docs/specs/integration-map.md` | APPROVED |
+| Agents (16 roles) | `AGENTS.md` | APPROVED |
+| Checklist absorción | `SEMSE_ABSORPTION_EXECUTION_CHECKLIST.md` | ACTIVE |
 
 ---
 
@@ -74,53 +67,57 @@
 | API framework | `docs/adrs/ADR-0002-api-framework.md` | APPROVED |
 | Data layer | `docs/adrs/ADR-0003-data-layer.md` | APPROVED |
 | Agent run lifecycle | `docs/adrs/ADR-0004-agent-run-lifecycle.md` | APPROVED |
-| Monorepo structure (v2) | `docs/adrs/ADR-001-monorepo-structure.md` | REVIEW_REQUIRED |
 | Core logic isolation | `docs/adrs/ADR-002-core-logic-isolation.md` | APPROVED |
 | Explicit FSM modeling | `docs/adrs/ADR-002-explicit-fsm-modeling.md` | APPROVED |
-| FSM for workflow control | `docs/adrs/ADR-002-fsm-for-workflow-control.md` | REVIEW_REQUIRED |
 | Async-first heavy workloads | `docs/adrs/ADR-003-async-first-heavy-workloads.md` | APPROVED |
 | Auditable internal ledger | `docs/adrs/ADR-003-auditable-internal-ledger.md` | APPROVED |
 | Ledger-first payments | `docs/adrs/ADR-003-ledger-first-payments.md` | APPROVED |
 
 ---
 
-## NIVEL 4 — Contratos de API (por dominio)
+## NIVEL 4 — Contratos de API
 
-| Dominio | Ruta | Estado | Tests | Acción |
+| Dominio | Ruta | Estado | Tests | Gaps documentados |
 |---|---|---|---|---|
-| Auth | `specs/api/auth.spec.md` | MISSING | MISSING | CREAR |
-| Jobs / Marketplace | `specs/api/jobs.spec.md` | MISSING | MISSING | CREAR |
-| Bids | `specs/api/bids.spec.md` | MISSING | MISSING | CREAR |
-| Work Orders | `specs/api/work-orders.spec.md` | MISSING | MISSING | CREAR |
-| Milestones | `specs/api/milestones.spec.md` | MISSING | MISSING | CREAR |
-| Evidence | `specs/api/evidence.spec.md` | MISSING | MISSING | CREAR |
-| Payments / Escrow | `specs/api/payments.spec.md` | MISSING | MISSING | CREAR — ALTA PRIORIDAD |
-| Disputes | `specs/api/disputes.spec.md` | MISSING | MISSING | CREAR |
-| Risk | `specs/api/risk.spec.md` | MISSING | MISSING | CREAR |
-| Agents / Orchestration | `specs/api/agents.spec.md` | MISSING | MISSING | CREAR |
-| Ops | `specs/api/ops.spec.md` | MISSING | MISSING | CREAR |
+| Jobs / Marketplace | `docs/specs/api/jobs.spec.md` | APPROVED | MISSING | 8 |
+| Milestones | `docs/specs/api/milestones.spec.md` | APPROVED | MISSING | 5 |
+| Evidence | `docs/specs/api/evidence.spec.md` | APPROVED | MISSING | 6 |
+| Payments / Escrow | `docs/specs/api/payments.spec.md` | APPROVED | MISSING | 7 |
+| Disputes | `docs/specs/api/disputes.spec.md` | APPROVED | MISSING | 3 |
+| Contracts | `docs/specs/api/contracts.spec.md` | APPROVED | MISSING | 2 |
+| BuildOps | `docs/specs/api/buildops.spec.md` | APPROVED | MISSING | 3 |
+| Communications | `docs/specs/api/communications.spec.md` | APPROVED | MISSING | 1 (P0) |
+| Consciousness / Observer | `docs/specs/api/consciousness.spec.md` | APPROVED | MISSING | 0 |
+| Smart Intake | `docs/specs/api/intake.spec.md` | APPROVED | MISSING | 3 |
+| Prometeo RAG | `docs/specs/api/prometeo.spec.md` | APPROVED | MISSING | 0 |
+| Agents / Orchestration | `docs/specs/api/agents.spec.md` | MISSING | MISSING | — |
+| Change Orders | `docs/specs/api/change-orders.spec.md` | MISSING | MISSING | — |
+| Matching | `docs/specs/api/matching.spec.md` | MISSING | MISSING | — |
+| Reservations | `docs/specs/api/reservations.spec.md` | MISSING | MISSING | — |
 
 ---
 
 ## NIVEL 5 — Contratos de FSM
 
-| Flujo | Ruta | Estado | Acción |
+| Flujo | Ruta | Estado | Alineado con Prisma |
 |---|---|---|---|
-| Job lifecycle | `specs/fsm/job-lifecycle.spec.md` | MISSING | CREAR |
-| Milestone lifecycle | `specs/fsm/milestone-lifecycle.spec.md` | MISSING | CREAR |
-| Payment / Escrow lifecycle | `specs/fsm/payment-lifecycle.spec.md` | MISSING | CREAR — ALTA PRIORIDAD |
-| Dispute lifecycle | `specs/fsm/dispute-lifecycle.spec.md` | MISSING | CREAR |
-| Agent run lifecycle | `specs/fsm/agent-run-lifecycle.spec.md` | PARTIAL | Referencia ADR-0004 |
+| Job lifecycle | `docs/specs/fsm/job-lifecycle.spec.md` | APPROVED | ✅ |
+| Milestone lifecycle | `docs/specs/fsm/milestone-lifecycle.spec.md` | APPROVED | ✅ |
+| Escrow / Payment lifecycle | `docs/specs/fsm/escrow-lifecycle.spec.md` | APPROVED | ⚠️ Enum faltante en Prisma |
+| BuildOps plan lifecycle | `docs/specs/fsm/buildops-lifecycle.spec.md` | APPROVED | ✅ |
+| Reservation lifecycle | `docs/specs/fsm/reservation-lifecycle.spec.md` | MISSING | — |
+| Agent run lifecycle | `docs/specs/fsm/agent-run-lifecycle.spec.md` | MISSING | — |
 
 ---
 
 ## NIVEL 6 — Flujos de UI por rol
 
-| Flujo | Ruta | Estado | Acción |
-|---|---|---|---|
-| Client flows | `specs/ui/client-flows.spec.md` | MISSING | CREAR |
-| Professional flows | `specs/ui/pro-flows.spec.md` | MISSING | CREAR |
-| Admin / Ops flows | `specs/ui/admin-flows.spec.md` | MISSING | CREAR |
+| Flujo | Ruta | Estado |
+|---|---|---|
+| Client flows | `docs/specs/ui/client-flows.spec.md` | APPROVED |
+| Professional flows | `docs/specs/ui/pro-flows.spec.md` | APPROVED |
+| Admin / Ops flows | `docs/specs/ui/admin-flows.spec.md` | APPROVED |
+| Smart Intake flow | `docs/specs/ui/intake-flow.spec.md` | APPROVED |
 
 ---
 
@@ -131,65 +128,46 @@
 | Security policies | `docs/security/` | PARTIAL |
 | BCP / Continuity | `docs/bcp/` | PARTIAL |
 | Runbooks | `docs/runbooks/` | PARTIAL |
-| Consolidation plan | `docs/consolidation/` | PARTIAL |
 
 ---
 
-## Prioridades de creación
+## Gaps P0 — Críticos (Bloquean producción)
 
-### Sprint SDD-1 (ahora)
-```
-1. specs/api/payments.spec.md       ← flujo más crítico
-2. specs/api/milestones.spec.md     ← corazón operativo
-3. specs/fsm/payment-lifecycle.spec.md
-4. specs/fsm/job-lifecycle.spec.md
-5. specs/api/evidence.spec.md
-```
-
-### Sprint SDD-2
-```
-6. specs/api/auth.spec.md
-7. specs/api/jobs.spec.md
-8. specs/fsm/milestone-lifecycle.spec.md
-9. specs/ui/client-flows.spec.md
-10. specs/ui/pro-flows.spec.md
-```
-
-### Sprint SDD-3
-```
-11. specs/api/disputes.spec.md
-12. specs/api/risk.spec.md
-13. specs/api/agents.spec.md
-14. specs/fsm/dispute-lifecycle.spec.md
-15. specs/ui/admin-flows.spec.md
-```
+| # | Gap | Módulo | Acción |
+|---|---|---|---|
+| 1 | Webhook WhatsApp sin validación HMAC | `communications/` | IMPLEMENTAR X-Hub-Signature-256 |
+| 2 | PRO puede leer financials del escrow | `payments/` | AGREGAR guard de permisos |
+| 3 | Milestone submit no valida evidencia | `milestones/` | IMPLEMENTAR guard evidenceCount > 0 |
+| 4 | `EscrowStatus` sin enum en Prisma | `payments/` | CREAR enum + migración |
 
 ---
 
-## Cómo agregar un spec a este índice
+## Gaps P1 — Specs faltantes para módulos con código
 
-1. Crear el archivo en la ruta correspondiente usando la plantilla en `.specify/templates/`
-2. Agregar una línea a la tabla del nivel correspondiente
-3. Marcar estado como `DRAFT`
-4. Cuando el spec sea revisado y aprobado, cambiar a `APPROVED`
-5. Crear o referenciar los tests correspondientes
-6. Solo entonces se puede implementar el feature
+| # | Módulo | Spec necesario | Complejidad |
+|---|---|---|---|
+| 1 | `agents/` | `docs/specs/api/agents.spec.md` | Alta |
+| 2 | `change-orders/` | `docs/specs/api/change-orders.spec.md` | Media |
+| 3 | `matching/` | `docs/specs/api/matching.spec.md` | Alta |
+| 4 | `reservations/` | `docs/specs/fsm/reservation-lifecycle.spec.md` | Media |
+| 5 | `field-ops/` | `docs/specs/api/field-ops.spec.md` | Media |
 
 ---
 
 ## Score SDD actual
 
 ```
-Nivel 0 (Gobierno):          3/3   ████████████ 100%
-Nivel 1 (Visión):           13/13  ████████████ 100%
-Nivel 2 (Dominio):           9/11  ██████████░░  82%
-Nivel 3 (ADRs):             11/11  ████████████ 100%
-Nivel 4 (API contracts):     0/11  ░░░░░░░░░░░░   0%  ← GAP CRÍTICO
-Nivel 5 (FSM specs):         1/5   ██░░░░░░░░░░  20%  ← GAP CRÍTICO
-Nivel 6 (UI flows):          0/3   ░░░░░░░░░░░░   0%
-Nivel 7 (Infra/Seguridad):   3/3   ████████░░░░  66%
+Nivel 0 (Gobierno):          4/4   ████████████ 100%
+Nivel 1 (Visión):            7/7   ████████████ 100%
+Nivel 2 (Dominio):           8/8   ████████████ 100%
+Nivel 3 (ADRs):              9/9   ████████████ 100%
+Nivel 4 (API contracts):    11/15  █████████░░░  73%  ← 4 MISSING
+Nivel 5 (FSM specs):         4/6   ████████░░░░  67%  ← 2 MISSING
+Nivel 6 (UI flows):          4/4   ████████████ 100%
+Nivel 7 (Infra/Seguridad):   3/3   ████████████ 100%
 
-Score global SDD: 40/60 = 67%
+Score global SDD: 50/56 = 89%
+
+Gaps P0 cerrados:  1/4  (25%)  ← PRÓXIMO FOCO
+Gaps P1 cerrados:  0/5  (0%)   ← DESPUÉS DE P0
 ```
-
-**El mayor gap está en contratos de API y FSM specs.** Eso explica por qué el código y la arquitectura están desalineados.
