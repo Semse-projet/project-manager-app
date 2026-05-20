@@ -24,6 +24,7 @@ import { SystemObserverService } from "./observer.service.js";
 import { RecommendationEngineService } from "./recommendation-engine.service.js";
 import { SimulationEngineService } from "./simulation-engine.service.js";
 import { ApplyEngineService } from "./apply-engine.service.js";
+import { EvolutionEngineService } from "./evolution-engine.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -36,6 +37,7 @@ export class OpsController {
     private readonly recommendationEngine: RecommendationEngineService,
     private readonly simulationEngine: SimulationEngineService,
     private readonly applyEngine: ApplyEngineService,
+    private readonly evolutionEngine: EvolutionEngineService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -561,6 +563,18 @@ export class OpsController {
   }
 
   // ── Autonomy Level 4 — Apply Engine ─────────────────────────────────────────
+
+  // ── Autonomy Level 5 — Evolution Engine ─────────────────────────────────────
+
+  /** Detección de señales evolutivas + propuesta del siguiente bloque de desarrollo. */
+  @Get("evolution")
+  @RequirePermissions("ops:dashboard:read")
+  async getEvolution(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const report = await this.evolutionEngine.evolve(ctx.tenantId);
+    return ok(requestId, report);
+  }
 
   /**
    * Aplica un patch safeToApply=true con confirmación humana explícita.
