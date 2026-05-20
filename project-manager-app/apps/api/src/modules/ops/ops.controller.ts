@@ -25,6 +25,7 @@ import { RecommendationEngineService } from "./recommendation-engine.service.js"
 import { SimulationEngineService } from "./simulation-engine.service.js";
 import { ApplyEngineService } from "./apply-engine.service.js";
 import { EvolutionEngineService } from "./evolution-engine.service.js";
+import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -38,6 +39,7 @@ export class OpsController {
     private readonly simulationEngine: SimulationEngineService,
     private readonly applyEngine: ApplyEngineService,
     private readonly evolutionEngine: EvolutionEngineService,
+    private readonly evolutionFeedback: EvolutionFeedbackService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -560,6 +562,38 @@ export class OpsController {
     const patch = await this.simulationEngine.simulateOne(ctx.tenantId, recId);
     if (!patch) return ok(requestId, null);
     return ok(requestId, patch);
+  }
+
+  // ── Evolution Feedback Loop (Level 5) ────────────────────────────────────────
+
+  /** Registrar resultado de un patch aplicado — alimenta el feedback loop del sistema. */
+  @Post("evolution/feedback")
+  @RequirePermissions("ops:dashboard:write")
+  async recordEvolutionFeedback(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const feedback = await this.evolutionFeedback.recordFeedback({
+      patchId:       String(body.patchId ?? ""),
+      recId:         String(body.recId ?? ""),
+      recType:       String(body.recType ?? ""),
+      recArea:       String(body.recArea ?? ""),
+      filesCreated:  Array.isArray(body.filesCreated) ? body.filesCreated as string[] : [],
+      outcome:       (body.outcome as "success" | "partial" | "reverted" | "skipped") ?? "skipped",
+      maturityBefore: typeof body.maturityBefore === "number" ? body.maturityBefore : undefined,
+      maturityAfter:  typeof body.maturityAfter  === "number" ? body.maturityAfter  : undefined,
+      note:          typeof body.note === "string" ? body.note : undefined,
+      appliedAt:     String(body.appliedAt ?? new Date().toISOString()),
+      reviewedBy:    ctx.userId,
+    });
+    return ok(requestId, feedback);
+  }
+
+  /** Resumen del feedback loop — qué patches funcionan mejor. */
+  @Get("evolution/feedback")
+  @RequirePermissions("ops:dashboard:read")
+  async getEvolutionFeedback(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    return ok(requestId, this.evolutionFeedback.getSummary());
   }
 
   // ── Autonomy Level 4 — Apply Engine ─────────────────────────────────────────
