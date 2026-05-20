@@ -559,8 +559,8 @@ efectos:
   paymentGovernance: false (solo sincroniza estado)
 
 nota de seguridad: |
-  En producción este endpoint DEBE validar la firma del webhook del proveedor
-  (ej. Stripe-Signature header). El código actual no valida firma. Gap P1.
+  En producción, si STRIPE_WEBHOOK_SECRET está configurado, el endpoint valida
+  `Stripe-Signature` con HMAC SHA-256 sobre el raw body y tolerancia anti-replay.
 ```
 
 ---
@@ -633,7 +633,7 @@ describe("POST /v1/workers/me/payout-method") {
 | Disputes | ✅ Directo | disputa abierta cambia escrow a DISPUTED · bloquea release |
 | Trust | ✅ Indirecto | `payment.released` es señal positiva de trust para el PRO |
 | BuildOps | ✅ Directo | change orders pendientes bloquean canRelease |
-| SSE/Real-time | 🟡 Parcial | release no emite SSE actualmente — gap identificado |
+| SSE/Real-time | ✅ Directo | release emite `payment.released` al canal del proyecto |
 | Prometeo RAG | ⚠️ No | Payments no usa RAG |
 | Communications | 🟡 Futuro | Notificación al PRO cuando el pago se libera |
 | Job FSM | ✅ Directo | Todos los milestones PAID desbloquea Job COMPLETED |
@@ -644,10 +644,7 @@ describe("POST /v1/workers/me/payout-method") {
 
 | Gap | Tipo | Severidad |
 |-----|------|-----------|
-| Webhook de Stripe no valida firma (`Stripe-Signature`) — riesgo de replay attack | Seguridad | 🔴 P1 |
 | `POST /v1/workers/me/payout-method` no genera audit log — cambios de cuenta sin trazabilidad | Audit | 🟡 Media |
-| Release no emite SSE — el PRO no recibe notificación real-time de cobro | UX | 🟡 Media |
-| `GET /v1/jobs/:jobId/payments` no tiene permiso explícito declarado en controller (`@RequirePermissions`) — depende de auth implícita | Seguridad | 🟡 Media |
 | `GET /v1/jobs/:jobId/escrow` no valida explícitamente que PRO no puede leer — solo restricción por convención | Seguridad | 🟡 Media |
 | No existe endpoint de reembolso manual (`/v1/escrow/refund`) para OPS_ADMIN en flujos sin disputa | Feature | 🟢 Baja |
 | Providers de pago (`stripe.provider.ts`, `mock-payment.provider.ts`) no están documentados en surface v1 | Documentación | 🟢 Baja |
@@ -674,5 +671,5 @@ describe("POST /v1/workers/me/payout-method") {
 - [x] Invariantes de no-liberar-más-de-lo-fondeado verificadas
 - [x] Tests requeridos listados (5 describes, 20+ casos)
 - [x] PRO no puede leer financials documentado como invariante
-- [x] Gap de seguridad en webhook marcado como 🔴 P1
+- [x] Webhook Stripe valida firma cuando `STRIPE_WEBHOOK_SECRET` está configurado
 - [x] Status: `APPROVED`

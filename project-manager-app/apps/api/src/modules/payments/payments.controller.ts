@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Post, RawBody, Req } from "@nestjs/common";
 import { depositEscrowSchema, paymentsWebhookSchema, releaseEscrowSchema } from "@semse/schemas";
 import { z } from "zod";
 import { ok } from "../../common/api-response.js";
@@ -7,6 +7,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { PaymentsService } from "./payments.service.js";
+import { verifyStripeWebhookSignature } from "./stripe-webhook-signature.js";
 
 const workerPayoutMethodSchema = z.object({
   type: z.enum(["bank_account", "debit_card", "paypal", "zelle", "cashapp"]),
@@ -211,16 +212,34 @@ export class PaymentsController {
   }
 
   @Post("v1/payments/webhook")
-  webhook(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+  webhook(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
+    @RawBody() rawBody?: Buffer,
+  ) {
     const requestId = resolveRequestId(req.headers ?? {});
 
-    // Stripe signature verification — protects against replay attacks.
-    // STRIPE_WEBHOOK_SECRET must be set in Railway environment variables.
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (webhookSecret) {
       const signature = req.headers?.["stripe-signature"];
-      if (!signature || typeof signature !== "string") {
+      const signatureHeader = Array.isArray(signature)
+        ? signature.join(",")
+        : typeof signature === "string"
+          ? signature
+          : undefined;
+      if (!signatureHeader) {
         throw new BadRequestException("Missing Stripe-Signature header");
+      }
+      if (!rawBody) {
+        throw new BadRequestException("Raw request body required for Stripe webhook signature verification");
+      }
+      const validSignature = verifyStripeWebhookSignature({
+        payload: rawBody,
+        signatureHeader,
+        secret: webhookSecret,
+      });
+      if (!validSignature) {
+        throw new BadRequestException("Invalid Stripe-Signature header");
       }
     }
 

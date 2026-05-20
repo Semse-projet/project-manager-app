@@ -5,6 +5,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
+import { verifyStripeWebhookSignature } from "../src/modules/payments/stripe-webhook-signature.ts";
 
 // ── FSM Escrow ─────────────────────────────────────────────────────────────────
 
@@ -243,6 +245,64 @@ test("deposit: currency debe tener exactamente 3 caracteres", () => {
   assert.equal(valid.length, 3);
   assert.ok(tooShort.length !== 3, "currency < 3 chars es inválida");
   assert.ok(tooLong.length !== 3, "currency > 3 chars es inválida");
+});
+
+// ── Webhook signature validation ───────────────────────────────────────────────
+
+function stripeSignatureHeader(payload: Buffer, secret: string, timestamp: number): string {
+  const signedPayload = Buffer.concat([Buffer.from(`${timestamp}.`), payload]);
+  const signature = createHmac("sha256", secret).update(signedPayload).digest("hex");
+  return `t=${timestamp},v1=${signature}`;
+}
+
+test("webhook: Stripe-Signature valida HMAC con raw body", () => {
+  const payload = Buffer.from(JSON.stringify({ event: "payment_intent.succeeded", providerRef: "pi_123" }));
+  const timestamp = 1_800_000_000;
+  const secret = "whsec_test";
+  const signatureHeader = stripeSignatureHeader(payload, secret, timestamp);
+
+  assert.equal(
+    verifyStripeWebhookSignature({
+      payload,
+      signatureHeader,
+      secret,
+      now: new Date(timestamp * 1000),
+    }),
+    true,
+  );
+});
+
+test("webhook: Stripe-Signature rechaza payload alterado", () => {
+  const payload = Buffer.from(JSON.stringify({ event: "payment_intent.succeeded", providerRef: "pi_123" }));
+  const tamperedPayload = Buffer.from(JSON.stringify({ event: "payment_intent.succeeded", providerRef: "pi_456" }));
+  const timestamp = 1_800_000_000;
+  const signatureHeader = stripeSignatureHeader(payload, "whsec_test", timestamp);
+
+  assert.equal(
+    verifyStripeWebhookSignature({
+      payload: tamperedPayload,
+      signatureHeader,
+      secret: "whsec_test",
+      now: new Date(timestamp * 1000),
+    }),
+    false,
+  );
+});
+
+test("webhook: Stripe-Signature rechaza timestamps fuera de tolerancia", () => {
+  const payload = Buffer.from(JSON.stringify({ event: "payment_intent.succeeded", providerRef: "pi_123" }));
+  const timestamp = 1_800_000_000;
+  const signatureHeader = stripeSignatureHeader(payload, "whsec_test", timestamp);
+
+  assert.equal(
+    verifyStripeWebhookSignature({
+      payload,
+      signatureHeader,
+      secret: "whsec_test",
+      now: new Date((timestamp + 600) * 1000),
+    }),
+    false,
+  );
 });
 
 // ── Payout method validation ───────────────────────────────────────────────────
