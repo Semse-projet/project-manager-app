@@ -559,8 +559,9 @@ efectos:
   paymentGovernance: false (solo sincroniza estado)
 
 nota de seguridad: |
-  En producción, si STRIPE_WEBHOOK_SECRET está configurado, el endpoint valida
-  `Stripe-Signature` con HMAC SHA-256 sobre el raw body y tolerancia anti-replay.
+  En producción, STRIPE_WEBHOOK_SECRET es obligatorio. Si está ausente, el endpoint
+  falla cerrado. Si está presente, valida `Stripe-Signature` con HMAC SHA-256 sobre
+  el raw body y tolerancia anti-replay.
 ```
 
 ---

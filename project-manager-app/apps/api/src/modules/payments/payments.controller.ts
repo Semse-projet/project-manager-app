@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, RawBody, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Post, RawBody, Req, ServiceUnavailableException } from "@nestjs/common";
 import { depositEscrowSchema, paymentsWebhookSchema, releaseEscrowSchema } from "@semse/schemas";
 import { z } from "zod";
 import { ok } from "../../common/api-response.js";
@@ -18,6 +18,10 @@ const workerPayoutMethodSchema = z.object({
   last4: z.string().trim().optional(),
   email: z.string().trim().optional()
 });
+
+function isProductionRuntime(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production";
+}
 
 @Controller()
 export class PaymentsController {
@@ -221,7 +225,11 @@ export class PaymentsController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
 
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+    if (!webhookSecret && isProductionRuntime()) {
+      throw new ServiceUnavailableException("STRIPE_WEBHOOK_SECRET is not configured");
+    }
+
     if (webhookSecret) {
       const signature = req.headers?.["stripe-signature"];
       const signatureHeader = Array.isArray(signature)
