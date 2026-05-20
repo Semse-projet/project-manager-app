@@ -165,6 +165,7 @@
 | Harness Agentico | `docs/AGENTIC_HARNESS.md` | APPROVED | Manual de vuelo del agente en modo loop |
 | Master Plan ProTools | `docs/PROTOOLS_MASTER_PLAN.md` | ACTIVE | 5 fases, 16 módulos, 64 bloques con tracking de estado |
 | Spec M1.1 Material Pricing | `docs/specs/tools/fase-1/m1.1-material-pricing.spec.md` | DRAFT | BLS PPI + EstimationPro + FRED + caché Prisma |
+| **Arquitectura 6 Agentes** | `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md` | **APPROVED** | Marketplace·BuildOps·ProTools·Evidence·Crowd·Prometeo — fronteras, eventos, tipos, flujo |
 | Spec M1.2 Regional Costs | `docs/specs/tools/fase-1/m1.2-regional-costs.spec.md` | MISSING | BLS OEWS + multiplicadores por zip |
 | Spec M1.3 Stripe Escrow | `docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | MISSING | Stripe Connect manual payouts |
 | Spec M1.4 Contracts | `docs/specs/tools/fase-1/m1.4-contracts.spec.md` | MISSING | HelloSign e-signature |
