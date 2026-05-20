@@ -7,6 +7,7 @@ import { LanguageProvider, useLanguage, type LanguagePreference } from "../../li
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
+import { NotificationBell } from "../../components/semse/NotificationBell";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@semse/ui";
@@ -364,20 +365,7 @@ function Topbar({
             <option value="light">{t("ui.light")}</option>
           </select>
         </label>
-        <button
-          title={t("ui.notifications")}
-          style={{
-            padding: "6px",
-            borderRadius: "8px",
-            border: "1px solid var(--border)",
-            background: "transparent",
-            color: "var(--muted)",
-            cursor: "pointer",
-            position: "relative",
-          }}
-        >
-          <Bell size={16} />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   );

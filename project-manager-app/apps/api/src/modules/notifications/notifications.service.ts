@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { CommunicationsOutboxService } from "../communications/communications-outbox.service.js";
 import { NotificationsRepository } from "./notifications.repository.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 type NotificationEventPayload = Record<string, unknown>;
 
@@ -298,7 +299,8 @@ export class NotificationsService {
 
   constructor(
     private readonly repository: NotificationsRepository,
-    private readonly communicationsOutbox?: CommunicationsOutboxService,
+    @Optional() private readonly communicationsOutbox?: CommunicationsOutboxService,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
 
   async listForUser(input: {
@@ -345,6 +347,15 @@ export class NotificationsService {
           title: spec.title,
           body: spec.body,
           payload: spec.payload,
+        });
+
+        // SSE: notify the recipient in real-time
+        this.sse?.emit(`notifications:${input.tenantId}:${spec.userId}`, "notification:new", {
+          id:    notification.id,
+          type:  spec.type,
+          title: spec.title,
+          body:  spec.body,
+          createdAt: new Date().toISOString(),
         });
 
         if (this.communicationsOutbox) {
