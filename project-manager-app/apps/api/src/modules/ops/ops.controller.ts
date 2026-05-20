@@ -23,6 +23,7 @@ import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
 import { RecommendationEngineService } from "./recommendation-engine.service.js";
 import { SimulationEngineService } from "./simulation-engine.service.js";
+import { ApplyEngineService } from "./apply-engine.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -34,6 +35,7 @@ export class OpsController {
     private readonly observer: SystemObserverService,
     private readonly recommendationEngine: RecommendationEngineService,
     private readonly simulationEngine: SimulationEngineService,
+    private readonly applyEngine: ApplyEngineService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -556,5 +558,33 @@ export class OpsController {
     const patch = await this.simulationEngine.simulateOne(ctx.tenantId, recId);
     if (!patch) return ok(requestId, null);
     return ok(requestId, patch);
+  }
+
+  // ── Autonomy Level 4 — Apply Engine ─────────────────────────────────────────
+
+  /**
+   * Aplica un patch safeToApply=true con confirmación humana explícita.
+   * Requiere: confirmed=true en el body Y SEMSE_ALLOW_AUTONOMOUS_APPLY=true en env.
+   * Crea archivos nuevos únicamente — nunca sobreescribe ni modifica código de producción.
+   */
+  @Post("apply/:recId")
+  @RequirePermissions("ops:dashboard:write")
+  async applyPatch(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("recId") recId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const confirmed = body.confirmed === true;
+
+    const result = await this.applyEngine.apply({
+      tenantId:  ctx.tenantId,
+      recId,
+      actorId:   ctx.userId,
+      confirmed,
+    });
+
+    return ok(requestId, result);
   }
 }

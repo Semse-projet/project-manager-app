@@ -6,6 +6,7 @@ import {
   Clock, Cpu, Eye, GitBranch, RefreshCw, Shield, Sparkles, Zap,
 } from "lucide-react";
 import { RecommendationsPanel } from "@/components/semse/RecommendationsPanel";
+import { SimulationPanel } from "@/components/semse/SimulationPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -399,6 +400,9 @@ export default function ConsciousnessPage() {
 
           {/* Autonomy Level 2 — Recommendation Engine */}
           <RecommendationsPanel />
+
+          {/* Autonomy Level 3-4 — Simulation + Apply */}
+          <SimulationPanel />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>

@@ -17,6 +17,7 @@ import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
 import { RecommendationEngineService } from "./recommendation-engine.service.js";
 import { SimulationEngineService } from "./simulation-engine.service.js";
+import { ApplyEngineService } from "./apply-engine.service.js";
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { SimulationEngineService } from "./simulation-engine.service.js";
     forwardRef(() => OperationalIntelligenceModule),
   ],
   controllers: [OpsController],
-  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService],
-  exports: [OpsService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService],
+  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService],
+  exports: [OpsService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService],
 })
 export class OpsModule {}
