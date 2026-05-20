@@ -1,178 +1,269 @@
-# SDD_GOVERNANCE — Protocolo Spec-Driven Development
+# SDD_GOVERNANCE — SEMSEproject
+**Versión:** 1.0
+**Fecha:** 2026-05-20
+**Estado:** APROBADO
+**Referencia metodológica:** github/spec-kit + SDD principles
 
-**SEMSE OS · Versión 1.0 · 2026-05-20**
-
-> Este documento define cómo se trabaja bajo SDD en SEMSE.
-> Es el manual operativo. La constitución es el por qué. Este archivo es el cómo.
-
----
-
-## El problema que resuelve
-
-SEMSE fue construido principalmente con vibe coding: prompts iterativos de chat → código, sin spec previo como contrato. El resultado es un sistema poderoso pero con specs retroactivos que coexisten con el código sin gobernarlo.
-
-SDD invierte el orden:
-
-```
-Antes (vibe coding):  prompt → código → (si acaso) documentación
-Ahora (SDD):          spec → plan → tareas → código → tests → reporte
-```
-
-La diferencia clave: el spec es el contrato ejecutable. El código es una consecuencia del spec.
+> Este documento define las reglas operativas del Spec-Driven Development en SEMSEproject.
+> Es de lectura obligatoria para cualquier agente de IA o desarrollador que trabaje en este proyecto.
 
 ---
 
-## La Secuencia Canónica
+## 1. El problema que resuelve este documento
 
-```
-1. CONSTITUTION    → Principios que no cambian (.specify/memory/constitution.md)
-2. SPECIFY         → Spec del feature (docs/specs/<dominio>/<feature>.spec.md)
-3. PLAN            → Plan técnico (docs/specs/<dominio>/<feature>.plan.md)
-4. TASKS           → Tareas implementables (docs/specs/<dominio>/<feature>.tasks.md)
-5. ANALYZE         → Verificar consistencia spec ↔ código existente
-6. IMPLEMENT       → Generar/modificar código
-7. CHECKLIST       → Verificar completitud pre-merge
-8. REPORT          → Reporte de sesión (docs/reportes/<feature>_<fecha>.md)
-```
+SEMSEproject tiene excelentes documentos de visión pero el código y los specs han vivido en paralelo.
+El resultado es: dos ORMs, dos bases de datos, un Domain Store en-memoria, 0 tests en la API, y dos frontends compitiendo.
 
-Ningún paso se salta. Ningún feature existe sin spec aprobado.
+Eso es el resultado del **vibe coding**: codificar por impulso en conversaciones con IA sin que ningún spec governe la ejecución.
+
+Este documento cierra ese ciclo.
 
 ---
 
-## Dónde viven los Specs
+## 2. Definición de Spec-Driven Development para SEMSE
 
 ```
-docs/specs/
-├── api/                         ← Contratos de endpoints REST
-│   ├── jobs.spec.md             🔴 MISSING P1
-│   ├── milestones.spec.md       🔴 MISSING P1
-│   ├── evidence.spec.md         🔴 MISSING P1
-│   ├── payments.spec.md         🔴 MISSING P1
-│   ├── contracts.spec.md        🟡 MISSING P2
-│   ├── disputes.spec.md         🟡 MISSING P2
-│   ├── intake.spec.md           🟡 MISSING P2
-│   ├── buildops.spec.md         🟡 MISSING P2
-│   ├── prometeo.spec.md         🟢 MISSING P3
-│   ├── consciousness.spec.md    🟢 MISSING P3
-│   └── communications.spec.md  🟢 MISSING P3
-├── fsm/                         ← Máquinas de estado formales
-│   ├── job-lifecycle.spec.md    🔴 PARTIAL — completar
-│   ├── milestone-lifecycle.spec.md  🔴 PARTIAL — completar
-│   ├── escrow-lifecycle.spec.md 🔴 PARTIAL — completar
-│   └── buildops-lifecycle.spec.md   🟡 MISSING
-└── ui/                          ← Flujos de usuario por rol
-    ├── client-flows.spec.md     🟡 MISSING
-    ├── pro-flows.spec.md        🟡 MISSING
-    ├── admin-flows.spec.md      🟡 MISSING
-    └── intake-flow.spec.md      🟡 MISSING
+SDD = El spec ES la fuente de verdad.
+      El código ES su consecuencia.
+      Ningún agente de IA toma decisiones de arquitectura.
+      El desarrollador toma decisiones. La IA implementa.
+```
+
+**Flujo obligatorio en SEMSEproject:**
+```
+constitution
+    ↓
+specify        (¿qué resuelve? ¿para quién? ¿qué principios aplican?)
+    ↓
+plan           (¿cómo se implementa? ¿qué módulos toca? ¿qué BD?)
+    ↓
+tasks          (lista ordenada de pasos ejecutables)
+    ↓
+analyze        (¿el plan es consistente con el spec y la constitución?)
+    ↓
+implement      (solo aquí se genera código)
+    ↓
+validate       (tests pasan, spec cumplido, no hay regresiones)
+    ↓
+report         (ADR si hay decisiones arquitectónicas, SPEC_INDEX actualizado)
 ```
 
 ---
 
-## Formato de Spec SEMSE
+## 3. La regla de oro
 
-Usar template: `.specify/templates/overrides/semse-spec.md`
-
-Todo spec SEMSE DEBE incluir:
-
-| Sección | Descripción | Obligatorio |
-|---------|-------------|-------------|
-| Actores y permisos | Quién puede hacer qué | ✅ |
-| Escenarios P1 con Given/When/Then | Casos críticos de negocio | ✅ |
-| FSM (si hay ciclo de vida) | Estados, transiciones, guards, efectos | ✅ para monetizable |
-| Contrato de API (por endpoint) | método + ruta + input + output + errores + efectos | ✅ |
-| `privacyCritical` | True si datos van a Ollama local | ✅ |
-| `auditLog` | True si genera evento de audit | ✅ |
-| `sse` | True si emite SSE real-time | ✅ |
-| `paymentGovernance` | True si toca escrow/pagos | ✅ para monetizable |
-| Tests requeridos | Lista de tests antes de implementar | ✅ |
+> **Ningún feature existe si no está en SPEC_INDEX.md.**
+> **Ningún endpoint existe si no tiene spec + test.**
+> **Ningún agente de IA genera código hasta que el spec esté en estado APPROVED.**
 
 ---
 
-## Ciclo de Vida de un Spec
+## 4. Formato canónico de un spec en SEMSE
 
+Todo spec en `specs/api/*.spec.md` debe tener esta estructura:
+
+```markdown
+# SPEC: [Nombre del Feature]
+**Versión:** X.Y
+**Dominio:** [Identity | Marketplace | Work Management | Evidence | Payments | Ops | Agents]
+**Estado:** [DRAFT | APPROVED | DEPRECATED]
+**Depende de:** [otros specs]
+**Implementado en:** [ruta del código, cuando exista]
+**Tests:** [ruta del test, cuando exista]
+
+## Qué resuelve
+[1-3 líneas. El problema de negocio, no la solución técnica.]
+
+## Actores
+- [Rol]: [qué puede hacer]
+
+## FSM (si aplica)
+[ENTITY]: [ESTADO_A] → [ESTADO_B] → [ESTADO_C | ESTADO_D]
+[Condición de transición]
+
+## Contratos de API
+
+### [MÉTODO] [/ruta]
+**Input:**
+```zod
+z.object({
+  campo: z.string(),
+})
 ```
-DRAFT → APPROVED → [DEPRECATED]
-         ↓
-       PLAN → TASKS → IMPLEMENT → CHECKLIST → DONE
+**Output:**
+```zod
+z.object({
+  id: z.string(),
+  status: z.enum([...]),
+})
 ```
+**Errores:**
+- `400` — [cuándo]
+- `403` — [cuándo]
+- `404` — [cuándo]
+- `409` — [cuándo]
 
-- `DRAFT`: Spec en construcción. Orienta pero no es contrato ejecutable.
-- `APPROVED`: Spec revisado y firmado. Gobierna el código. No se viola sin ADR.
-- `DEPRECATED`: Supersedado por nuevo spec. No eliminar — mover a `docs/specs/archive/`.
+**Guards:**
+- Rol requerido: [client | pro | admin]
+- Ownership: [condición]
+- Tenant: sí (siempre)
 
-Un spec pasa a `APPROVED` cuando:
-- [ ] Todos los escenarios P1 tienen Given/When/Then
-- [ ] Todos los endpoints tienen contrato completo (input/output/errores/efectos)
-- [ ] FSM declarada (si aplica)
-- [ ] Tests requeridos listados
-- [ ] Ninguna invariante de `DOMAIN_INVARIANTS.md` violada
-- [ ] Registrado en `docs/SPEC_INDEX.md`
+**Efectos:**
+- AuditLog: [EVENT_NAME] con [campos]
+- SSE: [event_type] si [condición]
+- Payment Governance: [impacto si aplica]
+- Evidence: [impacto si aplica]
+- FSM transition: [qué cambia]
+
+## Tests requeridos
+- [ ] [escenario exitoso principal]
+- [ ] [escenario de error por permisos]
+- [ ] [escenario de error por validación]
+- [ ] [escenario de FSM]
+- [ ] [escenario de edge case]
+
+## Notas de implementación
+[Cualquier consideración técnica importante, pero no el código en sí.]
+```
 
 ---
 
-## Regla de Oro Operativa
+## 5. Formato canónico de un spec de FSM
 
-> Antes de pedirle a un agente IA que genere código:
+Todo spec en `specs/fsm/*.spec.md`:
 
-```
-1. ¿Existe el spec para este feature?   → Si no: /speckit.specify primero
-2. ¿El spec está en APPROVED?           → Si no: completarlo con el humano
-3. ¿El spec referencia una FSM?         → Verificar STATE_MACHINES.md
-4. ¿El test existe?                     → Si no: escribirlo con la IA antes del código
-5. ENTONCES: /speckit.implement → generar código pasándole el spec
-6. El código debe pasar los tests antes de considerarse terminado
-7. Actualizar SPEC_INDEX.md y crear reporte
+```markdown
+# FSM SPEC: [Nombre del Flujo]
+
+## Estados
+| Estado | Descripción | Quién puede entrar | Reversible |
+|---|---|---|---|
+
+## Transiciones
+| Desde | Evento | Hacia | Guard | Efectos |
+|---|---|---|---|---|
+
+## Diagrama ASCII
+[DRAFT] → [SUBMITTED] → [ACTIVE] → [COMPLETED]
+                              ↓
+                         [DISPUTED] → [RESOLVED]
+
+## Invariantes
+- [regla que nunca puede violarse]
+
+## Tests requeridos
+- [ ] [transición válida X → Y]
+- [ ] [transición inválida bloqueada]
+- [ ] [guard de permisos]
 ```
 
 ---
 
-## Spec Kit CLI (Fase futura)
+## 6. Reglas para agentes de IA en sesiones de codificación
 
-Cuando el equipo decida instalar:
-
-```bash
-pip install specify          # requiere Python 3.11+ (disponible: 3.12.3)
-specify init . --no-overwrite    # inicializar sin sobreescribir docs existentes
-specify integration add claude   # registrar Claude Code como agente
-specify integration list         # ver todos los agentes disponibles
+### Antes de escribir código
+```
+1. ¿Leíste .specify/memory/constitution.md?
+2. ¿El feature está en docs/SPEC_INDEX.md como APPROVED?
+3. ¿Existe el spec en specs/api/ o specs/fsm/?
+4. ¿El spec define input, output, errores, permisos y efectos?
+5. ¿Existe el test file?
 ```
 
-La estructura `.specify/` ya está creada manualmente en Fase 0.
-La instalación del CLI agrega capacidad de scaffolding automático.
+Si alguna respuesta es NO → primero se completa el spec, luego se codifica.
 
-Referencia: `docs/reportes/spec_kit_integration_audit_2026-05-20.md`
+### Durante la implementación
+```
+- No agregar features que no estén en el spec
+- No cambiar el contrato de API sin actualizar el spec primero
+- No mover lógica de dominio a la UI
+- No acceder a datos cross-tenant
+- Todo cambio de estado crítico emite AuditLog
+- Validar permisos en el backend, nunca solo en el frontend
+```
 
----
-
-## Integración con Docs Existentes
-
-Spec Kit complementa — no reemplaza — la documentación existente:
-
-| Spec Kit | SEMSE equivalente | Relación |
-|----------|-------------------|---------|
-| `constitution.md` | `docs/constitution/` + `docs/vision/VISION_DECISIONS_LOCKED.md` | constitution.md los consolida y referencia |
-| `spec template` | `docs/foundation/DOMAIN_MODEL_MVP.md` + parciales | El template SEMSE extiende el de Spec Kit |
-| `AGENTS.md` | Este archivo + `docs/agents/agent-persona-registry.md` | AGENTS.md en root para agentes externos |
-| `docs/specs/` | (nuevo) | Directorio de specs formales — no existía |
-| `SPEC_INDEX.md` | (nuevo) | Registro canónico de specs |
-
-Los 310 archivos de `docs/reportes/` son historial — no specs. No se eliminan.
+### Después de implementar
+```
+- Tests deben pasar
+- SPEC_INDEX.md debe actualizarse (estado: APPROVED, tests: referenciados)
+- Si hubo decisión arquitectónica → crear ADR en docs/adrs/
+```
 
 ---
 
-## Score SDD Actual vs Objetivo
+## 7. Diferencia entre vibe coding y SDD en la práctica
 
-| Nivel | Score anterior | Score actual | Objetivo |
-|-------|---------------|--------------|---------|
-| Visión escrita | ✅ 100% | ✅ 100% | 100% |
-| Dominio mapeado | ✅ 80% | ✅ 80% | 100% |
-| Contratos de API | ❌ 20% | ⚠️ 25% | 100% |
-| Contratos de UI | ❌ 0% | ❌ 0% | 80% |
-| FSM explícito | ⚠️ 50% | ⚠️ 55% | 100% |
-| Tests = spec ejecutable | ⚠️ 40% | ⚠️ 40% | 90% |
-| Governance ejecutable | ❌ 0% | ✅ 80% | 100% |
-| **Score total** | **~55%** | **~65%** | **95%** |
+**Vibe coding (lo que queremos eliminar):**
+```
+Yo: "Agrégale al Job la capacidad de tener subcontratistas"
+IA: [genera 300 líneas directamente]
+    [toca 4 archivos sin spec]
+    [no hay test]
+    [agrega campo en DB sin migración documentada]
+    [puede contradecir el FSM existente]
+```
 
-El salto de 55% → 65% es por la governance ejecutable (AGENTS.md, constitution.md, templates, SPEC_INDEX.md).
-El 95% se alcanza cuando los 11 specs P1-P3 estén en APPROVED y los tests derivados pasen.
+**SDD (lo que queremos):**
+```
+Yo: "Quiero agregar subcontratistas a un Job"
+
+Flujo:
+1. /speckit.specify → spec: qué es un subcontratista, qué puede hacer, qué estados tiene
+2. /speckit.plan   → plan: qué tablas toca, qué endpoints, qué FSM cambia, qué agents afecta
+3. /speckit.analyze → ¿el plan es consistente con constitution? ¿con ADR-0003?
+4. /speckit.tasks  → lista de tareas: migración, endpoint, test, UI
+5. /speckit.implement → genera código tarea por tarea
+6. validate: tests pasan, SPEC_INDEX actualizado
+```
+
+---
+
+## 8. Comandos Spec Kit en Claude Code
+
+Los siguientes comandos están disponibles en sesiones de Claude Code.
+Se invocan con `/` como prefijo.
+
+| Comando | Cuándo usarlo |
+|---|---|
+| `/speckit.constitution` | Para revisar o actualizar la constitución |
+| `/speckit.specify` | Al iniciar cualquier feature nuevo |
+| `/speckit.plan` | Después de tener el spec aprobado |
+| `/speckit.tasks` | Para romper el plan en pasos ejecutables |
+| `/speckit.analyze` | Para validar consistencia antes de implementar |
+| `/speckit.implement` | Solo después de spec + plan + tasks + analyze |
+| `/speckit.checklist` | Para generar checklist de calidad |
+| `/speckit.clarify` | Cuando el spec tiene ambigüedades |
+
+---
+
+## 9. Ownership por dominio
+
+| Dominio | Owner sugerido |
+|---|---|
+| Identity & Auth | Auth Agent |
+| Marketplace / Jobs | Marketplace Agent |
+| Work Orders / Milestones | Operations Agent |
+| Evidence | Evidence Agent |
+| Payments / Escrow | Payments Agent |
+| Risk / Disputes | Risk Agent |
+| Agents / Orchestration | Orchestration Agent |
+| Analytics / Audit | Analytics Agent |
+| Seguridad | Security Agent |
+| DevOps / Infra | DevOps Agent |
+
+---
+
+## 10. Checkpoints de calidad antes de merge
+
+```
+[ ] El spec está en SPEC_INDEX.md como APPROVED
+[ ] El spec tiene input/output/errors/permissions/effects
+[ ] El FSM está documentado (si aplica)
+[ ] Los tests existen y pasan
+[ ] AuditLog emitido en transiciones críticas
+[ ] No hay datos cross-tenant
+[ ] RBAC validado en backend
+[ ] No hay secretos en el código
+[ ] SPEC_INDEX.md actualizado
+[ ] Si hubo decisión arquitectónica → ADR creado
+```
