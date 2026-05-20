@@ -1,5 +1,5 @@
 FROM node:20-slim AS base
-# build: 2026-05-18a — Ollama Railway integration
+# build: 2026-05-20a — SDD layer + permission guards hardening
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 FROM base AS deps

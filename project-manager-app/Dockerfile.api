@@ -1,5 +1,5 @@
 FROM node:20-alpine AS base
-# build: 2026-05-18a — Ollama Railway integration + Prometeo RAG F0-F4
+# build: 2026-05-20a — SDD layer + Stripe webhook security + PATCH /v1/jobs + SSE payment.released
 RUN apk add --no-cache openssl python3 make g++
 
 FROM base AS deps
