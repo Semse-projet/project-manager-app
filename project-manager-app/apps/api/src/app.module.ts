@@ -40,6 +40,7 @@ import { TravelModule } from "./modules/travel/travel.module.js";
 import { DeveloperRuntimeModule } from "./modules/developer-runtime/developer-runtime.module.js";
 import { NotificationsModule } from "./modules/notifications/notifications.module.js";
 import { MarketplaceModule } from "./modules/marketplace/marketplace.module.js";
+import { SemseAgentsModule } from "./modules/semse-agents/semse-agents.module.js";
 import { PrometeoModule } from "./modules/prometeo/prometeo.module.js";
 import { AiModelsModule } from "./modules/ai-models/ai-models.module.js";
 import { StorageModule } from "./infrastructure/storage/storage.module.js";
@@ -112,6 +113,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     DeveloperRuntimeModule,
     NotificationsModule,
     MarketplaceModule,
+    SemseAgentsModule,
     PrometeoModule,
     AiModelsModule,
     StorageModule,
