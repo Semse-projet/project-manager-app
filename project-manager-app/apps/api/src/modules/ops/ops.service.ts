@@ -689,4 +689,8 @@ export class OpsService {
     const totalDeleted = steps.reduce((s, r) => s + r.deleted, 0);
     return { steps, totalDeleted };
   }
+
+  async getWorkerQueueMetrics() {
+    return this.agentQueueService.getMetrics();
+  }
 }

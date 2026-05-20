@@ -59,6 +59,29 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  async getMetrics(): Promise<{
+    connected: boolean;
+    waiting: number;
+    active: number;
+    completed: number;
+    failed: number;
+    delayed: number;
+    queueName: string;
+  }> {
+    await this.ensureQueueConnected();
+    if (!this.queue) {
+      return { connected: false, waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, queueName: SEMSE_AGENT_RUN_QUEUE };
+    }
+    const [waiting, active, completed, failed, delayed] = await Promise.all([
+      this.queue.getWaitingCount().catch(() => 0),
+      this.queue.getActiveCount().catch(() => 0),
+      this.queue.getCompletedCount().catch(() => 0),
+      this.queue.getFailedCount().catch(() => 0),
+      this.queue.getDelayedCount().catch(() => 0),
+    ]);
+    return { connected: true, waiting, active, completed, failed, delayed, queueName: SEMSE_AGENT_RUN_QUEUE };
+  }
+
   async onModuleDestroy(): Promise<void> {
     this.connectPromise = null;
     if (this.queue) {

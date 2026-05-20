@@ -512,6 +512,17 @@ export class OpsController {
     });
   }
 
+  // ── Worker metrics ────────────────────────────────────────────────────────────
+
+  /** Métricas de la cola BullMQ del worker — jobs waiting/active/completed/failed. */
+  @Get("worker/metrics")
+  @RequirePermissions("ops:dashboard:read")
+  async getWorkerMetrics(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const metrics = await this.opsService.getWorkerQueueMetrics();
+    return ok(requestId, metrics);
+  }
+
   // ── Autonomy Level 2 — Recommendation Engine ────────────────────────────────
 
   /** Genera recomendaciones estructuradas con PR draft. Solo propone — no modifica. */
