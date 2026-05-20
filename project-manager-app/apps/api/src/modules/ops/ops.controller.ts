@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import {
   alertIdParamSchema,
   agentApprovalDecisionSchema,
@@ -22,6 +22,7 @@ import type { PrometeoService } from "../prometeo/prometeo.service.js";
 import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
 import { RecommendationEngineService } from "./recommendation-engine.service.js";
+import { SimulationEngineService } from "./simulation-engine.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -32,6 +33,7 @@ export class OpsController {
     private readonly consciousness: ConsciousnessIndexService,
     private readonly observer: SystemObserverService,
     private readonly recommendationEngine: RecommendationEngineService,
+    private readonly simulationEngine: SimulationEngineService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -520,5 +522,28 @@ export class OpsController {
     const ctx = resolveRequestContext(req);
     const report = await this.recommendationEngine.generate(ctx.tenantId);
     return ok(requestId, report);
+  }
+
+  // ── Autonomy Level 3 — Simulation Engine ────────────────────────────────────
+
+  /** Simula patches para las top recomendaciones. Lee, no aplica. */
+  @Get("simulation")
+  @RequirePermissions("ops:dashboard:read")
+  async getSimulation(@Req() req: { headers?: Record<string, unknown> }, @Query("limit") limit?: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const report = await this.simulationEngine.simulate(ctx.tenantId, limit ? parseInt(limit, 10) : 5);
+    return ok(requestId, report);
+  }
+
+  /** Simula el patch para una recomendación específica. */
+  @Get("simulation/:recId")
+  @RequirePermissions("ops:dashboard:read")
+  async simulateOne(@Req() req: { headers?: Record<string, unknown> }, @Param("recId") recId: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const patch = await this.simulationEngine.simulateOne(ctx.tenantId, recId);
+    if (!patch) return ok(requestId, null);
+    return ok(requestId, patch);
   }
 }
