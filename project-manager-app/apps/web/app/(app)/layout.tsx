@@ -19,6 +19,7 @@ import {
   Bot,
   Brain,
   Briefcase,
+  Building2,
   Eye,
   Building,
   Calendar,
@@ -109,6 +110,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     items: [
       { labelKey: "nav.dashboard", href: "/admin/dashboard", icon: LayoutDashboard, section: "section.main" },
       { labelKey: "nav.operations", href: "/admin/ops", icon: Activity },
+      { labelKey: "nav.contractors", href: "/admin/contractors", icon: Building2 },
       { labelKey: "nav.autonomy", href: "/admin/autonomy", icon: GitBranch },
       { labelKey: "nav.developerRuntime", href: "/admin/developer-runtime", icon: Bot },
       { labelKey: "nav.communications", href: "/admin/communications", icon: MessageSquare },
