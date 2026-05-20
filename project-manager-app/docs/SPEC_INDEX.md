@@ -208,11 +208,11 @@ Reportes notables para contexto:
 | `docs/specs/api/payments.spec.md` | Escrow/Payments | ✅ `APPROVED` — 2026-05-20 |
 | `docs/specs/api/contracts.spec.md` | Contratos | ✅ `APPROVED` — 2026-05-20 |
 | `docs/specs/api/disputes.spec.md` | Disputas | ✅ `APPROVED` — 2026-05-20 |
-| `docs/specs/api/intake.spec.md` | Smart Intake | 🟡 P2 |
-| `docs/specs/api/buildops.spec.md` | BuildOps | 🟡 P2 |
-| `docs/specs/api/prometeo.spec.md` | Prometeo/RAG | 🟢 P3 |
-| `docs/specs/api/consciousness.spec.md` | Consciousness/Observer | 🟢 P3 |
-| `docs/specs/api/communications.spec.md` | Communications/WhatsApp | 🟢 P3 |
+| `docs/specs/api/intake.spec.md` | Smart Intake | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/api/buildops.spec.md` | BuildOps | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/api/prometeo.spec.md` | Prometeo/RAG | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/api/consciousness.spec.md` | Consciousness/Observer | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/api/communications.spec.md` | Communications/WhatsApp | ✅ `APPROVED` — 2026-05-20 |
 
 Formato de cada spec de API:
 ```
