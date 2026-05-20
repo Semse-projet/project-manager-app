@@ -5,11 +5,17 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { SemseAgentsService, type SemseAgentName, type SemseAgentEvent } from "./semse-agents.service.js";
 import { ProToolsAgent, type ProToolsEstimateInput } from "./protools.agent.js";
+import { MarketplaceAgent } from "./marketplace.agent.js";
+import { BuildOpsAgent } from "./buildops.agent.js";
+import { CrowdAgent } from "./crowd.agent.js";
 
 @Controller("v1/agents/semse")
 export class SemseAgentsController {
   constructor(
     private readonly bus: SemseAgentsService,
+    private readonly marketplaceAgent: MarketplaceAgent,
+    private readonly buildopsAgent: BuildOpsAgent,
+    private readonly crowdAgent: CrowdAgent,
     private readonly protools: ProToolsAgent,
   ) {}
 
@@ -82,5 +88,39 @@ export class SemseAgentsController {
 
     this.bus.dispatch(msg);
     return ok(rid, { dispatched: true, correlationId: msg.correlationId, from, to, event });
+  }
+
+  /** Marketplace Agent — clasificar trabajo y sugerir budget */
+  @Post("marketplace/classify")
+  @RequirePermissions("projects:read")
+  async marketplaceClassify(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const classification = await this.marketplaceAgent.classifyJob(body);
+    return ok(rid, { agentName: "marketplace", ...classification });
+  }
+
+  /** BuildOps Agent — crear plan de proyecto por trade */
+  @Post("buildops/plan")
+  @RequirePermissions("projects:read")
+  async buildopsPlan(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const trade = String(body.trade ?? "general");
+    const hours = Number(body.estimatedHours ?? 8);
+    const plan = this.buildopsAgent.createPlan(trade, hours);
+    return ok(rid, { agentName: "buildops", trade, ...plan });
+  }
+
+  /** Crowd Agent — evaluar si se puede liberar el pago */
+  @Post("crowd/payment-readiness")
+  @RequirePermissions("projects:read")
+  async crowdPaymentReadiness(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const decision = this.crowdAgent.evaluatePaymentReadiness({
+      evidenceApproved:    Boolean(body.evidenceApproved),
+      changeOrdersPending: Number(body.changeOrdersPending ?? 0),
+      disputeOpen:         Boolean(body.disputeOpen),
+      milestoneStatus:     String(body.milestoneStatus ?? "draft"),
+    });
+    return ok(rid, { agentName: "crowd", ...decision });
   }
 }

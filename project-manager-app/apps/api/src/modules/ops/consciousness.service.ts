@@ -38,7 +38,7 @@ const MODULE_REGISTRY: Array<{
   { name: "Notifications",     hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["SSE dispatch notifications:{tenantId}:{userId}", "NotificationBell header real", "22 tests unitarios"] },
   { name: "Trust Scores",      hasBackend: true,  hasFrontend: true,  hasTests: false, hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["/admin/trust — score bar, nivel badge, flags", "trust-overview BFF"] },
   { name: "Autonomy Core",     hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: true,  hasPermissions: true,  notes: ["Level 0-5 + Feedback Loop", "POST/GET /v1/ops/evolution/feedback", "SEMSE aprende de patches aplicados"] },
-  { name: "SEMSE Agents",      hasBackend: true,  hasFrontend: false, hasTests: true,  hasSSE: false, hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["6 agentes: marketplace/buildops/protools/evidence/crowd/prometeo", "ProTools v1: materiales+labor+riesgos+checklists", "MessageBus in-memory"] },
+  { name: "SEMSE Agents",      hasBackend: true,  hasFrontend: false, hasTests: true,  hasSSE: false, hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["6/6 agentes implementados: marketplace/buildops/protools/evidence/crowd/prometeo", "MessageBus + 3 API endpoints (classify/plan/payment-readiness)"] },
 ];
 
 const KNOWN_SSE_CHANNELS = [
