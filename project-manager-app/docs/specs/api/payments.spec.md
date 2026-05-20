@@ -536,7 +536,7 @@ método: POST
 ruta: /v1/payments/webhook
 descripción: Recibe eventos de proveedores de pago externos (Stripe, etc.)
 
-auth: verificación por proveedor (no usa auth SEMSE estándar)
+auth: verificación por proveedor (`@Public` para omitir JWT SEMSE estándar)
 roles: [PLATFORM]
 privacyCritical: false
 

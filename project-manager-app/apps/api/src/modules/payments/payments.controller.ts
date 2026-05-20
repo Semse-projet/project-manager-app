@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ok } from "../../common/api-response.js";
 import { toVisibleContract, toVisibleEscrow, toVisiblePaymentTxn } from "../../common/visible-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { PaymentsService } from "./payments.service.js";
@@ -212,6 +213,7 @@ export class PaymentsController {
   }
 
   @Post("v1/payments/webhook")
+  @Public()
   webhook(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: Record<string, unknown>,
