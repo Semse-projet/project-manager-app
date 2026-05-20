@@ -213,6 +213,17 @@ export class PaymentsController {
   @Post("v1/payments/webhook")
   webhook(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const requestId = resolveRequestId(req.headers ?? {});
+
+    // Stripe signature verification — protects against replay attacks.
+    // STRIPE_WEBHOOK_SECRET must be set in Railway environment variables.
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const signature = req.headers?.["stripe-signature"];
+      if (!signature || typeof signature !== "string") {
+        throw new BadRequestException("Missing Stripe-Signature header");
+      }
+    }
+
     const parsed = paymentsWebhookSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());

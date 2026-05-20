@@ -206,8 +206,8 @@ Reportes notables para contexto:
 | `docs/specs/api/milestones.spec.md` | Work Management | ✅ `APPROVED` — 2026-05-20 |
 | `docs/specs/api/evidence.spec.md` | Evidence Center | ✅ `APPROVED` — 2026-05-20 |
 | `docs/specs/api/payments.spec.md` | Escrow/Payments | ✅ `APPROVED` — 2026-05-20 |
-| `docs/specs/api/contracts.spec.md` | Contratos | 🟡 P2 |
-| `docs/specs/api/disputes.spec.md` | Disputas | 🟡 P2 |
+| `docs/specs/api/contracts.spec.md` | Contratos | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/api/disputes.spec.md` | Disputas | ✅ `APPROVED` — 2026-05-20 |
 | `docs/specs/api/intake.spec.md` | Smart Intake | 🟡 P2 |
 | `docs/specs/api/buildops.spec.md` | BuildOps | 🟡 P2 |
 | `docs/specs/api/prometeo.spec.md` | Prometeo/RAG | 🟢 P3 |
@@ -224,10 +224,10 @@ Rol requerido · Efectos (eventos, audit, notificaciones) · Transición FSM
 
 | Spec a crear | Estado actual |
 |-------------|---------------|
-| `docs/specs/fsm/job-lifecycle.spec.md` | Parcial en `STATE_MACHINES.md` — falta formalizar |
-| `docs/specs/fsm/milestone-lifecycle.spec.md` | Parcial — falta guards y efectos |
-| `docs/specs/fsm/escrow-lifecycle.spec.md` | Parcial — falta transiciones de disputa |
-| `docs/specs/fsm/buildops-lifecycle.spec.md` | No existe |
+| `docs/specs/fsm/job-lifecycle.spec.md` | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/fsm/milestone-lifecycle.spec.md` | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/fsm/escrow-lifecycle.spec.md` | ✅ `APPROVED` — 2026-05-20 |
+| `docs/specs/fsm/buildops-lifecycle.spec.md` | 🟡 MISSING |
 
 ### Contratos de UI (Nivel 4 SDD)
 
