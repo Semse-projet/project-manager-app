@@ -52,6 +52,8 @@ export class SemseAgentsController {
       area:        body.area,
       rooms:       body.rooms,
       projectId:   (body.projectId as string) ?? undefined,
+      zipCode:     (body.zipCode as string) ?? undefined,
+      userId:      ctx.userId,
     });
 
     return ok(rid, {

@@ -5,10 +5,11 @@ import { PricingController } from "./pricing.controller.js";
 import { PriceRefreshJob } from "./price-refresh.job.js";
 import { OewsService } from "./oews.service.js";
 import { LocationCostService } from "./location-cost.service.js";
+import { ContractorRateService } from "./contractor-rate.service.js";
 
 @Module({
-  providers: [BlsPpiService, MaterialPricingService, PriceRefreshJob, OewsService, LocationCostService],
+  providers: [BlsPpiService, MaterialPricingService, PriceRefreshJob, OewsService, LocationCostService, ContractorRateService],
   controllers: [PricingController],
-  exports: [MaterialPricingService, LocationCostService],
+  exports: [MaterialPricingService, LocationCostService, ContractorRateService],
 })
 export class PricingModule {}

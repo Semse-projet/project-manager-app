@@ -1,9 +1,11 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import type { LocationMultipliers } from "@semse/tools";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import { ToolsService } from "../tools/tools.service.js";
 import { MaterialPricingService } from "../pricing/material-pricing.service.js";
 import { LocationCostService } from "../pricing/location-cost.service.js";
+import { ContractorRateService } from "../pricing/contractor-rate.service.js";
 
 // ── ProTools Agent ────────────────────────────────────────────────────────────
 // Inteligencia técnica: materiales, costos, checklists, riesgos.
@@ -16,6 +18,7 @@ export type ProToolsEstimateInput = {
   rooms?:      number;
   projectId?:  string;
   zipCode?:    string;  // for regional cost adjustment
+  userId?:     string;  // for contractor rate override lookup
 };
 
 export type ProToolsEstimateResult = {
@@ -85,6 +88,7 @@ export class ProToolsAgent {
     @Optional() private readonly tools?: ToolsService,
     @Optional() private readonly pricing?: MaterialPricingService,
     @Optional() private readonly locationCost?: LocationCostService,
+    @Optional() private readonly contractorRate?: ContractorRateService,
   ) {
     // Register as handler for ESTIMATE_REQUESTED events
     this.bus.register("protools", (msg) => this.handleMessage(msg));
@@ -121,13 +125,35 @@ export class ProToolsAgent {
     }
 
     // Fetch regional location multipliers if zipCode provided
-    let liveLocation: import("@semse/tools").LocationMultipliers | undefined;
+    let liveLocation: LocationMultipliers | undefined;
     if (input.zipCode && this.locationCost) {
       try {
         liveLocation = await this.locationCost.getMultipliers(input.zipCode);
         this.logger.debug(`[ProTools] location multipliers for ${input.zipCode}: mat=${liveLocation.materialMultiplier} labor=${liveLocation.laborMultiplier}`);
       } catch {
         this.logger.debug("[ProTools] locationCost.getMultipliers failed — using national averages");
+      }
+    }
+
+    // Contractor rate override takes priority over BLS location data
+    let contractorOverride: Awaited<ReturnType<ContractorRateService["getOverride"]>> | null = null;
+    if (input.userId && this.contractorRate) {
+      try {
+        contractorOverride = await this.contractorRate.getOverride(input.userId);
+        if (contractorOverride) {
+          liveLocation = {
+            zipCode: input.zipCode ?? "00000",
+            stateCode: liveLocation?.stateCode ?? "US",
+            metro: undefined,
+            materialMultiplier: contractorOverride.materialMultiplier,
+            laborMultiplier:    contractorOverride.laborMultiplier,
+            source: "manual" as const,
+            fetchedAt: new Date().toISOString(),
+          };
+          this.logger.debug(`[ProTools] contractor rate override for user ${input.userId}: $${contractorOverride.laborRatePerHr}/hr, labor×${contractorOverride.laborMultiplier}`);
+        }
+      } catch {
+        this.logger.debug("[ProTools] contractorRate.getOverride failed — using BLS data");
       }
     }
 
@@ -155,8 +181,11 @@ export class ProToolsAgent {
     const rooms  = input.rooms ?? 1;
     const materials = this.estimateMaterials(trade, area, rooms);
     const laborHours = this.estimateLabor(trade, area, rooms);
-    const totalMaterials = materials.reduce((s, m) => s + m.total, 0);
-    const laborRate = 35; // $/hr default
+    const baseMaterials = materials.reduce((s, m) => s + m.total, 0);
+    const totalMaterials = contractorOverride
+      ? Math.round(baseMaterials * contractorOverride.materialMultiplier)
+      : Math.round(baseMaterials);
+    const laborRate = contractorOverride?.laborRatePerHr ?? 35; // $/hr: contractor override or BLS-based default
     const totalLabor = laborHours * laborRate;
 
     const riskFlags = [
@@ -176,7 +205,7 @@ export class ProToolsAgent {
       riskFlags,
       checklist,
       confidence:     toolResult ? 0.85 : 0.65,
-      agentNote:      `ProTools estimate for ${input.trade}. ${toolResult ? "Tool-assisted." : "Rules-based — verify quantities on site."} No reemplaza inspección local ni licencias requeridas.`,
+      agentNote:      `ProTools estimate for ${input.trade}. ${toolResult ? "Tool-assisted." : "Rules-based — verify quantities on site."} ${contractorOverride ? `Tarifas propias aplicadas ($${contractorOverride.laborRatePerHr}/hr, markup ${(contractorOverride.materialMarkup * 100).toFixed(1)}%).` : ""} No reemplaza inspección local ni licencias requeridas.`,
     };
   }
 

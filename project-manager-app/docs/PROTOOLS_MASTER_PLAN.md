@@ -24,12 +24,12 @@
 | Fase | Módulos | Bloques Total | Completados | % |
 |---|---|---|---|---|
 | **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 12 | 100% |
-| Fase 1 — Fundación Financiera | 4 | 17 | 5 | 29% |
+| Fase 1 — Fundación Financiera | 4 | 17 | 9 | 53% |
 | Fase 2 — Protección Legal | 3 | 13 | 0 | 0% |
 | Fase 3 — IA Proactiva | 3 | 16 | 0 | 0% |
 | Fase 4 — Ecosistema | 3 | 9 | 0 | 0% |
 | Fase 5 — ML y Escala | 3 | 9 | 0 | 0% |
-| **TOTAL** | **19** | **76** | **17** | **22%** |
+| **TOTAL** | **19** | **76** | **21** | **28%** |
 
 ---
 
@@ -93,11 +93,11 @@ Evidence protege.      Crowd paga.           Prometeo explica.
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.2.A | OewsService: BLS OEWS API — salarios reales por oficio (12 SOC codes) + LaborRateSnapshot | IN_PROGRESS | `apps/api/src/modules/pricing/oews.service.ts` | Iniciado 2026-05-21 |
-| 1.2.B | LocationCostService: zip → state EPCI multipliers (material + labor) | IN_PROGRESS | `apps/api/src/modules/pricing/location-cost.service.ts` | Índices estáticos RSMeans + OEWS |
-| 1.2.C | `zipCode?: string` + `location?: LocationMultipliers` en los 25 engines | IN_PROGRESS | `packages/tools/src/core/types.ts` + 25 engines | Cambio en types.ts |
-| 1.2.D | `applyLocation()` en cost-engine.ts + ProToolsAgent integrado | IN_PROGRESS | `packages/tools/src/core/cost-engine.ts` | Bloquea 1.2.A y 1.2.B |
-| 1.2.E | Override manual: contratista puede ingresar sus tarifas reales | PENDING | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | UX en apps/web |
+| 1.2.A | OewsService: BLS OEWS API — salarios reales por oficio (12 SOC codes) + LaborRateSnapshot | DONE | `apps/api/src/modules/pricing/oews.service.ts` | PR #24 — 12 SOC codes, 50 estados fallback |
+| 1.2.B | LocationCostService: zip → state EPCI multipliers (material + labor) | DONE | `apps/api/src/modules/pricing/location-cost.service.ts` | PR #24 — ZIP prefix→state, cache 7 días |
+| 1.2.C | `zipCode?: string` + `location?: LocationMultipliers` en los 25 engines | DONE | `packages/tools/src/core/types.ts` + 25 engines | PR #24 — todos los engines extendidos |
+| 1.2.D | `applyLocation()` en cost-engine.ts + ProToolsAgent integrado | DONE | `packages/tools/src/core/cost-engine.ts` | PR #24 — 9 engines activos |
+| 1.2.E | Override manual: contratista puede ingresar sus tarifas reales | IN_PROGRESS | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | UX en apps/web — 2026-05-21 |
 
 ### Módulo 1.3 — Pagos y Escrow Real (Stripe Connect)
 
