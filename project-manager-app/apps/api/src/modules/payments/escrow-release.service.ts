@@ -44,7 +44,7 @@ export class EscrowReleaseService {
           select: {
             id: true,
             escrow: { select: { id: true, providerRef: true, currency: true } },
-            job: { select: { reservations: { where: { status: "accepted" }, select: { workerId: true } } } },
+            job: { select: { reservations: { where: { status: "ACCEPTED" as const }, select: { professionalId: true } } } },
           },
         },
       },
@@ -56,8 +56,8 @@ export class EscrowReleaseService {
     }
 
     const amountUsd     = Number(milestone.amount);
-    const currency      = milestone.project.escrow.currency ?? "usd";
-    const recipientId   = milestone.project.job?.reservations?.[0]?.workerId ?? null;
+    const currency      = milestone.project?.escrow.currency ?? "usd";
+    const recipientId   = milestone.project?.job?.reservations?.[0]?.professionalId ?? null;
 
     // Perform Stripe transfer with platform fee (1.3.D applied by connect.transferToContractor)
     let transferId: string | undefined;
@@ -72,8 +72,8 @@ export class EscrowReleaseService {
           currency,
           metadata: {
             semse_milestone_id: milestoneId,
-            semse_project_id:   milestone.project.id,
-            semse_escrow_id:    milestone.project.escrow.id,
+            semse_project_id:   milestone.project?.id,
+            semse_escrow_id:    milestone.project?.escrow.id,
           },
         });
         transferId      = result.transferId;
@@ -83,12 +83,12 @@ export class EscrowReleaseService {
         // Record PaymentTxn for the release
         await this.prisma.paymentTxn.create({
           data: {
-            escrowId:   milestone.project.escrow.id,
+            escrowId:   milestone.project?.escrow.id,
             milestoneId,
             type:       "RELEASE",
             amount:     netAmountUsd,
             providerRef: transferId,
-            status:     "COMPLETED",
+            status:     "SUCCEEDED",
           },
         });
 

@@ -35,7 +35,6 @@ const TRADE_SCOPE: Record<string, string> = {
   painting:    "Pintura interior/exterior con imprimador y 2 capas. Incluye preparación de superficies, enmascarado y limpieza final.",
   roofing:     "Sustitución o reparación de techo. Incluye underlayment, instalación de shingles y sellado de penetraciones. Excluye estructura de madera.",
   concrete:    "Obra de concreto: mezcla, colado, nivelación y curado. Incluye encofrado básico. Excluye excavación y relleno.",
-  drywall:     "Instalación de paneles de drywall, acabado con 3 manos y textura match. Excluye trabajo eléctrico y plomería.",
   flooring:    "Instalación de piso (materiales incluidos en líneas de materiales). Incluye nivelación de subpiso, instalación y rodapié.",
   hvac:        "Instalación/sustitución de sistema HVAC. Incluye unidad, ductos según plan, termostato y pruebas de funcionamiento.",
   carpentry:   "Carpintería fina: instalación de puertas, marcos, gabinetes o estructuras de madera según alcance acordado.",
