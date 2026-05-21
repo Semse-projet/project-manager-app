@@ -163,4 +163,16 @@ export class SseController {
       keepalive$(),
     );
   }
+
+  /** SEMSE Agents — real-time message bus activity (agents:system channel) */
+  @Sse("agents")
+  @Public()
+  agentsStream(): Observable<MessageEvent> {
+    return merge(
+      this.bus.on<unknown>("agents:system").pipe(
+        map(e => toMsgEvent(e.data, e.event)),
+      ),
+      keepalive$(),
+    );
+  }
 }

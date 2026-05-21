@@ -5,6 +5,7 @@ import {
   AlertTriangle, Brain, CheckCircle2, ChevronDown, ChevronUp,
   DollarSign, Send, Wrench, Briefcase, ExternalLink,
 } from "lucide-react";
+import { BuildOpsPlanCard } from "@/components/semse/BuildOpsPlanCard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -262,6 +263,9 @@ export default function ProToolsPage() {
               </div>
             )}
           </div>
+
+          {/* BuildOps Plan */}
+          <BuildOpsPlanCard trade={result.trade} estimatedHours={result.laborHours} />
 
           {/* Agent note */}
           <div style={{ padding: "10px 14px", background: "rgba(252,211,77,.05)", borderRadius: 10, fontSize: 11, color: "var(--muted)", fontStyle: "italic" }}>

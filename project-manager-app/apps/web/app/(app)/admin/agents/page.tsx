@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Activity, Bot, Brain, CheckCircle2, DollarSign, Eye,
+  Activity, ArrowRight, Bot, Brain, CheckCircle2, DollarSign, Eye,
   Layers, RefreshCw, Send, Shield, Zap,
 } from "lucide-react";
 
@@ -17,6 +17,17 @@ type AgentStatus = {
 };
 
 type BusStatus = { agents: AgentStatus[]; policy: string };
+
+type BusEvent = {
+  agent: string;
+  event: string;
+  from?: string;
+  to?: string;
+  projectId?: string;
+  processedAt?: string;
+  error?: string;
+  totalProcessed?: number;
+};
 
 type ClassifyResult = {
   trade: string; urgency: string; complexity: string;
@@ -256,9 +267,12 @@ function PlaygroundSection() {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AgentsPage() {
-  const [status,  setStatus]  = useState<BusStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [lastAt,  setLastAt]  = useState<string | null>(null);
+  const [status,   setStatus]   = useState<BusStatus | null>(null);
+  const [loading,  setLoading]  = useState(false);
+  const [lastAt,   setLastAt]   = useState<string | null>(null);
+  const [feed,     setFeed]     = useState<BusEvent[]>([]);
+  const [sseOk,    setSseOk]    = useState(false);
+  const sseRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -271,6 +285,34 @@ export default function AgentsPage() {
     } catch { /* silent */ } finally { setLoading(false); }
   }, []);
 
+  // SSE subscription to agents:system channel
+  useEffect(() => {
+    const es = new EventSource("/api/semse/sse/agents");
+    sseRef.current = es;
+
+    es.addEventListener("agent:message", (e) => {
+      try {
+        const data = JSON.parse(e.data) as BusEvent;
+        setSseOk(true);
+        setFeed((prev) => [data, ...prev].slice(0, 50));
+        // Also refresh bus status on every message
+        void load();
+      } catch { /* ignore */ }
+    });
+
+    es.addEventListener("agent:error", (e) => {
+      try {
+        const data = JSON.parse(e.data) as BusEvent;
+        setFeed((prev) => [{ ...data, error: data.error ?? "error" }, ...prev].slice(0, 50));
+      } catch { /* ignore */ }
+    });
+
+    es.onerror = () => setSseOk(false);
+    es.onopen  = () => setSseOk(true);
+
+    return () => { es.close(); sseRef.current = null; };
+  }, [load]);
+
   useEffect(() => {
     void load();
     const t = setInterval(() => void load(), 15_000);
@@ -280,6 +322,7 @@ export default function AgentsPage() {
   const totalMessages = status?.agents.reduce((s, a) => s + a.processedMessages, 0) ?? 0;
   const activeAgents  = status?.agents.filter((a) => a.active).length ?? 0;
   const totalErrors   = status?.agents.reduce((s, a) => s + a.errors, 0) ?? 0;
+  const feedMessages  = feed.length;
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
@@ -294,6 +337,13 @@ export default function AgentsPage() {
             6 agentes especializados · Message bus · {lastAt ?? "cargando…"}
           </p>
         </div>
+        {/* SSE status indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, background: sseOk ? "rgba(134,239,172,.1)" : "rgba(100,116,139,.1)", border: `1px solid ${sseOk ? "rgba(134,239,172,.3)" : "rgba(100,116,139,.3)"}` }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: sseOk ? "#86efac" : "#475569", animation: sseOk ? "pulse 2s infinite" : "none" }} />
+          <span style={{ fontSize: 10, fontWeight: 700, color: sseOk ? "#86efac" : "#475569" }}>
+            SSE {sseOk ? "live" : "standby"}
+          </span>
+        </div>
         <button onClick={load} disabled={loading}
           style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
           <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
@@ -303,10 +353,10 @@ export default function AgentsPage() {
       {/* Summary */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
         {[
-          { label: "Agentes activos",  value: `${activeAgents}/6`,    color: "#86efac", icon: Activity },
-          { label: "Mensajes total",   value: String(totalMessages),  color: "#818cf8", icon: Send },
-          { label: "Errores total",    value: String(totalErrors),    color: totalErrors > 0 ? "#fca5a5" : "#86efac", icon: Shield },
-          { label: "Principio",        value: "Sin violar fronteras", color: "#67e8f9", icon: Layers },
+          { label: "Agentes activos",  value: `${activeAgents}/6`,     color: "#86efac", icon: Activity },
+          { label: "Mensajes total",   value: String(totalMessages),   color: "#818cf8", icon: Send },
+          { label: "SSE live events",  value: String(feedMessages),    color: sseOk ? "#67e8f9" : "#475569", icon: Zap },
+          { label: "Errores total",    value: String(totalErrors),     color: totalErrors > 0 ? "#fca5a5" : "#86efac", icon: Shield },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -333,10 +383,38 @@ export default function AgentsPage() {
         </div>
       )}
 
+      {/* SSE Live Feed */}
+      {feed.length > 0 && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, padding: 18, marginBottom: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <Zap size={14} color="#67e8f9" />
+            <h2 style={{ margin: 0, fontSize: 14, fontWeight: 800 }}>Actividad en tiempo real</h2>
+            <span style={{ fontSize: 10, color: "#67e8f9", background: "rgba(103,232,249,.1)", padding: "2px 8px", borderRadius: 99, marginLeft: "auto" }}>
+              SSE live · {feed.length} eventos
+            </span>
+          </div>
+          <div style={{ display: "grid", gap: 6, maxHeight: 240, overflowY: "auto" }}>
+            {feed.slice(0, 15).map((ev, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: ev.error ? "rgba(239,68,68,.06)" : "rgba(103,232,249,.04)", borderRadius: 10, border: `1px solid ${ev.error ? "rgba(239,68,68,.2)" : "rgba(103,232,249,.15)"}`, fontSize: 11 }}>
+                <span style={{ fontWeight: 800, color: AGENT_META[ev.from ?? ev.agent]?.color ?? "#94a3b8", minWidth: 80, textTransform: "capitalize" }}>{ev.from ?? ev.agent}</span>
+                <ArrowRight size={10} color="var(--muted)" />
+                <span style={{ fontWeight: 700, color: ev.error ? "#fca5a5" : "#67e8f9", minWidth: 70, textTransform: "capitalize" }}>{ev.to ?? "bus"}</span>
+                <span style={{ color: "var(--muted)", flex: 1 }}>{ev.event}</span>
+                {ev.totalProcessed && <span style={{ fontSize: 9, color: "var(--muted)" }}>#{ev.totalProcessed}</span>}
+                {ev.processedAt && <span style={{ fontSize: 9, color: "var(--muted)" }}>{new Date(ev.processedAt).toLocaleTimeString("es-MX")}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Playground */}
       <PlaygroundSection />
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+      `}</style>
     </div>
   );
 }
