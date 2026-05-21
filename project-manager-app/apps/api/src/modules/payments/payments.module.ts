@@ -11,6 +11,9 @@ import { PaymentsService } from "./payments.service.js";
 import { MockPaymentProvider } from "./providers/mock-payment.provider.js";
 import { StripePaymentProvider } from "./providers/stripe.provider.js";
 import { PaymentProviderRegistry } from "./providers/payment-provider.registry.js";
+import { StripeConnectService } from "./stripe-connect.service.js";
+import { StripeConnectController } from "./stripe-connect.controller.js";
+import { EscrowReleaseService } from "./escrow-release.service.js";
 
 const stripeProviders = process.env.STRIPE_SECRET_KEY?.trim()
   ? [StripePaymentProvider]
@@ -18,7 +21,7 @@ const stripeProviders = process.env.STRIPE_SECRET_KEY?.trim()
 
 @Module({
   imports: [ProjectsModule, ContractsModule, KnowledgeModule, ReservationsModule, forwardRef(() => MilestonesModule)],
-  controllers: [PaymentsController],
+  controllers: [PaymentsController, StripeConnectController],
   providers: [
     PaymentsRepository,
     PaymentsService,
@@ -26,7 +29,9 @@ const stripeProviders = process.env.STRIPE_SECRET_KEY?.trim()
     MockPaymentProvider,
     ...stripeProviders,
     PaymentProviderRegistry,
+    StripeConnectService,
+    EscrowReleaseService,
   ],
-  exports: [PaymentsRepository, PaymentsService, PaymentGovernanceService]
+  exports: [PaymentsRepository, PaymentsService, PaymentGovernanceService, StripeConnectService, EscrowReleaseService]
 })
 export class PaymentsModule {}

@@ -24,12 +24,12 @@
 | Fase | Módulos | Bloques Total | Completados | % |
 |---|---|---|---|---|
 | **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 12 | 100% |
-| Fase 1 — Fundación Financiera | 4 | 17 | 9 | 53% |
+| Fase 1 — Fundación Financiera | 4 | 17 | 10 | 59% |
 | Fase 2 — Protección Legal | 3 | 13 | 0 | 0% |
 | Fase 3 — IA Proactiva | 3 | 16 | 0 | 0% |
 | Fase 4 — Ecosistema | 3 | 9 | 0 | 0% |
 | Fase 5 — ML y Escala | 3 | 9 | 0 | 0% |
-| **TOTAL** | **19** | **76** | **21** | **28%** |
+| **TOTAL** | **19** | **76** | **22** | **29%** |
 
 ---
 
@@ -97,17 +97,17 @@ Evidence protege.      Crowd paga.           Prometeo explica.
 | 1.2.B | LocationCostService: zip → state EPCI multipliers (material + labor) | DONE | `apps/api/src/modules/pricing/location-cost.service.ts` | PR #24 — ZIP prefix→state, cache 7 días |
 | 1.2.C | `zipCode?: string` + `location?: LocationMultipliers` en los 25 engines | DONE | `packages/tools/src/core/types.ts` + 25 engines | PR #24 — todos los engines extendidos |
 | 1.2.D | `applyLocation()` en cost-engine.ts + ProToolsAgent integrado | DONE | `packages/tools/src/core/cost-engine.ts` | PR #24 — 9 engines activos |
-| 1.2.E | Override manual: contratista puede ingresar sus tarifas reales | IN_PROGRESS | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | UX en apps/web — 2026-05-21 |
+| 1.2.E | Override manual: contratista puede ingresar sus tarifas reales | DONE | `apps/api/src/modules/pricing/contractor-rate.service.ts` | PR #25 — ContractorRateOverride + /worker/rates UI |
 
 ### Módulo 1.3 — Pagos y Escrow Real (Stripe Connect)
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.3.A | Configurar Stripe Connect (marketplace payments, custom accounts) | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | Requiere cuenta Stripe |
-| 1.3.B | Manual Payouts: fondos en hold hasta aprobación de milestone en FSM | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | Bloquea 1.3.A |
-| 1.3.C | Conectar `escrow-engine.ts` con Stripe (liberación automática en FSM) | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | Artículo IV constitución |
-| 1.3.D | Fee de plataforma SEMSE: 0.75% deducido automáticamente en payout | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | Stripe Connect fee split |
-| 1.3.E | Verificación de cuentas bancarias vía Plaid (ACH onboarding) | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | $0.30/verificación |
+| 1.3.A | Configurar Stripe Connect (marketplace payments, custom accounts) | IN_PROGRESS | `apps/api/src/modules/payments/stripe-connect.service.ts` | StripeConnectAccount model + onboarding + sync — 2026-05-21 |
+| 1.3.B | Manual Payouts: fondos en hold hasta aprobación de milestone en FSM | IN_PROGRESS | `apps/api/src/modules/payments/escrow-release.service.ts` | EscrowReleaseService.tryAutoRelease() en MilestonesService.approve() |
+| 1.3.C | Conectar `escrow-engine.ts` con Stripe (liberación automática en FSM) | IN_PROGRESS | `apps/api/src/modules/payments/escrow-release.service.ts` | transferToContractor() + PaymentTxn RELEASE record |
+| 1.3.D | Fee de plataforma SEMSE: 0.75% deducido automáticamente en payout | IN_PROGRESS | `apps/api/src/modules/payments/stripe-connect.service.ts` | PLATFORM_FEE_RATE=0.0075, platformFeeForPayout() |
+| 1.3.E | Verificación de cuentas bancarias vía Plaid (ACH onboarding) | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | $0.30/verificación — requiere cuenta Plaid |
 
 ### Módulo 1.4 — Contratos y Firmas Digitales
 

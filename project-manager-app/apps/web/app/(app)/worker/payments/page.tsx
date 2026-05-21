@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
-import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale } from "lucide-react";
+import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
-import { fetchJobs, fetchJobPayments, fetchDisputes } from "../../../semse-api";
+import { fetchJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, type StripeConnectAccountView } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type PayRow = {
@@ -35,6 +35,10 @@ export default function WorkerPaymentsPage() {
   const [jobTitles, setJobTitles] = useState<{ id: string; title: string }[]>([]);
   const [currentMethod, setCurrentMethod] = useState<PayoutMethod | undefined>(undefined);
   const [disputedJobIds, setDisputedJobIds] = useState<Set<string>>(new Set());
+  const [connectAccount, setConnectAccount] = useState<StripeConnectAccountView | null>(null);
+  const [platformFeeRate, setPlatformFeeRate] = useState(0.0075);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   const loadPayments = useCallback(async () => {
     setLoading(true);
@@ -97,6 +101,10 @@ export default function WorkerPaymentsPage() {
   useEffect(() => {
     void loadPayments();
     void loadPayoutMethod();
+    // Load Stripe Connect account status
+    void fetchMyConnectAccount()
+      .then((r) => { setConnectAccount(r.account); setPlatformFeeRate(r.platformFeeRate); })
+      .catch(() => undefined);
   }, [loadPayments, loadPayoutMethod]);
 
   const released  = payments.filter(p => p.status === "released");
@@ -173,6 +181,85 @@ export default function WorkerPaymentsPage() {
           />
         </HtmlInCanvasPanel>
       )}
+
+      {/* Stripe Connect panel */}
+      <HtmlInCanvasPanel as="section" style={{ ...card, padding: "18px 20px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={80}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: connectAccount?.status === "active" ? "rgba(16,185,129,.15)" : "rgba(99,102,241,.12)", display: "grid", placeItems: "center" }}>
+            <BadgeDollarSign size={16} color={connectAccount?.status === "active" ? "#10b981" : "#818cf8"} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>Cuenta Stripe Connect</div>
+            <div style={{ fontSize: 11, color: "var(--muted)" }}>
+              {connectAccount
+                ? connectAccount.status === "active"
+                  ? `Activa — transferencias habilitadas. Fee plataforma: ${(platformFeeRate * 100).toFixed(2)}%`
+                  : `Estado: ${connectAccount.status} — completa el onboarding para habilitar pagos`
+                : "Sin cuenta conectada — crea una para recibir pagos automáticos"}
+            </div>
+          </div>
+          {connectAccount?.status === "active" && (
+            <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "#10b981", fontWeight: 800 }}>
+              Activa
+            </span>
+          )}
+        </div>
+        {connectError && (
+          <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, marginBottom: 10 }}>
+            {connectError}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {!connectAccount && (
+            <button
+              disabled={connectLoading}
+              onClick={async () => {
+                setConnectLoading(true); setConnectError(null);
+                try {
+                  const r = await createMyConnectAccount();
+                  setConnectAccount(r.account);
+                } catch (e) { setConnectError(e instanceof Error ? e.message : "Error"); }
+                setConnectLoading(false);
+              }}
+              style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700, cursor: connectLoading ? "not-allowed" : "pointer", opacity: connectLoading ? 0.7 : 1 }}
+            >
+              {connectLoading ? "Creando…" : "Crear cuenta"}
+            </button>
+          )}
+          {connectAccount && connectAccount.status !== "active" && (
+            <button
+              disabled={connectLoading}
+              onClick={async () => {
+                setConnectLoading(true); setConnectError(null);
+                try {
+                  const r = await createOnboardingLink();
+                  window.open(r.onboardingUrl, "_blank");
+                } catch (e) { setConnectError(e instanceof Error ? e.message : "Error"); }
+                setConnectLoading(false);
+              }}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700, cursor: connectLoading ? "not-allowed" : "pointer", opacity: connectLoading ? 0.7 : 1 }}
+            >
+              <ExternalLink size={12} /> {connectLoading ? "Cargando…" : "Completar onboarding"}
+            </button>
+          )}
+          {connectAccount && (
+            <button
+              disabled={connectLoading}
+              onClick={async () => {
+                setConnectLoading(true); setConnectError(null);
+                try {
+                  const r = await syncConnectAccount();
+                  setConnectAccount(r.account);
+                } catch (e) { setConnectError(e instanceof Error ? e.message : "Error"); }
+                setConnectLoading(false);
+              }}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1.5px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, fontWeight: 700, cursor: connectLoading ? "not-allowed" : "pointer" }}
+            >
+              <RefreshCw size={12} /> Sincronizar estado
+            </button>
+          )}
+        </div>
+      </HtmlInCanvasPanel>
 
       {/* Escrow notice */}
       {totalEscrow > 0 && (
