@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { HtmlInCanvasPanel, JobCard, StatCard } from "@semse/ui";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
 import { useLanguage } from "../../../../lib/language-context";
 
@@ -221,6 +222,9 @@ export default function WorkerDashboardPage() {
           </Link>
         </div>
       </HtmlInCanvasPanel>
+
+      {/* Evidence pending summary */}
+      <WorkerEvidenceSummary />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
         <Link href="/worker/jobs?tab=Activos" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(59,130,246,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>

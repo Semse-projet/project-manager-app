@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { SemseAgentsService } from "../semse-agents/semse-agents.service.js";
 
@@ -54,7 +54,7 @@ export class EcosystemMetricsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly semseAgents?: SemseAgentsService,
+    @Optional() private readonly semseAgents?: SemseAgentsService,
   ) {}
 
   async getMetrics(tenantId: string): Promise<EcosystemMetrics> {
