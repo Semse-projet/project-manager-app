@@ -1,4 +1,4 @@
-import type { SemseAgentDefinition, SemseAgentName } from './semse-agents.types'
+import type { SemseAgentDefinition, SemseAgentName } from './semse-agents.types.js'
 
 export const SEMSE_AGENT_REGISTRY: Record<SemseAgentName, SemseAgentDefinition> = {
   marketplace: {
@@ -151,6 +151,6 @@ export function getAllAgents(): SemseAgentDefinition[] {
 
 export function canAgentDo(agentName: SemseAgentName, action: string): boolean {
   const agent = SEMSE_AGENT_REGISTRY[agentName]
-  return agent.capabilities.some(c => c.toLowerCase().includes(action.toLowerCase()))
-    && !agent.forbiddenActions.some(f => f.toLowerCase().includes(action.toLowerCase()))
+  return agent.capabilities.some((c: string) => c.toLowerCase().includes(action.toLowerCase()))
+    && !agent.forbiddenActions.some((f: string) => f.toLowerCase().includes(action.toLowerCase()))
 }
