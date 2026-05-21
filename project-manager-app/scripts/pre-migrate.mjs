@@ -10,7 +10,8 @@
  * regardless of symlink state or package manager (npm/pnpm).
  * Exits 1 on baseline failure so the container fails visibly.
  */
-import { PrismaClient } from "@prisma/client";
+import prismaClientPkg from "@prisma/client";
+const { PrismaClient } = prismaClientPkg;
 import { execSync } from "child_process";
 import { createHash, randomUUID } from "crypto";
 import { readFileSync, readdirSync, existsSync, statSync } from "fs";
