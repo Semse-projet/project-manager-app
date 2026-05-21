@@ -125,7 +125,7 @@ export default function MyBidsPage() {
                   </div>
                   {bid.note && (
                     <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
-                      "{bid.note.slice(0, 120)}{bid.note.length > 120 ? "…" : ""}"
+                      &ldquo;{bid.note.slice(0, 120)}{bid.note.length > 120 ? "…" : ""}&rdquo;
                     </p>
                   )}
                   <div style={{ display: "flex", gap: 16, fontSize: 11, color: "var(--muted)", flexWrap: "wrap" }}>

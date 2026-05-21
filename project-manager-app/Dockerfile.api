@@ -47,11 +47,39 @@ ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4000
 
-COPY --from=builder /app/node_modules ./node_modules
+# Copy workspace manifests + lockfile first so pnpm can re-link workspace packages
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/.npmrc ./.npmrc
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY package.json pnpm-workspace.yaml .npmrc pnpm-lock.yaml ./
+
+# Copy all package.json files for workspace detection
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/packages/schemas/package.json ./packages/schemas/package.json
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/auth/package.json ./packages/auth/package.json
+COPY --from=builder /app/packages/knowledge/package.json ./packages/knowledge/package.json
+COPY --from=builder /app/packages/agents/package.json ./packages/agents/package.json
+COPY --from=builder /app/packages/autonomy/package.json ./packages/autonomy/package.json
+COPY --from=builder /app/packages/tools/package.json ./packages/tools/package.json
+COPY --from=builder /app/packages/ui/package.json ./packages/ui/package.json
+COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
+
+# Copy built dist folders for all workspace packages
+COPY --from=builder /app/packages/schemas/dist ./packages/schemas/dist
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/knowledge/dist ./packages/knowledge/dist
+COPY --from=builder /app/packages/agents/dist ./packages/agents/dist
+COPY --from=builder /app/packages/autonomy/dist ./packages/autonomy/dist
+COPY --from=builder /app/packages/tools/dist ./packages/tools/dist
+
+# Copy node_modules (includes workspace symlinks and all external deps)
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy API and supporting files
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/skills ./apps/api/skills
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
 COPY --from=builder /app/scripts ./scripts

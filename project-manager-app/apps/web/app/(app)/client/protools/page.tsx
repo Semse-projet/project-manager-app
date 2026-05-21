@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   AlertTriangle, Brain, CheckCircle2, ChevronDown, ChevronUp,
   DollarSign, Send, Wrench, Briefcase, ExternalLink,
@@ -176,9 +177,9 @@ export default function ProToolsPage() {
                 <div style={{ fontSize: 13, fontWeight: 800, color: "#86efac" }}>¡Trabajo publicado!</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>ID: {publishedJobId}</div>
               </div>
-              <a href="/client/jobs" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#86efac", fontWeight: 700, textDecoration: "none" }}>
+              <Link href="/client/jobs" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#86efac", fontWeight: 700, textDecoration: "none" }}>
                 Ver mis trabajos <ExternalLink size={12} />
-              </a>
+              </Link>
             </div>
           )}
 
