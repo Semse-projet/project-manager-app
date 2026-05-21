@@ -42,6 +42,10 @@ export type SemseAgentEvent =
   | 'RISK_INTERPRETED'
   | 'GUIDANCE_PROVIDED'
   | 'AGENT_ROUTED'
+  | 'CONTEXT_REQUESTED'
+  | 'NARRATIVE_GENERATED'
+  | 'RAG_QUERIED'
+  | 'TRADE_GUIDE_REQUESTED'
   // System
   | 'DISPUTE_OPENED'
   | 'DISPUTE_RESOLVED'
@@ -121,6 +125,10 @@ export const AGENT_EVENT_ROUTING: Record<SemseAgentEvent, SemseAgentName[]> = {
   RISK_INTERPRETED:           ['prometeo'],
   GUIDANCE_PROVIDED:          ['prometeo'],
   AGENT_ROUTED:               ['prometeo'],
+  CONTEXT_REQUESTED:          ['prometeo'],
+  NARRATIVE_GENERATED:        ['prometeo'],
+  RAG_QUERIED:                ['prometeo'],
+  TRADE_GUIDE_REQUESTED:      ['prometeo', 'protools'],
   DISPUTE_OPENED:             ['evidence', 'prometeo'],
   DISPUTE_RESOLVED:           ['evidence', 'crowd', 'prometeo'],
   PROJECT_COMPLETED:          ['buildops', 'crowd', 'evidence', 'marketplace'],

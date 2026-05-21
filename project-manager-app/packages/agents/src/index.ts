@@ -462,3 +462,23 @@ export {
   type DelegateOptions,
   type DelegateResult,
 } from "./delegate.js";
+
+// ─────────────────────────────────────────────────────────────
+// SEMSE 6-AGENT ARCHITECTURE
+// ─────────────────────────────────────────────────────────────
+export {
+  type SemseAgentName,
+  type SemseAgentEvent,
+  type SemseAgentDefinition,
+  type SemseAgentMessage,
+  type SemseAgentContext,
+  type SemseAgentRunResult,
+  AGENT_EVENT_ROUTING,
+} from "./semse-agents.types.js";
+
+export {
+  SEMSE_AGENT_REGISTRY,
+  getAgent,
+  getAllAgents,
+  canAgentDo,
+} from "./agent-registry.js";
