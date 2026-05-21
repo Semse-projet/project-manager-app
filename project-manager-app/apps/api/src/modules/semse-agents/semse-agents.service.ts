@@ -1,13 +1,29 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
-import {
-  type SemseAgentName,
-  type SemseAgentEvent,
-  type SemseAgentMessage,
-} from "@semse/agents";
 
-// Re-export for consumers that import from this module
-export type { SemseAgentName, SemseAgentEvent, SemseAgentMessage };
+// Local types — mirrors semse-agents.types.ts in packages/agents (not yet built)
+export type SemseAgentName = "marketplace" | "buildops" | "protools" | "evidence" | "crowd" | "prometeo";
+export type SemseAgentEvent =
+  | "PROJECT_PUBLISHED" | "PROJECT_CLASSIFIED" | "CONTRACTOR_MATCHED" | "QUOTE_REQUESTED"
+  | "ESTIMATE_REQUESTED" | "MATERIALS_CALCULATED" | "RISK_ASSESSED" | "CHECKLIST_GENERATED"
+  | "PROJECT_PLANNED" | "MILESTONE_CREATED" | "TASK_ASSIGNED" | "MILESTONE_COMPLETED"
+  | "DELAY_DETECTED" | "PROJECT_CLOSED"
+  | "EVIDENCE_UPLOADED" | "EVIDENCE_VERIFIED" | "EVIDENCE_INSUFFICIENT"
+  | "DISPUTE_PACKET_GENERATED" | "CHANGE_ORDER_APPROVED"
+  | "ESCROW_FUNDED" | "PAYMENT_RELEASE_REQUESTED" | "PAYMENT_RELEASED"
+  | "PAYMENT_HELD" | "INVOICE_GENERATED" | "REFUND_PROCESSED"
+  | "CONTEXT_REQUESTED" | "NARRATIVE_GENERATED" | "RAG_QUERIED" | "TRADE_GUIDE_REQUESTED";
+
+export type SemseAgentMessage = {
+  from:          SemseAgentName;
+  to:            SemseAgentName | "broadcast";
+  event:         SemseAgentEvent;
+  payload:       Record<string, unknown>;
+  projectId:     string;
+  milestoneId?:  string;
+  timestamp:     Date;
+  correlationId: string;
+};
 
 // ── Agent message bus (in-memory, fire-and-forget) ────────────────────────────
 
