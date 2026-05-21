@@ -38,8 +38,9 @@ const MODULE_REGISTRY: Array<{
   { name: "Notifications",     hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: false, hasAudit: false, hasPermissions: false, notes: ["SSE dispatch notifications:{tenantId}:{userId}", "NotificationBell header real", "22 tests unitarios"] },
   { name: "Trust Scores",      hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["/admin/trust — score bar, nivel badge, flags", "20 tests TS.L/C/F/UI/CTX"] },
   { name: "Autonomy Core",     hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: true,  hasPermissions: true,  notes: ["Level 0-5 + Feedback Loop", "POST/GET /v1/ops/evolution/feedback", "SEMSE aprende de patches aplicados"] },
-  { name: "SEMSE Agents",      hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["6/6 + Dashboard /admin/agents + ProTools /client/protools", "SSE: agents:system channel", "classify/plan/payment-readiness + ProTools→Job"] },
-  { name: "Marketplace Bids",  hasBackend: true,  hasFrontend: true,  hasTests: false, hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["BidModal + ProTools→Publicar trabajo (1 click)", "POST /v1/jobs/:jobId/bids real"] },
+  { name: "SEMSE Agents",      hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: true,  hasRAG: true,  hasAudit: false, hasPermissions: true,  notes: ["6/6 + SSE live feed en /admin/agents + ProTools→Job→Evidence", "evidence/checklist endpoint activo"] },
+  { name: "Marketplace Bids",  hasBackend: true,  hasFrontend: true,  hasTests: true,  hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["BidModal + ProTools→Job + 24 tests MB.V/B/ST/PJ/EC"] },
+  { name: "Evidence Agent UI",  hasBackend: true,  hasFrontend: true,  hasTests: false, hasSSE: false, hasRAG: false, hasAudit: false, hasPermissions: true,  notes: ["EvidenceChecklistCard en ProTools + BuildOpsPlanCard por fases", "POST /v1/agents/semse/evidence/checklist"] },
 ];
 
 const KNOWN_SSE_CHANNELS = [

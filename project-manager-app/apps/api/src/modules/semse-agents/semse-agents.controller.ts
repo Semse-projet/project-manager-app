@@ -8,6 +8,7 @@ import { ProToolsAgent, type ProToolsEstimateInput } from "./protools.agent.js";
 import { MarketplaceAgent } from "./marketplace.agent.js";
 import { BuildOpsAgent } from "./buildops.agent.js";
 import { CrowdAgent } from "./crowd.agent.js";
+import { EvidenceAgent } from "./evidence.agent.js";
 
 @Controller("v1/agents/semse")
 export class SemseAgentsController {
@@ -16,6 +17,7 @@ export class SemseAgentsController {
     private readonly marketplaceAgent: MarketplaceAgent,
     private readonly buildopsAgent: BuildOpsAgent,
     private readonly crowdAgent: CrowdAgent,
+    private readonly evidenceAgent: EvidenceAgent,
     private readonly protools: ProToolsAgent,
   ) {}
 
@@ -108,6 +110,17 @@ export class SemseAgentsController {
     const hours = Number(body.estimatedHours ?? 8);
     const plan = this.buildopsAgent.createPlan(trade, hours);
     return ok(rid, { agentName: "buildops", trade, ...plan });
+  }
+
+  /** Evidence Agent — generar checklist de evidencia por trade/milestone */
+  @Post("evidence/checklist")
+  @RequirePermissions("projects:read")
+  async evidenceChecklist(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const milestoneTitle = String(body.milestoneTitle ?? "Milestone");
+    const trade          = String(body.trade ?? "general");
+    const checklist = this.evidenceAgent.generateChecklist(milestoneTitle, trade);
+    return ok(rid, { agentName: "evidence", ...checklist });
   }
 
   /** Crowd Agent — evaluar si se puede liberar el pago */
