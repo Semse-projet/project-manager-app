@@ -2464,3 +2464,27 @@ model IntelligenceRun {
   @@index([entityType, entityId])
   @@index([createdAt])
 }
+
+/// Caché de precios de materiales de construcción obtenidos de APIs externas (BLS PPI, FRED).
+/// Se actualiza cada 24h mediante un worker job. Los engines ProTools leen de aquí.
+model MaterialPriceSnapshot {
+  id          String   @id @default(cuid())
+  materialKey String   // Clave canónica, ej: "lumber-2x4", "steel-rebar", "copper-wire"
+  blsSeriesId String?  // Código BLS PPI, ej: "WPU081" para lumber
+  source      String   // "BLS_PPI" | "FRED" | "MANUAL"
+  pricePerUnit Decimal @db.Decimal(10, 4)  // Precio por unidad canónica (USD)
+  unit        String   // "board-ft", "ton", "sqft", "linear-ft", "each"
+  indexValue  Decimal? @db.Decimal(10, 4)  // Índice PPI original (2012=100)
+  basePrice   Decimal? @db.Decimal(10, 4)  // Precio base hardcoded de referencia
+  changeYoY   Decimal? @db.Decimal(6, 4)   // Cambio año a año (%)
+  fetchedAt   DateTime @default(now())
+  validUntil  DateTime // Expiración del caché (default: fetchedAt + 24h)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([materialKey])
+  @@index([materialKey])
+  @@index([source])
+  @@index([validUntil])
+}
+

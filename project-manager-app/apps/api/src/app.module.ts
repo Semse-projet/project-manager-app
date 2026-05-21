@@ -58,6 +58,7 @@ import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge
 import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module.js";
 import { OperationalIntelligenceModule } from "./modules/operational-intelligence/operational-intelligence.module.js";
 import { CommunicationsModule } from "./modules/communications/communications.module.js";
+import { PricingModule } from "./modules/pricing/pricing.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -129,6 +130,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     ChangeOrdersModule,
     OperationalIntelligenceModule,
     CommunicationsModule,
+    PricingModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -138,3 +140,4 @@ const repoRoot = path.resolve(apiDir, "..", "..");
   ]
 })
 export class AppModule {}
+
