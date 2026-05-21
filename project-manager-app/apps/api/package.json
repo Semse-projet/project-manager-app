@@ -39,7 +39,8 @@
     "pdfkit": "^0.18.0",
     "reflect-metadata": "^0.2.2",
     "stripe": "^22.1.0",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "@semse/tools": "workspace:*"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
