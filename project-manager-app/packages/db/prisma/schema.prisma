@@ -222,6 +222,7 @@ model User {
   contactIdentities ContactIdentity[]
   passwordResetTokens PasswordResetToken[]
   profile            UserProfile?
+  contractorRate     ContractorRateOverride?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
@@ -245,6 +246,17 @@ model UserProfile {
   expertMode        Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model ContractorRateOverride {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  laborRatePerHr Decimal  @db.Decimal(8, 2)  // $/hr contractor charges
+  materialMarkup Decimal  @db.Decimal(5, 4)  // e.g. 0.15 = 15% over national avg
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model AuthSession {

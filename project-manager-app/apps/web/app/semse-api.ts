@@ -2281,3 +2281,41 @@ export async function assistantConfirmDraft(draftId: string): Promise<AssistantC
 export async function assistantPublishFromDraft(draftId: string): Promise<AssistantPublishFromDraftResponse> {
   return mutateSemse<AssistantPublishFromDraftResponse>("/api/semse/assistant/publish-from-draft", { draftId } as Record<string, unknown>);
 }
+
+// ── Contractor Rate Override ──────────────────────────────────────────────────
+
+export type ContractorRateOverrideView = {
+  userId:              string;
+  laborRatePerHr:      number;
+  materialMarkup:      number;
+  laborMultiplier:     number;
+  materialMultiplier:  number;
+  notes?:              string;
+  updatedAt:           string;
+};
+
+export type ContractorRateStatus = {
+  override:                   ContractorRateOverrideView | null;
+  nationalBaselineHourlyRate: number;
+  hasCustomRates:             boolean;
+};
+
+export async function fetchMyLaborRates(): Promise<ContractorRateStatus> {
+  return fetchSemse<ContractorRateStatus>("/api/semse/pricing/labor-rates");
+}
+
+export async function saveMyLaborRates(input: {
+  laborRatePerHr: number;
+  materialMarkup: number;
+  notes?: string;
+}): Promise<{ override: ContractorRateOverrideView; saved: boolean }> {
+  return fetchSemse("/api/semse/pricing/labor-rates", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteMyLaborRates(): Promise<{ deleted: boolean; revertedToBls: boolean }> {
+  return fetchSemse("/api/semse/pricing/labor-rates", { method: "DELETE" });
+}
