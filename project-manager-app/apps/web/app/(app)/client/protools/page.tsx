@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   AlertTriangle, Brain, CheckCircle2, ChevronDown, ChevronUp,
-  DollarSign, Send, Wrench,
+  DollarSign, Send, Wrench, Briefcase, ExternalLink,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -13,6 +13,8 @@ type EstimateResult = {
   materials: Array<{ item: string; qty: number; unit: string; unitCost: number; total: number }>;
   laborHours: number;
   totalMaterials: number;
+  suggestedBudgetMin?: number;
+  suggestedBudgetMax?: number;
   totalLabor: number;
   totalCost: number;
   riskFlags: string[];
@@ -40,8 +42,40 @@ export default function ProToolsPage() {
   const [result,      setResult]      = useState<EstimateResult | null>(null);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState<string | null>(null);
-  const [showChecklist, setShowChecklist] = useState(false);
-  const [showMaterials, setShowMaterials] = useState(false);
+  const [showChecklist,  setShowChecklist]  = useState(false);
+  const [showMaterials,  setShowMaterials]  = useState(false);
+  const [publishing,     setPublishing]     = useState(false);
+  const [publishedJobId, setPublishedJobId] = useState<string | null>(null);
+  const [publishError,   setPublishError]   = useState<string | null>(null);
+
+  const publishJob = async () => {
+    if (!result) return;
+    setPublishing(true); setPublishError(null);
+    try {
+      const resp = await fetch("/api/semse/jobs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          title:      `${trade.charAt(0).toUpperCase() + trade.slice(1)}: ${description.slice(0, 80)}`,
+          scope:      description,
+          category:   trade,
+          budgetMin:  result.suggestedBudgetMin ?? result.totalCost * 0.8,
+          budgetMax:  result.suggestedBudgetMax ?? result.totalCost * 1.2,
+          locationType: "on_site",
+        }),
+      });
+      const json = await resp.json() as { data?: { id?: string }; error?: { message?: string } };
+      if (resp.ok && json.data?.id) {
+        setPublishedJobId(json.data.id);
+      } else {
+        setPublishError((json.error?.message as string) ?? "No se pudo publicar el trabajo");
+      }
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : "Error de red");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const runEstimate = async () => {
     if (!description.trim()) { setError("Describe el trabajo"); return; }
@@ -118,6 +152,34 @@ export default function ProToolsPage() {
       {/* Result */}
       {result && (
         <div style={{ display: "grid", gap: 16 }}>
+
+          {/* Publish from estimate */}
+          {!publishedJobId ? (
+            <div style={{ padding: "14px 18px", background: "rgba(99,102,241,.08)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 14, display: "flex", alignItems: "center", gap: 14 }}>
+              <Briefcase size={18} color="#818cf8" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", marginBottom: 2 }}>¿Listo para contratar?</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>Publica este trabajo en el marketplace con el presupuesto estimado</div>
+              </div>
+              {publishError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{publishError}</div>}
+              <button onClick={publishJob} disabled={publishing}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 10, background: "rgba(99,102,241,.2)", border: "1px solid rgba(99,102,241,.4)", cursor: publishing ? "wait" : "pointer", fontSize: 12, fontWeight: 800, color: "#818cf8", whiteSpace: "nowrap" }}>
+                {publishing ? "Publicando…" : <><Send size={13} /> Publicar trabajo</>}
+              </button>
+            </div>
+          ) : (
+            <div style={{ padding: "14px 18px", background: "rgba(134,239,172,.08)", border: "1px solid rgba(134,239,172,.3)", borderRadius: 14, display: "flex", alignItems: "center", gap: 12 }}>
+              <CheckCircle2 size={18} color="#86efac" />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#86efac" }}>¡Trabajo publicado!</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>ID: {publishedJobId}</div>
+              </div>
+              <a href="/client/jobs" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "#86efac", fontWeight: 700, textDecoration: "none" }}>
+                Ver mis trabajos <ExternalLink size={12} />
+              </a>
+            </div>
+          )}
+
           {/* Totals */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
             {[

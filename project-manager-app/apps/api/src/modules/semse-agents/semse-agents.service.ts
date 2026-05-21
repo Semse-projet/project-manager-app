@@ -1,4 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 // Local types until @semse/agents exports them
 export type SemseAgentName = "marketplace" | "buildops" | "protools" | "evidence" | "crowd" | "prometeo";
 export type SemseAgentEvent =
@@ -43,7 +44,7 @@ export class SemseAgentsService {
   private readonly handlers = new Map<SemseAgentName, AgentHandlerFn[]>();
   private readonly stats    = new Map<SemseAgentName, AgentStatus>();
 
-  constructor() {
+  constructor(@Optional() private readonly sse?: SseEventBusService) {
     // Initialize stats for all known agents
     const agents: SemseAgentName[] = [
       "marketplace", "buildops", "protools", "evidence", "crowd", "prometeo",
@@ -83,10 +84,19 @@ export class SemseAgentsService {
       s.processedMessages++;
       s.lastEventAt = new Date().toISOString();
       s.active = true;
+      // SSE: notify agents dashboard of message processed
+      this.sse?.emit("agents:system", "agent:message", {
+        agent, event: msg.event, from: msg.from, to: msg.to,
+        projectId: msg.projectId, processedAt: s.lastEventAt,
+        totalProcessed: s.processedMessages,
+      });
     } catch (err) {
       const s = this.stats.get(agent)!;
       s.errors++;
       this.logger.warn(`[AgentBus] handler error agent=${agent} event=${msg.event}: ${(err as Error).message}`);
+      this.sse?.emit("agents:system", "agent:error", {
+        agent, event: msg.event, error: (err as Error).message,
+      });
     }
   }
 

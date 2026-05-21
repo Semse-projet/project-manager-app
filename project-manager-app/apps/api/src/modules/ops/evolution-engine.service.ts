@@ -139,16 +139,17 @@ export class EvolutionEngineService {
       });
     }
 
-    // Autonomy ceiling — if we're not progressing through levels
-    const autonomyLevel = 4; // current achieved level (apply engine)
-    if (autonomyLevel < 5) {
+    // Check autonomy ceiling based on module registry
+    const autonomyCoreModule = index.maturity.byModule.find((m) => m.module === "Autonomy Core");
+    const autonomyScore = autonomyCoreModule?.score ?? 0;
+    if (autonomyScore < 90) {
       signals.push({
         type: "autonomy_ceiling",
         area: "Autonomy Core",
         severity: "low",
-        observation: "Sistema en Autonomy Level 4 — el siguiente nivel (Evolution) requiere patrones temporales y auto-priorización",
+        observation: `Autonomy Core en ${autonomyScore}/100 — integraciones de agentes con UI y flujos reales pendientes`,
         trend: "improving",
-        evidence: ["Observer + Consciousness + Recommendations + Simulation + Apply implementados", "Falta: feedback loop de decisiones aplicadas"],
+        evidence: ["6 agentes implementados en backend", "UI de agentes creada", "Falta: flujo ProTools→Job, SSE en bus, plan visual"],
       });
     }
 
@@ -211,27 +212,48 @@ export class EvolutionEngineService {
       });
     }
 
-    // 4. Marketplace client experience
-    priorities.push({
-      rank: rank++,
-      what: "Mejorar UX cliente en /client/marketplace — formulario de aplicación real",
-      why:  "El botón 'Aplicar' muestra un alert() — el flujo completo requiere un formulario con presupuesto, disponibilidad y mensaje",
-      impact: "Convierte el marketplace de vetrina a flujo completo de captación de trabajos",
-      effort: "medium",
-      urgency: "next",
-      dependsOn: ["Marketplace v1 (✅)", "Bid system (✅)"],
-    });
+    // 4. ProTools → Job publishing integration
+    const marketplaceBids = index.maturity.byModule.find((m) => m.module === "Marketplace Bids");
+    const protoolsPublish = !marketplaceBids || marketplaceBids.score < 70;
+    if (protoolsPublish) {
+      priorities.push({
+        rank: rank++,
+        what: "ProTools → Publicar trabajo: convertir estimado en job posting directamente",
+        why:  "El estimador calcula materiales y costo pero el usuario debe crear el trabajo manualmente — flujo roto",
+        impact: "Cierra el loop ProTools → Marketplace. Convierte un estimado en job publicado en 1 click.",
+        effort: "medium",
+        urgency: "next",
+        dependsOn: ["ProTools Agent v1 (✅)", "Marketplace v1 (✅)", "Bid form real (✅)"],
+      });
+    }
 
-    // 5. Autonomy Level 5 completion
-    priorities.push({
-      rank: rank++,
-      what: "Autonomy Level 5 — Evolution feedback loop: registrar qué patches aplicados tuvieron éxito",
-      why:  "El sistema aplica patches pero no aprende si fueron útiles — el feedback loop cierra el ciclo de autonomía",
-      impact: "SEMSE puede priorizar el backlog automáticamente basándose en qué cambios realmente mejoraron el sistema",
-      effort: "high",
-      urgency: "later",
-      dependsOn: ["Apply Engine (✅)", "AuditLog (✅)", "Observer (✅)"],
-    });
+    // 5. SEMSE Agents SSE — real-time bus activity
+    const agentsModule = index.maturity.byModule.find((m) => m.module === "SEMSE Agents");
+    if (agentsModule && !agentsModule.gaps.includes("sse") === false) {
+      priorities.push({
+        rank: rank++,
+        what: "SEMSE Agents SSE — emitir eventos del bus en tiempo real al Dashboard de agentes",
+        why:  "El /admin/agents muestra estadísticas estáticas — sin SSE el usuario no ve los mensajes siendo procesados",
+        impact: "Dashboard de agentes se vuelve reactivo. Operadores ven el flujo de mensajes en tiempo real.",
+        effort: "low",
+        urgency: "next",
+        dependsOn: ["Agents Dashboard (✅)", "SSE Infrastructure (✅)"],
+      });
+    }
+
+    // 6. Trust Scores SSE
+    const trustModule = index.maturity.byModule.find((m) => m.module === "Trust Scores");
+    if (trustModule?.gaps.includes("sse")) {
+      priorities.push({
+        rank: rank++,
+        what: "Trust Scores SSE — actualización en tiempo real cuando cambia el score de un profesional",
+        why:  "El /admin/trust requiere refresh manual — sin SSE el admin no ve cambios de score en tiempo real",
+        impact: "+10 pts de madurez para Trust Scores. UX reactiva para operadores.",
+        effort: "low",
+        urgency: "next",
+        dependsOn: ["Trust Scores frontend (✅)", "SSE Infrastructure (✅)"],
+      });
+    }
 
     // Add recommendations from the engine
     recReport.recommendations.slice(0, 2).forEach((rec) => {

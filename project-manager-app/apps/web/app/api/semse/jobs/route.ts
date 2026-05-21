@@ -1,51 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createRuntimeJobSchema, type JobRecordView } from "@semse/schemas";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../_server";
-
-export async function GET(request: NextRequest) {
-  try {
-    const data = await fetchSemseDataForRequest<JobRecordView[]>("/v1/jobs", request);
-    return NextResponse.json({ data });
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("not configured")) {
-      return runtimeDisabledResponse();
-    }
-
-    return handleServerError(error);
-  }
-}
+import { handleServerError, runtimeDisabledResponse, buildSemseRequestHeaders, getServerConfig } from "../_server";
+const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as Record<string, unknown>;
-    const parsed = createRuntimeJobSchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: {
-            status: 400,
-            message: "Invalid create job payload",
-            details: parsed.error.flatten()
-          }
-        },
-        { status: 400 }
-      );
-    }
-
-    const data = await fetchSemseDataForRequest<JobRecordView>("/v1/jobs", request, {
+    const body = await request.json() as Record<string, unknown>;
+    const cfg  = await getServerConfig(request);
+    const resp = await fetch(`${API}/v1/jobs`, {
       method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify(parsed.data)
+      headers: { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) },
+      body: JSON.stringify(body),
     });
-
-    return NextResponse.json({ data });
+    const json = await resp.json();
+    return NextResponse.json(json, { status: resp.status });
   } catch (error) {
-    if (error instanceof Error && error.message.includes("not configured")) {
-      return runtimeDisabledResponse();
-    }
-
+    if (error instanceof Error && error.message.includes("not configured")) return runtimeDisabledResponse();
     return handleServerError(error);
   }
 }
