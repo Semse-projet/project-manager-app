@@ -223,6 +223,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   profile            UserProfile?
   contractorRate     ContractorRateOverride?
+  stripeConnect      StripeConnectAccount?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
@@ -246,6 +247,23 @@ model UserProfile {
   expertMode        Boolean  @default(false)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model StripeConnectAccount {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeAccountId  String   @unique   // acct_... from Stripe
+  status           String   @default("pending")  // pending | active | restricted | disabled
+  chargesEnabled   Boolean  @default(false)
+  payoutsEnabled   Boolean  @default(false)
+  onboardingUrl    String?  // Stripe hosted onboarding link (expires)
+  country          String   @default("US")
+  currency         String   @default("usd")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
 }
 
 model ContractorRateOverride {

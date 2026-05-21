@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import Stripe from "stripe";
 import type {
   CreateFundingIntentInput,
@@ -6,12 +6,13 @@ import type {
   PaymentProviderPort,
 } from "./payment-provider.port.js";
 import type { FundingIntentRecord, PayoutIntentRecord } from "../payments.types.js";
+import { StripeConnectService } from "../stripe-connect.service.js";
 
 /**
- * Stripe sandbox provider.
- * Requires STRIPE_SECRET_KEY env var (sk_test_... for sandbox).
- * createFundingIntent → Stripe PaymentIntent (confirms immediately in sandbox).
- * createPayoutIntent  → Stripe Transfer to connected account, or a manual payout record.
+ * Stripe provider with Stripe Connect support.
+ * Requires STRIPE_SECRET_KEY (sk_test_... for sandbox).
+ * createFundingIntent → Stripe PaymentIntent for escrow funding.
+ * createPayoutIntent  → Stripe Transfer to per-contractor account with 0.75% platform fee (1.3.D).
  */
 @Injectable()
 export class StripePaymentProvider implements PaymentProviderPort {
@@ -20,7 +21,7 @@ export class StripePaymentProvider implements PaymentProviderPort {
   private readonly logger = new Logger(StripePaymentProvider.name);
   private readonly stripe: Stripe;
 
-  constructor() {
+  constructor(@Optional() private readonly connectService?: StripeConnectService) {
     const secretKey = process.env.STRIPE_SECRET_KEY;
     if (!secretKey) {
       throw new Error("StripePaymentProvider requires STRIPE_SECRET_KEY env var");
@@ -66,15 +67,27 @@ export class StripePaymentProvider implements PaymentProviderPort {
 
   async createPayoutIntent(input: CreatePayoutIntentInput): Promise<PayoutIntentRecord> {
     const amountInCents = Math.round(input.money.amount * 100);
-    const stripeAccountId = process.env.STRIPE_CONNECT_ACCOUNT_ID?.trim();
+
+    // Prefer per-contractor Connect account (1.3.A), fall back to legacy env var
+    let stripeAccountId = process.env.STRIPE_CONNECT_ACCOUNT_ID?.trim();
+    let platformFeeCents = 0;
+
+    if (input.recipientUserId && this.connectService) {
+      const perAccountId = await this.connectService.getStripeAccountId(input.recipientUserId);
+      if (perAccountId) {
+        stripeAccountId = perAccountId;
+        // 1.3.D: Deduct platform fee from the transferred amount
+        platformFeeCents = this.connectService.platformFeeForPayout(input.money.amount);
+      }
+    }
 
     let providerRef: string;
     let status: PayoutIntentRecord["status"];
 
     if (stripeAccountId) {
-      // Real transfer to connected pro account
+      const netCents = amountInCents - platformFeeCents;
       const transfer = await this.stripe.transfers.create({
-        amount: amountInCents,
+        amount: netCents,
         currency: input.money.currency.toLowerCase(),
         destination: stripeAccountId,
         metadata: {
@@ -82,14 +95,18 @@ export class StripePaymentProvider implements PaymentProviderPort {
           semse_project_id: input.projectId,
           semse_milestone_id: input.milestoneId ?? "",
           semse_external_ref: input.externalRef,
+          semse_platform_fee_usd: (platformFeeCents / 100).toFixed(2),
         },
         description: `SEMSE milestone payout — project ${input.projectId}`,
       });
       providerRef = transfer.id;
       status = "paid";
-      this.logger.log({ transferId: transfer.id, projectId: input.projectId }, "Stripe Transfer created");
+      this.logger.log(
+        { transferId: transfer.id, projectId: input.projectId, feeCents: platformFeeCents },
+        "Stripe Transfer with platform fee created",
+      );
     } else {
-      // Sandbox without connected account: create a PaymentIntent in payout mode (simulated)
+      // Sandbox without connected account: simulate payout
       const intent = await this.stripe.paymentIntents.create({
         amount: amountInCents,
         currency: input.money.currency.toLowerCase(),
@@ -118,7 +135,7 @@ export class StripePaymentProvider implements PaymentProviderPort {
       status,
       providerRef,
       externalRef: input.externalRef,
-      metadata: input.metadata,
+      metadata: { ...(input.metadata ?? {}), platformFeeCents },
       createdAt: new Date().toISOString(),
     };
   }

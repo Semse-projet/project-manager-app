@@ -20,6 +20,7 @@ export type CreatePayoutIntentInput = {
   tenantId: string;
   projectId: string;
   milestoneId?: string;
+  recipientUserId?: string;  // contractor's userId for per-account payout with platform fee
   provider: PaymentProviderKey;
   methodType: PaymentMethodType;
   money: Money;

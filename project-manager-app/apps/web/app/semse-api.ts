@@ -2319,3 +2319,46 @@ export async function saveMyLaborRates(input: {
 export async function deleteMyLaborRates(): Promise<{ deleted: boolean; revertedToBls: boolean }> {
   return fetchSemse("/api/semse/pricing/labor-rates", { method: "DELETE" });
 }
+
+// ── Stripe Connect ────────────────────────────────────────────────────────────
+
+export type StripeConnectAccountView = {
+  userId:          string;
+  stripeAccountId: string;
+  status:          string;  // pending | active | restricted | disabled
+  chargesEnabled:  boolean;
+  payoutsEnabled:  boolean;
+  onboardingUrl:   string | null;
+  country:         string;
+  currency:        string;
+  updatedAt:       string;
+};
+
+export async function fetchMyConnectAccount(): Promise<{
+  account: StripeConnectAccountView | null;
+  platformFeeRate: number;
+}> {
+  return fetchSemse("/api/semse/payments/connect/account");
+}
+
+export async function createMyConnectAccount(email?: string): Promise<{
+  account: StripeConnectAccountView;
+  created: boolean;
+}> {
+  return mutateSemse("/api/semse/payments/connect/account", email ? { email } : {});
+}
+
+export async function createOnboardingLink(input?: { returnUrl?: string; refreshUrl?: string }): Promise<{
+  stripeAccountId: string;
+  onboardingUrl:   string;
+  expiresAt:       string;
+}> {
+  return mutateSemse("/api/semse/payments/connect/onboarding-link", input ?? {});
+}
+
+export async function syncConnectAccount(): Promise<{
+  account: StripeConnectAccountView;
+  synced: boolean;
+}> {
+  return mutateSemse("/api/semse/payments/connect/sync", {});
+}

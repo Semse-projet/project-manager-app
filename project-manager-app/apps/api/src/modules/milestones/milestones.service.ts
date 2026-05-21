@@ -8,6 +8,7 @@ import { buildMilestoneWorkspaceMemoryRecord } from "../knowledge/workspace-memo
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { MilestonesRepository } from "./milestones.repository.js";
+import type { EscrowReleaseService } from "../payments/escrow-release.service.js";
 
 @Injectable()
 export class MilestonesService {
@@ -19,6 +20,7 @@ export class MilestonesService {
     @Optional() private readonly intelligenceAgent?: BuildOpsIntelligenceAgent,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional() private readonly escrowRelease?: EscrowReleaseService,
   ) {}
 
   private syncContext(tenantId: string, projectId: string, source: string, reason: string): void {
@@ -227,6 +229,9 @@ export class MilestonesService {
       milestoneId: milestone.id,
       triggerEvent: "milestone.approved",
     }).catch(() => undefined);
+
+    // 1.3.B/C: Try automatic escrow release after approval (non-blocking)
+    void this.escrowRelease?.tryAutoRelease(milestone.id, input.tenantId).catch(() => undefined);
 
     return milestone;
   }
