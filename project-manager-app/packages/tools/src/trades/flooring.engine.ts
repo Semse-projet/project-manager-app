@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type FlooringInput = {
   lengthFt: number;
@@ -17,6 +17,7 @@ export type FlooringInput = {
   floorPrepLevel: "none" | "minor" | "major";
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 const WASTE_BY_PATTERN: Record<FlooringInput["pattern"], number> = {

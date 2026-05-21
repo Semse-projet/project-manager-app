@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
+import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type FencingInput = {
   fenceLengthFt: number;
@@ -17,6 +17,7 @@ export type FencingInput = {
   terrainType: "flat" | "sloped" | "rocky";
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 const FENCE_PANEL_COST: Record<FencingInput["materialType"], number> = {
@@ -97,7 +98,7 @@ export function calculateFencing(input: FencingInput): SemseToolResult {
     ],
   });
 
-  const costs = buildCostSummary(materialTotal(mats), labor.totalCost, {
+  const costs = buildCostSummary(applyLocation(materialTotal(mats), input.location, "material"), applyLocation(labor.totalCost, input.location, "labor"), {
     overhead: input.terrainType !== "flat" ? 0.16 : 0.14,
     profit: 0.2,
     taxRate: 0.07,

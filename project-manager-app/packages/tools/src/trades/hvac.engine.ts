@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type HvacInput = {
   tonnage: number;
@@ -14,6 +14,7 @@ export type HvacInput = {
   atticAccess: boolean;
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 export function calculateHvac(input: HvacInput): SemseToolResult {

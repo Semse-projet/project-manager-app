@@ -1,5 +1,5 @@
 # PROTOOLS MASTER PLAN — SEMSEproject
-**Versión:** 2.1
+**Versión:** 2.2
 **Fecha:** 2026-05-21
 **Estado:** ACTIVE
 **Mantenido por:** Agentic Harness / Architecture Agent
@@ -23,13 +23,13 @@
 
 | Fase | Módulos | Bloques Total | Completados | % |
 |---|---|---|---|---|
-| **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 9 | 75% |
-| Fase 1 — Fundación Financiera | 4 | 17 | 0 | 0% |
+| **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 12 | 100% |
+| Fase 1 — Fundación Financiera | 4 | 17 | 5 | 29% |
 | Fase 2 — Protección Legal | 3 | 13 | 0 | 0% |
 | Fase 3 — IA Proactiva | 3 | 16 | 0 | 0% |
 | Fase 4 — Ecosistema | 3 | 9 | 0 | 0% |
 | Fase 5 — ML y Escala | 3 | 9 | 0 | 0% |
-| **TOTAL** | **19** | **76** | **9** | **12%** |
+| **TOTAL** | **19** | **76** | **17** | **22%** |
 
 ---
 
@@ -83,20 +83,20 @@ Evidence protege.      Crowd paga.           Prometeo explica.
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.1.A | Integrar BLS PPI API (lumber WPU081, steel, copper, drywall, concrete) | PENDING | `specs/tools/fase-1/m1.1-material-pricing.spec.md` | API gratuita, no requiere key |
-| 1.1.B | Integrar EstimationPro API `/costs` y `/trades` (385 ítems, 32 oficios) | PENDING | `specs/tools/fase-1/m1.1-material-pricing.spec.md` | Free, no signup |
-| 1.1.C | Integrar FRED series WPU081 para escalación mensual de lumber | PENDING | `specs/tools/fase-1/m1.1-material-pricing.spec.md` | Complementa BLS |
-| 1.1.D | Capa de caché en DB: tabla `MaterialPriceSnapshot`, refresh 24h via worker | PENDING | `specs/tools/fase-1/m1.1-material-pricing.spec.md` | Nuevo modelo Prisma |
-| 1.1.E | Reemplazar costos hardcoded en los 25 motores con lookup dinámico | PENDING | `specs/tools/fase-1/m1.1-material-pricing.spec.md` | Bloquea 1.1.D |
+| 1.1.A | BlsPpiService: BLS PPI API (WPU081 lumber, WPU101901 steel, WPU102501 copper, WPU133 drywall, WPU132 concrete) | DONE | `apps/api/src/modules/pricing/bls-ppi.service.ts` | 12 series mapeadas, fallback a base prices |
+| 1.1.B | MaterialPricingService: getCurrentPrices / refreshPrices / getPricingStatus | DONE | `apps/api/src/modules/pricing/material-pricing.service.ts` | TTL 24h, upsert en DB |
+| 1.1.C | PriceRefreshJob: refresh automático cada 24h en OnModuleInit | DONE | `apps/api/src/modules/pricing/price-refresh.job.ts` | Loop con setTimeout |
+| 1.1.D | MaterialPriceSnapshot: modelo Prisma + migración SQL | DONE | `packages/db/prisma/schema.prisma` + migración | PR #22 |
+| 1.1.E | priceOf() en los 24 engines ProTools — 9 activos (BLS), 15 interfaz extendida | DONE | `packages/tools/src/core/cost-engine.ts` + 24 engines | PR #23 |
 
 ### Módulo 1.2 — Ajuste de Costos Regional
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.2.A | Integrar BLS OEWS API (salarios reales por oficio y metro) | PENDING | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | Free |
-| 1.2.B | Integrar EstimationPro `/multipliers` (índices EPCI por ciudad) | PENDING | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | Free |
-| 1.2.C | Añadir campo `zipCode` al input de los 25 motores de trade | PENDING | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | Cambio en types.ts |
-| 1.2.D | Multiplicador regional en `cost-engine.ts` (material + labor por separado) | PENDING | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | Bloquea 1.2.A y 1.2.B |
+| 1.2.A | OewsService: BLS OEWS API — salarios reales por oficio (12 SOC codes) + LaborRateSnapshot | IN_PROGRESS | `apps/api/src/modules/pricing/oews.service.ts` | Iniciado 2026-05-21 |
+| 1.2.B | LocationCostService: zip → state EPCI multipliers (material + labor) | IN_PROGRESS | `apps/api/src/modules/pricing/location-cost.service.ts` | Índices estáticos RSMeans + OEWS |
+| 1.2.C | `zipCode?: string` + `location?: LocationMultipliers` en los 25 engines | IN_PROGRESS | `packages/tools/src/core/types.ts` + 25 engines | Cambio en types.ts |
+| 1.2.D | `applyLocation()` en cost-engine.ts + ProToolsAgent integrado | IN_PROGRESS | `packages/tools/src/core/cost-engine.ts` | Bloquea 1.2.A y 1.2.B |
 | 1.2.E | Override manual: contratista puede ingresar sus tarifas reales | PENDING | `specs/tools/fase-1/m1.2-regional-costs.spec.md` | UX en apps/web |
 
 ### Módulo 1.3 — Pagos y Escrow Real (Stripe Connect)

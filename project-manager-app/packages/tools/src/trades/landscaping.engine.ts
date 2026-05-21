@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type LandscapingInput = {
   landscapeAreaSqft: number;
@@ -18,6 +18,7 @@ export type LandscapingInput = {
   hardscapeSqft: number;
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 const SOIL_PREP_COST: Record<LandscapingInput["soilType"], number> = {

@@ -2488,3 +2488,45 @@ model MaterialPriceSnapshot {
   @@index([validUntil])
 }
 
+/// Caché de tarifas laborales reales por oficio de construcción.
+/// Datos de BLS OEWS (Occupational Employment and Wage Statistics).
+/// Se usa para derivar multiplicadores de labor por estado/metro.
+model LaborRateSnapshot {
+  id          String   @id @default(cuid())
+  tradeKey    String   // "carpenter", "electrician", "plumber", etc.
+  socCode     String   // BLS SOC code, e.g. "47-2031"
+  scopeType   String   // "national" | state code "CA" | metro FIPS
+  meanWage    Decimal  @db.Decimal(10, 2)  // Annual mean wage (USD)
+  hourlyMean  Decimal  @db.Decimal(10, 2)  // Hourly mean wage (USD)
+  multiplier  Decimal  @db.Decimal(6, 4)   // vs. national avg (1.00 = average)
+  sampleSize  Int?                          // Employment estimate
+  fetchedAt   DateTime @default(now())
+  validUntil  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tradeKey, scopeType])
+  @@index([tradeKey])
+  @@index([scopeType])
+  @@index([validUntil])
+}
+
+/// Índices de costo regional por estado (material + labor).
+/// Combinación de factores RSMeans estáticos + OEWS dinámico.
+model LocationCostIndex {
+  id                  String   @id @default(cuid())
+  stateCode           String   // "CA", "TX", "NY", etc.
+  stateName           String
+  materialMultiplier  Decimal  @db.Decimal(6, 4)  // vs. national avg
+  laborMultiplier     Decimal  @db.Decimal(6, 4)  // vs. national avg
+  dataSource          String   // "oews+static" | "manual"
+  fetchedAt           DateTime @default(now())
+  validUntil          DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([stateCode])
+  @@index([stateCode])
+  @@index([validUntil])
+}
+

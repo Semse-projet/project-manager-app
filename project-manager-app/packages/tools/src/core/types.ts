@@ -48,6 +48,19 @@ export type ValidationIssue = {
 /** Keyed by BLS material slug (e.g. 'lumber-framing', 'copper-wire'). Value is $/unit. */
 export type MaterialPriceMap = Record<string, number>;
 
+// ─── Regional Cost Multipliers ────────────────────────────────────────────────
+
+/** Location-based cost multipliers derived from BLS OEWS + RSMeans state indices. */
+export type LocationMultipliers = {
+  zipCode: string;
+  stateCode: string;       // 2-letter state, e.g. "CA", "TX"
+  metro?: string;          // Metro area name if available
+  materialMultiplier: number;  // 1.18 = 18% above national avg
+  laborMultiplier: number;     // 1.32 = 32% above national avg
+  source: "oews" | "static" | "manual";
+  fetchedAt: string;       // ISO timestamp
+};
+
 // ─── Materials ────────────────────────────────────────────────────────────────
 
 export type MaterialItem = {

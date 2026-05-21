@@ -3,6 +3,7 @@ import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import { ToolsService } from "../tools/tools.service.js";
 import { MaterialPricingService } from "../pricing/material-pricing.service.js";
+import { LocationCostService } from "../pricing/location-cost.service.js";
 
 // ── ProTools Agent ────────────────────────────────────────────────────────────
 // Inteligencia técnica: materiales, costos, checklists, riesgos.
@@ -14,6 +15,7 @@ export type ProToolsEstimateInput = {
   area?:       number;
   rooms?:      number;
   projectId?:  string;
+  zipCode?:    string;  // for regional cost adjustment
 };
 
 export type ProToolsEstimateResult = {
@@ -82,6 +84,7 @@ export class ProToolsAgent {
     private readonly bus: SemseAgentsService,
     @Optional() private readonly tools?: ToolsService,
     @Optional() private readonly pricing?: MaterialPricingService,
+    @Optional() private readonly locationCost?: LocationCostService,
   ) {
     // Register as handler for ESTIMATE_REQUESTED events
     this.bus.register("protools", (msg) => this.handleMessage(msg));
@@ -117,7 +120,18 @@ export class ProToolsAgent {
       }
     }
 
-    // Use tools service if available; pass live prices through
+    // Fetch regional location multipliers if zipCode provided
+    let liveLocation: import("@semse/tools").LocationMultipliers | undefined;
+    if (input.zipCode && this.locationCost) {
+      try {
+        liveLocation = await this.locationCost.getMultipliers(input.zipCode);
+        this.logger.debug(`[ProTools] location multipliers for ${input.zipCode}: mat=${liveLocation.materialMultiplier} labor=${liveLocation.laborMultiplier}`);
+      } catch {
+        this.logger.debug("[ProTools] locationCost.getMultipliers failed — using national averages");
+      }
+    }
+
+    // Use tools service if available; pass live prices + location through
     let toolResult: Record<string, unknown> | null | undefined = null;
     if (this.tools) {
       try {
@@ -129,6 +143,7 @@ export class ProToolsAgent {
             rooms: input.rooms ?? 1,
           },
           prices: livePrices,
+          location: liveLocation,
         }) as unknown as Record<string, unknown>;
       } catch {
         this.logger.debug("[ProTools] tools.calculate failed — using rules engine");

@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
   computeConfidenceScore,
   computeDisputeRisk,
@@ -38,6 +38,7 @@ export type BathroomInput = {
   clientProvidesMaterials: boolean;
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 // ── reference sizes ────────────────────────────────────────────────────────────

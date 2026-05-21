@@ -1,8 +1,8 @@
 import { collect, isValid, positive, range, warn } from "../../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal, priceOf } from "../../core/cost-engine.js";
+import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../../core/cost-engine.js";
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
-import type { EvidenceItem, LaborEstimate, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
+import type { EvidenceItem, LaborEstimate, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
 
 // ─── Mix ratios (cement:sand:gravel) by strength ──────────────────────────────
 const MIX_RATIOS: Record<string, { cement: number; sand: number; gravel: number; psi: number }> = {
@@ -27,6 +27,7 @@ export type ConcreteInput = {
   pumpRequired: boolean;
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ export function runConcreteEngine(input: ConcreteInput): SemseToolResult {
   };
 
   // 5. Costs
-  const costs = buildCostSummary(matCost, labor.totalCost, {
+  const costs = buildCostSummary(applyLocation(matCost, input.location, "material"), applyLocation(labor.totalCost, input.location, "labor"), {
     perUnitDivisor: areaSqFt,
   });
 
