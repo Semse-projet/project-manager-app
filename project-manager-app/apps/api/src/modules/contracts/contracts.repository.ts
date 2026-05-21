@@ -262,4 +262,23 @@ export class ContractsRepository {
 
     return membership?.orgId ?? null;
   }
+
+  /** 1.4.A: Store HelloSign request ID and signing URLs on a contract. */
+  async updateSigningInfo(input: {
+    contractId:        string;
+    helloSignRequestId: string;
+    signingUrlClient:  string | null;
+    signingUrlPro:     string | null;
+  }): Promise<ContractRecord> {
+    const raw = await this.prisma.contract.update({
+      where: { id: input.contractId },
+      data: {
+        helloSignRequestId: input.helloSignRequestId,
+        signingUrlClient:   input.signingUrlClient,
+        signingUrlPro:      input.signingUrlPro,
+      },
+      select: contractSelect,
+    });
+    return this.toRecord(raw as StoredContract);
+  }
 }
