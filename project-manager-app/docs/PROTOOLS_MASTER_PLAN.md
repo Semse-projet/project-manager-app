@@ -24,12 +24,12 @@
 | Fase | Módulos | Bloques Total | Completados | % |
 |---|---|---|---|---|
 | **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 12 | 100% |
-| Fase 1 — Fundación Financiera | 4 | 17 | 10 | 59% |
+| Fase 1 — Fundación Financiera | 4 | 17 | 14 | 82% |
 | Fase 2 — Protección Legal | 3 | 13 | 0 | 0% |
 | Fase 3 — IA Proactiva | 3 | 16 | 0 | 0% |
 | Fase 4 — Ecosistema | 3 | 9 | 0 | 0% |
 | Fase 5 — ML y Escala | 3 | 9 | 0 | 0% |
-| **TOTAL** | **19** | **76** | **22** | **29%** |
+| **TOTAL** | **19** | **76** | **26** | **34%** |
 
 ---
 
@@ -103,19 +103,19 @@ Evidence protege.      Crowd paga.           Prometeo explica.
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.3.A | Configurar Stripe Connect (marketplace payments, custom accounts) | IN_PROGRESS | `apps/api/src/modules/payments/stripe-connect.service.ts` | StripeConnectAccount model + onboarding + sync — 2026-05-21 |
-| 1.3.B | Manual Payouts: fondos en hold hasta aprobación de milestone en FSM | IN_PROGRESS | `apps/api/src/modules/payments/escrow-release.service.ts` | EscrowReleaseService.tryAutoRelease() en MilestonesService.approve() |
-| 1.3.C | Conectar `escrow-engine.ts` con Stripe (liberación automática en FSM) | IN_PROGRESS | `apps/api/src/modules/payments/escrow-release.service.ts` | transferToContractor() + PaymentTxn RELEASE record |
-| 1.3.D | Fee de plataforma SEMSE: 0.75% deducido automáticamente en payout | IN_PROGRESS | `apps/api/src/modules/payments/stripe-connect.service.ts` | PLATFORM_FEE_RATE=0.0075, platformFeeForPayout() |
+| 1.3.A | Configurar Stripe Connect (marketplace payments, custom accounts) | DONE | `apps/api/src/modules/payments/stripe-connect.service.ts` | PR #26 — Custom Account + onboarding link + sync |
+| 1.3.B | Manual Payouts: fondos en hold hasta aprobación de milestone en FSM | DONE | `apps/api/src/modules/payments/escrow-release.service.ts` | PR #26 — EscrowReleaseService.tryAutoRelease() en approve() |
+| 1.3.C | Conectar `escrow-engine.ts` con Stripe (liberación automática en FSM) | DONE | `apps/api/src/modules/payments/escrow-release.service.ts` | PR #26 — transferToContractor() + PaymentTxn RELEASE |
+| 1.3.D | Fee de plataforma SEMSE: 0.75% deducido automáticamente en payout | DONE | `apps/api/src/modules/payments/stripe-connect.service.ts` | PR #26 — PLATFORM_FEE_RATE=0.0075 en transfer |
 | 1.3.E | Verificación de cuentas bancarias vía Plaid (ACH onboarding) | PENDING | `specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | $0.30/verificación — requiere cuenta Plaid |
 
 ### Módulo 1.4 — Contratos y Firmas Digitales
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.4.A | Integrar HelloSign (Dropbox Sign) API para contratos y change orders | PENDING | `specs/tools/fase-1/m1.4-contracts.spec.md` | $15/mes flat SMB |
-| 1.4.B | Templates de contrato por oficio, pre-llenados desde `SemseToolResult` | PENDING | `specs/tools/fase-1/m1.4-contracts.spec.md` | 25 templates |
-| 1.4.C | Flujo: quote aprobado → contrato generado → firma → escrow activo | PENDING | `specs/tools/fase-1/m1.4-contracts.spec.md` | FSM gate |
+| 1.4.A | Integrar HelloSign (Dropbox Sign) API para contratos y change orders | IN_PROGRESS | `apps/api/src/modules/contracts/hellosign.service.ts` | REST API + mock; createSignatureRequest + getStatus — 2026-05-21 |
+| 1.4.B | Templates de contrato por oficio, pre-llenados desde `SemseToolResult` | IN_PROGRESS | `apps/api/src/modules/contracts/contract-template.service.ts` | 10 oficios + toPlainText |
+| 1.4.C | Flujo: quote aprobado → contrato generado → firma → escrow activo | IN_PROGRESS | `apps/api/src/modules/contracts/contracts.service.ts` | createFromEstimate + sign() → contract.fully_executed audit |
 
 ---
 

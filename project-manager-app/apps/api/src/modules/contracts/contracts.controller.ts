@@ -99,4 +99,55 @@ export class ContractsController {
 
     return ok(requestId, toVisibleContract(data));
   }
+
+  /** 1.4.B: Create contract pre-filled from a trade estimate */
+  @Post("v1/jobs/:jobId/contracts/from-estimate")
+  @RequirePermissions("contracts:create")
+  async createFromEstimate(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("jobId") jobId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.contractsService.createFromEstimate({
+      tenantId:   actor.tenantId,
+      orgId:      actor.orgId,
+      userId:     actor.userId,
+      roles:      actor.roles,
+      jobId,
+      trade:      String(body.trade ?? "general"),
+      parties:    body.parties as Parameters<typeof this.contractsService.createFromEstimate>[0]["parties"],
+      milestones: (body.milestones as Parameters<typeof this.contractsService.createFromEstimate>[0]["milestones"]) ?? [],
+      requestId,
+    });
+    return ok(requestId, toVisibleContract(data));
+  }
+
+  /** 1.4.A: Request digital signatures via HelloSign */
+  @Post("v1/contracts/:contractId/request-signatures")
+  @RequirePermissions("contracts:create")
+  async requestSignatures(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("contractId") contractId: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.contractsService.requestSignatures({
+      tenantId:  actor.tenantId,
+      orgId:     actor.orgId,
+      userId:    actor.userId,
+      roles:     actor.roles,
+      contractId,
+      signers:   (body.signers as Parameters<typeof this.contractsService.requestSignatures>[0]["signers"]) ?? [],
+      requestId,
+    });
+    return ok(requestId, {
+      contract:           toVisibleContract(result.contract),
+      helloSignRequestId: result.helloSignRequestId,
+      signingUrlClient:   result.signingUrlClient,
+      signingUrlPro:      result.signingUrlPro,
+    });
+  }
 }

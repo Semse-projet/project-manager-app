@@ -421,6 +421,10 @@ model Contract {
   signedProAt        DateTime?
   pdfUrl             String?
   documentHash       String?
+  // HelloSign / Dropbox Sign integration (1.4.A)
+  helloSignRequestId String?   // signature_request_id from HelloSign
+  signingUrlClient   String?   // embedded signing URL for client (expires)
+  signingUrlPro      String?   // embedded signing URL for professional (expires)
   escrow             PaymentEscrow?
   clientOrg          Org?      @relation("ContractClientOrg", fields: [clientOrgId], references: [id], onDelete: SetNull)
   professionalOrg    Org?      @relation("ContractProfessionalOrg", fields: [professionalOrgId], references: [id], onDelete: SetNull)
