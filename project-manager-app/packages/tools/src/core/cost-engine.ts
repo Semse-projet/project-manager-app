@@ -1,4 +1,4 @@
-import type { CostSummary, MaterialItem, MaterialPriceMap } from "./types.js";
+import type { CostSummary, LocationMultipliers, MaterialItem, MaterialPriceMap } from "./types.js";
 
 export const SEMSE_FEE_RATE = 0.05;   // 5% platform fee
 export const DEFAULT_OVERHEAD = 0.15;  // 15%
@@ -8,6 +8,21 @@ export const DEFAULT_TAX = 0.07;       // 7% — varies by state
 /** Returns the live BLS price for `key` if present, otherwise `defaultPrice`. */
 export function priceOf(map: MaterialPriceMap | undefined, key: string, defaultPrice: number): number {
   return map?.[key] ?? defaultPrice;
+}
+
+/**
+ * Applies regional location multipliers to a base material or labor cost.
+ * `type` selects which multiplier to apply — "material" or "labor".
+ * Returns `base` unchanged if no location data is provided.
+ */
+export function applyLocation(
+  base: number,
+  location: LocationMultipliers | undefined,
+  type: "material" | "labor"
+): number {
+  if (!location) return base;
+  const mult = type === "material" ? location.materialMultiplier : location.laborMultiplier;
+  return base * mult;
 }
 
 export function materialTotal(items: MaterialItem[]): number {

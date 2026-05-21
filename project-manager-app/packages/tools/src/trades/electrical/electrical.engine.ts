@@ -1,8 +1,8 @@
 import { collect, isValid, positive, range, warn } from "../../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal, priceOf } from "../../core/cost-engine.js";
+import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../../core/cost-engine.js";
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
-import type { EvidenceItem, LaborEstimate, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
+import type { EvidenceItem, LaborEstimate, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
 
 // ─── Wire gauge table (AWG → max amps @ 60°C Cu, NEC 310.15) ─────────────────
 const WIRE_TABLE: { awg: string; maxAmps: number; resistancePerFt: number }[] = [
@@ -50,6 +50,7 @@ export type ElectricalInput = {
   outdoorWork: boolean;    // weatherproof / GFCI required
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -131,7 +132,7 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   };
 
   // 7. Costs
-  const costs = buildCostSummary(matCost, labor.totalCost);
+  const costs = buildCostSummary(applyLocation(matCost, input.location, "material"), applyLocation(labor.totalCost, input.location, "labor"));
 
   // 8. Risk
   const risk = computeRisk([

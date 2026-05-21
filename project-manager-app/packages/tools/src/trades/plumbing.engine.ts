@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
+import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type PlumbingInput = {
   fixtureCount: number;
@@ -15,6 +15,7 @@ export type PlumbingInput = {
   outdoorWork: boolean;
   mode: ToolMode;
   prices?: MaterialPriceMap;
+  location?: LocationMultipliers;
 };
 
 export function calculatePlumbing(input: PlumbingInput): SemseToolResult {
@@ -46,7 +47,7 @@ export function calculatePlumbing(input: PlumbingInput): SemseToolResult {
     ],
   });
 
-  const costs = buildCostSummary(materialTotal(mats), labor.totalCost, {
+  const costs = buildCostSummary(applyLocation(materialTotal(mats), input.location, "material"), applyLocation(labor.totalCost, input.location, "labor"), {
     overhead: 0.15,
     profit: 0.20,
     taxRate: 0.07,
