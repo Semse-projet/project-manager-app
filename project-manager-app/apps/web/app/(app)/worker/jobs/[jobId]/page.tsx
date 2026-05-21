@@ -25,6 +25,7 @@ import {
 } from "../../../../semse-api";
 import { JobDisputeHistory } from "../../../../components/disputes/JobDisputeHistory";
 import { NotificationBanner } from "../../../../components/notifications/NotificationBanner";
+import { EvidenceChecklistCard } from "@/components/semse/EvidenceChecklistCard";
 
 type JobDetail = Record<string, unknown>;
 type JobMilestone = Record<string, unknown>;
@@ -234,6 +235,14 @@ export default function WorkerJobDetailPage() {
               </div>
             </div>
           </section>
+
+          {/* Evidence Checklist — what the worker needs to upload */}
+          {job && (asString(job?.category) || asString(job?.title)) && (
+            <EvidenceChecklistCard
+              milestoneTitle={asString(job?.title) ?? "Milestone"}
+              trade={asString(job?.category) ?? "general"}
+            />
+          )}
 
           {/* Milestones */}
           <section id="milestones-section" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px", scrollMarginTop: "80px" }}>

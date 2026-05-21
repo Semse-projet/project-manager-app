@@ -11,6 +11,7 @@ import {
 } from "../knowledge/workspace-memory.business-records.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { JobsRepository } from "./jobs.repository.js";
+import type { SemseAgentsService } from "../semse-agents/semse-agents.service.js";
 
 @Injectable()
 export class JobsService {
@@ -24,6 +25,7 @@ export class JobsService {
     private readonly prisma: PrismaService,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional() private readonly semseAgents?: SemseAgentsService,
   ) {}
 
   private syncContext(tenantId: string, source: string, reason: string): void {
@@ -352,6 +354,20 @@ export class JobsService {
       userId: input.userId,
       requestId: input.requestId
     }).catch((err) => this.logger.warn(`[POST /v1/jobs] domain event failed: ${String(err?.message ?? err)}`));
+
+    // Dispatch to SEMSE Agents bus: MarketplaceAgent classifies and routes the job
+    if (this.semseAgents) {
+      const msg = this.semseAgents.makeMessage({
+        from: "marketplace", to: "marketplace", event: "PROJECT_PUBLISHED",
+        payload: {
+          jobId: job.id, title: job.title, scope: job.scope,
+          category: job.category, budgetMin: job.budgetMin, budgetMax: job.budgetMax,
+          location: job.location, urgency: job.urgency,
+        },
+        projectId: job.id,
+      });
+      this.semseAgents.dispatch(msg);
+    }
 
     void this.workspaceMemoryRepository.append(
       buildJobWorkspaceMemoryRecord({
