@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import type { PrometeoService } from "../prometeo/prometeo.service.js";
@@ -17,6 +18,7 @@ export class PrometeoAgent {
 
   constructor(
     private readonly bus: SemseAgentsService,
+    private readonly prisma: PrismaService,
     @Optional() private readonly prometeo?: PrometeoService,
   ) {
     this.bus.register("prometeo", (msg) => this.handleMessage(msg));
@@ -27,6 +29,22 @@ export class PrometeoAgent {
     if (msg.event === "PAYMENT_RELEASE_REQUESTED") {
       const narrative = await this.explainPaymentStatus(msg.payload, msg.projectId);
       this.logger.log(`[Prometeo] Payment narrative: ${narrative.summary.slice(0, 80)}`);
+
+      // Create in-app notification: payment is ready for review
+      const tenantId = String(msg.payload.tenantId ?? "tenant_default");
+      const professionalUserId = String(msg.payload.professionalUserId ?? "");
+      if (professionalUserId) {
+        await this.prisma.notification.create({
+          data: {
+            tenantId,
+            userId:    professionalUserId,
+            type:      "payment_release_requested",
+            title:     "Pago listo para liberar",
+            body:      narrative.summary,
+            payload:   { projectId: msg.projectId, narrative: narrative.nextAction } as object,
+          },
+        }).catch((err) => this.logger.warn(`[Prometeo] Notification failed: ${(err as Error).message}`));
+      }
     }
 
     if (msg.event === "CONTEXT_REQUESTED") {
