@@ -1,11 +1,12 @@
 FROM node:20-slim AS base
-# build: 2026-05-20a — SDD layer + permission guards hardening
+# build: 2026-05-21 — pnpm migration
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
 FROM base AS deps
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json pnpm-workspace.yaml .npmrc ./
 COPY apps/angular/package.json ./apps/angular/
 COPY apps/api/package.json ./apps/api/
 COPY apps/autonomy-server/package.json ./apps/autonomy-server/
@@ -20,8 +21,9 @@ COPY packages/schemas/package.json ./packages/schemas/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
+COPY pnpm-lock.yaml ./
 
-RUN npm install --legacy-peer-deps
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
@@ -42,15 +44,15 @@ ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 # at request time by Next.js API Routes. Set it as a Railway Service Variable
 # (runtime), not a Build Variable. Railway private URL: http://semse-api.railway.internal:4000
 
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate --workspace @semse/db
-RUN npm run build --workspace @semse/schemas
-RUN npm run build --workspace @semse/shared
-RUN npm run build --workspace @semse/auth
-RUN npm run build --workspace @semse/knowledge
-RUN npm run build --workspace @semse/agents
-RUN npm run build --workspace @semse/autonomy
-RUN npm run build --workspace @semse/tools
-RUN npm run build --workspace @semse/web
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm --filter @semse/db prisma:generate
+RUN pnpm --filter @semse/schemas build
+RUN pnpm --filter @semse/shared build
+RUN pnpm --filter @semse/auth build
+RUN pnpm --filter @semse/knowledge build
+RUN pnpm --filter @semse/agents build
+RUN pnpm --filter @semse/autonomy build
+RUN pnpm --filter @semse/tools build
+RUN pnpm --filter @semse/web build
 RUN mkdir -p apps/web/public
 
 FROM node:20-slim AS runner
@@ -67,4 +69,3 @@ EXPOSE 3000
 
 # Force port 3000 in CMD so Railway's dynamic PORT injection doesn't override it
 CMD ["sh", "-c", "PORT=3000 node apps/web/server.js"]
-# build: 2026-05-09

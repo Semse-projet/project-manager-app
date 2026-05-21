@@ -23,8 +23,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@semse/knowledge": "*",
-    "@semse/shared": "*"
+    "@semse/knowledge": "workspace:*",
+    "@semse/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"
