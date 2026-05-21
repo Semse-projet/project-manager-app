@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
   computeConfidenceScore,
   computeDisputeRisk,
@@ -34,6 +34,7 @@ export type KitchenInput = {
   /** Client already has materials/cabinets */
   clientProvidesMaterials: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 // ── reference kitchen sizes ────────────────────────────────────────────────────

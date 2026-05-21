@@ -1,9 +1,14 @@
-import type { CostSummary, MaterialItem } from "./types.js";
+import type { CostSummary, MaterialItem, MaterialPriceMap } from "./types.js";
 
 export const SEMSE_FEE_RATE = 0.05;   // 5% platform fee
 export const DEFAULT_OVERHEAD = 0.15;  // 15%
 export const DEFAULT_PROFIT = 0.20;    // 20%
 export const DEFAULT_TAX = 0.07;       // 7% — varies by state
+
+/** Returns the live BLS price for `key` if present, otherwise `defaultPrice`. */
+export function priceOf(map: MaterialPriceMap | undefined, key: string, defaultPrice: number): number {
+  return map?.[key] ?? defaultPrice;
+}
 
 export function materialTotal(items: MaterialItem[]): number {
   return items.reduce((s, m) => s + m.totalCost, 0);

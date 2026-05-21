@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type MasonryInput = {
   wallLengthFt: number;
@@ -17,6 +17,7 @@ export type MasonryInput = {
   reinforced: boolean;
   exteriorWork: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 const UNIT_PER_SQFT: Record<MasonryInput["unitType"], number> = {
@@ -57,7 +58,7 @@ export function calculateMasonry(input: MasonryInput): SemseToolResult {
   const mats = [
     material(`${input.unitType} masonry units`, unitsNeeded, "unit", input.unitCost, "Units"),
     material("Mortar bags", mortarBags, "bag", input.mortarBagCost, "Mortar"),
-    ...(rebarBundles > 0 ? [material("Rebar / reinforcement", rebarBundles, "bundle", 18, "Reinforcement")] : []),
+    ...(rebarBundles > 0 ? [material("Rebar / reinforcement", rebarBundles, "bundle", priceOf(input.prices, "steel-rebar", 18), "Reinforcement")] : []),
     ...(scaffoldKits > 0 ? [material("Scaffold / access kit", scaffoldKits, "kit", 42, "Access")] : []),
     material("Leveling / string / marking supplies", Math.max(1, Math.ceil(wallAreaSqFt / 300)), "kit", 16, "Layout"),
     ...(input.exteriorWork ? [material("Exterior sealant / water barrier", Math.max(1, Math.ceil(wallAreaSqFt / 220)), "tube", 12, "Weatherproofing")] : []),

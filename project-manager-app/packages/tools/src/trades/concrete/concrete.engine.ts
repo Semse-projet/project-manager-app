@@ -1,8 +1,8 @@
 import { collect, isValid, positive, range, warn } from "../../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../../core/cost-engine.js";
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
-import type { EvidenceItem, LaborEstimate, SemseToolResult, ToolMode } from "../../core/types.js";
+import type { EvidenceItem, LaborEstimate, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
 
 // ─── Mix ratios (cement:sand:gravel) by strength ──────────────────────────────
 const MIX_RATIOS: Record<string, { cement: number; sand: number; gravel: number; psi: number }> = {
@@ -26,6 +26,7 @@ export type ConcreteInput = {
   formworkIncluded: boolean;
   pumpRequired: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -61,8 +62,9 @@ export function runConcreteEngine(input: ConcreteInput): SemseToolResult {
   const gravelTons = (grossVolumeCuFt * (mix.gravel / totalParts) * 100) / 100 / 20;
   const waterGal = numBags * 5; // ~5 gal per bag
 
+  const cementBagPrice = priceOf(input.prices, "cement-bag", 12.50);
   const mats = [
-    material("Bolsas de cemento 94lb", numBags, "bolsas", 12.50, "Cemento"),
+    material("Bolsas de cemento 94lb", numBags, "bolsas", cementBagPrice, "Cemento"),
     material("Arena gruesa", Math.ceil(sandTons * 10) / 10, "ton", 45, "Áridos"),
     material("Grava 3/4\"", Math.ceil(gravelTons * 10) / 10, "ton", 48, "Áridos"),
     material("Agua", Math.ceil(waterGal), "gal", 0.005, "Agua"),

@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type ProjectManagerInput = {
   projectName: string;
@@ -21,6 +21,7 @@ export type ProjectManagerInput = {
   permitRequired: boolean;
   safetyIssues: number;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 export function calculateProjectManager(input: ProjectManagerInput): SemseToolResult {

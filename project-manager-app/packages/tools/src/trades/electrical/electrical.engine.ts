@@ -1,8 +1,8 @@
 import { collect, isValid, positive, range, warn } from "../../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../../core/cost-engine.js";
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
-import type { EvidenceItem, LaborEstimate, SemseToolResult, ToolMode } from "../../core/types.js";
+import type { EvidenceItem, LaborEstimate, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
 
 // ─── Wire gauge table (AWG → max amps @ 60°C Cu, NEC 310.15) ─────────────────
 const WIRE_TABLE: { awg: string; maxAmps: number; resistancePerFt: number }[] = [
@@ -49,6 +49,7 @@ export type ElectricalInput = {
   panelUpgrade: boolean;   // does panel need upgrade?
   outdoorWork: boolean;    // weatherproof / GFCI required
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 // ─── Engine ───────────────────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
     "6": 2.20, "4": 3.20, "3": 4.00, "2": 5.00,
     "1": 6.50, "1/0": 8.00, "2/0": 10.00, "3/0": 12.50, "4/0": 15.00,
   };
-  const wireUnitCost = wireCostPerFt[wire.awg] ?? 1.50;
+  const wireUnitCost = priceOf(input.prices, "copper-wire", wireCostPerFt[wire.awg] ?? 1.50);
   const breakerCost = input.panelUpgrade ? 850 : breakerSize >= 100 ? 120 : 45;
 
   const mats = [

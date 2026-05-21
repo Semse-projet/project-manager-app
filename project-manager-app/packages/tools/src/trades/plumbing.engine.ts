@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { SemseToolResult, ToolMode } from "../core/types.js";
+import type { MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type PlumbingInput = {
   fixtureCount: number;
@@ -14,6 +14,7 @@ export type PlumbingInput = {
   slabAccess: boolean;
   outdoorWork: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 export function calculatePlumbing(input: PlumbingInput): SemseToolResult {
@@ -24,8 +25,9 @@ export function calculatePlumbing(input: PlumbingInput): SemseToolResult {
     warn("pipeRunFeet", input.pipeRunFeet > 80 ? "Recorrido largo: prever presión y pruebas de estanqueidad." : "Recorrido estándar."),
   );
 
+  const supplyLineCost = priceOf(input.prices, "copper-wire", 1.85);
   const mats = [
-    material("PEX / CPVC supply line", Math.ceil(input.pipeRunFeet * 1.15), "ft", 1.85, "Suministro"),
+    material("PEX / CPVC supply line", Math.ceil(input.pipeRunFeet * 1.15), "ft", supplyLineCost, "Suministro"),
     material("Drain pipe PVC", Math.ceil(input.drainLineFeet * 1.1), "ft", 2.15, "Desagüe"),
     material("Shutoff valves", input.fixtureCount, "un", 18, "Accesorios"),
     material("Fittings and primer", Math.max(2, Math.ceil(input.fixtureCount * 1.5)), "kit", 24, "Accesorios"),

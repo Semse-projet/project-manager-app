@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
   computeConfidenceScore, computeDisputeRisk, computePriceBands,
   buildScope, buildExplainedOutput, buildWarranty, assessHiddenDamageProbability,
@@ -20,6 +20,7 @@ export type DrywallInput = {
   repairMode: boolean;
   textureMatch: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 const PANEL_SQUARE_FEET: Record<DrywallInput["panelSize"], number> = {
@@ -70,8 +71,11 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
   const compoundUnits = Math.max(1, Math.ceil(panelCount * COMPOUND_PER_PANEL[input.finishLevel]));
   const cornerBeadFeet = Math.max(0, Math.ceil((input.wallAreaSqft / 120) * 8));
 
+  const panelUnitCost = input.panelType === "regular"
+    ? priceOf(input.prices, "drywall-sheet", PANEL_UNIT_COST[input.panelType])
+    : PANEL_UNIT_COST[input.panelType];
   const mats = [
-    material(`${input.panelType} drywall panel`, panelCount, "sheet", PANEL_UNIT_COST[input.panelType], "Panel"),
+    material(`${input.panelType} drywall panel`, panelCount, "sheet", panelUnitCost, "Panel"),
     material("Drywall screws", screwBoxes, "box", 12.5, "Fasteners"),
     material("Joint tape", tapeRolls, "roll", 6.5, "Finish"),
     material("Joint compound", compoundUnits, "bucket", 19.5, "Finish"),

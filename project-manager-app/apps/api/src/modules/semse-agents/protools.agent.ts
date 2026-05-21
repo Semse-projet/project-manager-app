@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import { ToolsService } from "../tools/tools.service.js";
+import { MaterialPricingService } from "../pricing/material-pricing.service.js";
 
 // ── ProTools Agent ────────────────────────────────────────────────────────────
 // Inteligencia técnica: materiales, costos, checklists, riesgos.
@@ -80,6 +81,7 @@ export class ProToolsAgent {
   constructor(
     private readonly bus: SemseAgentsService,
     @Optional() private readonly tools?: ToolsService,
+    @Optional() private readonly pricing?: MaterialPricingService,
   ) {
     // Register as handler for ESTIMATE_REQUESTED events
     this.bus.register("protools", (msg) => this.handleMessage(msg));
@@ -105,20 +107,31 @@ export class ProToolsAgent {
   async estimate(input: ProToolsEstimateInput): Promise<ProToolsEstimateResult> {
     const trade = input.trade.toLowerCase();
 
-    // Use tools service if available, otherwise use rules engine
+    // Fetch live BLS material prices (non-blocking fallback to empty map)
+    let livePrices: Record<string, number> = {};
+    if (this.pricing) {
+      try {
+        livePrices = await this.pricing.getCurrentPrices();
+      } catch {
+        this.logger.debug("[ProTools] pricing.getCurrentPrices failed — using hardcoded defaults");
+      }
+    }
+
+    // Use tools service if available; pass live prices through
     let toolResult: Record<string, unknown> | null | undefined = null;
     if (this.tools) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toolResult = await (this.tools as any).runTool?.("calculate", {
-          trade: input.trade,
-          description: input.description,
-          area: input.area,
-          rooms: input.rooms,
-          projectId: input.projectId,
-        }) as Record<string, unknown> | undefined;
+        toolResult = this.tools.calculate({
+          tool: input.trade,
+          mode: "professional",
+          input: {
+            area: input.area ?? 100,
+            rooms: input.rooms ?? 1,
+          },
+          prices: livePrices,
+        }) as unknown as Record<string, unknown>;
       } catch {
-        this.logger.debug("[ProTools] tools.runTool failed — using rules engine");
+        this.logger.debug("[ProTools] tools.calculate failed — using rules engine");
       }
     }
 
