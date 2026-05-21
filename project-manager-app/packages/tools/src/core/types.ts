@@ -43,6 +43,11 @@ export type ValidationIssue = {
   suggestion?: string;
 };
 
+// ─── Live Pricing ─────────────────────────────────────────────────────────────
+
+/** Keyed by BLS material slug (e.g. 'lumber-framing', 'copper-wire'). Value is $/unit. */
+export type MaterialPriceMap = Record<string, number>;
+
 // ─── Materials ────────────────────────────────────────────────────────────────
 
 export type MaterialItem = {

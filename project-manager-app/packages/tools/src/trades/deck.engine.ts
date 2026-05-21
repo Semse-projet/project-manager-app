@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type DeckInput = {
   deckLengthFt: number;
@@ -17,6 +17,7 @@ export type DeckInput = {
   demoExisting: boolean;
   stainSeal: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 const DECK_SURFACE_COST: Record<DeckInput["materialType"], number> = {
@@ -59,9 +60,13 @@ export function calculateDeck(input: DeckInput): SemseToolResult {
   const stairKits = input.stairsCount > 0 ? Math.max(1, input.stairsCount) : 0;
   const stainKits = input.stainSeal ? Math.max(1, Math.ceil(deckAreaSqFt / 200)) : 0;
 
+  const deckBoardCost = (input.materialType === "pressureTreated" || input.materialType === "cedar")
+    ? priceOf(input.prices, "lumber-framing", DECK_SURFACE_COST[input.materialType])
+    : DECK_SURFACE_COST[input.materialType];
+  const joistCost = priceOf(input.prices, "lumber-framing", JOIST_COST[input.joistSpacingIn]);
   const mats = [
-    material(`${input.materialType} decking`, deckBoards, "board", DECK_SURFACE_COST[input.materialType], "Decking"),
-    material(`Joists @ ${input.joistSpacingIn}"`, joistCount, "piece", JOIST_COST[input.joistSpacingIn], "Framing"),
+    material(`${input.materialType} decking`, deckBoards, "board", deckBoardCost, "Decking"),
+    material(`Joists @ ${input.joistSpacingIn}"`, joistCount, "piece", joistCost, "Framing"),
     material("Post bases / anchors", postBases, "set", 18, "Support"),
     ...(railKits > 0 ? [material("Railing kit", railKits, "kit", 145, "Safety")] : []),
     ...(stairKits > 0 ? [material("Stair kit / stringers", stairKits, "kit", 85, "Access")] : []),

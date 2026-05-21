@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type CarpentryInput = {
   projectType: "cabinet" | "door" | "closet" | "shelf" | "trim" | "table" | "repair" | "custom";
@@ -17,6 +17,7 @@ export type CarpentryInput = {
   complexity: "basic" | "medium" | "complex";
   hardwareCount: number;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 const MATERIAL_PRICE: Record<CarpentryInput["material"], number> = {
@@ -58,8 +59,11 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
   const adjustedBoardFeet = boardFeet * (1 + wasteFactor);
   const materialUnits = Math.max(1, Math.ceil(adjustedBoardFeet / 2));
 
+  const lumberPrice = (input.material === "pine" || input.material === "treated" || input.material === "plywood")
+    ? priceOf(input.prices, "lumber-framing", MATERIAL_PRICE[input.material])
+    : MATERIAL_PRICE[input.material];
   const mats = [
-    material(`${input.material} stock`, materialUnits, "board-ft", MATERIAL_PRICE[input.material], "Wood"),
+    material(`${input.material} stock`, materialUnits, "board-ft", lumberPrice, "Wood"),
     material("Hardware pack", Math.max(1, Math.ceil(input.hardwareCount / 4)), "pack", 14.5, "Hardware"),
     ...(input.finishType !== "none"
       ? [material(`${input.finishType} finish`, Math.max(1, Math.ceil(surfaceAreaSqFt / 25)), "qt", FINISH_PRICE[input.finishType] * 12, "Finish")]

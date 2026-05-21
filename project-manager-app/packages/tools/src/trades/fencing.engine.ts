@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type FencingInput = {
   fenceLengthFt: number;
@@ -16,6 +16,7 @@ export type FencingInput = {
   stainSeal: boolean;
   terrainType: "flat" | "sloped" | "rocky";
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 const FENCE_PANEL_COST: Record<FencingInput["materialType"], number> = {
@@ -56,9 +57,15 @@ export function calculateFencing(input: FencingInput): SemseToolResult {
   const gateKits = input.gateCount > 0 ? Math.max(1, input.gateCount) : 0;
   const sealKits = input.stainSeal && input.materialType === "wood" ? Math.max(1, Math.ceil(fenceAreaSqFt / 120)) : 0;
 
+  const panelCost = input.materialType === "wood"
+    ? priceOf(input.prices, "lumber-framing", FENCE_PANEL_COST[input.materialType])
+    : FENCE_PANEL_COST[input.materialType];
+  const postCost = input.materialType === "wood"
+    ? priceOf(input.prices, "lumber-framing", POST_COST[input.materialType])
+    : POST_COST[input.materialType];
   const mats = [
-    material(`${input.materialType} fence panels`, panelCount, "panel", FENCE_PANEL_COST[input.materialType], "Fence"),
-    material("Posts", postCount, "post", POST_COST[input.materialType], "Support"),
+    material(`${input.materialType} fence panels`, panelCount, "panel", panelCost, "Fence"),
+    material("Posts", postCount, "post", postCost, "Support"),
     material("Concrete bags", concreteBags, "bag", 7.5, "Foundation"),
     material("Fasteners / brackets", Math.max(1, Math.ceil(fenceAreaSqFt / 120)), "kit", 18, "Hardware"),
     ...(gateKits > 0 ? [material("Gate kit", gateKits, "kit", 110, "Access")] : []),

@@ -32,6 +32,7 @@ import {
   calculateChangeOrderImpact,
   calculateDisputeRisk,
   type ExportBundle,
+  type MaterialPriceMap,
   type MilestonePlan,
   type EvidenceChecklist,
   type QuoteSummary,
@@ -45,6 +46,7 @@ export type ToolCalculateInput = {
   tool: string;
   mode?: ToolMode;
   input: Record<string, unknown>;
+  prices?: MaterialPriceMap;
 };
 
 export type ToolCalcPayload = {
@@ -56,7 +58,7 @@ export class ToolsService {
   calculate(input: ToolCalculateInput): SemseToolResult {
     const mode = input.mode ?? "professional";
     const tool = input.tool.toLowerCase().trim();
-    const payload = { ...input.input, mode } as Record<string, unknown> & { mode: ToolMode };
+    const payload = { ...input.input, mode, prices: input.prices } as Record<string, unknown> & { mode: ToolMode };
 
     switch (tool) {
       case "concrete":

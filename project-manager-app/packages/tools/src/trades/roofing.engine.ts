@@ -1,10 +1,10 @@
 import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
-import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
+import { buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { SemseToolResult, ToolMode } from "../core/types.js";
+import type { MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import { calculateQuoteFromToolResult } from "../business/quote-engine.js";
 
 export type RoofingInput = {
@@ -16,6 +16,7 @@ export type RoofingInput = {
   underlayment: boolean;
   vents: number;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 export function calculateRoofing(input: RoofingInput): SemseToolResult {
@@ -29,9 +30,14 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
   const shinglesPerSqFt = input.shingleType === "metal" ? 0.12 : input.shingleType === "architectural" ? 0.11 : 0.10;
   const shingleCount = Math.ceil(input.roofAreaSqFt * shinglesPerSqFt * (1 + (input.removeOldRoof ? 0.12 : 0.06)));
   const underlaymentRolls = input.underlayment ? Math.ceil(input.roofAreaSqFt / 400) : 0;
+  const shingleUnitCost =
+    input.shingleType === "metal"  ? 180 :
+    input.shingleType === "architectural" ? priceOf(input.prices, "architectural-shingles", 120) :
+    priceOf(input.prices, "asphalt-shingles", 95);
+  const underlaymentUnitCost = priceOf(input.prices, "roofing-underlayment", 75);
   const mats = [
-    material(`${input.shingleType} shingles`, shingleCount, "sq", input.shingleType === "metal" ? 180 : input.shingleType === "architectural" ? 120 : 95, "Cubierta"),
-    ...(input.underlayment ? [material("Underlayment sintético", underlaymentRolls, "rolls", 75, "Base")] : []),
+    material(`${input.shingleType} shingles`, shingleCount, "sq", shingleUnitCost, "Cubierta"),
+    ...(input.underlayment ? [material("Underlayment sintético", underlaymentRolls, "rolls", underlaymentUnitCost, "Base")] : []),
     ...(input.removeOldRoof ? [material("Disposal / tear-off", Math.ceil(input.roofAreaSqFt / 100), "bundle", 42, "Demolición")] : []),
     material("Flashing / sealant", Math.ceil(input.roofAreaSqFt / 150), "kit", 38, "Sellado"),
     ...(input.vents > 0 ? [material("Roof vents", input.vents, "un", 30, "Ventilación")] : []),

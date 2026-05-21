@@ -4,7 +4,7 @@ import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 
 export type SolarInput = {
   projectName: string;
@@ -18,6 +18,7 @@ export type SolarInput = {
   permitRequired: boolean;
   electricalUpgradeNeeded: boolean;
   mode: ToolMode;
+  prices?: MaterialPriceMap;
 };
 
 const ROOF_FACTOR: Record<SolarInput["roofType"], number> = {
