@@ -8,8 +8,8 @@
     "start": "node src/main.mjs"
   },
   "dependencies": {
-    "@semse/agents": "*",
-    "@semse/shared": "*",
+    "@semse/agents": "workspace:*",
+    "@semse/shared": "workspace:*",
     "bullmq": "^5.50.1",
     "ioredis": "^5.4.2",
     "pino": "^9.6.0"
