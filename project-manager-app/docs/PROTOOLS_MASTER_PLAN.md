@@ -24,12 +24,12 @@
 | Fase | Módulos | Bloques Total | Completados | % |
 |---|---|---|---|---|
 | **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 12 | 100% |
-| Fase 1 — Fundación Financiera | 4 | 17 | 14 | 82% |
+| Fase 1 — Fundación Financiera | 4 | 17 | 17 | 100% |
 | Fase 2 — Protección Legal | 3 | 13 | 0 | 0% |
 | Fase 3 — IA Proactiva | 3 | 16 | 0 | 0% |
 | Fase 4 — Ecosistema | 3 | 9 | 0 | 0% |
 | Fase 5 — ML y Escala | 3 | 9 | 0 | 0% |
-| **TOTAL** | **19** | **76** | **26** | **34%** |
+| **TOTAL** | **19** | **76** | **29** | **38%** |
 
 ---
 
@@ -113,9 +113,9 @@ Evidence protege.      Crowd paga.           Prometeo explica.
 
 | ID | Bloque | Estado | Spec | Notas |
 |---|---|---|---|---|
-| 1.4.A | Integrar HelloSign (Dropbox Sign) API para contratos y change orders | IN_PROGRESS | `apps/api/src/modules/contracts/hellosign.service.ts` | REST API + mock; createSignatureRequest + getStatus — 2026-05-21 |
-| 1.4.B | Templates de contrato por oficio, pre-llenados desde `SemseToolResult` | IN_PROGRESS | `apps/api/src/modules/contracts/contract-template.service.ts` | 10 oficios + toPlainText |
-| 1.4.C | Flujo: quote aprobado → contrato generado → firma → escrow activo | IN_PROGRESS | `apps/api/src/modules/contracts/contracts.service.ts` | createFromEstimate + sign() → contract.fully_executed audit |
+| 1.4.A | Integrar HelloSign (Dropbox Sign) API para contratos y change orders | DONE | `apps/api/src/modules/contracts/hellosign.service.ts` | PR #27 — REST API + mock; embed URLs |
+| 1.4.B | Templates de contrato por oficio, pre-llenados desde `SemseToolResult` | DONE | `apps/api/src/modules/contracts/contract-template.service.ts` | PR #27 — 10 oficios + toPlainText |
+| 1.4.C | Flujo: quote aprobado → contrato generado → firma → escrow activo | DONE | `apps/api/src/modules/contracts/contracts.service.ts` | PR #27 — createFromEstimate + sign() → fully_executed |
 
 ---
 
