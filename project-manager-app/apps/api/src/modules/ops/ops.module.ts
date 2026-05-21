@@ -20,15 +20,18 @@ import { SimulationEngineService } from "./simulation-engine.service.js";
 import { ApplyEngineService } from "./apply-engine.service.js";
 import { EvolutionEngineService } from "./evolution-engine.service.js";
 import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
+import { EcosystemMetricsService } from "./ecosystem-metrics.service.js";
+import { SemseAgentsModule } from "../semse-agents/semse-agents.module.js";
 
 @Module({
   imports: [
     AgentQueueModule, LLMModule, PrismaModule, SseInfraModule, AgentsModule, KnowledgeModule, ToolsModule,
+    forwardRef(() => SemseAgentsModule),
     forwardRef(() => PrometeoModule),
     forwardRef(() => OperationalIntelligenceModule),
   ],
   controllers: [OpsController],
-  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService, EvolutionEngineService, EvolutionFeedbackService],
-  exports: [OpsService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService, EvolutionEngineService, EvolutionFeedbackService],
+  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService, EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService],
+  exports: [OpsService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService, EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService],
 })
 export class OpsModule {}

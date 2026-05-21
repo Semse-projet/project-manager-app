@@ -26,6 +26,7 @@ import { SimulationEngineService } from "./simulation-engine.service.js";
 import { ApplyEngineService } from "./apply-engine.service.js";
 import { EvolutionEngineService } from "./evolution-engine.service.js";
 import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
+import { EcosystemMetricsService } from "./ecosystem-metrics.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -40,6 +41,7 @@ export class OpsController {
     private readonly applyEngine: ApplyEngineService,
     private readonly evolutionEngine: EvolutionEngineService,
     private readonly evolutionFeedback: EvolutionFeedbackService,
+    private readonly ecosystemMetrics: EcosystemMetricsService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -443,6 +445,18 @@ export class OpsController {
     const requestId = resolveRequestId(req.headers ?? {});
     const runs = await this.algorithmRunService.listByTrade(trade, 50);
     return ok(requestId, runs);
+  }
+
+  // ── Ecosystem Metrics — métricas del ecosistema completo ────────────────────
+
+  /** Métricas del ecosistema: jobs, bids, milestones, evidencia, agentes, RAG, señales. */
+  @Get("ecosystem/metrics")
+  @RequirePermissions("ops:dashboard:read")
+  async getEcosystemMetrics(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const metrics = await this.ecosystemMetrics.getMetrics(ctx.tenantId);
+    return ok(requestId, metrics);
   }
 
   // ── SEMSE Consciousness — espejo interno del ecosistema ─────────────────────

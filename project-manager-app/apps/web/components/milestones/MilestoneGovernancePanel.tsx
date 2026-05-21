@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { AlertTriangle, CheckCircle, Clock, ShieldAlert, XCircle } from "lucide-react";
+import { CrowdDecisionBadge } from "@/components/semse/CrowdDecisionBadge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,14 @@ export function MilestoneGovernancePanel({ milestoneId, onReleaseReady }: Props)
         </div>
         <ReleaseStatusBadge status={data.releaseStatus} />
       </div>
+
+      {/* Crowd Agent decision */}
+      <CrowdDecisionBadge
+        evidenceApproved={data.evidenceSummary.approved > 0 && data.evidenceSummary.missing === 0 && data.evidenceSummary.rejected === 0}
+        changeOrdersPending={data.changeOrderBlockers}
+        disputeOpen={data.releaseStatus === "disputed"}
+        milestoneStatus={data.releaseStatus === "ready" ? "submitted" : data.releaseStatus === "released" ? "approved" : "draft"}
+      />
 
       {/* Bloqueadores */}
       {data.blockers.length > 0 && (

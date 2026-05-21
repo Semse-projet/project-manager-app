@@ -6,6 +6,7 @@ import {
   DollarSign, Send, Wrench, Briefcase, ExternalLink,
 } from "lucide-react";
 import { BuildOpsPlanCard } from "@/components/semse/BuildOpsPlanCard";
+import { EvidenceChecklistCard } from "@/components/semse/EvidenceChecklistCard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -266,6 +267,9 @@ export default function ProToolsPage() {
 
           {/* BuildOps Plan */}
           <BuildOpsPlanCard trade={result.trade} estimatedHours={result.laborHours} />
+
+          {/* Evidence Checklist */}
+          <EvidenceChecklistCard milestoneTitle={`Milestone ${result.trade}`} trade={result.trade} />
 
           {/* Agent note */}
           <div style={{ padding: "10px 14px", background: "rgba(252,211,77,.05)", borderRadius: 10, fontSize: 11, color: "var(--muted)", fontStyle: "italic" }}>
