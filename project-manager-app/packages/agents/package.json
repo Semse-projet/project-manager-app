@@ -24,7 +24,8 @@
   },
   "dependencies": {
     "@semse/knowledge": "workspace:*",
-    "@semse/shared": "workspace:*"
+    "@semse/shared": "workspace:*",
+    "@semse/schemas": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.2"
