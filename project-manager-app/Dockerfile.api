@@ -81,6 +81,9 @@ COPY --from=builder /app/packages/tools/dist ./packages/tools/dist
 # Re-install ONLY production deps so pnpm creates correct workspace links
 RUN pnpm install --frozen-lockfile --prod
 
+# Copy generated Prisma client (created by prisma generate in the builder)
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+
 # Copy API build output and supporting files
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/skills ./apps/api/skills
