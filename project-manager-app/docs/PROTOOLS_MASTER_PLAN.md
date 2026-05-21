@@ -1,6 +1,6 @@
 # PROTOOLS MASTER PLAN — SEMSEproject
-**Versión:** 2.0
-**Fecha:** 2026-05-20
+**Versión:** 2.1
+**Fecha:** 2026-05-21
 **Estado:** ACTIVE
 **Mantenido por:** Agentic Harness / Architecture Agent
 
@@ -23,13 +23,13 @@
 
 | Fase | Módulos | Bloques Total | Completados | % |
 |---|---|---|---|---|
-| **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 0 | 0% |
+| **Fase 0 — Arquitectura de Agentes** | 3 | 12 | 9 | 75% |
 | Fase 1 — Fundación Financiera | 4 | 17 | 0 | 0% |
 | Fase 2 — Protección Legal | 3 | 13 | 0 | 0% |
 | Fase 3 — IA Proactiva | 3 | 16 | 0 | 0% |
 | Fase 4 — Ecosistema | 3 | 9 | 0 | 0% |
 | Fase 5 — ML y Escala | 3 | 9 | 0 | 0% |
-| **TOTAL** | **19** | **76** | **0** | **0%** |
+| **TOTAL** | **19** | **76** | **9** | **12%** |
 
 ---
 
@@ -49,28 +49,28 @@ Evidence protege.      Crowd paga.           Prometeo explica.
 
 | ID | Bloque | Estado | Archivo | Notas |
 |---|---|---|---|---|
-| 0.1.A | Tipos TypeScript: `SemseAgentName`, `SemseAgentEvent`, `SemseAgentDefinition` | DONE | `packages/agents/src/semse-agents.types.ts` | Incluye routing table |
+| 0.1.A | Tipos TypeScript: `SemseAgentName`, `SemseAgentEvent`, `SemseAgentDefinition` | DONE | `packages/agents/src/semse-agents.types.ts` | Incluye routing table + 4 eventos Prometeo añadidos 2026-05-21 |
 | 0.1.B | Agent Registry: definición completa de los 6 agentes con fronteras | DONE | `packages/agents/src/agent-registry.ts` | `canAgentDo()` helper |
-| 0.1.C | Exportar tipos en `packages/agents/src/index.ts` | PENDING | `packages/agents/src/index.ts` | Añadir exports |
-| 0.1.D | Modelos Prisma: `AgentMessage`, `ProjectAgentState` | PENDING | `packages/db/prisma/schema.prisma` | Requiere migración |
-| 0.1.E | Tests de contratos: verificar que los 6 agentes respetan sus fronteras | PENDING | `packages/agents/src/__tests__/agent-boundaries.spec.ts` | |
+| 0.1.C | Exportar tipos en `packages/agents/src/index.ts` | DONE | `packages/agents/src/index.ts` | Resuelto 2026-05-21 — service migrado a `@semse/agents` |
+| 0.1.D | Modelos Prisma: `AgentRun`, `AgentApproval`, `AgentWorkPlan` | DONE | `packages/db/prisma/schema.prisma` | Modelos más completos que los planeados. `AgentMessage`/`ProjectAgentState` cubiertos por `AgentRun` |
+| 0.1.E | Tests de contratos: verificar que los 6 agentes respetan sus fronteras | DONE | `apps/api/test/semse-agents.test.ts` + `semse-agents-phase2.test.ts` | Tests completos en api, no en packages/agents |
 
 ### Módulo 0.2 — Sistema de Eventos Entre Agentes
 
 | ID | Bloque | Estado | Archivo | Notas |
 |---|---|---|---|---|
-| 0.2.A | Event bus: `AgentEventBus` con publish/subscribe por evento | PENDING | `packages/agents/src/agent-events.ts` | BullMQ o EventEmitter |
-| 0.2.B | Routing de eventos: `AGENT_EVENT_ROUTING` implementado como dispatcher | PENDING | `packages/agents/src/agent-router.ts` | Usa la tabla de types.ts |
-| 0.2.C | Tests de routing: cada evento llega al agente correcto | PENDING | `packages/agents/src/__tests__/agent-routing.spec.ts` | |
+| 0.2.A | Event bus: `SemseAgentsService` con dispatch/register/getStatus | DONE | `apps/api/src/modules/semse-agents/semse-agents.service.ts` | In-memory fire-and-forget + SSE emit |
+| 0.2.B | Routing de eventos: `AGENT_EVENT_ROUTING` + dispatch en service | DONE | `packages/agents/src/semse-agents.types.ts` + service | Tabla canónica + dispatcher implementado |
+| 0.2.C | Tests de routing incluidos en semse-agents.test.ts | DONE | `apps/api/test/semse-agents.test.ts` | Cubre dispatch y registro de handlers |
 
 ### Módulo 0.3 — Conectar ProTools al Registro
 
 | ID | Bloque | Estado | Archivo | Notas |
 |---|---|---|---|---|
-| 0.3.A | Crear `packages/agents/src/agents/protools.agent.ts` que wrappea los 25 engines | PENDING | `packages/agents/src/agents/protools.agent.ts` | Puente agents↔tools |
-| 0.3.B | Endpoint `POST /v1/agents/protools/estimate` en `apps/api` | PENDING | `apps/api/src/modules/agents/` | Spec existente como base |
-| 0.3.C | Endpoint `GET /v1/agents/project/:id/state` (estado de todos los agentes) | PENDING | `apps/api/src/modules/agents/` | |
-| 0.3.D | `AgentConsole.tsx`: panel de estado de los 6 agentes en el frontend | PENDING | `apps/web/components/agents/AgentConsole.tsx` | |
+| 0.3.A | ProTools agent en `apps/api/src/modules/semse-agents/protools.agent.ts` | DONE | `apps/api/src/modules/semse-agents/protools.agent.ts` | Wrappea los 25 engines, integrado al bus |
+| 0.3.B | Endpoint `POST /v1/agents/semse/protools/estimate` | DONE | `apps/api/src/modules/semse-agents/semse-agents.controller.ts` | Operacional |
+| 0.3.C | Endpoint `GET /v1/agents/semse/status` (estado de todos los agentes) | DONE | `apps/api/src/modules/semse-agents/semse-agents.controller.ts` | Retorna `AgentStatus[]` con métricas |
+| 0.3.D | Agents Dashboard en `/admin/agents` + SSE live feed | DONE | `apps/web/app/(app)/admin/agents/page.tsx` | Bloque H/I/J — SSE live + BuildOps visual |
 
 ---
 
