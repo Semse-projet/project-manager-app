@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, RawBody, Req, ServiceUnavailableException } from "@nestjs/common";
-import { depositEscrowSchema, paymentsWebhookSchema, releaseEscrowSchema } from "@semse/schemas";
+import { depositEscrowSchema, paymentsWebhookSchema, refundEscrowSchema, releaseEscrowSchema } from "@semse/schemas";
 import { z } from "zod";
 import { ok } from "../../common/api-response.js";
 import { toVisibleContract, toVisibleEscrow, toVisiblePaymentTxn } from "../../common/visible-response.js";
@@ -212,6 +212,35 @@ export class PaymentsController {
 
     return ok(requestId, {
       ...result,
+      transaction: toVisiblePaymentTxn(result.transaction)
+    });
+  }
+
+  @Post("v1/escrow/refund")
+  @RequirePermissions("projects:financials:write")
+  async refund(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>
+  ) {
+    const parsed = refundEscrowSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.paymentsService.refund({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      requestId,
+      ...parsed.data
+    });
+
+    return ok(requestId, {
+      ...result,
+      escrow: toVisibleEscrow(result.escrow),
       transaction: toVisiblePaymentTxn(result.transaction)
     });
   }

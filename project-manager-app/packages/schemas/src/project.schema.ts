@@ -25,6 +25,7 @@ export const projectEscrowSummarySchema = z.object({
     .nullable(),
   totalDeposited: z.number().nonnegative(),
   totalReleased: z.number().nonnegative(),
+  totalRefunded: z.number().nonnegative(),
   available: z.number()
 });
 

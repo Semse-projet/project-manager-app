@@ -191,12 +191,14 @@ export function buildPaymentWorkspaceMemoryRecord(input: {
   transactionId?: string;
   amount: number;
   currency: string;
-  action: "funded" | "released";
+  action: "funded" | "released" | "refunded";
 }): WorkspaceMemoryRecord {
   const workspaceId = `project:${input.projectId}`;
   const slug = input.action === "funded"
     ? `escrow-funded-${input.escrowId ?? Date.now()}`
-    : `escrow-released-${input.milestoneId ?? Date.now()}`;
+    : input.action === "released"
+      ? `escrow-released-${input.milestoneId ?? Date.now()}`
+      : `escrow-refunded-${input.transactionId ?? input.escrowId ?? Date.now()}`;
 
   return {
     id: buildWorkspaceMemoryId({

@@ -255,6 +255,29 @@ test("deposit: currency debe tener exactamente 3 caracteres", () => {
   assert.ok(tooLong.length !== 3, "currency > 3 chars es inválida");
 });
 
+// ── Refund validation ─────────────────────────────────────────────────────────
+
+test("refund: amount no puede superar saldo reembolsable", () => {
+  function refundableBalance(input: { deposited: number; released: number; refunded: number }): number {
+    return input.deposited - input.released - input.refunded;
+  }
+
+  const refundable = refundableBalance({ deposited: 1200, released: 400, refunded: 250 });
+  assert.equal(refundable, 550);
+  assert.ok(500 <= refundable);
+  assert.ok(!(600 <= refundable), "refund debe descontar releases y refunds previos");
+});
+
+test("refund: solo OPS_ADMIN puede ejecutar reembolso manual", () => {
+  function canRefundEscrow(roles: string[]): boolean {
+    return roles.includes("OPS_ADMIN");
+  }
+
+  assert.equal(canRefundEscrow(["OPS_ADMIN"]), true);
+  assert.equal(canRefundEscrow(["CLIENT"]), false);
+  assert.equal(canRefundEscrow(["PRO"]), false);
+});
+
 // ── Webhook signature validation ───────────────────────────────────────────────
 
 function stripeSignatureHeader(payload: Buffer, secret: string, timestamp: number): string {

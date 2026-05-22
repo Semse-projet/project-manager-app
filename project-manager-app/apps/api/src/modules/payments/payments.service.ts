@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Optional } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import {
@@ -445,8 +445,11 @@ export class PaymentsService {
       throw new BadRequestException(`Escrow for project '${milestone.projectId}' not found`);
     }
 
-    const releasedSoFar = await this.paymentsRepository.getReleasedAmount(escrow.id);
-    const available = Number(escrow.totalAmount) - releasedSoFar;
+    const [releasedSoFar, refundedSoFar] = await Promise.all([
+      this.paymentsRepository.getReleasedAmount(escrow.id),
+      this.paymentsRepository.getRefundedAmount(escrow.id)
+    ]);
+    const available = Number(escrow.totalAmount) - releasedSoFar - refundedSoFar;
     if (amount > available) {
       throw new ConflictException("insufficient escrow funds for release");
     }
@@ -517,6 +520,117 @@ export class PaymentsService {
     return {
       transaction,
       payoutIntent
+    };
+  }
+
+  async refund(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    projectId?: string;
+    escrowId?: string;
+    amount: number;
+    reason: string;
+    provider?: PaymentProviderKey;
+    methodType?: PaymentMethodType;
+    requestId: string;
+  }) {
+    if (!input.roles.includes("OPS_ADMIN")) {
+      throw new ForbiddenException("escrow refund requires OPS_ADMIN");
+    }
+    if (!input.projectId && !input.escrowId) {
+      throw new BadRequestException("projectId or escrowId is required");
+    }
+    if (input.amount <= 0) {
+      throw new BadRequestException("refund amount must be greater than zero");
+    }
+
+    const context = await this.paymentsRepository.getRefundContext(input);
+    if (input.amount > context.refundable) {
+      throw new ConflictException("insufficient escrow funds for refund");
+    }
+
+    const provider = input.provider ?? "mock";
+    const methodType = input.methodType ?? "bank_transfer";
+    const paymentProvider = this.paymentProviderRegistry.resolve(provider);
+
+    const refundIntent = await paymentProvider.createRefundIntent({
+      tenantId: input.tenantId,
+      projectId: context.projectId,
+      provider,
+      methodType,
+      money: {
+        amount: input.amount,
+        currency: context.currency
+      },
+      externalRef: `refund_${context.escrowId}_${Date.now()}`,
+      originalProviderRef: context.originalProviderRef,
+      metadata: {
+        escrowId: context.escrowId,
+        reason: input.reason
+      }
+    });
+
+    const transaction = await this.paymentsRepository.refundFunds({
+      escrowId: context.escrowId,
+      amount: input.amount,
+      providerRef: refundIntent.providerRef
+    });
+
+    const escrowSummary = await this.projectsService.escrow({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      roles: input.roles,
+      projectId: context.projectId
+    });
+
+    await this.auditService.append({
+      id: `aud_${Date.now()}`,
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.userId,
+      action: "escrow.refund",
+      entityType: "PaymentTxn",
+      entityId: transaction.id,
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: {
+        projectId: context.projectId,
+        escrowId: context.escrowId,
+        amount: input.amount,
+        currency: context.currency,
+        reason: input.reason,
+        provider,
+        providerRef: refundIntent.providerRef
+      }
+    });
+
+    void this.workspaceMemory.append(buildPaymentWorkspaceMemoryRecord({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      projectId: context.projectId,
+      escrowId: context.escrowId,
+      transactionId: transaction.id,
+      amount: input.amount,
+      currency: context.currency,
+      action: "refunded",
+    }));
+
+    this.sse?.emit(`project:${context.projectId}`, "payment.refunded", {
+      projectId: context.projectId,
+      escrowId: context.escrowId,
+      amount: input.amount,
+      currency: context.currency,
+      transactionId: transaction.id,
+    });
+
+    return {
+      ...escrowSummary,
+      transaction,
+      refundIntent
     };
   }
 

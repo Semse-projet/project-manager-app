@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   type CreateFundingIntentInput,
   type CreatePayoutIntentInput,
+  type CreateRefundIntentInput,
   type PaymentProviderPort
 } from "./payment-provider.port.js";
 
@@ -40,6 +41,24 @@ export class MockPaymentProvider implements PaymentProviderPort {
       status: "paid" as const,
       providerRef: `mock_payout_${id}`,
       externalRef: input.externalRef,
+      metadata: input.metadata,
+      createdAt: new Date().toISOString()
+    };
+  }
+
+  async createRefundIntent(input: CreateRefundIntentInput) {
+    const id = randomUUID();
+    return {
+      id: `rei_${id}`,
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      provider: input.provider,
+      methodType: input.methodType,
+      money: input.money,
+      status: "succeeded" as const,
+      providerRef: `mock_refund_${id}`,
+      externalRef: input.externalRef,
+      originalProviderRef: input.originalProviderRef,
       metadata: input.metadata,
       createdAt: new Date().toISOString()
     };

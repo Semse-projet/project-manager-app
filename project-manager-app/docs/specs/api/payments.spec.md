@@ -227,6 +227,20 @@ ENTONCES el sistema procesa el evento del proveedor
 
 ---
 
+### P2-C — OPS reembolsa escrow sin disputa abierta
+
+**Criterio de aceptación:**
+```
+DADO   que existe escrow fondeado con saldo disponible
+CUANDO OPS_ADMIN POST /v1/escrow/refund con { projectId|escrowId, amount, reason }
+ENTONCES se crea PaymentTxn REFUND
+  Y     el saldo disponible descuenta releases y refunds previos
+  Y     se registra auditLog `escrow.refund`
+  Y     CLIENT/PRO reciben 403 aunque tengan contexto del proyecto
+```
+
+---
+
 ## 6. Contratos de API
 
 ### `POST /v1/jobs/:jobId/escrow/fund`
@@ -252,10 +266,10 @@ input:
       tipo: string
       requerido: false
       validación: min(3).max(3) — ej. "USD"
-    - nombre: provider
-      tipo: enum (paymentProviderSchema)
-      requerido: false
-      valores: [stripe, mock, zelle, cashapp, paypal, bank_transfer]
+	    - nombre: provider
+	      tipo: enum (paymentProviderSchema)
+	      requerido: false
+	      valores: [mock, stripe, paypal, adyen, bank-transfer]
     - nombre: methodType
       tipo: enum (paymentMethodTypeSchema)
       requerido: false
@@ -358,6 +372,67 @@ efectos:
   fsmTransicion: escrow HELD → PARTIALLY_RELEASED | RELEASED
                  milestone APPROVED → PAID
   paymentGovernance: true — PaymentGovernanceService.evaluate() ANTES de ejecutar
+```
+
+---
+
+### `POST /v1/escrow/refund`
+
+```yaml
+método: POST
+ruta: /v1/escrow/refund
+descripción: Reembolso manual de escrow por OPS_ADMIN cuando no hay flujo de disputa activo
+
+auth: requerida
+roles: [OPS_ADMIN]
+permiso: projects:financials:write + validación explícita de rol OPS_ADMIN
+privacyCritical: false
+
+input:
+  schema: refundEscrowSchema
+  campos:
+    - nombre: projectId
+      tipo: string
+      requerido: condicional (projectId o escrowId)
+    - nombre: escrowId
+      tipo: string
+      requerido: condicional (projectId o escrowId)
+    - nombre: amount
+      tipo: number
+      requerido: true
+      validación: positive()
+    - nombre: reason
+      tipo: string
+      requerido: true
+      validación: min(3).max(500)
+    - nombre: provider
+      tipo: enum
+      requerido: false
+    - nombre: methodType
+      tipo: enum
+      requerido: false
+
+output:
+  campos:
+    - escrow: EscrowRecord (visible) | null
+    - totalDeposited: number
+    - totalReleased: number
+    - totalRefunded: number
+    - available: number
+    - transaction: PaymentTransaction (visible — type REFUND)
+    - refundIntent: RefundIntentRecord
+
+errores:
+  400: projectId/escrowId ausentes, amount inválido o reason inválido
+  403: actor no es OPS_ADMIN
+  404: escrow no existe en tenant
+  409: amount supera saldo reembolsable
+
+efectos:
+  auditLog: true (`escrow.refund`)
+  evento: "payment.refunded"
+  sse: true (`project:{projectId}` → `payment.refunded`)
+  fsmTransicion: HELD | PARTIALLY_RELEASED → REFUNDED cuando el saldo reembolsable llega a 0
 ```
 
 ---
@@ -567,7 +642,21 @@ nota de seguridad: |
 
 ---
 
-## 7. Criterios de Éxito
+## 7. Providers de pago
+
+| Provider | Archivo | Uso | Estado |
+|----------|---------|-----|--------|
+| `mock` | `apps/api/src/modules/payments/providers/mock-payment.provider.ts` | Dev/staging, tests y flows sin proveedor externo | Soporta funding, payout y refund síncronos |
+| `stripe` | `apps/api/src/modules/payments/providers/stripe.provider.ts` | Producción con Stripe/Connect | Soporta PaymentIntent para funding, Transfer para payout y Refund sobre PaymentIntent/Charge original |
+
+**Selección de provider:**
+- `PaymentProviderRegistry` registra siempre `mock`.
+- `stripe` se registra cuando el provider está disponible y `STRIPE_SECRET_KEY` existe.
+- `deposit`, `release` y `refund` aceptan `provider`; si se omite, el runtime usa `mock`.
+
+---
+
+## 8. Criterios de Éxito
 
 | Métrica | Valor objetivo |
 |---------|---------------|
@@ -580,7 +669,7 @@ nota de seguridad: |
 
 ---
 
-## 8. Tests Requeridos
+## 9. Tests Requeridos
 
 ```typescript
 describe("POST /v1/jobs/:jobId/escrow/fund") {
@@ -600,6 +689,13 @@ describe("POST /v1/milestones/:id/escrow/release") {
   it("emite evento 'payment.released'")
   it("transiciona milestone a PAID tras release exitoso")
   it("PRO no puede liberar su propio pago directamente")
+}
+
+describe("POST /v1/escrow/refund") {
+  it("crea PaymentTxn REFUND cuando OPS_ADMIN tiene saldo reembolsable")
+  it("rechaza con 403 cuando CLIENT o PRO intenta reembolsar")
+  it("rechaza con 409 si amount supera depósitos menos releases menos refunds")
+  it("audita escrow.refund")
 }
 
 describe("PaymentGovernanceService.evaluate") {
@@ -626,14 +722,14 @@ describe("POST /v1/workers/me/payout-method") {
 
 ---
 
-## 9. Impacto en otros dominios
+## 10. Impacto en otros dominios
 
 | Dominio | Impacto | Detalle |
 |---------|---------|---------|
 | Milestones | ✅ Directo | release transiciona milestone a PAID · approve dispara governance |
 | Evidence | ✅ Directo | governance verifica evidence summary antes de canRelease |
 | Disputes | ✅ Directo | disputa abierta cambia escrow a DISPUTED · bloquea release |
-| Trust | ✅ Indirecto | `payment.released` es señal positiva de trust para el PRO |
+| Trust | ✅ Indirecto | `payment.released` y `payment.refunded` son señales financieras para reputación/riesgo |
 | BuildOps | ✅ Directo | change orders pendientes bloquean canRelease |
 | SSE/Real-time | ✅ Directo | release emite `payment.released` al canal del proyecto |
 | Prometeo RAG | ⚠️ No | Payments no usa RAG |
@@ -642,20 +738,19 @@ describe("POST /v1/workers/me/payout-method") {
 
 ---
 
-## 10. Gaps pendientes
+## 11. Gaps pendientes
 
-| Gap | Tipo | Severidad |
-|-----|------|-----------|
-| No existe endpoint de reembolso manual (`/v1/escrow/refund`) para OPS_ADMIN en flujos sin disputa | Feature | 🟢 Baja |
-| Providers de pago (`stripe.provider.ts`, `mock-payment.provider.ts`) no están documentados en surface v1 | Documentación | 🟢 Baja |
+No quedan gaps abiertos de pagos v1 identificados en esta spec.
 
 **Gaps cerrados en implementación:**
 - `POST /v1/workers/me/payout-method` audita cambios con `worker.payout_method.update`.
 - `GET /v1/jobs/:jobId/escrow` y rutas financieras de proyecto validan explícitamente que PRO asignado no lee financials por política de dominio.
+- `POST /v1/escrow/refund` permite reembolso manual OPS-only con audit, SSE y `PaymentTxn` REFUND.
+- Providers `mock` y `stripe` quedan documentados en surface v1.
 
 ---
 
-## 11. Supuestos y Dependencias
+## 12. Supuestos y Dependencias
 
 - [ ] `PaymentGovernanceService` corre síncronamente en el mismo request del `release` — no es asíncrono
 - [ ] El proveedor de pago por defecto en dev/staging es `mock-payment.provider.ts`
@@ -669,7 +764,7 @@ describe("POST /v1/workers/me/payout-method") {
 ## Checklist de aprobación
 
 - [x] Todos los escenarios P1 tienen Given/When/Then
-- [x] Todos los endpoints (9) tienen contrato completo
+- [x] Todos los endpoints (10) tienen contrato completo
 - [x] FSM del escrow declarada con todos los estados y transiciones
 - [x] PaymentGovernanceService documentado con contrato completo
 - [x] Invariantes de no-liberar-más-de-lo-fondeado verificadas

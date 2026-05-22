@@ -212,6 +212,7 @@ export class ProjectsRepository {
     escrow: EscrowRecord | null;
     totalDeposited: number;
     totalReleased: number;
+    totalRefunded: number;
     available: number;
   }> {
     await this.actorContextService.ensureActorContext(input);
@@ -247,6 +248,7 @@ export class ProjectsRepository {
         escrow: null,
         totalDeposited: 0,
         totalReleased: 0,
+        totalRefunded: 0,
         available: 0
       };
     }
@@ -259,11 +261,16 @@ export class ProjectsRepository {
       .filter((transaction) => transaction.type === "RELEASE" && transaction.status === "SUCCEEDED")
       .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
 
+    const totalRefunded = escrow.transactions
+      .filter((transaction) => transaction.type === "REFUND" && transaction.status === "SUCCEEDED")
+      .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
+
     return {
       escrow: this.toEscrowRecord(escrow),
       totalDeposited,
       totalReleased,
-      available: totalDeposited - totalReleased
+      totalRefunded,
+      available: totalDeposited - totalReleased - totalRefunded
     };
   }
 
@@ -345,6 +352,7 @@ export class ProjectsRepository {
         exists: escrow.escrow !== null,
         totalDeposited: escrow.totalDeposited,
         totalReleased: escrow.totalReleased,
+        totalRefunded: escrow.totalRefunded,
         available: escrow.available
       }
     };

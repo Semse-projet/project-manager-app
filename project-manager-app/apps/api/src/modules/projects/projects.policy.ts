@@ -29,6 +29,7 @@ export type ProjectLifecycleSnapshot = {
     exists: boolean;
     totalDeposited: number;
     totalReleased: number;
+    totalRefunded: number;
     available: number;
   };
 };

@@ -33,6 +33,15 @@ export const payoutIntentStatuses = [
 ] as const;
 export type PayoutIntentStatus = (typeof payoutIntentStatuses)[number];
 
+export const refundIntentStatuses = [
+  "draft",
+  "pending",
+  "succeeded",
+  "failed",
+  "cancelled"
+] as const;
+export type RefundIntentStatus = (typeof refundIntentStatuses)[number];
+
 export type Money = {
   amount: number;
   currency: string;
@@ -63,6 +72,21 @@ export type PayoutIntentRecord = {
   status: PayoutIntentStatus;
   providerRef: string;
   externalRef: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type RefundIntentRecord = {
+  id: string;
+  tenantId: string;
+  projectId: string;
+  provider: PaymentProviderKey;
+  methodType: PaymentMethodType;
+  money: Money;
+  status: RefundIntentStatus;
+  providerRef: string;
+  externalRef: string;
+  originalProviderRef?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
 };

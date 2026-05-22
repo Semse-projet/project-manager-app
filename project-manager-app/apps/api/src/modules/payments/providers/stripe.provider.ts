@@ -3,9 +3,10 @@ import Stripe from "stripe";
 import type {
   CreateFundingIntentInput,
   CreatePayoutIntentInput,
+  CreateRefundIntentInput,
   PaymentProviderPort,
 } from "./payment-provider.port.js";
-import type { FundingIntentRecord, PayoutIntentRecord } from "../payments.types.js";
+import type { FundingIntentRecord, PayoutIntentRecord, RefundIntentRecord } from "../payments.types.js";
 import { StripeConnectService } from "../stripe-connect.service.js";
 
 /**
@@ -139,6 +140,48 @@ export class StripePaymentProvider implements PaymentProviderPort {
       createdAt: new Date().toISOString(),
     };
   }
+
+  async createRefundIntent(input: CreateRefundIntentInput): Promise<RefundIntentRecord> {
+    if (!input.originalProviderRef) {
+      throw new Error("Stripe refund requires an original PaymentIntent or Charge providerRef");
+    }
+
+    const amountInCents = Math.round(input.money.amount * 100);
+    const params: Stripe.RefundCreateParams = {
+      amount: amountInCents,
+      metadata: {
+        semse_tenant_id: input.tenantId,
+        semse_project_id: input.projectId,
+        semse_external_ref: input.externalRef,
+        ...(input.metadata as Record<string, string> | undefined),
+      },
+      reason: "requested_by_customer",
+    };
+
+    if (input.originalProviderRef.startsWith("ch_")) {
+      params.charge = input.originalProviderRef;
+    } else {
+      params.payment_intent = input.originalProviderRef;
+    }
+
+    const refund = await this.stripe.refunds.create(params);
+    this.logger.log({ refundId: refund.id, projectId: input.projectId }, "Stripe refund created");
+
+    return {
+      id: `rei_${refund.id}`,
+      tenantId: input.tenantId,
+      projectId: input.projectId,
+      provider: this.key,
+      methodType: input.methodType,
+      money: input.money,
+      status: stripeRefundStatus(refund.status),
+      providerRef: refund.id,
+      externalRef: input.externalRef,
+      originalProviderRef: input.originalProviderRef,
+      metadata: { ...(input.metadata ?? {}) },
+      createdAt: new Date().toISOString(),
+    };
+  }
 }
 
 function stripeIntentStatus(stripeStatus: string): FundingIntentRecord["status"] {
@@ -149,6 +192,16 @@ function stripeIntentStatus(stripeStatus: string): FundingIntentRecord["status"]
     case "requires_confirmation":
     case "requires_action": return "authorized";
     case "canceled": return "cancelled";
+    default: return "pending";
+  }
+}
+
+function stripeRefundStatus(stripeStatus: string | null): RefundIntentRecord["status"] {
+  switch (stripeStatus) {
+    case "succeeded": return "succeeded";
+    case "failed": return "failed";
+    case "canceled": return "cancelled";
+    case "pending": return "pending";
     default: return "pending";
   }
 }

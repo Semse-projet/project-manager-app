@@ -11,6 +11,31 @@ const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
 type PaymentTx = PrismaTypes.TransactionClient & Pick<PrismaService, "milestone" | "paymentEscrow" | "paymentTxn">;
 
+type RefundEscrowContextRow = {
+  id: string;
+  projectId: string;
+  jobId: string | null;
+  contractId: string | null;
+  currency: string;
+  totalAmount: { toNumber(): number };
+  status: string;
+  deletedAt: Date | null;
+  project: {
+    tenantId: string;
+    assignedProOrgId: string;
+    job: {
+      clientOrgId: string;
+    };
+  };
+  transactions: Array<{
+    type: string;
+    status: string;
+    amount: { toNumber(): number };
+    providerRef: string;
+    createdAt: Date;
+  }>;
+};
+
 @Injectable()
 export class PaymentsRepository {
   constructor(
@@ -104,6 +129,103 @@ export class PaymentsRepository {
     return result._sum.amount?.toNumber() ?? 0;
   }
 
+  async getRefundedAmount(escrowId: string): Promise<number> {
+    const result = await this.prisma.paymentTxn.aggregate({
+      where: {
+        escrowId,
+        type: "REFUND",
+        status: "SUCCEEDED"
+      },
+      _sum: {
+        amount: true
+      }
+    });
+
+    return result._sum.amount?.toNumber() ?? 0;
+  }
+
+  async getRefundContext(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles?: string[];
+    projectId?: string;
+    escrowId?: string;
+  }): Promise<{
+    escrowId: string;
+    projectId: string;
+    jobId?: string;
+    contractId?: string;
+    currency: string;
+    totalDeposited: number;
+    totalReleased: number;
+    totalRefunded: number;
+    refundable: number;
+    originalProviderRef?: string;
+  }> {
+    await this.actorContextService.ensureActorContext(input);
+
+    const escrow = (await this.prisma.paymentEscrow.findFirst({
+      where: {
+        ...(input.escrowId ? { id: input.escrowId } : { projectId: input.projectId }),
+        deletedAt: null,
+        project: {
+          tenantId: input.tenantId
+        }
+      },
+      include: {
+        project: {
+          include: {
+            job: {
+              select: {
+                clientOrgId: true
+              }
+            }
+          }
+        },
+        transactions: {
+          select: {
+            type: true,
+            status: true,
+            amount: true,
+            providerRef: true,
+            createdAt: true
+          },
+          orderBy: { createdAt: "desc" }
+        }
+      }
+    })) as RefundEscrowContextRow | null;
+
+    if (!escrow) {
+      throw new NotFoundException("Escrow not found");
+    }
+
+    assertProjectFinancialsReadable(this.toActor(input), {
+      clientOrgId: escrow.project.job.clientOrgId,
+      assignedProOrgId: escrow.project.assignedProOrgId
+    });
+
+    const totalDeposited = this.sumTransactions(escrow.transactions, "DEPOSIT");
+    const totalReleased = this.sumTransactions(escrow.transactions, "RELEASE");
+    const totalRefunded = this.sumTransactions(escrow.transactions, "REFUND");
+    const originalProviderRef = escrow.transactions.find(
+      (transaction) => transaction.type === "DEPOSIT" && transaction.status === "SUCCEEDED"
+    )?.providerRef;
+
+    return {
+      escrowId: escrow.id,
+      projectId: escrow.projectId,
+      jobId: escrow.jobId ?? undefined,
+      contractId: escrow.contractId ?? undefined,
+      currency: escrow.currency,
+      totalDeposited,
+      totalReleased,
+      totalRefunded,
+      refundable: totalDeposited - totalReleased - totalRefunded,
+      originalProviderRef
+    };
+  }
+
   async depositFunds(input: {
     projectId: string;
     jobId?: string;
@@ -127,7 +249,8 @@ export class PaymentsRepository {
             data: {
               totalAmount: existing.totalAmount.plus(input.amount),
               jobId: existing.jobId ?? input.jobId,
-              contractId: existing.contractId ?? input.contractId
+              contractId: existing.contractId ?? input.contractId,
+              status: "active"
             }
           })
         : await db.paymentEscrow.create({
@@ -193,9 +316,20 @@ export class PaymentsRepository {
             amount: true
           }
         });
+        const refunded = await db.paymentTxn.aggregate({
+          where: {
+            escrowId: input.escrowId,
+            type: "REFUND",
+            status: "SUCCEEDED"
+          },
+          _sum: {
+            amount: true
+          }
+        });
 
         const releasedAmount = released._sum.amount?.toNumber() ?? 0;
-        const available = Number(escrow.totalAmount) - releasedAmount;
+        const refundedAmount = refunded._sum.amount?.toNumber() ?? 0;
+        const available = Number(escrow.totalAmount) - releasedAmount - refundedAmount;
 
         if (input.amount > available) {
           throw new ConflictException("insufficient escrow funds for release");
@@ -223,6 +357,74 @@ export class PaymentsRepository {
           where: { id: input.milestoneId },
           data: { status: "PAID" }
         });
+
+        return this.toRecord(transaction);
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable
+      }
+    );
+  }
+
+  async refundFunds(input: {
+    escrowId: string;
+    amount: number;
+    providerRef: string;
+  }): Promise<PaymentTxnRecord> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const db = tx as PaymentTx;
+        const escrow = (await db.paymentEscrow.findUnique({
+          where: { id: input.escrowId },
+          include: {
+            transactions: {
+              select: {
+                type: true,
+                status: true,
+                amount: true,
+                providerRef: true,
+                createdAt: true
+              }
+            }
+          }
+        })) as (RefundEscrowContextRow & { transactions: RefundEscrowContextRow["transactions"] }) | null;
+
+        if (!escrow || escrow.deletedAt) {
+          throw new NotFoundException(`Escrow '${input.escrowId}' not found`);
+        }
+
+        const totalDeposited = this.sumTransactions(escrow.transactions, "DEPOSIT");
+        const totalReleased = this.sumTransactions(escrow.transactions, "RELEASE");
+        const totalRefunded = this.sumTransactions(escrow.transactions, "REFUND");
+        const refundable = totalDeposited - totalReleased - totalRefunded;
+
+        if (input.amount > refundable) {
+          throw new ConflictException("insufficient escrow funds for refund");
+        }
+
+        const transaction = await db.paymentTxn.create({
+          data: {
+            escrowId: input.escrowId,
+            type: "REFUND",
+            amount: input.amount,
+            providerRef: input.providerRef,
+            status: "SUCCEEDED"
+          },
+          include: {
+            escrow: {
+              include: {
+                project: true
+              }
+            }
+          }
+        });
+
+        if (refundable - input.amount <= 0) {
+          await db.paymentEscrow.update({
+            where: { id: input.escrowId },
+            data: { status: "closed" }
+          });
+        }
 
         return this.toRecord(transaction);
       },
@@ -278,5 +480,11 @@ export class PaymentsRepository {
       clientOrgId: project.job.clientOrgId,
       assignedProOrgId: project.assignedProOrgId
     };
+  }
+
+  private sumTransactions(transactions: Array<{ type: string; status: string; amount: { toNumber(): number } }>, type: string): number {
+    return transactions
+      .filter((transaction) => transaction.type === type && transaction.status === "SUCCEEDED")
+      .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
   }
 }
