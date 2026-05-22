@@ -210,3 +210,89 @@ test("FIN.C2: categoría desconocida no está en el set", () => {
   assert.equal(VALID_CATEGORIES.has("random"), false);
   assert.equal(VALID_CATEGORIES.has(""), false);
 });
+
+// ── computeTotals — lógica del FinanceService ─────────────────────────────────
+
+type LineItem = { qty: number; unitPrice: number; taxRate: number };
+
+function computeTotals(items: LineItem[]): { subtotal: number; taxAmount: number; total: number } {
+  let subtotal = 0, taxAmount = 0;
+  for (const li of items) {
+    const lineTotal = li.qty * li.unitPrice;
+    subtotal  += lineTotal;
+    taxAmount += lineTotal * (li.taxRate / 100);
+  }
+  return {
+    subtotal:  parseFloat(subtotal.toFixed(2)),
+    taxAmount: parseFloat(taxAmount.toFixed(2)),
+    total:     parseFloat((subtotal + taxAmount).toFixed(2)),
+  };
+}
+
+test("FIN.CT1: single item no-tax", () => {
+  const r = computeTotals([{ qty: 8, unitPrice: 50, taxRate: 0 }]);
+  assert.equal(r.subtotal, 400);
+  assert.equal(r.taxAmount, 0);
+  assert.equal(r.total, 400);
+});
+
+test("FIN.CT2: item con tax 8.5%", () => {
+  const r = computeTotals([{ qty: 10, unitPrice: 100, taxRate: 8.5 }]);
+  assert.equal(r.subtotal, 1000);
+  assert.equal(r.taxAmount, 85);
+  assert.equal(r.total, 1085);
+});
+
+test("FIN.CT3: lista vacía → ceros", () => {
+  const r = computeTotals([]);
+  assert.equal(r.total, 0);
+});
+
+test("FIN.CT4: total = subtotal + taxAmount (invariante)", () => {
+  const r = computeTotals([
+    { qty: 5, unitPrice: 120, taxRate: 7 },
+    { qty: 1, unitPrice: 80, taxRate: 0 },
+  ]);
+  assert.ok(Math.abs(r.total - (r.subtotal + r.taxAmount)) < 0.01);
+});
+
+test("FIN.CT5: precisión float — 3 items decimales", () => {
+  const r = computeTotals([
+    { qty: 1, unitPrice: 33.33, taxRate: 0 },
+    { qty: 1, unitPrice: 33.33, taxRate: 0 },
+    { qty: 1, unitPrice: 33.34, taxRate: 0 },
+  ]);
+  assert.equal(r.subtotal, 100);
+});
+
+// ── OCR receipt amount extraction ─────────────────────────────────────────────
+
+function extractReceiptTotal(text: string): number | null {
+  const patterns = [
+    /TOTAL[\s:$]*(\d+(?:\.\d{2})?)/i,
+    /Total Amount[\s:$]*(\d+(?:\.\d{2})?)/i,
+    /Amount Due[\s:$]*(\d+(?:\.\d{2})?)/i,
+    /Grand Total[\s:$]*(\d+(?:\.\d{2})?)/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m?.[1]) return parseFloat(m[1]);
+  }
+  return null;
+}
+
+test("FIN.OCR1: extrae TOTAL de recibo", () => {
+  assert.equal(extractReceiptTotal("HomeDepot\nTOTAL $80.00"), 80.00);
+});
+
+test("FIN.OCR2: extrae 'Total Amount'", () => {
+  assert.equal(extractReceiptTotal("Total Amount: 125.50"), 125.50);
+});
+
+test("FIN.OCR3: extrae 'Grand Total'", () => {
+  assert.equal(extractReceiptTotal("Grand Total $999.99"), 999.99);
+});
+
+test("FIN.OCR4: sin total retorna null", () => {
+  assert.equal(extractReceiptTotal("Sin datos de total aquí"), null);
+});
