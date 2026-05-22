@@ -6,7 +6,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import { tsImport } from "tsx/esm/api";
 import { verifyStripeWebhookSignature } from "../src/modules/payments/stripe-webhook-signature.ts";
+
+const { canReadProjectFinancials } = await tsImport("../src/modules/projects/projects.policy.ts", import.meta.url) as {
+  canReadProjectFinancials: (
+    actor: { tenantId: string; orgId: string; userId: string; roles: string[] },
+    ownership: { clientOrgId: string; assignedProOrgId: string }
+  ) => boolean;
+};
 
 // ── FSM Escrow ─────────────────────────────────────────────────────────────────
 
@@ -345,11 +353,32 @@ test("deposit audit incluye tenantId y actorUserId", () => {
 
 // ── Invariante de seguridad PRO no puede leer financials ──────────────────────
 
-test("invariante: PRO no puede leer escrow de job ajeno (role check)", () => {
-  function canReadEscrow(role: string): boolean {
-    return role === "CLIENT" || role === "OPS_ADMIN";
-  }
-  assert.ok(!canReadEscrow("PRO"), "PRO no debe leer financials por defecto");
-  assert.ok(canReadEscrow("CLIENT"));
-  assert.ok(canReadEscrow("OPS_ADMIN"));
+test("invariante: PRO asignado no puede leer financials del proyecto", () => {
+  const ownership = {
+    clientOrgId: "org_client",
+    assignedProOrgId: "org_pro"
+  };
+
+  assert.equal(
+    canReadProjectFinancials(
+      { tenantId: "tenant_test", orgId: "org_pro", userId: "user_pro", roles: ["PRO"] },
+      ownership
+    ),
+    false,
+    "PRO asignado no debe leer escrow/financials por defecto"
+  );
+  assert.equal(
+    canReadProjectFinancials(
+      { tenantId: "tenant_test", orgId: "org_client", userId: "user_client", roles: ["CLIENT"] },
+      ownership
+    ),
+    true
+  );
+  assert.equal(
+    canReadProjectFinancials(
+      { tenantId: "tenant_test", orgId: "org_ops", userId: "user_ops", roles: ["OPS_ADMIN"] },
+      ownership
+    ),
+    true
+  );
 });

@@ -42,11 +42,8 @@ export function canReadProject(actor: ProjectActor, ownership: ProjectOwnership)
 }
 
 export function canReadProjectFinancials(actor: ProjectActor, ownership: ProjectOwnership): boolean {
-  return (
-    isOpsAdmin(actor) ||
-    actor.orgId === ownership.clientOrgId ||
-    actor.orgId === ownership.assignedProOrgId
-  );
+  // Assigned PROs can read project execution data, but escrow balances stay client/ops-only.
+  return isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId;
 }
 
 export function canUpdateProjectStatus(

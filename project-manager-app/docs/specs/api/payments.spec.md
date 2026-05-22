@@ -194,6 +194,7 @@ DADO   que el actor tiene rol PRO
 CUANDO POST /v1/workers/me/payout-method con { type, ...campos por tipo }
 ENTONCES se guarda el método de pago del worker
   Y     GET /v1/workers/me/payout-method retorna el método configurado
+  Y     se registra auditLog `worker.payout_method.update` sin datos sensibles
 ```
 
 **Casos borde:**
@@ -505,7 +506,7 @@ output: método guardado
 errores:
   400: type inválido o campos requeridos para el type faltantes
   403: actor sin autenticación
-efectos: auditLog: false (mejorar: debería auditar cambios de método de pago)
+efectos: auditLog: true (`worker.payout_method.update`)
 ```
 
 ---
@@ -641,14 +642,16 @@ describe("POST /v1/workers/me/payout-method") {
 
 ---
 
-## 10. Gaps identificados
+## 10. Gaps pendientes
 
 | Gap | Tipo | Severidad |
 |-----|------|-----------|
-| `POST /v1/workers/me/payout-method` no genera audit log — cambios de cuenta sin trazabilidad | Audit | 🟡 Media |
-| `GET /v1/jobs/:jobId/escrow` no valida explícitamente que PRO no puede leer — solo restricción por convención | Seguridad | 🟡 Media |
 | No existe endpoint de reembolso manual (`/v1/escrow/refund`) para OPS_ADMIN en flujos sin disputa | Feature | 🟢 Baja |
 | Providers de pago (`stripe.provider.ts`, `mock-payment.provider.ts`) no están documentados en surface v1 | Documentación | 🟢 Baja |
+
+**Gaps cerrados en implementación:**
+- `POST /v1/workers/me/payout-method` audita cambios con `worker.payout_method.update`.
+- `GET /v1/jobs/:jobId/escrow` y rutas financieras de proyecto validan explícitamente que PRO asignado no lee financials por política de dominio.
 
 ---
 
