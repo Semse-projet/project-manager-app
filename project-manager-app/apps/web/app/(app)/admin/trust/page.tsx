@@ -76,7 +76,12 @@ export default function TrustPage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    // Auto-refresh every 30s — trust scores update when jobs/ratings change
+    const t = setInterval(() => void load(), 30_000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const entries = data?.entries ?? [];
   const filtered = levelFilter ? entries.filter((e) => e.level === levelFilter) : entries;
@@ -96,7 +101,7 @@ export default function TrustPage() {
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Trust Scores</h1>
           <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
             Reputación y confianza de profesionales y proyectos
-            {lastAt && <> · {lastAt}</>}
+            {lastAt && <> · {lastAt} · auto-refresh 30s</>}
           </p>
         </div>
         <button onClick={load} disabled={loading}
