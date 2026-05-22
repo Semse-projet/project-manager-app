@@ -2073,3 +2073,50 @@ input[type="range"]::-moz-range-thumb {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0,0,0,.10);
 }
+
+/* ── Mobile improvements for SEMSE OS pages (Bloque Q) ──────────────────── */
+@media (max-width: 640px) {
+  /* Reduce heading sizes */
+  h1 { font-size: 20px !important; }
+
+  /* Stack stat grids to 2 columns on mobile */
+  [style*="grid-template-columns: repeat(4"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  [style*="grid-template-columns: repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Reduce padding on mobile */
+  [style*="padding: \"28px 20px\""],
+  [style*="padding: 28px 20px"] {
+    padding: 16px 14px !important;
+  }
+
+  /* ProTools form: single column on mobile */
+  [style*="grid-template-columns: \"1fr 1fr\""],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Marketplace category pills: wrap */
+  [style*="display: flex"][style*="flexWrap: wrap"] {
+    gap: 6px !important;
+  }
+
+  /* Trust scores table: hide secondary columns */
+  .trust-secondary-col { display: none; }
+
+  /* Agents dashboard: 2 col grid on mobile */
+  [style*="grid-template-columns: repeat(3, 1fr)"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns: repeat(2"] {
+    grid-template-columns: 1fr !important;
+  }
+}
