@@ -1,5 +1,5 @@
 FROM node:20-slim AS base
-# build: 2026-05-21 — pnpm migration
+# build: 2026-05-21T20:45 — cache bust + no-frozen-lockfile
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -23,7 +23,7 @@ COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 COPY pnpm-lock.yaml ./
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app

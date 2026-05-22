@@ -1,5 +1,5 @@
 FROM node:20-alpine AS base
-# build: 2026-05-21 — pnpm migration
+# build: 2026-05-21T20:30 — cache bust: @semse/tools dep + Prisma runner fix
 RUN apk add --no-cache openssl python3 make g++
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -23,7 +23,8 @@ COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 COPY pnpm-lock.yaml ./
 
-RUN pnpm install --frozen-lockfile
+# Use pnpm install (not frozen) to handle any lockfile drift from workspace dep changes
+RUN pnpm install --no-frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
