@@ -9,7 +9,7 @@ import { ProjectsRepository } from "./projects.repository.js";
 import { ProjectsService } from "./projects.service.js";
 
 @Module({
-  imports: [JobsModule, MilestonesModule, KnowledgeModule, forwardRef(() => IntelligenceModule), forwardRef(() => AiModelsModule)],
+  imports: [JobsModule, forwardRef(() => MilestonesModule), KnowledgeModule, forwardRef(() => IntelligenceModule), forwardRef(() => AiModelsModule)],
   controllers: [ProjectsController],
   providers: [ProjectsRepository, ProjectsService],
   exports: [ProjectsRepository, ProjectsService],
