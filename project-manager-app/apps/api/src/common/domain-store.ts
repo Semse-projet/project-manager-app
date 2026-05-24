@@ -113,7 +113,7 @@ export type EscrowRecord = {
   projectId: string;
   jobId?: string;
   contractId?: string;
-  status: "active" | "closed";
+  status: "active" | "pending_settlement" | "closed" | "cancelled" | "released";
   totalAmount: number;
   currency: string;
 };

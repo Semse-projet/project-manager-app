@@ -9,7 +9,7 @@
  * agent plans, agent memory, agent delegations, notifications.
  */
 
-import { PrismaClient } from "@prisma/client";
+import { EscrowStatus, PrismaClient } from "@prisma/client";
 import crypto from "node:crypto";
 import { config as dotenvConfig } from "dotenv";
 import { resolve, dirname } from "node:path";
@@ -387,7 +387,7 @@ async function main() {
       currency: "USD",
       totalAmount: 3100,
       holdbackPct: 10,
-      status: "active",
+      status: EscrowStatus.ACTIVE,
     },
   });
   console.log("   ✔ Escrow activo");
@@ -704,7 +704,7 @@ async function main() {
       providerRef: "escrow_ref_demo_002",
       currency: "USD",
       totalAmount: 1500,
-      status: "released",
+      status: EscrowStatus.RELEASED,
     },
   });
   console.log("   ✔ Proyecto 2 completado (HVAC)");
