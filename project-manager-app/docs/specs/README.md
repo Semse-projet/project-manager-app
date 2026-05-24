@@ -3,9 +3,11 @@
 Este directorio contiene los contratos ejecutables del sistema.
 Son la fuente de verdad que gobierna el código.
 
-**Template para nuevos specs:** `.specify/templates/overrides/semse-spec.md`
+**Template para nuevos specs:** `docs/specs/templates/semse-spec-template.md`
+**Template Spec Kit:** `.specify/templates/overrides/semse-spec.md`
 **Índice completo:** `docs/SPEC_INDEX.md`
 **Protocolo SDD:** `docs/SDD_GOVERNANCE.md`
+**Validación:** `pnpm spec:preflight`
 
 ## Estructura
 
@@ -27,3 +29,16 @@ specs/
 | `api/payments.spec.md` | 🔴 MISSING | P1 |
 
 Para crear un spec: usar `/speckit.specify` con template `semse-spec.md`.
+
+## Validación ejecutable
+
+Los specs se validan desde la raíz del monorepo:
+
+```bash
+pnpm spec:validate
+pnpm spec:coverage
+pnpm spec:preflight
+```
+
+`spec:validate` verifica estructura mínima, estados válidos y referencias declaradas.
+`spec:validate:strict` activa el estándar completo de metadata canónica para migraciones o PRs que quieran cerrar todos los gaps.

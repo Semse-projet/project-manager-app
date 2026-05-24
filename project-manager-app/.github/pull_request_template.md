@@ -14,6 +14,8 @@
 
 - [ ] Probado localmente
 - [ ] Tests actualizados o agregados
+- [ ] Spec actualizado o confirmado como no aplicable
+- [ ] `pnpm spec:preflight` ejecutado
 - [ ] Sin regresiones visibles
 - [ ] Documentación actualizada (si aplica)
 

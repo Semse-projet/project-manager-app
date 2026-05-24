@@ -1,5 +1,5 @@
 # SPEC_INDEX — SEMSEproject
-**Última actualización:** 2026-05-20 (actualizado: ProTools Master Plan añadido)
+**Última actualización:** 2026-05-24 (matriz SDD generada por `pnpm spec:index`)
 **Mantenido por:** Architecture Agent / CTO Agent
 **Propósito:** Registry canónico de todos los documentos de especificación. Todo agente de IA debe leer este índice antes de trabajar en cualquier feature.
 
@@ -18,6 +18,37 @@
 - `REVIEW_REQUIRED` — existe pero puede estar desactualizado
 
 ---
+
+<!-- SPEC_INDEX:START -->
+## Matriz SDD Generada
+
+> Bloque generado por `pnpm spec:index`. Editar metadata en cada spec, no esta tabla.
+
+| Spec ID | Domain | Status | Risk | API | UI | Tests | Related Files | Last Verified |
+|---|---|---|---|---|---|---|---|---|
+| [agents-semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | packages/agents | APPROVED | critical | yes | no | no | 0 | missing |
+| [api-buildops](docs/specs/api/buildops.spec.md) | buildops | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-communications](docs/specs/api/communications.spec.md) | communications | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-consciousness](docs/specs/api/consciousness.spec.md) | ops | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-contracts](docs/specs/api/contracts.spec.md) | contracts | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-disputes](docs/specs/api/disputes.spec.md) | disputes | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-evidence](docs/specs/api/evidence.spec.md) | evidence | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-intake](docs/specs/api/intake.spec.md) | smart-intake | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-jobs](docs/specs/api/jobs.spec.md) | jobs | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-milestones](docs/specs/api/milestones.spec.md) | milestones | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-payments](docs/specs/api/payments.spec.md) | payments | APPROVED | missing | yes | no | no | 0 | missing |
+| [api-prometeo](docs/specs/api/prometeo.spec.md) | prometeo | APPROVED | missing | yes | no | no | 0 | missing |
+| [fsm-buildops-lifecycle](docs/specs/fsm/buildops-lifecycle.spec.md) | buildops | APPROVED | missing | no | no | no | 0 | missing |
+| [fsm-escrow-lifecycle](docs/specs/fsm/escrow-lifecycle.spec.md) | payments | APPROVED | missing | no | no | no | 0 | missing |
+| [fsm-job-lifecycle](docs/specs/fsm/job-lifecycle.spec.md) | jobs | APPROVED | missing | no | no | no | 0 | missing |
+| [fsm-milestone-lifecycle](docs/specs/fsm/milestone-lifecycle.spec.md) | milestones | APPROVED | missing | no | no | no | 0 | missing |
+| [tools-fase-1-m1-1-material-pricing](docs/specs/tools/fase-1/m1.1-material-pricing.spec.md) | packages/tools + packages/integrations | DRAFT | missing | no | no | no | 0 | missing |
+| [ui-admin-flows](docs/specs/ui/admin-flows.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
+| [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
+| [ui-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
+| [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
+
+<!-- SPEC_INDEX:END -->
 
 ## NIVEL 0 — Constitución y Gobierno
 
