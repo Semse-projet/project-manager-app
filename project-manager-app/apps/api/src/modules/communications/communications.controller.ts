@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, RawBody, Req, Res, ServiceUnavailableException } from "@nestjs/common";
 import { CommunicationProvider, CommunicationThreadStatus } from "@prisma/client";
 import {
   communicationChannelAccountCreateSchema,
@@ -15,6 +15,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { CommunicationsService } from "./communications.service.js";
 import type { CommunicationsActor } from "./communications.types.js";
+import { WhatsAppCloudAdapter } from "./providers/whatsapp-cloud.adapter.js";
 
 function actor(req: FastifyRequest): CommunicationsActor {
   const context = resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
@@ -39,9 +40,17 @@ function parseOffset(offset?: string): number {
   return Math.trunc(parsed);
 }
 
+function singleHeader(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) return value.length === 1 ? value[0] : undefined;
+  return typeof value === "string" ? value : undefined;
+}
+
 @Controller("v1/communications")
 export class CommunicationsController {
-  constructor(private readonly communications: CommunicationsService) {}
+  constructor(
+    private readonly communications: CommunicationsService,
+    private readonly whatsapp: WhatsAppCloudAdapter,
+  ) {}
 
   @Post("channel-accounts")
   @RequirePermissions("communications:admin")
@@ -176,8 +185,24 @@ export class CommunicationsController {
 
   @Post("webhooks/whatsapp")
   @Public()
-  async receiveWhatsAppWebhook(@Req() req: FastifyRequest, @Body() body: unknown) {
+  async receiveWhatsAppWebhook(
+    @Req() req: FastifyRequest,
+    @Body() body: unknown,
+    @RawBody() rawBody?: Buffer,
+  ) {
     const rid = resolveRequestId(req.headers ?? {});
+    if (!this.whatsapp.appSecret && this.whatsapp.requiresWebhookSignature) {
+      throw new ServiceUnavailableException("WHATSAPP_APP_SECRET is not configured");
+    }
+
+    const validSignature = this.whatsapp.validateWebhookSignature({
+      payload: rawBody,
+      signatureHeader: singleHeader(req.headers["x-hub-signature-256"]),
+    });
+    if (!validSignature) {
+      throw new ForbiddenException("Invalid WhatsApp webhook signature");
+    }
+
     return ok(rid, await this.communications.handleWhatsAppWebhook(body));
   }
 }
