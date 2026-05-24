@@ -33,7 +33,7 @@
     "spec:index": "node ./scripts/spec-index.mjs",
     "spec:coverage": "node ./scripts/spec-coverage.mjs",
     "spec:preflight": "pnpm spec:validate && pnpm spec:coverage",
-    "railway:preflight": "pnpm spec:preflight && pnpm typecheck && pnpm build:api && pnpm build:web",
+    "railway:preflight": "pnpm spec:preflight && pnpm --filter @semse/db prisma:generate && pnpm build:api && pnpm build:web && pnpm typecheck",
     "verify:workspace": "pnpm typecheck && pnpm --filter @semse/api test:unit && pnpm build:api && pnpm build:web",
     "smoke:persistence": "node ./scripts/api-persistence-smoke.mjs",
     "smoke:evidence": "node ./scripts/api-evidence-smoke.mjs",
