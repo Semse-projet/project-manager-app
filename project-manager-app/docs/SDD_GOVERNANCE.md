@@ -1,6 +1,6 @@
 # SDD_GOVERNANCE — SEMSEproject
-**Versión:** 1.0
-**Fecha:** 2026-05-20
+**Versión:** 1.1
+**Fecha:** 2026-05-24
 **Estado:** APROBADO
 **Referencia metodológica:** github/spec-kit + SDD principles
 
@@ -55,6 +55,7 @@ report         (ADR si hay decisiones arquitectónicas, SPEC_INDEX actualizado)
 > **Ningún feature existe si no está en SPEC_INDEX.md.**
 > **Ningún endpoint existe si no tiene spec + test.**
 > **Ningún agente de IA genera código hasta que el spec esté en estado APPROVED.**
+> **Ningún deploy debe salir si `pnpm spec:preflight` o `pnpm railway:preflight` falla.**
 
 ---
 
@@ -128,6 +129,88 @@ z.object({
 
 ---
 
+## 4.1 Metadata canónica verificable
+
+Todo spec nuevo o modificado debe usar metadata YAML al inicio del archivo. Los specs heredados pueden seguir pasando `pnpm spec:validate` en modo baseline, pero deben migrarse a este formato antes de declarar estado `IMPLEMENTED` o `VERIFIED`.
+
+```yaml
+---
+id: "domain.feature"
+title: "Feature Name"
+domain: "buildops | evidence | payments | rag | agents | marketplace | auth | worker | tools | ui | api"
+status: "DRAFT | REVIEW | APPROVED | IMPLEMENTED | VERIFIED | DEPRECATED"
+owner: "semse-core"
+risk: "low | medium | high | critical"
+related_files:
+  - "apps/api/src/..."
+related_tests:
+  - "tests/..."
+related_endpoints:
+  - "GET /v1/..."
+related_events:
+  - "domain.event"
+related_agents:
+  - "EvidenceAgent"
+last_verified: "YYYY-MM-DD"
+---
+```
+
+La metadata permite construir la matriz `Spec -> Code -> Test` sin depender de lectura manual. `related_files` y `related_tests` deben apuntar a rutas reales del repositorio. `related_endpoints` y `related_events` deben existir en el código cuando se declaran.
+
+Estados permitidos:
+
+| Estado | Uso |
+|---|---|
+| `DRAFT` | Borrador, no implementar. |
+| `REVIEW` | En revisión humana o de arquitectura. |
+| `APPROVED` | Fuente de verdad aprobada; se puede implementar. |
+| `IMPLEMENTED` | Código existe y está enlazado en `related_files`. |
+| `VERIFIED` | Tests y validaciones pasaron; `related_tests` existe. |
+| `DEPRECATED` | No usar para trabajo nuevo. |
+
+Riesgos:
+
+| Riesgo | Regla |
+|---|---|
+| `critical` | Requiere `related_tests`, owner explícito y revisión antes de merge. |
+| `high` | Requiere `related_tests` antes de `VERIFIED`. |
+| `medium` | Requiere mapa de implementación antes de `IMPLEMENTED`. |
+| `low` | Puede ser validado con baseline si no toca dinero, RBAC, agentes ni datos sensibles. |
+
+---
+
+## 4.2 Matriz Spec -> Code -> Test
+
+Cada spec implementable debe declarar su mapa de implementación:
+
+```md
+## Implementation Map
+
+### API
+- apps/api/src/modules/[domain]/...
+
+### Web
+- apps/web/...
+- apps/angular/...
+
+### Packages
+- packages/[package]/...
+
+### Tests
+- tests/...
+- apps/api/test/...
+```
+
+Reglas:
+
+- No endpoint nuevo sin spec con `related_endpoints`.
+- No agente sin contrato de input/output y `related_agents`.
+- No evento SSE o evento de dominio sin `related_events` y payload documentado.
+- No UI crítica sin estados definidos.
+- Todo cambio monetizable debe tener trazabilidad `Spec -> Code -> Test`.
+
+---
+
 ## 5. Formato canónico de un spec de FSM
 
 Todo spec en `specs/fsm/*.spec.md`:
@@ -188,6 +271,38 @@ Si alguna respuesta es NO → primero se completa el spec, luego se codifica.
 - SPEC_INDEX.md debe actualizarse (estado: APPROVED, tests: referenciados)
 - Si hubo decisión arquitectónica → crear ADR en docs/adrs/
 ```
+
+### Gates ejecutables
+
+Antes de merge o deploy:
+
+```bash
+pnpm spec:preflight
+pnpm railway:preflight
+```
+
+`spec:preflight` ejecuta:
+
+```bash
+pnpm spec:validate
+pnpm spec:coverage
+```
+
+`railway:preflight` agrega typecheck y builds de apps para evitar que Railway reciba un árbol roto por paquetes internos:
+
+```bash
+pnpm spec:preflight
+pnpm typecheck
+pnpm build:api
+pnpm build:web
+```
+
+Reglas de bloqueo:
+
+- Si `pnpm spec:validate` falla, no hay merge.
+- Si `pnpm railway:preflight` falla, no hay deploy.
+- Si un spec `IMPLEMENTED` o `VERIFIED` no declara tests, debe volver a `APPROVED` o completar `related_tests`.
+- Si un spec high/critical aparece sin tests en `pnpm spec:coverage`, se debe tratar como gap de release.
 
 ---
 
