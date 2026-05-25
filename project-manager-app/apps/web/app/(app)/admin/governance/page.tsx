@@ -212,7 +212,7 @@ function ProposalCard({ proposal, tenantId }: { proposal: Proposal; tenantId: st
               {(["for", "against", "abstain"] as const).map((choice) => (
                 <button key={choice} onClick={() => castVote(choice)} disabled={voting}
                   style={{
-                    flex: 1, padding: "8px 0", borderRadius: 10, border: "none", cursor: voting ? "wait" : "pointer",
+                    flex: 1, padding: "8px 0", borderRadius: 10, cursor: voting ? "wait" : "pointer",
                     fontSize: 11, fontWeight: 700,
                     background: voteChoice === choice ? (choice === "for" ? "#86efac20" : choice === "against" ? "#fca5a520" : "rgba(255,255,255,.08)") : "rgba(255,255,255,.04)",
                     color: choice === "for" ? "#86efac" : choice === "against" ? "#fca5a5" : "var(--muted)",

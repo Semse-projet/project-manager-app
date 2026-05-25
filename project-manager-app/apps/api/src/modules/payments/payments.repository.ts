@@ -250,7 +250,7 @@ export class PaymentsRepository {
               totalAmount: existing.totalAmount.plus(input.amount),
               jobId: existing.jobId ?? input.jobId,
               contractId: existing.contractId ?? input.contractId,
-              status: "active"
+              status: "ACTIVE"
             }
           })
         : await db.paymentEscrow.create({
@@ -261,7 +261,7 @@ export class PaymentsRepository {
               providerRef: input.providerRef,
               currency: input.currency,
               totalAmount: input.amount,
-              status: "active"
+              status: "ACTIVE"
             }
           });
 
@@ -422,7 +422,7 @@ export class PaymentsRepository {
         if (refundable - input.amount <= 0) {
           await db.paymentEscrow.update({
             where: { id: input.escrowId },
-            data: { status: "closed" }
+            data: { status: "CLOSED" }
           });
         }
 
