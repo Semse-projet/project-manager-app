@@ -7,7 +7,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
 import { assertProjectFinancialsReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
 
-const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
+const { EscrowStatus, Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
 type PaymentTx = PrismaTypes.TransactionClient & Pick<PrismaService, "milestone" | "paymentEscrow" | "paymentTxn">;
 
@@ -250,7 +250,7 @@ export class PaymentsRepository {
               totalAmount: existing.totalAmount.plus(input.amount),
               jobId: existing.jobId ?? input.jobId,
               contractId: existing.contractId ?? input.contractId,
-              status: "ACTIVE"
+              status: EscrowStatus.ACTIVE
             }
           })
         : await db.paymentEscrow.create({
@@ -261,7 +261,7 @@ export class PaymentsRepository {
               providerRef: input.providerRef,
               currency: input.currency,
               totalAmount: input.amount,
-              status: "ACTIVE"
+              status: EscrowStatus.ACTIVE
             }
           });
 
@@ -422,7 +422,7 @@ export class PaymentsRepository {
         if (refundable - input.amount <= 0) {
           await db.paymentEscrow.update({
             where: { id: input.escrowId },
-            data: { status: "CLOSED" }
+            data: { status: EscrowStatus.CLOSED }
           });
         }
 

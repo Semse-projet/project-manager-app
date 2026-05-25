@@ -81,10 +81,11 @@ enum PaymentTxnStatus {
 }
 
 enum EscrowStatus {
-  ACTIVE
-  PENDING_SETTLEMENT
-  CLOSED
-  CANCELLED
+  ACTIVE             @map("active")
+  PENDING_SETTLEMENT @map("pending_settlement")
+  CLOSED             @map("closed")
+  CANCELLED          @map("cancelled")
+  RELEASED           @map("released")
 }
 
 enum DisputeStatus {
@@ -2570,6 +2571,7 @@ model LocationCostIndex {
   @@index([stateCode])
   @@index([validUntil])
 }
+
 
 
 // ─────────────────────────────────────────────────────────────────────────────

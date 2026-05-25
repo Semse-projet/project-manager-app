@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
@@ -21,6 +22,29 @@ export type WhatsAppStatusUpdate = {
   recipientPhone?: string;
   rawPayload: Record<string, unknown>;
 };
+
+export type WhatsAppWebhookSignatureInput = {
+  payload: Buffer | string;
+  signatureHeader?: string;
+  appSecret: string;
+};
+
+export function verifyWhatsAppWebhookSignature(input: WhatsAppWebhookSignatureInput): boolean {
+  const appSecret = input.appSecret.trim();
+  if (!appSecret) return false;
+
+  const signatureHeader = input.signatureHeader?.trim();
+  if (!signatureHeader?.startsWith("sha256=")) return false;
+
+  const receivedHex = signatureHeader.slice("sha256=".length);
+  if (!/^[a-f0-9]{64}$/i.test(receivedHex)) return false;
+
+  const payload = Buffer.isBuffer(input.payload) ? input.payload : Buffer.from(input.payload);
+  const expected = createHmac("sha256", appSecret).update(payload).digest();
+  const received = Buffer.from(receivedHex, "hex");
+
+  return received.length === expected.length && timingSafeEqual(received, expected);
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -87,6 +111,30 @@ export class WhatsAppCloudAdapter {
 
   get verifyToken(): string | undefined {
     return this.config.get<string>("WHATSAPP_CLOUD_VERIFY_TOKEN");
+  }
+
+  get appSecret(): string | undefined {
+    const configured = this.config.get<string>("WHATSAPP_APP_SECRET") ?? this.config.get<string>("META_APP_SECRET");
+    const trimmed = configured?.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  get requiresWebhookSignature(): boolean {
+    const communicationsMode = this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock";
+    const nodeEnv = this.config.get<string>("NODE_ENV") ?? process.env.NODE_ENV;
+    const railwayEnvironment = this.config.get<string>("RAILWAY_ENVIRONMENT_NAME") ?? process.env.RAILWAY_ENVIRONMENT_NAME;
+    return communicationsMode === "live" || nodeEnv === "production" || railwayEnvironment === "production";
+  }
+
+  validateWebhookSignature(input: { payload?: Buffer; signatureHeader?: string }): boolean {
+    const appSecret = this.appSecret;
+    if (!appSecret) return !this.requiresWebhookSignature;
+    if (!input.payload) return false;
+    return verifyWhatsAppWebhookSignature({
+      payload: input.payload,
+      signatureHeader: input.signatureHeader,
+      appSecret,
+    });
   }
 
   async sendText(input: { to: string; body: string }): Promise<WhatsAppCloudSendResult> {
