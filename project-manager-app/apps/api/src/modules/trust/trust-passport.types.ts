@@ -10,6 +10,12 @@ export type TrustPassportContributions = {
   totalRatings: number;
 };
 
+/**
+ * Signing algorithm profile — allows future migration to PQC without breaking
+ * existing tokens. Current: HMAC-SHA256. Future: Dilithium3, ML-DSA-65.
+ */
+export type CryptoProfile = "HMAC-SHA256" | "Dilithium3" | "ML-DSA-65";
+
 export type TrustPassportClaims = {
   sub: string;
   iss: "semse";
@@ -17,6 +23,8 @@ export type TrustPassportClaims = {
   jti: string;
   iat: number;
   exp: number;
+  /** Signing algorithm used — enables PQC migration path (P6) */
+  cryptoProfile: CryptoProfile;
   reputation: {
     score: number;
     tier: ReputationTier;

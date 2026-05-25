@@ -82,6 +82,7 @@ export class TrustPassportService {
       sub: targetUserId,
       iss: "semse",
       typ: "trust-passport",
+      cryptoProfile: "HMAC-SHA256",
       reputation: {
         score: reputation.score,
         tier: reputation.tier,

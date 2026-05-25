@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Req, Res } from "@nestjs/common";
 import { ok } from "../../common/api-response.js";
 import { Public } from "../../common/public.decorator.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
@@ -63,9 +63,13 @@ export class TrustController {
   @Public()
   verifyPassport(
     @Req() req: { headers?: Record<string, unknown> },
+    @Res({ passthrough: true }) res: { setHeader(name: string, value: string): void },
     @Body() body: { token: string },
   ) {
     const result = this.trustPassportService.verify(body?.token ?? "");
+    // Advertise signing algorithm — enables clients to detect PQC upgrade (P6)
+    const profile = result.valid ? (result.claims.cryptoProfile ?? "HMAC-SHA256") : "unknown";
+    res.setHeader("X-Semse-Crypto-Profile", profile);
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 }
