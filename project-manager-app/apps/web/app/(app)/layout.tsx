@@ -55,6 +55,7 @@ import {
   Users,
   Wrench,
   X,
+  Scale,
 } from "lucide-react";
 
 type NavRole = "worker" | "client" | "admin";
@@ -151,6 +152,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.semseX", href: "/admin/semse-x", icon: Infinity },
       { labelKey: "nav.agentMemory", href: "/admin/memory", icon: Brain },
       { labelKey: "nav.prometeo", href: "/admin/prometeo", icon: BookOpen },
+      { labelKey: "nav.governance", href: "/admin/governance", icon: Scale },
     ],
   },
 };

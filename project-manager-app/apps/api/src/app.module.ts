@@ -59,6 +59,8 @@ import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module
 import { OperationalIntelligenceModule } from "./modules/operational-intelligence/operational-intelligence.module.js";
 import { CommunicationsModule } from "./modules/communications/communications.module.js";
 import { PricingModule } from "./modules/pricing/pricing.module.js";
+import { DidModule } from "./modules/did/did.module.js";
+import { GovernanceModule } from "./modules/governance/governance.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -131,6 +133,8 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     OperationalIntelligenceModule,
     CommunicationsModule,
     PricingModule,
+    DidModule,
+    GovernanceModule,
   ],
   controllers: [HealthController],
   providers: [

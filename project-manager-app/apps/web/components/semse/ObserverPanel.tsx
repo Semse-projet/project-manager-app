@@ -2,8 +2,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity, AlertTriangle, Brain, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Cpu, Database, Eye, RefreshCw, Server, Wifi, Zap,
+  Clock, Cpu, Database, Eye, RefreshCw, Server, Users, Wifi, Zap,
 } from "lucide-react";
+import { BehavioralHealthSection, type BehavioralHealth } from "./BehavioralHealthSection";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ type ObserverSnap = {
   };
   patterns: Pattern[];
   alerts: Alert[];
+  behavioralHealth?: BehavioralHealth | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -244,6 +246,20 @@ export function ObserverPanel() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Behavioral Health — human behavior layer (P3 MCA) */}
+          {snap.behavioralHealth && (
+            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <Users size={13} color="#818cf8" />
+                <span style={{ fontSize: 12, fontWeight: 800 }}>Salud Social</span>
+                <span style={{ fontSize: 10, color: "var(--muted)", background: "rgba(99,102,241,.12)", padding: "2px 8px", borderRadius: 99, marginLeft: "auto" }}>
+                  behavioral · score {snap.behavioralHealth.behavioralScore}/100
+                </span>
+              </div>
+              <BehavioralHealthSection health={snap.behavioralHealth} />
             </div>
           )}
 
