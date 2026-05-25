@@ -45,6 +45,13 @@ type TallyResult = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function scoreTier(score: number): GovernanceTier {
+  if (score >= 75) return "steward";
+  if (score >= 50) return "contributor";
+  if (score >= 25) return "participant";
+  return "observer";
+}
+
 const STATUS_COLORS: Record<string, string> = {
   open:      "#67e8f9",
   closed:    "#94a3b8",
@@ -149,6 +156,9 @@ function ProposalCard({ proposal, tenantId }: { proposal: Proposal; tenantId: st
         {/* Title */}
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", flex: 1 }}>{proposal.title}</span>
 
+        {/* Author tier */}
+        <GovernanceTierBadge tier={scoreTier(Number(proposal.authorReputationScore))} size="sm" />
+
         {/* Votes count */}
         {proposal._count && (
           <span style={{ fontSize: 11, color: "var(--muted)" }}>{proposal._count.votes} votos</span>
@@ -222,6 +232,55 @@ function ProposalCard({ proposal, tenantId }: { proposal: Proposal; tenantId: st
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── GovernanceFeed ────────────────────────────────────────────────────────────
+
+function GovernanceFeed({ proposals }: { proposals: Proposal[] }) {
+  const recent = [...proposals]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
+
+  if (recent.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 24, padding: "16px 18px", background: "rgba(255,255,255,.02)", border: "1px solid var(--border)", borderRadius: 14 }}>
+      <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", marginBottom: 12, letterSpacing: "0.05em" }}>
+        ACTIVIDAD RECIENTE
+      </div>
+      <div style={{ display: "grid", gap: 0 }}>
+        {recent.map((p, i) => {
+          const statusColor = STATUS_COLORS[p.status] ?? "#94a3b8";
+          const tier = scoreTier(Number(p.authorReputationScore));
+          return (
+            <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, paddingBottom: i < recent.length - 1 ? 12 : 0, marginBottom: i < recent.length - 1 ? 12 : 0, borderBottom: i < recent.length - 1 ? "1px solid var(--border)" : "none" }}>
+              {/* Timeline dot */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0, marginTop: 3 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: statusColor }} />
+                {i < recent.length - 1 && <div style={{ width: 1, height: "100%", minHeight: 28, background: "var(--border)", marginTop: 4 }} />}
+              </div>
+              {/* Content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{p.title}</span>
+                  <GovernanceTierBadge tier={tier} size="sm" />
+                  <span style={{ fontSize: 9, fontWeight: 900, color: statusColor, background: `${statusColor}15`, padding: "1px 7px", borderRadius: 99, textTransform: "uppercase" }}>
+                    {p.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                  {new Date(p.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "short" })}
+                  {" · "}
+                  {CATEGORY_LABELS[p.category] ?? p.category}
+                  {p._count?.votes ? ` · ${p._count.votes} votos` : ""}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -324,6 +383,9 @@ export default function GovernancePage() {
         ))}
         <span style={{ fontSize: 10, color: "var(--muted)", marginLeft: 4 }}>— el peso del voto aumenta con la reputación</span>
       </div>
+
+      {/* Activity feed */}
+      {proposals.length > 0 && <GovernanceFeed proposals={proposals} />}
 
       {/* Proposals list */}
       {proposals.length === 0 && !loading && !error && (
