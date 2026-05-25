@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, fetchSemseDataForRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForRequest, handleServerError, resolveRuntimeConfigForRequest, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,16 +18,20 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
-  let body: unknown;
-  try { body = await req.json(); } catch {
+  const config = await resolveRuntimeConfigForRequest(req);
+  if (!config) return runtimeDisabledResponse();
+
+  let body: Record<string, unknown>;
+  try { body = await req.json() as Record<string, unknown>; } catch {
     return NextResponse.json({ error: { status: 400, message: "Invalid JSON body" } }, { status: 400 });
   }
   try {
-    const data = await fetchSemseData("/v1/governance/proposals", {
+    // Inject real authorId from session — client cannot forge it
+    const payload = { ...body, authorId: config.userId, tenantId: body.tenantId ?? config.tenantId };
+    const data = await fetchSemseDataForRequest("/v1/governance/proposals", req, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(payload),
     });
     return NextResponse.json({ data }, { status: 201 });
   } catch (error) {
