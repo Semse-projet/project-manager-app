@@ -1,12 +1,31 @@
 ---
+id: api-consciousness-observer
+title: "Consciousness and Observer API"
 type: spec
 feature: "Consciousness & Observer — Espejo Interno del Ecosistema"
 domain: "ops"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: medium
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/ops
+  - packages/schemas/src/ops.schema.ts
+  - apps/web/app/(app)/admin
+related_tests:
+  - apps/api/test/semse-consciousness.test.ts
+  - apps/api/test/semse-observer.test.ts
+  - apps/api/test/ecosystem-metrics.test.ts
+related_endpoints:
+  - v1/ops
+related_events:
+  - agents:system
+related_agents:
+  - mission-control
+last_verified: 2026-05-25
 ---
 
 # Spec: Consciousness & Observer

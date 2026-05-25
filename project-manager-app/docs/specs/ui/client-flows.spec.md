@@ -1,12 +1,34 @@
 ---
+id: ui-client-flows
+title: "Client UI Flows"
 type: spec
 feature: "Client UI Flows"
 domain: "ui"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/web/app/(app)/client
+  - apps/web/app/jobs
+  - apps/web/components/milestones
+  - apps/web/app/components/payments
+related_tests:
+  - tests/e2e/project-manager.spec.js
+  - tests/e2e-semse/payments-flow.spec.js
+  - tests/e2e-semse/buildops-milestones.spec.ts
+related_endpoints:
+  - v1/jobs
+  - v1/milestones
+  - v1/payments
+related_events:
+  - milestone.approved
+  - payment.released
+related_agents: []
+last_verified: 2026-05-25
 ---
 
 # Spec: Client UI Flows

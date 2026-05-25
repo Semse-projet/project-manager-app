@@ -1,13 +1,34 @@
 ---
+id: api-buildops
+title: "BuildOps API"
 type: spec
 feature: "BuildOps — Gestión de Proyectos de Obra"
 domain: "buildops"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
 depends_on: "docs/specs/api/jobs.spec.md"
+related_files:
+  - apps/api/src/modules/buildops
+  - apps/web/app/(app)/buildops
+  - apps/web/app/api/semse/buildops
+related_tests:
+  - apps/api/test/buildops-plan-approval.service.test.ts
+  - apps/api/test/buildops-plan-rerun.service.test.ts
+  - apps/api/test/buildops-legacy-promotion.service.test.ts
+related_endpoints:
+  - v1/buildops
+related_events:
+  - buildops-plan-approved
+  - buildops-plan-changes-requested
+  - buildops-plan-rerun-completed
+related_agents:
+  - buildops
+last_verified: 2026-05-25
 ---
 
 # Spec: BuildOps

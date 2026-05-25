@@ -1,12 +1,26 @@
 ---
+id: api-communications
+title: "Communications Gateway API"
 type: spec
 feature: "Communications Gateway — WhatsApp & Inbox"
 domain: "communications"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/communications
+  - packages/schemas/src/communication.schema.ts
+related_tests:
+  - apps/api/test/communications-whatsapp-webhook-signature.test.ts
+related_endpoints:
+  - v1/communications
+related_events: []
+related_agents: []
+last_verified: 2026-05-25
 ---
 
 # Spec: Communications Gateway

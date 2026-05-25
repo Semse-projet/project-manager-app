@@ -1,12 +1,32 @@
 ---
+id: fsm-buildops-plan-lifecycle
+title: "BuildOps Plan FSM"
 type: spec
 feature: "BuildOps Plan FSM"
 domain: "buildops"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 spec_index: "docs/SPEC_INDEX.md"
 source_of_truth: "apps/api/src/modules/buildops/buildops-plan-approval.service.ts"
+related_files:
+  - apps/api/src/modules/buildops/buildops-plan-approval.service.ts
+  - apps/api/src/modules/buildops/buildops-plan-rerun.service.ts
+  - apps/api/src/modules/buildops/buildops-legacy-promotion.service.ts
+related_tests:
+  - apps/api/test/buildops-plan-approval.service.test.ts
+  - apps/api/test/buildops-plan-rerun.service.test.ts
+  - apps/api/test/buildops-legacy-promotion.service.test.ts
+related_endpoints:
+  - v1/buildops
+related_events:
+  - buildops-plan-approved
+  - buildops-plan-rejected
+related_agents:
+  - buildops
+last_verified: 2026-05-25
 ---
 
 # FSM Spec: BuildOps Plan Lifecycle

@@ -1,12 +1,31 @@
 ---
+id: api-prometeo-rag-trade-knowledge
+title: "Prometeo RAG and Trade Knowledge API"
 type: spec
 feature: "Prometeo Engine — RAG & Trade Knowledge"
 domain: "prometeo"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/prometeo
+  - apps/api/src/modules/ai-models/orchestrator/prometeo-orchestrator.service.ts
+  - packages/schemas/src/knowledge-domain.schema.ts
+related_tests:
+  - apps/api/test/prometeo-orchestrator.service.test.ts
+  - apps/api/test/prometeo-rag-phase4-agents.test.ts
+  - tests/unit/prometeo-retrieval.test.ts
+related_endpoints:
+  - v1/prometeo
+related_events: []
+related_agents:
+  - prometeo-chat
+  - training-guide
+last_verified: 2026-05-25
 ---
 
 # Spec: Prometeo Engine

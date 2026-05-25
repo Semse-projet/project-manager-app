@@ -1,13 +1,30 @@
 ---
+id: api-contract-lifecycle
+title: "Contract Lifecycle API"
 type: spec
 feature: "Contract Lifecycle"
 domain: "contracts"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
 depends_on: "docs/specs/api/jobs.spec.md"
+related_files:
+  - apps/api/src/modules/contracts
+  - packages/schemas/src/marketplace.schema.ts
+related_tests:
+  - apps/api/test/contracts-disputes.spec-contract.test.ts
+  - apps/api/test/contracts-payments-integration.test.ts
+related_endpoints:
+  - v1/contracts
+  - v1/jobs/:jobId/contracts
+related_events: []
+related_agents:
+  - contract-reviewer
+last_verified: 2026-05-25
 ---
 
 # Spec: Contract Lifecycle
