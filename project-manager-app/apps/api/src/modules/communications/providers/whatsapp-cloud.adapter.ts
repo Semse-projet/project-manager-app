@@ -23,29 +23,6 @@ export type WhatsAppStatusUpdate = {
   rawPayload: Record<string, unknown>;
 };
 
-export type WhatsAppWebhookSignatureInput = {
-  payload: Buffer | string;
-  signatureHeader?: string;
-  appSecret: string;
-};
-
-export function verifyWhatsAppWebhookSignature(input: WhatsAppWebhookSignatureInput): boolean {
-  const appSecret = input.appSecret.trim();
-  if (!appSecret) return false;
-
-  const signatureHeader = input.signatureHeader?.trim();
-  if (!signatureHeader?.startsWith("sha256=")) return false;
-
-  const receivedHex = signatureHeader.slice("sha256=".length);
-  if (!/^[a-f0-9]{64}$/i.test(receivedHex)) return false;
-
-  const payload = Buffer.isBuffer(input.payload) ? input.payload : Buffer.from(input.payload);
-  const expected = createHmac("sha256", appSecret).update(payload).digest();
-  const received = Buffer.from(receivedHex, "hex");
-
-  return received.length === expected.length && timingSafeEqual(received, expected);
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -114,27 +91,39 @@ export class WhatsAppCloudAdapter {
   }
 
   get appSecret(): string | undefined {
-    const configured = this.config.get<string>("WHATSAPP_APP_SECRET") ?? this.config.get<string>("META_APP_SECRET");
-    const trimmed = configured?.trim();
-    return trimmed ? trimmed : undefined;
+    return this.config.get<string>("WHATSAPP_APP_SECRET");
   }
 
-  get requiresWebhookSignature(): boolean {
-    const communicationsMode = this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock";
-    const nodeEnv = this.config.get<string>("NODE_ENV") ?? process.env.NODE_ENV;
-    const railwayEnvironment = this.config.get<string>("RAILWAY_ENVIRONMENT_NAME") ?? process.env.RAILWAY_ENVIRONMENT_NAME;
-    return communicationsMode === "live" || nodeEnv === "production" || railwayEnvironment === "production";
+  get isLiveMode(): boolean {
+    return (this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock") === "live";
   }
 
-  validateWebhookSignature(input: { payload?: Buffer; signatureHeader?: string }): boolean {
-    const appSecret = this.appSecret;
-    if (!appSecret) return !this.requiresWebhookSignature;
-    if (!input.payload) return false;
-    return verifyWhatsAppWebhookSignature({
-      payload: input.payload,
-      signatureHeader: input.signatureHeader,
-      appSecret,
-    });
+  /**
+   * Validates the X-Hub-Signature-256 header sent by Meta.
+   * Only enforced when SEMSE_COMMUNICATIONS_MODE=live and WHATSAPP_APP_SECRET is set.
+   * Returns true when validation passes or is not required.
+   */
+  validateSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
+    if (!this.isLiveMode || !this.appSecret) {
+      return true;
+    }
+
+    if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
+      return false;
+    }
+
+    const expected = createHmac("sha256", this.appSecret)
+      .update(rawBody)
+      .digest("hex");
+
+    const expectedBuf = Buffer.from(`sha256=${expected}`, "utf8");
+    const receivedBuf = Buffer.from(signatureHeader, "utf8");
+
+    if (expectedBuf.length !== receivedBuf.length) {
+      return false;
+    }
+
+    return timingSafeEqual(expectedBuf, receivedBuf);
   }
 
   async sendText(input: { to: string; body: string }): Promise<WhatsAppCloudSendResult> {
