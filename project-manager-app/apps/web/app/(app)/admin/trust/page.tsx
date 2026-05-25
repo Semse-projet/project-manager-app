@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
-  AlertTriangle, CheckCircle2, RefreshCw, Shield, Star, TrendingDown, TrendingUp,
+  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, Shield, ShieldCheck, Star, TrendingUp,
 } from "lucide-react";
+import { TrustPassportCard } from "../../../../components/semse/TrustPassportCard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,56 @@ function ScoreBar({ score }: { score: number }) {
         <div style={{ width: `${Math.max(4, score)}%`, height: "100%", background: color, borderRadius: 99, transition: "width .5s" }} />
       </div>
       <span style={{ fontSize: 11, fontWeight: 800, color, minWidth: 28, textAlign: "right" }}>{score}</span>
+    </div>
+  );
+}
+
+// ── TrustEntryRow ─────────────────────────────────────────────────────────────
+
+const TENANT_ID = process.env.NEXT_PUBLIC_SEMSE_TENANT_ID ?? "default";
+
+function TrustEntryRow({ entry }: { entry: TrustEntry }) {
+  const [expanded, setExpanded] = useState(false);
+  const isUser = entry.scopeType === "user";
+
+  return (
+    <div style={{ borderBottom: "1px solid var(--border)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 1fr auto", gap: 10, padding: "12px 18px", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
+            {entry.scopeType}: {entry.scopeId.slice(0, 12)}
+          </div>
+          {entry.flags.length > 0 && (
+            <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+              {entry.flags.slice(0, 3).map((f) => (
+                <span key={f} style={{ fontSize: 9, color: "#fca5a5", background: "rgba(239,68,68,.1)", padding: "1px 6px", borderRadius: 99 }}>{f}</span>
+              ))}
+            </div>
+          )}
+        </div>
+        <ScoreBar score={entry.score} />
+        <div>
+          <span style={{ fontSize: 10, fontWeight: 800, color: LEVEL_COLORS[entry.level] ?? "#94a3b8", background: `${LEVEL_COLORS[entry.level] ?? "#94a3b8"}20`, padding: "2px 8px", borderRadius: 99 }}>
+            {LEVEL_LABELS[entry.level] ?? entry.level}
+          </span>
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+          {entry.primaryReason}
+        </div>
+        {isUser && (
+          <button onClick={() => setExpanded((p) => !p)}
+            style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 8, background: expanded ? "rgba(99,102,241,.15)" : "rgba(255,255,255,.04)", border: "1px solid var(--border)", cursor: "pointer", color: expanded ? "#818cf8" : "var(--muted)", fontSize: 10, fontWeight: 700 }}>
+            <ShieldCheck size={11} />
+            Pasaporte
+            {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+        )}
+      </div>
+      {expanded && isUser && (
+        <div style={{ padding: "0 18px 16px" }}>
+          <TrustPassportCard userId={entry.scopeId} tenantId={TENANT_ID} />
+        </div>
+      )}
     </div>
   );
 }
@@ -144,8 +195,8 @@ export default function TrustPage() {
 
       {/* Entries table */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 1fr", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)", fontSize: 10, fontWeight: 800, color: "var(--muted)" }}>
-          <span>SCOPE</span><span>SCORE</span><span>NIVEL</span><span>RAZÓN PRINCIPAL</span>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 1fr auto", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)", fontSize: 10, fontWeight: 800, color: "var(--muted)" }}>
+          <span>SCOPE</span><span>SCORE</span><span>NIVEL</span><span>RAZÓN PRINCIPAL</span><span>PASAPORTE</span>
         </div>
 
         {!data && !loading && (
@@ -159,30 +210,7 @@ export default function TrustPage() {
         )}
 
         {filtered.map((e, i) => (
-          <div key={`${e.scopeId}-${i}`}
-            style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 1fr", gap: 10, padding: "12px 18px", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
-                {e.scopeType}: {e.scopeId.slice(0, 12)}
-              </div>
-              {e.flags.length > 0 && (
-                <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
-                  {e.flags.slice(0, 3).map((f) => (
-                    <span key={f} style={{ fontSize: 9, color: "#fca5a5", background: "rgba(239,68,68,.1)", padding: "1px 6px", borderRadius: 99 }}>{f}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <ScoreBar score={e.score} />
-            <div>
-              <span style={{ fontSize: 10, fontWeight: 800, color: LEVEL_COLORS[e.level] ?? "#94a3b8", background: `${LEVEL_COLORS[e.level] ?? "#94a3b8"}20`, padding: "2px 8px", borderRadius: 99 }}>
-                {LEVEL_LABELS[e.level] ?? e.level}
-              </span>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-              {e.primaryReason}
-            </div>
-          </div>
+          <TrustEntryRow key={`${e.scopeId}-${i}`} entry={e} />
         ))}
       </div>
 
