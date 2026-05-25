@@ -80,6 +80,13 @@ enum PaymentTxnStatus {
   REVERSED
 }
 
+enum EscrowStatus {
+  ACTIVE
+  PENDING_SETTLEMENT
+  CLOSED
+  CANCELLED
+}
+
 enum DisputeStatus {
   OPEN
   ASSIGNED
@@ -551,7 +558,7 @@ model PaymentEscrow {
   currency     String        @default("USD")
   totalAmount  Decimal       @db.Decimal(12, 2)
   holdbackPct  Decimal?      @db.Decimal(5, 2)
-  status       String        @default("active")
+  status       EscrowStatus  @default(ACTIVE)
   transactions PaymentTxn[]
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
@@ -2564,3 +2571,78 @@ model LocationCostIndex {
   @@index([validUntil])
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Governance Sandbox — reputation-weighted proposals & voting (P4 Prometeo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A governance proposal that platform participants can vote on.
+/// Voting weight is derived from the proposer/voter reputation score (VCS).
+model GovernanceProposal {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  description String
+  category    String   @default("general") // general | platform | rules | incentives
+  status      String   @default("open")    // open | closed | passed | rejected | cancelled
+  /// Proposer userId
+  authorId    String
+  /// Snapshot of author reputation score at submission time
+  authorReputationScore Decimal  @default(0) @db.Decimal(6, 2)
+  /// MCA advisory note generated at submission
+  mcaAdvice   String?
+  /// MCA risk level: low | medium | high
+  mcaRisk     String   @default("low")
+  closesAt    DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  votes       GovernanceVote[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, closesAt])
+  @@index([authorId])
+}
+
+/// A vote cast on a governance proposal.
+/// Weight = voter reputation score at time of vote (quadratic cost applied on read).
+model GovernanceVote {
+  id           String   @id @default(cuid())
+  tenantId     String
+  proposalId   String
+  voterId      String
+  /// "for" | "against" | "abstain"
+  choice       String
+  /// Reputation score at time of vote — determines vote weight
+  voterReputationScore Decimal @default(0) @db.Decimal(6, 2)
+  /// Raw vote units cast (default 1; quadratic cost = units²)
+  units        Int      @default(1)
+  reason       String?
+  createdAt    DateTime @default(now())
+  proposal     GovernanceProposal @relation(fields: [proposalId], references: [id])
+
+  @@unique([proposalId, voterId])
+  @@index([tenantId, proposalId])
+  @@index([voterId])
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Governance Credit Ledger — P5 Prometeo participation tokens
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Append-only ledger of governance credit events per user.
+/// Credits decay over time; total determines governance tier.
+model GovernanceCreditEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  /// proposal_created | vote_cast | proposal_passed | proposal_rejected
+  eventType  String
+  credits    Decimal  @db.Decimal(8, 2)
+  /// serialized JSON context (proposalId, outcome, risk, etc.)
+  context    String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([userId, createdAt])
+}

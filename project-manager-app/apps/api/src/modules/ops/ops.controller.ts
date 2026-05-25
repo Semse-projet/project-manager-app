@@ -21,6 +21,7 @@ import { Optional } from "@nestjs/common";
 import type { PrometeoService } from "../prometeo/prometeo.service.js";
 import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
+import { BehavioralObserverService } from "./behavioral-observer.service.js";
 import { RecommendationEngineService } from "./recommendation-engine.service.js";
 import { SimulationEngineService } from "./simulation-engine.service.js";
 import { ApplyEngineService } from "./apply-engine.service.js";
@@ -42,6 +43,7 @@ export class OpsController {
     private readonly evolutionEngine: EvolutionEngineService,
     private readonly evolutionFeedback: EvolutionFeedbackService,
     private readonly ecosystemMetrics: EcosystemMetricsService,
+    private readonly behavioralObserver: BehavioralObserverService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -648,5 +650,14 @@ export class OpsController {
     });
 
     return ok(requestId, result);
+  }
+
+  /** Behavioral observation — human-side MCA: users, reputation, governance, market health. */
+  @Get("behavioral")
+  @RequirePermissions("ops:dashboard:read")
+  async getBehavioral(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const data = await this.behavioralObserver.observe(actor.tenantId);
+    return ok(resolveRequestId(req.headers ?? {}), data);
   }
 }

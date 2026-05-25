@@ -3,6 +3,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { isZeroVector } from "../prometeo/embedding.service.js";
+import { BehavioralObserverService, type BehavioralHealth } from "./behavioral-observer.service.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export type ObservationSnapshot = {
 
   patterns: SignalPattern[];
   alerts:   ObserverAlert[];
+  behavioralHealth: BehavioralHealth | null;
 };
 
 // ── Pattern rules ─────────────────────────────────────────────────────────────
@@ -89,15 +91,17 @@ export class SystemObserverService {
     private readonly prisma: PrismaService,
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly sse?: SseEventBusService,
+    @Optional() private readonly behavioralObserver?: BehavioralObserverService,
   ) {}
 
   async observe(tenantId: string): Promise<ObservationSnapshot> {
     const observedAt = new Date().toISOString();
 
-    const [infra, operational, intelligence] = await Promise.all([
+    const [infra, operational, intelligence, behavioralHealth] = await Promise.all([
       this.observeInfrastructure(),
       this.observeOperational(tenantId),
       this.observeIntelligence(tenantId),
+      this.behavioralObserver?.observe(tenantId).catch(() => null) ?? Promise.resolve(null),
     ]);
 
     const patterns = this.detectPatterns(operational);
@@ -114,6 +118,7 @@ export class SystemObserverService {
       intelligenceHealth: intelligence,
       patterns,
       alerts,
+      behavioralHealth: behavioralHealth ?? null,
     };
 
     // Keep last 50 in memory
