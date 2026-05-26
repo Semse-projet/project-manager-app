@@ -1,9 +1,13 @@
 ---
+id: api-job-lifecycle-bids
+title: "Job Lifecycle and Bids API"
 type: spec
 feature: "Job Lifecycle & Bids"
 domain: "jobs"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 branch: "feat/jobs-spec"
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
@@ -13,6 +17,22 @@ children:
   - "docs/specs/api/milestones.spec.md"
   - "docs/specs/api/evidence.spec.md"
   - "docs/specs/api/payments.spec.md"
+related_files:
+  - apps/api/src/modules/jobs
+  - apps/api/src/modules/bids
+  - packages/schemas/src/job.schema.ts
+related_tests:
+  - apps/api/test/jobs.fsm.test.ts
+  - apps/api/test/jobs.service.test.ts
+  - apps/api/test/marketplace-bids.test.ts
+related_endpoints:
+  - v1/jobs
+  - v1/bids
+related_events:
+  - job.status_changed
+related_agents:
+  - marketplace
+last_verified: 2026-05-25
 ---
 
 # Spec: Job Lifecycle & Bids

@@ -1,14 +1,34 @@
 ---
+id: api-milestone-lifecycle
+title: "Milestone Lifecycle API"
 type: spec
 feature: "Milestone Lifecycle"
 domain: "milestones"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: critical
 branch: "feat/milestone-spec"
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
 plan: "docs/specs/api/milestones.plan.md"
+related_files:
+  - apps/api/src/modules/milestones
+  - apps/web/components/milestones
+  - packages/schemas/src/escrow-view.types.ts
+related_tests:
+  - apps/api/test/milestones.spec-contract.test.ts
+  - tests/e2e-semse/buildops-milestones.spec.ts
+related_endpoints:
+  - v1/milestones
+  - v1/jobs/:jobId/milestones
+related_events:
+  - milestone.submitted
+  - milestone.approved
+related_agents:
+  - evidence-coach
+last_verified: 2026-05-25
 ---
 
 # Spec: Milestone Lifecycle

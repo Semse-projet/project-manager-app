@@ -1,15 +1,38 @@
 ---
+id: api-evidence-upload-review
+title: "Evidence Upload and Review API"
 type: spec
 feature: "Evidence Upload & Review"
 domain: "evidence"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: critical
 branch: "feat/evidence-spec"
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
 plan: "docs/specs/api/evidence.plan.md"
 depends_on: "docs/specs/api/milestones.spec.md"
+related_files:
+  - apps/api/src/modules/evidence
+  - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
+  - packages/schemas/src/evidence.schema.ts
+related_tests:
+  - apps/api/test/evidence.spec-contract.test.ts
+  - apps/api/test/evidence-review.service.test.ts
+  - apps/api/test/evidence-crud-phase2.test.ts
+related_endpoints:
+  - v1/evidence
+  - v1/uploads
+related_events:
+  - evidence.uploaded
+  - evidence.validated
+  - evidence.rejected
+related_agents:
+  - evidence-coach
+  - evidence-analyzer
+last_verified: 2026-05-25
 ---
 
 # Spec: Evidence Upload & Review

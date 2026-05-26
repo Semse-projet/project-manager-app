@@ -1,12 +1,31 @@
 ---
+id: api-smart-intake
+title: "Smart Intake API"
 type: spec
 feature: "Smart Intake — Wizard Anónimo"
 domain: "smart-intake"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: medium
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/smart-intake
+  - apps/api/src/modules/intake-operations-bridge
+  - apps/web/lib/smart-intake.ts
+related_tests:
+  - apps/api/test/smart-intake-category-detection.test.ts
+  - apps/api/test/smart-intake-estimate.test.ts
+  - apps/api/test/intake-operations-bridge.service.test.ts
+related_endpoints:
+  - v1/intake
+related_events:
+  - buildops.bridge.completed
+related_agents:
+  - intake-interpreter
+last_verified: 2026-05-25
 ---
 
 # Spec: Smart Intake

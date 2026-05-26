@@ -1,12 +1,30 @@
 ---
+id: fsm-job-lifecycle
+title: "Job FSM"
 type: spec
 feature: "Job FSM"
 domain: "jobs"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 spec_index: "docs/SPEC_INDEX.md"
 source_of_truth: "apps/api/src/modules/jobs/jobs.service.ts — JOB_TRANSITIONS"
+related_files:
+  - apps/api/src/modules/jobs/jobs.service.ts
+  - apps/api/src/modules/jobs/jobs.controller.ts
+  - packages/schemas/src/job.schema.ts
+related_tests:
+  - apps/api/test/jobs.fsm.test.ts
+  - apps/api/test/jobs.service.test.ts
+related_endpoints:
+  - v1/jobs
+related_events:
+  - job.status_changed
+related_agents:
+  - marketplace
+last_verified: 2026-05-25
 ---
 
 # FSM Spec: Job Lifecycle

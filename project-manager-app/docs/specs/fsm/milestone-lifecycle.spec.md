@@ -1,12 +1,31 @@
 ---
+id: fsm-milestone-lifecycle
+title: "Milestone FSM"
 type: spec
 feature: "Milestone FSM"
 domain: "milestones"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: critical
 date: "2026-05-20"
 spec_index: "docs/SPEC_INDEX.md"
 source_of_truth: "apps/api/src/modules/milestones/milestones.policy.ts"
+related_files:
+  - apps/api/src/modules/milestones/milestones.policy.ts
+  - apps/api/src/modules/milestones/milestones.service.ts
+  - apps/api/src/modules/milestones/milestones.controller.ts
+related_tests:
+  - apps/api/test/milestones.spec-contract.test.ts
+  - tests/e2e-semse/buildops-milestones.spec.ts
+related_endpoints:
+  - v1/milestones
+related_events:
+  - milestone.submitted
+  - milestone.approved
+related_agents:
+  - evidence-coach
+last_verified: 2026-05-25
 ---
 
 # FSM Spec: Milestone Lifecycle

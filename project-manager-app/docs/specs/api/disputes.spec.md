@@ -1,9 +1,13 @@
 ---
+id: api-dispute-lifecycle
+title: "Dispute Lifecycle API"
 type: spec
 feature: "Dispute Lifecycle"
 domain: "disputes"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: critical
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
@@ -11,6 +15,19 @@ depends_on:
   - "docs/specs/api/jobs.spec.md"
   - "docs/specs/api/evidence.spec.md"
   - "docs/specs/api/payments.spec.md"
+related_files:
+  - apps/api/src/modules/disputes
+  - packages/schemas/src/dispute.schema.ts
+related_tests:
+  - apps/api/test/contracts-disputes.spec-contract.test.ts
+  - scripts/api-disputes-smoke.mjs
+related_endpoints:
+  - v1/disputes
+related_events:
+  - dispute.opened
+related_agents:
+  - dispute-analyzer
+last_verified: 2026-05-25
 ---
 
 # Spec: Dispute Lifecycle

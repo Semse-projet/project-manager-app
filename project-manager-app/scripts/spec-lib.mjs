@@ -31,6 +31,14 @@ export const CANONICAL_METADATA_FIELDS = [
   "last_verified",
 ];
 
+const LIST_METADATA_FIELDS = new Set([
+  "related_files",
+  "related_tests",
+  "related_endpoints",
+  "related_events",
+  "related_agents",
+]);
+
 export function findSpecFiles(rootDir = SPEC_ROOT) {
   const files = [];
 
@@ -152,6 +160,10 @@ export function normalizeList(value) {
 
 export function hasCanonicalMetadata(spec) {
   return CANONICAL_METADATA_FIELDS.filter((field) => {
+    if (LIST_METADATA_FIELDS.has(field) && Object.prototype.hasOwnProperty.call(spec.rawFrontmatter, field)) {
+      return true;
+    }
+
     const value = spec.metadata[field];
     return Array.isArray(value) ? value.length > 0 : Boolean(value);
   });

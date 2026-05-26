@@ -1,13 +1,32 @@
 ---
+id: ui-smart-intake-flow
+title: "Smart Intake UI Flow"
 type: spec
 feature: "Smart Intake UI Flow — Wizard Anónimo"
 domain: "ui"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: medium
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
 depends_on: "docs/specs/api/intake.spec.md"
+related_files:
+  - apps/web/components/project-intake
+  - apps/web/lib/smart-intake.ts
+  - apps/api/src/modules/smart-intake
+related_tests:
+  - apps/api/test/smart-intake-category-detection.test.ts
+  - apps/api/test/smart-intake-estimate.test.ts
+  - scripts/smart-intake-e2e-smoke.mjs
+related_endpoints:
+  - v1/intake
+related_events:
+  - buildops.bridge.completed
+related_agents:
+  - intake-interpreter
+last_verified: 2026-05-25
 ---
 
 # Spec: Smart Intake UI Flow

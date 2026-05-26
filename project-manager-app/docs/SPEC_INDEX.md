@@ -26,29 +26,30 @@
 
 | Spec ID | Domain | Status | Risk | API | UI | Tests | Related Files | Last Verified |
 |---|---|---|---|---|---|---|---|---|
-| [agents-semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | packages/agents | APPROVED | critical | yes | no | no | 0 | missing |
-| [api-buildops](docs/specs/api/buildops.spec.md) | buildops | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-communications](docs/specs/api/communications.spec.md) | communications | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-consciousness](docs/specs/api/consciousness.spec.md) | ops | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-contracts](docs/specs/api/contracts.spec.md) | contracts | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-disputes](docs/specs/api/disputes.spec.md) | disputes | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-evidence](docs/specs/api/evidence.spec.md) | evidence | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-intake](docs/specs/api/intake.spec.md) | smart-intake | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-jobs](docs/specs/api/jobs.spec.md) | jobs | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-milestones](docs/specs/api/milestones.spec.md) | milestones | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-payments](docs/specs/api/payments.spec.md) | payments | APPROVED | missing | yes | no | no | 0 | missing |
-| [api-prometeo](docs/specs/api/prometeo.spec.md) | prometeo | APPROVED | missing | yes | no | no | 0 | missing |
-| [fsm-buildops-lifecycle](docs/specs/fsm/buildops-lifecycle.spec.md) | buildops | APPROVED | missing | no | no | no | 0 | missing |
-| [fsm-escrow-lifecycle](docs/specs/fsm/escrow-lifecycle.spec.md) | payments | APPROVED | missing | no | no | no | 0 | missing |
-| [fsm-job-lifecycle](docs/specs/fsm/job-lifecycle.spec.md) | jobs | APPROVED | missing | no | no | no | 0 | missing |
-| [fsm-milestone-lifecycle](docs/specs/fsm/milestone-lifecycle.spec.md) | milestones | APPROVED | missing | no | no | no | 0 | missing |
-| [tools-fase-1-m1-1-material-pricing](docs/specs/tools/fase-1/m1.1-material-pricing.spec.md) | packages/tools + packages/integrations | DRAFT | missing | no | no | no | 0 | missing |
-| [ui-admin-flows](docs/specs/ui/admin-flows.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
-| [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
-| [ui-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
-| [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | APPROVED | missing | yes | yes | no | 0 | missing |
+| [semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | APPROVED | high | yes | no | yes | 5 | 2026-05-25 |
+| [api-buildops](docs/specs/api/buildops.spec.md) | buildops | APPROVED | high | yes | yes | yes | 3 | 2026-05-25 |
+| [api-communications](docs/specs/api/communications.spec.md) | communications | APPROVED | high | yes | no | yes | 2 | 2026-05-25 |
+| [api-consciousness-observer](docs/specs/api/consciousness.spec.md) | ops | APPROVED | medium | yes | yes | yes | 3 | 2026-05-25 |
+| [api-contract-lifecycle](docs/specs/api/contracts.spec.md) | contracts | APPROVED | high | yes | no | yes | 2 | 2026-05-25 |
+| [api-dispute-lifecycle](docs/specs/api/disputes.spec.md) | disputes | APPROVED | critical | yes | no | yes | 2 | 2026-05-25 |
+| [api-evidence-upload-review](docs/specs/api/evidence.spec.md) | evidence | APPROVED | critical | yes | no | yes | 3 | 2026-05-25 |
+| [api-smart-intake](docs/specs/api/intake.spec.md) | smart-intake | APPROVED | medium | yes | yes | yes | 3 | 2026-05-25 |
+| [api-job-lifecycle-bids](docs/specs/api/jobs.spec.md) | jobs | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
+| [api-milestone-lifecycle](docs/specs/api/milestones.spec.md) | milestones | APPROVED | critical | yes | yes | yes | 3 | 2026-05-25 |
+| [api-payments-escrow](docs/specs/api/payments.spec.md) | payments | APPROVED | critical | yes | no | yes | 4 | 2026-05-25 |
+| [api-prometeo-rag-trade-knowledge](docs/specs/api/prometeo.spec.md) | prometeo | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
+| [fsm-buildops-plan-lifecycle](docs/specs/fsm/buildops-lifecycle.spec.md) | buildops | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
+| [fsm-escrow-lifecycle](docs/specs/fsm/escrow-lifecycle.spec.md) | payments | APPROVED | critical | yes | no | yes | 3 | 2026-05-25 |
+| [fsm-job-lifecycle](docs/specs/fsm/job-lifecycle.spec.md) | jobs | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
+| [fsm-milestone-lifecycle](docs/specs/fsm/milestone-lifecycle.spec.md) | milestones | APPROVED | critical | yes | no | yes | 3 | 2026-05-25 |
+| [m1-1-material-pricing](docs/specs/tools/fase-1/m1.1-material-pricing.spec.md) | tools | DRAFT | medium | yes | no | yes | 4 | 2026-05-25 |
+| [ui-admin-flows](docs/specs/ui/admin-flows.spec.md) | ui | APPROVED | high | yes | yes | yes | 3 | 2026-05-25 |
+| [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | APPROVED | high | yes | yes | yes | 4 | 2026-05-25 |
+| [ui-smart-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | APPROVED | medium | yes | yes | yes | 3 | 2026-05-25 |
+| [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | APPROVED | high | yes | yes | yes | 4 | 2026-05-25 |
 
 <!-- SPEC_INDEX:END -->
+
 
 ## NIVEL 0 — Constitución y Gobierno
 

@@ -1,9 +1,13 @@
 ---
+id: api-payments-escrow
+title: "Payments and Escrow API"
 type: spec
 feature: "Payments & Escrow"
 domain: "payments"
 version: "1.0"
 status: "APPROVED"
+owner: semse-core
+risk: critical
 branch: "feat/payments-spec"
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
@@ -12,6 +16,24 @@ plan: "docs/specs/api/payments.plan.md"
 depends_on:
   - "docs/specs/api/milestones.spec.md"
   - "docs/specs/api/evidence.spec.md"
+related_files:
+  - apps/api/src/modules/payments
+  - packages/schemas/src/payment.schema.ts
+  - packages/schemas/src/escrow-view.types.ts
+  - packages/db/prisma/schema.prisma
+related_tests:
+  - apps/api/test/payments.spec-contract.test.ts
+  - apps/api/test/payment-governance.service.test.ts
+  - tests/unit/payment-escrow-status-prisma.test.ts
+related_endpoints:
+  - v1/payments
+  - v1/escrow
+related_events:
+  - payment.released
+related_agents:
+  - crowd
+  - Justus
+last_verified: 2026-05-25
 ---
 
 # Spec: Payments & Escrow
