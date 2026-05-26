@@ -306,7 +306,7 @@ function CreateProposalModal({ tenantId, onCreated, onClose }: {
                 <Shield size={16} color="#86efac" />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: "#86efac" }}>Propuesta creada</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>"{result.title}"</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>&ldquo;{result.title}&rdquo;</div>
                 </div>
               </div>
 
