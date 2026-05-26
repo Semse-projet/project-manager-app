@@ -135,6 +135,26 @@ export const routes: Routes = [
         data: { roles: ['OPS_ADMIN'], section: 'Operaciones' },
         loadComponent: () => import('./features/ops/admin-dashboard.page').then((m) => m.AdminDashboardPageComponent),
       },
+      {
+        path: 'admin/prometeo',
+        title: 'Brechas Prometeo',
+        data: {
+          roles: ['OPS_ADMIN'],
+          section: 'Operaciones',
+          assistant: {
+            enabled: true,
+            label: 'Prometeo Estrategia',
+            title: 'Cierra las brechas estratégicas de Prometeo.',
+            subtitle: 'Usa el asistente para crear el modelo de negocio, el community playbook o la risk matrix de las fases.',
+            quickPrompts: [
+              'Crea un modelo de negocio documentado para SEMSE OS.',
+              '¿Cómo estructuro la gestión del equipo de 8 personas en Prometeo?',
+              'Crea una Risk Matrix para las fases F1 a F5.',
+            ],
+          },
+        },
+        loadComponent: () => import('./features/ops/prometeo-gaps.page').then((m) => m.PrometeoGapsPageComponent),
+      },
     ],
   },
   {
