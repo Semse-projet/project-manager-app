@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, RawBody, Req, Res, ServiceUnavailableException } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
 import { CommunicationProvider, CommunicationThreadStatus } from "@prisma/client";
 import {
   communicationChannelAccountCreateSchema,
@@ -38,11 +38,6 @@ function parseOffset(offset?: string): number {
   const parsed = Number(offset);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
   return Math.trunc(parsed);
-}
-
-function singleHeader(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value.length === 1 ? value[0] : undefined;
-  return typeof value === "string" ? value : undefined;
 }
 
 @Controller("v1/communications")
@@ -185,22 +180,13 @@ export class CommunicationsController {
 
   @Post("webhooks/whatsapp")
   @Public()
-  async receiveWhatsAppWebhook(
-    @Req() req: FastifyRequest,
-    @Body() body: unknown,
-    @RawBody() rawBody?: Buffer,
-  ) {
+  async receiveWhatsAppWebhook(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
-    if (!this.whatsapp.appSecret && this.whatsapp.requiresWebhookSignature) {
-      throw new ServiceUnavailableException("WHATSAPP_APP_SECRET is not configured");
-    }
+    const signature = req.headers["x-hub-signature-256"];
+    const rawBody = (req as FastifyRequest & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
 
-    const validSignature = this.whatsapp.validateWebhookSignature({
-      payload: rawBody,
-      signatureHeader: singleHeader(req.headers["x-hub-signature-256"]),
-    });
-    if (!validSignature) {
-      throw new ForbiddenException("Invalid WhatsApp webhook signature");
+    if (!this.whatsapp.validateSignature(rawBody, typeof signature === "string" ? signature : undefined)) {
+      throw new ForbiddenException("invalid webhook signature");
     }
 
     return ok(rid, await this.communications.handleWhatsAppWebhook(body));
