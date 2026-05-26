@@ -90,7 +90,10 @@ export class AppShellComponent {
       case 'PRO':
         return [{ label: 'Dashboard pro', href: '/worker/dashboard', caption: 'Operacion del profesional' }];
       default:
-        return [{ label: 'Control tower', href: '/admin/dashboard', caption: 'Estado de plataforma' }];
+        return [
+          { label: 'Control tower', href: '/admin/dashboard', caption: 'Estado de plataforma' },
+          { label: 'Brechas Prometeo', href: '/admin/prometeo', caption: 'Análisis estratégico' },
+        ];
     }
   });
 

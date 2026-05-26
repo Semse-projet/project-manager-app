@@ -34,7 +34,7 @@ const MILESTONE_STATUS_VARIANT: Record<BuildOpsMilestone["status"], "default" | 
 const TRADE_LINKS: { label: string; href: string }[] = [
   { label: "Roofing", href: "/tools/roofing" },
   { label: "Concrete", href: "/tools/concrete" },
-  { label: "Electrical", href: "/tools/electrical" },
+  { label: "Electrical", href: "/tools/electrical/dashboard" },
   { label: "Plumbing", href: "/tools/plumbing" },
   { label: "HVAC", href: "/tools/hvac" },
   { label: "Painting", href: "/tools/painting" },

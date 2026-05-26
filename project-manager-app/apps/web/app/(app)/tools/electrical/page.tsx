@@ -2,15 +2,9 @@ import { ElectricalToolClient } from "./electrical-tool-client";
 
 export const metadata = {
   title: "Electrical Tool · SEMSE",
-  description: "Electrical calculator connected to the SEMSE tools API.",
+  description: "Electrical operations module with dashboard, estimate, scope, materials, milestones, evidence and load analysis.",
 };
 
 export default function ElectricalToolPage() {
-  return (
-    <main className="min-h-screen bg-slate-950 p-6">
-      <div className="mx-auto max-w-6xl">
-        <ElectricalToolClient />
-      </div>
-    </main>
-  );
+  return <ElectricalToolClient section="dashboard" />;
 }

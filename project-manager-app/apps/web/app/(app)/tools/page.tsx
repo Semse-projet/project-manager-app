@@ -72,6 +72,23 @@ export default function ToolsHubPage() {
           </div>
         </Card>
 
+        <Card className="grid gap-4 border-amber-400/20 bg-amber-400/[0.04]">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-ink">Electrical operations module</h2>
+              <p className="text-sm text-muted">
+                Dashboard, calculator, scope, materials, milestones, evidence, payments, rough-in, circuit load analysis and web research.
+              </p>
+            </div>
+            <Link
+              href="/tools/electrical/dashboard"
+              className="inline-flex items-center justify-center rounded-lg bg-amber-300 px-4 py-2 text-sm font-semibold text-[#0a0a14] transition-all hover:bg-amber-200"
+            >
+              Open electrical dashboard
+            </Link>
+          </div>
+        </Card>
+
         <Card className="grid gap-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
