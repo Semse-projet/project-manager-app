@@ -155,6 +155,34 @@ export type DisputeRiskSnapshot = {
   factors: string[];
 };
 
+export type ElectricalResearchCategory =
+  | "materials"
+  | "code"
+  | "permit"
+  | "pricing"
+  | "innovation"
+  | "safety"
+  | "general";
+
+export type ElectricalResearchResult = {
+  title: string;
+  url: string;
+  snippet: string;
+  source?: string;
+};
+
+export type ElectricalResearchResponse = {
+  provider: "brave" | "tavily" | "offline";
+  query: string;
+  category: ElectricalResearchCategory;
+  generatedAt: string;
+  answer?: string;
+  results: ElectricalResearchResult[];
+  recommendations: string[];
+  gates: string[];
+  warnings: string[];
+};
+
 async function postToolEndpoint<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(path, {
     method: "POST",
@@ -210,4 +238,13 @@ export async function calculateSemseTool(input: ToolCalculateRequest): Promise<S
   }
 
   return payload.data;
+}
+
+export async function researchElectricalTool(input: {
+  query: string;
+  category?: ElectricalResearchCategory;
+  location?: string;
+  maxResults?: number;
+}): Promise<ElectricalResearchResponse> {
+  return postToolEndpoint<ElectricalResearchResponse>("/api/semse/tools/electrical/research", input);
 }
