@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
   computeVoteWeight,
@@ -51,86 +51,100 @@ export class GovernanceService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createProposal(dto: CreateProposalDto) {
-    // Snapshot author reputation
-    const authorScore = await this.resolveReputationScore(dto.authorId, dto.tenantId);
-    const mcaRisk = classifyProposalRisk(dto.category ?? "general", authorScore);
+    try {
+      // Snapshot author reputation
+      const authorScore = await this.resolveReputationScore(dto.authorId, dto.tenantId);
+      const mcaRisk = classifyProposalRisk(dto.category ?? "general", authorScore);
 
-    const mcaAdvice = this.buildMcaAdvice(dto, mcaRisk, authorScore);
+      const mcaAdvice = this.buildMcaAdvice(dto, mcaRisk, authorScore);
 
-    const proposal = await this.prisma.governanceProposal.create({
-      data: {
-        tenantId: dto.tenantId,
-        title: dto.title,
-        description: dto.description,
-        category: dto.category ?? "general",
-        authorId: dto.authorId,
-        authorReputationScore: authorScore,
-        mcaAdvice,
-        mcaRisk,
-        closesAt: dto.closesAt,
-      },
-    });
+      const proposal = await this.prisma.governanceProposal.create({
+        data: {
+          tenantId: dto.tenantId,
+          title: dto.title,
+          description: dto.description,
+          category: dto.category ?? "general",
+          authorId: dto.authorId,
+          authorReputationScore: authorScore,
+          mcaAdvice,
+          mcaRisk,
+          closesAt: dto.closesAt,
+        },
+      });
 
-    // Award governance credits for creating proposal
-    await this.awardCredits(dto.tenantId, dto.authorId, {
-      type: "proposal_created",
-      proposalRisk: mcaRisk as "low" | "medium" | "high",
-      createdAt: new Date(),
-    });
+      // Award governance credits for creating proposal
+      await this.awardCredits(dto.tenantId, dto.authorId, {
+        type: "proposal_created",
+        proposalRisk: mcaRisk as "low" | "medium" | "high",
+        createdAt: new Date(),
+      });
 
-    this.logger.log(
-      `[Governance] proposal created id=${proposal.id} author=${dto.authorId} risk=${mcaRisk} score=${authorScore}`,
-    );
+      this.logger.log(
+        `[Governance] proposal created id=${proposal.id} author=${dto.authorId} risk=${mcaRisk} score=${authorScore}`,
+      );
 
-    return proposal;
+      return proposal;
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof ConflictException || err instanceof ForbiddenException) throw err;
+      const msg = err instanceof Error ? `${err.constructor.name}: ${err.message}` : String(err);
+      this.logger.error(`[Governance] createProposal failed: ${msg}`);
+      throw new InternalServerErrorException(msg);
+    }
   }
 
   async castVote(dto: CastVoteDto) {
-    const units = dto.units ?? 1;
+    try {
+      const units = dto.units ?? 1;
 
-    const validation = validateVote(dto.choice, units);
-    if (!validation.valid) throw new ForbiddenException(validation.reason);
+      const validation = validateVote(dto.choice, units);
+      if (!validation.valid) throw new ForbiddenException(validation.reason);
 
-    const proposal = await this.prisma.governanceProposal.findUnique({
-      where: { id: dto.proposalId },
-    });
-    if (!proposal) throw new NotFoundException("Proposal not found");
-    if (proposal.status !== "open") throw new ConflictException("Proposal is not open for voting");
-    if (new Date() > proposal.closesAt) throw new ConflictException("Proposal voting period has ended");
+      const proposal = await this.prisma.governanceProposal.findUnique({
+        where: { id: dto.proposalId },
+      });
+      if (!proposal) throw new NotFoundException("Proposal not found");
+      if (proposal.status !== "open") throw new ConflictException("Proposal is not open for voting");
+      if (new Date() > proposal.closesAt) throw new ConflictException("Proposal voting period has ended");
 
-    const voterScore = await this.resolveReputationScore(dto.voterId, dto.tenantId);
-    const weight = computeVoteWeight(voterScore, units);
+      const voterScore = await this.resolveReputationScore(dto.voterId, dto.tenantId);
+      const weight = computeVoteWeight(voterScore, units);
 
-    const existing = await this.prisma.governanceVote.findUnique({
-      where: { proposalId_voterId: { proposalId: dto.proposalId, voterId: dto.voterId } },
-    });
-    if (existing) throw new ConflictException("Voter has already voted on this proposal");
+      const existing = await this.prisma.governanceVote.findUnique({
+        where: { proposalId_voterId: { proposalId: dto.proposalId, voterId: dto.voterId } },
+      });
+      if (existing) throw new ConflictException("Voter has already voted on this proposal");
 
-    const vote = await this.prisma.governanceVote.create({
-      data: {
-        tenantId: dto.tenantId,
-        proposalId: dto.proposalId,
-        voterId: dto.voterId,
-        choice: dto.choice,
-        voterReputationScore: voterScore,
-        units,
-        reason: dto.reason,
-      },
-    });
+      const vote = await this.prisma.governanceVote.create({
+        data: {
+          tenantId: dto.tenantId,
+          proposalId: dto.proposalId,
+          voterId: dto.voterId,
+          choice: dto.choice,
+          voterReputationScore: voterScore,
+          units,
+          reason: dto.reason,
+        },
+      });
 
-    // Award governance credits for voting
-    await this.awardCredits(dto.tenantId, dto.voterId, {
-      type: "vote_cast",
-      choice: dto.choice as "for" | "against" | "abstain",
-      outcome: "open", // outcome resolved at close time
-      createdAt: new Date(),
-    });
+      // Award governance credits for voting
+      await this.awardCredits(dto.tenantId, dto.voterId, {
+        type: "vote_cast",
+        choice: dto.choice as "for" | "against" | "abstain",
+        outcome: "open",
+        createdAt: new Date(),
+      });
 
-    this.logger.log(
-      `[Governance] vote cast proposalId=${dto.proposalId} voter=${dto.voterId} choice=${dto.choice} weight=${weight}`,
-    );
+      this.logger.log(
+        `[Governance] vote cast proposalId=${dto.proposalId} voter=${dto.voterId} choice=${dto.choice} weight=${weight}`,
+      );
 
-    return { ...vote, computedWeight: weight };
+      return { ...vote, computedWeight: weight };
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof ConflictException || err instanceof ForbiddenException) throw err;
+      const msg = err instanceof Error ? `${err.constructor.name}: ${err.message}` : String(err);
+      this.logger.error(`[Governance] castVote failed: ${msg}`);
+      throw new InternalServerErrorException(msg);
+    }
   }
 
   async listProposals(tenantId: string, status?: string) {
