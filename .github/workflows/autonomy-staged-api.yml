@@ -5,26 +5,30 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "apps/api/**"
-      - "packages/autonomy/**"
-      - "packages/schemas/**"
-      - "packages/shared/**"
-      - "packages/db/**"
-      - "scripts/api-autonomy-staged-smoke.mjs"
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/autonomy/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/shared/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/api-autonomy-staged-smoke.mjs"
       - ".github/workflows/autonomy-staged-api.yml"
   pull_request:
     paths:
-      - "apps/api/**"
-      - "packages/autonomy/**"
-      - "packages/schemas/**"
-      - "packages/shared/**"
-      - "packages/db/**"
-      - "scripts/api-autonomy-staged-smoke.mjs"
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/autonomy/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/shared/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/api-autonomy-staged-smoke.mjs"
       - ".github/workflows/autonomy-staged-api.yml"
 
 concurrency:
   group: autonomy-staged-api-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: project-manager-app
 
 jobs:
   autonomy-staged-smoke:
@@ -69,25 +73,31 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: npm run db:generate
+        run: pnpm db:generate
 
       - name: Apply database migrations
-        run: npm run db:migrate
+        run: pnpm db:migrate
 
       - name: Build API runtime
-        run: npm run build:api
+        run: pnpm build:api
 
       - name: Start API runtime
         run: |
@@ -108,7 +118,7 @@ jobs:
           exit 1
 
       - name: Run staged autonomy smoke
-        run: npm run smoke:autonomy:staged
+        run: pnpm smoke:autonomy:staged
 
       - name: Stop API runtime
         if: always()
@@ -119,7 +129,7 @@ jobs:
 
       - name: Upload autonomy staged API log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: autonomy-staged-api-log
           path: /tmp/semse-autonomy-staged-api.log

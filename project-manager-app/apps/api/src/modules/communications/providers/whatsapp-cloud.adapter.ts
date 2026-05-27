@@ -23,6 +23,24 @@ export type WhatsAppStatusUpdate = {
   rawPayload: Record<string, unknown>;
 };
 
+export function verifyWhatsAppWebhookSignature(input: {
+  payload: Buffer;
+  signatureHeader?: string;
+  appSecret?: string;
+}): boolean {
+  if (!input.appSecret || !input.signatureHeader?.startsWith("sha256=")) {
+    return false;
+  }
+
+  const expected = createHmac("sha256", input.appSecret)
+    .update(input.payload)
+    .digest("hex");
+  const expectedBuf = Buffer.from(`sha256=${expected}`, "utf8");
+  const receivedBuf = Buffer.from(input.signatureHeader, "utf8");
+
+  return expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -98,32 +116,33 @@ export class WhatsAppCloudAdapter {
     return (this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock") === "live";
   }
 
+  get requiresWebhookSignature(): boolean {
+    return this.isLiveMode || Boolean(this.appSecret);
+  }
+
   /**
    * Validates the X-Hub-Signature-256 header sent by Meta.
-   * Only enforced when SEMSE_COMMUNICATIONS_MODE=live and WHATSAPP_APP_SECRET is set.
+   * Enforced in live mode, or whenever WHATSAPP_APP_SECRET is configured.
    * Returns true when validation passes or is not required.
    */
-  validateSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
-    if (!this.isLiveMode || !this.appSecret) {
+  validateWebhookSignature(input: { payload: Buffer; signatureHeader?: string }): boolean {
+    if (!this.requiresWebhookSignature) {
       return true;
     }
 
-    if (!signatureHeader || !signatureHeader.startsWith("sha256=")) {
+    if (!this.appSecret) {
       return false;
     }
 
-    const expected = createHmac("sha256", this.appSecret)
-      .update(rawBody)
-      .digest("hex");
+    return verifyWhatsAppWebhookSignature({
+      payload: input.payload,
+      signatureHeader: input.signatureHeader,
+      appSecret: this.appSecret,
+    });
+  }
 
-    const expectedBuf = Buffer.from(`sha256=${expected}`, "utf8");
-    const receivedBuf = Buffer.from(signatureHeader, "utf8");
-
-    if (expectedBuf.length !== receivedBuf.length) {
-      return false;
-    }
-
-    return timingSafeEqual(expectedBuf, receivedBuf);
+  validateSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
+    return this.validateWebhookSignature({ payload: rawBody, signatureHeader });
   }
 
   async sendText(input: { to: string; body: string }): Promise<WhatsAppCloudSendResult> {

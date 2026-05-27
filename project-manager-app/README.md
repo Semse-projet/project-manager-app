@@ -23,19 +23,19 @@ Aplicación web local para gestión de proyectos, sin dependencias de runtime.
 Este repositorio ya tiene una base funcional (UI + validaciones + tests + CI).  
 Para evolucionarlo a **SEMSEproject (ConTech + Marketplace + FSM + Evidence + Escrow + Trust)** se documentó el blueprint en:
 
-- [docs/architecture/SEMSEPROJECT_BLUEPRINT.md](/home/yoni/labsemse/project-manager-app/docs/architecture/SEMSEPROJECT_BLUEPRINT.md)
-- [docs/architecture/SEMSE_IMPLEMENTATION_BACKLOG.md](/home/yoni/labsemse/project-manager-app/docs/architecture/SEMSE_IMPLEMENTATION_BACKLOG.md)
-- [docs/architecture/SEMSE_API_SURFACE_V1.md](/home/yoni/labsemse/project-manager-app/docs/architecture/SEMSE_API_SURFACE_V1.md)
-- [docs/security/SECURITY_BASELINE.md](/home/yoni/labsemse/project-manager-app/docs/security/SECURITY_BASELINE.md)
-- [docs/runbooks/LOCAL_BOOTSTRAP.md](/home/yoni/labsemse/project-manager-app/docs/runbooks/LOCAL_BOOTSTRAP.md)
-- [docs/runbooks/AGENTS_SMOKE_TEST.md](/home/yoni/labsemse/project-manager-app/docs/runbooks/AGENTS_SMOKE_TEST.md)
-- [docs/runbooks/API_INTEGRATION_TEST.md](/home/yoni/labsemse/project-manager-app/docs/runbooks/API_INTEGRATION_TEST.md)
-- [docs/runbooks/LOCAL_LLM_OLLAMA.md](/home/yoni/labsemse/project-manager-app/docs/runbooks/LOCAL_LLM_OLLAMA.md)
-- [infra/docker/compose.semse-mvp.yml](/home/yoni/labsemse/project-manager-app/infra/docker/compose.semse-mvp.yml)
+- [docs/architecture/SEMSEPROJECT_BLUEPRINT.md](docs/architecture/SEMSEPROJECT_BLUEPRINT.md)
+- [docs/architecture/SEMSE_IMPLEMENTATION_BACKLOG.md](docs/architecture/SEMSE_IMPLEMENTATION_BACKLOG.md)
+- [docs/architecture/SEMSE_API_SURFACE_V1.md](docs/architecture/SEMSE_API_SURFACE_V1.md)
+- [docs/security/SECURITY_BASELINE.md](docs/security/SECURITY_BASELINE.md)
+- [docs/runbooks/LOCAL_BOOTSTRAP.md](docs/runbooks/LOCAL_BOOTSTRAP.md)
+- [docs/runbooks/AGENTS_SMOKE_TEST.md](docs/runbooks/AGENTS_SMOKE_TEST.md)
+- [docs/runbooks/API_INTEGRATION_TEST.md](docs/runbooks/API_INTEGRATION_TEST.md)
+- [docs/runbooks/LOCAL_LLM_OLLAMA.md](docs/runbooks/LOCAL_LLM_OLLAMA.md)
+- [infra/docker/compose.semse-mvp.yml](infra/docker/compose.semse-mvp.yml)
 
 Nota operativa LLM local:
 - para autonomía útil, el baseline recomendado ya no es `llama3.2:1b`
-- usar `qwen2.5:3b` con `npm run dev:api:local-llm` o `npm run start:api:local-llm`
+- usar `qwen2.5:3b` con `pnpm dev:api:local-llm` o `pnpm start:api:local-llm`
 
 ### Avance técnico Fase 0 ya agregado
 
@@ -43,15 +43,15 @@ Nota operativa LLM local:
   - `apps/web`, `apps/api`, `apps/worker`
   - `packages/ui`, `packages/shared`, `packages/schemas`, `packages/db`, `packages/auth`, `packages/agents`
 - API base en NestJS (scaffold):
-  - [`apps/api/src/main.ts`](/home/yoni/labsemse/project-manager-app/apps/api/src/main.ts)
-  - [`apps/api/src/app.module.ts`](/home/yoni/labsemse/project-manager-app/apps/api/src/app.module.ts)
+  - [`apps/api/src/main.ts`](apps/api/src/main.ts)
+  - [`apps/api/src/app.module.ts`](apps/api/src/app.module.ts)
   - Controladores `v1`: health, auth, jobs, bids, projects, milestones, evidence, payments/escrow, disputes, ops, agents.
 - Worker base ejecutable:
-  - [`apps/worker/src/main.mjs`](/home/yoni/labsemse/project-manager-app/apps/worker/src/main.mjs) con ciclo `claim -> heartbeat -> complete/fail`.
+  - [`apps/worker/src/main.mjs`](apps/worker/src/main.mjs) con ciclo `claim -> heartbeat -> complete/fail`.
 - Modelo de datos base Prisma:
-  - [`packages/db/prisma/schema.prisma`](/home/yoni/labsemse/project-manager-app/packages/db/prisma/schema.prisma)
+  - [`packages/db/prisma/schema.prisma`](packages/db/prisma/schema.prisma)
 - Contratos Zod iniciales:
-  - [`packages/schemas/src/index.ts`](/home/yoni/labsemse/project-manager-app/packages/schemas/src/index.ts)
+  - [`packages/schemas/src/index.ts`](packages/schemas/src/index.ts)
 
 ### Boot de infraestructura local (SEMSE MVP)
 
@@ -113,27 +113,27 @@ Configurados para `Samuelcastella/project-manager-app`:
 ### Unitarios (Node test runner)
 
 ```bash
-npm run test:unit
+pnpm test:unit
 ```
 
 ### Cobertura con c8 (con umbrales)
 
 ```bash
-npm run coverage
+pnpm coverage
 # o:
-npm run test:coverage
+pnpm test:coverage
 ```
 
 ### Pipeline local equivalente a CI
 
 ```bash
-npm run test:ci
+pnpm test:ci
 ```
 
 ### Verificación estructural del workspace
 
 ```bash
-npm run verify:workspace
+pnpm verify:workspace
 ```
 
 Este comando ejecuta:
@@ -158,7 +158,7 @@ Cobertura actual:
 ### E2E (Playwright)
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
 
 Escenarios actuales:
@@ -177,53 +177,53 @@ Escenarios actuales:
 Si es la primera vez:
 
 ```bash
-npm install
-npx playwright install chromium
+pnpm install
+pnpm exec playwright install chromium
 ```
 
 ## CI
 
-Se agregó pipeline en [`.github/workflows/ci.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/ci.yml) con jobs de calidad y cobertura:
+Se agregó pipeline en [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml) con jobs de calidad y cobertura:
 - `quality-gates`: ejecuta `lint` API/web, tests unitarios API, `build:api` y `tsc --noEmit` del web.
-- `unit-coverage`: ejecuta `npm run test:coverage` sobre `@semse/api`, valida umbrales y publica resumen de cobertura en el run.
-- `e2e`: ejecuta Playwright (`chromium`) con `npm run test:e2e` y sube artefactos para debugging.
-- Smoke API de agentes en [`.github/workflows/api-smoke.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/api-smoke.yml):
+- `unit-coverage`: ejecuta `pnpm test:coverage` sobre `@semse/api`, valida umbrales y publica resumen de cobertura en el run.
+- `e2e`: ejecuta Playwright (`chromium`) con `pnpm test:e2e` y sube artefactos para debugging.
+- Smoke API de agentes en [`../.github/workflows/api-smoke.yml`](../.github/workflows/api-smoke.yml):
   levanta `apps/api` y ejecuta `scripts/agent-flow-smoke.sh` (manual y en cambios relevantes).
-- Integración API de dominio en [`.github/workflows/api-integration.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/api-integration.yml):
+- Integración API de dominio en [`../.github/workflows/api-integration.yml`](../.github/workflows/api-integration.yml):
   levanta `apps/api` y ejecuta `node scripts/api-integration.mjs`.
-- Verificación BCP + API de operación asistida en [`.github/workflows/operacion-asistida-api.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/operacion-asistida-api.yml):
-  levanta `postgres` y `redis`, construye `apps/api`, ejecuta `npm run verify:operacion-asistida:api-local`,
-  `npm run review:operacion-asistida:risk` y `npm run drill:operacion-asistida:restore`.
-  El cierre operativo completo del módulo queda disponible además con `npm run verify:operacion-asistida:module`.
+- Verificación BCP + API de operación asistida en [`../.github/workflows/operacion-asistida-api.yml`](../.github/workflows/operacion-asistida-api.yml):
+  levanta `postgres` y `redis`, construye `apps/api`, ejecuta `pnpm verify:operacion-asistida:api-local`,
+  `pnpm review:operacion-asistida:risk` y `pnpm drill:operacion-asistida:restore`.
+  El cierre operativo completo del módulo queda disponible además con `pnpm verify:operacion-asistida:module`.
 
 ### Reporte externo de cobertura (Codecov)
 
-- Se agregó configuración en [codecov.yml](/home/yoni/labsemse/project-manager-app/codecov.yml).
-- El workflow sube `coverage/lcov.info` a Codecov en cada ejecución.
+- Se agregó configuración en [codecov.yml](codecov.yml).
+- El workflow sube `apps/api/coverage/lcov.info` a Codecov en cada ejecución.
 - Si tu repositorio es privado, define el secret `CODECOV_TOKEN` en GitHub:
   `Settings -> Secrets and variables -> Actions -> New repository secret`.
 - Si es público, el token suele no ser necesario (puedes dejarlo vacío).
 
 ### Mantenimiento automático de dependencias
 
-- Se agregó [`.github/dependabot.yml`](/home/yoni/labsemse/project-manager-app/.github/dependabot.yml).
+- Se agregó [`../.github/dependabot.yml`](../.github/dependabot.yml).
 - Dependabot revisa semanalmente:
   - Dependencias `npm`.
   - Versiones de `GitHub Actions`.
 
 ## Releases
 
-- Se agregó workflow de release en [`.github/workflows/release.yml`](/home/yoni/labsemse/project-manager-app/.github/workflows/release.yml).
+- Se agregó workflow de release en [`../.github/workflows/release.yml`](../.github/workflows/release.yml).
 - Al hacer push de un tag `v*.*.*`, el pipeline:
-  - Ejecuta la suite completa (`npm run test:ci`).
+  - Ejecuta la suite completa (`pnpm test:ci`).
   - Crea un GitHub Release automático con notas generadas.
 
 Comandos para versionar:
 
 ```bash
-npm run release:patch   # v1.0.0 -> v1.0.1
-npm run release:minor   # v1.0.0 -> v1.1.0
-npm run release:major   # v1.0.0 -> v2.0.0
+pnpm release:patch   # v1.0.0 -> v1.0.1
+pnpm release:minor   # v1.0.0 -> v1.1.0
+pnpm release:major   # v1.0.0 -> v2.0.0
 git push --follow-tags
 ```
 
@@ -232,7 +232,7 @@ git push --follow-tags
 Si aún no publicaste el repo remoto:
 
 ```bash
-cd /home/yoni/labsemse/project-manager-app
+cd project-manager-app
 git init
 git add .
 git commit -m "feat: project manager app with tests and CI"
@@ -247,6 +247,6 @@ Abre `index.html` en tu navegador.
 
 ## Gestión del proyecto
 
-- Changelog: [CHANGELOG.md](/home/yoni/labsemse/project-manager-app/CHANGELOG.md)
-- Roadmap: [ROADMAP.md](/home/yoni/labsemse/project-manager-app/ROADMAP.md)
-- Plantilla de PR: [pull_request_template.md](/home/yoni/labsemse/project-manager-app/.github/pull_request_template.md)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Roadmap: [ROADMAP.md](ROADMAP.md)
+- Plantilla de PR: [pull_request_template.md](../.github/pull_request_template.md)
