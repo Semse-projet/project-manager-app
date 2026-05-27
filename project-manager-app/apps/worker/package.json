@@ -10,7 +10,7 @@
   "dependencies": {
     "@semse/agents": "workspace:*",
     "@semse/shared": "workspace:*",
-    "bullmq": "^5.50.1",
+    "bullmq": "^5.77.6",
     "ioredis": "^5.4.2",
     "pino": "^9.6.0"
   }

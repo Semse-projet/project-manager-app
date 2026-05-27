@@ -31,7 +31,7 @@
     "@semse/schemas": "workspace:*",
     "@semse/shared": "workspace:*",
     "@types/pdfkit": "^0.17.6",
-    "bullmq": "^5.50.1",
+    "bullmq": "^5.77.6",
     "ioredis": "^5.4.2",
     "mammoth": "^1.12.0",
     "openai": "^6.34.0",
