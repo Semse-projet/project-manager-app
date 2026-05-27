@@ -152,7 +152,7 @@ async function fundEscrow(jobId, contractId, amount) {
     amount,
     currency: "USD"
   });
-  assertCanonicalValue(json.data.transaction.type, "deposit");
+  assertCanonicalValue(json.data.transaction.type, "fund");
   assert.equal(json.data.contract.id, contractId);
 }
 
