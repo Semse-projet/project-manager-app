@@ -5,42 +5,67 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "apps/api/**"
-      - "apps/worker/**"
-      - "scripts/agent-flow-smoke.sh"
-      - "docs/runbooks/AGENTS_SMOKE_TEST.md"
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/apps/worker/**"
+      - "project-manager-app/scripts/agent-flow-smoke.sh"
+      - "project-manager-app/docs/runbooks/AGENTS_SMOKE_TEST.md"
       - ".github/workflows/api-smoke.yml"
 
 concurrency:
   group: api-smoke-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: project-manager-app
+
 jobs:
   agent-flow-smoke:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
 
-      - name: Install root dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Install API dependencies
-        run: npm --prefix apps/api install --no-audit --no-fund
+      - name: Apply database migrations
+        run: pnpm db:migrate
 
       - name: Start API
         run: |
-          npm --prefix apps/api run dev > /tmp/semse-api.log 2>&1 &
+          pnpm dev:api > /tmp/semse-api.log 2>&1 &
           echo $! > /tmp/semse-api.pid
 
       - name: Wait for healthcheck
@@ -72,7 +97,7 @@ jobs:
 
       - name: Upload API log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: api-smoke-log
           path: /tmp/semse-api.log

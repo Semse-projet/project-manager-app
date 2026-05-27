@@ -5,34 +5,38 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "apps/api/**"
-      - "packages/auth/**"
-      - "packages/knowledge/**"
-      - "packages/shared/**"
-      - "packages/schemas/**"
-      - "packages/agents/**"
-      - "packages/autonomy/**"
-      - "packages/db/**"
-      - "scripts/operacion-asistida-*.mjs"
-      - "docs/bcp/**"
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/auth/**"
+      - "project-manager-app/packages/knowledge/**"
+      - "project-manager-app/packages/shared/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/agents/**"
+      - "project-manager-app/packages/autonomy/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/operacion-asistida-*.mjs"
+      - "project-manager-app/docs/bcp/**"
       - ".github/workflows/operacion-asistida-api.yml"
   pull_request:
     paths:
-      - "apps/api/**"
-      - "packages/auth/**"
-      - "packages/knowledge/**"
-      - "packages/shared/**"
-      - "packages/schemas/**"
-      - "packages/agents/**"
-      - "packages/autonomy/**"
-      - "packages/db/**"
-      - "scripts/operacion-asistida-*.mjs"
-      - "docs/bcp/**"
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/auth/**"
+      - "project-manager-app/packages/knowledge/**"
+      - "project-manager-app/packages/shared/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/agents/**"
+      - "project-manager-app/packages/autonomy/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/operacion-asistida-*.mjs"
+      - "project-manager-app/docs/bcp/**"
       - ".github/workflows/operacion-asistida-api.yml"
 
 concurrency:
   group: operacion-asistida-api-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: project-manager-app
 
 jobs:
   verify-operacion-asistida-api:
@@ -74,42 +78,48 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        run: npm run db:generate
+        run: pnpm db:generate
 
       - name: Build API runtime
-        run: npm run build:api
+        run: pnpm build:api
 
       - name: Verify operacion asistida dedicated store
-        run: npm run verify:operacion-asistida:dedicated-store
+        run: pnpm verify:operacion-asistida:dedicated-store
 
       - name: Generate operacion asistida risk review
-        run: npm run review:operacion-asistida:risk
+        run: pnpm review:operacion-asistida:risk
 
       - name: Audit workspace memory legacy state
-        run: npm run audit:operacion-asistida:workspace-memory-legacy
+        run: pnpm audit:operacion-asistida:workspace-memory-legacy
 
       - name: Sync operacion asistida governance artifacts
-        run: npm run review:operacion-asistida:governance
+        run: pnpm review:operacion-asistida:governance
 
       - name: Run operacion asistida multienv restore simulation
-        run: npm run drill:operacion-asistida:restore:multienv
+        run: pnpm drill:operacion-asistida:restore:multienv
 
       - name: Upload BCP evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: operacion-asistida-bcp-evidence
-          path: docs/bcp/evidence/
+          path: project-manager-app/docs/bcp/evidence/
           if-no-files-found: ignore
