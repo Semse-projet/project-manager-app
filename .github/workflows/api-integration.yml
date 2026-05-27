@@ -68,14 +68,17 @@ jobs:
       - name: Apply database migrations
         run: pnpm db:migrate
 
+      - name: Build API runtime
+        run: pnpm build:api
+
       - name: Start API
         run: |
-          pnpm dev:api > /tmp/semse-api-integration.log 2>&1 &
+          pnpm start:api > /tmp/semse-api-integration.log 2>&1 &
           echo $! > /tmp/semse-api-integration.pid
 
       - name: Wait for healthcheck
         run: |
-          for i in {1..40}; do
+          for i in {1..60}; do
             if curl -sSf http://localhost:4000/v1/health >/dev/null; then
               echo "API is up"
               exit 0

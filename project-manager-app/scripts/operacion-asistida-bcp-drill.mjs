@@ -5,14 +5,15 @@ import { dirname, join } from "node:path";
 const now = new Date();
 const mode = readMode();
 const runStamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_").replace("Z", "Z");
+const defaultActorSuffix = String(now.getTime());
 
 const config = {
   mode,
   environmentName: process.env.SEMSE_BCP_ENV_NAME ?? (mode === "api" ? "api-local" : "local"),
   apiBaseUrl: process.env.SEMSE_API_URL ?? "http://127.0.0.1:4000",
-  tenantId: process.env.SEMSE_TENANT_ID ?? `tnt_bcp_drill_${Date.now()}`,
-  orgId: process.env.SEMSE_ORG_ID ?? "org_bcp",
-  userId: process.env.SEMSE_USER_ID ?? "usr_bcp_operator",
+  tenantId: process.env.SEMSE_TENANT_ID ?? `tnt_bcp_drill_${defaultActorSuffix}`,
+  orgId: process.env.SEMSE_ORG_ID ?? `org_bcp_${defaultActorSuffix}`,
+  userId: process.env.SEMSE_USER_ID ?? `usr_bcp_operator_${defaultActorSuffix}`,
   roles: process.env.SEMSE_ROLES ?? "OPS_ADMIN",
   authSecret: process.env.AUTH_SECRET,
   evidenceDir: process.env.SEMSE_BCP_EVIDENCE_DIR ?? join("docs", "bcp", "evidence"),

@@ -12,11 +12,23 @@ function inferOrgType(orgId: string): string {
   return "client";
 }
 
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
 @Injectable()
 export class ActorContextService {
   private readonly tenantCache = new Set<string>();
   private readonly orgCache = new Set<string>();
   private readonly userCache = new Set<string>();
+  private readonly tenantInflight = new Map<string, Promise<void>>();
+  private readonly orgInflight = new Map<string, Promise<void>>();
+  private readonly userInflight = new Map<string, Promise<void>>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -27,58 +39,79 @@ export class ActorContextService {
   }
 
   private async ensureTenant(tenantId: string): Promise<void> {
-    if (this.tenantCache.has(tenantId)) {
-      return;
-    }
-
-    await this.prisma.tenant.upsert({
-      where: { id: tenantId },
-      update: {},
-      create: {
-        id: tenantId,
-        slug: tenantId,
-        name: tenantId,
-        status: "active"
-      }
+    await this.ensureOnce(this.tenantCache, this.tenantInflight, tenantId, async () => {
+      await this.prisma.tenant.upsert({
+        where: { id: tenantId },
+        update: {},
+        create: {
+          id: tenantId,
+          slug: tenantId,
+          name: tenantId,
+          status: "active"
+        }
+      });
     });
-
-    this.tenantCache.add(tenantId);
   }
 
   private async ensureOrg(tenantId: string, orgId: string): Promise<void> {
-    if (this.orgCache.has(orgId)) {
-      return;
-    }
-
-    await this.prisma.org.upsert({
-      where: { id: orgId },
-      update: {},
-      create: {
-        id: orgId,
-        tenantId,
-        type: inferOrgType(orgId),
-        name: orgId
-      }
+    await this.ensureOnce(this.orgCache, this.orgInflight, orgId, async () => {
+      await this.prisma.org.upsert({
+        where: { id: orgId },
+        update: {},
+        create: {
+          id: orgId,
+          tenantId,
+          type: inferOrgType(orgId),
+          name: orgId
+        }
+      });
     });
-
-    this.orgCache.add(orgId);
   }
 
   private async ensureUser(userId: string): Promise<void> {
-    if (this.userCache.has(userId)) {
+    await this.ensureOnce(this.userCache, this.userInflight, userId, async () => {
+      await this.prisma.user.upsert({
+        where: { id: userId },
+        update: {},
+        create: {
+          id: userId,
+          email: `${userId}@semse.local`,
+          status: "active"
+        }
+      });
+    });
+  }
+
+  private async ensureOnce(
+    cache: Set<string>,
+    inflight: Map<string, Promise<void>>,
+    key: string,
+    operation: () => Promise<void>
+  ): Promise<void> {
+    if (cache.has(key)) {
       return;
     }
 
-    await this.prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        email: `${userId}@semse.local`,
-        status: "active"
-      }
-    });
+    const pending = inflight.get(key);
+    if (pending) {
+      await pending;
+      return;
+    }
 
-    this.userCache.add(userId);
+    const promise = operation()
+      .catch((error: unknown) => {
+        if (!isUniqueConstraintError(error)) {
+          throw error;
+        }
+      })
+      .then(() => {
+        cache.add(key);
+      })
+      .finally(() => {
+        inflight.delete(key);
+      });
+
+    inflight.set(key, promise);
+    await promise;
   }
 }
