@@ -52,13 +52,13 @@ async function main() {
   await assertDuplicateDisputeRejected(project.id);
 
   const run = await createAgentRun();
-  await claimRun(config.workerId);
+  await claimSpecificRun(run.id, config.workerId);
   await heartbeat(run.id);
   await completeRun(run.id);
   await assertRunCompleted(run.id);
 
   const staleRun = await createAgentRun();
-  await claimRun(config.workerId);
+  await claimSpecificRun(staleRun.id, config.workerId);
   await sleep(15);
   await assertReclaimWorks(staleRun.id);
 
@@ -208,6 +208,25 @@ async function createAgentRun() {
 async function claimRun(workerId) {
   const { json } = await request(actors.ops, "POST", "/v1/agents/runs/claim", { workerId });
   return json.data;
+}
+
+async function claimSpecificRun(runId, workerId) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const claimed = await claimRun(workerId);
+    if (!claimed) {
+      await sleep(50);
+      continue;
+    }
+
+    if (claimed.id === runId) {
+      assertCanonicalValue(claimed.status, "running");
+      return claimed;
+    }
+
+    await completeRun(claimed.id);
+  }
+
+  assert.fail(`expected to claim run ${runId}`);
 }
 
 async function heartbeat(runId) {
