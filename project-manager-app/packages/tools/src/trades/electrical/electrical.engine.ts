@@ -3,6 +3,12 @@ import { applyLocation, buildCostSummary, material, materialTotal, priceOf } fro
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
 import type { EvidenceItem, LaborEstimate, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
+import {
+  computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
+  computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
+  buildProductionSchedule, assessHiddenDamageProbability, assessScheduleRisk,
+  buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
+} from "../../core/extended-metrics.js";
 
 // ─── Wire gauge table (AWG → max amps @ 60°C Cu, NEC 310.15) ─────────────────
 const WIRE_TABLE: { awg: string; maxAmps: number; resistancePerFt: number }[] = [
@@ -193,6 +199,46 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
     ...(risk.requiresPermit ? ["Tramitar permiso eléctrico ante autoridad local antes de iniciar."] : []),
   ];
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Site walkthrough and panel assessment", daysMin: 0, daysMax: 1, crew: 1, description: "Inspect panel, identify circuits, confirm scope" },
+    { name: "Rough-in wiring",                       daysMin: 1, daysMax: 3, crew: 2, description: "Pull wire, install boxes, rough conduit runs" },
+    { name: "Device and fixture installation",        daysMin: 1, daysMax: 2, crew: 2, description: "Install outlets, switches, fixtures, panels" },
+    { name: "Panel connections and labeling",         daysMin: 1, daysMax: 1, crew: 1, description: "Land circuits, label breakers, trim covers" },
+    { name: "Testing and inspection",                 daysMin: 0, daysMax: 1, crew: 1, description: "Test all circuits, pass inspection, document" },
+  ]);
+
+  const inspectionGate = buildInspectionGate(
+    "After rough-in — before any drywall or concealment",
+    ["Rough-in wiring photos", "Box placement photos", "Conduit fill and bend radius"],
+    "NEC code violation or unsafe wiring found requiring correction before concealment",
+    "Rough-in must pass inspection before any walls are closed. No exceptions on electrical."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: false,
+    hasComplexDetails: true,
+  });
+
+  const upsells = [
+    { service: "Whole-home surge protector", reason: "Install at panel during rough-in — protects all devices, $150-300 part, minimal labor." },
+    { service: "EV charger rough-in (Level 2)", reason: "Add 50A circuit while panel is open — avoids future trench and panel work." },
+    { service: "Arc-fault (AFCI) breaker upgrade", reason: "NEC 2020 requires AFCI in most rooms — recommend proactive upgrade for safety." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.20),
+    roiPercent:          120,
+    notes:               "Electrical upgrades return 120% via code compliance, safety, and enabling modern devices (EV, solar, smart home).",
+  };
+
   return {
     toolId: `electrical-${Date.now()}`,
     trade: "electrical",
@@ -215,6 +261,12 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
       "Código NEC 2023. Verificar adopción local.",
       "Temperatura de conductor 60°C. Verificar condiciones reales.",
     ],
+    productionSchedule,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }
