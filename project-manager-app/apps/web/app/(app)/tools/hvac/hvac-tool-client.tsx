@@ -2,49 +2,67 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calculator, Wind, ThermometerSnowflake } from "lucide-react";
+import { ArrowLeft, Calculator, ThermometerSnowflake } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
+type HvacSystemType = "central-ac" | "heat-pump" | "mini-split" | "furnace-only" | "package-unit";
+type DuctworkScope  = "none" | "partial" | "full-replace" | "new-install";
+type RefrigerantType = "R-410A" | "R-32" | "R-22" | "R-454B";
+
 type HvacInput = {
   tonnage: number;
+  systemType: HvacSystemType;
+  seerRating: number;
+  ductworkScope: DuctworkScope;
   ductRunFeet: number;
   zoneCount: number;
-  heatPump: boolean;
-  atticAccess: boolean;
+  atticInstall: boolean;
+  crawlspaceInstall: boolean;
+  existingEquipmentAge: number;
+  refrigerantType: RefrigerantType;
+  thermostatUpgrade: boolean;
+  airQualityUpgrade: boolean;
   mode: ToolMode;
 };
 
 const INITIAL_INPUT: HvacInput = {
   tonnage: 3,
+  systemType: "heat-pump",
+  seerRating: 16,
+  ductworkScope: "partial",
   ductRunFeet: 90,
-  zoneCount: 2,
-  heatPump: true,
-  atticAccess: false,
+  zoneCount: 1,
+  atticInstall: false,
+  crawlspaceInstall: false,
+  existingEquipmentAge: 12,
+  refrigerantType: "R-410A",
+  thermostatUpgrade: true,
+  airQualityUpgrade: false,
   mode: "professional",
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  hint,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  hint?: string;
+function NumberField({ label, value, onChange, hint, min, step }: {
+  label: string; value: number; onChange: (v: number) => void; hint?: string; min?: number; step?: number;
 }) {
   return (
-    <Input
-      label={label}
-      type="number"
-      min={0}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-      hint={hint}
-    />
+    <Input label={label} type="number" min={min ?? 0} step={step ?? 1}
+      value={value} onChange={(e) => onChange(Number(e.target.value))} hint={hint} />
+  );
+}
+
+function Toggle({ label, checked, onChange, hint }: {
+  label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string;
+}) {
+  return (
+    <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink cursor-pointer">
+      <div>
+        <div>{label}</div>
+        {hint && <div className="text-xs text-muted mt-0.5">{hint}</div>}
+      </div>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
   );
 }
 
@@ -54,19 +72,17 @@ export function HvacToolClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function set<K extends keyof HvacInput>(k: K, v: HvacInput[K]) {
+    setInput((cur) => ({ ...cur, [k]: v }));
+  }
+
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await calculateSemseTool({
-        tool: "hvac",
-        mode: input.mode,
-        input,
-      });
-      setResult(response);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setResult(await calculateSemseTool({ tool: "hvac", mode: input.mode, input }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Calculation error");
     } finally {
       setLoading(false);
     }
@@ -77,107 +93,108 @@ export function HvacToolClient() {
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
           <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
+            <ArrowLeft size={16} /> Back to tools hub
           </Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
 
-        <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">HVAC calculator</h1>
+        <section className="grid gap-2">
+          <h1 className="text-3xl font-bold tracking-tight text-ink">HVAC Estimator</h1>
           <p className="max-w-3xl text-sm text-muted">
-            Calculate tonnage, duct runs, zones, heat-pump risk, milestones and evidence through the SEMSE tools API.
+            Full HVAC replacement and new-install estimates with SEER premium, ductwork scope, zoning, refrigerant type, confidence scoring, and AI assistant.
           </p>
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[460px_minmax(0,1fr)]">
           <Card className="grid gap-5 self-start">
             <div className="flex items-start gap-3">
               <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
                 <Calculator size={18} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-ink">Input</h2>
-                <p className="text-sm text-muted">
-                  HVAC flow with load and airflow signals. Manual J is still recommended for final sizing.
-                </p>
+                <h2 className="text-lg font-semibold text-ink">System specs</h2>
+                <p className="text-sm text-muted">Manual J load calc recommended for final sizing.</p>
               </div>
             </div>
 
             <div className="grid gap-4">
-              <NumberField
-                label="Tonnage"
-                value={input.tonnage}
-                onChange={(value) => setInput((current) => ({ ...current, tonnage: value }))}
-                hint="Approximate installed capacity in tons."
-              />
-              <NumberField
-                label="Duct run (ft)"
-                value={input.ductRunFeet}
-                onChange={(value) => setInput((current) => ({ ...current, ductRunFeet: value }))}
-              />
-              <NumberField
-                label="Zones"
-                value={input.zoneCount}
-                onChange={(value) => setInput((current) => ({ ...current, zoneCount: value }))}
-              />
+              {/* System type */}
+              <Select label="System type" value={input.systemType}
+                onChange={(e) => set("systemType", e.target.value as HvacSystemType)}>
+                <option value="central-ac">Central A/C</option>
+                <option value="heat-pump">Heat pump</option>
+                <option value="mini-split">Mini-split (ductless)</option>
+                <option value="furnace-only">Furnace only</option>
+                <option value="package-unit">Package unit</option>
+              </Select>
 
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField label="Tonnage" value={input.tonnage} min={0.5} step={0.5}
+                  onChange={(v) => set("tonnage", v)} hint="1–20 tons" />
+                <NumberField label="SEER rating" value={input.seerRating} min={13} step={1}
+                  onChange={(v) => set("seerRating", v)} hint="14–26" />
+              </div>
+
+              {/* Refrigerant */}
+              <Select label="Refrigerant type" value={input.refrigerantType}
+                onChange={(e) => set("refrigerantType", e.target.value as RefrigerantType)}>
+                <option value="R-454B">R-454B (new standard 2025+)</option>
+                <option value="R-410A">R-410A (current standard)</option>
+                <option value="R-32">R-32</option>
+                <option value="R-22">R-22 (phased out — expensive)</option>
+              </Select>
+
+              {/* Ductwork */}
+              <Select label="Ductwork scope" value={input.ductworkScope}
+                onChange={(e) => set("ductworkScope", e.target.value as DuctworkScope)}>
+                <option value="none">None (use existing)</option>
+                <option value="partial">Partial repair/extend</option>
+                <option value="full-replace">Full replacement</option>
+                <option value="new-install">New install (no ducts exist)</option>
+              </Select>
+
+              {input.ductworkScope !== "none" && (
+                <NumberField label="Duct run (ft)" value={input.ductRunFeet}
+                  onChange={(v) => set("ductRunFeet", v)} />
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <NumberField label="Zones" value={input.zoneCount} min={1}
+                  onChange={(v) => set("zoneCount", v)} />
+                <NumberField label="Existing equip age (yrs)" value={input.existingEquipmentAge}
+                  onChange={(v) => set("existingEquipmentAge", v)} />
+              </div>
+
+              {/* Access */}
+              <Toggle label="Attic installation" checked={input.atticInstall}
+                onChange={(v) => set("atticInstall", v)} hint="Requires staging and fall protection" />
+              <Toggle label="Crawlspace installation" checked={input.crawlspaceInstall}
+                onChange={(v) => set("crawlspaceInstall", v)} />
+              <Toggle label="Smart thermostat upgrade" checked={input.thermostatUpgrade}
+                onChange={(v) => set("thermostatUpgrade", v)} />
+              <Toggle label="Air quality upgrade (UV/purifier)" checked={input.airQualityUpgrade}
+                onChange={(v) => set("airQualityUpgrade", v)} />
+
+              <Select label="Mode" value={input.mode}
+                onChange={(e) => set("mode", e.target.value as ToolMode)}>
                 <option value="client">Client</option>
                 <option value="professional">Professional</option>
                 <option value="admin">Admin</option>
               </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Heat pump</span>
-                <input
-                  type="checkbox"
-                  checked={input.heatPump}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      heatPump: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Attic access</span>
-                <input
-                  type="checkbox"
-                  checked={input.atticAccess}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      atticAccess: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
             </div>
 
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
-              <strong>Note:</strong> HVAC sizing is preliminary here. SEMSE should still recommend Manual J, duct review, electrical load checks and local permits.
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
+            {input.refrigerantType === "R-22" && (
+              <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-200">
+                ⚠ R-22 is phased out. Refrigerant costs are 3× higher and availability is limited. Verify before pricing.
               </div>
-            ) : null}
+            )}
+
+            {error && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
+            )}
 
             <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate HVAC"}
+              {loading ? "Calculating..." : "Calculate HVAC estimate"}
             </Button>
           </Card>
 
@@ -190,17 +207,15 @@ export function HvacToolClient() {
                   <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
                     <ThermometerSnowflake size={24} />
                   </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the HVAC flow through the tools API.
-                    </p>
-                  </div>
+                  <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
+                  <p className="max-w-xl text-sm text-muted">
+                    Configure system specs on the left to generate a full HVAC estimate with confidence scoring, scope, price bands, and AI assistant.
+                  </p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Tonnage</Badge>
-                    <Badge variant="info">Airflow</Badge>
-                    <Badge variant="warn">Milestones</Badge>
-                    <Badge variant="success">Evidence</Badge>
+                    <Badge variant="brand">Equipment</Badge>
+                    <Badge variant="info">Ductwork</Badge>
+                    <Badge variant="warn">Zoning</Badge>
+                    <Badge variant="success">Commissioning</Badge>
                   </div>
                 </div>
               </Card>

@@ -391,7 +391,9 @@ export const ALGORITHM_VERSIONS = {
   demolition:   "demolition-v1.0.0",
   carpentry:    "carpentry-v1.0.0",
   flooring:     "flooring-v1.0.0",
-  roofing:      "roofing-v1.0.0",
+  roofing:      "roofing-v2.0.0",
+  plumbing:     "plumbing-v2.0.0",
+  hvac:         "hvac-v2.0.0",
   windows_doors: "windows-doors-v1.0.0",
 } as const;
 

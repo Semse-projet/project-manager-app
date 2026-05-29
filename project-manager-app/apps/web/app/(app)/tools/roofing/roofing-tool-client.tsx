@@ -2,18 +2,28 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, BadgeCheck, Calculator, CheckCircle2, ClipboardList, FileText, Hammer, ShieldAlert } from "lucide-react";
-import { Badge, Button, Card, Input, MetricCard, Select } from "@/components/ui";
+import { ArrowLeft, Calculator, Home } from "lucide-react";
+import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
+import { ToolResultPanel } from "../ToolResultPanel";
+
+type ShingleType = "3-tab" | "architectural" | "metal" | "tile" | "flat-tpo" | "flat-modified";
+type DeckCondition = "good" | "fair" | "poor" | "unknown";
 
 type RoofingInput = {
   roofAreaSqFt: number;
   pitch: number;
-  shingleType: "3-tab" | "architectural" | "metal";
+  shingleType: ShingleType;
   removeOldRoof: boolean;
   layers: number;
   underlayment: boolean;
+  iceBarrier: boolean;
   vents: number;
+  skylightCount: number;
+  flashingReplace: boolean;
+  deckCondition: DeckCondition;
+  guttersIncluded: boolean;
+  warrantyYears: 20 | 30 | 50;
   mode: ToolMode;
 };
 
@@ -24,249 +34,27 @@ const INITIAL_INPUT: RoofingInput = {
   removeOldRoof: true,
   layers: 1,
   underlayment: true,
+  iceBarrier: false,
   vents: 2,
+  skylightCount: 0,
+  flashingReplace: false,
+  deckCondition: "fair",
+  guttersIncluded: false,
+  warrantyYears: 30,
   mode: "professional",
 };
 
-const RISK_LABELS: Record<SemseToolResult["risk"]["level"], string> = {
-  low: "Low risk",
-  medium: "Medium risk",
-  high: "High risk",
-  critical: "Critical risk",
-};
-
-const RISK_VARIANTS: Record<SemseToolResult["risk"]["level"], "default" | "info" | "warn" | "error" | "brand"> = {
-  low: "default",
-  medium: "info",
-  high: "warn",
-  critical: "error",
-};
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <MetricCard
-      label={label}
-      value={value}
-      sub={sub}
-      className="min-h-[112px]"
-    />
-  );
-}
-
-function SectionTitle({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
+function Toggle({ label, checked, onChange, hint }: {
+  label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string;
 }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-        {icon}
-      </div>
+    <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink cursor-pointer">
       <div>
-        <h2 className="text-lg font-semibold text-ink">{title}</h2>
-        <p className="text-sm text-muted">{description}</p>
+        <div>{label}</div>
+        {hint && <div className="text-xs text-muted mt-0.5">{hint}</div>}
       </div>
-    </div>
-  );
-}
-
-function ResultSection({ result }: { result: SemseToolResult }) {
-  const riskVariant = RISK_VARIANTS[result.risk.level];
-
-  return (
-    <div className="grid gap-6">
-      <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="grid gap-1">
-            <Badge variant={riskVariant}>{RISK_LABELS[result.risk.level]}</Badge>
-            <h3 className="text-2xl font-bold tracking-tight text-ink">
-              {result.projectType}
-            </h3>
-            <p className="text-sm text-muted">
-              {result.trade} · {result.mode} · {result.isValid ? "valid input" : "validation issues detected"}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">Total estimate</p>
-            <p className="text-3xl font-bold text-brand">{formatCurrency(result.costs.total)}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <Metric label="Materials" value={formatCurrency(result.costs.materials)} />
-          <Metric label="Labor" value={formatCurrency(result.costs.labor)} />
-          <Metric label="Risk score" value={`${result.risk.score}/100`} sub="SEMSE risk engine" />
-          <Metric
-            label="Deposit / escrow"
-            value={formatCurrency(result.costs.total * 0.35)}
-            sub="Approximate starting point"
-          />
-        </div>
-      </Card>
-
-      {result.validationIssues.length > 0 && (
-        <Card className="grid gap-3 border-amber-500/20 bg-amber-500/[0.05]">
-          <SectionTitle
-            icon={<ShieldAlert size={18} />}
-            title="Validation issues"
-            description="The engine returned validation warnings or errors that should be reviewed."
-          />
-          <ul className="grid gap-2 text-sm text-amber-100">
-            {result.validationIssues.map((issue) => (
-              <li key={`${issue.field}-${issue.message}`} className="rounded-lg border border-amber-500/20 bg-black/10 px-3 py-2">
-                <span className="font-semibold uppercase tracking-wide">{issue.severity}</span>
-                {" · "}
-                <span>{issue.field}</span>
-                {" — "}
-                <span>{issue.message}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      <Card className="grid gap-4">
-        <SectionTitle
-          icon={<Hammer size={18} />}
-          title="Materials"
-          description="A deterministic material takeoff generated by the tools engine."
-        />
-        <div className="overflow-hidden rounded-xl border border-white/[0.08]">
-          <table className="w-full text-sm">
-            <thead className="bg-white/[0.03] text-muted">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Item</th>
-                <th className="px-4 py-3 text-left font-medium">Qty</th>
-                <th className="px-4 py-3 text-left font-medium">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.materials.map((item) => (
-                <tr key={`${item.name}-${item.category}`} className="border-t border-white/[0.06]">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-ink">{item.name}</div>
-                    <div className="text-xs text-muted">{item.category}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">
-                    {item.quantity} {item.unit}
-                  </td>
-                  <td className="px-4 py-3 text-ink">{formatCurrency(item.totalCost)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="grid gap-4">
-        <SectionTitle
-          icon={<ClipboardList size={18} />}
-          title="Milestones"
-          description="Suggested payment checkpoints suitable for escrow and release control."
-        />
-        <div className="grid gap-3">
-          {result.milestones.map((milestone) => (
-            <div key={`${milestone.sequence}-${milestone.title}`} className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold text-ink">
-                    {milestone.sequence}. {milestone.title}
-                  </div>
-                  <div className="text-sm text-muted">{milestone.description}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-brand">{milestone.percentage}%</div>
-                  <div className="text-xs text-muted">{formatCurrency(milestone.amount)}</div>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {milestone.evidenceRequired.map((item) => (
-                  <Badge key={item} variant="info">
-                    {item}
-                  </Badge>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted">{milestone.releaseTrigger}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card className="grid gap-4">
-        <SectionTitle
-          icon={<FileText size={18} />}
-          title="Evidence checklist"
-          description="Artifacts the field team should capture before release."
-        />
-        <div className="grid gap-2 md:grid-cols-2">
-          {result.evidenceRequired.map((item) => (
-            <div key={`${item.type}-${item.description}`} className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
-              <div className="mt-0.5 text-brand">
-                {item.required ? <BadgeCheck size={16} /> : <CheckCircle2 size={16} />}
-              </div>
-              <div>
-                <div className="text-sm font-medium text-ink">{item.description}</div>
-                <div className="text-xs uppercase tracking-wide text-muted">
-                  {item.type}{item.milestone ? ` · milestone ${item.milestone}` : ""}
-                  {item.required ? " · required" : ""}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {(result.warnings.length > 0 || result.recommendations.length > 0) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {result.warnings.length > 0 && (
-            <Card className="grid gap-3 border-amber-500/20 bg-amber-500/[0.05]">
-              <SectionTitle
-                icon={<AlertTriangle size={18} />}
-                title="Warnings"
-                description="Operational alerts from the engine."
-              />
-              <ul className="grid gap-2 text-sm text-amber-100">
-                {result.warnings.map((warning) => (
-                  <li key={warning} className="rounded-lg border border-amber-500/20 bg-black/10 px-3 py-2">
-                    {warning}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          {result.recommendations.length > 0 && (
-            <Card className="grid gap-3 border-emerald-500/20 bg-emerald-500/[0.05]">
-              <SectionTitle
-                icon={<BadgeCheck size={18} />}
-                title="Recommendations"
-                description="Suggested operational follow-up."
-              />
-              <ul className="grid gap-2 text-sm text-emerald-100">
-                {result.recommendations.map((recommendation) => (
-                  <li key={recommendation} className="rounded-lg border border-emerald-500/20 bg-black/10 px-3 py-2">
-                    {recommendation}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-        </div>
-      )}
-    </div>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    </label>
   );
 }
 
@@ -276,19 +64,17 @@ export function RoofingToolClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleCalculate() {
+  function set<K extends keyof RoofingInput>(k: K, v: RoofingInput[K]) {
+    setInput((cur) => ({ ...cur, [k]: v }));
+  }
+
+  async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const data = await calculateSemseTool({
-        tool: "roofing",
-        mode: input.mode,
-        input,
-      });
-      setResult(data);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setResult(await calculateSemseTool({ tool: "roofing", mode: input.mode, input }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Calculation error");
     } finally {
       setLoading(false);
     }
@@ -299,153 +85,126 @@ export function RoofingToolClient() {
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
           <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
+            <ArrowLeft size={16} /> Back to tools hub
           </Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
 
-        <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Roofing calculator</h1>
+        <section className="grid gap-2">
+          <h1 className="text-3xl font-bold tracking-tight text-ink">Roofing Estimator</h1>
           <p className="max-w-3xl text-sm text-muted">
-            Calculate a roofing job estimate, risk profile, milestone plan and evidence checklist from a single backend call.
+            Full replacement and new-install estimates with material selection, deck risk, skylight flashing, warranty, confidence scoring, and AI assistant.
           </p>
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[460px_minmax(0,1fr)]">
           <Card className="grid gap-5 self-start">
-            <SectionTitle
-              icon={<Calculator size={18} />}
-              title="Input"
-              description="Start with a conservative roofing scenario. The engine handles the pricing and risk logic."
-            />
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
+                <Calculator size={18} />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Roof specs</h2>
+                <p className="text-sm text-muted">Inspect deck condition before finalizing price.</p>
+              </div>
+            </div>
 
             <div className="grid gap-4">
-              <Input
-                label="Roof area (sq ft)"
-                type="number"
-                min={0}
-                value={input.roofAreaSqFt}
-                onChange={(event) => setInput((current) => ({ ...current, roofAreaSqFt: Number(event.target.value) }))}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Roof area (sq ft)" type="number" min={100} value={input.roofAreaSqFt}
+                  onChange={(e) => set("roofAreaSqFt", Number(e.target.value))} />
+                <Input label="Pitch (x/12)" type="number" min={1} max={18} value={input.pitch}
+                  onChange={(e) => set("pitch", Number(e.target.value))} hint="1–18" />
+              </div>
 
-              <Input
-                label="Pitch"
-                type="number"
-                min={1}
-                max={18}
-                value={input.pitch}
-                onChange={(event) => setInput((current) => ({ ...current, pitch: Number(event.target.value) }))}
-                hint="Use an integer between 1 and 18."
-              />
-
-              <Select
-                label="Shingle type"
-                value={input.shingleType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    shingleType: event.target.value as RoofingInput["shingleType"],
-                  }))
-                }
-              >
-                <option value="3-tab">3-tab</option>
-                <option value="architectural">Architectural</option>
-                <option value="metal">Metal</option>
+              <Select label="Shingle type" value={input.shingleType}
+                onChange={(e) => set("shingleType", e.target.value as ShingleType)}>
+                <option value="3-tab">3-tab asphalt</option>
+                <option value="architectural">Architectural / dimensional</option>
+                <option value="metal">Metal panels</option>
+                <option value="tile">Tile (clay/concrete)</option>
+                <option value="flat-tpo">Flat — TPO membrane</option>
+                <option value="flat-modified">Flat — Modified bitumen</option>
               </Select>
 
-              <Input
-                label="Existing layers"
-                type="number"
-                min={1}
-                max={3}
-                value={input.layers}
-                onChange={(event) => setInput((current) => ({ ...current, layers: Number(event.target.value) }))}
-              />
+              <Select label="Deck condition" value={input.deckCondition}
+                onChange={(e) => set("deckCondition", e.target.value as DeckCondition)}>
+                <option value="good">Good — solid, no visible issues</option>
+                <option value="fair">Fair — some wear, minor concerns</option>
+                <option value="poor">Poor — rot, delamination, soft spots</option>
+                <option value="unknown">Unknown — not inspected yet</option>
+              </Select>
 
-              <Input
-                label="Vent count"
-                type="number"
-                min={0}
-                value={input.vents}
-                onChange={(event) => setInput((current) => ({ ...current, vents: Number(event.target.value) }))}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Existing layers" type="number" min={1} max={3} value={input.layers}
+                  onChange={(e) => set("layers", Number(e.target.value))} />
+                <Input label="Roof vents" type="number" min={0} value={input.vents}
+                  onChange={(e) => set("vents", Number(e.target.value))} />
+              </div>
 
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
+              <div className="grid grid-cols-2 gap-3">
+                <Input label="Skylights" type="number" min={0} value={input.skylightCount}
+                  onChange={(e) => set("skylightCount", Number(e.target.value))} />
+                <Select label="Warranty (years)" value={String(input.warrantyYears)}
+                  onChange={(e) => set("warrantyYears", Number(e.target.value) as 20 | 30 | 50)}>
+                  <option value="20">20-year</option>
+                  <option value="30">30-year</option>
+                  <option value="50">50-year (premium)</option>
+                </Select>
+              </div>
+
+              <Toggle label="Remove old roof (tear-off)" checked={input.removeOldRoof}
+                onChange={(v) => set("removeOldRoof", v)} />
+              <Toggle label="Synthetic underlayment" checked={input.underlayment}
+                onChange={(v) => set("underlayment", v)} />
+              <Toggle label="Ice & water shield" checked={input.iceBarrier}
+                onChange={(v) => set("iceBarrier", v)} hint="Eaves, valleys — freeze-thaw climates" />
+              <Toggle label="Replace all flashing" checked={input.flashingReplace}
+                onChange={(v) => set("flashingReplace", v)} />
+              <Toggle label="Include gutters & downspouts" checked={input.guttersIncluded}
+                onChange={(v) => set("guttersIncluded", v)} />
+
+              <Select label="Mode" value={input.mode}
+                onChange={(e) => set("mode", e.target.value as ToolMode)}>
                 <option value="client">Client</option>
                 <option value="professional">Professional</option>
                 <option value="admin">Admin</option>
               </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Remove old roof</span>
-                <input
-                  type="checkbox"
-                  checked={input.removeOldRoof}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      removeOldRoof: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Include underlayment</span>
-                <input
-                  type="checkbox"
-                  checked={input.underlayment}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      underlayment: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
             </div>
 
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
+            {(input.deckCondition === "poor" || input.deckCondition === "unknown") && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3 text-sm text-amber-200">
+                ⚠ {input.deckCondition === "unknown" ? "Inspect deck before finalizing price — hidden damage risk." : "Poor deck condition: budget for sheathing replacement and include change-order clause."}
               </div>
-            ) : null}
+            )}
 
-            <Button onClick={() => void handleCalculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate roofing"}
+            {error && (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
+            )}
+
+            <Button onClick={() => void calculate()} loading={loading} className="w-full">
+              {loading ? "Calculating..." : "Calculate roofing estimate"}
             </Button>
           </Card>
 
           <div className="grid gap-6">
             {result ? (
-              <ResultSection result={result} />
+              <ToolResultPanel result={result} />
             ) : (
               <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
                 <div className="grid gap-3 p-8">
                   <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <Calculator size={24} />
+                    <Home size={24} />
                   </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the first SEMSE tools flow through the API.
-                    </p>
-                  </div>
+                  <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
+                  <p className="max-w-xl text-sm text-muted">
+                    Configure roof specs on the left to generate a full estimate with deck risk analysis, price bands, scope, and AI assistant.
+                  </p>
                   <div className="flex flex-wrap justify-center gap-2">
                     <Badge variant="brand">Materials</Badge>
-                    <Badge variant="info">Risk</Badge>
+                    <Badge variant="info">Deck risk</Badge>
                     <Badge variant="warn">Milestones</Badge>
-                    <Badge variant="success">Evidence</Badge>
+                    <Badge variant="success">AI assistant</Badge>
                   </div>
                 </div>
               </Card>
