@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -155,6 +158,37 @@ export function calculateInsulation(input: InsulationInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Air sealing and prep', daysMin: 1, daysMax: 1, crew: 2, description: 'Seal penetrations, gaps, and bypasses before insulation' },
+    { name: 'Insulation installation', daysMin: 1, daysMax: 3, crew: 2, description: 'Install insulation to target R-value in all cavities' },
+    { name: 'Vapor barrier and coverage check', daysMin: 0, daysMax: 1, crew: 2, description: 'Install vapor barrier if required, verify coverage and depth' },
+    { name: 'Cleanup and documentation', daysMin: 0, daysMax: 1, crew: 2, description: 'Remove debris, photograph depth, label R-value' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: input.areaSqft > 1500,
+    hasComplexDetails: input.insulationType === 'spray-foam' || input.accessType === 'crawlspace',
+  });
+
+  const upsells = [
+      { service: 'Air sealing add-on', reason: 'Each dollar of air sealing saves $3 in energy costs — highest ROI upgrade.' },
+      { service: 'Attic hatch insulation cover', reason: 'Uninsulated hatches negate 20% of attic insulation — easy fix.' },
+      { service: 'Radiant barrier (attic)', reason: 'Adds 5-10% cooling savings in hot climates for minimal cost.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.16),
+    roiPercent:          15,
+    notes:               'Insulation upgrades return 116% in energy savings and home comfort over 10 years.',
+  };
   return {
     toolId: `insulation-${Date.now()}`, trade: "insulation", projectType: input.accessType,
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -170,6 +204,11 @@ export function calculateInsulation(input: InsulationInput): SemseToolResult {
       ...(input.insulationType === "spray-foam" ? ["Confirm ventilation and re-entry timing after spray."] : []),
     ],
     assumptions: ["Adequate cavity depth for R-value target.", "No mold or moisture damage present.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

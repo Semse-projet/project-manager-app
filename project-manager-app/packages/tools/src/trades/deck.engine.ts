@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -166,6 +169,39 @@ export function calculateDeck(input: DeckInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Demo and layout', daysMin: 1, daysMax: 2, crew: 2, description: 'Remove existing deck if applicable, stake and layout new footings' },
+    { name: 'Footings and posts', daysMin: 1, daysMax: 2, crew: 2, description: 'Dig and pour concrete footings, set posts and let cure' },
+    { name: 'Beam and joist framing', daysMin: 1, daysMax: 2, crew: 2, description: 'Install beams, ledger board, joist hangers, blocking' },
+    { name: 'Decking installation', daysMin: 2, daysMax: 4, crew: 2, description: 'Install deck boards, fascia, spacing gaps' },
+    { name: 'Railing and stairs', daysMin: 1, daysMax: 3, crew: 2, description: 'Install railing posts, rails, balusters, stair stringers' },
+    { name: 'Stain / seal and cleanup', daysMin: 1, daysMax: 2, crew: 2, description: 'Apply stain or sealant, final cleanup, hardware check' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, true, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: ['ipe','tropical-hardwood'].includes(input.materialType),
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: input.deckLengthFt * input.deckWidthFt > 300,
+    hasComplexDetails: input.stairsCount > 0 || input.pergola || input.materialType === 'ipe',
+  });
+
+  const upsells = [
+      { service: 'Pergola or shade structure', reason: 'Crews are staged — add pergola for 30% less labor than a separate mobilization.' },
+      { service: 'Composite decking upgrade', reason: 'Composite lasts 25-30 years vs 10-15 for PT — eliminates future staining.' },
+      { service: 'Under-deck lighting', reason: 'Install wire channels while boards are going down for future deck lighting.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.7),
+    roiPercent:          -30,
+    notes:               'Deck additions return 65-75% of construction cost in home value and usable outdoor space.',
+  };
   return {
     toolId: `deck-${Date.now()}`, trade: "deck", projectType: input.demoExisting ? "deck-remodel" : "new-deck",
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -182,6 +218,11 @@ export function calculateDeck(input: DeckInput): SemseToolResult {
       ...(input.stainSeal ? ["Seal or stain only after deck is dry and clean."] : []),
     ],
     assumptions: ["Adequate soil bearing capacity.", "US market pricing.", "Code-compliant fasteners."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

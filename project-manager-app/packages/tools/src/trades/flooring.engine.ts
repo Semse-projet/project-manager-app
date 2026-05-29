@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -158,6 +161,38 @@ export function calculateFlooring(input: FlooringInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Site measure and layout', daysMin: 0, daysMax: 1, crew: 2, description: 'Confirm dimensions, door swing clearances, subfloor level check' },
+    { name: 'Old floor removal', daysMin: 1, daysMax: 2, crew: 2, description: 'Remove existing flooring, bag and stage debris' },
+    { name: 'Subfloor prep', daysMin: 1, daysMax: 2, crew: 2, description: 'Level, patch, moisture treatment, install underlayment' },
+    { name: 'Flooring installation', daysMin: 2, daysMax: 5, crew: 2, description: 'Install flooring panels, cut around obstacles' },
+    { name: 'Trim and transitions', daysMin: 1, daysMax: 1, crew: 2, description: 'Install transitions, base shoe, final cleanup' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: input.lengthFt * input.widthFt > 1000,
+    hasComplexDetails: input.pattern === 'herringbone' || input.floorPrepLevel === 'major',
+  });
+
+  const upsells = [
+      { service: 'Baseboard and base shoe replacement', reason: 'Crews are already on site — ideal time to replace trim.' },
+      { service: 'Moisture barrier upgrade', reason: 'Prevents cupping in hardwood; adds ~10% to material cost.' },
+      { service: 'Furniture removal and replacement', reason: 'Saves client coordination time and protects new floor.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.8),
+    roiPercent:          -20,
+    notes:               'New flooring adds 80% of installation cost in perceived home value and resale appeal.',
+  };
   return {
     toolId: `flooring-${Date.now()}`, trade: "flooring",
     projectType: input.removeOldFloor ? "floor-remodel" : "floor-install",
@@ -175,6 +210,11 @@ export function calculateFlooring(input: FlooringInput): SemseToolResult {
       ...(input.flooringType === "hardwood" ? ["Store hardwood onsite for acclimation before install."] : []),
     ],
     assumptions: ["US market pricing.", "Subfloor structurally sound.", "Box coverage ≈ 20 sqft/box."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

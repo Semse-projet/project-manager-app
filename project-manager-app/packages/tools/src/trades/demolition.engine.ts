@@ -6,10 +6,12 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
-  assessHiddenDamageProbability,
 } from "../core/extended-metrics.js";
 
 export type DemoType = "drywall" | "flooring" | "concrete" | "cabinets" | "full-interior" | "exterior" | "selective";
@@ -98,7 +100,6 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
     requiresEngineering: input.demolitionType === "full-interior" || input.structuralElementsPresent,
   });
 
-  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, input.demolitionType === "exterior", false);
 
   const milestones = buildMilestones(costs.total, risk.level,
     ["Site protection and shutoff", "Selective demolition", "Debris removal", "Final sweep and handoff"],
@@ -160,6 +161,39 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
     noCriticalBlockers: !(input.hazardousMaterialSuspected && !input.asbestosTestRequired),
     scopeIsComplete: !input.structuralElementsPresent,
   });
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Site protection and utility shutoff', daysMin: 0, daysMax: 1, crew: 2, description: 'Protect adjacent areas, confirm utility shutoff, PPE check' },
+    { name: 'Selective demolition', daysMin: 1, daysMax: 3, crew: 3, description: 'Execute demolition per scope, photograph as work proceeds' },
+    { name: 'Debris staging and haul-off', daysMin: 1, daysMax: 2, crew: 2, description: 'Stage debris, load dumpster or haul-off truck' },
+    { name: 'Final sweep and clearance', daysMin: 0, daysMax: 1, crew: 2, description: 'Nail sweep, dust clearance, hazmat clearance if required' },
+    { name: 'Client handoff and sign-off', daysMin: 0, daysMax: 1, crew: 1, description: 'Walk site with client, document condition, get approval' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, true, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: input.areaSqft > 1000,
+    hasComplexDetails: input.hazardousMaterialSuspected || ['complex','critical'].includes(input.difficulty),
+  });
+
+  const upsells = [
+      { service: 'Hazardous material inspection', reason: 'Asbestos/lead test before demo protects crew and avoids stop-work orders.' },
+      { service: 'Structural assessment', reason: 'Engineer walk-through after demo confirms what stays — prevents costly surprises.' },
+      { service: 'Dumpster placement permit', reason: 'Skip the street permit hassle — crews handle paperwork for next-day dumpster.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: 0,
+    roiPercent:          0,
+    notes:               'Demolition is enabling work — ROI realized through the subsequent renovation scope.',
+  };
+
   const explained = buildExplainedOutput(
     `Your ${input.demolitionType} demolition covers ${input.areaSqft} sqft at ${input.difficulty} difficulty, generating ~${debrisVol.toFixed(1)} yd³ of debris.${input.hazardousMaterialSuspected ? " ⚠ Hazardous material suspected — abatement plan required before full demolition." : ""} Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`,
     [`Debris: ${debrisVol.toFixed(1)} yd³ — ${disposalLoads} disposal loads`, `Hidden damage risk: ${hiddenDamage.probability} (${hiddenDamage.score})`, `Confidence ${confidence.score}/100 · Readiness ${readiness.score}/100`],
@@ -174,7 +208,6 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
       { ruleId: "CRITICAL",    label: "Critical difficulty",  triggered: input.difficulty === "critical",  reason: "1.55× labor/material multiplier", points: 18 },
     ],
   );
-
   return {
     toolId: `demolition-${Date.now()}`, trade: "demolition",
     projectType: input.demolitionType === "full-interior" ? "full-interior-demolition" : `${input.demolitionType}-demolition`,
@@ -192,6 +225,11 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
       ...(input.hazardousMaterialSuspected ? ["Schedule hazmat inspection before full production demo."] : []),
     ],
     assumptions: ["Non-structural demolition only.", "Hazmat abatement NOT included unless scoped.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

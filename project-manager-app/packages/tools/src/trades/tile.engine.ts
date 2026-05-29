@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -166,6 +169,38 @@ export function calculateTile(input: TileInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Site prep and layout', daysMin: 0, daysMax: 1, crew: 2, description: 'Protect surrounding surfaces, mark tile layout, dry-fit pattern' },
+    { name: 'Substrate and waterproofing', daysMin: 1, daysMax: 2, crew: 2, description: 'Prep substrate, install waterproofing membrane where required' },
+    { name: 'Tile setting', daysMin: 2, daysMax: 4, crew: 2, description: 'Set tile with thinset, maintain pattern and spacing' },
+    { name: 'Grout and sealing', daysMin: 1, daysMax: 2, crew: 2, description: 'Apply grout, clean haze, seal grout joints' },
+    { name: 'Final cleanup and inspection', daysMin: 0, daysMax: 1, crew: 2, description: 'Remove spacers, clean tile, verify alignment' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: input.groutType === 'epoxy',
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: input.lengthFt * input.widthFt > 300,
+    hasComplexDetails: input.pattern === 'herringbone' || input.areaType === 'shower',
+  });
+
+  const upsells = [
+      { service: 'Epoxy grout upgrade', reason: 'Epoxy grout resists staining and never needs sealing — worth it on shower floors.' },
+      { service: 'Decorative accent tiles', reason: 'A 6" accent band adds visual interest for ~5% extra material cost.' },
+      { service: 'Heated floor mat (under tile)', reason: 'Ideal time to rough-in radiant heat before setting tile.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.65),
+    roiPercent:          -35,
+    notes:               'Tile work adds 60-70% of installation cost in home value, highest in bathrooms and kitchens.',
+  };
   return {
     toolId: `tile-${Date.now()}`, trade: "tile", projectType: input.areaType,
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -181,6 +216,11 @@ export function calculateTile(input: TileInput): SemseToolResult {
       "Check substrate flatness and moisture before setting tile.",
     ],
     assumptions: ["US market pricing.", "Substrate structurally sound."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

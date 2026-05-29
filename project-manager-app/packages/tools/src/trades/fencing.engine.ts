@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -165,6 +168,38 @@ export function calculateFencing(input: FencingInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Property line and layout', daysMin: 0, daysMax: 1, crew: 2, description: 'Confirm property line, mark post locations, call 811' },
+    { name: 'Post digging and setting', daysMin: 1, daysMax: 2, crew: 2, description: 'Dig post holes, set posts in concrete, allow to cure' },
+    { name: 'Panel and rail installation', daysMin: 1, daysMax: 3, crew: 2, description: 'Install fence panels or rails between posts' },
+    { name: 'Gate installation', daysMin: 0, daysMax: 1, crew: 2, description: 'Hang gates, install latches and hardware' },
+    { name: 'Stain / seal and cleanup', daysMin: 1, daysMax: 1, crew: 2, description: 'Apply stain or sealant if wood, cleanup debris' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: !input.propertyLineVerified,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: input.fenceLengthFt > 200,
+    hasComplexDetails: input.terrainType !== 'flat' || ['metal','aluminum'].includes(input.materialType),
+  });
+
+  const upsells = [
+      { service: 'Automatic gate opener', reason: 'Add conduit and wiring during install — pre-wire for future automation.' },
+      { service: 'Privacy slats (chain-link)', reason: 'Adds privacy to chain-link for ~$3/lf — minimal extra labor.' },
+      { service: 'Post cap lighting', reason: 'Solar post caps install without wiring — added while posts are fresh.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.55),
+    roiPercent:          -45,
+    notes:               'New fencing returns 50-60% in home value and improves curb appeal and security.',
+  };
   return {
     toolId: `fencing-${Date.now()}`, trade: "fencing", projectType: input.demoExisting ? "fence-remodel" : "new-fence",
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -181,6 +216,11 @@ export function calculateFencing(input: FencingInput): SemseToolResult {
       "Capture photos of posts, panels, and gates before closeout.",
     ],
     assumptions: ["Property line verified by client.", "Utilities marked before digging.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

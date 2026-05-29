@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -162,6 +165,38 @@ export function calculateMasonry(input: MasonryInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Footing and layout', daysMin: 1, daysMax: 2, crew: 2, description: 'Excavate or verify footing, set layout lines' },
+    { name: 'First course and level set', daysMin: 1, daysMax: 1, crew: 2, description: 'Set critical first course, verify plumb and level' },
+    { name: 'Full wall installation', daysMin: 2, daysMax: 5, crew: 3, description: 'Build wall in lifts, install rebar/grout if reinforced' },
+    { name: 'Pointing and sealing', daysMin: 1, daysMax: 2, crew: 2, description: 'Tool mortar joints, apply waterproof coating or sealer' },
+    { name: 'Cleanup and final check', daysMin: 0, daysMax: 1, crew: 2, description: 'Remove debris, check plumb/level, wash wall face' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, true, false, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: input.wallLengthFt * input.wallHeightFt > 500,
+    hasComplexDetails: input.wallHeightFt > 8 || ['brick','stone-veneer'].includes(input.unitType),
+  });
+
+  const upsells = [
+      { service: 'Exterior waterproof coating', reason: 'Applied after pointing — prevents efflorescence and moisture infiltration.' },
+      { service: 'Decorative coping or cap', reason: 'Protects wall top and adds visual finish — easiest to add during build.' },
+      { service: 'Mortar color selection', reason: 'Pigmented mortar coordinates with brick/stone color — add at mixing stage.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.65),
+    roiPercent:          -35,
+    notes:               'Masonry walls return 60-70% in curb appeal and structural permanence value.',
+  };
   return {
     toolId: `masonry-${Date.now()}`, trade: "masonry", projectType: input.exteriorWork ? "exterior-masonry" : "interior-masonry",
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -177,6 +212,11 @@ export function calculateMasonry(input: MasonryInput): SemseToolResult {
       ...(input.exteriorWork ? ["Apply waterproof sealer within 7 days of final pointing."] : []),
     ],
     assumptions: [!input.footingIncluded ? "Existing footing is adequate." : "New footing included in scope.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -168,6 +171,39 @@ export function calculateLandscaping(input: LandscapingInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Site demo and clearing', daysMin: 1, daysMax: 2, crew: 2, description: 'Remove existing vegetation, debris, and haul-off' },
+    { name: 'Grading and drainage', daysMin: 1, daysMax: 3, crew: 2, description: 'Grade to plan, install drainage pipe and structures' },
+    { name: 'Irrigation installation', daysMin: 1, daysMax: 2, crew: 2, description: 'Lay irrigation lines, heads, and controller wiring' },
+    { name: 'Sod and planting', daysMin: 1, daysMax: 3, crew: 3, description: 'Install sod, plant trees/shrubs, backfill and water in' },
+    { name: 'Mulch and hardscape', daysMin: 1, daysMax: 2, crew: 2, description: 'Apply mulch, set edging, install hardscape elements' },
+    { name: 'Final watering and walkthrough', daysMin: 0, daysMax: 1, crew: 2, description: 'Run irrigation test, adjust heads, final cleanup' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: input.plantCount > 10,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: input.landscapeAreaSqft > 1500,
+    hasComplexDetails: input.drainageType !== 'none' || input.hardscapeSqft > 200,
+  });
+
+  const upsells = [
+      { service: 'Landscape lighting package', reason: 'Low-voltage LED lighting installs during planting before mulch covers wiring.' },
+      { service: 'Smart irrigation controller', reason: 'Wi-Fi controller saves 30% water vs manual timer — $200 upgrade.' },
+      { service: 'Annual maintenance plan', reason: 'Lock in recurring revenue — maintenance contract while relationship is fresh.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.05),
+    roiPercent:          5,
+    notes:               'Professional landscaping returns 100%+ in curb appeal and property value.',
+  };
   return {
     toolId: `landscaping-${Date.now()}`, trade: "landscaping",
     projectType: input.drainageType !== "none" ? "landscaping-drainage" : "landscaping",
@@ -185,6 +221,11 @@ export function calculateLandscaping(input: LandscapingInput): SemseToolResult {
       ...(input.irrigationLinesFt > 0 ? ["Pressure-test irrigation before final handoff."] : []),
     ],
     assumptions: ["Utilities marked before digging.", "Adequate grade for drainage.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

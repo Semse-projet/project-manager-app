@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -174,6 +177,39 @@ export function calculateSolar(input: SolarInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Roof assessment and permit application', daysMin: 2, daysMax: 5, crew: 1, description: 'Inspect roof, submit permit, order equipment' },
+    { name: 'Structural and electrical prep', daysMin: 1, daysMax: 2, crew: 2, description: 'Confirm structural attachment points, pre-wire conduit' },
+    { name: 'Racking and mounting installation', daysMin: 1, daysMax: 2, crew: 3, description: 'Install racking system, seal penetrations' },
+    { name: 'Panel installation', daysMin: 1, daysMax: 2, crew: 3, description: 'Mount solar panels, wire strings' },
+    { name: 'Inverter and electrical rough-in', daysMin: 1, daysMax: 2, crew: 2, description: 'Install inverter, battery if included, panel connections' },
+    { name: 'Commissioning and PTO application', daysMin: 1, daysMax: 3, crew: 2, description: 'Startup system, commissioning tests, file PTO with utility' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: input.batteryIncluded,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: input.systemKw > 12,
+    hasComplexDetails: input.batteryIncluded || input.electricalUpgradeNeeded || input.roofType === 'tile',
+  });
+
+  const upsells = [
+      { service: 'Battery storage add-on', reason: 'Grid backup for critical loads — easiest and cheapest to install during initial job.' },
+      { service: 'EV charger (Level 2)', reason: 'Electricians already on site — add EVSE rough-in for minimal extra labor.' },
+      { service: 'Monitoring and smart home integration', reason: 'Real-time production monitoring app — add during commissioning.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.5),
+    roiPercent:          50,
+    notes:               'Solar returns 150%+ over 25 years via energy savings, incentives, and home value increase.',
+  };
   return {
     toolId: `solar-${Date.now()}`, trade: "solar", projectType: "solar-install",
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -191,6 +227,11 @@ export function calculateSolar(input: SolarInput): SemseToolResult {
       ...(input.batteryIncluded ? ["Commission battery with grid utility agreement in place."] : []),
     ],
     assumptions: ["Roof structurally adequate for racking loads.", "Net metering available.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

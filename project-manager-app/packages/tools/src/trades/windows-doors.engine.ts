@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -157,6 +160,38 @@ export function calculateWindowsDoors(input: WindowsDoorsInput): SemseToolResult
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Measure and confirm order', daysMin: 1, daysMax: 2, crew: 1, description: 'Verify rough opening dimensions, confirm unit order' },
+    { name: 'Site prep and protection', daysMin: 0, daysMax: 1, crew: 2, description: 'Protect interior, stage units, prep tools' },
+    { name: 'Unit installation', daysMin: 1, daysMax: 3, crew: 2, description: 'Set units, level/plumb/square, fasten to rough opening' },
+    { name: 'Flashing and sealing', daysMin: 1, daysMax: 1, crew: 2, description: 'Install flashing, apply foam, caulk perimeter' },
+    { name: 'Trim and hardware', daysMin: 1, daysMax: 2, crew: 2, description: 'Install casing, hardware, weatherstripping, final check' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, true, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: !input.windowCostEach || !input.doorCostEach,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: input.windows + input.doors > 8,
+    hasComplexDetails: ['sliding-door','patio-door','new-construction'].includes(input.installType),
+  });
+
+  const upsells = [
+      { service: 'Interior window sills and extensions', reason: 'Pre-built extensions save client time and look finished.' },
+      { service: 'Privacy or solar window film', reason: 'Easy add-on while crews have access — energy and UV protection.' },
+      { service: 'Smart lock upgrade (exterior doors)', reason: 'Same labor window to upgrade to keypad/smart deadbolt.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.75),
+    roiPercent:          -25,
+    notes:               'Window and door replacement returns 70-80% in home value and reduces energy costs 10-15%.',
+  };
   return {
     toolId: `windows-doors-${Date.now()}`, trade: "windows-doors", projectType: input.installType,
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -172,6 +207,11 @@ export function calculateWindowsDoors(input: WindowsDoorsInput): SemseToolResult
       "Hold escrow until fit, seal, and finish are approved.",
     ],
     assumptions: ["Rough openings correctly sized — no structural repair needed.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,

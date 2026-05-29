@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildProductionSchedule,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
   computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
   buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
@@ -170,6 +173,38 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
     ],
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: 'Material selection and shop drawings', daysMin: 1, daysMax: 2, crew: 1, description: 'Confirm dimensions, grain direction, hardware specs' },
+    { name: 'Cutting and milling', daysMin: 1, daysMax: 2, crew: 1, description: 'Mill stock to size, cut joints, sand rough' },
+    { name: 'Assembly and dry-fit', daysMin: 1, daysMax: 2, crew: 2, description: 'Assemble joints, verify square and fit, make adjustments' },
+    { name: 'Finish application', daysMin: 1, daysMax: 3, crew: 1, description: 'Apply stain, paint, or clear finish in coats' },
+    { name: 'Installation and hardware', daysMin: 1, daysMax: 2, crew: 2, description: 'Install piece in place, mount hardware, adjust fit' },
+  ]);
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: input.finishType === 'none' || !input.material,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: input.quantity > 10,
+    hasComplexDetails: input.complexity === 'complex' || ['cabinet','built-in','stair-trim'].includes(input.projectType),
+  });
+
+  const upsells = [
+      { service: 'Soft-close hinge and slide upgrade', reason: 'Add while cabinets are open — lifetime benefit for minimal cost.' },
+      { service: 'Under-cabinet LED lighting', reason: 'Wire channels easiest to add before cabinet installation.' },
+      { service: 'Interior cabinet accessories (pullouts, organizers)', reason: 'Measure for organizers during the same site visit.' }
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.75),
+    roiPercent:          -25,
+    notes:               'Custom carpentry returns 75% in home value and significantly upgrades kitchen and bath perception.',
+  };
   return {
     toolId: `carpentry-${Date.now()}`, trade: "carpentry", projectType: input.projectType,
     mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
@@ -186,6 +221,11 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
       ...(input.paintedCabinets ? ["Sand between coats for smooth painted cabinet finish."] : []),
     ],
     assumptions: ["Dimensions are finished dimensions.", "US market pricing."],
+    productionSchedule,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
     confidenceScore: confidence, readinessScore: readiness, disputeRisk, priceBands,
     safeToProceed, scope, explained, warranty, inspectionGate, algorithmTrace,
