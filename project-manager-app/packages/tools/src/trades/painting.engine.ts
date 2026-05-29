@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildInspectionGate,
+  assessHiddenDamageProbability,
+  assessScheduleRisk,
   computeConfidenceScore,
   computeDisputeRisk,
   computeReadinessScore,
@@ -310,6 +313,45 @@ export function calculatePainting(input: PaintingInput): SemseToolResult {
     ]
   );
 
+
+  const inspectionGate = buildInspectionGate(
+    "After full surface prep — before first coat of paint",
+    ["Surface prep photos", "Primer application photos", "Caulk and patch documented"],
+    "Surface defects found during prep requiring repair before painting",
+    "Verify all cracks, holes, and surfaces are sanded, primed, and ready before any color coat."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(
+    undefined,
+    false,
+    false,
+    false,
+    false,
+    false
+  );
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: true,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: false,
+    hasComplexDetails: false,
+  });
+
+  const upsells = [
+    { service: "Color consultation and accent wall", reason: "Upsell while on-site — client gets professional color selection for $150-300." },
+    { service: "Cabinet painting", reason: "Cabinets already masked — painting them now avoids second mobilization." },
+    { service: "Caulking and gap sealing package", reason: "Caulk all baseboards and trim while paint is fresh — prevents callbacks." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 2.07),
+    roiPercent:          107,
+    notes:               "Interior painting returns 107% of cost — highest ROI of any home improvement. Fresh paint is #1 factor in buyer perception.",
+  };
+
   return {
     toolId:           `painting-${Date.now()}`,
     trade:            "painting",
@@ -342,6 +384,11 @@ export function calculatePainting(input: PaintingInput): SemseToolResult {
     warranty,
     safeToProceed,
     algorithmTrace,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

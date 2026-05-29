@@ -6,6 +6,7 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildInspectionGate,
   computeConfidenceScore,
   computeDisputeRisk,
   computeReadinessScore,
@@ -344,6 +345,20 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
     hasComplexDetails:    input.materialQuality === "premium",
   });
 
+
+  const inspectionGate = buildInspectionGate(
+    "After demolition and waterproofing — before tile and fixture installation",
+    ["Demo condition photos", "Waterproofing membrane photos", "Plumbing rough-in sign-off"],
+    "Hidden damage, mold, or plumbing deficiency found during demo requiring repair",
+    "Inspect subfloor, walls, and plumbing rough-in before any waterproofing or tile work begins."
+  );
+
+  const upsells = [
+    { service: "Heated floor mat (electric radiant)", reason: "Install wire mat before tile — same labor visit, adds comfort and resale appeal." },
+    { service: "Frameless glass shower door", reason: "Upgrade from standard door at close of tile work — no extra demo needed." },
+    { service: "Smart exhaust fan with humidity sensor", reason: "Prevents mold at the source — replaces standard fan for minimal upcharge." },
+  ];
+
   return {
     toolId:       `bathroom-${Date.now()}`,
     trade:        "remodeling",
@@ -382,6 +397,8 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
     roi,
     hiddenDamageAssessment: hiddenDamage,
     scheduleRisk,
+    inspectionGate,
+    upsells,
     createdAt: new Date().toISOString(),
   };
 }

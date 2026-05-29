@@ -6,6 +6,9 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildInspectionGate,
+  assessScheduleRisk,
+  buildProductionSchedule,
   computeConfidenceScore, computeDisputeRisk, computePriceBands,
   buildScope, buildExplainedOutput, buildWarranty, assessHiddenDamageProbability,
 } from "../core/extended-metrics.js";
@@ -256,6 +259,44 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
     false
   );
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Framing and mechanical inspection", daysMin: 0, daysMax: 1, crew: 1, description: "Confirm all rough-in complete before board goes up" },
+    { name: "Hanging / board installation",      daysMin: 1, daysMax: 3, crew: 2, description: "Hang all drywall sheets, cut and fit around openings" },
+    { name: "Tape and first coat",               daysMin: 1, daysMax: 2, crew: 2, description: "Apply tape, corner bead, and first mud coat" },
+    { name: "Second and third coats",            daysMin: 2, daysMax: 4, crew: 2, description: "Sand and apply finish coats, allow cure between coats" },
+    { name: "Final sand and prime",              daysMin: 1, daysMax: 2, crew: 2, description: "Final sand to level 4/5, prime coat ready for paint" },
+  ]);
+
+  const inspectionGate = buildInspectionGate(
+    "After rough-in inspection — before any board installation",
+    ["Framing inspection sign-off", "Mechanical rough-in photos", "Insulation installed"],
+    "Rough-in deficiency or missing insulation requiring correction before boarding",
+    "No drywall goes up until framing, mechanical, and insulation are inspected and signed off."
+  );
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: false,
+    hasComplexDetails: false,
+  });
+
+  const upsells = [
+    { service: "Level 5 smooth finish", reason: "Upgrade from standard level 4 — required for gloss or semi-gloss paint, adds ~15% to finish labor." },
+    { service: "Soundproofing drywall (QuietRock)", reason: "Same install effort, 4× the sound reduction — sell the upgrade while crew is staged." },
+    { service: "Moisture-resistant green board in baths", reason: "Standard board in wet areas fails within 5 years — green board is minimal upcharge." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.75),
+    roiPercent:          75,
+    notes:               "Drywall is enabling work — value is realized through paint and finish. Level 5 finish enables high-end paint ROI.",
+  };
+
   return {
     toolId: `drywall-${Date.now()}`,
     trade: "drywall",
@@ -284,6 +325,11 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
     explained,
     warranty,
     hiddenDamageAssessment: hiddenDamage,
+    productionSchedule,
+    inspectionGate,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

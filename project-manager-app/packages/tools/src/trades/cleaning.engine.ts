@@ -6,6 +6,8 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildInspectionGate,
+  assessHiddenDamageProbability,
   computeConfidenceScore,
   computeDisputeRisk,
   computeReadinessScore,
@@ -395,6 +397,36 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     hasComplexDetails:    input.condition === "post_construction",
   });
 
+
+  const inspectionGate = buildInspectionGate(
+    "Before starting — initial walkthrough and condition documentation",
+    ["Pre-clean condition photos", "Damage or stain inventory", "Special area flagging"],
+    "Pre-existing damage or stain discovered requiring client notification before cleaning",
+    "Document all pre-existing damage before starting. No cleaning begins until client acknowledges condition."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(
+    undefined,
+    false,
+    false,
+    false,
+    false,
+    false
+  );
+
+  const upsells = [
+    { service: "Recurring maintenance plan", reason: "Lock in recurring revenue — offer biweekly at 15% discount while relationship is fresh." },
+    { service: "Carpet deep clean and deodorize", reason: "Crew is on-site with equipment — add carpet treatment for high-margin upsell." },
+    { service: "Window interior wash", reason: "Extend clean to windows while crew is already staged — 20-30 min per room." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.0),
+    roiPercent:          100,
+    notes:               "Professional cleaning delivers immediate ROI via time savings, health, and property condition. Recurring contracts compound value.",
+  };
+
   return {
     toolId:       `cleaning-${Date.now()}`,
     trade:        "cleaning",
@@ -442,6 +474,10 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
       reasons:               readinessScore.blockers,
     },
     algorithmTrace,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

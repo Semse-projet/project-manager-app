@@ -6,6 +6,8 @@ import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
 import {
+  buildInspectionGate,
+  assessHiddenDamageProbability,
   computeConfidenceScore,
   computeDisputeRisk,
   computeReadinessScore,
@@ -364,6 +366,29 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
     hasComplexDetails:    input.appliances === "premium_appliances",
   });
 
+
+  const inspectionGate = buildInspectionGate(
+    "After demolition — before cabinet installation and rough-in",
+    ["Demo condition photos", "Subfloor and wall condition photos", "Plumbing/electrical rough-in sign-off"],
+    "Hidden plumbing, electrical, or structural damage found during demo",
+    "Inspect all exposed framing, subfloor, and rough-in before any cabinet or finish work."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(
+    undefined,
+    false,
+    false,
+    true,
+    false,
+    false
+  );
+
+  const upsells = [
+    { service: "Under-cabinet LED lighting", reason: "Install wiring before cabinets go in — requires no future demo, adds 30% counter ambiance." },
+    { service: "Pull-out cabinet organizers", reason: "Measure during cabinet install — same visit, high-margin accessories." },
+    { service: "Garbage disposal and air switch", reason: "Easy rough-in add while sink plumbing is open — standard upgrade request." },
+  ];
+
   return {
     toolId:       `kitchen-${Date.now()}`,
     trade:        "remodeling",
@@ -401,6 +426,9 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
     warranty,
     roi,
     scheduleRisk,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    upsells,
     createdAt: new Date().toISOString(),
   };
 }
