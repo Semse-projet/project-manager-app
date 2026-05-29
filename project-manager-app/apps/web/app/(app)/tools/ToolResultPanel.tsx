@@ -7,6 +7,7 @@ import { Badge, Card, MetricCard } from "@/components/ui";
 import type { SemseToolResult } from "@/app/lib/semse-tools-api";
 import { createBuildOpsProjectFromToolResult } from "@/app/lib/buildops-api";
 import { SemseIntelligencePanel } from "@/components/tools/SemseIntelligencePanel";
+import { ToolAIPanel } from "@/components/tools/ToolAIPanel";
 
 const RISK_LABELS: Record<SemseToolResult["risk"]["level"], string> = {
   low: "Low risk",
@@ -298,6 +299,9 @@ export function ToolResultPanel({ result }: { result: SemseToolResult }) {
           )}
         </div>
       )}
+
+      {/* AI Assistant — Ollama-powered, available for all tools */}
+      <ToolAIPanel result={result} />
     </div>
   );
 }
