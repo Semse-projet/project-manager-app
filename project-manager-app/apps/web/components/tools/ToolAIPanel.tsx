@@ -102,9 +102,9 @@ export function ToolAIPanel({ result }: { result: SemseToolResult }) {
 
   const context: Record<string, unknown> = {
     trade,
-    totalCost: result.cost?.total,
-    laborCost: result.cost?.labor,
-    materialCost: result.cost?.materials,
+    totalCost: result.costs?.total,
+    laborCost: result.costs?.labor,
+    materialCost: result.costs?.materials,
     riskLevel: result.risk?.level,
     riskScore: result.risk?.score,
     projectType: result.projectType,
