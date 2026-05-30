@@ -337,6 +337,7 @@ export default function WorkerDashboardPage() {
               { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "#ef4444" },
               { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "#ff6a00" },
               { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },
+              { href: "/worker/review", label: "Calificar clientes", description: "Enviar reseñas de trabajos completados", icon: Star, color: "#fbbf24" },
             ].map((action) => {
               const Icon = action.icon;
               return (

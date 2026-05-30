@@ -533,4 +533,21 @@ export class NotificationsService {
       }
     }
   }
+
+  async savePushSubscription(input: {
+    tenantId: string;
+    userId: string;
+    endpoint: string;
+    keys: Record<string, string>;
+  }): Promise<{ saved: boolean }> {
+    if (!input.endpoint) return { saved: false };
+    try {
+      await this.repository.upsertPushSubscription(input);
+      this.logger.log({ userId: input.userId }, "Push subscription saved");
+      return { saved: true };
+    } catch (error) {
+      this.logger.warn({ userId: input.userId, error }, "Failed to save push subscription");
+      return { saved: false };
+    }
+  }
 }

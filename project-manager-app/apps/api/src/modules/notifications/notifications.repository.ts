@@ -136,4 +136,31 @@ export class NotificationsRepository {
     });
     return { updated: result.count };
   }
+
+  async upsertPushSubscription(input: {
+    tenantId: string;
+    userId: string;
+    endpoint: string;
+    keys: Record<string, string>;
+  }): Promise<void> {
+    // Store in a JSON field on the user record (no schema migration needed).
+    // We use the user's profile settings JSON as a lightweight store.
+    // A proper push_subscriptions table would be better long-term.
+    await this.prisma.$executeRawUnsafe(
+      `UPDATE "UserProfile"
+       SET "settingsJson" = COALESCE("settingsJson", '{}'::jsonb)
+         || jsonb_build_object(
+              'pushSubscription',
+              jsonb_build_object(
+                'endpoint', $1::text,
+                'keys', $2::jsonb,
+                'savedAt', now()::text
+              )
+            )
+       WHERE "userId" = $3::text`,
+      input.endpoint,
+      JSON.stringify(input.keys),
+      input.userId,
+    );
+  }
 }
