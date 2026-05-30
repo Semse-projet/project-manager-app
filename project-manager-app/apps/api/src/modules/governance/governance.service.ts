@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException, Logger } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import {
   computeVoteWeight,
   tallyVotes,
@@ -48,7 +49,10 @@ export type ProposalResults = TallyResult & {
 export class GovernanceService {
   private readonly logger = new Logger(GovernanceService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly sse?: SseEventBusService,
+  ) {}
 
   async createProposal(dto: CreateProposalDto) {
     try {
@@ -138,6 +142,14 @@ export class GovernanceService {
         `[Governance] vote cast proposalId=${dto.proposalId} voter=${dto.voterId} choice=${dto.choice} weight=${weight}`,
       );
 
+      this.sse?.emit(`governance:${dto.tenantId}`, "governance:vote-cast", {
+        proposalId: dto.proposalId,
+        voterId:    dto.voterId,
+        choice:     dto.choice,
+        weight,
+        ts: Date.now(),
+      });
+
       return { ...vote, computedWeight: weight };
     } catch (err) {
       if (err instanceof NotFoundException || err instanceof ConflictException || err instanceof ForbiddenException) throw err;
@@ -218,6 +230,16 @@ export class GovernanceService {
     });
 
     this.logger.log(`[Governance] proposal closed id=${proposalId} outcome=${tally.outcome}`);
+
+    this.sse?.emit(`governance:${proposal.tenantId}`, "governance:proposal-closed", {
+      proposalId,
+      status:    newStatus,
+      outcome:   tally.outcome,
+      forWeight: tally.forWeight,
+      againstWeight: tally.againstWeight,
+      ts: Date.now(),
+    });
+
     return { status: newStatus, outcome: tally.outcome };
   }
 
