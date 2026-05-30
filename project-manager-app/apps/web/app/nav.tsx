@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "../lib/cn";
 import { fetchNotifications, markNotificationRead } from "./semse-api";
+import { PushEnableButton } from "../components/notifications/PushEnableButton";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -213,6 +214,7 @@ export function Nav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <PushEnableButton />
           <NotificationBell />
           <div
             aria-label="Estado del sistema"
