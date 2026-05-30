@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Building2, Check, Mail, MapPin, Phone, Scale, Shield, Star, User, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Building2, Check, CheckCircle2, Mail, MapPin, Phone, Scale, Shield, Star, User, X } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchCurrentUser,
@@ -58,6 +58,9 @@ export default function WorkerProfilePage() {
   const [memberships, setMemberships] = useState<UserMembershipView[]>([]);
   const [ratings, setRatings] = useState<RatingListItem[]>([]);
   const [openDisputes, setOpenDisputes] = useState(0);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyDone, setVerifyDone] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [editing, setEditing] = useState(false);
@@ -126,6 +129,27 @@ export default function WorkerProfilePage() {
   function cancelEditing() {
     setSaveError(null);
     setEditing(false);
+  }
+
+  async function requestVerification(type: string) {
+    if (!currentUser) return;
+    setVerifyBusy(true);
+    setVerifyError(null);
+    setVerifyDone(null);
+    try {
+      const res = await fetch(`/api/semse/users/${currentUser.id}/verify`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ verificationType: type }),
+      });
+      const json = await res.json() as { data?: unknown; error?: { message?: string } };
+      if (!res.ok) throw new Error(typeof json.error?.message === "string" ? json.error.message : "Error al solicitar verificación");
+      setVerifyDone(type);
+    } catch (e) {
+      setVerifyError(e instanceof Error ? e.message : "Error desconocido");
+    } finally {
+      setVerifyBusy(false);
+    }
   }
 
   async function saveProfile() {
@@ -381,6 +405,55 @@ export default function WorkerProfilePage() {
             </div>
           )}
         </HtmlInCanvasPanel>
+
+        {/* ── Verificación de perfil ── */}
+        {!isVerified && (
+          <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(245,158,11,.04)", borderColor: "rgba(245,158,11,.25)" }} canvasClassName="rounded-2xl" minHeight={80}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
+              <BadgeCheck size={17} color="#f59e0b" />
+              <div>
+                <h3 style={{ fontSize: "13px", fontWeight: 800, color: "#f59e0b", margin: 0 }}>Verificar tu perfil</h3>
+                <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Los profesionales verificados reciben 3× más propuestas.</p>
+              </div>
+            </div>
+            {verifyError && <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "10px" }}>{verifyError}</p>}
+            {verifyDone && <p style={{ fontSize: "12px", color: "#10b981", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}><CheckCircle2 size={13} />Solicitud enviada. El equipo revisará tu {verifyDone === "id_document" ? "documento de identidad" : verifyDone === "background_check" ? "antecedentes" : verifyDone}.</p>}
+            <div style={{ display: "grid", gap: "8px" }}>
+              {([
+                { type: "id_document",      label: "Documento de identidad",    desc: "Pasaporte, licencia de conducir o cédula" },
+                { type: "background_check", label: "Verificación de antecedentes", desc: "Revisión de historial criminal básico" },
+                { type: "phone",            label: "Teléfono verificado",       desc: "Confirma tu número de contacto" },
+              ] as const).map((item) => (
+                <div key={item.type} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", padding: "10px 12px", borderRadius: "9px", border: "1px solid var(--border)", background: "var(--bg)" }}>
+                  <div>
+                    <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)", margin: 0 }}>{item.label}</p>
+                    <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>{item.desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={verifyBusy || verifyDone === item.type}
+                    onClick={() => void requestVerification(item.type)}
+                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "#10b981" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
+                  >
+                    {verifyDone === item.type ? "✓ Enviado" : "Solicitar"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </HtmlInCanvasPanel>
+        )}
+
+        {isVerified && (
+          <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(16,185,129,.04)", borderColor: "rgba(16,185,129,.2)" }} canvasClassName="rounded-2xl" minHeight={60}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <BadgeCheck size={17} color="#10b981" />
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#10b981", margin: 0 }}>Perfil verificado</p>
+                <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Tu identidad fue confirmada. Apareces como profesional de confianza.</p>
+              </div>
+            </div>
+          </HtmlInCanvasPanel>
+        )}
 
         {openDisputes > 0 ? (
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(239,68,68,.04)", borderColor: "rgba(239,68,68,.2)" }} canvasClassName="rounded-2xl" minHeight={70}>
