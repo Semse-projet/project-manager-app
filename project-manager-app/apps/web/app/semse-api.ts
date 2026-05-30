@@ -374,6 +374,30 @@ export async function fetchJobContract(jobId: string): Promise<Record<string, un
   return fetchSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/contracts/current`);
 }
 
+export type BidView = {
+  id: string;
+  jobId: string;
+  proUserId: string;
+  proEmail?: string;
+  proName?: string;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  note?: string | null;
+  status: "submitted" | "accepted" | "rejected" | "withdrawn";
+  availableFrom?: string | null;
+  createdAt: string;
+};
+
+export async function fetchJobBids(jobId: string): Promise<BidView[]> {
+  return fetchSemse<BidView[]>(`/api/semse/jobs/${jobId}/bids`);
+}
+
+export async function acceptBid(bidId: string): Promise<Record<string, unknown>> {
+  return fetchSemse<Record<string, unknown>>(`/api/semse/bids/${bidId}/accept`, {
+    method: "POST",
+  });
+}
+
 export async function fetchJobPaymentReadiness(jobId: string): Promise<Record<string, unknown>> {
   return fetchSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/payment-readiness`);
 }

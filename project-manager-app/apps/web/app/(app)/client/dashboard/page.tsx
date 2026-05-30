@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban } from "lucide-react";
+import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users } from "lucide-react";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
@@ -238,6 +238,7 @@ export default function ClientDashboardPage() {
             { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "#8b5cf6" },
             { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "#10b981" },
             { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "#ff6a00" },
+            { label: "Propuestas recibidas",   href: "/client/proposals",                     icon: Users,        color: "#6366f1" },
             { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "#ef4444" },
           ].map(action => {
             const Icon = action.icon;
