@@ -420,11 +420,19 @@ export default function WorkerDashboardPage() {
             {apiError}
           </div>
         ) : metrics.active.length === 0 ? (
-          <EmptyPanel
-            title="No tienes trabajos activos"
-            description="Cuando aceptes o reserves trabajos, aparecerán aquí con prioridad operativa."
-            icon={Briefcase}
-          />
+          <div style={{ textAlign: "center", padding: "32px 24px", borderRadius: "16px", border: "1px solid var(--border)", background: "var(--surface)" }}>
+            <Briefcase size={32} style={{ color: "var(--faint)", margin: "0 auto 14px", display: "block" }} />
+            <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", marginBottom: 8 }}>No tienes trabajos activos</p>
+            <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: 20 }}>
+              Explora las oportunidades disponibles y envía propuestas para comenzar.
+            </p>
+            <Link
+              href="/worker/opportunities"
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "9px", background: "var(--brand)", textDecoration: "none", color: "#fff", fontSize: "13px", fontWeight: 700 }}
+            >
+              Ver oportunidades →
+            </Link>
+          </div>
         ) : (
           <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
             {metrics.active.slice(0, 4).map((job) => (

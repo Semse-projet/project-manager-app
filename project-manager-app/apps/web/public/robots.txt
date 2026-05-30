@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /data-deletion
+
+# Authenticated app routes — do not index
+Disallow: /dashboard
+Disallow: /admin/
+Disallow: /worker/
+Disallow: /client/
+Disallow: /buildops/
+Disallow: /tools/
+Disallow: /field-ops
+Disallow: /cortex
+Disallow: /agents
+Disallow: /api/
+
+Sitemap: https://semse-web-production.up.railway.app/sitemap.xml
