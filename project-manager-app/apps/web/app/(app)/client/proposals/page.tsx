@@ -37,7 +37,7 @@ export default function ClientProposalsPage() {
     try {
       const jobs = await fetchJobs();
       const published = (Array.isArray(jobs) ? jobs : []).filter(
-        (j: JobRecordView) => j.status === "PUBLISHED" || j.status === "POSTED"
+        (j: JobRecordView) => j.status === "published" || j.status === "posted"
       );
       const results = await Promise.allSettled(
         published.map(async (j: JobRecordView) => {

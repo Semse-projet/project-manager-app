@@ -127,7 +127,7 @@ export default function WorkerOpportunitiesPage() {
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      <NotificationBanner />
+      <NotificationBanner audience="worker" />
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>

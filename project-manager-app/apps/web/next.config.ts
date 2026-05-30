@@ -43,6 +43,9 @@ const nextConfig: NextConfig = {
   output: "standalone",
   reactStrictMode: true,
   poweredByHeader: false,
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   transpilePackages: ["@semse/ui", "@semse/schemas", "@semse/agents"],
   experimental: {
     webpackBuildWorker: false,

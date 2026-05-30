@@ -77,7 +77,7 @@ export default function WorkerReviewPage() {
       );
 
       const reviewable: ReviewableJob[] = (Array.isArray(jobsData) ? jobsData : [])
-        .filter((j: JobRecordView) => j.status === "COMPLETED" || j.status === "REVIEW")
+        .filter((j: JobRecordView) => j.status === "completed" || j.status === "review")
         .map((j: JobRecordView) => ({
           id: j.id,
           title: j.title,
@@ -127,7 +127,7 @@ export default function WorkerReviewPage() {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      <NotificationBanner />
+      <NotificationBanner audience="worker" />
 
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px" }}>Reseñas de clientes</h1>
@@ -169,7 +169,7 @@ export default function WorkerReviewPage() {
                       <div>
                         <p style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", margin: "0 0 3px" }}>{job.title}</p>
                         <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>
-                          {job.clientEmail ?? "Cliente"} · {job.status === "COMPLETED" ? "Completado" : "En revisión"}
+                          {job.clientEmail ?? "Cliente"} · {job.status === "completed" ? "Completado" : "En revisión"}
                         </p>
                       </div>
                       <button

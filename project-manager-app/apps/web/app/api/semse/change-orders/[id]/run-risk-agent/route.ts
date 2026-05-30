@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../../_server";
+import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../../_server";
 
 export async function POST(
   request: NextRequest,

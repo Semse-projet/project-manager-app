@@ -57,7 +57,7 @@ export default function ClientDashboardPage() {
         const jobList = d.data ?? [];
         setJobs(jobList);
         // Count pending bids across published jobs
-        const published = jobList.filter((j: JobRecordView) => j.status === "PUBLISHED" || j.status === "POSTED");
+        const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
         const bidCounts = await Promise.allSettled(
           published.map((j: JobRecordView) =>
             fetch(`/api/semse/jobs/${j.id}/bids`).then(r => r.json() as Promise<{ data?: Array<{ status: string }> }>)
