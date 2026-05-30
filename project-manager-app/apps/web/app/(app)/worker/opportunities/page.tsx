@@ -84,6 +84,15 @@ export default function WorkerOpportunitiesPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // SSE: refresh when a bid we submitted gets accepted
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const TENANT_ID = process.env.NEXT_PUBLIC_SEMSE_TENANT_ID ?? "default";
+    const es = new EventSource(`/api/semse/sse?channels=bids:${TENANT_ID}`);
+    es.addEventListener("bid:accepted", () => void load());
+    return () => es.close();
+  }, [load]);
+
   const filtered = jobs.filter(j =>
     !search || j.title.toLowerCase().includes(search.toLowerCase()) ||
     (j.category ?? "").toLowerCase().includes(search.toLowerCase()) ||

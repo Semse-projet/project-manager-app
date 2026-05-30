@@ -7,6 +7,8 @@ import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { acceptBid, fetchJobBids, fetchJobs, type BidView, type JobRecordView } from "../../../semse-api";
 
+const TENANT_ID = process.env.NEXT_PUBLIC_SEMSE_TENANT_ID ?? "default";
+
 type JobWithBids = {
   job: JobRecordView;
   bids: BidView[];
@@ -57,6 +59,14 @@ export default function ClientProposalsPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // SSE: auto-reload when new bids arrive
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const es = new EventSource(`/api/semse/sse?channels=bids:${TENANT_ID}`);
+    es.addEventListener("bid:submitted", () => void load());
+    return () => es.close();
+  }, [load]);
 
   async function handleAccept(bid: BidView) {
     setAccepting(bid.id);
