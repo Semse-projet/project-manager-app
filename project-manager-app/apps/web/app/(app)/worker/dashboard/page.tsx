@@ -338,6 +338,7 @@ export default function WorkerDashboardPage() {
               { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "#ff6a00" },
               { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },
               { href: "/worker/review", label: "Calificar clientes", description: "Enviar reseñas de trabajos completados", icon: Star, color: "#fbbf24" },
+              { href: "/worker/opportunities", label: "Ver oportunidades", description: "Trabajos disponibles — envía propuestas", icon: Briefcase, color: "#6366f1" },
             ].map((action) => {
               const Icon = action.icon;
               return (
