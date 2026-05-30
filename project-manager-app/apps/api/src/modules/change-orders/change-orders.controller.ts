@@ -115,4 +115,13 @@ export class ChangeOrdersController {
     const data = await this.changeOrdersService.applyToBuildOps(actor, id);
     return ok(requestId, data);
   }
+
+  @Post(":id/run-risk-agent")
+  @RequirePermissions("change-orders:read")
+  async runRiskAgent(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.changeOrdersService.runRiskAgent(actor, id);
+    return ok(requestId, data);
+  }
 }
