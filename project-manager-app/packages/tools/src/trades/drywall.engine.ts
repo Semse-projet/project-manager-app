@@ -1,4 +1,4 @@
-import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, positive, range, warn } from "../core/validation-engine.js";
 import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -27,6 +27,11 @@ export type DrywallInput = {
   location?: LocationMultipliers;
 };
 
+const PANEL_TYPES = ["regular", "moisture-resistant", "fire-rated"] as const;
+const PANEL_SIZES = ["4x8", "4x10", "4x12"] as const;
+const FINISH_LEVELS = ["0", "1", "2", "3", "4", "5"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
+
 const PANEL_SQUARE_FEET: Record<DrywallInput["panelSize"], number> = {
   "4x8": 32,
   "4x10": 40,
@@ -48,8 +53,24 @@ const COMPOUND_PER_PANEL: Record<DrywallInput["finishLevel"], number> = {
   5: 1.65,
 };
 
+function normalizePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
 export function calculateDrywall(input: DrywallInput): SemseToolResult {
   const issues = collect(
+    oneOf("panelType", input.panelType, PANEL_TYPES, "Tipo de panel"),
+    oneOf("panelSize", input.panelSize, PANEL_SIZES, "Tamaño de panel"),
+    oneOf("finishLevel", String(input.finishLevel), FINISH_LEVELS, "Nivel de acabado"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
     positive("wallAreaSqft", input.wallAreaSqft, "Área de muros"),
     range("ceilingAreaSqft", input.ceilingAreaSqft, 0, 2000, "Área de ceiling"),
     range("finishLevel", input.finishLevel, 0, 5, "Nivel de acabado"),
@@ -67,47 +88,54 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
       : null,
   );
 
-  const totalArea = input.wallAreaSqft + (input.includeCeiling ? input.ceilingAreaSqft : 0);
+  const panelType = normalizeOneOf(input.panelType, PANEL_TYPES, "regular");
+  const panelSize = normalizeOneOf(input.panelSize, PANEL_SIZES, "4x8");
+  const finishLevel = Number(normalizeOneOf(String(input.finishLevel), FINISH_LEVELS, "4")) as DrywallInput["finishLevel"];
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const wallAreaSqft = normalizePositive(input.wallAreaSqft, 1);
+  const ceilingAreaSqft = normalizeRange(input.ceilingAreaSqft, 0, 2000, 0);
+
+  const totalArea = wallAreaSqft + (input.includeCeiling ? ceilingAreaSqft : 0);
   const adjustedArea = totalArea * (input.repairMode ? 1.08 : 1.03);
-  const panelCount = Math.max(1, Math.ceil(adjustedArea / PANEL_SQUARE_FEET[input.panelSize]));
+  const panelCount = Math.max(1, Math.ceil(adjustedArea / PANEL_SQUARE_FEET[panelSize]));
   const screwBoxes = Math.max(1, Math.ceil(panelCount / 10));
   const tapeRolls = Math.max(1, Math.ceil(adjustedArea / 500));
-  const compoundUnits = Math.max(1, Math.ceil(panelCount * COMPOUND_PER_PANEL[input.finishLevel]));
-  const cornerBeadFeet = Math.max(0, Math.ceil((input.wallAreaSqft / 120) * 8));
+  const compoundUnits = Math.max(1, Math.ceil(panelCount * COMPOUND_PER_PANEL[finishLevel]));
+  const cornerBeadFeet = Math.max(0, Math.ceil((wallAreaSqft / 120) * 8));
 
-  const panelUnitCost = input.panelType === "regular"
-    ? priceOf(input.prices, "drywall-sheet", PANEL_UNIT_COST[input.panelType])
-    : PANEL_UNIT_COST[input.panelType];
+  const panelUnitCost = panelType === "regular"
+    ? priceOf(input.prices, "drywall-sheet", PANEL_UNIT_COST[panelType])
+    : PANEL_UNIT_COST[panelType];
   const mats = [
-    material(`${input.panelType} drywall panel`, panelCount, "sheet", panelUnitCost, "Panel"),
+    material(`${panelType} drywall panel`, panelCount, "sheet", panelUnitCost, "Panel"),
     material("Drywall screws", screwBoxes, "box", 12.5, "Fasteners"),
     material("Joint tape", tapeRolls, "roll", 6.5, "Finish"),
     material("Joint compound", compoundUnits, "bucket", 19.5, "Finish"),
     ...(cornerBeadFeet > 0 ? [material("Corner bead", cornerBeadFeet, "ft", 1.1, "Finish")] : []),
     ...(input.repairMode ? [material("Patch kit / sanding supplies", Math.max(1, Math.ceil(adjustedArea / 350)), "kit", 15, "Repair")] : []),
-    ...(input.includeCeiling ? [material("Ceiling hangers / fasteners", Math.max(1, Math.ceil(input.ceilingAreaSqft / 200)), "kit", 18, "Ceiling")] : []),
+    ...(input.includeCeiling ? [material("Ceiling hangers / fasteners", Math.max(1, Math.ceil(ceilingAreaSqft / 200)), "kit", 18, "Ceiling")] : []),
   ];
 
   const labor = estimateLabor({
     baseHours:
       3.5 +
       adjustedArea / 90 +
-      input.finishLevel * 0.75 +
+      finishLevel * 0.75 +
       (input.repairMode ? 2.25 : 0) +
       (input.textureMatch ? 1.5 : 0) +
       (input.includeCeiling ? 2.5 : 0),
     crewSize: adjustedArea > 900 ? 3 : 2,
     ratePerHour: 58,
-    difficulty: input.finishLevel >= 4 || input.repairMode || input.includeCeiling ? "complex" : "moderate",
+    difficulty: finishLevel >= 4 || input.repairMode || input.includeCeiling ? "complex" : "moderate",
     notes: [
       `Área ajustada: ${adjustedArea.toFixed(1)} sqft`,
-      `Nivel de acabado: ${input.finishLevel}`,
+      `Nivel de acabado: ${finishLevel}`,
       input.repairMode ? "Modo reparación activado." : "Instalación nueva o parcial.",
     ],
   });
 
   const costs = buildCostSummary(applyLocation(materialTotal(mats), input.location, "material"), applyLocation(labor.totalCost, input.location, "labor"), {
-    overhead: input.finishLevel >= 4 ? 0.16 : 0.14,
+    overhead: finishLevel >= 4 ? 0.16 : 0.14,
     profit: 0.2,
     taxRate: 0.07,
     semseFeeRate: 0.05,
@@ -116,17 +144,17 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
 
   const risk = computeRisk(
     [
-      factor("finish5", "Acabado nivel 5", 0.18, input.finishLevel === 5),
+      factor("finish5", "Acabado nivel 5", 0.18, finishLevel === 5),
       factor("repair", "Modo reparación", 0.12, input.repairMode),
       factor("texture", "Igualado de textura", 0.14, input.textureMatch),
       factor("ceiling", "Incluye ceiling", 0.16, input.includeCeiling),
-      factor("moisture", "Panel moisture-resistant", 0.08, input.panelType === "moisture-resistant"),
-      factor("fire", "Panel fire-rated", 0.10, input.panelType === "fire-rated"),
+      factor("moisture", "Panel moisture-resistant", 0.08, panelType === "moisture-resistant"),
+      factor("fire", "Panel fire-rated", 0.10, panelType === "fire-rated"),
     ],
     {
       requiresPermit: false,
       requiresLicense: false,
-      requiresInspection: input.includeCeiling || input.finishLevel >= 4,
+      requiresInspection: input.includeCeiling || finishLevel >= 4,
       requiresEngineering: false,
     }
   );
@@ -146,12 +174,12 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
   const evidence = buildEvidenceChecklist("drywall", risk, milestones, [
     { type: "photo", description: "Estado inicial del área", required: true, milestone: 1 },
     { type: "photo", description: "Paneles colocados", required: true, milestone: 2 },
-    { type: "photo", description: "Acabado / textura", required: input.finishLevel >= 3, milestone: 3 },
+    { type: "photo", description: "Acabado / textura", required: finishLevel >= 3, milestone: 3 },
     { type: "inspection", description: "Aprobación final del cliente", required: true, milestone: 4 },
   ]);
 
   const warnings: string[] = [
-    ...(input.finishLevel === 5
+    ...(finishLevel === 5
       ? ["Nivel 5: revisar luz rasante y uniformidad antes de pintar."]
       : []),
     ...(input.includeCeiling ? ["Ceiling incluido: validar peso, suspensión y acceso a instalaciones superiores."] : []),
@@ -162,13 +190,13 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
     "Tomar mediciones finales antes de cortar paneles.",
     "Cerrar juntas con secuencia de secado apropiada.",
     "Documentar fotos antes de aplicar primer o pintura.",
-    ...(input.finishLevel >= 4 ? ["Programar inspección visual antes del cierre del hito final."] : []),
+    ...(finishLevel >= 4 ? ["Programar inspección visual antes del cierre del hito final."] : []),
   ];
 
   const evidenceRequired: EvidenceItem[] = evidence.items;
 
   const confidenceScore = computeConfidenceScore({
-    hasMeasurements:      input.wallAreaSqft > 0,
+    hasMeasurements:      wallAreaSqft > 0,
     hasPhotos:            false,
     hasConditionData:     true,
     hasMaterialSelection: true,
@@ -184,7 +212,7 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
     hasChangeOrderPolicy: true,
     hasEvidenceRequired:  true,
     hasMilestones:        milestones.length > 0,
-    hasHighRiskConditions: input.finishLevel === 5 || input.includeCeiling,
+    hasHighRiskConditions: finishLevel === 5 || input.includeCeiling,
     priceIsFixed:         false,
     clientExpectationMismatch: input.textureMatch,
   });
@@ -201,9 +229,9 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
   const scope = buildScope(
     [
       `${input.repairMode ? "Drywall repair" : "Drywall installation"} — ${adjustedArea.toFixed(0)} sqft`,
-      `${input.panelType} panels (${input.panelSize})`,
+      `${panelType} panels (${panelSize})`,
       "Tape, joint compound, sanding",
-      `Finish level ${input.finishLevel}`,
+      `Finish level ${finishLevel}`,
       ...(input.includeCeiling ? ["Ceiling drywall included"] : []),
       ...(input.textureMatch ? ["Texture match attempt"] : []),
       "Basic cleanup",
@@ -226,13 +254,13 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
   );
 
   const explained = buildExplainedOutput(
-    `Your drywall ${input.repairMode ? "repair" : "installation"} (${adjustedArea.toFixed(0)} sqft, finish level ${input.finishLevel}) is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `Your drywall ${input.repairMode ? "repair" : "installation"} (${adjustedArea.toFixed(0)} sqft, finish level ${finishLevel}) is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
     `${input.includeCeiling ? "Ceiling work is included. " : ""}` +
     `${input.textureMatch ? "Texture matching is included — client must approve visually before painting. " : ""}` +
     `Photos are required at key stages before covering the substrate.`,
     [
-      `Area: ${adjustedArea.toFixed(0)} sqft — finish level: ${input.finishLevel} — repair mode: ${input.repairMode}`,
-      `Panel type: ${input.panelType} — size: ${input.panelSize}`,
+      `Area: ${adjustedArea.toFixed(0)} sqft — finish level: ${finishLevel} — repair mode: ${input.repairMode}`,
+      `Panel type: ${panelType} — size: ${panelSize}`,
       "Do NOT paint before final sanding is approved and documented",
       ...(input.textureMatch ? ["TEXTURE: require client approval before painting — disputes often start here"] : []),
       ...(input.includeCeiling ? ["Ceiling: ensure lift/scaffolding safety before starting"] : []),
@@ -252,7 +280,7 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
 
   const hiddenDamage = assessHiddenDamageProbability(
     undefined,
-    input.panelType === "moisture-resistant",
+    panelType === "moisture-resistant",
     false,
     input.repairMode,
     false,
@@ -301,7 +329,7 @@ export function calculateDrywall(input: DrywallInput): SemseToolResult {
     toolId: `drywall-${Date.now()}`,
     trade: "drywall",
     projectType: input.repairMode ? "drywall-repair" : "drywall-install",
-    mode: input.mode,
+    mode,
     inputs: { ...input },
     validationIssues: issues,
     isValid: isValid(issues),
