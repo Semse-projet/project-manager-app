@@ -39,6 +39,23 @@ export function range(
   return null;
 }
 
+export function oneOf<T extends string>(
+  field: string,
+  value: unknown,
+  allowed: readonly T[],
+  label = field,
+): ValidationIssue | null {
+  if (typeof value !== "string" || !allowed.includes(value as T)) {
+    return {
+      field,
+      severity: "error",
+      message: `${label} debe ser uno de: ${allowed.join(", ")}.`,
+      suggestion: `Valor actual: ${String(value)}`,
+    };
+  }
+  return null;
+}
+
 export function warn(field: string, message: string, suggestion?: string): ValidationIssue {
   return { field, severity: "warning" as ValidationSeverity, message, suggestion };
 }
