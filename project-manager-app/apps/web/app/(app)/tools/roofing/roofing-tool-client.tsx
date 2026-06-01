@@ -1,82 +1,156 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calculator, Home } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Building } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
-type ShingleType = "3-tab" | "architectural" | "metal" | "tile" | "flat-tpo" | "flat-modified";
-type DeckCondition = "good" | "fair" | "poor" | "unknown";
+export type RoofingSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
 
 type RoofingInput = {
-  roofAreaSqFt: number;
-  pitch: number;
-  shingleType: ShingleType;
+  roofAreaSqft: number;
+  roofPitch: "low" | "moderate" | "steep" | "very_steep";
+  materialType: "asphalt_shingles" | "metal" | "tile" | "slate" | "wood_shakes" | "flat_membrane";
+  quality: "budget" | "standard" | "premium" | "luxury";
   removeOldRoof: boolean;
-  layers: number;
-  underlayment: boolean;
-  iceBarrier: boolean;
-  vents: number;
-  skylightCount: number;
-  flashingReplace: boolean;
-  deckCondition: DeckCondition;
+  underlaymentUpgrade: boolean;
+  ventilationImprovement: boolean;
   guttersIncluded: boolean;
-  warrantyYears: 20 | 30 | 50;
   mode: ToolMode;
 };
 
 const INITIAL_INPUT: RoofingInput = {
-  roofAreaSqFt: 2400,
-  pitch: 6,
-  shingleType: "architectural",
+  roofAreaSqft: 1800,
+  roofPitch: "moderate",
+  materialType: "asphalt_shingles",
+  quality: "standard",
   removeOldRoof: true,
-  layers: 1,
-  underlayment: true,
-  iceBarrier: false,
-  vents: 2,
-  skylightCount: 0,
-  flashingReplace: false,
-  deckCondition: "fair",
+  underlaymentUpgrade: false,
+  ventilationImprovement: false,
   guttersIncluded: false,
-  warrantyYears: 30,
   mode: "professional",
 };
 
-function Toggle({ label, checked, onChange, hint }: {
-  label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string;
-}) {
-  return (
-    <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink cursor-pointer">
-      <div>
-        <div>{label}</div>
-        {hint && <div className="text-xs text-muted mt-0.5">{hint}</div>}
-      </div>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    </label>
-  );
+const SECTIONS: Array<{ id: RoofingSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/roofing/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/roofing/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/roofing/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/roofing/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/roofing/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/roofing/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/roofing/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/roofing/research", icon: Globe2 },
+];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function RoofingToolClient() {
+type RoofingToolClientProps = { section: RoofingSection };
+
+export function RoofingToolClient({ section }: RoofingToolClientProps) {
   const [input, setInput] = useState<RoofingInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function set<K extends keyof RoofingInput>(k: K, v: RoofingInput[K]) {
-    setInput((cur) => ({ ...cur, [k]: v }));
-  }
+  const costPerSqft = useMemo(() => {
+    const baseCost: Record<typeof input.materialType, number> = {
+      asphalt_shingles: 3.5, metal: 8.0, tile: 12.0, slate: 15.0, wood_shakes: 10.0, flat_membrane: 5.0,
+    };
+    const base = baseCost[input.materialType] || 5.0;
+    const pitchMultiplier = { low: 1.0, moderate: 1.15, steep: 1.35, very_steep: 1.6 }[input.roofPitch];
+    const qualityMultiplier = { budget: 0.8, standard: 1.0, premium: 1.3, luxury: 1.8 }[input.quality];
+    const removalFactor = input.removeOldRoof ? 1.2 : 0.7;
+    return base * pitchMultiplier * qualityMultiplier * removalFactor;
+  }, [input.materialType, input.roofPitch, input.quality, input.removeOldRoof]);
+
+  const estimatedCost = useMemo(() => input.roofAreaSqft * costPerSqft * 1.1, [input.roofAreaSqft, costPerSqft]);
 
   async function calculate() {
     setLoading(true);
     setError(null);
     try {
-      setResult(await calculateSemseTool({ tool: "roofing", mode: input.mode, input }));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Calculation error");
+      const response = await calculateSemseTool({ tool: "roofing", mode: input.mode, input });
+      setResult(response);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Roof Area</div><div className="text-2xl font-bold">{input.roofAreaSqft.toFixed(0)} sqft</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Material</div><div className="text-lg font-bold capitalize">{input.materialType.replace(/_/g, ' ')}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Roofing Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Roof Area (sqft)" type="number" value={input.roofAreaSqft} onChange={(e) => setInput({...input, roofAreaSqft: Number(e.target.value)})} />
+                <Select label="Pitch" value={input.roofPitch} onChange={(e) => setInput({...input, roofPitch: e.target.value as any})}>
+                  <option value="low">Low (1:12 - 2:12)</option>
+                  <option value="moderate">Moderate (4:12 - 6:12)</option>
+                  <option value="steep">Steep (8:12 - 10:12)</option>
+                  <option value="very_steep">Very Steep (12:12+)</option>
+                </Select>
+                <Select label="Material" value={input.materialType} onChange={(e) => setInput({...input, materialType: e.target.value as any})}>
+                  <option value="asphalt_shingles">Asphalt Shingles</option>
+                  <option value="metal">Metal</option>
+                  <option value="tile">Tile</option>
+                  <option value="slate">Slate</option>
+                  <option value="wood_shakes">Wood Shakes</option>
+                  <option value="flat_membrane">Flat Membrane</option>
+                </Select>
+                <Select label="Quality" value={input.quality} onChange={(e) => setInput({...input, quality: e.target.value as any})}>
+                  <option value="budget">Budget</option>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                  <option value="luxury">Luxury</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Roof area: {input.roofAreaSqft.toFixed(0)} sqft • Pitch: {input.roofPitch} • Material: {input.materialType}</p></Card>;
+
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">{input.materialType}: {input.roofAreaSqft.toFixed(0)} sqft • Quality: {input.quality} • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
+
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Roofing Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.roofAreaSqft.toFixed(0)} sqft • {input.materialType}</p></Card>;
+
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Inspection & permit, removal, substrate prep, new roof install, flashing & gutters, cleanup...</p></Card>;
+
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Shingle/panel alignment, fastening, flashing integrity, gutter function, ventilation, warranty compliance...</p></Card>;
+
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Roofing Research</h3><Input placeholder="Search roofing materials, lifespan, energy efficiency, maintenance..." /></Card>;
+
+      default:
+        return null;
     }
   }
 
@@ -84,133 +158,25 @@ export function RoofingToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} /> Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
-        <section className="grid gap-2">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Roofing Estimator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Full replacement and new-install estimates with material selection, deck risk, skylight flashing, warranty, confidence scoring, and AI assistant.
-          </p>
+        <section className="grid gap-3">
+          <div className="flex items-center gap-3"><Building className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Roofing Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete roofing estimation with materials, labor, and installation options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[460px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                <Calculator size={18} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Roof specs</h2>
-                <p className="text-sm text-muted">Inspect deck condition before finalizing price.</p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Roof area (sq ft)" type="number" min={100} value={input.roofAreaSqFt}
-                  onChange={(e) => set("roofAreaSqFt", Number(e.target.value))} />
-                <Input label="Pitch (x/12)" type="number" min={1} max={18} value={input.pitch}
-                  onChange={(e) => set("pitch", Number(e.target.value))} hint="1–18" />
-              </div>
-
-              <Select label="Shingle type" value={input.shingleType}
-                onChange={(e) => set("shingleType", e.target.value as ShingleType)}>
-                <option value="3-tab">3-tab asphalt</option>
-                <option value="architectural">Architectural / dimensional</option>
-                <option value="metal">Metal panels</option>
-                <option value="tile">Tile (clay/concrete)</option>
-                <option value="flat-tpo">Flat — TPO membrane</option>
-                <option value="flat-modified">Flat — Modified bitumen</option>
-              </Select>
-
-              <Select label="Deck condition" value={input.deckCondition}
-                onChange={(e) => set("deckCondition", e.target.value as DeckCondition)}>
-                <option value="good">Good — solid, no visible issues</option>
-                <option value="fair">Fair — some wear, minor concerns</option>
-                <option value="poor">Poor — rot, delamination, soft spots</option>
-                <option value="unknown">Unknown — not inspected yet</option>
-              </Select>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Existing layers" type="number" min={1} max={3} value={input.layers}
-                  onChange={(e) => set("layers", Number(e.target.value))} />
-                <Input label="Roof vents" type="number" min={0} value={input.vents}
-                  onChange={(e) => set("vents", Number(e.target.value))} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Skylights" type="number" min={0} value={input.skylightCount}
-                  onChange={(e) => set("skylightCount", Number(e.target.value))} />
-                <Select label="Warranty (years)" value={String(input.warrantyYears)}
-                  onChange={(e) => set("warrantyYears", Number(e.target.value) as 20 | 30 | 50)}>
-                  <option value="20">20-year</option>
-                  <option value="30">30-year</option>
-                  <option value="50">50-year (premium)</option>
-                </Select>
-              </div>
-
-              <Toggle label="Remove old roof (tear-off)" checked={input.removeOldRoof}
-                onChange={(v) => set("removeOldRoof", v)} />
-              <Toggle label="Synthetic underlayment" checked={input.underlayment}
-                onChange={(v) => set("underlayment", v)} />
-              <Toggle label="Ice & water shield" checked={input.iceBarrier}
-                onChange={(v) => set("iceBarrier", v)} hint="Eaves, valleys — freeze-thaw climates" />
-              <Toggle label="Replace all flashing" checked={input.flashingReplace}
-                onChange={(v) => set("flashingReplace", v)} />
-              <Toggle label="Include gutters & downspouts" checked={input.guttersIncluded}
-                onChange={(v) => set("guttersIncluded", v)} />
-
-              <Select label="Mode" value={input.mode}
-                onChange={(e) => set("mode", e.target.value as ToolMode)}>
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-            </div>
-
-            {(input.deckCondition === "poor" || input.deckCondition === "unknown") && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-3 text-sm text-amber-200">
-                ⚠ {input.deckCondition === "unknown" ? "Inspect deck before finalizing price — hidden damage risk." : "Poor deck condition: budget for sheathing replacement and include change-order clause."}
-              </div>
-            )}
-
-            {error && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div>
-            )}
-
-            <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate roofing estimate"}
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ToolResultPanel result={result} />
-            ) : (
-              <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
-                <div className="grid gap-3 p-8">
-                  <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <Home size={24} />
-                  </div>
-                  <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                  <p className="max-w-xl text-sm text-muted">
-                    Configure roof specs on the left to generate a full estimate with deck risk analysis, price bands, scope, and AI assistant.
-                  </p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Materials</Badge>
-                    <Badge variant="info">Deck risk</Badge>
-                    <Badge variant="warn">Milestones</Badge>
-                    <Badge variant="success">AI assistant</Badge>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );
