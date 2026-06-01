@@ -19,6 +19,10 @@ function logFatal(label, err, meta) {
   }));
 }
 
+function maskRedisUrl(value) {
+  return value ? value.replace(/:[^:@]+@/, ":***@") : "MISSING";
+}
+
 process.on("uncaughtException", (err) => {
   logFatal("uncaughtException", err);
   process.exit(1);
@@ -161,7 +165,7 @@ async function main() {
     pid: process.pid,
     nodeEnv: process.env.NODE_ENV,
     apiBaseUrl: config.apiBaseUrl,
-    redisUrl: config.redisUrl ? config.redisUrl.replace(/:[^:@]+@/, ":***@") : "MISSING",
+    redisUrl: maskRedisUrl(config.redisUrl),
     authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
     bootstrapToken: config.bootstrapToken ? "SET" : "NOT_SET",
     workerId: config.workerId,
@@ -177,7 +181,7 @@ async function main() {
     {
       workerId: config.workerId,
       apiBaseUrl: config.apiBaseUrl,
-      redisUrl: config.redisUrl,
+      redisUrl: maskRedisUrl(config.redisUrl),
       heartbeatIntervalMs: config.heartbeatIntervalMs,
       runDurationMs: config.runDurationMs,
       reclaimIntervalMs: config.reclaimIntervalMs,
