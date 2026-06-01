@@ -1,10 +1,10 @@
-import { collect, isValid, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, range, warn } from "../core/validation-engine.js";
 import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
-import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode, ValidationIssue } from "../core/types.js";
 import {
   buildInspectionGate,
   assessHiddenDamageProbability,
@@ -45,6 +45,12 @@ export type CleaningInput = {
   prices?: MaterialPriceMap;
   location?: LocationMultipliers;
 };
+
+const SERVICE_TYPES = ["standard", "deep", "move_inout", "post_construction", "commercial"] as const;
+const CONDITIONS = ["light", "moderate", "heavy", "post_construction"] as const;
+const FREQUENCIES = ["one_time", "weekly", "biweekly", "monthly"] as const;
+const ADD_ONS = ["windows", "carpet", "disinfection", "laundry", "oven", "fridge", "extras"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
 
 // ── base rate per sqft by service type ────────────────────────────────────────
 const BASE_RATE_PER_SQFT: Record<CleaningInput["serviceType"], number> = {
@@ -91,48 +97,87 @@ const MIN_HOURS: Record<CleaningInput["serviceType"], number> = {
   commercial:        3,
 };
 
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
+function validateAddOns(value: unknown): ValidationIssue[] {
+  if (!Array.isArray(value)) {
+    return [{ field: "addOns", severity: "error", message: "Add-ons debe ser una lista." }];
+  }
+
+  return value
+    .map((addOn, index) => oneOf(`addOns.${index}`, addOn, ADD_ONS, "Add-on"))
+    .filter((issue): issue is ValidationIssue => issue !== null);
+}
+
+function normalizeAddOns(value: unknown): CleaningInput["addOns"] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((addOn): addOn is CleaningInput["addOns"][number] => (
+    typeof addOn === "string" && ADD_ONS.includes(addOn as CleaningInput["addOns"][number])
+  ));
+}
+
 export function calculateCleaning(input: CleaningInput): SemseToolResult {
+  const serviceType = normalizeOneOf(input.serviceType, SERVICE_TYPES, "standard");
+  const condition = normalizeOneOf(input.condition, CONDITIONS, "moderate");
+  const frequency = normalizeOneOf(input.frequency, FREQUENCIES, "one_time");
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const squareFt = normalizeRange(input.squareFt, 1, 100_000, 1_000);
+  const bedrooms = normalizeRange(input.bedrooms, 0, 100, 0);
+  const bathrooms = normalizeRange(input.bathrooms, 0, 100, 1);
+  const addOns = normalizeAddOns(input.addOns);
+
   const issues = collect(
-    input.squareFt <= 0
-      ? warn("squareFt", "Área debe ser mayor que cero.")
-      : null,
-    input.condition === "post_construction" && input.serviceType === "standard"
+    oneOf("serviceType", input.serviceType, SERVICE_TYPES, "Service type"),
+    range("squareFt", input.squareFt, 1, 100_000, "Square feet"),
+    range("bedrooms", input.bedrooms, 0, 100, "Bedrooms"),
+    range("bathrooms", input.bathrooms, 0, 100, "Bathrooms"),
+    oneOf("condition", input.condition, CONDITIONS, "Condition"),
+    oneOf("frequency", input.frequency, FREQUENCIES, "Frequency"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
+    ...validateAddOns(input.addOns),
+    condition === "post_construction" && serviceType === "standard"
       ? warn("condition", "Condición post-construcción requiere servicio profundo, no estándar.")
       : null,
-    input.condition === "heavy" && input.frequency !== "one_time"
+    condition === "heavy" && frequency !== "one_time"
       ? warn("condition", "Condición pesada: primera visita recurrente puede requerir tarifa de deep cleaning.")
       : null,
   );
 
   // ── cost calculation ─────────────────────────────────────────────────────
-  const baseRate      = BASE_RATE_PER_SQFT[input.serviceType];
-  const conditionMult = CONDITION_MULT[input.condition];
-  const freqMult      = FREQUENCY_MULT[input.frequency];
+  const baseRate      = BASE_RATE_PER_SQFT[serviceType];
+  const conditionMult = CONDITION_MULT[condition];
+  const freqMult      = FREQUENCY_MULT[frequency];
 
   const baseLabor     = Math.max(
-    MIN_HOURS[input.serviceType] * 28, // minimum hourly floor
-    input.squareFt * baseRate * conditionMult * freqMult
+    MIN_HOURS[serviceType] * 28, // minimum hourly floor
+    squareFt * baseRate * conditionMult * freqMult
   );
 
-  const bathroomAdder = input.bathrooms * 25 * conditionMult;
-  const addOnTotal    = input.addOns.reduce((sum, ao) => sum + (ADDON_COST[ao] ?? 0), 0);
-  const suppliesCost  = input.suppliesIncluded ? Math.max(20, input.squareFt * 0.015) : 0;
+  const bathroomAdder = bathrooms * 25 * conditionMult;
+  const addOnTotal    = addOns.reduce((sum, ao) => sum + (ADDON_COST[ao] ?? 0), 0);
+  const suppliesCost  = input.suppliesIncluded ? Math.max(20, squareFt * 0.015) : 0;
 
   const estimatedHours =
-    Math.max(MIN_HOURS[input.serviceType],
-      (input.squareFt / 400) * conditionMult +
-      (input.bedrooms * 0.5) +
-      (input.bathrooms * 0.75) +
-      (input.condition === "heavy" ? 1.5 : 0) +
-      (input.addOns.length * 0.5)
+    Math.max(MIN_HOURS[serviceType],
+      (squareFt / 400) * conditionMult +
+      (bedrooms * 0.5) +
+      (bathrooms * 0.75) +
+      (condition === "heavy" ? 1.5 : 0) +
+      (addOns.length * 0.5)
     );
 
   const crewSize = estimatedHours > 8 ? 3 : estimatedHours > 4 ? 2 : 1;
 
   const mats = [
     ...(input.suppliesIncluded ? [material("Cleaning supplies & products", 1, "lot", suppliesCost, "Supplies")] : []),
-    ...(input.addOns.includes("carpet") ? [material("Carpet cleaning supplies", 1, "lot", 35, "Add-on")] : []),
-    ...(input.addOns.includes("disinfection") ? [material("Disinfectant products", 1, "lot", 25, "Add-on")] : []),
+    ...(addOns.includes("carpet") ? [material("Carpet cleaning supplies", 1, "lot", 35, "Add-on")] : []),
+    ...(addOns.includes("disinfection") ? [material("Disinfectant products", 1, "lot", 25, "Add-on")] : []),
     material("Disposal bags, misc consumables", 1, "lot", 15, "Misc"),
   ];
 
@@ -140,12 +185,12 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     baseHours:  estimatedHours,
     crewSize,
     ratePerHour: 28,
-    difficulty: input.condition === "heavy" || input.condition === "post_construction" ? "complex" : "moderate",
+    difficulty: condition === "heavy" || condition === "post_construction" ? "complex" : "moderate",
     notes: [
-      `Servicio: ${input.serviceType}`,
-      `Área: ${input.squareFt} sqft`,
-      `Condición: ${input.condition}`,
-      `${input.bathrooms} baños, ${input.bedrooms} habitaciones`,
+      `Servicio: ${serviceType}`,
+      `Área: ${squareFt} sqft`,
+      `Condición: ${condition}`,
+      `${bathrooms} baños, ${bedrooms} habitaciones`,
     ],
   });
 
@@ -157,17 +202,17 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
       profit:         0.18,
       taxRate:        0.07,
       semseFeeRate:   0.05,
-      perUnitDivisor: input.squareFt || 1,
+      perUnitDivisor: squareFt || 1,
     }
   );
 
   // ── risk ─────────────────────────────────────────────────────────────────
   const risk = computeRisk(
     [
-      factor("postConstruction",  "Limpieza post-construcción",   0.20, input.serviceType === "post_construction"),
-      factor("heavyCondition",    "Condición pesada",             0.18, input.condition === "heavy"),
-      factor("moveOut",           "Mudanza / move-in move-out",   0.12, input.serviceType === "move_inout"),
-      factor("manyBathrooms",     "3+ baños",                     0.08, input.bathrooms >= 3),
+      factor("postConstruction",  "Limpieza post-construcción",   0.20, serviceType === "post_construction"),
+      factor("heavyCondition",    "Condición pesada",             0.18, condition === "heavy"),
+      factor("moveOut",           "Mudanza / move-in move-out",   0.12, serviceType === "move_inout"),
+      factor("manyBathrooms",     "3+ baños",                     0.08, bathrooms >= 3),
       factor("noSupplies",        "Cliente no provee supplies",   0.05, !input.suppliesIncluded),
     ],
     {
@@ -179,7 +224,7 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
   );
 
   // ── milestones ────────────────────────────────────────────────────────────
-  const isLarge = input.squareFt > 2000 || input.serviceType === "post_construction";
+  const isLarge = squareFt > 2000 || serviceType === "post_construction";
 
   const milestoneNames = isLarge
     ? ["Inspección inicial y documentación", "Limpieza de cocina y baños", "Áreas generales y pisos", "Revisión final y aprobación"]
@@ -206,9 +251,9 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
   ] as EvidenceItem[]);
 
   const warnings: string[] = [
-    ...(input.condition === "post_construction" ? ["Post-construcción puede requerir múltiples pasadas. El polvo fino vuelve tras la primera limpieza."] : []),
-    ...(input.condition === "heavy" ? ["Condición pesada: el precio puede ajustarse tras inspección en sitio."] : []),
-    ...(input.serviceType === "move_inout" ? ["Move-out: documentar daños existentes con fotos antes de limpiar para proteger a ambas partes."] : []),
+    ...(condition === "post_construction" ? ["Post-construcción puede requerir múltiples pasadas. El polvo fino vuelve tras la primera limpieza."] : []),
+    ...(condition === "heavy" ? ["Condición pesada: el precio puede ajustarse tras inspección en sitio."] : []),
+    ...(serviceType === "move_inout" ? ["Move-out: documentar daños existentes con fotos antes de limpiar para proteger a ambas partes."] : []),
     ...(!input.suppliesIncluded ? ["El cliente provee los suministros. Asegurarse de que estén disponibles en el momento del servicio."] : []),
   ];
 
@@ -221,7 +266,7 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     commercial:        ["All floors swept/mopped", "Bathrooms sanitized", "Common areas dusted", "Trash removed", "Kitchen/break room cleaned", "High-touch surfaces disinfected", "Glass/mirrors cleaned"],
   };
 
-  const taskItems = TASK_MATRICES[input.serviceType] ?? TASK_MATRICES.standard;
+  const taskItems = TASK_MATRICES[serviceType] ?? TASK_MATRICES.standard;
   const taskMatrix = buildTaskMatrix(
     taskItems.map((task, idx) => ({
       task,
@@ -230,8 +275,8 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
       evidenceRequired: idx === 0 || idx === taskItems.length - 1,
     })),
     Math.round(estimatedHours * 60),
-    input.condition === "post_construction" ? "specialized" as const :
-    ["deep", "move_inout"].includes(input.serviceType) ? "detailed" as const : "standard" as const
+    condition === "post_construction" ? "specialized" as const :
+    ["deep", "move_inout"].includes(serviceType) ? "detailed" as const : "standard" as const
   );
 
   // ── Recurring pricing ──────────────────────────────────────────────────────
@@ -242,29 +287,29 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     ALGORITHM_VERSIONS.cleaning,
     "cleaning",
     ["serviceType", "squareFt", "bedrooms", "bathrooms", "condition", "frequency"],
-    input.addOns.length === 0 ? ["addOns — none selected"] : [],
+    addOns.length === 0 ? ["addOns — none selected"] : [],
     [
       `Condition multiplier: ${conditionMult}x`,
-      `Frequency discount: ${FREQUENCY_MULT[input.frequency]}x`,
-      `Base rate: $${BASE_RATE_PER_SQFT[input.serviceType]}/sqft`,
+      `Frequency discount: ${FREQUENCY_MULT[frequency]}x`,
+      `Base rate: $${BASE_RATE_PER_SQFT[serviceType]}/sqft`,
     ],
     [
-      { ruleId: "POST_CONSTRUCTION", label: "Post-construction",    triggered: input.serviceType === "post_construction", points: 20, reason: "Requires multiple passes" },
-      { ruleId: "HEAVY_CONDITION",   label: "Heavy condition",      triggered: input.condition === "heavy",              points: 18, reason: "Heavy soil increases labor significantly" },
-      { ruleId: "MOVE_INOUT",        label: "Move-in/out",          triggered: input.serviceType === "move_inout",       points: 12, reason: "Inside cabinets/appliances add significant time" },
+      { ruleId: "POST_CONSTRUCTION", label: "Post-construction",    triggered: serviceType === "post_construction", points: 20, reason: "Requires multiple passes" },
+      { ruleId: "HEAVY_CONDITION",   label: "Heavy condition",      triggered: condition === "heavy",              points: 18, reason: "Heavy soil increases labor significantly" },
+      { ruleId: "MOVE_INOUT",        label: "Move-in/out",          triggered: serviceType === "move_inout",       points: 12, reason: "Inside cabinets/appliances add significant time" },
     ]
   );
 
   // ── Extended metrics ────────────────────────────────────────────────────────
   const confidenceScore = computeConfidenceScore({
-    hasMeasurements:      input.squareFt > 0,
+    hasMeasurements:      squareFt > 0,
     hasPhotos:            false,
-    hasConditionData:     input.condition !== undefined,
+    hasConditionData:     true,
     hasMaterialSelection: true,
     hasScopeConfirmed:    true,
     clientProvidesMaterials: !input.suppliesIncluded,
-    hasUnknownConditions: input.condition === "heavy",
-    extraConfirmedFields: input.addOns.length + (input.frequency !== "one_time" ? 1 : 0),
+    hasUnknownConditions: condition === "heavy",
+    extraConfirmedFields: addOns.length + (frequency !== "one_time" ? 1 : 0),
   });
 
   const disputeRisk = computeDisputeRisk({
@@ -274,13 +319,13 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     hasChangeOrderPolicy:    true,
     hasEvidenceRequired:     true,
     hasMilestones:           milestones.length > 0,
-    hasHighRiskConditions:   input.condition === "heavy" || input.serviceType === "post_construction",
-    priceIsFixed:            input.frequency !== "one_time",
-    clientExpectationMismatch: input.serviceType === "standard" && input.condition === "heavy",
+    hasHighRiskConditions:   condition === "heavy" || serviceType === "post_construction",
+    priceIsFixed:            frequency !== "one_time",
+    clientExpectationMismatch: serviceType === "standard" && condition === "heavy",
   });
 
   const readinessScore = computeReadinessScore({
-    measurementsConfirmed:  input.squareFt > 0,
+    measurementsConfirmed:  squareFt > 0,
     materialsAvailable:     input.suppliesIncluded,
     siteAccessConfirmed:    true,
     permitsAddressed:       true,
@@ -304,18 +349,18 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
   const productionSchedule = buildProductionSchedule([
     { name: "Arrival & inspection",        daysMin: 0, daysMax: 0, crew: crewSize, description: "Quick walkthrough, before photos" },
     { name: "Kitchen & bathrooms",         daysMin: 0, daysMax: 0, crew: crewSize, description: "Deep clean high-priority wet areas first" },
-    ...(input.serviceType === "post_construction"
+    ...(serviceType === "post_construction"
       ? [{ name: "Dust removal — first pass", daysMin: 0, daysMax: 0, crew: crewSize, description: "Remove construction dust from all surfaces" }]
       : []),
     { name: "Bedrooms & common areas",     daysMin: 0, daysMax: 0, crew: crewSize, description: "Vacuum, mop, wipe down surfaces" },
     { name: "Floors",                      daysMin: 0, daysMax: 0, crew: crewSize, description: "Sweep, vacuum, mop all floor types" },
-    ...(input.addOns.includes("windows")
+    ...(addOns.includes("windows")
       ? [{ name: "Window cleaning",        daysMin: 0, daysMax: 0, crew: 1, description: "Interior windows and tracks" }]
       : []),
     { name: "Final walkthrough & photos",  daysMin: 0, daysMax: 0, crew: 1,        description: "Quality check, after photos, client sign-off" },
   ]);
 
-  const addOnList = input.addOns.map(ao => {
+  const addOnList = addOns.map(ao => {
     const names: Record<string, string> = {
       windows: "Interior window cleaning", carpet: "Carpet cleaning",
       disinfection: "Disinfection treatment", laundry: "Laundry",
@@ -327,8 +372,8 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
 
   const scope = buildScope(
     [
-      `${input.serviceType.replace("_", " ")} cleaning — ${input.squareFt} sqft`,
-      `${input.bedrooms} bedroom(s), ${input.bathrooms} bathroom(s)`,
+      `${serviceType.replace("_", " ")} cleaning — ${squareFt} sqft`,
+      `${bedrooms} bedroom(s), ${bathrooms} bathroom(s)`,
       "Kitchen surfaces, appliance exteriors, countertops",
       "Bathroom fixtures, mirrors, floors",
       "All floors (sweep, vacuum, mop)",
@@ -360,26 +405,26 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     ]
   );
 
-  const freqLabel = input.frequency === "one_time" ? "one-time visit" : `${input.frequency} service`;
+  const freqLabel = frequency === "one_time" ? "one-time visit" : `${frequency} service`;
 
   const explained = buildExplainedOutput(
-    `Your ${input.serviceType.replace("_", " ")} cleaning (${freqLabel}) for ${input.squareFt} sqft is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `Your ${serviceType.replace("_", " ")} cleaning (${freqLabel}) for ${squareFt} sqft is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
     `The crew of ${crewSize} will complete the work in approximately ${Math.round(estimatedHours)} hours. ` +
     `Before and after photos are required for each visit to protect both client and professional.`,
     [
-      `Service: ${input.serviceType} — condition: ${input.condition} — freq: ${input.frequency}`,
-      `Area: ${input.squareFt} sqft — ${input.bedrooms} bed / ${input.bathrooms} bath — crew: ${crewSize}`,
+      `Service: ${serviceType} — condition: ${condition} — freq: ${frequency}`,
+      `Area: ${squareFt} sqft — ${bedrooms} bed / ${bathrooms} bath — crew: ${crewSize}`,
       `Est. hours: ${estimatedHours.toFixed(1)} — condition multiplier: ${conditionMult}x`,
-      ...(input.addOns.length > 0 ? [`Add-ons: ${input.addOns.join(", ")}`] : []),
-      ...(input.condition === "post_construction" ? ["POST-CONSTRUCTION: Plan for 2+ passes. Fine dust resettles after first clean."] : []),
-      ...(input.condition === "heavy" ? ["HEAVY CONDITION: On-site inspection recommended before committing to fixed price."] : []),
+      ...(addOns.length > 0 ? [`Add-ons: ${addOns.join(", ")}`] : []),
+      ...(condition === "post_construction" ? ["POST-CONSTRUCTION: Plan for 2+ passes. Fine dust resettles after first clean."] : []),
+      ...(condition === "heavy" ? ["HEAVY CONDITION: On-site inspection recommended before committing to fixed price."] : []),
       "ALWAYS take before photos — critical for dispute prevention on move-out cleans",
     ]
   );
 
   const warranty = buildWarranty(
     2,
-    `${input.serviceType.replace("_", " ")} cleaning service`,
+    `${serviceType.replace("_", " ")} cleaning service`,
     [
       "Re-soiling after service completion",
       "Odors from structural sources (mold, plumbing)",
@@ -393,8 +438,8 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     clientMustDecide:     false,
     materialsOnSite:      input.suppliesIncluded,
     weatherDependent:     false,
-    scopeIsLarge:         input.squareFt > 3000,
-    hasComplexDetails:    input.condition === "post_construction",
+    scopeIsLarge:         squareFt > 3000,
+    hasComplexDetails:    condition === "post_construction",
   });
 
 
@@ -430,8 +475,8 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
   return {
     toolId:       `cleaning-${Date.now()}`,
     trade:        "cleaning",
-    projectType:  `${input.serviceType}-cleaning`,
-    mode:         input.mode,
+    projectType:  `${serviceType}-cleaning`,
+    mode,
     inputs:       { ...input },
     validationIssues: issues,
     isValid:      isValid(issues),
@@ -446,7 +491,7 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
       "Confirmar acceso al agua y electricidad antes del servicio.",
       "Tomar fotos del estado inicial para proteger al profesional ante reclamos.",
       "Para post-construcción, planificar al menos 2 visitas.",
-      ...(input.frequency !== "one_time" ? ["Servicio recurrente: la primera visita puede requerir limpieza profunda con tarifa mayor."] : []),
+      ...(frequency !== "one_time" ? ["Servicio recurrente: la primera visita puede requerir limpieza profunda con tarifa mayor."] : []),
     ],
     assumptions: [
       "Precios de referencia EE.UU. / Florida 2026.",
@@ -466,7 +511,7 @@ export function calculateCleaning(input: CleaningInput): SemseToolResult {
     taskMatrix,
     recurringPricing,
     safeToProceed: {
-      canEstimate:           input.squareFt > 0,
+      canEstimate:           squareFt > 0,
       canPublish:            readinessScore.score >= 40,
       canCreateBuildOpsPlan: milestones.length > 0 && evidence.items.length > 0,
       canCreateContract:     confidenceScore.score >= 65,
