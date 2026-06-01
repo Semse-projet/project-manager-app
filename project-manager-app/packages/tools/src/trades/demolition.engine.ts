@@ -1,4 +1,4 @@
-import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, positive, range, warn } from "../core/validation-engine.js";
 import { applyLocation, buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -31,6 +31,10 @@ export type DemolitionInput = {
   location?: LocationMultipliers;
 };
 
+const DEMO_TYPES = ["drywall", "flooring", "concrete", "cabinets", "full-interior", "exterior", "selective"] as const;
+const DEMO_DIFFICULTIES = ["basic", "standard", "complex", "critical"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
+
 const DEBRIS_PER_SQFT: Record<DemoType, number> = {
   drywall: 0.018, flooring: 0.012, concrete: 0.045, cabinets: 0.020,
   "full-interior": 0.060, exterior: 0.030, selective: 0.015,
@@ -43,61 +47,77 @@ const LABOR_BONUS: Record<DemoType, number> = {
   "full-interior": 2.80, exterior: 1.50, selective: 0.50,
 };
 
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
 export function calculateDemolition(input: DemolitionInput): SemseToolResult {
+  const demolitionType = normalizeOneOf(input.demolitionType, DEMO_TYPES, "selective");
+  const difficulty = normalizeOneOf(input.difficulty, DEMO_DIFFICULTIES, "standard");
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const areaSqft = normalizeRange(input.areaSqft, 1, 100_000, 100);
+  const crewSize = Math.round(normalizeRange(input.crewSize, 1, 12, 2));
+
   const issues = collect(
+    oneOf("demolitionType", input.demolitionType, DEMO_TYPES, "Demolition type"),
+    oneOf("difficulty", input.difficulty, DEMO_DIFFICULTIES, "Difficulty"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
     positive("areaSqft", input.areaSqft, "Area"),
     range("crewSize", input.crewSize, 1, 12, "Crew size"),
     input.hazardousMaterialSuspected ? warn("hazardousMaterialSuspected", "Hazardous material suspected: inspection and abatement plan required.") : null,
     input.utilitiesPresent ? warn("utilitiesPresent", "Utilities present: confirm shutoff and lockout/tagout before demolition.") : null,
     input.structuralElementsPresent ? warn("structuralElementsPresent", "Structural elements: engineering review required before removal.") : null,
-    input.difficulty === "critical" ? warn("difficulty", "Critical difficulty: requires admin review and stronger evidence capture.") : null,
+    difficulty === "critical" ? warn("difficulty", "Critical difficulty: requires admin review and stronger evidence capture.") : null,
   );
 
-  const crewSize     = Math.max(1, Math.round(input.crewSize));
-  const debrisVol    = Math.max(0.5, input.areaSqft * DEBRIS_PER_SQFT[input.demolitionType] * DIFFICULTY_MULT[input.difficulty]);
+  const debrisVol    = Math.max(0.5, areaSqft * DEBRIS_PER_SQFT[demolitionType] * DIFFICULTY_MULT[difficulty]);
   const disposalLoads = Math.max(1, Math.ceil(debrisVol / 8));
-  const containKits  = Math.max(1, Math.ceil(input.areaSqft / 350));
+  const containKits  = Math.max(1, Math.ceil(areaSqft / 350));
   const ppeKits      = Math.max(1, Math.ceil(crewSize * (input.hazardousMaterialSuspected ? 1.5 : 1)));
 
   const mats = [
     material("Debris disposal / haul-off", debrisVol, "yd³", 55, "Disposal"),
     material("Containment / dust barrier", containKits, "kit", 28, "Protection"),
     material("PPE / respirator kits", ppeKits, "kit", input.hazardousMaterialSuspected ? 42 : 24, "Safety"),
-    material("Demo blades / cutting discs", Math.max(1, Math.ceil(input.areaSqft / 500)), "kit", 18, "Tools"),
+    material("Demo blades / cutting discs", Math.max(1, Math.ceil(areaSqft / 500)), "kit", 18, "Tools"),
     ...(input.utilitiesPresent ? [material("Utility lockout / marking supplies", 1, "set", 22, "Safety")] : []),
-    ...(input.demolitionType === "full-interior" ? [material("Dumpster reservation / staging", disposalLoads, "load", 135, "Disposal")] : []),
+    ...(demolitionType === "full-interior" ? [material("Dumpster reservation / staging", disposalLoads, "load", 135, "Disposal")] : []),
     ...(input.asbestosTestRequired ? [material("Asbestos test kit / lab", 1, "set", 285, "Testing")] : []),
   ];
 
   const labor = estimateLabor({
-    baseHours: 4 + (input.areaSqft / 85) * DIFFICULTY_MULT[input.difficulty]
-      + LABOR_BONUS[input.demolitionType] + (input.utilitiesPresent ? 1.5 : 0)
+    baseHours: 4 + (areaSqft / 85) * DIFFICULTY_MULT[difficulty]
+      + LABOR_BONUS[demolitionType] + (input.utilitiesPresent ? 1.5 : 0)
       + (input.hazardousMaterialSuspected ? 2.25 : 0) + (input.structuralElementsPresent ? 2 : 0)
-      + (input.demolitionType === "full-interior" ? 3 : 0),
+      + (demolitionType === "full-interior" ? 3 : 0),
     crewSize,
     ratePerHour: 58,
-    difficulty: input.difficulty === "critical" || input.hazardousMaterialSuspected || input.demolitionType === "full-interior" || input.demolitionType === "concrete" ? "complex" : "moderate",
-    notes: [`${input.areaSqft} sqft — ${input.demolitionType} — ${input.difficulty}`, `Debris: ${debrisVol.toFixed(1)} yd³`, input.hazardousMaterialSuspected ? "⚠ Hazmat suspected" : ""],
+    difficulty: difficulty === "critical" || input.hazardousMaterialSuspected || demolitionType === "full-interior" || demolitionType === "concrete" ? "complex" : "moderate",
+    notes: [`${areaSqft} sqft — ${demolitionType} — ${difficulty}`, `Debris: ${debrisVol.toFixed(1)} yd³`, input.hazardousMaterialSuspected ? "⚠ Hazmat suspected" : ""],
   });
 
   const costs = buildCostSummary(
     applyLocation(materialTotal(mats), input.location, "material"),
     applyLocation(labor.totalCost, input.location, "labor"),
-    { overhead: input.difficulty === "critical" || input.hazardousMaterialSuspected ? 0.18 : 0.15, profit: 0.20, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: input.areaSqft || 1 },
+    { overhead: difficulty === "critical" || input.hazardousMaterialSuspected ? 0.18 : 0.15, profit: 0.20, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: areaSqft || 1 },
   );
 
   const risk = computeRisk([
     factor("hazardous",   "Hazardous material",     0.30, input.hazardousMaterialSuspected),
     factor("utilities",   "Utilities present",      0.20, input.utilitiesPresent),
     factor("structural",  "Structural elements",    0.22, input.structuralElementsPresent),
-    factor("full_interior","Full interior demo",    0.22, input.demolitionType === "full-interior"),
-    factor("critical",    "Critical difficulty",    0.18, input.difficulty === "critical"),
-    factor("concrete",    "Concrete demolition",    0.12, input.demolitionType === "concrete"),
+    factor("full_interior","Full interior demo",    0.22, demolitionType === "full-interior"),
+    factor("critical",    "Critical difficulty",    0.18, difficulty === "critical"),
+    factor("concrete",    "Concrete demolition",    0.12, demolitionType === "concrete"),
   ], {
-    requiresPermit:  input.hazardousMaterialSuspected || input.demolitionType === "full-interior" || input.difficulty === "critical",
-    requiresLicense: input.hazardousMaterialSuspected || input.difficulty === "critical",
+    requiresPermit:  input.hazardousMaterialSuspected || demolitionType === "full-interior" || difficulty === "critical",
+    requiresLicense: input.hazardousMaterialSuspected || difficulty === "critical",
     requiresInspection: true,
-    requiresEngineering: input.demolitionType === "full-interior" || input.structuralElementsPresent,
+    requiresEngineering: demolitionType === "full-interior" || input.structuralElementsPresent,
   });
 
 
@@ -127,7 +147,7 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
   });
   const readiness = computeReadinessScore({
     measurementsConfirmed: true, materialsAvailable: false, siteAccessConfirmed: true,
-    permitsAddressed: !(input.hazardousMaterialSuspected || input.demolitionType === "full-interior"),
+    permitsAddressed: !(input.hazardousMaterialSuspected || demolitionType === "full-interior"),
     scopeApproved: !input.hazardousMaterialSuspected, depositPaid: false, clientApproval: false,
   });
   const disputeRisk = computeDisputeRisk({
@@ -136,13 +156,13 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
     hasMilestones: true, hasHighRiskConditions: input.hazardousMaterialSuspected || input.utilitiesPresent,
     priceIsFixed: true, clientExpectationMismatch: false,
   });
-  const priceBands = computePriceBands(costs.total, 0.80, input.hazardousMaterialSuspected || input.demolitionType === "full-interior" ? 1.55 : input.demolitionType === "concrete" ? 1.40 : 1.25, {
+  const priceBands = computePriceBands(costs.total, 0.80, input.hazardousMaterialSuspected || demolitionType === "full-interior" ? 1.55 : demolitionType === "concrete" ? 1.40 : 1.25, {
     low:  "Drywall or flooring, basic difficulty, no hazmat",
     mid:  "Standard demo, utilities present, standard crew",
     high: input.hazardousMaterialSuspected ? "Hazmat abatement + full interior + critical difficulty" : "Full interior + structural + concrete + critical",
   });
   const scope = buildScope(
-    [`${input.demolitionType} demolition (${input.areaSqft} sqft)`, `Difficulty: ${input.difficulty}`, `Crew: ${crewSize}`, `Debris disposal (${debrisVol.toFixed(1)} yd³)`, input.utilitiesPresent ? "Utility lockout/tagout" : "", input.asbestosTestRequired ? "Asbestos test" : ""].filter(Boolean),
+    [`${demolitionType} demolition (${areaSqft} sqft)`, `Difficulty: ${difficulty}`, `Crew: ${crewSize}`, `Debris disposal (${debrisVol.toFixed(1)} yd³)`, input.utilitiesPresent ? "Utility lockout/tagout" : "", input.asbestosTestRequired ? "Asbestos test" : ""].filter(Boolean),
     ["Hazardous material abatement (if found)", "Structural repair after demolition", "Adjacent surface patching", !input.asbestosTestRequired ? "Asbestos / lead-based paint testing" : ""].filter(Boolean),
     ["Non-structural demolition only", "US market pricing", "Hazmat abatement NOT included unless explicitly scoped"],
     ["Hazardous material discovered during demolition", "Structural element requiring engineering review", "Hidden utilities not flagged before work"],
@@ -177,8 +197,8 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
     clientMustDecide: false,
     materialsOnSite: false,
     weatherDependent: false,
-    scopeIsLarge: input.areaSqft > 1000,
-    hasComplexDetails: input.hazardousMaterialSuspected || ['complex','critical'].includes(input.difficulty),
+    scopeIsLarge: areaSqft > 1000,
+    hasComplexDetails: input.hazardousMaterialSuspected || ['complex','critical'].includes(difficulty),
   });
 
   const upsells = [
@@ -195,7 +215,7 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
   };
 
   const explained = buildExplainedOutput(
-    `Your ${input.demolitionType} demolition covers ${input.areaSqft} sqft at ${input.difficulty} difficulty, generating ~${debrisVol.toFixed(1)} yd³ of debris.${input.hazardousMaterialSuspected ? " ⚠ Hazardous material suspected — abatement plan required before full demolition." : ""} Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`,
+    `Your ${demolitionType} demolition covers ${areaSqft} sqft at ${difficulty} difficulty, generating ~${debrisVol.toFixed(1)} yd³ of debris.${input.hazardousMaterialSuspected ? " ⚠ Hazardous material suspected — abatement plan required before full demolition." : ""} Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`,
     [`Debris: ${debrisVol.toFixed(1)} yd³ — ${disposalLoads} disposal loads`, `Hidden damage risk: ${hiddenDamage.probability} (${hiddenDamage.score})`, `Confidence ${confidence.score}/100 · Readiness ${readiness.score}/100`],
   );
   const algorithmTrace = buildAlgorithmTrace(ALGORITHM_VERSIONS.demolition, "demolition",
@@ -205,13 +225,13 @@ export function calculateDemolition(input: DemolitionInput): SemseToolResult {
       { ruleId: "HAZMAT",      label: "Hazardous material",   triggered: input.hazardousMaterialSuspected, reason: "Stop work protocol + specialist abatement required", points: 30 },
       { ruleId: "UTILITIES",   label: "Utilities present",    triggered: input.utilitiesPresent,           reason: "Lockout/tagout, marking, extra coordination", points: 20 },
       { ruleId: "STRUCTURAL",  label: "Structural elements",  triggered: input.structuralElementsPresent,  reason: "Engineering review mandatory before removal", points: 22 },
-      { ruleId: "CRITICAL",    label: "Critical difficulty",  triggered: input.difficulty === "critical",  reason: "1.55× labor/material multiplier", points: 18 },
+      { ruleId: "CRITICAL",    label: "Critical difficulty",  triggered: difficulty === "critical",  reason: "1.55× labor/material multiplier", points: 18 },
     ],
   );
   return {
     toolId: `demolition-${Date.now()}`, trade: "demolition",
-    projectType: input.demolitionType === "full-interior" ? "full-interior-demolition" : `${input.demolitionType}-demolition`,
-    mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
+    projectType: demolitionType === "full-interior" ? "full-interior-demolition" : `${demolitionType}-demolition`,
+    mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
     materials: mats, labor, costs, risk, milestones, evidenceRequired: evidence.items,
     warnings: [
       ...(input.hazardousMaterialSuspected ? ["⚠ STOP WORK if hazmat found — do not proceed without abatement clearance."] : []),
