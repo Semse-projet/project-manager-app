@@ -1,4 +1,4 @@
-import { collect, isValid, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, warn } from "../core/validation-engine.js";
 import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -42,6 +42,12 @@ export type BathroomInput = {
   location?: LocationMultipliers;
 };
 
+const BATHROOM_SCOPES = ["cosmetic", "tile_floor", "tub_shower", "full_remodel"] as const;
+const BATHROOM_SIZES = ["small", "medium", "large", "extra_large"] as const;
+const PLUMBING_WORK_OPTIONS = ["no_move", "fixtures_only", "relocate"] as const;
+const MATERIAL_QUALITIES = ["budget", "standard", "premium"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
+
 // ── reference sizes ────────────────────────────────────────────────────────────
 const BATHROOM_SQ_FT: Record<BathroomInput["bathroomSqFt"], number> = {
   small: 35,
@@ -77,11 +83,17 @@ const SIZE_FACTOR: Record<BathroomInput["bathroomSqFt"], number> = {
   extra_large: 1.85,
 };
 
-export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult {
-  const sqFt = BATHROOM_SQ_FT[input.bathroomSqFt];
-  const base  = SCOPE_BASE[input.scope];
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
 
+export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult {
   const issues = collect(
+    oneOf("scope", input.scope, BATHROOM_SCOPES, "Scope"),
+    oneOf("bathroomSqFt", input.bathroomSqFt, BATHROOM_SIZES, "Bathroom size"),
+    oneOf("plumbingWork", input.plumbingWork, PLUMBING_WORK_OPTIONS, "Plumbing work"),
+    oneOf("materialQuality", input.materialQuality, MATERIAL_QUALITIES, "Material quality"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
     input.plumbingWork === "relocate"
       ? warn("plumbingWork", "Reubicación de plomería: requiere plomero licenciado y posible permiso.")
       : null,
@@ -96,18 +108,26 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
       : null,
   );
 
+  const bathroomScope = normalizeOneOf(input.scope, BATHROOM_SCOPES, "cosmetic");
+  const bathroomSize = normalizeOneOf(input.bathroomSqFt, BATHROOM_SIZES, "medium");
+  const plumbingWork = normalizeOneOf(input.plumbingWork, PLUMBING_WORK_OPTIONS, "no_move");
+  const materialQuality = normalizeOneOf(input.materialQuality, MATERIAL_QUALITIES, "standard");
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const sqFt = BATHROOM_SQ_FT[bathroomSize];
+  const base = SCOPE_BASE[bathroomScope];
+
   // ── cost calculation ─────────────────────────────────────────────────────
-  const materialQualityMult = MATERIAL_MULTIPLIER[input.materialQuality];
-  const sizeFactor           = SIZE_FACTOR[input.bathroomSqFt];
-  const plumbingAdder        = PLUMBING_ADDER[input.plumbingWork];
+  const materialQualityMult = MATERIAL_MULTIPLIER[materialQuality];
+  const sizeFactor           = SIZE_FACTOR[bathroomSize];
+  const plumbingAdder        = PLUMBING_ADDER[plumbingWork];
   const demoAdder            = input.demoRequired ? sqFt * 8 : 0;
-  const showerAdder          = input.includesShower && input.scope !== "full_remodel" ? 1_200 * materialQualityMult : 0;
-  const tubAdder             = input.includesTub && input.scope !== "full_remodel" ? 800 * materialQualityMult : 0;
+  const showerAdder          = input.includesShower && bathroomScope !== "full_remodel" ? 1_200 * materialQualityMult : 0;
+  const tubAdder             = input.includesTub && bathroomScope !== "full_remodel" ? 800 * materialQualityMult : 0;
 
   const baseMid = ((base.min + base.max) / 2) * sizeFactor * materialQualityMult;
 
   const mats = [
-    material("Tile & grout (floor/walls)", Math.round(sqFt * 1.15), "sqft", input.materialQuality === "premium" ? 8.5 : 5.5, "Finishes"),
+    material("Tile & grout (floor/walls)", Math.round(sqFt * 1.15), "sqft", materialQuality === "premium" ? 8.5 : 5.5, "Finishes"),
     material("Cement board / waterproofing membrane", Math.round(sqFt * 0.8), "sqft", 3.2, "Substrate"),
     material("Thinset & grout", Math.ceil(sqFt / 40), "bag", 28, "Install"),
     ...(input.demoRequired ? [material("Demolition disposal", 1, "job", demoAdder, "Demo")] : []),
@@ -119,19 +139,19 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
 
   const laborHours =
     (sqFt / 20) * 3 +
-    (input.scope === "full_remodel" ? 18 : input.scope === "tub_shower" ? 12 : input.scope === "tile_floor" ? 8 : 4) +
-    (input.plumbingWork === "relocate" ? 10 : input.plumbingWork === "fixtures_only" ? 4 : 0) +
+    (bathroomScope === "full_remodel" ? 18 : bathroomScope === "tub_shower" ? 12 : bathroomScope === "tile_floor" ? 8 : 4) +
+    (plumbingWork === "relocate" ? 10 : plumbingWork === "fixtures_only" ? 4 : 0) +
     (input.demoRequired ? 4 : 0);
 
   const labor = estimateLabor({
     baseHours:  laborHours,
-    crewSize:   input.scope === "full_remodel" ? 3 : 2,
+    crewSize:   bathroomScope === "full_remodel" ? 3 : 2,
     ratePerHour: 72,
-    difficulty: input.scope === "full_remodel" || input.plumbingWork === "relocate" ? "complex" : "moderate",
+    difficulty: bathroomScope === "full_remodel" || plumbingWork === "relocate" ? "complex" : "moderate",
     notes: [
-      `Alcance: ${input.scope}`,
-      `Tamaño: ${input.bathroomSqFt} (${sqFt} sqft aprox.)`,
-      `Plomería: ${input.plumbingWork}`,
+      `Alcance: ${bathroomScope}`,
+      `Tamaño: ${bathroomSize} (${sqFt} sqft aprox.)`,
+      `Plomería: ${plumbingWork}`,
     ],
   });
 
@@ -150,27 +170,27 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
   // ── risk ─────────────────────────────────────────────────────────────────
   const risk = computeRisk(
     [
-      factor("fullRemodel",       "Remodelación completa",        0.20, input.scope === "full_remodel"),
-      factor("plumbingRelocate",  "Reubicación de plomería",      0.22, input.plumbingWork === "relocate"),
+      factor("fullRemodel",       "Remodelación completa",        0.20, bathroomScope === "full_remodel"),
+      factor("plumbingRelocate",  "Reubicación de plomería",      0.22, plumbingWork === "relocate"),
       factor("shower",            "Trabajo de shower",            0.12, input.includesShower),
-      factor("premium",           "Materiales premium",           0.08, input.materialQuality === "premium"),
+      factor("premium",           "Materiales premium",           0.08, materialQuality === "premium"),
       factor("clientMaterials",   "Materiales del cliente",       0.10, input.clientProvidesMaterials),
       factor("demo",              "Demolición requerida",         0.10, input.demoRequired),
     ],
     {
-      requiresPermit:      input.plumbingWork === "relocate",
-      requiresLicense:     input.plumbingWork !== "no_move",
-      requiresInspection:  input.scope === "full_remodel" || input.plumbingWork === "relocate",
+      requiresPermit:      plumbingWork === "relocate",
+      requiresLicense:     plumbingWork !== "no_move",
+      requiresInspection:  bathroomScope === "full_remodel" || plumbingWork === "relocate",
       requiresEngineering: false,
     }
   );
 
   // ── milestones ────────────────────────────────────────────────────────────
-  const milestoneNames = input.scope === "full_remodel"
+  const milestoneNames = bathroomScope === "full_remodel"
     ? ["Confirmación y depósito", "Demo y rough-in", "Impermeabilización", "Instalación de tile", "Fixtures y acabados", "Entrega final"]
     : ["Confirmación de alcance", "Preparación y demo", "Instalación principal", "Acabados y entrega"];
 
-  const milestoneDocs = input.scope === "full_remodel"
+  const milestoneDocs = bathroomScope === "full_remodel"
     ? [
         ["Fotos del baño antes", "Selección de materiales"],
         ["Fotos de demo", "Fotos de rough-in plomería"],
@@ -197,19 +217,19 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
   ] as EvidenceItem[]);
 
   const warnings: string[] = [
-    ...(input.plumbingWork === "relocate" ? ["Reubicación de plomería: requiere plomero licenciado. Cotizar separado o incluir en alcance."] : []),
+    ...(plumbingWork === "relocate" ? ["Reubicación de plomería: requiere plomero licenciado. Cotizar separado o incluir en alcance."] : []),
     ...(input.includesShower ? ["Área de shower: aplicar membrana impermeabilizante antes de tile. Sin foto = sin pago del hito."] : []),
     ...(input.clientProvidesMaterials ? ["Materiales del cliente: verificar dimensiones y compatibilidad antes de instalar."] : []),
-    ...(input.scope === "full_remodel" ? ["Remodelación completa: no cerrar paredes sin foto de rough-in."] : []),
+    ...(bathroomScope === "full_remodel" ? ["Remodelación completa: no cerrar paredes sin foto de rough-in."] : []),
   ];
 
   // ── Extended metrics ────────────────────────────────────────────────────────
   const confidenceScore = computeConfidenceScore({
-    hasMeasurements:      input.bathroomSqFt !== undefined,
+    hasMeasurements:      true,
     hasPhotos:            false,
     hasConditionData:     true,
-    hasMaterialSelection: input.materialQuality !== undefined,
-    hasScopeConfirmed:    input.scope !== undefined,
+    hasMaterialSelection: true,
+    hasScopeConfirmed:    true,
     clientProvidesMaterials: input.clientProvidesMaterials,
     hasUnknownConditions: false,
     extraConfirmedFields: [input.includesShower, input.includesTub, input.demoRequired].filter(Boolean).length,
@@ -222,21 +242,21 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
     hasChangeOrderPolicy:       true,
     hasEvidenceRequired:        true,
     hasMilestones:              milestones.length > 0,
-    hasHighRiskConditions:      input.plumbingWork === "relocate" || input.scope === "full_remodel",
+    hasHighRiskConditions:      plumbingWork === "relocate" || bathroomScope === "full_remodel",
     priceIsFixed:               false,
-    clientExpectationMismatch:  input.scope === "full_remodel" && input.materialQuality === "budget",
+    clientExpectationMismatch:  bathroomScope === "full_remodel" && materialQuality === "budget",
   });
 
   const readinessScore = computeReadinessScore({
     measurementsConfirmed:    true,
     materialsAvailable:       !input.clientProvidesMaterials,
     siteAccessConfirmed:      true,
-    permitsAddressed:         input.plumbingWork !== "relocate",
+    permitsAddressed:         plumbingWork !== "relocate",
     scopeApproved:            true,
     depositPaid:              false,
     clientApproval:           false,
-    otherTradesCoordinated:   input.plumbingWork === "no_move",
-    designApproved:           input.scope === "cosmetic",
+    otherTradesCoordinated:   plumbingWork === "no_move",
+    designApproved:           bathroomScope === "cosmetic",
   });
 
   const priceBands = computePriceBands(
@@ -253,7 +273,7 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
   const productionSchedule = buildProductionSchedule([
     { name: "Site prep & protection",  daysMin: 0, daysMax: 1, crew: 1, description: "Protect floors and adjacent areas" },
     ...(input.demoRequired ? [{ name: "Demo", daysMin: 1, daysMax: 2, crew: 2, description: "Remove existing fixtures and finishes" }] : []),
-    ...(input.plumbingWork !== "no_move" ? [{ name: "Rough-in plumbing", daysMin: 1, daysMax: 3, crew: 2, description: "Plumbing rough-in and inspection" }] : []),
+    ...(plumbingWork !== "no_move" ? [{ name: "Rough-in plumbing", daysMin: 1, daysMax: 3, crew: 2, description: "Plumbing rough-in and inspection" }] : []),
     ...(input.includesShower ? [{ name: "Waterproofing", daysMin: 1, daysMax: 2, crew: 1, description: "Cement board + waterproofing membrane + cure time" }] : []),
     { name: "Tile installation",       daysMin: 2, daysMax: 4, crew: 2, description: "Floor + wall tile, grouting, caulking" },
     { name: "Fixtures & hardware",     daysMin: 1, daysMax: 2, crew: 2, description: "Vanity, toilet, shower, faucets, mirrors" },
@@ -264,7 +284,7 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
     [
       "Bathroom prep and area protection",
       ...(input.demoRequired ? ["Demo of existing finishes"] : []),
-      ...(input.scope !== "cosmetic" ? ["Tile installation (floor and/or walls)"] : []),
+      ...(bathroomScope !== "cosmetic" ? ["Tile installation (floor and/or walls)"] : []),
       ...(input.includesShower ? ["Shower installation with waterproofing"] : []),
       ...(input.includesTub ? ["Tub installation"] : []),
       ...(!input.clientProvidesMaterials ? ["Vanity, sink, toilet, and basic fixtures"] : []),
@@ -276,7 +296,7 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
       "Painting of bathroom walls",
       "Structural framing repair",
       "Mold remediation",
-      ...(input.plumbingWork === "no_move" ? ["Plumbing relocation"] : []),
+      ...(plumbingWork === "no_move" ? ["Plumbing relocation"] : []),
       ...(input.clientProvidesMaterials ? [] : ["Specialty or custom fixtures beyond standard"]),
       "Permits (may be required for plumbing — verify locally)",
     ],
@@ -295,15 +315,15 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
   );
 
   const explained = buildExplainedOutput(
-    `Your bathroom ${input.scope.replace("_", " ")} is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `Your bathroom ${bathroomScope.replace("_", " ")} is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
     `This covers ${input.includesShower ? "shower, " : ""}tile, vanity, and standard fixtures. ` +
-    `${input.plumbingWork === "relocate" ? "Plumbing relocation is included and will require a permit. " : ""}` +
+    `${plumbingWork === "relocate" ? "Plumbing relocation is included and will require a permit. " : ""}` +
     `Payments are broken into milestones with photo evidence required at each stage to protect both parties.`,
     [
-      `Scope: ${input.scope} — size: ${input.bathroomSqFt} — plumbing: ${input.plumbingWork}`,
-      `Material tier: ${input.materialQuality} — multiplier: ${MATERIAL_MULTIPLIER[input.materialQuality]}x`,
+      `Scope: ${bathroomScope} — size: ${bathroomSize} — plumbing: ${plumbingWork}`,
+      `Material tier: ${materialQuality} — multiplier: ${MATERIAL_MULTIPLIER[materialQuality]}x`,
       ...(input.includesShower ? ["Waterproofing membrane required before tile — photo mandatory before covering"] : []),
-      ...(input.plumbingWork === "relocate" ? ["Permit required. Coordinate with licensed plumber before scheduling tile"] : []),
+      ...(plumbingWork === "relocate" ? ["Permit required. Coordinate with licensed plumber before scheduling tile"] : []),
       `Hidden damage probability: ${risk.score > 50 ? "high" : "medium"} — document all pre-existing conditions`,
       "Do not close rough-in without approved photo — this protects against future disputes",
     ]
@@ -311,7 +331,7 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
 
   const warranty = buildWarranty(
     90,
-    `Bathroom ${input.scope.replace("_", " ")} — labor on tile installation, fixture installation, and waterproofing`,
+    `Bathroom ${bathroomScope.replace("_", " ")} — labor on tile installation, fixture installation, and waterproofing`,
     [
       "Plumbing leaks caused by supply line or manufacturer defect",
       "Grout cracking due to structural settlement",
@@ -322,8 +342,8 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
 
   const roi = computeRenovationRoi(
     costs.total,
-    input.scope === "full_remodel" ? 1.65 : 1.30,
-    `Bathroom ${input.scope.replace("_", " ")} typically recovers 60-80% of investment in home value in Florida market.`,
+    bathroomScope === "full_remodel" ? 1.65 : 1.30,
+    `Bathroom ${bathroomScope.replace("_", " ")} typically recovers 60-80% of investment in home value in Florida market.`,
     36
   );
 
@@ -337,12 +357,12 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
   );
 
   const scheduleRisk = assessScheduleRisk({
-    dependsOnOtherTrades: input.plumbingWork !== "no_move",
+    dependsOnOtherTrades: plumbingWork !== "no_move",
     clientMustDecide:     input.clientProvidesMaterials,
     materialsOnSite:      !input.clientProvidesMaterials,
     weatherDependent:     false,
-    scopeIsLarge:         input.scope === "full_remodel",
-    hasComplexDetails:    input.materialQuality === "premium",
+    scopeIsLarge:         bathroomScope === "full_remodel",
+    hasComplexDetails:    materialQuality === "premium",
   });
 
 
@@ -362,8 +382,8 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
   return {
     toolId:       `bathroom-${Date.now()}`,
     trade:        "remodeling",
-    projectType:  `bathroom-${input.scope}`,
-    mode:         input.mode,
+    projectType:  `bathroom-${bathroomScope}`,
+    mode,
     inputs:       { ...input },
     validationIssues: issues,
     isValid:      isValid(issues),
@@ -378,7 +398,7 @@ export function calculateBathroomRemodel(input: BathroomInput): SemseToolResult 
       "Confirmar medidas de vanity, toilet y shower antes de comprar.",
       "Impermeabilizar área de shower/tub antes de instalar tile.",
       "Documentar rough-in de plomería con fotos antes de cerrar pared.",
-      ...(input.plumbingWork !== "no_move" ? ["Solicitar permiso de plomería si el municipio lo requiere."] : []),
+      ...(plumbingWork !== "no_move" ? ["Solicitar permiso de plomería si el municipio lo requiere."] : []),
     ],
     assumptions: [
       "Precios de referencia EE.UU. / Florida 2026.",
