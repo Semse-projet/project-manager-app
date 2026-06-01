@@ -1,4 +1,4 @@
-import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, positive, range, warn } from "../core/validation-engine.js";
 import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -36,6 +36,12 @@ export type CarpentryInput = {
   location?: LocationMultipliers;
 };
 
+const PROJECT_TYPES = ["cabinet", "door", "closet", "shelf", "trim", "table", "repair", "custom", "built-in", "stair-trim"] as const;
+const WOOD_MATERIALS = ["pine", "plywood", "mdf", "oak", "maple", "treated", "poplar"] as const;
+const FINISH_TYPES = ["none", "paint", "stain", "polyurethane", "lacquer"] as const;
+const COMPLEXITIES = ["basic", "medium", "complex"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
+
 const MATERIAL_PRICE: Record<WoodMaterial, number> = {
   pine: 4.20, plywood: 7.40, mdf: 5.60, oak: 11.50, maple: 12.80, treated: 8.80, poplar: 7.20,
 };
@@ -47,8 +53,21 @@ const LABOR_RATE: Record<CarpentryProjectType, number> = {
   repair: 58, custom: 78, "built-in": 74, "stair-trim": 70,
 };
 
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
 export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
   const issues = collect(
+    oneOf("projectType", input.projectType, PROJECT_TYPES, "Project type"),
+    oneOf("material", input.material, WOOD_MATERIALS, "Material"),
+    oneOf("finishType", input.finishType, FINISH_TYPES, "Finish type"),
+    oneOf("complexity", input.complexity, COMPLEXITIES, "Complexity"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
     positive("lengthIn", input.lengthIn, "Length"),
     positive("widthIn", input.widthIn, "Width"),
     positive("thicknessIn", input.thicknessIn, "Thickness"),
@@ -59,51 +78,62 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
     input.paintedCabinets && input.finishType === "none" ? warn("finishType", "Painted cabinets with no finish selected: verify scope.") : null,
   );
 
-  const boardFeet     = (input.lengthIn * input.widthIn * input.thicknessIn * input.quantity) / 144;
-  const surfaceSqFt   = (input.lengthIn * input.widthIn * input.quantity) / 144;
-  const waste         = input.complexity === "complex" ? 0.18 : input.complexity === "medium" ? 0.12 : 0.08;
+  const projectType = normalizeOneOf(input.projectType, PROJECT_TYPES, "custom");
+  const woodMaterial = normalizeOneOf(input.material, WOOD_MATERIALS, "pine");
+  const finishType = normalizeOneOf(input.finishType, FINISH_TYPES, "none");
+  const complexity = normalizeOneOf(input.complexity, COMPLEXITIES, "basic");
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const lengthIn = normalizeRange(input.lengthIn, 0.01, 10_000, 96);
+  const widthIn = normalizeRange(input.widthIn, 0.01, 10_000, 12);
+  const thicknessIn = normalizeRange(input.thicknessIn, 0.01, 120, 0.75);
+  const quantity = normalizeRange(input.quantity, 0.01, 10_000, 1);
+  const hardwareCount = normalizeRange(input.hardwareCount, 0, 500, 0);
+
+  const boardFeet     = (lengthIn * widthIn * thicknessIn * quantity) / 144;
+  const surfaceSqFt   = (lengthIn * widthIn * quantity) / 144;
+  const waste         = complexity === "complex" ? 0.18 : complexity === "medium" ? 0.12 : 0.08;
   const adjBoardFeet  = boardFeet * (1 + waste);
   const matUnits      = Math.max(1, Math.ceil(adjBoardFeet / 2));
-  const matPrice      = priceOf(input.prices, "lumber-framing", MATERIAL_PRICE[input.material]);
-  const hardwarePacks = Math.max(1, Math.ceil(input.hardwareCount / 4));
-  const softCloseKits = input.softClose ? Math.max(1, Math.ceil(input.hardwareCount / 6)) : 0;
+  const matPrice      = priceOf(input.prices, "lumber-framing", MATERIAL_PRICE[woodMaterial]);
+  const hardwarePacks = Math.max(1, Math.ceil(hardwareCount / 4));
+  const softCloseKits = input.softClose ? Math.max(1, Math.ceil(hardwareCount / 6)) : 0;
 
   const mats = [
-    material(`${input.material} stock`, matUnits, "board-ft", matPrice, "Wood"),
+    material(`${woodMaterial} stock`, matUnits, "board-ft", matPrice, "Wood"),
     material("Hardware pack", hardwarePacks, "pack", 14.50, "Hardware"),
-    ...(input.finishType !== "none" ? [material(`${input.finishType} finish`, Math.max(1, Math.ceil(surfaceSqFt / 25)), "qt", FINISH_PRICE[input.finishType] * 12, "Finish")] : []),
+    ...(finishType !== "none" ? [material(`${finishType} finish`, Math.max(1, Math.ceil(surfaceSqFt / 25)), "qt", FINISH_PRICE[finishType] * 12, "Finish")] : []),
     ...(softCloseKits > 0 ? [material("Soft-close hinges / slides", softCloseKits, "kit", 65, "Hardware")] : []),
-    ...(input.projectType === "trim" || input.projectType === "stair-trim" ? [material("Trim fasteners / adhesive", Math.max(1, Math.ceil(surfaceSqFt / 30)), "kit", 11, "Finish")] : []),
-    ...(input.projectType === "repair" ? [material("Patch / filler / sanding kit", Math.max(1, Math.ceil(surfaceSqFt / 20)), "kit", 18, "Repair")] : []),
+    ...(projectType === "trim" || projectType === "stair-trim" ? [material("Trim fasteners / adhesive", Math.max(1, Math.ceil(surfaceSqFt / 30)), "kit", 11, "Finish")] : []),
+    ...(projectType === "repair" ? [material("Patch / filler / sanding kit", Math.max(1, Math.ceil(surfaceSqFt / 20)), "kit", 18, "Repair")] : []),
     ...(input.paintedCabinets ? [material("Cabinet primer / paint", Math.max(1, Math.ceil(surfaceSqFt / 30)), "qt", 28, "Paint")] : []),
   ];
 
   const labor = estimateLabor({
-    baseHours: 3 + adjBoardFeet / 12 + input.quantity * 0.6 + input.hardwareCount * 0.08
-      + (input.complexity === "medium" ? 2 : 0) + (input.complexity === "complex" ? 4 : 0)
-      + (input.projectType === "repair" ? 1.5 : 0) + (input.projectType === "door" ? 1.25 : 0)
-      + (["cabinet", "built-in"].includes(input.projectType) ? 2 : 0)
+    baseHours: 3 + adjBoardFeet / 12 + quantity * 0.6 + hardwareCount * 0.08
+      + (complexity === "medium" ? 2 : 0) + (complexity === "complex" ? 4 : 0)
+      + (projectType === "repair" ? 1.5 : 0) + (projectType === "door" ? 1.25 : 0)
+      + (["cabinet", "built-in"].includes(projectType) ? 2 : 0)
       + (input.paintedCabinets ? adjBoardFeet / 20 : 0) + (input.softClose ? 1 : 0),
     crewSize: adjBoardFeet > 180 ? 3 : 2,
-    ratePerHour: LABOR_RATE[input.projectType],
-    difficulty: input.complexity === "complex" || ["cabinet", "built-in", "door", "custom"].includes(input.projectType) ? "complex" : "moderate",
-    notes: [`${adjBoardFeet.toFixed(1)} board-ft — ${input.material}`, `${input.quantity} pcs — ${input.projectType}`, input.finishType !== "none" ? `Finish: ${input.finishType}` : "No finish"],
+    ratePerHour: LABOR_RATE[projectType],
+    difficulty: complexity === "complex" || ["cabinet", "built-in", "door", "custom"].includes(projectType) ? "complex" : "moderate",
+    notes: [`${adjBoardFeet.toFixed(1)} board-ft — ${woodMaterial}`, `${quantity} pcs — ${projectType}`, finishType !== "none" ? `Finish: ${finishType}` : "No finish"],
   });
 
   const costs = buildCostSummary(
     applyLocation(materialTotal(mats), input.location, "material"),
     applyLocation(labor.totalCost, input.location, "labor"),
-    { overhead: input.complexity === "complex" ? 0.17 : 0.14, profit: 0.20, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: input.quantity || 1 },
+    { overhead: complexity === "complex" ? 0.17 : 0.14, profit: 0.20, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: quantity || 1 },
   );
 
   const risk = computeRisk([
-    factor("mdf",      "MDF material",          0.14, input.material === "mdf"),
-    factor("cabinet",  "Cabinet / built-in",    0.16, ["cabinet", "built-in"].includes(input.projectType)),
-    factor("door",     "Door / stair trim fit", 0.14, ["door", "stair-trim"].includes(input.projectType)),
-    factor("complex",  "Complex project",       0.20, input.complexity === "complex"),
+    factor("mdf",      "MDF material",          0.14, woodMaterial === "mdf"),
+    factor("cabinet",  "Cabinet / built-in",    0.16, ["cabinet", "built-in"].includes(projectType)),
+    factor("door",     "Door / stair trim fit", 0.14, ["door", "stair-trim"].includes(projectType)),
+    factor("complex",  "Complex project",       0.20, complexity === "complex"),
     factor("painted",  "Painted cabinets",      0.12, input.paintedCabinets),
-    factor("no_finish","No finish",             0.10, input.finishType === "none"),
-  ], { requiresPermit: false, requiresLicense: false, requiresInspection: ["door", "cabinet"].includes(input.projectType) || input.complexity === "complex", requiresEngineering: false });
+    factor("no_finish","No finish",             0.10, finishType === "none"),
+  ], { requiresPermit: false, requiresLicense: false, requiresInspection: ["door", "cabinet"].includes(projectType) || complexity === "complex", requiresEngineering: false });
 
   const milestones = buildMilestones(costs.total, risk.level,
     ["Cutting and layout", "Joinery and assembly", "Finish application", "Install / handoff"],
@@ -117,14 +147,14 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
   const evidence = buildEvidenceChecklist("carpentry", risk, milestones, [
     { type: "photo",      description: "Material and cut layout",        required: true, milestone: 1 },
     { type: "photo",      description: "Joinery and assembly",           required: true, milestone: 2 },
-    { type: "photo",      description: "Finish or surface treatment",    required: input.finishType !== "none", milestone: 3 },
+    { type: "photo",      description: "Finish or surface treatment",    required: finishType !== "none", milestone: 3 },
     { type: "inspection", description: "Final fit and client sign-off",  required: true, milestone: 4 },
   ]);
 
   const confidence = computeConfidenceScore({
     hasMeasurements: true, hasPhotos: false, hasConditionData: true,
     hasMaterialSelection: true, hasScopeConfirmed: true, hasUnknownConditions: false,
-    extraConfirmedFields: (input.softClose ? 1 : 0) + (input.paintedCabinets ? 1 : 0) + (input.finishType !== "none" ? 1 : 0),
+    extraConfirmedFields: (input.softClose ? 1 : 0) + (input.paintedCabinets ? 1 : 0) + (finishType !== "none" ? 1 : 0),
   });
   const readiness = computeReadinessScore({
     measurementsConfirmed: true, materialsAvailable: false, siteAccessConfirmed: true,
@@ -133,17 +163,17 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
   const disputeRisk = computeDisputeRisk({
     scopeAmbiguous: false, clientProvidesMaterials: false, noPhotosRequired: false,
     hasChangeOrderPolicy: true, hasEvidenceRequired: true, hasMilestones: true,
-    hasHighRiskConditions: input.complexity === "complex" || input.paintedCabinets,
+    hasHighRiskConditions: complexity === "complex" || input.paintedCabinets,
     priceIsFixed: true, clientExpectationMismatch: input.paintedCabinets,
   });
-  const priceBands = computePriceBands(costs.total, 0.82, input.complexity === "complex" || input.material === "oak" || input.material === "maple" ? 1.40 : 1.25, {
+  const priceBands = computePriceBands(costs.total, 0.82, complexity === "complex" || woodMaterial === "oak" || woodMaterial === "maple" ? 1.40 : 1.25, {
     low:  "Pine / MDF, basic complexity, no finish",
     mid:  "Oak / plywood, medium complexity, stain or paint",
-    high: input.material === "maple" || input.complexity === "complex" ? "Maple/oak, complex, soft-close, painted cabinets" : "Custom built-in, complex, premium material",
+    high: woodMaterial === "maple" || complexity === "complex" ? "Maple/oak, complex, soft-close, painted cabinets" : "Custom built-in, complex, premium material",
   });
   const scope = buildScope(
-    [`${input.projectType} — ${input.quantity} pcs (${input.material})`, `Dimensions: ${input.lengthIn}" × ${input.widthIn}" × ${input.thicknessIn}"`, input.finishType !== "none" ? `Finish: ${input.finishType}` : "", input.softClose ? "Soft-close hardware" : "", input.paintedCabinets ? "Cabinet painting" : ""].filter(Boolean),
-    [input.finishType === "none" ? "Surface finish / sealing" : "", "On-site painting touch-up beyond scope", "Countertop or hardware supply (client-provided unless noted)"].filter(Boolean),
+    [`${projectType} — ${quantity} pcs (${woodMaterial})`, `Dimensions: ${lengthIn}" × ${widthIn}" × ${thicknessIn}"`, finishType !== "none" ? `Finish: ${finishType}` : "", input.softClose ? "Soft-close hardware" : "", input.paintedCabinets ? "Cabinet painting" : ""].filter(Boolean),
+    [finishType === "none" ? "Surface finish / sealing" : "", "On-site painting touch-up beyond scope", "Countertop or hardware supply (client-provided unless noted)"].filter(Boolean),
     ["Dimensions are finished dimensions", "US market pricing"],
     ["Site conditions require field modifications", "Material defect found on delivery"],
   );
@@ -159,17 +189,17 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
     hasMilestones: true, hasEvidencePlan: true, confidenceScore: confidence.score, noCriticalBlockers: true, scopeIsComplete: true,
   });
   const explained = buildExplainedOutput(
-    `Your ${input.projectType} in ${input.material} (${input.quantity} pcs, ${input.complexity} complexity) with ${input.finishType !== "none" ? input.finishType + " finish" : "no finish"}.${input.softClose ? " Soft-close hardware included." : ""} Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`,
-    [`Board feet: ${adjBoardFeet.toFixed(1)} (${(waste * 100).toFixed(0)}% waste)`, `Labor rate: $${LABOR_RATE[input.projectType]}/hr`, `Confidence ${confidence.score}/100 · Readiness ${readiness.score}/100`],
+    `Your ${projectType} in ${woodMaterial} (${quantity} pcs, ${complexity} complexity) with ${finishType !== "none" ? finishType + " finish" : "no finish"}.${input.softClose ? " Soft-close hardware included." : ""} Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}.`,
+    [`Board feet: ${adjBoardFeet.toFixed(1)} (${(waste * 100).toFixed(0)}% waste)`, `Labor rate: $${LABOR_RATE[projectType]}/hr`, `Confidence ${confidence.score}/100 · Readiness ${readiness.score}/100`],
   );
   const algorithmTrace = buildAlgorithmTrace(ALGORITHM_VERSIONS.carpentry, "carpentry",
     ["projectType", "material", "lengthIn", "widthIn", "quantity", "complexity", "finishType"],
     [], ["Finished dimensions", "US market pricing"],
     [
-      { ruleId: "COMPLEX_MULT",     label: "Complex project",      triggered: input.complexity === "complex",  reason: "18% waste + 4 extra labor hours + premium rate", points: 20 },
+      { ruleId: "COMPLEX_MULT",     label: "Complex project",      triggered: complexity === "complex",  reason: "18% waste + 4 extra labor hours + premium rate", points: 20 },
       { ruleId: "PAINTED_CABINETS", label: "Painted cabinets",     triggered: input.paintedCabinets,           reason: "Primer, paint, and extra labor for fine finish", points: 12 },
       { ruleId: "SOFT_CLOSE",       label: "Soft-close hardware",  triggered: input.softClose,                 reason: "Premium hardware kits + installation time", points: 0 },
-      { ruleId: "OAK_MAPLE",        label: "Hardwood premium",     triggered: input.material === "oak" || input.material === "maple", reason: "Higher material cost and precision machining", points: 12 },
+      { ruleId: "OAK_MAPLE",        label: "Hardwood premium",     triggered: woodMaterial === "oak" || woodMaterial === "maple", reason: "Higher material cost and precision machining", points: 12 },
     ],
   );
 
@@ -186,11 +216,11 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
 
   const scheduleRisk = assessScheduleRisk({
     dependsOnOtherTrades: true,
-    clientMustDecide: input.finishType === 'none' || !input.material,
+    clientMustDecide: finishType === 'none' || !woodMaterial,
     materialsOnSite: false,
     weatherDependent: false,
-    scopeIsLarge: input.quantity > 10,
-    hasComplexDetails: input.complexity === 'complex' || ['cabinet','built-in','stair-trim'].includes(input.projectType),
+    scopeIsLarge: quantity > 10,
+    hasComplexDetails: complexity === 'complex' || ['cabinet','built-in','stair-trim'].includes(projectType),
   });
 
   const upsells = [
@@ -206,14 +236,14 @@ export function calculateCarpentry(input: CarpentryInput): SemseToolResult {
     notes:               'Custom carpentry returns 75% in home value and significantly upgrades kitchen and bath perception.',
   };
   return {
-    toolId: `carpentry-${Date.now()}`, trade: "carpentry", projectType: input.projectType,
-    mode: input.mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
+    toolId: `carpentry-${Date.now()}`, trade: "carpentry", projectType,
+    mode, inputs: { ...input }, validationIssues: issues, isValid: isValid(issues),
     materials: mats, labor, costs, risk, milestones, evidenceRequired: evidence.items,
     warnings: [
-      ...(input.material === "mdf" ? ["MDF: seal edges and avoid moisture exposure."] : []),
-      ...(input.projectType === "door" ? ["Doors require tight tolerances and hinge alignment."] : []),
-      ...(input.complexity === "complex" ? ["Complex project: expect more setup and alignment time."] : []),
-      ...(input.finishType === "none" ? ["No finish: consider sealing for durability."] : []),
+      ...(woodMaterial === "mdf" ? ["MDF: seal edges and avoid moisture exposure."] : []),
+      ...(projectType === "door" ? ["Doors require tight tolerances and hinge alignment."] : []),
+      ...(complexity === "complex" ? ["Complex project: expect more setup and alignment time."] : []),
+      ...(finishType === "none" ? ["No finish: consider sealing for durability."] : []),
     ],
     recommendations: [
       "Confirm final dimensions and reveals before cutting.",
