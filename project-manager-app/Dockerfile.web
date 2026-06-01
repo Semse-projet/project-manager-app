@@ -64,9 +64,10 @@ ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/scripts/railway-start.mjs ./apps/web/scripts/railway-start.mjs
 
 EXPOSE 3000
 
-# Listen on Railway's injected PORT so deployment healthchecks hit the same port
-# as the running Next.js server. Next falls back to 3000 when PORT is absent.
-CMD ["node", "apps/web/server.js"]
+# Railway routes the public service domain to target port 3000, while deployment
+# healthchecks use the injected PORT. The start wrapper serves both ports.
+CMD ["node", "apps/web/scripts/railway-start.mjs"]
