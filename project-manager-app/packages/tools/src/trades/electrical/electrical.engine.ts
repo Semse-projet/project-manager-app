@@ -29,6 +29,7 @@ const WIRE_TABLE: { awg: string; maxAmps: number; resistancePerFt: number }[] = 
 
 // ─── Breaker standard sizes (NEC) ────────────────────────────────────────────
 const BREAKER_SIZES = [15, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200];
+const STANDARD_VOLTAGES = [120, 208, 220, 240, 277, 480] as const;
 
 function selectWire(requiredAmps: number): typeof WIRE_TABLE[0] {
   return WIRE_TABLE.find((w) => w.maxAmps >= requiredAmps) ?? WIRE_TABLE[WIRE_TABLE.length - 1];
@@ -40,6 +41,31 @@ function selectBreaker(requiredAmps: number): number {
 
 function voltDrop(amps: number, feet: number, resistancePerFt: number): number {
   return 2 * amps * feet * resistancePerFt; // 2× for round-trip
+}
+
+function finiteError(field: string, value: number, label: string) {
+  return Number.isFinite(value)
+    ? null
+    : { field, severity: "error" as const, message: `${label} debe ser un número válido.` };
+}
+
+function phaseError(value: number) {
+  return value === 1 || value === 3
+    ? null
+    : { field: "phase", severity: "error" as const, message: "Fase debe ser 1 o 3." };
+}
+
+function normalizePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function conductorCountFor(voltage: number, phase: 1 | 3): number {
+  const currentCarrying = phase === 3 ? 3 : voltage >= 208 ? 2 : 2;
+  return currentCarrying + 1; // include equipment grounding conductor for material takeoff
 }
 
 // ─── Input ────────────────────────────────────────────────────────────────────
@@ -64,10 +90,19 @@ export type ElectricalInput = {
 export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   // 1. Validate
   const issues = collect(
+    finiteError("watts", input.watts, "Potencia (W)"),
     positive("watts", input.watts, "Potencia (W)"),
+    finiteError("voltage", input.voltage, "Voltaje"),
     range("voltage", input.voltage, 100, 600, "Voltaje"),
+    STANDARD_VOLTAGES.includes(input.voltage as (typeof STANDARD_VOLTAGES)[number])
+      ? null
+      : warn("voltage", "Voltaje no estándar para el selector de la herramienta.", "Usar 120, 208, 220, 240, 277 o 480 si aplica."),
+    finiteError("powerFactor", input.powerFactor, "Factor de potencia"),
     range("powerFactor", input.powerFactor, 0.5, 1.0, "Factor de potencia"),
+    phaseError(input.phase),
+    finiteError("runFeet", input.runFeet, "Longitud del tramo"),
     range("runFeet", input.runFeet, 1, 2000, "Longitud del tramo"),
+    finiteError("numCircuits", input.numCircuits, "Número de circuitos"),
     positive("numCircuits", input.numCircuits, "Número de circuitos"),
     input.panelUpgrade && input.watts > 20000
       ? warn("watts", "Carga muy alta para un panel residencial estándar. Verificar con ingeniero.")
@@ -77,9 +112,16 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
       : null,
   );
 
+  const watts = normalizePositive(input.watts, 1);
+  const voltage = normalizeRange(input.voltage, 100, 600, 120);
+  const powerFactor = normalizeRange(input.powerFactor, 0.5, 1.0, 1);
+  const phase: 1 | 3 = input.phase === 3 ? 3 : 1;
+  const runFeet = normalizeRange(input.runFeet, 1, 2000, 1);
+  const numCircuits = Math.max(1, Math.round(normalizePositive(input.numCircuits, 1)));
+
   // 2. Calculate load
-  const sqrtPhase = input.phase === 3 ? Math.sqrt(3) : 1;
-  const baseAmps = input.watts / (input.voltage * sqrtPhase * input.powerFactor);
+  const sqrtPhase = phase === 3 ? Math.sqrt(3) : 1;
+  const baseAmps = watts / (voltage * sqrtPhase * powerFactor);
   const designAmps = input.isContinuous ? baseAmps * 1.25 : baseAmps; // NEC 210.19
 
   // 3. Wire selection
@@ -87,11 +129,12 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const breakerSize = selectBreaker(designAmps * 1.1); // 10% headroom
 
   // 4. Voltage drop
-  const vDrop = voltDrop(designAmps, input.runFeet, wire.resistancePerFt);
-  const vDropPct = (vDrop / input.voltage) * 100;
+  const vDrop = voltDrop(designAmps, runFeet, wire.resistancePerFt);
+  const vDropPct = (vDrop / voltage) * 100;
 
   // 5. Materials
-  const wireFeet = input.runFeet * input.numCircuits * 3; // 3 conductors (L/N/G)
+  const conductorCount = conductorCountFor(voltage, phase);
+  const wireFeet = runFeet * numCircuits * conductorCount;
   const wireCostPerFt: Record<string, number> = {
     "14": 0.35, "12": 0.55, "10": 0.90, "8": 1.50,
     "6": 2.20, "4": 3.20, "3": 4.00, "2": 5.00,
@@ -101,12 +144,12 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const breakerCost = input.panelUpgrade ? 850 : breakerSize >= 100 ? 120 : 45;
 
   const mats = [
-    material(`Cable THHN/THWN AWG ${wire.awg}`, wireFeet, "ft", wireUnitCost, "Conductores"),
-    material(`Breaker ${breakerSize}A`, input.numCircuits, "un", breakerCost / input.numCircuits, "Protección"),
-    material("Canaleta/conduit EMT 3/4\"", input.runFeet * input.numCircuits, "ft", 1.20, "Canalización"),
-    material("Conectores y accesorios", input.numCircuits * 2, "un", 8.50, "Accesorios"),
+    material(`Cable THHN/THWN AWG ${wire.awg}`, wireFeet, "ft", wireUnitCost, "Conductores", `${conductorCount} conductores por circuito`),
+    material(`Breaker ${breakerSize}A`, numCircuits, "un", breakerCost / numCircuits, "Protección"),
+    material("Canaleta/conduit EMT 3/4\"", runFeet * numCircuits, "ft", 1.20, "Canalización"),
+    material("Conectores y accesorios", numCircuits * 2, "un", 8.50, "Accesorios"),
     ...(input.outdoorWork
-      ? [material("Salidas GFCI exteriores", input.numCircuits, "un", 35, "Seguridad")]
+      ? [material("Salidas GFCI exteriores", numCircuits, "un", 35, "Seguridad")]
       : []),
     ...(input.panelUpgrade
       ? [material("Panel eléctrico 200A", 1, "un", 420, "Panel")]
@@ -116,7 +159,7 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const matCost = materialTotal(mats);
 
   // 6. Labor
-  const baseHours = 2 + (input.runFeet / 50) + (input.numCircuits * 1.5);
+  const baseHours = 2 + (runFeet / 50) + (numCircuits * 1.5);
   const panelHours = input.panelUpgrade ? 8 : 0;
   const totalHours = baseHours + panelHours;
   const ratePerHour = input.panelUpgrade ? 95 : 80;
@@ -127,7 +170,7 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
     days: Math.ceil(totalHours / 8),
     ratePerHour,
     totalCost: Math.round(totalHours * ratePerHour * 100) / 100,
-    difficulty: input.panelUpgrade ? "specialist" : input.watts > 10000 ? "complex" : "moderate",
+    difficulty: input.panelUpgrade ? "specialist" : watts > 10000 ? "complex" : "moderate",
     notes: [
       `Calibre requerido: AWG ${wire.awg} (${wire.maxAmps}A)`,
       `Breaker: ${breakerSize}A`,
@@ -142,18 +185,18 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
 
   // 8. Risk
   const risk = computeRisk([
-    factor("high_load",    "Carga > 10kW",             0.25, input.watts > 10000),
+    factor("high_load",    "Carga > 10kW",             0.25, watts > 10000),
     factor("panel_work",   "Trabajo en panel principal", 0.30, input.panelUpgrade),
     factor("outdoor",      "Trabajo exterior (GFCI req)", 0.15, input.outdoorWork),
-    factor("long_run",     "Tramo > 100ft",             0.10, input.runFeet > 100),
+    factor("long_run",     "Tramo > 100ft",             0.10, runFeet > 100),
     factor("volt_drop",    "Caída de tensión > 3%",     0.20, vDropPct > 3),
-    factor("three_phase",  "Sistema trifásico",          0.20, input.phase === 3),
+    factor("three_phase",  "Sistema trifásico",          0.20, phase === 3),
     factor("continuous",   "Cargas continuas (125%)",    0.10, input.isContinuous),
   ], {
-    requiresPermit: input.panelUpgrade || input.watts > 5000,
+    requiresPermit: input.panelUpgrade || watts > 5000,
     requiresLicense: true,
-    requiresInspection: input.panelUpgrade,
-    requiresEngineering: input.watts > 20000 || input.phase === 3,
+    requiresInspection: input.panelUpgrade || watts > 5000,
+    requiresEngineering: watts > 20000 || phase === 3,
   });
 
   // 9. Milestones
