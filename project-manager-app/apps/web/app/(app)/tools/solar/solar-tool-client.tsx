@@ -1,282 +1,76 @@
 "use client";
-
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Zap } from "lucide-react";
+import { Badge, Button, Card, Input, Select } from "@/components/ui";
+import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
-type SolarInput = {
-  projectName: string;
-  roofAreaSqft: number;
-  systemKw: number;
-  panelCount: number;
-  roofType: "shingle" | "tile" | "metal" | "flat";
-  roofCondition: "good" | "fair" | "poor";
-  sunExposure: "low" | "medium" | "high";
-  batteryIncluded: boolean;
-  permitRequired: boolean;
-  electricalUpgradeNeeded: boolean;
-  mode: "client" | "professional" | "admin";
-};
+export type SolarSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
 
-const INITIAL_INPUT: SolarInput = {
-  projectName: "Roof solar install",
-  roofAreaSqft: 1200,
-  systemKw: 8,
-  panelCount: 20,
-  roofType: "shingle",
-  roofCondition: "good",
-  sunExposure: "high",
-  batteryIncluded: false,
-  permitRequired: true,
-  electricalUpgradeNeeded: false,
-  mode: "professional",
-};
+type SolarInput = { kilowatts: number; systemType: "rooftop" | "ground_mounted" | "hybrid"; panelType: "standard" | "premium" | "ultra_efficient"; batteryStorage: boolean; gridTied: boolean; complexity: "simple" | "moderate" | "complex"; mode: ToolMode };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <label className="grid gap-2">
-      <span className="text-sm font-medium text-slate-300">{label}</span>
-      <input
-        className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-        type="number"
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
-  );
-}
+const INITIAL_INPUT: SolarInput = { kilowatts: 5, systemType: "rooftop", panelType: "standard", batteryStorage: false, gridTied: true, complexity: "moderate", mode: "professional" };
 
-function TextField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="grid gap-2">
-      <span className="text-sm font-medium text-slate-300">{label}</span>
-      <input
-        className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-        type="text"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
-  );
-}
+const SECTIONS: Array<{ id: SolarSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/solar/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/solar/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/solar/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/solar/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/solar/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/solar/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/solar/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/solar/research", icon: Globe2 },
+];
 
-export function SolarToolClient() {
+function formatCurrency(v: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v); }
+
+type SolarToolClientProps = { section: SolarSection };
+
+export function SolarToolClient({ section }: SolarToolClientProps) {
   const [input, setInput] = useState<SolarInput>(INITIAL_INPUT);
-  const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const costPerKw = useMemo(() => {
+    const baseKwCost = 2500;
+    const panelFactor = { standard: 1, premium: 1.3, ultra_efficient: 1.6 }[input.panelType];
+    const systemFactor = { rooftop: 1, ground_mounted: 1.15, hybrid: 1.3 }[input.systemType];
+    const batteryFactor = input.batteryStorage ? 1.4 : 1;
+    const gridFactor = input.gridTied ? 0.8 : 1.2;
+    return baseKwCost * panelFactor * systemFactor * batteryFactor * gridFactor;
+  }, [input.panelType, input.systemType, input.batteryStorage, input.gridTied]);
+
+  const estimatedCost = useMemo(() => input.kilowatts * costPerKw * 1.12, [input.kilowatts, costPerKw]);
 
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await fetch("/api/semse/tools/calculate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tool: "solar",
-          input,
-        }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "No se pudo calcular Solar.");
-      }
-
-      const data = await response.json();
-      setResult(data);
+      const response = await calculateSemseTool({ tool: "solar", mode: input.mode, input });
+      setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Error desconocido.");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-100">
-      <header className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-cyan-300">
-          SEMSE Pro Tools
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">Solar / Renewable Calculator</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Roof suitability, panel count, electrical upgrade, permit and inspection-ready solar output.
-        </p>
-      </header>
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard": return <div className="grid gap-6"><div className="grid gap-4 sm:grid-cols-3"><Card className="p-4"><div className="text-sm text-muted">System Size</div><div className="text-2xl font-bold">{input.kilowatts} kW</div></Card><Card className="p-4"><div className="text-sm text-muted">Type</div><div className="text-lg font-bold">{input.systemType}</div></Card><Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card></div></div>;
+      case "estimate": return <div className="grid gap-6"><Card className="p-6"><h3 className="mb-4 font-semibold">Solar Parameters</h3><div className="grid gap-4 sm:grid-cols-2"><Input label="Kilowatts" type="number" value={input.kilowatts} onChange={(e) => setInput({...input, kilowatts: Number(e.target.value)})} /><Select label="Panel Type" value={input.panelType} onChange={(e) => setInput({...input, panelType: e.target.value as any})}><option value="standard">Standard</option><option value="premium">Premium</option><option value="ultra_efficient">Ultra Efficient</option></Select></div><Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button></Card>{result && <ToolResultPanel result={result} />}{error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}</div>;
+      case "scope": return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">System: {input.kilowatts} kW {input.systemType} • Panels: {input.panelType}</p></Card>;
+      case "materials": return <Card className="p-6"><h3 className="mb-4 font-semibold">Equipment & Installation</h3><p className="text-sm text-muted">Cost/kW: {formatCurrency(costPerKw)} • Battery: {input.batteryStorage ? "Yes" : "No"} • Grid-tied: {input.gridTied ? "Yes" : "No"}</p></Card>;
+      case "summary": return <Card className="p-6"><h3 className="mb-4 font-semibold">Solar Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.kilowatts} kW System</p></Card>;
+      case "milestones": return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Site assessment, permitting, equipment delivery, installation, inspection, activation...</p></Card>;
+      case "inspection": return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Panel alignment, electrical safety, system performance, permits, warranty registration...</p></Card>;
+      case "research": return <Card className="p-6"><h3 className="mb-4 font-semibold">Solar Research</h3><Input placeholder="Search panel types, incentives, ROI calculations..." /></Card>;
+      default: return null;
+    }
+  }
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <TextField
-          label="Project name"
-          value={input.projectName}
-          onChange={(value) => setInput({ ...input, projectName: value })}
-        />
-
-        <NumberField
-          label="Roof area (sqft)"
-          value={input.roofAreaSqft}
-          onChange={(value) => setInput({ ...input, roofAreaSqft: value })}
-        />
-
-        <NumberField
-          label="System size (kW)"
-          value={input.systemKw}
-          step={0.1}
-          onChange={(value) => setInput({ ...input, systemKw: value })}
-        />
-
-        <NumberField
-          label="Panel count"
-          value={input.panelCount}
-          onChange={(value) => setInput({ ...input, panelCount: value })}
-        />
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Roof type</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.roofType}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                roofType: event.target.value as SolarInput["roofType"],
-              })
-            }
-          >
-            <option value="shingle">Shingle</option>
-            <option value="tile">Tile</option>
-            <option value="metal">Metal</option>
-            <option value="flat">Flat</option>
-          </select>
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Roof condition</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.roofCondition}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                roofCondition: event.target.value as SolarInput["roofCondition"],
-              })
-            }
-          >
-            <option value="good">Good</option>
-            <option value="fair">Fair</option>
-            <option value="poor">Poor</option>
-          </select>
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Sun exposure</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.sunExposure}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                sunExposure: event.target.value as SolarInput["sunExposure"],
-              })
-            }
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-
-        <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
-          <input
-            type="checkbox"
-            checked={input.batteryIncluded}
-            onChange={(event) => setInput({ ...input, batteryIncluded: event.target.checked })}
-          />
-          <span>Battery included</span>
-        </label>
-
-        <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
-          <input
-            type="checkbox"
-            checked={input.permitRequired}
-            onChange={(event) => setInput({ ...input, permitRequired: event.target.checked })}
-          />
-          <span>Permit required</span>
-        </label>
-
-        <label className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-3">
-          <input
-            type="checkbox"
-            checked={input.electricalUpgradeNeeded}
-            onChange={(event) => setInput({ ...input, electricalUpgradeNeeded: event.target.checked })}
-          />
-          <span>Electrical upgrade needed</span>
-        </label>
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Mode</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.mode}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                mode: event.target.value as SolarInput["mode"],
-              })
-            }
-          >
-            <option value="client">Client</option>
-            <option value="professional">Professional</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="mt-5 rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-cyan-100">
-        <strong>Nota operativa:</strong> solar necesita techo sano, evidencia de montaje, cableado, inspección y PTO antes de cerrar.
-      </div>
-
-      <button
-        type="button"
-        onClick={calculate}
-        disabled={loading}
-        className="mt-6 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-60"
-      >
-        {loading ? "Calculando..." : "Calcular solar"}
-      </button>
-
-      {error && (
-        <div className="mt-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {result && (
-        <div className="mt-6">
-          <ToolResultPanel result={result} />
-        </div>
-      )}
-    </section>
-  );
+  return <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6"><div className="grid gap-6"><div className="flex items-center justify-between gap-3"><Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link><Badge variant="brand">SEMSE Pro Tools</Badge></div><section className="grid gap-3"><div className="flex items-center gap-3"><Zap className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Solar Tool</h1></div><p className="max-w-3xl text-sm text-muted">Complete solar system estimation with equipment, installation, and storage options.</p></section><div className="flex gap-2 overflow-x-auto pb-2">{SECTIONS.map((s) => {const Icon = s.icon; const isActive = section === s.id; return <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}><Icon size={16} /> {s.label}</Link>;})}</div><div className="grid gap-6">{renderSection()}</div></div></main>;
 }
