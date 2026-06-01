@@ -1,4 +1,4 @@
-import { collect, isValid, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, range, warn } from "../core/validation-engine.js";
 import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -39,6 +39,13 @@ export type KitchenInput = {
   prices?: MaterialPriceMap;
   location?: LocationMultipliers;
 };
+
+const KITCHEN_SCOPES = ["cabinet_update", "countertops", "flooring", "full_remodel"] as const;
+const KITCHEN_SIZES = ["small", "medium", "large", "extra_large"] as const;
+const APPLIANCE_LEVELS = ["no_appliances", "basic_appliances", "premium_appliances"] as const;
+const MATERIAL_QUALITIES = ["budget", "standard", "premium"] as const;
+const PLUMBING_ELECTRICAL_OPTIONS = ["no", "minor", "relocate"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
 
 // ── reference kitchen sizes ────────────────────────────────────────────────────
 const KITCHEN_SQ_FT: Record<KitchenInput["kitchenSize"], number> = {
@@ -88,12 +95,23 @@ const SIZE_FACTOR: Record<KitchenInput["kitchenSize"], number> = {
   extra_large: 1.90,
 };
 
-export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
-  const sqFt      = KITCHEN_SQ_FT[input.kitchenSize];
-  const linearFt  = input.cabinetLinearFt ?? CABINET_LINEAR_FT[input.kitchenSize];
-  const base      = SCOPE_BASE[input.scope];
+function normalizeRange(value: number | undefined, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value !== undefined && value >= min && value <= max ? value : fallback;
+}
 
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
+export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
   const issues = collect(
+    oneOf("scope", input.scope, KITCHEN_SCOPES, "Scope"),
+    oneOf("kitchenSize", input.kitchenSize, KITCHEN_SIZES, "Kitchen size"),
+    oneOf("appliances", input.appliances, APPLIANCE_LEVELS, "Appliances"),
+    oneOf("materialQuality", input.materialQuality, MATERIAL_QUALITIES, "Material quality"),
+    oneOf("plumbingElectrical", input.plumbingElectrical, PLUMBING_ELECTRICAL_OPTIONS, "Plumbing/electrical"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
+    input.cabinetLinearFt === undefined ? null : range("cabinetLinearFt", input.cabinetLinearFt, 1, 200, "Cabinet linear feet"),
     input.plumbingElectrical === "relocate"
       ? warn("plumbingElectrical", "Reubicación de plomería/electricidad: requiere profesional licenciado y posible permiso.")
       : null,
@@ -108,16 +126,26 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
       : null,
   );
 
+  const kitchenScope = normalizeOneOf(input.scope, KITCHEN_SCOPES, "cabinet_update");
+  const kitchenSize = normalizeOneOf(input.kitchenSize, KITCHEN_SIZES, "medium");
+  const appliances = normalizeOneOf(input.appliances, APPLIANCE_LEVELS, "no_appliances");
+  const materialQuality = normalizeOneOf(input.materialQuality, MATERIAL_QUALITIES, "standard");
+  const plumbingElectrical = normalizeOneOf(input.plumbingElectrical, PLUMBING_ELECTRICAL_OPTIONS, "no");
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const sqFt = KITCHEN_SQ_FT[kitchenSize];
+  const linearFt = normalizeRange(input.cabinetLinearFt, 1, 200, CABINET_LINEAR_FT[kitchenSize]);
+  const base = SCOPE_BASE[kitchenScope];
+
   // ── cost ─────────────────────────────────────────────────────────────────
-  const qualityMult   = MATERIAL_MULTIPLIER[input.materialQuality];
-  const sizeFactor    = SIZE_FACTOR[input.kitchenSize];
+  const qualityMult   = MATERIAL_MULTIPLIER[materialQuality];
+  const sizeFactor    = SIZE_FACTOR[kitchenSize];
   const baseMid       = ((base.min + base.max) / 2) * sizeFactor * qualityMult;
-  const applianceAdd  = APPLIANCE_ADDER[input.appliances];
-  const plumbingAdd   = PLUMBING_ELEC_ADDER[input.plumbingElectrical];
+  const applianceAdd  = APPLIANCE_ADDER[appliances];
+  const plumbingAdd   = PLUMBING_ELEC_ADDER[plumbingElectrical];
 
   // Cabinet cost per linear foot depends on material tier
-  const cabinetCostPerLF = input.materialQuality === "premium" ? 420 : input.materialQuality === "standard" ? 230 : 110;
-  const countertopPerSqFt = input.materialQuality === "premium" ? 85 : input.materialQuality === "standard" ? 45 : 22;
+  const cabinetCostPerLF = materialQuality === "premium" ? 420 : materialQuality === "standard" ? 230 : 110;
+  const countertopPerSqFt = materialQuality === "premium" ? 85 : materialQuality === "standard" ? 45 : 22;
   const countertopSqFt    = Math.round(linearFt * 2.5); // approx counter area
 
   const mats = input.clientProvidesMaterials
@@ -126,14 +154,14 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
         material("Hardware, fasteners, shims, misc", 1, "lot", 280, "Misc"),
       ]
     : [
-        ...(input.scope !== "flooring" && input.scope !== "countertops"
-          ? [material(`Cabinets (${input.materialQuality})`, linearFt, "lin.ft", cabinetCostPerLF, "Cabinets")]
+        ...(kitchenScope !== "flooring" && kitchenScope !== "countertops"
+          ? [material(`Cabinets (${materialQuality})`, linearFt, "lin.ft", cabinetCostPerLF, "Cabinets")]
           : []),
-        ...(input.scope !== "flooring" && input.scope !== "cabinet_update"
-          ? [material(`Countertop (${input.materialQuality})`, countertopSqFt, "sqft", countertopPerSqFt, "Countertop")]
+        ...(kitchenScope !== "flooring" && kitchenScope !== "cabinet_update"
+          ? [material(`Countertop (${materialQuality})`, countertopSqFt, "sqft", countertopPerSqFt, "Countertop")]
           : []),
-        ...(input.scope === "flooring" || input.scope === "full_remodel"
-          ? [material("Kitchen flooring", sqFt, "sqft", input.materialQuality === "premium" ? 9 : 5, "Flooring")]
+        ...(kitchenScope === "flooring" || kitchenScope === "full_remodel"
+          ? [material("Kitchen flooring", sqFt, "sqft", materialQuality === "premium" ? 9 : 5, "Flooring")]
           : []),
         material("Backsplash tile", Math.round(linearFt * 1.5 * 1.5), "sqft", 6, "Finishes"),
         material("Sink, faucet, garbage disposal", 1, "set", 650 * qualityMult, "Fixtures"),
@@ -142,18 +170,18 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
 
   const laborHours =
     (linearFt * 1.5) +
-    (input.scope === "full_remodel" ? 30 : input.scope === "cabinet_update" ? 12 : 10) +
-    (input.plumbingElectrical === "relocate" ? 16 : input.plumbingElectrical === "minor" ? 6 : 0);
+    (kitchenScope === "full_remodel" ? 30 : kitchenScope === "cabinet_update" ? 12 : 10) +
+    (plumbingElectrical === "relocate" ? 16 : plumbingElectrical === "minor" ? 6 : 0);
 
   const labor = estimateLabor({
     baseHours:  laborHours,
-    crewSize:   input.scope === "full_remodel" ? 3 : 2,
+    crewSize:   kitchenScope === "full_remodel" ? 3 : 2,
     ratePerHour: 68,
-    difficulty: input.scope === "full_remodel" || input.plumbingElectrical === "relocate" ? "complex" : "moderate",
+    difficulty: kitchenScope === "full_remodel" || plumbingElectrical === "relocate" ? "complex" : "moderate",
     notes: [
-      `Alcance: ${input.scope}`,
-      `Tamaño: ${input.kitchenSize} (${sqFt} sqft, ${linearFt} lin.ft de gabinetes)`,
-      `Appliances: ${input.appliances}`,
+      `Alcance: ${kitchenScope}`,
+      `Tamaño: ${kitchenSize} (${sqFt} sqft, ${linearFt} lin.ft de gabinetes)`,
+      `Appliances: ${appliances}`,
     ],
   });
 
@@ -172,27 +200,27 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
   // ── risk ─────────────────────────────────────────────────────────────────
   const risk = computeRisk(
     [
-      factor("fullRemodel",        "Remodelación completa de cocina",  0.22, input.scope === "full_remodel"),
-      factor("plumbingRelocate",   "Reubicación plomería/electricidad",0.22, input.plumbingElectrical === "relocate"),
-      factor("premiumAppliances",  "Appliances premium",               0.10, input.appliances === "premium_appliances"),
-      factor("premiumMaterials",   "Materiales premium",               0.08, input.materialQuality === "premium"),
+      factor("fullRemodel",        "Remodelación completa de cocina",  0.22, kitchenScope === "full_remodel"),
+      factor("plumbingRelocate",   "Reubicación plomería/electricidad",0.22, plumbingElectrical === "relocate"),
+      factor("premiumAppliances",  "Appliances premium",               0.10, appliances === "premium_appliances"),
+      factor("premiumMaterials",   "Materiales premium",               0.08, materialQuality === "premium"),
       factor("clientMaterials",    "Materiales del cliente",           0.12, input.clientProvidesMaterials),
-      factor("minorPlumbing",      "Cambios menores de plomería/elect",0.08, input.plumbingElectrical === "minor"),
+      factor("minorPlumbing",      "Cambios menores de plomería/elect",0.08, plumbingElectrical === "minor"),
     ],
     {
-      requiresPermit:     input.plumbingElectrical === "relocate",
-      requiresLicense:    input.plumbingElectrical !== "no",
-      requiresInspection: input.scope === "full_remodel",
+      requiresPermit:     plumbingElectrical === "relocate",
+      requiresLicense:    plumbingElectrical !== "no",
+      requiresInspection: kitchenScope === "full_remodel",
       requiresEngineering: false,
     }
   );
 
   // ── milestones ────────────────────────────────────────────────────────────
-  const milestoneNames = input.scope === "full_remodel"
+  const milestoneNames = kitchenScope === "full_remodel"
     ? ["Diseño y aprobación", "Demo y rough-in", "Instalación de gabinetes base", "Gabinetes superiores y countertop", "Backsplash y appliances", "Acabados y entrega"]
     : ["Confirmación de alcance", "Preparación", "Instalación principal", "Acabados y entrega"];
 
-  const milestoneDocs = input.scope === "full_remodel"
+  const milestoneDocs = kitchenScope === "full_remodel"
     ? [
         ["Layout aprobado", "Materiales seleccionados"],
         ["Fotos de demo", "Fotos de rough-in"],
@@ -212,17 +240,17 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
 
   const evidence = buildEvidenceChecklist("kitchen", risk, milestones, [
     { type: "photo",      description: "Estado inicial de la cocina",        required: true, milestone: 1 },
-    { type: "photo",      description: "Demo y rough-in de plomería/elect",  required: input.scope === "full_remodel", milestone: 2 },
+    { type: "photo",      description: "Demo y rough-in de plomería/elect",  required: kitchenScope === "full_remodel", milestone: 2 },
     { type: "photo",      description: "Gabinetes instalados",               required: true, milestone: 3 },
-    { type: "photo",      description: "Countertop instalado",               required: input.scope !== "flooring", milestone: 4 },
+    { type: "photo",      description: "Countertop instalado",               required: kitchenScope !== "flooring", milestone: 4 },
     { type: "inspection", description: "Aprobación final del cliente",       required: true, milestone: milestoneNames.length },
   ] as EvidenceItem[]);
 
   const warnings: string[] = [
-    ...(input.plumbingElectrical === "relocate" ? ["Reubicación de plomería/electricidad: requiere profesional licenciado y posible permiso."] : []),
-    ...(input.appliances === "premium_appliances" ? ["Appliances premium: confirmar espacios, conexiones y voltajes antes de instalar gabinetes."] : []),
+    ...(plumbingElectrical === "relocate" ? ["Reubicación de plomería/electricidad: requiere profesional licenciado y posible permiso."] : []),
+    ...(appliances === "premium_appliances" ? ["Appliances premium: confirmar espacios, conexiones y voltajes antes de instalar gabinetes."] : []),
     ...(input.clientProvidesMaterials ? ["Gabinetes del cliente: verificar medidas y que todos los componentes estén presentes antes de instalar."] : []),
-    ...(input.scope === "full_remodel" ? ["Remodelación completa: no cerrar rough-in sin foto aprobada. El template de countertop va después de gabinetes instalados."] : []),
+    ...(kitchenScope === "full_remodel" ? ["Remodelación completa: no cerrar rough-in sin foto aprobada. El template de countertop va después de gabinetes instalados."] : []),
   ];
 
   // ── Extended metrics ────────────────────────────────────────────────────────
@@ -230,39 +258,39 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
     hasMeasurements:      linearFt > 0,
     hasPhotos:            false,
     hasConditionData:     true,
-    hasMaterialSelection: input.materialQuality !== undefined,
-    hasScopeConfirmed:    input.scope !== undefined,
+    hasMaterialSelection: true,
+    hasScopeConfirmed:    true,
     clientProvidesMaterials: input.clientProvidesMaterials,
-    hasUnknownConditions: input.plumbingElectrical === "relocate",
+    hasUnknownConditions: plumbingElectrical === "relocate",
     extraConfirmedFields: [
-      input.appliances !== "no_appliances",
+      appliances !== "no_appliances",
       !input.clientProvidesMaterials,
-      input.plumbingElectrical === "no",
+      plumbingElectrical === "no",
     ].filter(Boolean).length,
   });
 
   const disputeRisk = computeDisputeRisk({
-    scopeAmbiguous:          input.scope === "full_remodel" && input.plumbingElectrical !== "no",
+    scopeAmbiguous:          kitchenScope === "full_remodel" && plumbingElectrical !== "no",
     clientProvidesMaterials: input.clientProvidesMaterials,
     noPhotosRequired:        false,
     hasChangeOrderPolicy:    true,
     hasEvidenceRequired:     true,
     hasMilestones:           milestones.length > 0,
-    hasHighRiskConditions:   input.plumbingElectrical === "relocate",
+    hasHighRiskConditions:   plumbingElectrical === "relocate",
     priceIsFixed:            false,
-    clientExpectationMismatch: input.appliances === "premium_appliances" && input.materialQuality === "budget",
+    clientExpectationMismatch: appliances === "premium_appliances" && materialQuality === "budget",
   });
 
   const readinessScore = computeReadinessScore({
     measurementsConfirmed:  linearFt > 0,
     materialsAvailable:     !input.clientProvidesMaterials,
     siteAccessConfirmed:    true,
-    permitsAddressed:       input.plumbingElectrical === "no",
+    permitsAddressed:       plumbingElectrical === "no",
     scopeApproved:          true,
     depositPaid:            false,
     clientApproval:         false,
-    otherTradesCoordinated: input.plumbingElectrical === "no",
-    designApproved:         input.scope === "cabinet_update",
+    otherTradesCoordinated: plumbingElectrical === "no",
+    designApproved:         kitchenScope === "cabinet_update",
   });
 
   const priceBands = computePriceBands(
@@ -279,7 +307,7 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
   const productionSchedule = buildProductionSchedule([
     { name: "Measurement & design approval", daysMin: 1, daysMax: 3,  crew: 1, description: "Final measurements, layout, material confirmation" },
     { name: "Material procurement",          daysMin: 3, daysMax: 14, crew: 0, description: "Cabinet lead time — varies by brand" },
-    ...(input.scope === "full_remodel" ? [
+    ...(kitchenScope === "full_remodel" ? [
       { name: "Demo & disposal",             daysMin: 1, daysMax: 3,  crew: 2, description: "Remove existing cabinets, countertops, backsplash" },
       { name: "Rough-in plumbing/electrical",daysMin: 1, daysMax: 4,  crew: 2, description: "Plumbing and electrical rough-in if applicable" },
     ] : []),
@@ -291,9 +319,9 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
 
   const scope = buildScope(
     [
-      `${input.scope === "cabinet_update" ? "Cabinet update" : "Cabinet installation"} (${linearFt} lin.ft)`,
-      ...(input.scope !== "flooring" && input.scope !== "cabinet_update" ? ["Countertop installation (countertop template separate)"] : []),
-      ...(input.scope === "flooring" || input.scope === "full_remodel" ? ["Kitchen flooring"] : []),
+      `${kitchenScope === "cabinet_update" ? "Cabinet update" : "Cabinet installation"} (${linearFt} lin.ft)`,
+      ...(kitchenScope !== "flooring" && kitchenScope !== "cabinet_update" ? ["Countertop installation (countertop template separate)"] : []),
+      ...(kitchenScope === "flooring" || kitchenScope === "full_remodel" ? ["Kitchen flooring"] : []),
       "Backsplash tile (basic pattern)",
       "Sink, faucet, and garbage disposal connection",
       "Cabinet hardware installation",
@@ -305,7 +333,7 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
       "Full room painting",
       "Flooring beyond kitchen area",
       "Electrical panel upgrade",
-      ...(input.plumbingElectrical === "no" ? ["Plumbing or electrical relocation"] : []),
+      ...(plumbingElectrical === "no" ? ["Plumbing or electrical relocation"] : []),
       "Structural wall changes",
       "Design services",
       "Permits unless included",
@@ -325,15 +353,15 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
   );
 
   const explained = buildExplainedOutput(
-    `Your kitchen ${input.scope.replace("_", " ")} is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `Your kitchen ${kitchenScope.replace("_", " ")} is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
     `This covers ${linearFt} lin.ft of cabinets, countertop coordination, backsplash, and sink/faucet. ` +
-    `${input.appliances !== "no_appliances" ? "Appliance installation is included. " : ""}` +
+    `${appliances !== "no_appliances" ? "Appliance installation is included. " : ""}` +
     `Work is structured in milestones with photos required before each payment release.`,
     [
-      `Scope: ${input.scope} — size: ${input.kitchenSize} — ${linearFt} lin.ft cabinets`,
-      `Material tier: ${input.materialQuality} — appliances: ${input.appliances}`,
+      `Scope: ${kitchenScope} — size: ${kitchenSize} — ${linearFt} lin.ft cabinets`,
+      `Material tier: ${materialQuality} — appliances: ${appliances}`,
       "CRITICAL: countertop template must be done AFTER cabinets are leveled. Do not rush.",
-      ...(input.plumbingElectrical !== "no" ? [`Plumbing/electrical: ${input.plumbingElectrical} — coordinate licensed sub before cabinet day`] : []),
+      ...(plumbingElectrical !== "no" ? [`Plumbing/electrical: ${plumbingElectrical} — coordinate licensed sub before cabinet day`] : []),
       "Measure appliance spaces 3x before ordering cabinets — wrong size = expensive change order",
       "Client must confirm cabinet door style, hardware, and color BEFORE ordering",
     ]
@@ -341,7 +369,7 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
 
   const warranty = buildWarranty(
     120,
-    `Kitchen ${input.scope.replace("_", " ")} — labor on cabinet installation, alignment, and hardware`,
+    `Kitchen ${kitchenScope.replace("_", " ")} — labor on cabinet installation, alignment, and hardware`,
     [
       "Cabinet manufacturer defects (covered by manufacturer warranty)",
       "Countertop cracks from impact or improper use",
@@ -352,18 +380,18 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
 
   const roi = computeRenovationRoi(
     costs.total,
-    input.scope === "full_remodel" ? 1.75 : 1.40,
+    kitchenScope === "full_remodel" ? 1.75 : 1.40,
     "Kitchen renovations typically return 60-80% in home value. Full remodels in Florida market have strong resale appeal.",
     48
   );
 
   const scheduleRisk = assessScheduleRisk({
-    dependsOnOtherTrades: input.plumbingElectrical !== "no",
-    clientMustDecide:     input.clientProvidesMaterials || input.scope === "full_remodel",
+    dependsOnOtherTrades: plumbingElectrical !== "no",
+    clientMustDecide:     input.clientProvidesMaterials || kitchenScope === "full_remodel",
     materialsOnSite:      !input.clientProvidesMaterials,
     weatherDependent:     false,
-    scopeIsLarge:         input.scope === "full_remodel",
-    hasComplexDetails:    input.appliances === "premium_appliances",
+    scopeIsLarge:         kitchenScope === "full_remodel",
+    hasComplexDetails:    appliances === "premium_appliances",
   });
 
 
@@ -392,8 +420,8 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
   return {
     toolId:       `kitchen-${Date.now()}`,
     trade:        "remodeling",
-    projectType:  `kitchen-${input.scope}`,
-    mode:         input.mode,
+    projectType:  `kitchen-${kitchenScope}`,
+    mode,
     inputs:       { ...input },
     validationIssues: issues,
     isValid:      isValid(issues),
@@ -408,7 +436,7 @@ export function calculateKitchenRemodel(input: KitchenInput): SemseToolResult {
       "Confirmar medidas de gabinetes y espacios de appliances antes de comprar.",
       "El template de countertop debe hacerse con gabinetes ya instalados y nivelados.",
       "No instalar backsplash hasta confirmar que el countertop está asentado.",
-      ...(input.plumbingElectrical !== "no" ? ["Obtener permiso de plomería/electricidad si el municipio lo requiere."] : []),
+      ...(plumbingElectrical !== "no" ? ["Obtener permiso de plomería/electricidad si el municipio lo requiere."] : []),
     ],
     assumptions: [
       "Precios de referencia EE.UU. / Florida 2026.",
