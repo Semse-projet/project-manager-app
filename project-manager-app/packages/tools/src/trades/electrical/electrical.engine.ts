@@ -43,12 +43,6 @@ function voltDrop(amps: number, feet: number, resistancePerFt: number): number {
   return 2 * amps * feet * resistancePerFt; // 2× for round-trip
 }
 
-function finiteError(field: string, value: number, label: string) {
-  return Number.isFinite(value)
-    ? null
-    : { field, severity: "error" as const, message: `${label} debe ser un número válido.` };
-}
-
 function phaseError(value: number) {
   return value === 1 || value === 3
     ? null
@@ -90,19 +84,14 @@ export type ElectricalInput = {
 export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   // 1. Validate
   const issues = collect(
-    finiteError("watts", input.watts, "Potencia (W)"),
     positive("watts", input.watts, "Potencia (W)"),
-    finiteError("voltage", input.voltage, "Voltaje"),
     range("voltage", input.voltage, 100, 600, "Voltaje"),
     STANDARD_VOLTAGES.includes(input.voltage as (typeof STANDARD_VOLTAGES)[number])
       ? null
       : warn("voltage", "Voltaje no estándar para el selector de la herramienta.", "Usar 120, 208, 220, 240, 277 o 480 si aplica."),
-    finiteError("powerFactor", input.powerFactor, "Factor de potencia"),
     range("powerFactor", input.powerFactor, 0.5, 1.0, "Factor de potencia"),
     phaseError(input.phase),
-    finiteError("runFeet", input.runFeet, "Longitud del tramo"),
     range("runFeet", input.runFeet, 1, 2000, "Longitud del tramo"),
-    finiteError("numCircuits", input.numCircuits, "Número de circuitos"),
     positive("numCircuits", input.numCircuits, "Número de circuitos"),
     input.panelUpgrade && input.watts > 20000
       ? warn("watts", "Carga muy alta para un panel residencial estándar. Verificar con ingeniero.")
