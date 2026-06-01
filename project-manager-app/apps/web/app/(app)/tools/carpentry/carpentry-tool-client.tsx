@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Hammer, Calculator } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Hammer } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
+
+export type CarpentrySection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
 
 type CarpentryInput = {
   projectType: "cabinet" | "door" | "closet" | "shelf" | "trim" | "table" | "repair" | "custom";
@@ -33,49 +36,119 @@ const INITIAL_INPUT: CarpentryInput = {
   mode: "professional",
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <Input
-      label={label}
-      type="number"
-      step={step}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  );
+const SECTIONS: Array<{ id: CarpentrySection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/carpentry/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/carpentry/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/carpentry/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/carpentry/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/carpentry/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/carpentry/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/carpentry/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/carpentry/research", icon: Globe2 },
+];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function CarpentryToolClient() {
+type CarpentryToolClientProps = { section: CarpentrySection };
+
+export function CarpentryToolClient({ section }: CarpentryToolClientProps) {
   const [input, setInput] = useState<CarpentryInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const pieceSize = useMemo(() => (input.lengthIn * input.widthIn * input.thicknessIn) / 144, [input]);
+  const totalBoardFeet = useMemo(() => pieceSize * input.quantity, [pieceSize, input.quantity]);
+  const estimatedCost = useMemo(() => totalBoardFeet * 3.5, [totalBoardFeet]);
+
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await calculateSemseTool({
-        tool: "carpentry",
-        mode: input.mode,
-        input,
-      });
+      const response = await calculateSemseTool({ tool: "carpentry", mode: input.mode, input });
       setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Project Type</div><div className="text-lg font-bold">{input.projectType}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Total Board Feet</div><div className="text-2xl font-bold">{totalBoardFeet.toFixed(1)}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Carpentry Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Select label="Project Type" value={input.projectType} onChange={(e) => setInput({...input, projectType: e.target.value as any})}>
+                  <option value="cabinet">Cabinet</option>
+                  <option value="door">Door</option>
+                  <option value="closet">Closet</option>
+                  <option value="shelf">Shelf</option>
+                  <option value="trim">Trim</option>
+                  <option value="table">Table</option>
+                  <option value="repair">Repair</option>
+                  <option value="custom">Custom</option>
+                </Select>
+                <Select label="Material" value={input.material} onChange={(e) => setInput({...input, material: e.target.value as any})}>
+                  <option value="pine">Pine</option>
+                  <option value="plywood">Plywood</option>
+                  <option value="mdf">MDF</option>
+                  <option value="oak">Oak</option>
+                  <option value="treated">Treated</option>
+                </Select>
+                <Input label="Length (in)" type="number" value={input.lengthIn} onChange={(e) => setInput({...input, lengthIn: Number(e.target.value)})} />
+                <Input label="Width (in)" type="number" value={input.widthIn} onChange={(e) => setInput({...input, widthIn: Number(e.target.value)})} />
+                <Input label="Quantity" type="number" value={input.quantity} onChange={(e) => setInput({...input, quantity: Number(e.target.value)})} />
+                <Select label="Finish" value={input.finishType} onChange={(e) => setInput({...input, finishType: e.target.value as any})}>
+                  <option value="none">None</option>
+                  <option value="paint">Paint</option>
+                  <option value="stain">Stain</option>
+                  <option value="polyurethane">Polyurethane</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Fabrication, installation, finishing details...</p></Card>;
+
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">{totalBoardFeet.toFixed(1)} board feet of {input.material}</p></Card>;
+
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Carpentry Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {totalBoardFeet.toFixed(1)} BF</p></Card>;
+
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Design, fabrication, installation, finishing...</p></Card>;
+
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Fit, alignment, finish, hardware, durability...</p></Card>;
+
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Carpentry Research</h3><Input placeholder="Search carpentry techniques, finishes..." /></Card>;
+
+      default:
+        return null;
     }
   }
 
@@ -83,187 +156,25 @@ export function CarpentryToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Carpentry calculator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Estimate board feet, hardware, finish materials, labor, milestones and evidence for cabinetry, trim and finish carpentry.
-          </p>
+          <div className="flex items-center gap-3"><Hammer className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Carpentry Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete carpentry estimation with materials, labor, and finishing options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                <Calculator size={18} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Input</h2>
-                <p className="text-sm text-muted">
-                  Interior and finish carpentry flows with durable closeout evidence.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <Select
-                label="Project type"
-                value={input.projectType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    projectType: event.target.value as CarpentryInput["projectType"],
-                  }))
-                }
-              >
-                <option value="cabinet">Cabinet</option>
-                <option value="door">Door</option>
-                <option value="closet">Closet</option>
-                <option value="shelf">Shelf</option>
-                <option value="trim">Trim</option>
-                <option value="table">Table</option>
-                <option value="repair">Repair</option>
-                <option value="custom">Custom</option>
-              </Select>
-
-              <Select
-                label="Material"
-                value={input.material}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    material: event.target.value as CarpentryInput["material"],
-                  }))
-                }
-              >
-                <option value="pine">Pine</option>
-                <option value="plywood">Plywood</option>
-                <option value="mdf">MDF</option>
-                <option value="oak">Oak</option>
-                <option value="treated">Treated</option>
-              </Select>
-
-              <NumberField
-                label="Length (in)"
-                value={input.lengthIn}
-                onChange={(value) => setInput((current) => ({ ...current, lengthIn: value }))}
-              />
-              <NumberField
-                label="Width (in)"
-                value={input.widthIn}
-                onChange={(value) => setInput((current) => ({ ...current, widthIn: value }))}
-              />
-              <NumberField
-                label="Thickness (in)"
-                value={input.thicknessIn}
-                step={0.01}
-                onChange={(value) => setInput((current) => ({ ...current, thicknessIn: value }))}
-              />
-              <NumberField
-                label="Quantity"
-                value={input.quantity}
-                onChange={(value) => setInput((current) => ({ ...current, quantity: value }))}
-              />
-              <NumberField
-                label="Hardware count"
-                value={input.hardwareCount}
-                onChange={(value) => setInput((current) => ({ ...current, hardwareCount: value }))}
-              />
-
-              <Select
-                label="Finish type"
-                value={input.finishType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    finishType: event.target.value as CarpentryInput["finishType"],
-                  }))
-                }
-              >
-                <option value="none">None</option>
-                <option value="paint">Paint</option>
-                <option value="stain">Stain</option>
-                <option value="polyurethane">Polyurethane</option>
-              </Select>
-
-              <Select
-                label="Complexity"
-                value={input.complexity}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    complexity: event.target.value as CarpentryInput["complexity"],
-                  }))
-                }
-              >
-                <option value="basic">Basic</option>
-                <option value="medium">Medium</option>
-                <option value="complex">Complex</option>
-              </Select>
-
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-            </div>
-
-            <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-cyan-100">
-              <strong>Note:</strong> MDF and exterior-style pieces should be sealed and described clearly in the quote.
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate carpentry"}
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ToolResultPanel result={result} />
-            ) : (
-              <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
-                <div className="grid gap-3 p-8">
-                  <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <Hammer size={24} />
-                  </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the carpentry flow through the tools API.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Board feet</Badge>
-                    <Badge variant="info">Hardware</Badge>
-                    <Badge variant="warn">Finish</Badge>
-                    <Badge variant="success">Evidence</Badge>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

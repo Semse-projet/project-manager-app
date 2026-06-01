@@ -1,29 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChefHat, Calculator } from "lucide-react";
-import { Badge, Button, Card, Select } from "@/components/ui";
+import type { LucideIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  Calculator,
+  CheckCircle2,
+  ClipboardCheck,
+  ClipboardList,
+  Globe2,
+  LayoutDashboard,
+  Package,
+  ReceiptText,
+  ShieldCheck,
+  ChefHat,
+} from "lucide-react";
+import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
-type KitchenScope    = "cabinet_update" | "countertops" | "flooring" | "full_remodel";
-type KitchenSize     = "small" | "medium" | "large" | "extra_large";
-type Appliances      = "no_appliances" | "basic_appliances" | "premium_appliances";
-type MaterialQuality = "budget" | "standard" | "premium";
-type PlumbingElec    = "no" | "minor" | "relocate";
+export type KitchenSection =
+  | "dashboard"
+  | "estimate"
+  | "scope"
+  | "materials"
+  | "summary"
+  | "milestones"
+  | "inspection"
+  | "research";
 
 type KitchenInput = {
-  scope: KitchenScope;
-  kitchenSize: KitchenSize;
-  appliances: Appliances;
-  materialQuality: MaterialQuality;
-  plumbingElectrical: PlumbingElec;
+  scope: "cabinet_update" | "countertops" | "flooring" | "full_remodel";
+  kitchenSize: "small" | "medium" | "large" | "extra_large";
+  appliances: "no_appliances" | "basic_appliances" | "premium_appliances";
+  materialQuality: "budget" | "standard" | "premium";
+  plumbingElectrical: "no" | "minor" | "relocate";
   clientProvidesMaterials: boolean;
   mode: ToolMode;
 };
 
-const INITIAL: KitchenInput = {
+const INITIAL_INPUT: KitchenInput = {
   scope: "full_remodel",
   kitchenSize: "medium",
   appliances: "basic_appliances",
@@ -33,73 +50,131 @@ const INITIAL: KitchenInput = {
   mode: "professional",
 };
 
-const SCOPE_LABELS: Record<KitchenScope, string> = {
-  cabinet_update: "Cabinet paint / update",
-  countertops:    "Countertop replacement",
-  flooring:       "New floor / tile",
-  full_remodel:   "Full kitchen renovation",
+const SCOPE_NAMES: Record<KitchenInput["scope"], string> = {
+  cabinet_update: "Cabinet Update",
+  countertops: "Countertops",
+  flooring: "Flooring",
+  full_remodel: "Full Remodel",
 };
 
-const SIZE_LABELS: Record<KitchenSize, string> = {
-  small:       "Small (< 100 sqft)",
-  medium:      "Medium (100–200 sqft)",
-  large:       "Large (200–350 sqft)",
-  extra_large: "Extra large (350+ sqft)",
+const SCOPE_RANGE: Record<KitchenInput["scope"], { min: number; max: number }> = {
+  cabinet_update: { min: 2000, max: 6000 },
+  countertops: { min: 1500, max: 5000 },
+  flooring: { min: 1000, max: 4000 },
+  full_remodel: { min: 10000, max: 50000 },
 };
 
-const APPLIANCE_LABELS: Record<Appliances, string> = {
-  no_appliances:       "No appliances",
-  basic_appliances:    "Basic appliances",
-  premium_appliances:  "Premium appliances",
-};
+const SECTIONS: Array<{ id: KitchenSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/kitchen/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/kitchen/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/kitchen/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/kitchen/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/kitchen/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/kitchen/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/kitchen/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/kitchen/research", icon: Globe2 },
+];
 
-const MATERIAL_LABELS: Record<MaterialQuality, string> = {
-  budget:   "Budget — laminate / melamine",
-  standard: "Standard — wood / basic granite",
-  premium:  "Premium — quartz / solid wood",
-};
-
-const PLUMBING_LABELS: Record<PlumbingElec, string> = {
-  no:      "No changes needed",
-  minor:   "Minor changes only",
-  relocate: "Relocate pipes / electrical",
-};
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 transition hover:border-white/[0.14]">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={e => onChange(e.target.checked)}
-        className="h-4 w-4 accent-cyan-400"
-      />
-      <span className="text-sm text-ink">{label}</span>
-    </label>
-  );
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function KitchenToolClient() {
-  const [input, setInput] = useState<KitchenInput>(INITIAL);
+type KitchenToolClientProps = { section: KitchenSection };
+
+export function KitchenToolClient({ section }: KitchenToolClientProps) {
+  const [input, setInput] = useState<KitchenInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const costRange = useMemo(() => SCOPE_RANGE[input.scope], [input.scope]);
+  const scopeName = useMemo(() => SCOPE_NAMES[input.scope], [input.scope]);
 
   async function calculate() {
     setLoading(true);
     setError(null);
     try {
-      const res = await calculateSemseTool({ tool: "kitchen", mode: input.mode, input });
-      setResult(res);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Error calculating kitchen estimate");
+      const response = await calculateSemseTool({ tool: "kitchen", mode: input.mode, input });
+      setResult(response);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
     }
   }
 
-  const set = <K extends keyof KitchenInput>(key: K, value: KitchenInput[K]) =>
-    setInput(prev => ({ ...prev, [key]: value }));
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4">
+                <div className="text-sm text-muted">Scope</div>
+                <div className="text-xl font-bold">{scopeName}</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-sm text-muted">Est. Range</div>
+                <div className="text-lg font-bold">{formatCurrency(costRange.min)}</div>
+              </Card>
+              <Card className="p-4">
+                <div className="text-sm text-muted">Status</div>
+                <div className="text-xl font-bold text-yellow-500">Planning</div>
+              </Card>
+            </div>
+          </div>
+        );
+
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Kitchen Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Select label="Scope" value={input.scope} onChange={(e) => setInput({...input, scope: e.target.value as any})}>
+                  <option value="cabinet_update">Cabinet Update</option>
+                  <option value="countertops">Countertops</option>
+                  <option value="flooring">Flooring</option>
+                  <option value="full_remodel">Full Remodel</option>
+                </Select>
+                <Select label="Kitchen Size" value={input.kitchenSize} onChange={(e) => setInput({...input, kitchenSize: e.target.value as any})}>
+                  <option value="small">Small (&lt;100 sqft)</option>
+                  <option value="medium">Medium (100-200)</option>
+                  <option value="large">Large (200-350)</option>
+                  <option value="extra_large">Extra Large (350+)</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>
+                {loading ? "Calculating..." : "Calculate"}
+              </Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Kitchen remodel scope and details...</p></Card>;
+
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials & Fixtures</h3><p className="text-sm text-muted">Cabinetry, countertops, appliances, hardware...</p></Card>;
+
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Kitchen Summary</h3><p className="text-sm text-muted">Est. {formatCurrency(costRange.min)} - {formatCurrency(costRange.max)}</p></Card>;
+
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Demo, rough-in, installation, finishing...</p></Card>;
+
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Inspection</h3><p className="text-sm text-muted">Cabinet alignment, countertop fit, appliance function...</p></Card>;
+
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Kitchen Research</h3><Input placeholder="Search kitchen materials, design..." /></Card>;
+
+      default:
+        return null;
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
@@ -113,132 +188,32 @@ export function KitchenToolClient() {
 
         <section className="grid gap-3">
           <div className="flex items-center gap-3">
-            <ChefHat size={28} className="text-cyan-400" />
-            <h1 className="text-3xl font-bold tracking-tight text-ink">Kitchen Remodel Tool</h1>
+            <ChefHat className="h-8 w-8" />
+            <h1 className="text-3xl font-bold tracking-tight text-ink">Kitchen Tool</h1>
           </div>
-          <p className="max-w-3xl text-sm text-muted">
-            Estimate cabinets, countertops, appliances, plumbing, labor, risk, milestones and evidence
-            for kitchen cabinet updates through full renovations.
-          </p>
+          <p className="max-w-3xl text-sm text-muted">Complete kitchen remodel estimation with cabinetry, appliances, and design guidance.</p>
         </section>
 
-        <div className="grid gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-center gap-2 text-sm font-semibold text-muted">
-              <Calculator size={16} /> Inputs
-            </div>
-
-            {/* Scope */}
-            <div className="grid gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted">Kitchen scope</label>
-              <div className="grid gap-2">
-                {(Object.keys(SCOPE_LABELS) as KitchenScope[]).map(s => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => set("scope", s)}
-                    className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
-                      input.scope === s
-                        ? "border-cyan-400/60 bg-cyan-400/10 text-cyan-300"
-                        : "border-white/[0.08] bg-white/[0.02] text-ink hover:border-white/[0.14]"
-                    }`}
-                  >
-                    {SCOPE_LABELS[s]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Size */}
-            <Select
-              label="Kitchen size"
-              value={input.kitchenSize}
-              onChange={e => set("kitchenSize", e.target.value as KitchenSize)}
-            >
-              {(Object.entries(SIZE_LABELS) as [KitchenSize, string][]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </Select>
-
-            {/* Appliances */}
-            <Select
-              label="Appliances"
-              value={input.appliances}
-              onChange={e => set("appliances", e.target.value as Appliances)}
-            >
-              {(Object.entries(APPLIANCE_LABELS) as [Appliances, string][]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </Select>
-
-            {/* Materials */}
-            <Select
-              label="Material quality (cabinets / countertops)"
-              value={input.materialQuality}
-              onChange={e => set("materialQuality", e.target.value as MaterialQuality)}
-            >
-              {(Object.entries(MATERIAL_LABELS) as [MaterialQuality, string][]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </Select>
-
-            {/* Plumbing / electrical */}
-            <Select
-              label="Plumbing / electrical changes"
-              value={input.plumbingElectrical}
-              onChange={e => set("plumbingElectrical", e.target.value as PlumbingElec)}
-            >
-              {(Object.entries(PLUMBING_LABELS) as [PlumbingElec, string][]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </Select>
-
-            <Toggle
-              label="Client provides cabinets / materials"
-              checked={input.clientProvidesMaterials}
-              onChange={v => set("clientProvidesMaterials", v)}
-            />
-
-            {/* Mode */}
-            <Select
-              label="Calculation mode"
-              value={input.mode}
-              onChange={e => set("mode", e.target.value as ToolMode)}
-            >
-              <option value="client">Client</option>
-              <option value="professional">Professional</option>
-              <option value="admin">Admin</option>
-            </Select>
-
-            {input.plumbingElectrical === "relocate" && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-950/40 px-4 py-3 text-xs text-amber-200">
-                ⚠️ Plumbing / electrical relocation requires licensed professionals and may require permits.
-              </div>
-            )}
-
-            {input.appliances === "premium_appliances" && (
-              <div className="rounded-xl border border-blue-500/30 bg-blue-950/40 px-4 py-3 text-xs text-blue-200">
-                ℹ️ Premium appliances: confirm space dimensions and dedicated circuits before ordering cabinets.
-              </div>
-            )}
-
-            <Button onClick={calculate} disabled={loading} className="w-full">
-              {loading ? "Calculating…" : "Calculate kitchen estimate"}
-            </Button>
-
-            {error && (
-              <div className="rounded-xl border border-red-500/40 bg-red-950/50 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            )}
-          </Card>
-
-          {result && (
-            <div className="grid gap-4 self-start">
-              <ToolResultPanel result={result} />
-            </div>
-          )}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link
+                key={s.id}
+                href={s.href}
+                className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${
+                  isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"
+                }`}
+              >
+                <Icon size={16} />
+                {s.label}
+              </Link>
+            );
+          })}
         </div>
+
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );
