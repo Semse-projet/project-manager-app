@@ -1,4 +1,4 @@
-import { collect, isValid, positive, range, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, positive, range, warn } from "../core/validation-engine.js";
 import { applyLocation, buildCostSummary, material, materialTotal, priceOf } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -41,6 +41,11 @@ export type RoofingInput = {
   location?: LocationMultipliers;
 };
 
+const SHINGLE_TYPES = ["3-tab", "architectural", "metal", "tile", "flat-tpo", "flat-modified"] as const;
+const DECK_CONDITIONS = ["good", "fair", "poor", "unknown"] as const;
+const WARRANTY_YEARS = ["20", "30", "50"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
+
 const SHINGLE_COST_PER_SQ: Record<ShingleType, number> = {
   "3-tab":          95,
   architectural:   120,
@@ -59,79 +64,107 @@ const LABOR_HOURS_PER_SQ: Record<ShingleType, number> = {
   "flat-modified":  2.5,
 };
 
+function normalizePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
 export function calculateRoofing(input: RoofingInput): SemseToolResult {
   const issues = collect(
+    oneOf("shingleType", input.shingleType, SHINGLE_TYPES, "Shingle type"),
+    oneOf("deckCondition", input.deckCondition, DECK_CONDITIONS, "Deck condition"),
+    oneOf("warrantyYears", String(input.warrantyYears), WARRANTY_YEARS, "Warranty years"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
     positive("roofAreaSqFt", input.roofAreaSqFt, "Roof area"),
     range("pitch", input.pitch, 1, 18, "Roof pitch"),
     range("layers", input.layers, 1, 3, "Existing layers"),
-    input.pitch >= 10 ? warn("pitch", "Steep pitch (10+): add fall protection and steep-slope surcharge.") : null,
-    input.layers > 1  ? warn("layers", "Multiple layers: verify structural capacity before tear-off.") : null,
+    range("vents", input.vents, 0, 80, "Roof vents"),
+    range("skylightCount", input.skylightCount, 0, 20, "Skylights"),
+    Number.isFinite(input.pitch) && input.pitch >= 10 ? warn("pitch", "Steep pitch (10+): add fall protection and steep-slope surcharge.") : null,
+    Number.isFinite(input.layers) && input.layers > 1  ? warn("layers", "Multiple layers: verify structural capacity before tear-off.") : null,
     input.deckCondition === "unknown" ? warn("deckCondition", "Deck condition unknown: budget for potential sheathing repairs.") : null,
     input.deckCondition === "poor"    ? warn("deckCondition", "Poor deck: likely requires partial sheathing replacement — change-order risk.") : null,
   );
 
-  const squares      = input.roofAreaSqFt / 100;
-  const wasteFactor  = input.pitch >= 10 ? 0.15 : input.shingleType === "metal" ? 0.08 : 0.10;
+  const shingleType = normalizeOneOf(input.shingleType, SHINGLE_TYPES, "architectural");
+  const deckCondition = normalizeOneOf(input.deckCondition, DECK_CONDITIONS, "unknown");
+  const warrantyYears = Number(normalizeOneOf(String(input.warrantyYears), WARRANTY_YEARS, "30")) as RoofingInput["warrantyYears"];
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const roofAreaSqFt = normalizePositive(input.roofAreaSqFt, 100);
+  const pitch = normalizeRange(input.pitch, 1, 18, 6);
+  const layers = Math.max(1, Math.round(normalizeRange(input.layers, 1, 3, 1)));
+  const vents = Math.max(0, Math.round(normalizeRange(input.vents, 0, 80, 0)));
+  const skylightCount = Math.max(0, Math.round(normalizeRange(input.skylightCount, 0, 20, 0)));
+
+  const squares      = roofAreaSqFt / 100;
+  const wasteFactor  = pitch >= 10 ? 0.15 : shingleType === "metal" ? 0.08 : 0.10;
   const orderSquares = Math.ceil(squares * (1 + wasteFactor));
-  const pitchSurcharge = input.pitch >= 12 ? 0.30 : input.pitch >= 10 ? 0.18 : 0;
+  const pitchSurcharge = pitch >= 12 ? 0.30 : pitch >= 10 ? 0.18 : 0;
 
   const mats = [
-    material(`${input.shingleType} shingles`, orderSquares, "sq",
-      priceOf(input.prices, `${input.shingleType}-shingles`, SHINGLE_COST_PER_SQ[input.shingleType]), "Cover"),
-    ...(input.underlayment ? [material("Synthetic underlayment", Math.ceil(input.roofAreaSqFt / 400), "roll",
+    material(`${shingleType} shingles`, orderSquares, "sq",
+      priceOf(input.prices, `${shingleType}-shingles`, SHINGLE_COST_PER_SQ[shingleType]), "Cover"),
+    ...(input.underlayment ? [material("Synthetic underlayment", Math.ceil(roofAreaSqFt / 400), "roll",
       priceOf(input.prices, "roofing-underlayment", 72), "Base")] : []),
-    ...(input.iceBarrier   ? [material("Ice & water shield", Math.ceil(input.roofAreaSqFt / 200), "roll", 95, "Base")] : []),
-    ...(input.removeOldRoof ? [material("Tear-off & disposal", Math.ceil(squares), "sq", 42 + (input.layers - 1) * 18, "Demo")] : []),
-    material("Ridge cap", Math.ceil(input.roofAreaSqFt / 600), "bundle", 55, "Trim"),
-    material("Flashing (valleys/pipes)", input.flashingReplace ? Math.ceil(input.roofAreaSqFt / 120) : 1, "kit", 48, "Flashing"),
-    ...(input.skylightCount > 0 ? [material("Skylight flashing kit", input.skylightCount, "kit", 120, "Flashing")] : []),
-    ...(input.vents > 0 ? [material("Roof vents", input.vents, "un", 35, "Ventilation")] : []),
-    ...(input.guttersIncluded ? [material("Gutters & downspouts", Math.ceil(input.roofAreaSqFt / 40), "lf", 12, "Gutters")] : []),
+    ...(input.iceBarrier   ? [material("Ice & water shield", Math.ceil(roofAreaSqFt / 200), "roll", 95, "Base")] : []),
+    ...(input.removeOldRoof ? [material("Tear-off & disposal", Math.ceil(squares), "sq", 42 + (layers - 1) * 18, "Demo")] : []),
+    material("Ridge cap", Math.ceil(roofAreaSqFt / 600), "bundle", 55, "Trim"),
+    material("Flashing (valleys/pipes)", input.flashingReplace ? Math.ceil(roofAreaSqFt / 120) : 1, "kit", 48, "Flashing"),
+    ...(skylightCount > 0 ? [material("Skylight flashing kit", skylightCount, "kit", 120, "Flashing")] : []),
+    ...(vents > 0 ? [material("Roof vents", vents, "un", 35, "Ventilation")] : []),
+    ...(input.guttersIncluded ? [material("Gutters & downspouts", Math.ceil(roofAreaSqFt / 40), "lf", 12, "Gutters")] : []),
     material("Permits & inspection", 1, "job", 165, "Permits"),
   ];
 
-  const installHours  = squares * LABOR_HOURS_PER_SQ[input.shingleType] * (1 + pitchSurcharge);
-  const tearOffHours  = input.removeOldRoof ? squares * (0.6 + (input.layers - 1) * 0.3) : 0;
-  const gutterHours   = input.guttersIncluded ? Math.ceil(input.roofAreaSqFt / 40) * 0.15 : 0;
+  const installHours  = squares * LABOR_HOURS_PER_SQ[shingleType] * (1 + pitchSurcharge);
+  const tearOffHours  = input.removeOldRoof ? squares * (0.6 + (layers - 1) * 0.3) : 0;
+  const gutterHours   = input.guttersIncluded ? Math.ceil(roofAreaSqFt / 40) * 0.15 : 0;
 
   const labor = estimateLabor({
-    baseHours: tearOffHours + installHours + input.skylightCount * 2.5 + gutterHours + 2,
-    crewSize: input.roofAreaSqFt > 2500 ? 4 : 3,
+    baseHours: tearOffHours + installHours + skylightCount * 2.5 + gutterHours + 2,
+    crewSize: roofAreaSqFt > 2500 ? 4 : 3,
     ratePerHour: 64,
-    difficulty: input.pitch >= 10 || input.shingleType === "tile" || input.layers > 1 ? "complex" : "moderate",
+    difficulty: pitch >= 10 || shingleType === "tile" || layers > 1 ? "complex" : "moderate",
     notes: [
-      `${input.roofAreaSqFt.toLocaleString()} sqft — ${orderSquares} squares`,
-      `${input.shingleType} shingles · ${input.warrantyYears}-yr warranty`,
-      input.removeOldRoof ? `Tear-off: ${input.layers} layer(s)` : "Overlay",
-      input.pitch >= 10 ? `Steep pitch ${input.pitch}/12` : `Pitch ${input.pitch}/12`,
+      `${roofAreaSqFt.toLocaleString()} sqft — ${orderSquares} squares`,
+      `${shingleType} shingles · ${warrantyYears}-yr warranty`,
+      input.removeOldRoof ? `Tear-off: ${layers} layer(s)` : "Overlay",
+      pitch >= 10 ? `Steep pitch ${pitch}/12` : `Pitch ${pitch}/12`,
     ],
   });
 
   const costs = buildCostSummary(
     applyLocation(materialTotal(mats), input.location, "material"),
     applyLocation(labor.totalCost, input.location, "labor"),
-    { overhead: 0.16, profit: 0.22, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: input.roofAreaSqFt },
+    { overhead: 0.16, profit: 0.22, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: roofAreaSqFt },
   );
 
   const risk = computeRisk([
-    factor("steep_pitch",     "Steep pitch",           0.22, input.pitch >= 10),
+    factor("steep_pitch",     "Steep pitch",           0.22, pitch >= 10),
     factor("tear_off",        "Tear-off required",     0.16, input.removeOldRoof),
-    factor("multiple_layers", "Multiple layers",       0.14, input.layers > 1),
-    factor("deck_poor",       "Poor deck condition",   0.20, input.deckCondition === "poor"),
-    factor("deck_unknown",    "Deck condition unknown",0.10, input.deckCondition === "unknown"),
-    factor("skylights",       "Skylight flashing",     0.10, input.skylightCount > 0),
-    factor("premium_mat",     "Premium material",      0.08, input.shingleType === "metal" || input.shingleType === "tile"),
+    factor("multiple_layers", "Multiple layers",       0.14, layers > 1),
+    factor("deck_poor",       "Poor deck condition",   0.20, deckCondition === "poor"),
+    factor("deck_unknown",    "Deck condition unknown",0.10, deckCondition === "unknown"),
+    factor("skylights",       "Skylight flashing",     0.10, skylightCount > 0),
+    factor("premium_mat",     "Premium material",      0.08, shingleType === "metal" || shingleType === "tile"),
   ], {
     requiresPermit: true,
     requiresLicense: true,
     requiresInspection: true,
-    requiresEngineering: input.pitch >= 12 || input.roofAreaSqFt > 3500,
+    requiresEngineering: pitch >= 12 || roofAreaSqFt > 3500,
   });
 
   const hiddenDamage = assessHiddenDamageProbability(
     undefined,
     false,
-    input.deckCondition === "poor",
+    deckCondition === "poor",
     false,
     true,
     false,
@@ -140,10 +173,10 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
   const confidence = computeConfidenceScore({
     hasMeasurements:      true,
     hasPhotos:            false,
-    hasConditionData:     input.deckCondition !== "unknown",
+    hasConditionData:     deckCondition !== "unknown",
     hasMaterialSelection: true,
-    hasScopeConfirmed:    input.deckCondition !== "unknown",
-    hasUnknownConditions: input.deckCondition === "unknown",
+    hasScopeConfirmed:    deckCondition !== "unknown",
+    hasUnknownConditions: deckCondition === "unknown",
     extraConfirmedFields: (input.underlayment ? 1 : 0) + (input.flashingReplace ? 1 : 0) + (input.iceBarrier ? 1 : 0),
   });
 
@@ -152,44 +185,44 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
     materialsAvailable:    false,
     siteAccessConfirmed:   true,
     permitsAddressed:      false,
-    scopeApproved:         input.deckCondition !== "unknown",
+    scopeApproved:         deckCondition !== "unknown",
     depositPaid:           false,
     clientApproval:        false,
     otherTradesCoordinated: false,
   });
 
   const disputeRisk = computeDisputeRisk({
-    scopeAmbiguous:           input.deckCondition === "unknown",
+    scopeAmbiguous:           deckCondition === "unknown",
     clientProvidesMaterials:  false,
     noPhotosRequired:         false,
     hasChangeOrderPolicy:     true,
     hasEvidenceRequired:      true,
     hasMilestones:            true,
-    hasHighRiskConditions:    input.deckCondition !== "good" || input.pitch >= 10,
+    hasHighRiskConditions:    deckCondition !== "good" || pitch >= 10,
     priceIsFixed:             true,
-    clientExpectationMismatch: input.deckCondition === "unknown",
+    clientExpectationMismatch: deckCondition === "unknown",
   });
 
   const priceBands = computePriceBands(
     costs.total,
     0.82,
-    input.deckCondition !== "good" ? 1.38 : 1.22,
+    deckCondition !== "good" ? 1.38 : 1.22,
     {
       low:  "No tear-off, 3-tab, standard pitch, deck in good condition",
       mid:  "Architectural shingles, standard tear-off, typical conditions",
-      high: input.deckCondition !== "good" ? "Deck repairs + steep pitch + skylights + full flashing" : "Metal/tile + steep + skylights + gutters",
+      high: deckCondition !== "good" ? "Deck repairs + steep pitch + skylights + full flashing" : "Metal/tile + steep + skylights + gutters",
     },
   );
 
   const scope = buildScope(
     [
-      `${input.shingleType} shingle installation (${input.roofAreaSqFt.toLocaleString()} sqft)`,
+      `${shingleType} shingle installation (${roofAreaSqFt.toLocaleString()} sqft)`,
       input.underlayment ? "Synthetic underlayment" : "Standard felt",
       input.iceBarrier ? "Ice & water shield at eaves and valleys" : "",
-      input.removeOldRoof ? `Tear-off of ${input.layers} layer(s) with disposal` : "",
+      input.removeOldRoof ? `Tear-off of ${layers} layer(s) with disposal` : "",
       input.flashingReplace ? "Full flashing replacement (valleys, step, pipe)" : "Pipe & penetration flashing",
-      input.skylightCount > 0 ? `Skylight flashing (${input.skylightCount} unit(s))` : "",
-      input.vents > 0 ? `${input.vents} roof vent(s)` : "",
+      skylightCount > 0 ? `Skylight flashing (${skylightCount} unit(s))` : "",
+      vents > 0 ? `${vents} roof vent(s)` : "",
       input.guttersIncluded ? "Gutter & downspout installation" : "",
       "Ridge cap, cleanup, nail sweep",
     ].filter(Boolean),
@@ -232,7 +265,7 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
   ]);
 
   const warranty = buildWarranty(365,
-    `Labor warranty 1 year. Material warranty: ${input.warrantyYears} years per manufacturer (registration required).`,
+    `Labor warranty 1 year. Material warranty: ${warrantyYears} years per manufacturer (registration required).`,
     ["Storm or hail damage", "Foot traffic damage", "Structural movement"],
   );
 
@@ -246,18 +279,18 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
   const safeToProceed = computeSafeToProceed({
     hasMinimalData:      isValid(issues),
     readinessScore:      readiness.score,
-    hasCriticalBlockers: input.deckCondition === "unknown" && input.roofAreaSqFt > 2000,
+    hasCriticalBlockers: deckCondition === "unknown" && roofAreaSqFt > 2000,
     hasMilestones:       true,
     hasEvidencePlan:     true,
     confidenceScore:     confidence.score,
-    noCriticalBlockers:  input.deckCondition !== "unknown",
-    scopeIsComplete:     input.deckCondition !== "unknown",
+    noCriticalBlockers:  deckCondition !== "unknown",
+    scopeIsComplete:     deckCondition !== "unknown",
   });
 
   const explained = buildExplainedOutput(
-    `Your ${input.shingleType} roof replacement covers ${input.roofAreaSqFt.toLocaleString()} sqft with a ${input.warrantyYears}-year material warranty. ${input.removeOldRoof ? "Includes full tear-off. " : ""}Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}. ${input.deckCondition !== "good" ? "Note: a change order may be issued if damaged decking is found." : ""}`,
+    `Your ${shingleType} roof replacement covers ${roofAreaSqFt.toLocaleString()} sqft with a ${warrantyYears}-year material warranty. ${input.removeOldRoof ? "Includes full tear-off. " : ""}Total: $${costs.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}. ${deckCondition !== "good" ? "Note: a change order may be issued if damaged decking is found." : ""}`,
     [
-      `Pitch ${input.pitch}/12 — ${input.pitch >= 10 ? `steep slope: ${(pitchSurcharge * 100).toFixed(0)}% labor surcharge` : "standard"}`,
+      `Pitch ${pitch}/12 — ${pitch >= 10 ? `steep slope: ${(pitchSurcharge * 100).toFixed(0)}% labor surcharge` : "standard"}`,
       `Waste factor ${(wasteFactor * 100).toFixed(0)}% — ordered ${orderSquares} sq for ${squares.toFixed(1)} actual`,
       hiddenDamage.score > 20 ? `Hidden damage risk: ${hiddenDamage.probability} — include contingency allowance` : "Deck risk appears manageable",
       `Confidence ${confidence.score}/100 · Readiness ${readiness.score}/100`,
@@ -268,22 +301,22 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
     ALGORITHM_VERSIONS.roofing ?? "roofing-v2.0",
     "roofing",
     ["roofAreaSqFt", "pitch", "shingleType", "removeOldRoof", "layers", "underlayment", "iceBarrier", "deckCondition"],
-    input.deckCondition === "unknown" ? ["deck condition details"] : [],
+    deckCondition === "unknown" ? ["deck condition details"] : [],
     ["Deck structurally sound", "Standard US market pricing", "Dumpster access available"],
     [
-      { ruleId: "STEEP_PITCH",     label: "Steep pitch surcharge",   triggered: input.pitch >= 10,              reason: `Pitch ${input.pitch}/12 adds ${(pitchSurcharge * 100).toFixed(0)}% to labor`, points: 22 },
-      { ruleId: "MULTI_LAYER",     label: "Multi-layer tear-off",    triggered: input.layers > 1,               reason: "Extra labor and disposal per additional layer", points: 14 },
+      { ruleId: "STEEP_PITCH",     label: "Steep pitch surcharge",   triggered: pitch >= 10,                    reason: `Pitch ${pitch}/12 adds ${(pitchSurcharge * 100).toFixed(0)}% to labor`, points: 22 },
+      { ruleId: "MULTI_LAYER",     label: "Multi-layer tear-off",    triggered: layers > 1,                     reason: "Extra labor and disposal per additional layer", points: 14 },
       { ruleId: "ICE_BARRIER",     label: "Ice & water shield",      triggered: input.iceBarrier,               reason: "Climate/code requirement adds material", points: 0 },
-      { ruleId: "DECK_RISK",       label: "Deck condition risk",     triggered: input.deckCondition !== "good", reason: `Deck ${input.deckCondition} — hidden damage budget recommended`, points: 20 },
-      { ruleId: "SKYLIGHT_FLASH",  label: "Skylight flashing",       triggered: input.skylightCount > 0,        reason: "Premium labor and materials for skylight seal", points: 10 },
+      { ruleId: "DECK_RISK",       label: "Deck condition risk",     triggered: deckCondition !== "good",       reason: `Deck ${deckCondition} — hidden damage budget recommended`, points: 20 },
+      { ruleId: "SKYLIGHT_FLASH",  label: "Skylight flashing",       triggered: skylightCount > 0,              reason: "Premium labor and materials for skylight seal", points: 10 },
     ],
   );
 
   return {
     toolId: `roofing-${Date.now()}`,
     trade: "roofing",
-    projectType: input.shingleType.includes("flat") ? "flat-roof-install" : "roof-replacement",
-    mode: input.mode,
+    projectType: shingleType.includes("flat") ? "flat-roof-install" : "roof-replacement",
+    mode,
     inputs: { ...input },
     validationIssues: issues,
     isValid: isValid(issues),
@@ -294,10 +327,10 @@ export function calculateRoofing(input: RoofingInput): SemseToolResult {
     milestones,
     evidenceRequired: evidence.items,
     warnings: [
-      ...(input.pitch >= 10        ? ["Steep pitch: OSHA fall protection required at all times."] : []),
-      ...(input.layers > 1         ? ["Multiple layers: verify structural load capacity before tear-off."] : []),
-      ...(input.deckCondition !== "good" ? [`Deck condition is ${input.deckCondition}: issue change order before covering damaged sheathing.`] : []),
-      ...(input.skylightCount > 0  ? ["Skylight flashing: most common post-install leak source — triple-check seal."] : []),
+      ...(pitch >= 10        ? ["Steep pitch: OSHA fall protection required at all times."] : []),
+      ...(layers > 1         ? ["Multiple layers: verify structural load capacity before tear-off."] : []),
+      ...(deckCondition !== "good" ? [`Deck condition is ${deckCondition}: issue change order before covering damaged sheathing.`] : []),
+      ...(skylightCount > 0  ? ["Skylight flashing: most common post-install leak source — triple-check seal."] : []),
     ],
     recommendations: [
       "Inspect deck after tear-off before any material goes down.",
