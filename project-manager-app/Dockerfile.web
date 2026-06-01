@@ -67,5 +67,6 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
 
-# Force port 3000 in CMD so Railway's dynamic PORT injection doesn't override it
-CMD ["sh", "-c", "PORT=3000 node apps/web/server.js"]
+# Listen on Railway's injected PORT so deployment healthchecks hit the same port
+# as the running Next.js server. Next falls back to 3000 when PORT is absent.
+CMD ["node", "apps/web/server.js"]
