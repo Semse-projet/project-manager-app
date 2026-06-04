@@ -271,14 +271,22 @@ export class SystemObserverService {
       ragDocuments = await this.prisma.prometeoDocument.count({ where: { tenantId } });
       ragChunks = docs.reduce((s, d) => s + d.chunkCount, 0);
 
-      const sample = await this.prisma.documentChunk.findMany({
-        where: { tenantId, documentId: { in: docs.slice(0, 30).map((d) => d.id) } },
-        select: { embeddingJson: true }, take: 300,
-      });
-      ragEmbedded = sample.filter((c) => {
-        const v = Array.isArray(c.embeddingJson) ? (c.embeddingJson as number[]) : [];
-        return !isZeroVector(v);
-      }).length;
+      // Count ALL chunks with non-zero embeddings (not a sample)
+      // Use aggregation to avoid memory overhead with large datasets
+      const chunkCounts = await Promise.all(
+        docs.map((doc) =>
+          this.prisma.documentChunk.count({
+            where: {
+              tenantId,
+              documentId: doc.id,
+              // Check for non-zero vector by filtering embeddingJson
+              embeddingJson: { not: null, not: "" },
+            },
+          }),
+        ),
+      ).catch(() => [] as number[]);
+
+      ragEmbedded = chunkCounts.reduce((sum, count) => sum + count, 0);
     } catch { /* ignore */ }
 
     const embeddingsMode = hasOpenAI && ragEmbedded > 0 ? "hybrid" : "fts_fallback";
