@@ -10,7 +10,7 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Generator, Optional
 from uuid import uuid4
 
 import logging as stdlib_logging
@@ -89,7 +89,7 @@ class SEMSELogger:
         self._log(LogLevel.ERROR, message, data)
 
     @contextmanager
-    def span(self, name: str, data: Optional[dict[str, Any]] = None):
+    def span(self, name: str, data: Optional[dict[str, Any]] = None) -> Generator[str, None, None]:
         """Context manager for distributed tracing spans.
 
         Automatically tracks span duration and nesting.
@@ -131,15 +131,15 @@ class SEMSELogger:
             raise
         finally:
             elapsed = time.perf_counter() - start_time
-            self._span_stack.pop()
             self.info(f"[span.end] {name}", {
                 "spanId": span_id,
                 "spanName": name,
                 "durationMs": round(elapsed * 1000, 2),
             })
+            self._span_stack.pop()
 
     @contextmanager
-    def context(self, **kwargs):
+    def context(self, **kwargs: Any) -> Generator[None, None, None]:
         """Context manager for scoped logging context.
 
         Values added here appear in all logs within the context.
@@ -232,7 +232,7 @@ class AutonomyLogger:
     Node.js AutonomyLogger API.
     """
 
-    def __init__(self, run_id: Optional[str] = None, seed: Optional[list] = None):
+    def __init__(self, run_id: Optional[str] = None, seed: Optional[list[dict[str, Any]]] = None):
         """Initialize autonomy logger.
 
         Args:
