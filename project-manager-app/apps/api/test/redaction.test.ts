@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { redactSensitiveLog, extractSafeDiagnostic, containsSecrets } from "../src/infrastructure/logs/redaction.util.js";
+import { redactSensitiveLog, extractSafeDiagnostic, containsSecrets } from "../dist/infrastructure/logs/redaction.util.js";
 
 describe("redactSensitiveLog", () => {
   it("redacts Bearer tokens", () => {
