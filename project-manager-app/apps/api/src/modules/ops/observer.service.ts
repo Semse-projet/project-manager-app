@@ -279,8 +279,7 @@ export class SystemObserverService {
             where: {
               tenantId,
               documentId: doc.id,
-              // Check for non-zero vector by filtering embeddingJson
-              embeddingJson: { not: null, not: "" },
+              embeddingJson: { not: {} },
             },
           }),
         ),

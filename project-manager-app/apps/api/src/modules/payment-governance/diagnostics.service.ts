@@ -42,7 +42,7 @@ export class PaymentGovernanceDiagnosticsService {
           id: true,
           title: true,
           paymentReadiness: true,
-          paymentAmount: true,
+          amount: true,
           createdAt: true,
           project: { select: { id: true } },
         },
@@ -54,7 +54,7 @@ export class PaymentGovernanceDiagnosticsService {
       for (const milestone of milestones) {
         const readiness = milestone.paymentReadiness as string | null;
         if (readiness === "blocked" || readiness === "not_ready") {
-          const diagnostic = await this.diagnoseMilestoneBlocks(tenantId, milestone.id, milestone.title);
+          const diagnostic = await this.diagnoseMilestoneBlocks(milestone.project.id, milestone.id, milestone.title);
           blockedMilestones.push(diagnostic);
         }
       }
@@ -89,7 +89,7 @@ export class PaymentGovernanceDiagnosticsService {
   }
 
   private async diagnoseMilestoneBlocks(
-    tenantId: string,
+    projectId: string,
     milestoneId: string,
     milestoneTitle: string,
   ): Promise<MilestoneBlockerDiagnostic> {
@@ -103,12 +103,12 @@ export class PaymentGovernanceDiagnosticsService {
     // Check evidence status
     try {
       const evidenceCount = await this.prisma.evidence.count({
-        where: { tenantId, milestone: { id: milestoneId } },
+        where: { projectId, milestoneId },
       });
 
       const rejectedEvidence = await this.prisma.evidence.findMany({
-        where: { tenantId, milestone: { id: milestoneId }, reviewStatus: "rejected" },
-        select: { id: true, type: true },
+        where: { projectId, milestoneId, validationStatus: "failed" },
+        select: { id: true, kind: true },
         take: 10,
       });
 
@@ -117,7 +117,7 @@ export class PaymentGovernanceDiagnosticsService {
         blockers.push("rejected_evidence");
         rejectedEvidence.forEach((e) => needsReuploadEvidenceIds.push(e.id));
         // Infer missing types from rejected
-        const types = [...new Set(rejectedEvidence.map((e) => (e.type as string) || "unknown"))];
+        const types = [...new Set(rejectedEvidence.map((e) => (e.kind as string) || "unknown"))];
         missingEvidenceTypes.push(...types.filter((t) => !t.includes("unknown")));
       }
 
@@ -129,14 +129,16 @@ export class PaymentGovernanceDiagnosticsService {
       // Silently continue
     }
 
-    // Check for pending change orders
+    // Check for pending change orders (use buildOpsProjectId or jobId context)
     try {
       pendingChangeOrderCount = await this.prisma.changeOrderCandidate.count({
-        where: { tenantId, projectId: (await this.prisma.milestone.findUnique({
-          where: { id: milestoneId }, select: { projectId: true },
-        }))?.projectId },
-        filter: { status: { in: ["predicted", "submitted"] } },
-      }).catch(() => 0);
+        where: {
+          AND: [
+            { OR: [{ buildOpsProjectId: projectId }, { milestoneId }] },
+            { status: { in: ["predicted", "submitted"] } },
+          ],
+        },
+      });
 
       if (pendingChangeOrderCount > 0) {
         blockers.push("pending_change_order");
@@ -145,18 +147,25 @@ export class PaymentGovernanceDiagnosticsService {
       // Continue
     }
 
-    // Check for critical operational signals
+    // Check for critical operational signals (if available)
     try {
-      const signals = await this.prisma.operationalSignal.findMany({
-        where: { tenantId, severity: "critical", status: "open" },
-        select: { type: true },
-        take: 5,
+      const project = await this.prisma.project.findUnique({
+        where: { id: projectId },
+        select: { tenantId: true },
       });
 
-      signals.forEach((s) => criticalOperationalSignals.push((s.type as string) || "unknown_signal"));
+      if (project) {
+        const signals = await this.prisma.operationalSignal.findMany({
+          where: { tenantId: project.tenantId, severity: "critical", status: "open" },
+          select: { type: true },
+          take: 5,
+        });
 
-      if (signals.length > 0) {
-        blockers.push("critical_operational_signal");
+        signals.forEach((s) => criticalOperationalSignals.push((s.type as string) || "unknown_signal"));
+
+        if (signals.length > 0) {
+          blockers.push("critical_operational_signal");
+        }
       }
     } catch {
       // Continue
