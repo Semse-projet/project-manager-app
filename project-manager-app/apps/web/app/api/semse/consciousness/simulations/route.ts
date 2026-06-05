@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForRequest, handleServerError } from "../../_server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,9 +9,6 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json({ data });
   } catch (error) {
-    return handleServerError(error, {
-      endpoint: "/api/semse/consciousness/simulations",
-      method: "GET",
-    });
+    return handleServerError(error);
   }
 }

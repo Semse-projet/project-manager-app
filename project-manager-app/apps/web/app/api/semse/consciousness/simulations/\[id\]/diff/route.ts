@@ -13,9 +13,6 @@ export async function GET(
     );
     return NextResponse.json({ data });
   } catch (error) {
-    return handleServerError(error, {
-      endpoint: `/api/semse/consciousness/simulations/${params.id}/diff`,
-      method: "GET",
-    });
+    return handleServerError(error);
   }
 }
