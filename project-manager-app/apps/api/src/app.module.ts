@@ -63,6 +63,7 @@ import { DidModule } from "./modules/did/did.module.js";
 import { GovernanceModule } from "./modules/governance/governance.module.js";
 import { PaymentGovernanceModule } from "./modules/payment-governance/payment-governance.module.js";
 import { EvidenceGatewayModule } from "./modules/evidence-gateway/evidence-gateway.module.js";
+import { WorkerVerificationModule } from "./modules/worker-verification/worker-verification.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -139,6 +140,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     GovernanceModule,
     PaymentGovernanceModule,
     EvidenceGatewayModule,
+    WorkerVerificationModule,
   ],
   controllers: [HealthController],
   providers: [
