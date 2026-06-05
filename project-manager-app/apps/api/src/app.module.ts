@@ -61,6 +61,7 @@ import { CommunicationsModule } from "./modules/communications/communications.mo
 import { PricingModule } from "./modules/pricing/pricing.module.js";
 import { DidModule } from "./modules/did/did.module.js";
 import { GovernanceModule } from "./modules/governance/governance.module.js";
+import { PaymentGovernanceModule } from "./modules/payment-governance/payment-governance.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -135,6 +136,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     PricingModule,
     DidModule,
     GovernanceModule,
+    PaymentGovernanceModule,
   ],
   controllers: [HealthController],
   providers: [
