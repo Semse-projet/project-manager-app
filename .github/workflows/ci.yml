@@ -72,22 +72,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: semse
-          POSTGRES_PASSWORD: semse
-          POSTGRES_DB: semse
-        ports:
-          - 5433:5432
-        options: >-
-          --health-cmd "pg_isready -U semse -d semse"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -106,9 +90,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Apply database migrations
-        run: pnpm db:migrate
 
       - name: Unit tests with coverage thresholds
         run: pnpm test:coverage
