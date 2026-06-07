@@ -5,6 +5,12 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
+  computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
+  buildProductionSchedule, assessHiddenDamageProbability, assessScheduleRisk,
+  buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
+} from "../core/extended-metrics.js";
 
 export type LaborInput = {
   projectName: string;
@@ -141,6 +147,45 @@ export function calculateLabor(input: LaborInput): SemseToolResult {
 
   const evidenceRequired: EvidenceItem[] = evidence.items;
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Crew mobilization and site setup", daysMin: 0, daysMax: 1, crew: 1, description: "Confirm crew, tools, and site access" },
+    { name: "Primary labor scope",              daysMin: 1, daysMax: 5, crew: 2, description: "Execute labor scope as defined in estimate" },
+    { name: "Quality check and punch list",     daysMin: 0, daysMax: 1, crew: 1, description: "Walk scope, address punch items" },
+    { name: "Cleanup and handoff",              daysMin: 0, daysMax: 1, crew: 1, description: "Site cleanup, tools out, client walkthrough" },
+  ]);
+
+  const inspectionGate = buildInspectionGate(
+    "Before starting each phase — verify scope clarity with crew lead",
+    ["Scope confirmation photos", "Site condition before work"],
+    "Scope ambiguity or site condition mismatch requiring client clarification",
+    "Confirm exact scope with crew lead before each phase begins to avoid misaligned labor."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: true,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: false,
+    hasComplexDetails: false,
+  });
+
+  const upsells = [
+    { service: "Daily progress reports", reason: "Client visibility reduces callbacks — add photo report package to contract." },
+    { service: "Cleanup crew add-on", reason: "Extend labor day by 1 hour for dedicated end-of-day cleanup — prevents disputes." },
+    { service: "Helper / apprentice tier", reason: "Add a lower-rate helper for material handling — frees lead to focus on skilled work." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.0),
+    roiPercent:          100,
+    notes:               "Labor cost is enabling — ROI is fully realized through the project outcome it delivers.",
+  };
+
   return {
     toolId: `labor-${Date.now()}`,
     trade: "labor",
@@ -162,6 +207,12 @@ export function calculateLabor(input: LaborInput): SemseToolResult {
       "Safety logs and crew sign-in are assumed to come from the field.",
       "Travel and cleanup can vary by site access and debris volume.",
     ],
+    productionSchedule,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

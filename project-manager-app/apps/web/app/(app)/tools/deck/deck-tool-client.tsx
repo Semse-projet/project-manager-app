@@ -1,81 +1,138 @@
 "use client";
-
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Calculator } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Hammer } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
+export type DeckSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
+
 type DeckInput = {
-  deckLengthFt: number;
-  deckWidthFt: number;
-  materialType: "pressureTreated" | "cedar" | "composite" | "tropicalHardwood";
-  joistSpacingIn: 12 | 16 | 24;
-  postCount: number;
-  railingLinearFt: number;
-  stairsCount: number;
-  demoExisting: boolean;
-  stainSeal: boolean;
+  squareFeet: number;
+  height: number;
+  material: "pressure_treated" | "cedar" | "composite" | "exotic_wood";
+  joist_size: "2x6" | "2x8" | "2x10" | "2x12";
+  railings: "basic" | "standard" | "custom";
+  stairs: number;
+  complexity: "simple" | "moderate" | "complex";
   mode: ToolMode;
 };
 
 const INITIAL_INPUT: DeckInput = {
-  deckLengthFt: 16,
-  deckWidthFt: 12,
-  materialType: "pressureTreated",
-  joistSpacingIn: 16,
-  postCount: 4,
-  railingLinearFt: 24,
-  stairsCount: 1,
-  demoExisting: false,
-  stainSeal: true,
+  squareFeet: 300,
+  height: 2,
+  material: "pressure_treated",
+  joist_size: "2x8",
+  railings: "standard",
+  stairs: 1,
+  complexity: "moderate",
   mode: "professional",
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <Input
-      label={label}
-      type="number"
-      step={step}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  );
+const SECTIONS: Array<{ id: DeckSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/deck/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/deck/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/deck/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/deck/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/deck/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/deck/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/deck/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/deck/research", icon: Globe2 },
+];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function DeckToolClient() {
+type DeckToolClientProps = { section: DeckSection };
+
+export function DeckToolClient({ section }: DeckToolClientProps) {
   const [input, setInput] = useState<DeckInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const costPerSqft = useMemo(() => {
+    const materialCost: Record<typeof input.material, number> = {
+      pressure_treated: 8.0, cedar: 12.0, composite: 15.0, exotic_wood: 22.0,
+    };
+    const base = materialCost[input.material];
+    const heightFactor = input.height > 3 ? 1.3 : 1.0;
+    const complexFactor = { simple: 1.0, moderate: 1.2, complex: 1.6 }[input.complexity];
+    const railingFactor = { basic: 1.0, standard: 1.15, custom: 1.4 }[input.railings];
+    return base * heightFactor * complexFactor * railingFactor;
+  }, [input.material, input.height, input.complexity, input.railings]);
+
+  const estimatedCost = useMemo(() => input.squareFeet * costPerSqft + (input.stairs * 800), [input.squareFeet, costPerSqft, input.stairs]);
+
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await calculateSemseTool({
-        tool: "deck",
-        mode: input.mode,
-        input,
-      });
+      const response = await calculateSemseTool({ tool: "deck", mode: input.mode, input });
       setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Area</div><div className="text-2xl font-bold">{input.squareFeet} sqft</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Material</div><div className="text-lg font-bold">{input.material}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Deck Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Square Feet" type="number" value={input.squareFeet} onChange={(e) => setInput({...input, squareFeet: Number(e.target.value)})} />
+                <Input label="Height (ft)" type="number" value={input.height} onChange={(e) => setInput({...input, height: Number(e.target.value)})} />
+                <Select label="Material" value={input.material} onChange={(e) => setInput({...input, material: e.target.value as any})}>
+                  <option value="pressure_treated">Pressure Treated</option>
+                  <option value="cedar">Cedar</option>
+                  <option value="composite">Composite</option>
+                  <option value="exotic_wood">Exotic Wood</option>
+                </Select>
+                <Select label="Joist Size" value={input.joist_size} onChange={(e) => setInput({...input, joist_size: e.target.value as any})}>
+                  <option value="2x6">2x6</option>
+                  <option value="2x8">2x8</option>
+                  <option value="2x10">2x10</option>
+                  <option value="2x12">2x12</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Area: {input.squareFeet} sqft • Height: {input.height}ft • Material: {input.material}</p></Card>;
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">Decking: {input.squareFeet} sqft • Joist: {input.joist_size} • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Deck Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.squareFeet} sqft • {input.material}</p></Card>;
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Foundation & posts, framing, decking, railings, stairs, finishing...</p></Card>;
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Structural integrity, board spacing, fastening, railings, post footings...</p></Card>;
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Deck Research</h3><Input placeholder="Search materials, building codes, maintenance, design trends..." /></Card>;
+      default:
+        return null;
     }
   }
 
@@ -83,169 +140,25 @@ export function DeckToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Deck calculator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Estimate decking boards, framing, railing, stairs, labor, risk, evidence and milestones for new deck or remodel work.
-          </p>
+          <div className="flex items-center gap-3"><Hammer className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Deck Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete deck estimation with materials, labor, and design options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                <Calculator size={18} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Input</h2>
-                <p className="text-sm text-muted">
-                  Exterior deck flow with demo, railing and stair checks.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <NumberField
-                label="Deck length (ft)"
-                value={input.deckLengthFt}
-                onChange={(value) => setInput((current) => ({ ...current, deckLengthFt: value }))}
-              />
-
-              <NumberField
-                label="Deck width (ft)"
-                value={input.deckWidthFt}
-                onChange={(value) => setInput((current) => ({ ...current, deckWidthFt: value }))}
-              />
-
-              <Select
-                label="Material type"
-                value={input.materialType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    materialType: event.target.value as DeckInput["materialType"],
-                  }))
-                }
-              >
-                <option value="pressureTreated">Pressure treated</option>
-                <option value="cedar">Cedar</option>
-                <option value="composite">Composite</option>
-                <option value="tropicalHardwood">Tropical hardwood</option>
-              </Select>
-
-              <Select
-                label="Joist spacing"
-                value={String(input.joistSpacingIn)}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    joistSpacingIn: Number(event.target.value) as DeckInput["joistSpacingIn"],
-                  }))
-                }
-              >
-                <option value="12">12 in</option>
-                <option value="16">16 in</option>
-                <option value="24">24 in</option>
-              </Select>
-
-              <NumberField
-                label="Post count"
-                value={input.postCount}
-                onChange={(value) => setInput((current) => ({ ...current, postCount: value }))}
-              />
-
-              <NumberField
-                label="Railing linear ft"
-                value={input.railingLinearFt}
-                onChange={(value) => setInput((current) => ({ ...current, railingLinearFt: value }))}
-              />
-
-              <NumberField
-                label="Stairs count"
-                value={input.stairsCount}
-                onChange={(value) => setInput((current) => ({ ...current, stairsCount: value }))}
-              />
-
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-3">
-                <span className="text-sm text-ink">Demo existing deck</span>
-                <input
-                  type="checkbox"
-                  checked={input.demoExisting}
-                  onChange={(event) =>
-                    setInput((current) => ({ ...current, demoExisting: event.target.checked }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 p-3">
-                <span className="text-sm text-ink">Stain / seal</span>
-                <input
-                  type="checkbox"
-                  checked={input.stainSeal}
-                  onChange={(event) =>
-                    setInput((current) => ({ ...current, stainSeal: event.target.checked }))
-                  }
-                />
-              </label>
-            </div>
-
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
-              <strong>Note:</strong> railing, stairs and demo work increase risk. SEMSE should keep evidence on frame, footings and final safe access.
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              Calculate deck
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ToolResultPanel result={result} />
-            ) : (
-              <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                    <Calculator size={18} />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-ink">Result preview</h2>
-                    <p className="text-sm text-muted">
-                      Run the calculator to see decking, framing, railing, stairs, labor, risk, milestones and evidence.
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

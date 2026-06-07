@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban } from "lucide-react";
+import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users } from "lucide-react";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
@@ -45,15 +45,32 @@ function preferredProfessionalLabel(job: JobRecordView): string | null {
 
 export default function ClientDashboardPage() {
   const [jobs, setJobs]   = useState<JobRecordView[]>([]);
+  const [pendingBidCount, setPendingBidCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/semse/jobs")
       .then(r => r.json())
-      .then((d: { data?: JobRecordView[]; error?: { message: string } }) => {
+      .then(async (d: { data?: JobRecordView[]; error?: { message: string } }) => {
         if (d.error) { setApiError(d.error.message); return; }
-        setJobs(d.data ?? []);
+        const jobList = d.data ?? [];
+        setJobs(jobList);
+        // Count pending bids across published jobs
+        const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
+        const bidCounts = await Promise.allSettled(
+          published.map((j: JobRecordView) =>
+            fetch(`/api/semse/jobs/${j.id}/bids`).then(r => r.json() as Promise<{ data?: Array<{ status: string }> }>)
+          )
+        );
+        const total = bidCounts.reduce((sum, r) => {
+          if (r.status === "fulfilled") {
+            const bids = r.value.data ?? [];
+            return sum + bids.filter((b) => b.status === "submitted").length;
+          }
+          return sum;
+        }, 0);
+        setPendingBidCount(total);
       })
       .catch(() => setApiError("No se pudo conectar con el servidor"))
       .finally(() => setLoading(false));
@@ -238,6 +255,7 @@ export default function ClientDashboardPage() {
             { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "#8b5cf6" },
             { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "#10b981" },
             { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "#ff6a00" },
+            { label: pendingBidCount > 0 ? `Propuestas recibidas (${pendingBidCount})` : "Propuestas recibidas", href: "/client/proposals", icon: Users, color: "#6366f1" },
             { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "#ef4444" },
           ].map(action => {
             const Icon = action.icon;

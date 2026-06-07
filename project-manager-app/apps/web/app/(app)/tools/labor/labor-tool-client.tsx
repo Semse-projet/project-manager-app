@@ -1,272 +1,72 @@
 "use client";
-
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Users } from "lucide-react";
+import { Badge, Button, Card, Input, Select } from "@/components/ui";
+import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
-type LaborInput = {
-  projectName: string;
-  dailyWorkType: "demo" | "build" | "finish" | "cleanup" | "delivery" | "service" | "multi";
-  crewSize: number;
-  shiftHours: number;
-  taskCount: number;
-  materialMoves: number;
-  cleanupHours: number;
-  travelMinutes: number;
-  safetyChecks: number;
-  weatherRisk: "low" | "medium" | "high";
-  incidentCount: number;
-  mode: "client" | "professional" | "admin";
-};
+export type LaborSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
+type LaborInput = { hours: number; laborType: "unskilled" | "semi_skilled" | "skilled" | "specialist"; experience: "entry" | "intermediate" | "senior" | "master"; complexity: "simple" | "moderate" | "complex"; benefits: boolean; mode: ToolMode };
 
-const INITIAL_INPUT: LaborInput = {
-  projectName: "Bathroom remodel",
-  dailyWorkType: "build",
-  crewSize: 3,
-  shiftHours: 8,
-  taskCount: 10,
-  materialMoves: 4,
-  cleanupHours: 1.5,
-  travelMinutes: 25,
-  safetyChecks: 3,
-  weatherRisk: "medium",
-  incidentCount: 0,
-  mode: "professional",
-};
+const INITIAL_INPUT: LaborInput = { hours: 40, laborType: "skilled", experience: "senior", complexity: "moderate", benefits: true, mode: "professional" };
+const SECTIONS: Array<{ id: LaborSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/labor/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/labor/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/labor/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/labor/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/labor/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/labor/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/labor/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/labor/research", icon: Globe2 },
+];
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <label className="grid gap-2">
-      <span className="text-sm font-medium text-slate-300">{label}</span>
-      <input
-        className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-        type="number"
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
-  );
-}
+function formatCurrency(v: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(v); }
 
-function TextField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="grid gap-2">
-      <span className="text-sm font-medium text-slate-300">{label}</span>
-      <input
-        className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-        type="text"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
-  );
-}
-
-export function LaborToolClient() {
+export function LaborToolClient({ section }: { section: LaborSection }) {
   const [input, setInput] = useState<LaborInput>(INITIAL_INPUT);
-  const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const baseRate: Record<typeof input.laborType, number> = { unskilled: 20, semi_skilled: 35, skilled: 50, specialist: 80 };
+
+  const hourlyRate = useMemo(() => {
+    const base = baseRate[input.laborType];
+    const expFactor = { entry: 0.9, intermediate: 1.1, senior: 1.3, master: 1.6 }[input.experience];
+    const complexFactor = { simple: 1, moderate: 1.2, complex: 1.5 }[input.complexity];
+    const benefitsFactor = input.benefits ? 1.25 : 1;
+    return base * expFactor * complexFactor * benefitsFactor;
+  }, [input.laborType, input.experience, input.complexity, input.benefits]);
+
+  const estimatedCost = useMemo(() => input.hours * hourlyRate, [input.hours, hourlyRate]);
 
   async function calculate() {
     setLoading(true);
-    setError(null);
-
     try {
-      const response = await fetch("/api/semse/tools/calculate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          tool: "labor",
-          input,
-        }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "No se pudo calcular Labor.");
-      }
-
-      const data = await response.json();
-      setResult(data);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Error desconocido.");
+      const response = await calculateSemseTool({ tool: "labor", mode: input.mode, input });
+      setResult(response);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-950 p-6 text-slate-100">
-      <header className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-cyan-300">
-          SEMSE Pro Tools
-        </p>
-        <h1 className="mt-1 text-3xl font-bold">Labor / Daily Field Ops</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Crew sign-in, task load, material moves, cleanup, safety and closeout for daily field work.
-        </p>
-      </header>
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard": return <div className="grid gap-6"><div className="grid gap-4 sm:grid-cols-3"><Card className="p-4"><div className="text-sm text-muted">Hours</div><div className="text-2xl font-bold">{input.hours}</div></Card><Card className="p-4"><div className="text-sm text-muted">Rate/Hour</div><div className="text-lg font-bold">{formatCurrency(hourlyRate)}</div></Card><Card className="p-4"><div className="text-sm text-muted">Total Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card></div></div>;
+      case "estimate": return <div className="grid gap-6"><Card className="p-6"><h3 className="mb-4 font-semibold">Labor Parameters</h3><div className="grid gap-4 sm:grid-cols-2"><Input label="Hours" type="number" value={input.hours} onChange={(e) => setInput({...input, hours: Number(e.target.value)})} /><Select label="Labor Type" value={input.laborType} onChange={(e) => setInput({...input, laborType: e.target.value as any})}><option value="unskilled">Unskilled</option><option value="semi_skilled">Semi-Skilled</option><option value="skilled">Skilled</option><option value="specialist">Specialist</option></Select><Select label="Experience" value={input.experience} onChange={(e) => setInput({...input, experience: e.target.value as any})}><option value="entry">Entry</option><option value="intermediate">Intermediate</option><option value="senior">Senior</option><option value="master">Master</option></Select><Select label="Complexity" value={input.complexity} onChange={(e) => setInput({...input, complexity: e.target.value as any})}><option value="simple">Simple</option><option value="moderate">Moderate</option><option value="complex">Complex</option></Select></div><div className="mt-4 flex items-center gap-2"><input type="checkbox" checked={input.benefits} onChange={(e) => setInput({...input, benefits: e.target.checked})} /><label>Include benefits</label></div><Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button></Card>{result && <ToolResultPanel result={result} />}{error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}</div>;
+      case "scope": return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Hours: {input.hours} • Type: {input.laborType} • Experience: {input.experience} • Complexity: {input.complexity}</p></Card>;
+      case "materials": return <Card className="p-6"><h3 className="mb-4 font-semibold">Labor Schedule</h3><p className="text-sm text-muted">Total hours: {input.hours} • Base rate: {formatCurrency(baseRate[input.laborType])} • Benefits: {input.benefits ? "Yes" : "No"}</p></Card>;
+      case "summary": return <Card className="p-6"><h3 className="mb-4 font-semibold">Labor Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • Rate: {formatCurrency(hourlyRate)}/hr • {input.hours} hours</p></Card>;
+      case "milestones": return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Work planning, crew assignment, daily tracking, progress review, safety checks, completion</p></Card>;
+      case "inspection": return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Work quality, safety compliance, schedule adherence, material handling, client satisfaction</p></Card>;
+      case "research": return <Card className="p-6"><h3 className="mb-4 font-semibold">Labor Research</h3><Input placeholder="Search prevailing wages, labor laws, productivity standards..." /></Card>;
+      default: return null;
+    }
+  }
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <TextField
-          label="Project name"
-          value={input.projectName}
-          onChange={(value) => setInput({ ...input, projectName: value })}
-        />
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Daily work type</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.dailyWorkType}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                dailyWorkType: event.target.value as LaborInput["dailyWorkType"],
-              })
-            }
-          >
-            <option value="demo">Demo</option>
-            <option value="build">Build</option>
-            <option value="finish">Finish</option>
-            <option value="cleanup">Cleanup</option>
-            <option value="delivery">Delivery</option>
-            <option value="service">Service</option>
-            <option value="multi">Multi</option>
-          </select>
-        </label>
-
-        <NumberField
-          label="Crew size"
-          value={input.crewSize}
-          onChange={(value) => setInput({ ...input, crewSize: value })}
-        />
-
-        <NumberField
-          label="Shift hours"
-          value={input.shiftHours}
-          onChange={(value) => setInput({ ...input, shiftHours: value })}
-        />
-
-        <NumberField
-          label="Task count"
-          value={input.taskCount}
-          onChange={(value) => setInput({ ...input, taskCount: value })}
-        />
-
-        <NumberField
-          label="Material moves"
-          value={input.materialMoves}
-          onChange={(value) => setInput({ ...input, materialMoves: value })}
-        />
-
-        <NumberField
-          label="Cleanup hours"
-          value={input.cleanupHours}
-          step={0.25}
-          onChange={(value) => setInput({ ...input, cleanupHours: value })}
-        />
-
-        <NumberField
-          label="Travel minutes"
-          value={input.travelMinutes}
-          onChange={(value) => setInput({ ...input, travelMinutes: value })}
-        />
-
-        <NumberField
-          label="Safety checks"
-          value={input.safetyChecks}
-          onChange={(value) => setInput({ ...input, safetyChecks: value })}
-        />
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Weather risk</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.weatherRisk}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                weatherRisk: event.target.value as LaborInput["weatherRisk"],
-              })
-            }
-          >
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </select>
-        </label>
-
-        <NumberField
-          label="Incident count"
-          value={input.incidentCount}
-          onChange={(value) => setInput({ ...input, incidentCount: value })}
-        />
-
-        <label className="grid gap-2">
-          <span className="text-sm font-medium text-slate-300">Mode</span>
-          <select
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-slate-100"
-            value={input.mode}
-            onChange={(event) =>
-              setInput({
-                ...input,
-                mode: event.target.value as LaborInput["mode"],
-              })
-            }
-          >
-            <option value="client">Client</option>
-            <option value="professional">Professional</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
-      </div>
-
-      <div className="mt-5 rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-cyan-100">
-        <strong>Nota operativa:</strong> este módulo cubre trabajo diario. SEMSE debe guardar sign-in, tareas, fotos, seguridad y limpieza antes de cerrar.
-      </div>
-
-      <button
-        type="button"
-        onClick={calculate}
-        disabled={loading}
-        className="mt-6 rounded-xl bg-cyan-400 px-5 py-3 font-bold text-slate-950 transition hover:bg-cyan-300 disabled:opacity-60"
-      >
-        {loading ? "Calculando..." : "Calcular labor"}
-      </button>
-
-      {error && (
-        <div className="mt-4 rounded-xl border border-red-500/40 bg-red-950/50 p-4 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {result && (
-        <div className="mt-6">
-          <ToolResultPanel result={result} />
-        </div>
-      )}
-    </section>
-  );
+  return <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6"><div className="grid gap-6"><div className="flex items-center justify-between gap-3"><Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link><Badge variant="brand">SEMSE Pro Tools</Badge></div><section className="grid gap-3"><div className="flex items-center gap-3"><Users className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Labor Tool</h1></div><p className="max-w-3xl text-sm text-muted">Complete labor cost estimation with skill levels, experience, and complexity factors.</p></section><div className="flex gap-2 overflow-x-auto pb-2">{SECTIONS.map((s) => {const Icon = s.icon; const isActive = section === s.id; return <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}><Icon size={16} /> {s.label}</Link>;})}</div><div className="grid gap-6">{renderSection()}</div></div></main>;
 }

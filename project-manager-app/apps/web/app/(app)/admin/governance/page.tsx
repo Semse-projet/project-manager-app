@@ -457,6 +457,16 @@ export default function GovernancePage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // SSE: auto-refresh when votes are cast or proposals close
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = `/api/semse/sse?channels=governance:${TENANT_ID}`;
+    const es = new EventSource(url);
+    es.addEventListener("governance:vote-cast", () => void load());
+    es.addEventListener("governance:proposal-closed", () => void load());
+    return () => es.close();
+  }, [load]);
+
   const openCount   = proposals.filter((p) => p.status === "open").length;
   const passedCount = proposals.filter((p) => p.status === "passed").length;
   const totalVotes  = proposals.reduce((acc, p) => acc + (p._count?.votes ?? 0), 0);
