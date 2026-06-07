@@ -2,15 +2,9 @@ import { PaintingToolClient } from "./painting-tool-client";
 
 export const metadata = {
   title: "Painting Tool · SEMSE",
-  description: "Painting calculator connected to the SEMSE tools API.",
+  description: "Painting trade operating module with scope, estimation, materials, and research-backed guidance.",
 };
 
 export default function PaintingToolPage() {
-  return (
-    <main className="min-h-screen bg-slate-950 p-6">
-      <div className="mx-auto max-w-6xl">
-        <PaintingToolClient />
-      </div>
-    </main>
-  );
+  return <PaintingToolClient section="dashboard" />;
 }

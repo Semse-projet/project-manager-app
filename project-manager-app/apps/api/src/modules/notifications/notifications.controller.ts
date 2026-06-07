@@ -66,4 +66,21 @@ export class NotificationsController {
 
     return ok(requestId, result);
   }
+
+  @Post("push-subscribe")
+  @RequirePermissions("notifications:read")
+  async pushSubscribe(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.notificationsService.savePushSubscription({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      endpoint: typeof body.endpoint === "string" ? body.endpoint : "",
+      keys: (body.keys ?? {}) as Record<string, string>,
+    });
+    return ok(requestId, result);
+  }
 }

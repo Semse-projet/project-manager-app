@@ -311,6 +311,70 @@ export class ChangeOrdersService {
     return { applied: true, alreadyApplied: false, impact };
   }
 
+  async runRiskAgent(actor: ActorContext, id: string): Promise<{
+    riskLevel: "low" | "medium" | "high" | "critical";
+    summary: string;
+    flags: string[];
+    recommendation: string;
+    confidence: number;
+    analyzedAt: string;
+  }> {
+    const co = await this.findOwned(actor, id);
+    const impact = await this.computeImpact(actor, id);
+
+    const costDelta = impact.costDeltaAvg;
+    const prob = typeof co.probability === "number" ? Number(co.probability) : null;
+    const title = typeof co.title === "string" ? co.title : "Change order";
+    const description = typeof co.description === "string" ? co.description : "";
+    const trigger = typeof co.trigger === "string" ? co.trigger : "";
+
+    // Rule-based risk assessment (no LLM required — deterministic + fast)
+    const flags: string[] = [];
+    let score = 0;
+
+    if (costDelta > 5000) { flags.push("High cost delta — exceeds $5,000 threshold"); score += 30; }
+    else if (costDelta > 1000) { flags.push("Moderate cost delta"); score += 15; }
+
+    if (impact.riskLevel === "critical") { flags.push("Upstream risk engine flagged as critical"); score += 35; }
+    else if (impact.riskLevel === "high") { flags.push("Upstream risk engine flagged as high"); score += 20; }
+
+    if (impact.paymentImpact === "hold_required") { flags.push("Payment hold required before proceeding"); score += 20; }
+    else if (impact.paymentImpact === "requires_approval") { flags.push("Additional approval required for payment release"); score += 10; }
+
+    if (impact.affectedMilestones.length > 2) { flags.push(`Affects ${impact.affectedMilestones.length} milestones — schedule impact likely`); score += 15; }
+
+    if (trigger.toLowerCase().includes("hidden") || trigger.toLowerCase().includes("damage") || trigger.toLowerCase().includes("unforeseen")) {
+      flags.push("Triggered by unforeseen condition — scope may expand further"); score += 10;
+    }
+
+    if (prob !== null && prob < 0.5) { flags.push(`Low probability (${Math.round(prob * 100)}%) — verify necessity before approving`); score += 5; }
+
+    const riskLevel: "low" | "medium" | "high" | "critical" =
+      score >= 60 ? "critical" : score >= 35 ? "high" : score >= 15 ? "medium" : "low";
+
+    const recommendation =
+      riskLevel === "critical"
+        ? "Escalate to OPS review before approving. Require photo evidence of root cause and formal scope document."
+        : riskLevel === "high"
+        ? "Request client approval with detailed justification. Verify scope alignment with original contract."
+        : riskLevel === "medium"
+        ? "Review with client before proceeding. Ensure evidence of need is captured before release."
+        : "Low risk — standard approval process applies.";
+
+    const summary = `Change order "${title}" analyzed. Cost impact: $${Math.round(costDelta).toLocaleString()}. ${flags.length > 0 ? `${flags.length} risk flag(s) detected.` : "No significant risk flags."} ${description ? description.slice(0, 120) : ""}`.trim();
+
+    this.logger.log({ changeOrderId: id, riskLevel, score, flags: flags.length }, "[CO Risk Agent] analysis complete");
+
+    return {
+      riskLevel,
+      summary,
+      flags,
+      recommendation,
+      confidence: Math.max(0.6, 1 - (flags.length * 0.05)),
+      analyzedAt: new Date().toISOString(),
+    };
+  }
+
   private async findOwned(actor: ActorContext, id: string) {
     const candidate = await this.prisma.changeOrderCandidate.findFirst({
       where: { id, tenantId: actor.tenantId },

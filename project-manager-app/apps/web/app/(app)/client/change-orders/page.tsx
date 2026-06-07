@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle, RefreshCw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, RefreshCw, ShieldAlert, Sparkles, XCircle } from "lucide-react";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { ChangeOrderImpactCard } from "../../../../components/change-orders/ChangeOrderImpactCard";
@@ -41,8 +41,14 @@ export default function ClientChangeOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [noteById, setNoteById] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
-  // impactRefreshKeys: keyed by changeOrderId → increment to force ChangeOrderImpactCard re-fetch
   const [impactRefreshKeys, setImpactRefreshKeys] = useState<Record<string, number>>({});
+  const [riskResults, setRiskResults] = useState<Record<string, {
+    riskLevel: "low" | "medium" | "high" | "critical";
+    summary: string;
+    flags: string[];
+    recommendation: string;
+    confidence: number;
+  }>>({});
 
   const refreshImpact = useCallback((changeOrderId: string) => {
     setImpactRefreshKeys((k) => ({ ...k, [changeOrderId]: (k[changeOrderId] ?? 0) + 1 }));
@@ -76,6 +82,19 @@ export default function ClientChangeOrdersPage() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function runRiskAgent(id: string) {
+    setBusyId(`risk:${id}`);
+    try {
+      const res = await fetch(`/api/semse/change-orders/${id}/run-risk-agent`, { method: "POST", failOnStatusCode: false } as RequestInit);
+      const json = await res.json() as { data?: typeof riskResults[string]; error?: { message: string } };
+      if (json.data) setRiskResults(prev => ({ ...prev, [id]: json.data! }));
+    } catch {
+      // best effort
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function act(id: string, action: "approve" | "reject") {
     const note = noteById[id]?.trim();
@@ -207,6 +226,50 @@ export default function ClientChangeOrdersPage() {
 
                 {canReview && (
                   <div className="mt-4 grid gap-3">
+                    {/* Risk Agent Analysis */}
+                    {riskResults[item.id] ? (
+                      <div className={`rounded-xl border p-3 ${
+                        riskResults[item.id].riskLevel === "critical" ? "border-red-500/30 bg-red-950/10" :
+                        riskResults[item.id].riskLevel === "high" ? "border-orange-500/30 bg-orange-950/10" :
+                        riskResults[item.id].riskLevel === "medium" ? "border-yellow-500/30 bg-yellow-950/10" :
+                        "border-green-500/30 bg-green-950/10"
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <ShieldAlert size={14} className={
+                            riskResults[item.id].riskLevel === "critical" ? "text-red-400" :
+                            riskResults[item.id].riskLevel === "high" ? "text-orange-400" :
+                            riskResults[item.id].riskLevel === "medium" ? "text-yellow-400" : "text-green-400"
+                          } />
+                          <span className="text-xs font-bold uppercase tracking-wide text-muted">
+                            Análisis de Riesgo — {riskResults[item.id].riskLevel.toUpperCase()}
+                          </span>
+                          <span className="text-xs text-muted ml-auto">
+                            {Math.round(riskResults[item.id].confidence * 100)}% confianza
+                          </span>
+                        </div>
+                        <p className="text-sm text-ink mb-2">{riskResults[item.id].summary}</p>
+                        {riskResults[item.id].flags.length > 0 && (
+                          <ul className="grid gap-1 mb-2">
+                            {riskResults[item.id].flags.map((flag, i) => (
+                              <li key={i} className="text-xs text-muted flex items-center gap-1.5">
+                                <AlertTriangle size={10} className="shrink-0 text-yellow-400" />
+                                {flag}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <p className="text-xs font-semibold text-muted">{riskResults[item.id].recommendation}</p>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => void runRiskAgent(item.id)}
+                        disabled={busyId === `risk:${item.id}`}
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2 text-sm text-muted hover:text-ink disabled:opacity-60 w-fit"
+                      >
+                        <Sparkles size={13} />
+                        {busyId === `risk:${item.id}` ? "Analizando..." : "Analizar riesgo con IA"}
+                      </button>
+                    )}
                     <textarea
                       rows={3}
                       value={noteById[item.id] ?? ""}

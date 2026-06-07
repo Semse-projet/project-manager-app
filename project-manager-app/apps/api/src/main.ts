@@ -77,6 +77,16 @@ async function bootstrap(): Promise<void> {
     ]
   });
   const fastify = app.getHttpAdapter().getInstance();
+  fastify.get("/", async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send({
+      data: {
+        status: "ok",
+        service: "semse-api",
+        health: "/v1/health",
+        docs: "/v1/docs"
+      }
+    });
+  });
   fastify.addHook("onRequest", (request: ObservableRequest, reply: FastifyReply, done: () => void) => {
     const requestId = resolveRequestId(request.headers ?? {});
     request.requestId = requestId;
