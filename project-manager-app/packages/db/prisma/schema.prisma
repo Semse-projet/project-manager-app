@@ -1,0 +1,2650 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  DRAFT
+  POSTED
+  PUBLISHED
+  RESERVED
+  ACCEPTED
+  IN_PROGRESS
+  REVIEW
+  DISPUTE
+  COMPLETED
+  AWARDED
+  CANCELLED
+}
+
+enum BidStatus {
+  SUBMITTED
+  ACCEPTED
+  REJECTED
+}
+
+enum ProjectStatus {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+  CANCELLED
+}
+
+enum MilestoneStatus {
+  DRAFT
+  AWAITING_REVIEW
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum ReservationStatus {
+  ACTIVE
+  EXPIRED
+  ACCEPTED
+  RELEASED
+}
+
+enum ReviewDecision {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+  ESCALATE_DISPUTE
+}
+
+enum EvidenceKind {
+  PHOTO
+  VIDEO
+  DOCUMENT
+}
+
+enum PaymentTxnType {
+  DEPOSIT
+  RELEASE
+  HOLDBACK
+  FEE
+  REFUND
+}
+
+enum PaymentTxnStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REVERSED
+}
+
+enum EscrowStatus {
+  ACTIVE             @map("active")
+  PENDING_SETTLEMENT @map("pending_settlement")
+  CLOSED             @map("closed")
+  CANCELLED          @map("cancelled")
+  RELEASED           @map("released")
+}
+
+enum DisputeStatus {
+  OPEN
+  ASSIGNED
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Tenant {
+  id         String      @id @default(cuid())
+  slug       String      @unique
+  name       String
+  status     String      @default("active")
+  orgs       Org[]
+  jobs       Job[]
+  projects   Project[]
+  disputes   Dispute[]
+  auditLogs  AuditLog[]
+  agentRuns  AgentRun[]
+  agentApprovals AgentApproval[]
+  developerRuntimeSessions    DeveloperRuntimeSessionStore[]
+  developerRuntimeMissions    DeveloperRuntimeMissionStore[]
+  developerRuntimeLogs        DeveloperRuntimeLogStore[]
+  developerRuntimeValidations DeveloperRuntimeValidationStore[]
+  developerRuntimeArtifacts   DeveloperRuntimeArtifactStore[]
+  developerRuntimeApprovals   DeveloperRuntimeApprovalStore[]
+  autonomousPrRuns AutonomousPrRun[]
+  riskScores RiskScore[]
+  // Field Ops
+  fieldUnits    FieldUnit[]
+  worklogs      WorklogEntry[]
+  trackerSessions TrackerSession[]
+  knowledgeFacts KnowledgeFact[]
+  workspaceMemoryEntries WorkspaceMemoryEntry[]
+  fieldMilestones FieldMilestone[]
+  vendors       Vendor[]
+  complianceDocs ComplianceDoc[]
+  agentRunIdempotency AgentRunIdempotency[]
+  agentWorkPlans AgentWorkPlan[]
+  agentMemories  AgentMemory[]
+  agentSkills    AgentSkill[]
+  agentDelegations AgentDelegation[]
+  jobTasks       JobTask[]
+  jobIncidents   JobIncident[]
+  materialRequests MaterialRequest[]
+  // Travel / Movilidad y Estancia
+  travelAssignments  TravelAssignment[]
+  travelExpenses     TravelExpense[]
+  lodgingBookings    LodgingBooking[]
+  travelAdvances     TravelAdvance[]
+  travelSettlements  TravelSettlement[]
+  prometeoDocuments  PrometeoDocument[]
+  prometeoChunks     DocumentChunk[]
+  prometeoAssets     PrometeoAsset[]
+  workOrders         WorkOrder[]
+  // Finance
+  invoices           Invoice[]
+  projectExpenses    ProjectExpense[]
+  documentTemplates  DocumentTemplate[]
+  // Contractor CRM
+  contractorLeads    ContractorLead[]
+  communicationChannelAccounts CommunicationChannelAccount[]
+  conversationThreads ConversationThread[]
+  conversationMessages ConversationMessage[]
+  communicationMessageTemplates CommunicationMessageTemplate[]
+  outboundDeliveries OutboundDelivery[]
+  contactIdentities ContactIdentity[]
+  buildOpsProjects   BuildOpsProject[]
+  buildOpsPlanVersions BuildOpsPlanVersion[]
+  buildOpsTasks      BuildOpsTask[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Org {
+  id          String       @id @default(cuid())
+  tenantId    String
+  type        String
+  name        String
+  users       Membership[]
+  jobs        Job[]
+  bids        Bid[]
+  projects    Project[]
+  reservations JobReservation[]
+  communicationChannelAccounts CommunicationChannelAccount[]
+  conversationThreads ConversationThread[]
+  communicationMessageTemplates CommunicationMessageTemplate[]
+  contactIdentities ContactIdentity[]
+  clientContracts Contract[] @relation("ContractClientOrg")
+  professionalContracts Contract[] @relation("ContractProfessionalOrg")
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buildOpsProjects BuildOpsProject[]
+  buildOpsTasks     BuildOpsTask[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([tenantId, type])
+}
+
+model User {
+  id                 String            @id @default(cuid())
+  email              String            @unique
+  phone              String?
+  passwordHash       String?
+  status             String            @default("active")
+  // ── Active-model fields ───────────────────────────────────────────────────
+  verificationStatus String            @default("unverified") // unverified | pending | verified | suspended
+  trustScore         Decimal           @default(0) @db.Decimal(5, 4)   // 0.0000–1.0000
+  riskLevel          String            @default("low")                  // low | medium | high | critical
+  flags              String[]          @default([])                     // fraud_suspect | under_review | etc.
+  // ─────────────────────────────────────────────────────────────────────────
+  memberships        Membership[]
+  bidsPlaced         Bid[]
+  messages           Message[]
+  evidenceUploads    Evidence[]
+  reservations       JobReservation[]
+  contractsSigned    Contract[]        @relation("ContractProfessional")
+  contractsAuthored  Contract[]        @relation("ContractClient")
+  milestoneReviews   MilestoneReview[]
+  ratingsGiven       Rating[]          @relation("RatingFromUser")
+  ratingsReceived    Rating[]          @relation("RatingToUser")
+  disputes           Dispute[]         @relation("DisputeRaisedBy")
+  assignedDisputes   Dispute[]         @relation("DisputeAssignedTo")
+  resolvedDisputes   Dispute[]         @relation("DisputeResolvedBy")
+  auditEvents        AuditLog[]
+  notifications      Notification[]
+  createdCommunicationChannelAccounts CommunicationChannelAccount[] @relation("CommunicationChannelAccountCreatedBy")
+  contactConversationThreads ConversationThread[] @relation("CommunicationThreadContactUser")
+  assignedConversationThreads ConversationThread[] @relation("CommunicationThreadAssignedUser")
+  sentConversationMessages ConversationMessage[] @relation("ConversationMessageSender")
+  requestedOutboundDeliveries OutboundDelivery[] @relation("OutboundDeliveryRequestedBy")
+  contactIdentities ContactIdentity[]
+  passwordResetTokens PasswordResetToken[]
+  profile            UserProfile?
+  contractorRate     ContractorRateOverride?
+  stripeConnect      StripeConnectAccount?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([verificationStatus, riskLevel])
+}
+
+model UserProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName       String?
+  bio               String?
+  location          String?
+  trades            String[] @default([])
+  availability      Boolean  @default(true)
+  // Assistant AI preferences
+  assistantTone     String?  // friendly | formal | technical | executive
+  assistantLanguage String?  // es | en
+  assistantVerbosity String? // short | balanced | detailed
+  unifiedMode       Boolean  @default(false)
+  expertMode        Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model StripeConnectAccount {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeAccountId  String   @unique   // acct_... from Stripe
+  status           String   @default("pending")  // pending | active | restricted | disabled
+  chargesEnabled   Boolean  @default(false)
+  payoutsEnabled   Boolean  @default(false)
+  onboardingUrl    String?  // Stripe hosted onboarding link (expires)
+  country          String   @default("US")
+  currency         String   @default("usd")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+}
+
+model ContractorRateOverride {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  laborRatePerHr Decimal  @db.Decimal(8, 2)  // $/hr contractor charges
+  materialMarkup Decimal  @db.Decimal(5, 4)  // e.g. 0.15 = 15% over national avg
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model AuthSession {
+  id               String   @id @default(cuid())
+  tenantId         String
+  orgId            String
+  userId           String
+  roles            String[] @default([])
+  refreshTokenHash String   @unique
+  accessExpiresAt  DateTime
+  refreshExpiresAt DateTime
+  lastUsedAt       DateTime?
+  revokedAt        DateTime?
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantId, userId, status])
+  @@index([tenantId, orgId, status])
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  status     String   @default("ACTIVE")
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, expiresAt])
+}
+
+model Role {
+  id           String           @id @default(cuid())
+  key          String           @unique
+  name         String
+  memberships  Membership[]
+  permissions  RolePermission[]
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model Membership {
+  userId      String
+  orgId       String
+  roleId      String
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  org         Org   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  role        Role  @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@id([userId, orgId, roleId])
+}
+
+model Job {
+  id              String           @id @default(cuid())
+  tenantId        String
+  clientOrgId     String
+  title           String
+  category        String?
+  scope           String
+  status          JobStatus        @default(PUBLISHED)
+  budgetType      String?
+  budgetMin       Decimal?         @db.Decimal(12, 2)
+  budgetMax       Decimal?         @db.Decimal(12, 2)
+  location        String?
+  // ── Active-model fields ──────────────────────────────────────────────────
+  urgency         String?                                              // low | medium | high | urgent
+  deadline        DateTime?
+  policyProfileId String?                                              // references PolicyRule group
+  scopeSnapshot   Json?                                                // immutable snapshot at ACCEPTED
+  isOutOfTown     Boolean  @default(false)                             // travel assignment required
+  destinationCity String?                                              // filled when isOutOfTown = true
+  // ─────────────────────────────────────────────────────────────────────────
+  bids            Bid[]
+  reservations    JobReservation[]
+  contract        Contract?
+  escrow          PaymentEscrow?
+  ratings         Rating[]
+  messages        MessageThread[]
+  conversationThreads ConversationThread[]
+  trackerSessions TrackerSession[]
+  travelAssignments TravelAssignment[]
+  buildOpsProject BuildOpsProject?
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientOrg       Org              @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
+  project         Project?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  deletedAt       DateTime?
+
+  @@index([tenantId, status])
+  @@index([tenantId, clientOrgId])
+  @@index([tenantId, deletedAt])
+}
+
+model JobReservation {
+  id             String            @id @default(cuid())
+  jobId          String
+  professionalOrgId String?
+  professionalId String
+  status         ReservationStatus @default(ACTIVE)
+  reservedAt     DateTime          @default(now())
+  expiresAt      DateTime
+  releasedAt     DateTime?
+  acceptedAt     DateTime?
+  job            Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  professionalOrg Org?             @relation(fields: [professionalOrgId], references: [id], onDelete: SetNull)
+  professional   User              @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([jobId, status])
+  @@index([professionalId, status])
+  @@index([professionalOrgId, status])
+}
+
+model Contract {
+  id                 String    @id @default(cuid())
+  jobId              String    @unique
+  clientOrgId        String?
+  professionalOrgId  String?
+  clientUserId       String
+  professionalUserId String
+  termsJson          Json
+  signedClientAt     DateTime?
+  signedProAt        DateTime?
+  pdfUrl             String?
+  documentHash       String?
+  // HelloSign / Dropbox Sign integration (1.4.A)
+  helloSignRequestId String?   // signature_request_id from HelloSign
+  signingUrlClient   String?   // embedded signing URL for client (expires)
+  signingUrlPro      String?   // embedded signing URL for professional (expires)
+  escrow             PaymentEscrow?
+  clientOrg          Org?      @relation("ContractClientOrg", fields: [clientOrgId], references: [id], onDelete: SetNull)
+  professionalOrg    Org?      @relation("ContractProfessionalOrg", fields: [professionalOrgId], references: [id], onDelete: SetNull)
+  clientUser         User      @relation("ContractClient", fields: [clientUserId], references: [id], onDelete: Restrict)
+  professionalUser   User      @relation("ContractProfessional", fields: [professionalUserId], references: [id], onDelete: Restrict)
+  job                Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
+
+  @@index([clientOrgId])
+  @@index([professionalOrgId])
+  @@index([clientOrgId, deletedAt])
+  @@index([professionalOrgId, deletedAt])
+}
+
+model Bid {
+  id           String     @id @default(cuid())
+  jobId        String
+  proOrgId     String
+  professionalUserId String
+  amount       Decimal    @db.Decimal(12, 2)
+  etaDays      Int
+  status       BidStatus  @default(SUBMITTED)
+  note         String?
+  job          Job        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  proOrg       Org        @relation(fields: [proOrgId], references: [id], onDelete: Restrict)
+  professional User       @relation(fields: [professionalUserId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([jobId, status])
+  @@index([professionalUserId, status])
+}
+
+model Project {
+  id              String          @id @default(cuid())
+  tenantId        String
+  jobId           String          @unique
+  assignedProOrgId String
+  promotedFromBuildOpsProjectId String? @unique
+  promotedAt      DateTime?
+  promotedByUserId String?
+  status          ProjectStatus   @default(OPEN)
+  startAt         DateTime?
+  dueAt           DateTime?
+  milestones      Milestone[]
+  evidence        Evidence[]
+  disputes        Dispute[]
+  escrow          PaymentEscrow?
+  messageThreads  MessageThread[]
+  conversationThreads ConversationThread[]
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job             Job             @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignedProOrg  Org             @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
+  // Field Ops
+  fieldUnits      FieldUnit[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, promotedFromBuildOpsProjectId])
+}
+
+model Milestone {
+  id            String            @id @default(cuid())
+  projectId     String
+  title         String
+  description   String?
+  amount        Decimal           @db.Decimal(12, 2)
+  sequence      Int
+  status        MilestoneStatus   @default(DRAFT)
+  approvedById  String?
+  approvedAt    DateTime?
+  promotedFromBuildOpsProjectId String?
+  promotedAt    DateTime?
+  promotedByUserId String?
+  // ── Active-model fields ──────────────────────────────────────────────────
+  checklistSchema      Json?       // { items: [{ id, label, required: bool, evidenceRequired: bool }] }
+  requiredEvidenceTypes String[]   @default([])  // ["PHOTO","VIDEO","DOCUMENT"]
+  // ── Evidence + approval + payment readiness ──────────────────────────────
+  paymentReadiness    String    @default("not_ready")   // not_ready | ready_to_release | released | held
+  evidenceReadiness   String    @default("missing")     // missing | partial | complete
+  clientNote          String?
+  clientReviewedAt    DateTime?
+  clientReviewedById  String?
+  // ─────────────────────────────────────────────────────────────────────────
+  evidence        Evidence[]
+  reviews         MilestoneReview[]
+  disputes        Dispute[]
+  paymentTxns     PaymentTxn[]
+  evidenceItems   MilestoneEvidenceItem[]
+  project         Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  @@index([projectId, sequence])
+  @@index([projectId, deletedAt])
+  @@index([projectId, promotedFromBuildOpsProjectId])
+  @@unique([projectId, promotedFromBuildOpsProjectId, sequence])
+}
+
+model MilestoneReview {
+  id          String         @id @default(cuid())
+  milestoneId String
+  reviewerId  String
+  decision    ReviewDecision
+  comment     String?
+  milestone   Milestone      @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  reviewer    User           @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  createdAt   DateTime       @default(now())
+
+  @@index([milestoneId, createdAt])
+  @@index([reviewerId, createdAt])
+}
+
+model PaymentEscrow {
+  id           String        @id @default(cuid())
+  projectId    String        @unique
+  jobId        String?       @unique
+  contractId   String?       @unique
+  providerRef  String        @unique
+  currency     String        @default("USD")
+  totalAmount  Decimal       @db.Decimal(12, 2)
+  holdbackPct  Decimal?      @db.Decimal(5, 2)
+  status       EscrowStatus  @default(ACTIVE)
+  transactions PaymentTxn[]
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  contract     Contract?     @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@index([projectId, deletedAt])
+}
+
+model PaymentTxn {
+  id            String           @id @default(cuid())
+  escrowId      String
+  milestoneId   String?
+  type          PaymentTxnType
+  amount        Decimal          @db.Decimal(12, 2)
+  providerRef   String           @unique
+  status        PaymentTxnStatus @default(PENDING)
+  escrow        PaymentEscrow    @relation(fields: [escrowId], references: [id], onDelete: Cascade)
+  milestone     Milestone?       @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+}
+
+model Evidence {
+  id           String       @id @default(cuid())
+  projectId    String
+  milestoneId  String?
+  uploadedById String
+  kind         EvidenceKind
+  bucketKey    String
+  promotedFromBuildOpsProjectId String?
+  promotedAt   DateTime?
+  promotedByUserId String?
+  checksum     String?
+  metadataJson Json?
+  capturedAt   DateTime?
+  // ── Active-model fields ──────────────────────────────────────────────────
+  aiQualityScore   Decimal?   @db.Decimal(5, 4)   // 0.0000–1.0000 — scored by EvidenceCoachAgent
+  validationStatus String     @default("pending")  // pending | passed | failed | manual_review
+  geoLat           Decimal?   @db.Decimal(10, 7)
+  geoLng           Decimal?   @db.Decimal(10, 7)
+  // ─────────────────────────────────────────────────────────────────────────
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone    Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime     @default(now())
+
+  @@index([projectId, createdAt])
+  @@index([projectId, promotedFromBuildOpsProjectId])
+  @@unique([projectId, promotedFromBuildOpsProjectId, bucketKey])
+}
+
+model MessageThread {
+  id          String      @id @default(cuid())
+  jobId       String?
+  projectId   String?
+  messages    Message[]
+  job         Job?        @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+}
+
+model Message {
+  id          String        @id @default(cuid())
+  threadId    String
+  senderUserId String
+  body        String
+  attachments Json?
+  thread      MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender      User          @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  createdAt   DateTime      @default(now())
+}
+
+model Dispute {
+  id            String        @id @default(cuid())
+  tenantId      String
+  projectId     String
+  milestoneId   String?
+  raisedById    String
+  assigneeUserId String?
+  reason        String
+  status        DisputeStatus @default(OPEN)
+  resolution    String?
+  resolvedById  String?
+  resolvedAt    DateTime?
+  // ── Active-model fields ──────────────────────────────────────────────────
+  reasonCode         String?    // incomplete_work | quality_issue | no_show | payment_dispute | other
+  resolutionType     String?    // client_favor | pro_favor | partial_50_50 | escalated_legal
+  evidenceBundleIds  String[]   @default([])    // Evidence IDs attached to this dispute
+  // ─────────────────────────────────────────────────────────────────────────
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone     Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  raisedBy      User          @relation("DisputeRaisedBy", fields: [raisedById], references: [id], onDelete: Restrict)
+  assignee      User?         @relation("DisputeAssignedTo", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  resolvedBy    User?         @relation("DisputeResolvedBy", fields: [resolvedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeUserId])
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, deletedAt])
+}
+
+model Rating {
+  id           String   @id @default(cuid())
+  jobId        String
+  fromUserId   String
+  toUserId     String
+  score        Int
+  comment      String?
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  fromUser     User     @relation("RatingFromUser", fields: [fromUserId], references: [id], onDelete: Restrict)
+  toUser       User     @relation("RatingToUser", fields: [toUserId], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now())
+
+  @@index([jobId, createdAt])
+  @@index([fromUserId, createdAt])
+  @@index([toUserId, createdAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  tenantId    String
+  actorUserId String?
+  entityType  String
+  entityId    String
+  action      String
+  beforeJson  Json?
+  afterJson   Json?
+  ip          String?
+  userAgent   String?
+  occurredAt  DateTime  @default(now())
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor       User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, occurredAt])
+  @@index([entityType, entityId])
+}
+
+model AgentRun {
+  id            String         @id @default(cuid())
+  tenantId      String
+  agentType     String
+  triggerType   String
+  inputJson     Json
+  outputJson    Json?
+  status        AgentRunStatus @default(QUEUED)
+  correlationId String
+  workerId      String?
+  attempts      Int            @default(0)
+  maxAttempts   Int            @default(3)
+  deadLettered  Boolean        @default(false)
+  error         String?
+  startedAt     DateTime?
+  heartbeatAt   DateTime?
+  endedAt       DateTime?
+  // ── Active-model fields ──────────────────────────────────────────────────
+  actionType          String?   // classify | recommend | validate | alert | auto_resolve | escalate
+  inputSummary        String?   // human-readable summary of what the agent received
+  outputSummary       String?   // human-readable summary of what the agent decided
+  confidence          Decimal?  @db.Decimal(4, 3)   // 0.000–1.000
+  requiresHumanReview Boolean   @default(false)
+  // ── Telemetry fields ─────────────────────────────────────────────────────
+  durationMs          Int?      // Execution duration in milliseconds
+  toolCallCount       Int       @default(0) // Number of tool calls made during the run
+  // ─────────────────────────────────────────────────────────────────────────
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, agentType, status, createdAt])
+  @@index([tenantId, correlationId])
+  @@index([correlationId])
+}
+
+enum AgentApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AgentApproval {
+  id                String              @id @default(cuid())
+  tenantId          String
+  orgId             String
+  runId             String
+  correlationId     String
+  agentType         String
+  title             String
+  reason            String
+  status            AgentApprovalStatus @default(PENDING)
+  riskLevel         String
+  riskScore         Decimal             @db.Decimal(5, 4)
+  policyDecision    String
+  requiredApprovals Json
+  contextSummary    String?
+  decisionComment   String?
+  decidedAt         DateTime?
+  decidedByUserId   String?
+  requestedAt       DateTime            @default(now())
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, requestedAt])
+  @@index([tenantId, runId])
+  @@index([tenantId, correlationId])
+}
+
+model DeveloperRuntimeSessionStore {
+  id                 String   @id
+  tenantId           String
+  orgId              String
+  userId             String
+  repoId             String
+  branch             String?
+  startedAt          DateTime
+  endedAt            DateTime?
+  goal               String
+  state              String
+  selectedAgentsJson Json
+  missionId          String
+  summary            String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, state, startedAt(sort: Desc)])
+  @@index([tenantId, repoId, startedAt(sort: Desc)])
+}
+
+model DeveloperRuntimeMissionStore {
+  id         String   @id
+  tenantId   String
+  sessionId  String
+  intentJson Json
+  planJson   Json
+  riskLevel  String
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sessionId])
+}
+
+model DeveloperRuntimeLogStore {
+  id         String   @id
+  tenantId   String
+  sessionId  String
+  occurredAt DateTime
+  payloadJson Json
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sessionId, occurredAt])
+}
+
+model DeveloperRuntimeValidationStore {
+  id         String   @id
+  tenantId   String
+  sessionId  String
+  payloadJson Json
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sessionId, createdAt])
+}
+
+model DeveloperRuntimeArtifactStore {
+  id         String   @id
+  tenantId   String
+  sessionId  String
+  payloadJson Json
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sessionId, createdAt])
+}
+
+model DeveloperRuntimeApprovalStore {
+  id          String   @id
+  tenantId    String
+  sessionId   String
+  requestId   String   @unique
+  requestJson Json
+  decisionJson Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sessionId, createdAt])
+}
+
+model AutonomousPrRun {
+  id            String   @id @default(cuid())
+  tenantId      String
+  orgId         String
+  userId        String
+  task          String
+  status        String
+  repoPath      String
+  baseBranch    String
+  branchName    String?
+  commitSha     String?
+  generatedFile String?
+  prUrl         String?
+  prState       String?
+  error         String?
+  logsJson      Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
+}
+
+model RiskScore {
+  id           String   @id @default(cuid())
+  tenantId     String
+  subjectType  String
+  subjectId    String
+  score        Decimal  @db.Decimal(5, 4)
+  factorsJson  Json
+  modelVersion String
+  computedAt   DateTime @default(now())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, subjectType, subjectId])
+  @@index([computedAt])
+}
+
+// ── Policy Engine ─────────────────────────────────────────────────────────────
+// Configurable business rules that govern job lifecycle, evidence requirements,
+// payment release conditions, dispute escalation paths, and agent triggers.
+
+enum PolicyAction {
+  ALLOW
+  BLOCK
+  REQUIRE
+  NOTIFY
+  ESCALATE
+  AUTO_RESOLVE
+}
+
+/// A declarative rule that constrains or triggers behavior in the system.
+/// Rules are evaluated by the PolicyService at state transition points.
+model PolicyRule {
+  id          String       @id @default(cuid())
+  tenantId    String
+  key         String
+  name        String
+  description String?
+  category    String       // job | payment | evidence | dispute | agent | user
+  conditions  Json         // { field, operator, value }[] — AND logic
+  action      PolicyAction
+  priority    Int          @default(0)
+  enabled     Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([tenantId, key])
+  @@index([tenantId, category, enabled, priority])
+}
+
+// ── Notifications ──────────────────────────────────────────────────────────────
+// In-app + multi-channel notification log. Every domain event can produce
+// zero or more notifications depending on actor roles and notification prefs.
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  SMS
+  WHATSAPP
+}
+
+model Notification {
+  id          String              @id @default(cuid())
+  tenantId    String
+  userId      String
+  type        String              // job_assigned | milestone_submitted | payment_released | etc.
+  title       String
+  body        String
+  payload     Json?               // { entityType, entityId, actionUrl, ... }
+  channel     NotificationChannel @default(IN_APP)
+  readAt      DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outboundDeliveries OutboundDelivery[]
+
+  @@index([userId, readAt, createdAt])
+  @@index([tenantId, type, createdAt])
+}
+
+// ── Communications / Channel Gateway ──────────────────────────────────────────
+// Normalizes WhatsApp, SMS, email and web chat into SEMSE operations.
+
+enum CommunicationProvider {
+  WHATSAPP_CLOUD
+  OPENWA_LAB
+  SMS
+  EMAIL
+  WEB_CHAT
+}
+
+enum CommunicationThreadStatus {
+  OPEN
+  PENDING
+  CLOSED
+  ARCHIVED
+}
+
+enum CommunicationDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommunicationMessageStatus {
+  RECEIVED
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model CommunicationChannelAccount {
+  id                String                @id @default(cuid())
+  tenantId          String
+  orgId             String?
+  provider          CommunicationProvider
+  label             String
+  externalAccountId String?
+  phoneNumberId     String?
+  displayPhone      String?
+  status            String                @default("active")
+  settingsJson      Json?
+  secretRef         String?
+  createdByUserId   String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  tenant            Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org               Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdBy         User?                 @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  threads           ConversationThread[]
+
+  @@unique([tenantId, provider, phoneNumberId])
+  @@index([tenantId, provider, status])
+  @@index([tenantId, orgId])
+}
+
+model ConversationThread {
+  id               String                      @id @default(cuid())
+  tenantId         String
+  orgId            String?
+  channel          CommunicationProvider
+  channelAccountId String?
+  externalThreadId String?
+  contactPhone     String?
+  contactName      String?
+  contactUserId    String?
+  contractorLeadId String?
+  jobId            String?
+  projectId        String?
+  status           CommunicationThreadStatus   @default(OPEN)
+  assignedToUserId String?
+  intent           String?
+  source           String                      @default("communications")
+  lastMessageAt    DateTime?
+  metadataJson     Json?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  tenant           Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org              Org?                        @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  channelAccount   CommunicationChannelAccount? @relation(fields: [channelAccountId], references: [id], onDelete: SetNull)
+  contactUser      User?                       @relation("CommunicationThreadContactUser", fields: [contactUserId], references: [id], onDelete: SetNull)
+  assignedTo       User?                       @relation("CommunicationThreadAssignedUser", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  contractorLead   ContractorLead?             @relation(fields: [contractorLeadId], references: [id], onDelete: SetNull)
+  job              Job?                        @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  project          Project?                    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages         ConversationMessage[]
+  deliveries       OutboundDelivery[]
+
+  @@unique([tenantId, channel, externalThreadId])
+  @@index([tenantId, status, lastMessageAt])
+  @@index([tenantId, contactPhone])
+  @@index([tenantId, jobId])
+  @@index([tenantId, projectId])
+  @@index([tenantId, contractorLeadId])
+}
+
+model ConversationMessage {
+  id                String                      @id @default(cuid())
+  tenantId          String
+  threadId          String
+  direction         CommunicationDirection
+  provider          CommunicationProvider
+  externalMessageId String?
+  senderUserId      String?
+  contactPhone      String?
+  body              String?
+  mediaJson         Json?
+  rawPayloadJson    Json?
+  status            CommunicationMessageStatus  @default(RECEIVED)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  createdAt         DateTime                    @default(now())
+
+  tenant            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  thread            ConversationThread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender            User?                       @relation("ConversationMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, provider, externalMessageId])
+  @@index([tenantId, threadId, createdAt])
+  @@index([tenantId, direction, createdAt])
+  @@index([tenantId, status, createdAt])
+}
+
+model CommunicationMessageTemplate {
+  id            String                @id @default(cuid())
+  tenantId      String
+  orgId         String?
+  key           String
+  name          String
+  channel       CommunicationProvider
+  locale        String                @default("es")
+  category      String                @default("utility")
+  body          String
+  status        String                @default("draft")
+  variablesJson Json?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org           Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, channel, key, locale])
+  @@index([tenantId, channel, status])
+}
+
+model OutboundDelivery {
+  id                String                     @id @default(cuid())
+  tenantId          String
+  threadId          String?
+  notificationId    String?
+  channel           CommunicationProvider
+  recipientPhone    String?
+  templateKey       String?
+  body              String
+  payloadJson       Json?
+  status            CommunicationMessageStatus @default(QUEUED)
+  providerMessageId String?
+  error             String?
+  requestedByUserId String?
+  sentAt            DateTime?
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+
+  tenant            Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  thread            ConversationThread?        @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  notification      Notification?              @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  requestedBy       User?                      @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, channel, status, createdAt])
+  @@index([tenantId, recipientPhone])
+  @@index([tenantId, threadId])
+  @@index([tenantId, notificationId])
+}
+
+model ContactIdentity {
+  id               String                @id @default(cuid())
+  tenantId         String
+  orgId            String?
+  channel          CommunicationProvider
+  externalContactId String?
+  phone            String?
+  email            String?
+  userId           String?
+  contractorLeadId String?
+  displayName      String?
+  metadataJson     Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org              Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contractorLead   ContractorLead?       @relation(fields: [contractorLeadId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, channel, externalContactId])
+  @@index([tenantId, phone])
+  @@index([tenantId, userId])
+  @@index([tenantId, contractorLeadId])
+}
+
+// ── Field Ops (ported from semse-control-mvp) ─────────────────────────────────
+// Captures physical work units, daily worklogs, knowledge graph, and vendor
+// compliance for field operations (e.g. construction, renovation projects).
+
+enum FieldUnitStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETE
+  ON_HOLD
+  CANCELLED
+}
+
+enum FactVisibility {
+  TEAM
+  ORG
+  PUBLIC
+}
+
+enum ComplianceDocStatus {
+  MISSING
+  PENDING
+  APPROVED
+  EXPIRED
+}
+
+enum TrackerSessionStatus {
+  RUNNING
+  PAUSED
+  STOPPED
+}
+
+/// A discrete physical or logical unit of work within a project (e.g. apartment 110, building wing A).
+model FieldUnit {
+  id          String          @id @default(cuid())
+  tenantId    String
+  projectId   String
+  code        String          // e.g. "110", "Wing-A"
+  name        String?
+  address     String?
+  status      FieldUnitStatus @default(PENDING)
+  metadataJson Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worklogs    WorklogEntry[]
+  fieldMilestones FieldMilestone[]
+
+  @@unique([projectId, code])
+  @@index([tenantId, status])
+  @@index([projectId])
+}
+
+/// Daily progress log submitted by a field worker for a specific unit.
+model WorklogEntry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  fieldUnitId String
+  date        DateTime @db.Date
+
+  doneToday   String
+  pendingNext String
+  blockers    String?
+  notes       String?
+  createdBy   String   // userId or free-text for MVP
+
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fieldUnit   FieldUnit @relation(fields: [fieldUnitId], references: [id], onDelete: Cascade)
+  promotedFacts KnowledgeFact[]
+
+  @@index([tenantId, date])
+  @@index([fieldUnitId, date])
+}
+
+/// Persistent worker time-tracking session linked to a specific job.
+model TrackerSession {
+  id                 String               @id @default(cuid())
+  tenantId           String
+  orgId              String
+  jobId              String
+  createdBy          String
+  status             TrackerSessionStatus @default(RUNNING)
+  startedAt          DateTime
+  resumedAt          DateTime?
+  pausedAt           DateTime?
+  stoppedAt          DateTime?
+  accumulatedSeconds Int                  @default(0)
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job                Job                  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdBy, status])
+  @@index([tenantId, jobId, status])
+  @@index([tenantId, startedAt])
+}
+
+/// Structured knowledge fact extracted from worklogs or AI agents.
+/// Models a subject–predicate–object triple with confidence scoring.
+model KnowledgeFact {
+  id          String         @id @default(cuid())
+  tenantId    String
+  subject     String         // e.g. "FieldUnit:110", "Vendor:ABC"
+  predicate   String         // e.g. "status", "blocked_by", "pending"
+  object      String         // human-readable or JSON string
+  confidence  Decimal        @default(0.7) @db.Decimal(4, 3)
+  visibility  FactVisibility @default(TEAM)
+  worklogId   String?
+  createdBy   String
+  createdAt   DateTime       @default(now())
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  worklog     WorklogEntry?  @relation(fields: [worklogId], references: [id], onDelete: SetNull)
+  linksFrom   FactLink[]     @relation("FactLinkFrom")
+  linksTo     FactLink[]     @relation("FactLinkTo")
+
+  @@index([tenantId, subject, predicate])
+  @@index([tenantId, createdAt])
+}
+
+model WorkspaceMemoryEntry {
+  id          String   @id
+  tenantId    String
+  orgId       String
+  createdBy   String
+  workspaceId String
+  repoId      String?
+  runId       String?
+  taskId      String?
+  kind        String
+  scope       String
+  title       String
+  summary     String
+  body        String?
+  tags        String[] @default([])
+  sourceRef   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, workspaceId, updatedAt])
+  @@index([tenantId, workspaceId, kind, updatedAt])
+  @@index([tenantId, workspaceId, runId])
+  @@index([tenantId, workspaceId, taskId])
+}
+
+/// Directional graph edge between two KnowledgeFacts.
+model FactLink {
+  id        String        @id @default(cuid())
+  fromId    String
+  toId      String
+  type      String        // e.g. "causes", "blocks", "relates_to"
+  createdAt DateTime      @default(now())
+
+  from      KnowledgeFact @relation("FactLinkFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to        KnowledgeFact @relation("FactLinkTo",   fields: [toId],   references: [id], onDelete: Cascade)
+
+  @@index([fromId])
+  @@index([toId])
+}
+
+/// Milestone specific to a FieldUnit (field-ops layer, separate from Project-level Milestone).
+model FieldMilestone {
+  id          String          @id @default(cuid())
+  tenantId    String
+  fieldUnitId String
+  name        String
+  status      MilestoneStatus @default(DRAFT)
+  amount      Decimal?        @db.Decimal(12, 2)
+  notes       String?
+  sequence    Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fieldUnit   FieldUnit @relation(fields: [fieldUnitId], references: [id], onDelete: Cascade)
+
+  @@index([fieldUnitId, status])
+  @@index([tenantId])
+}
+
+/// External vendor/subcontractor used within a tenant's operations.
+model Vendor {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  phone     String?
+  email     String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  compliance ComplianceDoc[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+/// Formal multi-step work plan created by the copilot during plan mode.
+model AgentWorkPlan {
+  id          String   @id @default(cuid())
+  tenantId    String
+  orgId       String
+  projectId   String?
+  createdBy   String
+  agentId     String
+  title       String
+  description String?
+  status      String   @default("draft")  // draft | active | executing | completed | cancelled | rejected
+  stepsJson   Json                         // PlanStep[]
+  contextJson Json?                        // snapshot of workspace at creation time
+  metaJson    Json?                        // goal, rationale, risks[], requiredEvidence[], successCriteria[]
+  threadId    String?
+  approvedAt  DateTime?
+  approvedBy  String?
+  rejectedAt  DateTime?
+  rejectedBy  String?
+  cancelledAt DateTime?
+  cancelledBy String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, createdAt])
+}
+
+/// Represents a sub-task delegated from a coordinator agent to a specialized agent.
+model AgentDelegation {
+  id              String   @id @default(cuid())
+  tenantId        String
+  orgId           String
+  projectId       String?
+  sourceRunId     String?
+  targetRunId     String?
+  coordinatorId   String
+  targetAgentId   String
+  taskTitle       String
+  taskContextJson Json
+  status          String   @default("pending") // pending | executing | completed | failed | rejected
+  resultJson      Json?
+  error           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, sourceRunId])
+  @@index([tenantId, targetRunId])
+}
+
+/// Durable agent memory: session summaries, decisions, observations, action proposals.
+/// Scoped by (tenantId, projectId) — never cross-project. Importância 1-5.
+model AgentMemory {
+  id              String   @id @default(cuid())
+  tenantId        String
+  orgId           String
+  agentId         String                          // "project-copilot" | "field-ops" | etc.
+  sessionId       String?                         // threadId of originating conversation
+  projectId       String?
+  workspaceId     String?
+  type            String                          // decision | observation | session_summary | action_proposal | fact
+  content         String                          // full content (up to 4 000 chars)
+  summary         String                          // ≤ 200 chars — used in context injection
+  importanceScore Int      @default(3)            // 1 (low) – 5 (critical)
+  tags            String[] @default([])
+  sourceRef       String?                         // correlationId / runId / actionType
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, type, updatedAt])
+  @@index([tenantId, agentId, sessionId])
+  @@index([tenantId, projectId, importanceScore])
+}
+
+/// Procedural memory for agents — inspired by Hermes skill_manager_tool.py.
+/// Each AgentSkill captures HOW to do a specific type of task from proven experience.
+/// General memory (AgentMemory) is broad. Skills are narrow and actionable.
+model AgentSkill {
+  id            String   @id @default(cuid())
+  tenantId      String
+  orgId         String
+  agentId       String                          // owning agent role
+  name          String                          // short identifier e.g. "validate-evidence-photo"
+  trigger       String                          // when this skill applies e.g. "evidence.quality < 0.7"
+  procedure     String                          // step-by-step instructions (markdown)
+  category      String   @default("general")   // devops | evidence | payments | disputes | general
+  tags          String[] @default([])
+  successRate   Float    @default(0)            // 0..1 updated after each use
+  useCount      Int      @default(0)
+  lastUsedAt    DateTime?
+  createdFromRunId String?                      // AgentRun that originated this skill
+  status        String   @default("active")     // active | stale | archived | pinned
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, agentId, name])
+  @@index([tenantId, agentId, status, lastUsedAt])
+  @@index([tenantId, category, status])
+}
+
+/// DB-backed idempotency store for agent run creation — survives restarts.
+model AgentRunIdempotency {
+  id        String   @id @default(cuid())
+  tenantId  String
+  key       String
+  runId     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId, expiresAt])
+}
+
+/// Compliance document tracking for a vendor (e.g. insurance, license).
+model ComplianceDoc {
+  id         String              @id @default(cuid())
+  tenantId   String
+  vendorId   String
+  type       String              // e.g. "INSURANCE", "LICENSE", "W9"
+  status     ComplianceDocStatus @default(MISSING)
+  fileUrl    String?
+  expiresAt  DateTime?
+  notes      String?
+  updatedAt  DateTime            @updatedAt
+  createdAt  DateTime            @default(now())
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  vendor     Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, type])
+  @@index([tenantId])
+}
+
+/// Task within a Job milestone assigned to a professional.
+model JobTask {
+  id          String   @id @default(cuid())
+  tenantId    String
+  jobId       String
+  milestone   String
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    String   @default("medium")  // low | medium | high
+  status      String   @default("pending") // pending | in_progress | done | blocked
+  assignedTo  String?  // userId
+  createdBy   String
+  promotedFromBuildOpsProjectId String?
+  promotedFromBuildOpsTaskId String?
+  promotedAt  DateTime?
+  promotedByUserId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, jobId, status])
+  @@index([tenantId, assignedTo, status])
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, promotedFromBuildOpsProjectId])
+  @@unique([jobId, promotedFromBuildOpsTaskId])
+}
+
+/// Incident reported during a job (safety, damage, delay, etc.).
+model JobIncident {
+  id          String   @id @default(cuid())
+  tenantId    String
+  jobId       String
+  reportedBy  String   // userId
+  type        String   // safety | damage | delay | material | other
+  severity    String   @default("medium") // low | medium | high | critical
+  status      String   @default("open")   // open | in_review | resolved
+  title       String
+  description String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, jobId, status])
+  @@index([tenantId, reportedBy])
+  @@index([tenantId, severity, status])
+}
+
+/// Material request made by a professional for a job.
+model MaterialRequest {
+  id            String   @id @default(cuid())
+  tenantId      String
+  jobId         String
+  requestedBy   String   // userId
+  milestone     String?
+  item          String
+  quantity      Decimal  @db.Decimal(10, 2)
+  unit          String   @default("unidades")
+  estimatedCost Decimal? @db.Decimal(12, 2)
+  status        String   @default("pending") // pending | approved | delivered | rejected
+  approvedBy    String?
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, jobId, status])
+  @@index([tenantId, requestedBy, status])
+  @@index([tenantId, status])
+}
+
+// ── Travel / Movilidad y Estancia ─────────────────────────────────────────────
+
+/// Travel assignment for an out-of-town job execution.
+model TravelAssignment {
+  id                String   @id @default(cuid())
+  tenantId          String
+  jobId             String
+  assignedTo        String   // userId (professional)
+  destinationCity   String
+  departureDate     DateTime
+  returnDate        DateTime?
+  estimatedDays     Int?
+  requiresLodging   Boolean  @default(true)
+  headcount         Int      @default(1)
+  mainTransportMode String?  // flight | bus | car | rental | other
+  approvedBudget    Decimal? @db.Decimal(12, 2)
+  approvedBy        String?  // userId
+  status            String   @default("DRAFT") // DRAFT | PLANNED | ACTIVE | PENDING_SETTLEMENT | CLOSED | CANCELLED
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job               Job              @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  expenses          TravelExpense[]
+  lodging           LodgingBooking[]
+  advances          TravelAdvance[]
+  settlement        TravelSettlement?
+
+  @@index([tenantId, jobId])
+  @@index([tenantId, assignedTo, status])
+  @@index([tenantId, status])
+}
+
+/// Expense line (meal / transport / other) on a travel assignment.
+model TravelExpense {
+  id            String   @id @default(cuid())
+  tenantId      String
+  travelId      String
+  submittedBy   String   // userId
+  category      String   // meal | transport | other
+  subcategory   String?  // breakfast | lunch | dinner | uber | gas | flight | bus | rental | toll | parking | etc.
+  description   String?
+  amount        Decimal  @db.Decimal(12, 2)
+  currency      String   @default("USD")
+  expenseDate   DateTime
+  city          String?
+  origin        String?
+  destination   String?
+  vendor        String?
+  odometer      Decimal? @db.Decimal(10, 2)  // for gas
+  gallons       Decimal? @db.Decimal(8, 3)   // for gas
+  receiptUrl    String?
+  status        String   @default("PENDING") // PENDING | SUBMITTED | APPROVED | REJECTED | REIMBURSED
+  approvedBy    String?
+  approvedAt    DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  travel        TravelAssignment @relation(fields: [travelId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, travelId, status])
+  @@index([tenantId, submittedBy])
+  @@index([tenantId, category])
+}
+
+/// Lodging booking for a travel assignment.
+model LodgingBooking {
+  id               String   @id @default(cuid())
+  tenantId         String
+  travelId         String
+  type             String   @default("hotel") // hotel | airbnb | house | other
+  name             String
+  address          String?
+  placeId          String?
+  googleMapsUri    String?
+  latitude         Decimal? @db.Decimal(10, 7)
+  longitude        Decimal? @db.Decimal(10, 7)
+  checkIn          DateTime
+  checkOut         DateTime
+  costPerNight     Decimal? @db.Decimal(12, 2)
+  estimatedTotal   Decimal? @db.Decimal(12, 2)
+  actualTotal      Decimal? @db.Decimal(12, 2)
+  confirmationCode String?
+  paidBy           String?
+  status           String   @default("RESERVED") // RESERVED | ACTIVE | COMPLETED | CANCELLED
+  receiptUrl       String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  travel           TravelAssignment @relation(fields: [travelId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, travelId])
+  @@index([tenantId, status])
+}
+
+/// Cash advance issued to a professional for a travel assignment.
+model TravelAdvance {
+  id          String   @id @default(cuid())
+  tenantId    String
+  travelId    String
+  issuedTo    String   // userId
+  amount      Decimal  @db.Decimal(12, 2)
+  currency    String   @default("USD")
+  method      String?  // cash | transfer | card | other
+  issuedAt    DateTime @default(now())
+  approvedBy  String?
+  purpose     String?
+  status      String   @default("ISSUED") // ISSUED | JUSTIFIED | PARTIALLY_JUSTIFIED | RETURNED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  travel      TravelAssignment @relation(fields: [travelId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, travelId])
+  @@index([tenantId, issuedTo])
+}
+
+/// Computed settlement / liquidación for a travel assignment.
+model TravelSettlement {
+  id             String   @id @default(cuid())
+  tenantId       String
+  travelId       String   @unique
+  approvedBudget Decimal? @db.Decimal(12, 2)
+  totalAdvances  Decimal  @default(0) @db.Decimal(12, 2)
+  totalLodging   Decimal  @default(0) @db.Decimal(12, 2)
+  totalMeals     Decimal  @default(0) @db.Decimal(12, 2)
+  totalTransport Decimal  @default(0) @db.Decimal(12, 2)
+  totalOther     Decimal  @default(0) @db.Decimal(12, 2)
+  totalSpent     Decimal  @default(0) @db.Decimal(12, 2)
+  // positive = worker owes back; negative = company owes worker
+  balanceDue     Decimal  @default(0) @db.Decimal(12, 2)
+  status         String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | CLOSED
+  notes          String?
+  closedBy       String?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  travel         TravelAssignment @relation(fields: [travelId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+// ── Prometeo Engine ────────────────────────────────────────────────────────────
+
+/// A document ingested into the Prometeo RAG pipeline.
+/// Stores metadata; actual content lives in DocumentChunk.
+model PrometeoDocument {
+  id          String   @id @default(cuid())
+  tenantId    String
+  orgId       String
+  projectId   String?
+  title       String
+  sourceType  String   @default("text") // text | pdf | url | evidence | contract
+  sourceRef   String?  // bucketKey, URL, evidenceId, contractId, etc.
+  status      String   @default("pending") // pending | processing | indexed | failed
+  chunkCount  Int      @default(0)
+  uploadedById String
+  errorMsg    String?
+  metadataJson Json?   // { category, tags, domain, ... }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  chunks      DocumentChunk[]
+
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, sourceType])
+}
+
+/// A text chunk of a PrometeoDocument with its embedding vector (stored as JSON float array).
+model DocumentChunk {
+  id           String   @id @default(cuid())
+  tenantId     String
+  documentId   String
+  chunkIndex   Int
+  text         String
+  embeddingJson Json?   // Float32Array serialized as JSON number[]
+  tokenCount   Int      @default(0)
+  metadataJson Json?    // { heading, pageNumber, section, ... }
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document     PrometeoDocument      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  feedbacks    PrometeoChunkFeedback[]
+
+  @@index([tenantId, documentId, chunkIndex])
+}
+
+/// Human feedback on a specific Prometeo chunk — powers the feedback memory loop.
+/// type: "confirm" (chunk was helpful), "correct" (chunk had errors), "flag" (chunk is wrong/irrelevant)
+model PrometeoChunkFeedback {
+  id         String   @id @default(cuid())
+  tenantId   String
+  chunkId    String
+  documentId String
+  userId     String
+  type       String   // confirm | correct | flag
+  note       String?  // optional correction or comment
+  query      String?  // query that surfaced this chunk
+  tradeTag   String?  // trade context at feedback time
+  createdAt  DateTime @default(now())
+
+  chunk      DocumentChunk @relation(fields: [chunkId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, chunkId])
+  @@index([tenantId, documentId])
+  @@index([tenantId, userId])
+}
+
+/// A reusable asset tracked by Prometeo (equipment, materials, physical resources).
+model PrometeoAsset {
+  id           String   @id @default(cuid())
+  tenantId     String
+  orgId        String
+  projectId    String?
+  name         String
+  category     String   @default("general") // equipment | material | vehicle | tool | space
+  status       String   @default("available") // available | in_use | maintenance | retired
+  serialNumber String?
+  location     String?
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, category])
+}
+
+/// A work order linking a job/project to tasks, assets and assignees.
+model WorkOrder {
+  id           String   @id @default(cuid())
+  tenantId     String
+  orgId        String
+  projectId    String?
+  jobId        String?
+  title        String
+  description  String?
+  priority     String   @default("medium") // low | medium | high | urgent
+  status       String   @default("open")   // open | assigned | in_progress | review | closed | cancelled
+  assignedToId String?  // userId of worker
+  scheduledAt  DateTime?
+  dueAt        DateTime?
+  closedAt     DateTime?
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, projectId, status])
+  @@index([tenantId, assignedToId, status])
+  @@index([tenantId, priority, status])
+}
+
+// ── AI Models — Interaction Logging ────────────────────────────────────────────
+
+/// Persistent log of every AI model call — enables cost tracking, routing analytics and future training data.
+model AiInteractionLog {
+  id                  String   @id @default(cuid())
+  tenantId            String?
+  agentId             String?
+  projectId           String?
+  userId              String?
+  taskType            String
+  provider            String
+  modelSlug           String
+  modelName           String?
+  inputLength         Int      @default(0)
+  outputLength        Int      @default(0)
+  inputTokens         Int?
+  outputTokens        Int?
+  estimatedCostUsd    Decimal? @db.Decimal(10, 6)
+  latencyMs           Int?
+  routeReason         String?
+  fallbackUsed        Boolean  @default(false)
+  success             Boolean  @default(true)
+  errorMessage        String?
+  threadId            String?
+  eligibleForTraining Boolean  @default(false)
+  createdAt           DateTime @default(now())
+
+  @@index([tenantId, taskType, createdAt])
+  @@index([provider, modelSlug, createdAt])
+  @@index([agentId, projectId, createdAt])
+  @@index([threadId])
+}
+
+// ── Contractor CRM ────────────────────────────────────────────────────────────
+
+/// A sales lead or client contact for a contractor's construction business.
+model ContractorLead {
+  id           String    @id @default(cuid())
+  tenantId     String
+  orgId        String
+  createdBy    String
+
+  // Contact info
+  name         String
+  phone        String?
+  email        String?
+  address      String?
+  city         String?
+  state        String?
+
+  // Job context
+  jobType      String?   // e.g. "drywall", "painting", "remodel", "flooring"
+  description  String?   // short description of the work needed
+  budgetRange  String?   // e.g. "$500-$1000"
+  urgency      String?   // "asap", "this_week", "this_month", "flexible"
+
+  // Lead pipeline
+  status       String    @default("new")
+  // new | contacted | estimate_sent | estimate_approved | in_progress | completed | lost
+
+  notes        String?
+  nextAction   String?
+  nextActionAt DateTime?
+
+  // References (set when lead converts to real job/project)
+  jobId        String?
+  projectId    String?
+
+  // Source tracking
+  source       String?   // "referral", "nextdoor", "facebook", "call", "website", "other"
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversationThreads ConversationThread[]
+  contactIdentities ContactIdentity[]
+
+  @@index([tenantId, orgId, status, createdAt])
+  @@index([tenantId, status])
+}
+
+// ── AI Mission Control Incidents ──────────────────────────────────────────────
+
+/// Persistent log of AI system posture incidents detected by Mission Control.
+model MissionControlIncident {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  source    String
+  posture   String
+  severity  String
+  title     String
+  detail    String
+  alertIds  String[]
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([severity, createdAt])
+}
+
+// ── SEMSE Operational Context ──────────────────────────────────────────────────
+
+/// Snapshot of operational context for a user session — used by Prometeo to generate real reports.
+model OperationalContextSnapshot {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String
+  projectId   String?
+  role        String   @default("client")
+  snapshotJson Json
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, userId, expiresAt])
+}
+
+// ── Finance & Document Tools ────────────────────────────────────────────────────
+
+/// Professional invoice — created by a professional org, sent to a client org.
+model Invoice {
+  id           String    @id @default(cuid())
+  tenantId     String
+  orgId        String    // issuing org (professional)
+  clientOrgId  String?   // recipient org (client)
+  projectId    String?
+  jobId        String?
+  createdBy    String    // userId
+  number       String    // e.g. INV-0001, auto-generated
+  title        String
+  status       String    @default("draft")
+  // draft | sent | viewed | approved | paid | overdue | cancelled
+  lineItems    Json      @default("[]")
+  // [{ description, qty, unitPrice, taxRate, total }]
+  subtotal     Decimal   @db.Decimal(12, 2) @default(0)
+  taxAmount    Decimal   @db.Decimal(12, 2) @default(0)
+  total        Decimal   @db.Decimal(12, 2) @default(0)
+  currency     String    @default("USD")
+  dueDate      DateTime?
+  paidAt       DateTime?
+  sentAt       DateTime?
+  viewedAt     DateTime?
+  notes        String?
+  terms        String?
+  pdfUrl       String?
+  externalRef  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expenses  ProjectExpense[]
+
+  @@index([tenantId, orgId, status, createdAt])
+  @@index([tenantId, projectId, createdAt])
+  @@index([tenantId, clientOrgId, status])
+}
+
+/// Project-level expense / receipt — tracks every cost associated with a project.
+model ProjectExpense {
+  id            String    @id @default(cuid())
+  tenantId      String
+  orgId         String
+  projectId     String?
+  milestoneId   String?
+  jobId         String?
+  invoiceId     String?
+  submittedBy   String    // userId
+  category      String
+  // materials | labor | tools | transport | permits | subcontractors | maintenance | equipment | unexpected | other
+  subcategory   String?
+  description   String
+  amount        Decimal   @db.Decimal(12, 2)
+  currency      String    @default("USD")
+  vendor        String?
+  expenseDate   DateTime  @default(now())
+  receiptUrl    String?
+  receiptText   String?   // OCR output
+  status        String    @default("pending")
+  // pending | approved | rejected | reimbursed | archived
+  approvedBy    String?
+  approvedAt    DateTime?
+  isDuplicate   Boolean   @default(false)
+  duplicateOfId String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, projectId, status, createdAt])
+  @@index([tenantId, orgId, category, createdAt])
+  @@index([tenantId, submittedBy, createdAt])
+}
+
+/// Reusable document templates for invoices, quotes, contracts, reports, checklists, etc.
+model DocumentTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  orgId     String
+  createdBy String
+  name      String
+  category  String
+  // invoice | quote | contract | work_order | daily_report | weekly_report | checklist | inspection | closeout | other
+  bodyJson  Json     @default("{}")
+  // template fields: { sections, variables, defaultValues }
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, orgId, category, isActive])
+}
+
+// ── Digital Twin ────────────────────────────────────────────────────────────────
+
+/// Immutable archive of a completed project — the digital twin of the built work.
+model ProjectArchive {
+  id              String   @id @default(cuid())
+  tenantId        String
+  projectId       String   @unique
+  jobId           String?
+  archivedAt      DateTime @default(now())
+  archivedBy      String   // userId
+  status          String   @default("complete") // complete | partial
+  snapshotJson    Json     // full project snapshot
+  financialJson   Json     // escrow, invoices, expenses
+  milestonesJson  Json     // all milestones with evidence refs
+  contractorId    String?  // professional userId
+  contractorOrgId String?
+  clientOrgId     String?
+  totalValue      Decimal? @db.Decimal(12, 2)
+  durationDays    Int?
+  milestoneCount  Int      @default(0)
+  evidenceCount   Int      @default(0)
+  disputeCount    Int      @default(0)
+  pdfUrl          String?
+
+  @@index([tenantId, archivedAt])
+  @@index([contractorOrgId, archivedAt])
+  @@index([clientOrgId, archivedAt])
+}
+
+// ── Risk Score ──────────────────────────────────────────────────────────────────
+
+/// Real-time risk assessment for an active project.
+model ProjectRiskScore {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  projectId            String   @unique
+  overallScore         Int      // 0-100, higher = riskier
+  disputeRisk          Decimal  @db.Decimal(5, 4)  // 0.0 - 1.0
+  budgetOverrunRisk    Decimal  @db.Decimal(5, 4)
+  scheduleRisk         Decimal  @db.Decimal(5, 4)
+  factorsJson          Json     // which signals drove the score
+  calculatedAt         DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([tenantId, overallScore])
+  @@index([tenantId, disputeRisk])
+}
+
+// ── Professional Credential ─────────────────────────────────────────────────────
+
+/// Verified professional credential — public-facing, built from real project history.
+model ProfessionalCredential {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  userId              String   @unique
+  orgId               String?
+  displayName         String
+  completedProjects   Int      @default(0)
+  activeProjects      Int      @default(0)
+  totalManaged        Decimal  @db.Decimal(14, 2) @default(0)
+  onTimeRate          Decimal  @db.Decimal(5, 4)  @default(0) // % milestones on time
+  disputeRate         Decimal  @db.Decimal(5, 4)  @default(0) // % projects with disputes
+  avgClientRating     Decimal  @db.Decimal(3, 2)  @default(0)
+  trustScore          Int      @default(0)         // 0-100
+  specialties         Json     @default("[]")      // ["electricidad","plomería",...]
+  verifiedAt          DateTime?
+  lastActivityAt      DateTime?
+  publicSlug          String?  @unique
+  badgesJson          Json     @default("[]")      // ["top_rated","zero_disputes",...]
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId, trustScore])
+  @@index([tenantId, completedProjects])
+}
+
+// ── Conversational Project Builder ─────────────────────────────────────────────
+
+/// Draft of a job posting being built via the conversational assistant.
+model ProjectDraft {
+  id            String    @id @default(cuid())
+  tenantId      String
+  orgId         String
+  createdBy     String
+  sessionId     String?
+
+  flow          String    @default("publish_job")
+  status        String    @default("in_progress")
+
+  categoryId    String?
+  subcategoryId String?
+  title         String?
+  description   String?
+  city          String?
+  locationType  String?
+  budgetMin            Float?
+  budgetMax            Float?
+  urgency              String?
+  attachmentsExpected  Boolean  @default(false)
+
+  // Set when draft is published as a real Job
+  publishedJobId       String?
+
+  completion    Int       @default(0)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId, createdBy])
+  @@index([tenantId, status])
+}
+
+model ProjectIntake {
+  id                     String   @id
+  tenantId               String
+  userId                 String?
+  sessionToken           String?
+  publishedJobId         String?
+  rawDescription         String
+  providedTitle          String?
+  normalizedTitle        String
+  selectedCategoryId     String?
+  selectedSubcategoryId  String?
+  detectedCategory       String
+  detectedSubcategory    String?
+  modality               String?
+  city                   String?
+  urgency                String?
+  detectedLanguage       String   @default("es")
+  categoryConfidence     Float    @default(0)
+  accuracyScore          Int      @default(0)
+  accuracyLevel          String   @default("low")
+  missingFields          String[] @default([])
+  recommendedFields      String[] @default([])
+  answersJson            Json?
+  uploadedImagesJson     Json?
+  estimatePreferenceJson Json?
+  projectScopeJson       Json?
+  generatedEstimateJson  Json?
+  generatedMilestonesJson Json?
+  activeWarningsJson     Json?
+  status                 String   @default("draft")
+  claimedAt              DateTime?
+  publishedAt            DateTime?
+  expiresAt              DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([tenantId, sessionToken])
+  @@index([tenantId, userId])
+  @@index([tenantId, status])
+}
+
+/// BuildOps project shell persisted from estimates, tool results and draft work.
+model BuildOpsProject {
+  id               String   @id @default(cuid())
+  tenantId         String
+  orgId            String
+  jobId            String?  @unique
+  createdBy        String
+  title            String
+  description      String?
+  trade            String
+  projectType      String
+  clientName       String
+  professionalName String?
+  location         String
+  budgetEstimate   Decimal? @db.Decimal(12, 2)
+  status           String   @default("draft")
+  riskScore        Int      @default(0)
+  riskLevel        String   @default("low")
+  startDate        DateTime?
+  dueDate          DateTime?
+  sourceTool       String?
+  sourceToolInput  Json?
+  sourceToolResult Json?
+  clientPlanApprovalStatus   String   @default("pending")
+  clientPlanApprovedAt       DateTime?
+  clientPlanApprovedById     String?
+  clientPlanApprovalSource   String?
+  clientPlanApprovalReason   String?
+  clientPlanReviewedAt       DateTime?
+  clientPlanReviewComment    String?
+  clientPlanUnapprovedAt     DateTime?
+  clientPlanUnapprovedById   String?
+  clientPlanUnapprovalReason String?
+  legacyPromotionStatus      String   @default("pending")
+  legacyPromotedAt           DateTime?
+  completion       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  job              Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org              Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  tasks            BuildOpsTask[]
+  planVersions     BuildOpsPlanVersion[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, trade])
+  @@index([tenantId, createdBy])
+  @@index([tenantId, jobId])
+  @@index([tenantId, clientPlanApprovalStatus])
+  @@index([tenantId, legacyPromotionStatus])
+}
+
+model BuildOpsPlanVersion {
+  id                               String   @id @default(cuid())
+  tenantId                         String
+  buildOpsProjectId                String
+  versionNumber                    Int
+  sourceToolInputJson              Json?
+  sourceToolResultJson             Json?
+  inputSnapshotJson                Json?
+  clientPlanReviewCommentSnapshot  String?
+  runReason                        String
+  triggeredByUserId                String
+  triggeredAt                      DateTime @default(now())
+  completedAt                      DateTime?
+  previousVersionId                String?
+  status                           String   @default("running")
+  errorMessage                     String?
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+
+  tenant                           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buildOpsProject                  BuildOpsProject      @relation(fields: [buildOpsProjectId], references: [id], onDelete: Cascade)
+  previousVersion                  BuildOpsPlanVersion? @relation("BuildOpsPlanVersionHistory", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions                     BuildOpsPlanVersion[] @relation("BuildOpsPlanVersionHistory")
+
+  @@unique([buildOpsProjectId, versionNumber])
+  @@index([tenantId, buildOpsProjectId, status])
+  @@index([buildOpsProjectId, previousVersionId])
+}
+
+/// Task or action item tracked inside BuildOps and optionally linked to a project.
+model BuildOpsTask {
+  id              String   @id @default(cuid())
+  tenantId        String
+  orgId           String
+  projectId       String?
+  templateKey     String?
+  createdBy       String
+  title           String
+  description     String?
+  status          String   @default("todo") // todo | in_progress | blocked | done | canceled
+  priority        String   @default("medium") // low | medium | high | urgent
+  assigneeName    String?
+  assigneeUserId  String?
+  dueDate         DateTime?
+  completion      Int      @default(0)
+  sourceTool      String?
+  evidenceRequired Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org             Org           @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project         BuildOpsProject? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, projectId])
+  @@index([tenantId, priority])
+  @@index([tenantId, templateKey])
+  @@unique([projectId, templateKey])
+}
+
+/// Conversation session for the assistant flow.
+model ConversationSession {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  draftId     String?
+  flow        String?
+  pageRoute   String?
+  messages    Json      @default("[]")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId, userId])
+}
+
+/// Audit trail of assistant actions (draft_created, fields_updated, budget_triggered, draft_confirmed, form_opened).
+model AssistantActionLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  sessionId   String?
+  draftId     String?
+  userId      String
+  actionType  String
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([tenantId, draftId])
+}
+
+/// Stores each ProTools algorithm run for auditing, analytics and learning.
+model AlgorithmRun {
+  id                 String    @id @default(cuid())
+  tenantId           String?
+  userId             String?
+  jobId              String?
+  buildOpsProjectId  String?
+  trade              String
+  toolName           String
+  algorithmVersion   String    @default("unknown-v1.0.0")
+  inputJson          Json      @default("{}")
+  outputJson         Json      @default("{}")
+  confidenceScore    Int?
+  riskScore          Int?
+  readinessScore     Int?
+  disputeRiskScore   Int?
+  priceBandLow       Decimal?  @db.Decimal(12, 2)
+  priceBandMid       Decimal?  @db.Decimal(12, 2)
+  priceBandHigh      Decimal?  @db.Decimal(12, 2)
+  canPublish         Boolean   @default(true)
+  canCreateBuildOps  Boolean   @default(false)
+  canCreateContract  Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+
+  @@index([trade, createdAt])
+  @@index([userId])
+  @@index([jobId])
+  @@index([buildOpsProjectId])
+  @@index([createdAt])
+}
+
+/// Per-milestone evidence requirement tracking (before/during/after).
+model MilestoneEvidenceItem {
+  id            String    @id @default(cuid())
+  milestoneId   String
+  label         String
+  description   String?
+  kind          String    @default("PHOTO")     // PHOTO | VIDEO | DOCUMENT
+  phase         String    @default("after")     // before | during | after
+  required      Boolean   @default(true)
+  status        String    @default("missing")   // missing | submitted | approved | rejected
+  evidenceId    String?
+  reviewNote    String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  milestone     Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([milestoneId])
+  @@index([milestoneId, status])
+}
+
+/// Tracks change orders from engine predictions through client approval.
+model ChangeOrderCandidate {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  buildOpsProjectId  String?
+  jobId              String?
+  milestoneId        String?
+  algorithmRunId     String?
+  title              String
+  description        String?
+  trigger            String                         // condition that triggers this CO
+  pricingMode        String    @default("time_and_materials")
+  estimatedMin       Decimal?  @db.Decimal(12, 2)
+  estimatedMax       Decimal?  @db.Decimal(12, 2)
+  status             String    @default("predicted") // predicted | submitted | approved | rejected | voided
+  submittedById      String?
+  submittedAt        DateTime?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  clientNote         String?
+  probability        Int?
+  evidenceJson       Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, status])
+  @@index([buildOpsProjectId])
+  @@index([jobId])
+  @@index([createdAt])
+}
+
+// ── Operational Intelligence ─────────────────────────────────────────────────
+
+/// Operational signal emitted by intelligence agents when a condition is detected.
+model OperationalSignal {
+  id                String    @id @default(cuid())
+  tenantId          String
+  type              String                          // EVIDENCE_GAP | PAYMENT_BLOCKED | LOW_CONFIDENCE_ESTIMATE | CHANGE_ORDER_RECOMMENDED | DISPUTE_RISK_HIGH
+  severity          String    @default("medium")   // low | medium | high | critical
+  status            String    @default("open")     // open | acknowledged | resolved | dismissed
+  title             String
+  message           String
+  recommendedAction String?
+  sourceAgent       String?
+  entityType        String
+  entityId          String
+  jobId             String?
+  buildOpsProjectId String?
+  milestoneId       String?
+  metadataJson      Json?
+  createdAt         DateTime  @default(now())
+  acknowledgedAt    DateTime?
+  resolvedAt        DateTime?
+
+  @@index([tenantId, status])
+  @@index([type])
+  @@index([severity])
+  @@index([status])
+  @@index([entityType, entityId])
+  @@index([jobId])
+  @@index([buildOpsProjectId])
+  @@index([milestoneId])
+  @@index([createdAt])
+}
+
+/// Traces each intelligence agent evaluation for auditability.
+model IntelligenceRun {
+  id                  String   @id @default(cuid())
+  tenantId            String
+  agentName           String
+  triggerEvent        String
+  entityType          String
+  entityId            String
+  contextSnapshotJson Json?
+  decisionJson        Json?
+  signalsCreated      String[] @default([])
+  status              String   @default("completed") // completed | failed
+  error               String?
+  durationMs          Int?
+  createdAt           DateTime @default(now())
+
+  @@index([agentName])
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+/// Caché de precios de materiales de construcción obtenidos de APIs externas (BLS PPI, FRED).
+/// Se actualiza cada 24h mediante un worker job. Los engines ProTools leen de aquí.
+model MaterialPriceSnapshot {
+  id          String   @id @default(cuid())
+  materialKey String   // Clave canónica, ej: "lumber-2x4", "steel-rebar", "copper-wire"
+  blsSeriesId String?  // Código BLS PPI, ej: "WPU081" para lumber
+  source      String   // "BLS_PPI" | "FRED" | "MANUAL"
+  pricePerUnit Decimal @db.Decimal(10, 4)  // Precio por unidad canónica (USD)
+  unit        String   // "board-ft", "ton", "sqft", "linear-ft", "each"
+  indexValue  Decimal? @db.Decimal(10, 4)  // Índice PPI original (2012=100)
+  basePrice   Decimal? @db.Decimal(10, 4)  // Precio base hardcoded de referencia
+  changeYoY   Decimal? @db.Decimal(6, 4)   // Cambio año a año (%)
+  fetchedAt   DateTime @default(now())
+  validUntil  DateTime // Expiración del caché (default: fetchedAt + 24h)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([materialKey])
+  @@index([materialKey])
+  @@index([source])
+  @@index([validUntil])
+}
+
+/// Caché de tarifas laborales reales por oficio de construcción.
+/// Datos de BLS OEWS (Occupational Employment and Wage Statistics).
+/// Se usa para derivar multiplicadores de labor por estado/metro.
+model LaborRateSnapshot {
+  id          String   @id @default(cuid())
+  tradeKey    String   // "carpenter", "electrician", "plumber", etc.
+  socCode     String   // BLS SOC code, e.g. "47-2031"
+  scopeType   String   // "national" | state code "CA" | metro FIPS
+  meanWage    Decimal  @db.Decimal(10, 2)  // Annual mean wage (USD)
+  hourlyMean  Decimal  @db.Decimal(10, 2)  // Hourly mean wage (USD)
+  multiplier  Decimal  @db.Decimal(6, 4)   // vs. national avg (1.00 = average)
+  sampleSize  Int?                          // Employment estimate
+  fetchedAt   DateTime @default(now())
+  validUntil  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tradeKey, scopeType])
+  @@index([tradeKey])
+  @@index([scopeType])
+  @@index([validUntil])
+}
+
+/// Índices de costo regional por estado (material + labor).
+/// Combinación de factores RSMeans estáticos + OEWS dinámico.
+model LocationCostIndex {
+  id                  String   @id @default(cuid())
+  stateCode           String   // "CA", "TX", "NY", etc.
+  stateName           String
+  materialMultiplier  Decimal  @db.Decimal(6, 4)  // vs. national avg
+  laborMultiplier     Decimal  @db.Decimal(6, 4)  // vs. national avg
+  dataSource          String   // "oews+static" | "manual"
+  fetchedAt           DateTime @default(now())
+  validUntil          DateTime
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([stateCode])
+  @@index([stateCode])
+  @@index([validUntil])
+}
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Governance Sandbox — reputation-weighted proposals & voting (P4 Prometeo)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A governance proposal that platform participants can vote on.
+/// Voting weight is derived from the proposer/voter reputation score (VCS).
+model GovernanceProposal {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  description String
+  category    String   @default("general") // general | platform | rules | incentives
+  status      String   @default("open")    // open | closed | passed | rejected | cancelled
+  /// Proposer userId
+  authorId    String
+  /// Snapshot of author reputation score at submission time
+  authorReputationScore Decimal  @default(0) @db.Decimal(6, 2)
+  /// MCA advisory note generated at submission
+  mcaAdvice   String?
+  /// MCA risk level: low | medium | high
+  mcaRisk     String   @default("low")
+  closesAt    DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  votes       GovernanceVote[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, closesAt])
+  @@index([authorId])
+}
+
+/// A vote cast on a governance proposal.
+/// Weight = voter reputation score at time of vote (quadratic cost applied on read).
+model GovernanceVote {
+  id           String   @id @default(cuid())
+  tenantId     String
+  proposalId   String
+  voterId      String
+  /// "for" | "against" | "abstain"
+  choice       String
+  /// Reputation score at time of vote — determines vote weight
+  voterReputationScore Decimal @default(0) @db.Decimal(6, 2)
+  /// Raw vote units cast (default 1; quadratic cost = units²)
+  units        Int      @default(1)
+  reason       String?
+  createdAt    DateTime @default(now())
+  proposal     GovernanceProposal @relation(fields: [proposalId], references: [id])
+
+  @@unique([proposalId, voterId])
+  @@index([tenantId, proposalId])
+  @@index([voterId])
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Governance Credit Ledger — P5 Prometeo participation tokens
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Append-only ledger of governance credit events per user.
+/// Credits decay over time; total determines governance tier.
+model GovernanceCreditEvent {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  /// proposal_created | vote_cast | proposal_passed | proposal_rejected
+  eventType  String
+  credits    Decimal  @db.Decimal(8, 2)
+  /// serialized JSON context (proposalId, outcome, risk, etc.)
+  context    String   @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([userId, createdAt])
+}

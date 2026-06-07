@@ -1,0 +1,27 @@
+{
+  "generatedAtIso": "2026-04-16T04:29:22.254Z",
+  "sourceManifest": "docs/bcp/evidence/manifest.json",
+  "summary": {
+    "generatedAtIso": "2026-04-16T04:29:22.254Z",
+    "latestMode": "api",
+    "latestStatus": "pass",
+    "latestAgeMinutes": 0,
+    "manifestEntries": 14,
+    "modeCoverage": [
+      "api",
+      "local"
+    ],
+    "maxSeverity": "none"
+  },
+  "risks": [
+    {
+      "severity": "none",
+      "code": "no_open_risks",
+      "summary": "No se detectaron riesgos abiertos en el manifiesto.",
+      "status": "closed"
+    }
+  ],
+  "recommendedActions": [
+    "Mantener la cadencia actual de drills local y API."
+  ]
+}

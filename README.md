@@ -1,120 +1,153 @@
-# Gestor de Proyectos Pro
+# SEMSEproject / Sense Project
 
-Aplicación web local para gestión de proyectos, sin dependencias de runtime.
+SEMSEproject es un ecosistema digital para gestionar servicios profesionales, construcción y operación asistida con IA. La raíz Git de este workspace es `labsemse/`, pero la raíz canónica de desarrollo vive en `project-manager-app/`.
 
-## Badges
+## Qué problema resuelve
 
-Configurados para `Samuelcastella/project-manager-app`:
+SEMSE busca unificar en una sola plataforma:
 
-[![CI](https://github.com/Samuelcastella/project-manager-app/actions/workflows/ci.yml/badge.svg)](https://github.com/Samuelcastella/project-manager-app/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/Samuelcastella/project-manager-app/graph/badge.svg)](https://codecov.io/gh/Samuelcastella/project-manager-app)
+- captación y gestión de clientes
+- operación de profesionales y contratistas
+- administración interna
+- marketplace de servicios
+- proyectos, contratos, hitos y pagos en escrow
+- evidencias, documentos, facturas y recibos
+- agentes de IA, RAG y automatización operativa
 
-## Funcionalidades
+El objetivo es reducir fricción entre venta, ejecución, control documental, pagos y soporte inteligente, empezando por construcción y gestión de proyectos.
 
-- Crear y editar proyectos.
-- Campos: nombre, responsable, estado, prioridad, fecha, presupuesto, etiquetas y descripción.
-- Vista lista y vista kanban.
-- Métricas en tiempo real: total, en progreso, vencidos y % completado.
-- Filtros avanzados (texto, estado, prioridad, responsable) y ordenamiento.
-- Cambio rápido de estado.
-- Eliminación individual y limpieza masiva de completados.
-- Exportar e importar proyectos en JSON.
-- Persistencia con `localStorage`.
+## Módulos principales
 
-## Mejores prácticas aplicadas
+- Client Dashboard
+- Professional Dashboard
+- Admin Panel
+- Marketplace de servicios
+- Gestión de proyectos
+- Contratos digitales
+- Milestones / hitos
+- Pagos en escrow
+- Evidence Center
+- Invoice & Receipt Scanner
+- AI Center
+- Floating AI Assistant
+- Prometeo Engine
+- Nexus DB / vector database
+- RAG Pipeline
+- Multi-provider LLM Router
 
-- Validación de datos antes de crear/editar.
-- Normalización de datos importados y lectura de versiones antiguas de storage.
-- Confirmación explícita para acciones destructivas.
-- Mensajes accesibles en vivo (`aria-live`) para feedback de estado.
-- Manejo seguro de errores de JSON y almacenamiento.
-- `debounce` en filtros de texto para mejor rendimiento.
-- Lógica estructurada por funciones pequeñas y reutilizables.
+## Estructura del workspace
 
-## Tests automatizados
-
-### Unitarios (Node test runner)
-
-```bash
-npm run test:unit
+```text
+labsemse/                          <- raíz Git y contenedor del workspace
+├── project-manager-app/           <- tronco canónico de producto y desarrollo
+│   ├── apps/api                   <- backend NestJS
+│   ├── apps/web                   <- frontend Next.js
+│   ├── apps/worker                <- worker / colas
+│   ├── packages/db                <- Prisma + PostgreSQL
+│   ├── packages/agents            <- agentes SEMSE
+│   ├── packages/schemas           <- contratos y tipos
+│   ├── packages/shared            <- utilidades compartidas
+│   ├── packages/ui                <- UI reutilizable
+│   └── docs/                      <- documentación canónica
+├── semse-mobile-app/              <- app Vite/React complementaria
+├── semse/                         <- herramientas y CLI auxiliares
+├── archive/                       <- histórico, no editar para trabajo nuevo
+├── app semse/_satellites-archive/ <- satélites congelados
+└── semse-storage/                 <- almacenamiento operacional local
 ```
 
-### Cobertura con c8 (con umbrales)
+## Dónde trabajar
+
+- Backend nuevo: `project-manager-app/apps/api/`
+- Frontend web nuevo: `project-manager-app/apps/web/`
+- Worker / procesos: `project-manager-app/apps/worker/`
+- Prisma / DB: `project-manager-app/packages/db/`
+- Tipos y schemas: `project-manager-app/packages/schemas/`
+- Agentes y orquestación IA: `project-manager-app/packages/agents/`
+- Documentación canónica: `project-manager-app/docs/`
+
+## Stack detectado
+
+- Frontend principal: Next.js 15.5, React 19, Tailwind CSS 4
+- Frontend adicional: Vite + React + TypeScript en `semse-mobile-app/`
+- Módulo Angular detectado: `project-manager-app/apps/angular/`
+- Backend: Node.js, NestJS 11, Fastify
+- Worker / jobs: Node.js + BullMQ
+- Base de datos: PostgreSQL + Prisma
+- Validación: Zod
+- Testing: Node test runner, cobertura API y Playwright E2E
+- IA: OpenAI, Anthropic, DeepSeek, Kimi/Moonshot, Ollama
+- RAG y agentes: Prometeo Engine, Nexus DB conceptual, router multi-modelo
+
+## Instalación
+
+Los scripts reales viven en `project-manager-app/package.json`.
 
 ```bash
-npm run test:coverage
+cd project-manager-app
+pnpm install
 ```
 
-### Pipeline local equivalente a CI
+## Cómo correr el proyecto
+
+Desde `project-manager-app/`:
 
 ```bash
-npm run test:ci
+pnpm dev:web
+pnpm dev:api
+pnpm dev:worker
 ```
 
-Umbrales mínimos configurados:
-- `lines >= 90%`
-- `functions >= 90%`
-- `statements >= 90%`
-- `branches >= 85%`
-
-Cobertura actual:
-- Parseo y normalización de etiquetas.
-- Validaciones de formulario.
-- Filtros y ordenamiento de proyectos.
-- Normalización de proyectos e identificación de vencidos.
-
-### E2E (Playwright)
+Para levantar la infraestructura local del MVP:
 
 ```bash
-npm run test:e2e
+docker compose -f infra/docker/compose.semse-mvp.yml up -d
 ```
 
-Escenarios actuales:
-- Crear proyecto y verificar render en lista.
-- Cambiar a vista kanban y mover estado con acción rápida.
-
-Si es la primera vez:
+Para API con LLM local:
 
 ```bash
-npm install
-npx playwright install chromium
+pnpm dev:api:local-llm
 ```
 
-## CI
+## Build y tests
 
-Se agregó pipeline en [`.github/workflows/ci.yml`](/home/yoni/project-manager-app/.github/workflows/ci.yml) con dos jobs:
-- `unit-coverage`: ejecuta `npm run test:coverage`, valida umbrales y publica resumen de cobertura en el run.
-- `e2e`: ejecuta Playwright (`chromium`) con `npm run test:e2e` y sube artefactos para debugging.
-
-### Reporte externo de cobertura (Codecov)
-
-- Se agregó configuración en [codecov.yml](/home/yoni/project-manager-app/codecov.yml).
-- El workflow sube `coverage/lcov.info` a Codecov en cada ejecución.
-- Si tu repositorio es privado, define el secret `CODECOV_TOKEN` en GitHub:
-  `Settings -> Secrets and variables -> Actions -> New repository secret`.
-- Si es público, el token suele no ser necesario (puedes dejarlo vacío).
-
-### Mantenimiento automático de dependencias
-
-- Se agregó [`.github/dependabot.yml`](/home/yoni/project-manager-app/.github/dependabot.yml).
-- Dependabot revisa semanalmente:
-  - Dependencias `npm`.
-  - Versiones de `GitHub Actions`.
-
-## Publicar en GitHub
-
-Si aún no publicaste el repo remoto:
+Desde `project-manager-app/`:
 
 ```bash
-cd /home/yoni/project-manager-app
-git init
-git add .
-git commit -m "feat: project manager app with tests and CI"
-git branch -M main
-git remote add origin git@github.com:Samuelcastella/project-manager-app.git
-git push -u origin main
+pnpm build:web
+pnpm build:api
+pnpm verify:workspace
+pnpm test:unit
+pnpm test:e2e
 ```
 
-## Ejecutar app
+Si necesitas Playwright por primera vez:
 
-Abre `index.html` en tu navegador.
+```bash
+pnpm exec playwright install chromium
+```
+
+## Contribuir sin romper estructura
+
+- Trabaja por defecto dentro de `project-manager-app/`.
+- No desarrolles features nuevas en `archive/` ni en `app semse/_satellites-archive/`.
+- No subas secretos, `.env`, tokens ni credenciales.
+- No uses `git add .` sin revisar primero el `git status`.
+- No mezcles cambios documentales, infraestructura y features en un mismo commit si no están relacionados.
+- Mantén `README.md`, `SEMSE_CONTEXT.md` y `ROADMAP.md` alineados cuando cambie la arquitectura.
+- Si mueves carpetas críticas o cambias canonicidad, documenta el plan antes de ejecutar.
+
+## Reglas operativas
+
+- La raíz Git correcta es `labsemse/`.
+- La raíz canónica de producto es `project-manager-app/`.
+- Todo código nuevo debe justificar su ubicación.
+- `archive/` es solo histórico.
+- La documentación es parte del sistema, no un extra.
+
+Consulta también:
+
+- [SEMSE_CONTEXT.md](SEMSE_CONTEXT.md)
+- [ROADMAP.md](ROADMAP.md)
+- [project-manager-app/README.md](project-manager-app/README.md)

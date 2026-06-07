@@ -1,0 +1,175 @@
+{
+  "namespace": "semse.runtime",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "semse_runtime",
+      "name": "SEMSE Runtime",
+      "kind": "runtime_root",
+      "description": "Topologia operativa del ecosistema vivo con servicios reales y dependencias principales.",
+      "responsibilities": ["service_topology", "runtime_visibility", "health_awareness"],
+      "parentId": null,
+      "ports": [],
+      "endpoints": [],
+      "aliases": ["runtime", "ops_runtime"],
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.99, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "api_service",
+      "name": "SEMSE API",
+      "kind": "application_service",
+      "description": "Backend principal de NestJS que expone dominios, agentes y surfaces HTTP.",
+      "responsibilities": ["http_api", "domain_runtime", "agent_entrypoints"],
+      "parentId": "semse_runtime",
+      "ports": [4121],
+      "endpoints": ["http://127.0.0.1:4121/v1/health"],
+      "aliases": ["api", "backend"],
+      "healthCheck": { "type": "http", "targets": ["http://127.0.0.1:4121/v1/health"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "web_service",
+      "name": "SEMSE Web",
+      "kind": "application_service",
+      "description": "Frontend de Next.js con superficies de exploracion y proxies de dominio.",
+      "responsibilities": ["frontend", "knowledge_ui", "proxy_runtime"],
+      "parentId": "semse_runtime",
+      "ports": [3000, 3001],
+      "endpoints": ["http://127.0.0.1:3001/api/semse/healthz", "http://127.0.0.1:3000/api/semse/healthz"],
+      "aliases": ["web", "frontend"],
+      "healthCheck": { "type": "http", "targets": ["http://127.0.0.1:3001/api/semse/healthz", "http://127.0.0.1:3000/api/semse/healthz"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.96, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "worker_service",
+      "name": "SEMSE Worker",
+      "kind": "worker_service",
+      "description": "Worker asincrono para colas, ingestiones y procesamiento de eventos.",
+      "responsibilities": ["jobs", "background_tasks", "event_processing"],
+      "parentId": "semse_runtime",
+      "ports": [],
+      "endpoints": [],
+      "aliases": ["worker", "background_worker"],
+      "healthCheck": { "type": "internal", "targets": ["worker-process"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.91, "version": "1.0.0", "status": "reviewed" }
+    },
+    {
+      "id": "postgres_service",
+      "name": "Postgres",
+      "kind": "data_service",
+      "description": "Base de datos principal del ecosistema.",
+      "responsibilities": ["primary_storage", "prisma", "transactions"],
+      "parentId": "semse_runtime",
+      "ports": [5433],
+      "endpoints": [],
+      "aliases": ["postgres", "db"],
+      "healthCheck": { "type": "tcp", "targets": ["127.0.0.1:5433"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "redis_service",
+      "name": "Redis",
+      "kind": "data_service",
+      "description": "Cache y cola ligera para el runtime.",
+      "responsibilities": ["cache", "queue_state", "coordination"],
+      "parentId": "semse_runtime",
+      "ports": [6379],
+      "endpoints": [],
+      "aliases": ["redis", "cache"],
+      "healthCheck": { "type": "tcp", "targets": ["127.0.0.1:6379"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "minio_service",
+      "name": "MinIO",
+      "kind": "storage_service",
+      "description": "Storage S3-compatible para evidencias y blobs.",
+      "responsibilities": ["blob_storage", "evidence_files"],
+      "parentId": "semse_runtime",
+      "ports": [9000, 9001],
+      "endpoints": ["http://127.0.0.1:9001/"],
+      "aliases": ["minio", "object_storage"],
+      "healthCheck": { "type": "http", "targets": ["http://127.0.0.1:9001/"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.96, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "mailhog_service",
+      "name": "MailHog",
+      "kind": "support_service",
+      "description": "Captura local de correos para pruebas y demos.",
+      "responsibilities": ["email_capture", "local_debugging"],
+      "parentId": "semse_runtime",
+      "ports": [8025],
+      "endpoints": ["http://127.0.0.1:8025/"],
+      "aliases": ["mailhog", "mail_debug"],
+      "healthCheck": { "type": "http", "targets": ["http://127.0.0.1:8025/"], "timeoutMs": 2500 },
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.95, "version": "1.0.0", "status": "canonical" }
+    }
+  ],
+  "relations": [
+    {
+      "id": "runtime_contains_api",
+      "type": "contains",
+      "sourceId": "semse_runtime",
+      "targetId": "api_service",
+      "description": "El runtime vivo contiene el backend principal.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "runtime_contains_web",
+      "type": "contains",
+      "sourceId": "semse_runtime",
+      "targetId": "web_service",
+      "description": "El runtime vivo contiene el frontend principal.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "runtime_contains_worker",
+      "type": "contains",
+      "sourceId": "semse_runtime",
+      "targetId": "worker_service",
+      "description": "El runtime vivo contiene el worker principal.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.95, "version": "1.0.0" }
+    },
+    {
+      "id": "api_depends_on_postgres",
+      "type": "depends_on",
+      "sourceId": "api_service",
+      "targetId": "postgres_service",
+      "description": "La API depende de Postgres para persistencia principal.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "api_depends_on_redis",
+      "type": "depends_on",
+      "sourceId": "api_service",
+      "targetId": "redis_service",
+      "description": "La API depende de Redis para coordinacion y cache.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.95, "version": "1.0.0" }
+    },
+    {
+      "id": "api_depends_on_minio",
+      "type": "depends_on",
+      "sourceId": "api_service",
+      "targetId": "minio_service",
+      "description": "La API depende de MinIO para blobs y evidencias.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.94, "version": "1.0.0" }
+    },
+    {
+      "id": "web_depends_on_api",
+      "type": "depends_on",
+      "sourceId": "web_service",
+      "targetId": "api_service",
+      "description": "La web depende de la API para datos vivos y proxies.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "worker_depends_on_api",
+      "type": "feeds",
+      "sourceId": "worker_service",
+      "targetId": "api_service",
+      "description": "El worker consume y actualiza el runtime a traves de la API.",
+      "metadata": { "source": "semse_runtime_seed", "confidence": 0.91, "version": "1.0.0" }
+    }
+  ]
+}

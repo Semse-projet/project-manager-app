@@ -1,0 +1,37 @@
+{
+  "generatedAtIso": "2026-04-16T03:58:28.280Z",
+  "drill": "operacion_asistida_restore_simulation",
+  "source": {
+    "path": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_035826382Z.json",
+    "mode": "api",
+    "generatedAtIso": "2026-04-16T03:58:26.382Z"
+  },
+  "checks": [
+    {
+      "name": "source report has correlationId",
+      "status": "pass"
+    },
+    {
+      "name": "source report has workspaceId",
+      "status": "pass"
+    },
+    {
+      "name": "api restore preserves run creation evidence",
+      "status": "pass"
+    },
+    {
+      "name": "api restore preserves ops trace evidence",
+      "status": "pass"
+    },
+    {
+      "name": "restore source keeps successful checks",
+      "status": "pass"
+    }
+  ],
+  "reconstructed": {
+    "workspaceId": "workspace-bcp-1776311906382",
+    "correlationId": "corr-operacion-asistida-bcp-1776311906382",
+    "tenantId": "tnt_bcp_drill_1776311906382",
+    "mode": "api"
+  }
+}

@@ -1,0 +1,26 @@
+name: Feature request
+description: Propón una mejora funcional
+labels: [enhancement]
+body:
+  - type: input
+    id: problem
+    attributes:
+      label: Problema a resolver
+      placeholder: ¿Qué limita hoy tu flujo?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta de solución
+      placeholder: Describe la funcionalidad deseada
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impacto esperado

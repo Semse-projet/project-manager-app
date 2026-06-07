@@ -1,0 +1,18 @@
+node_modules/
+.next/
+dist/
+.angular/
+**/.angular/
+*.tsbuildinfo
+packages/db/.env
+package-lock.legacy.json
+playwright-report/
+test-results/
+# QA Sentinel evidence — generated artifacts, keep .gitkeep
+**/artifacts/evidence/playwright/test-results/
+**/artifacts/evidence/playwright/html/
+**/artifacts/evidence/playwright/report.json
+**/artifacts/evidence/playwright/*.json
+coverage/
+.nyc_output/
+apps/api/skills/.curator_state.json

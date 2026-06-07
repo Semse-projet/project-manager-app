@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "updatedAtIso": "2026-04-16T04:29:34.139Z",
+  "latest": {
+    "generatedAtIso": "2026-04-16T04:29:34.139Z",
+    "drill": "operacion_asistida_backup_recovery",
+    "mode": "api",
+    "environment": {
+      "name": "recovery"
+    },
+    "tenantId": "tnt_bcp_drill_1776313774140",
+    "workspaceId": "workspace-bcp-1776313774140",
+    "correlationId": "corr-operacion-asistida-bcp-1776313774140",
+    "status": "pass",
+    "checkCount": 7,
+    "evidenceFiles": {
+      "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-recovery-latest.json",
+      "manifest": "docs/bcp/evidence/manifest.json",
+      "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042934139Z.json"
+    }
+  },
+  "history": [
+    {
+      "generatedAtIso": "2026-04-16T04:29:34.139Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "environment": {
+        "name": "recovery"
+      },
+      "tenantId": "tnt_bcp_drill_1776313774140",
+      "workspaceId": "workspace-bcp-1776313774140",
+      "correlationId": "corr-operacion-asistida-bcp-1776313774140",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-recovery-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042934139Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:29:28.444Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "environment": {
+        "name": "primary"
+      },
+      "tenantId": "tnt_bcp_drill_1776313768445",
+      "workspaceId": "workspace-bcp-1776313768445",
+      "correlationId": "corr-operacion-asistida-bcp-1776313768445",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-primary-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042928444Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:29:21.390Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "environment": {
+        "name": "api-local"
+      },
+      "tenantId": "tnt_bcp_drill_1776313761390",
+      "workspaceId": "workspace-bcp-1776313761391",
+      "correlationId": "corr-operacion-asistida-bcp-1776313761391",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042921390Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:23:55.047Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "environment": {
+        "name": "recovery"
+      },
+      "tenantId": "tnt_bcp_drill_1776313435048",
+      "workspaceId": "workspace-bcp-1776313435048",
+      "correlationId": "corr-operacion-asistida-bcp-1776313435048",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-recovery-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042355047Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:23:49.160Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "environment": {
+        "name": "primary"
+      },
+      "tenantId": "tnt_bcp_drill_1776313429161",
+      "workspaceId": "workspace-bcp-1776313429161",
+      "correlationId": "corr-operacion-asistida-bcp-1776313429161",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-primary-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042349160Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:23:42.035Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "environment": {
+        "name": "api-local"
+      },
+      "tenantId": "tnt_bcp_drill_1776313422036",
+      "workspaceId": "workspace-bcp-1776313422036",
+      "correlationId": "corr-operacion-asistida-bcp-1776313422036",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042342035Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:09:22.295Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776312562296",
+      "workspaceId": "workspace-bcp-1776312562296",
+      "correlationId": "corr-operacion-asistida-bcp-1776312562296",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_040922295Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T04:05:23.931Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776312323931",
+      "workspaceId": "workspace-bcp-1776312323931",
+      "correlationId": "corr-operacion-asistida-bcp-1776312323931",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_040523931Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T03:58:26.382Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776311906382",
+      "workspaceId": "workspace-bcp-1776311906382",
+      "correlationId": "corr-operacion-asistida-bcp-1776311906382",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_035826382Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T03:41:53.758Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776310913758",
+      "workspaceId": "workspace-bcp-1776310913759",
+      "correlationId": "corr-operacion-asistida-bcp-1776310913759",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_034153758Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T03:38:11.306Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776310691307",
+      "workspaceId": "workspace-bcp-1776310691307",
+      "correlationId": "corr-operacion-asistida-bcp-1776310691307",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_033811306Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T01:11:37.730Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776301897731",
+      "workspaceId": "workspace-bcp-1776301897731",
+      "correlationId": "corr-operacion-asistida-bcp-1776301897731",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_011137730Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T01:06:37.732Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "api",
+      "tenantId": "tnt_bcp_drill_1776301597732",
+      "workspaceId": "workspace-bcp-1776301597733",
+      "correlationId": "corr-operacion-asistida-bcp-1776301597733",
+      "status": "pass",
+      "checkCount": 7,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_010637732Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T00:30:38.364Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "local",
+      "tenantId": "tnt_bcp_drill_1776299438364",
+      "workspaceId": "workspace-bcp-1776299438364",
+      "correlationId": "corr-operacion-asistida-bcp-1776299438364",
+      "status": "pass",
+      "checkCount": 5,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-2026-04-16_003038364Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T00:13:09.176Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "local",
+      "tenantId": "tnt_bcp_drill_1776298389177",
+      "workspaceId": "workspace-bcp-1776298389177",
+      "correlationId": "corr-operacion-asistida-bcp-1776298389177",
+      "status": "pass",
+      "checkCount": 5,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-2026-04-16_001309176Z.json"
+      }
+    },
+    {
+      "generatedAtIso": "2026-04-16T00:12:40.378Z",
+      "drill": "operacion_asistida_backup_recovery",
+      "mode": "local",
+      "tenantId": "tnt_bcp_drill_1776298360378",
+      "workspaceId": "workspace-bcp-1776298360378",
+      "correlationId": "corr-operacion-asistida-bcp-1776298360378",
+      "status": "pass",
+      "checkCount": 5,
+      "evidenceFiles": {
+        "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-latest.json",
+        "manifest": "docs/bcp/evidence/manifest.json",
+        "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-2026-04-16_001240378Z.json"
+      }
+    }
+  ]
+}

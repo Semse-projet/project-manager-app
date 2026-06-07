@@ -1,0 +1,226 @@
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+}
+
+.shell__scrim {
+  display: none;
+}
+
+.shell__rail {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  padding: 28px 22px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 24px;
+  border-right: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(12, 16, 23, 0.98), rgba(17, 24, 39, 0.96)),
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 34%);
+  backdrop-filter: blur(18px);
+}
+
+.shell__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.shell__brand strong,
+.shell__brand span {
+  display: block;
+}
+
+.shell__brand strong {
+  font-size: 18px;
+}
+
+.shell__brand span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shell__brand-badge {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+  color: white;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.shell__nav {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.shell__nav-link {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.shell__nav-link strong {
+  font-size: 15px;
+}
+
+.shell__nav-link span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.shell__nav-link:hover,
+.shell__nav-link.is-active {
+  transform: translateX(2px);
+  border-color: rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.shell__footer {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+}
+
+.shell__footer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shell__main {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.shell__topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 28px;
+  background: rgba(5, 8, 16, 0.72);
+  backdrop-filter: blur(18px);
+}
+
+.shell__menu {
+  display: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  padding: 10px 14px;
+  color: var(--ink);
+}
+
+.shell__topbar-copy {
+  display: grid;
+  gap: 4px;
+  margin-right: auto;
+}
+
+.shell__topbar-copy span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.shell__topbar-copy strong {
+  font-size: 1.15rem;
+}
+
+.shell__account {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shell__account-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--success), var(--accent));
+}
+
+.shell__content {
+  padding: 0 28px 36px;
+}
+
+@media (max-width: 1040px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .shell__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
+    display: block;
+    background: rgba(23, 32, 51, 0.28);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s ease;
+  }
+
+  .shell__scrim.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .shell__rail {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 20;
+    width: min(86vw, 320px);
+    transform: translateX(-104%);
+    transition: transform 0.18s ease;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .shell__rail.is-open {
+    transform: translateX(0);
+  }
+
+  .shell__menu {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 720px) {
+  .shell__topbar,
+  .shell__content {
+    padding-inline: 16px;
+  }
+
+  .shell__account {
+    max-width: 48vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

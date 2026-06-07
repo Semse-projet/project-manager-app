@@ -1,0 +1,38 @@
+{
+  "generatedAtIso": "2026-04-16T03:57:53.370Z",
+  "sourceRiskReview": "docs/bcp/evidence/risk-review-latest.json",
+  "sourceLegacyAudit": "docs/bcp/evidence/workspace-memory-legacy-sync-latest.json",
+  "status": "watch",
+  "summary": {
+    "maxSeverity": "medium",
+    "openRisks": 1,
+    "latestMode": "api",
+    "latestStatus": "pass",
+    "latestAgeMinutes": 0,
+    "modeCoverage": [
+      "api",
+      "local"
+    ],
+    "legacyPendingBackfillRecords": 2
+  },
+  "risks": [
+    {
+      "severity": "medium",
+      "code": "workspace_memory_legacy_debt",
+      "summary": "Quedan 2 registros legacy por absorber desde KnowledgeFact a WorkspaceMemoryEntry.",
+      "status": "open"
+    }
+  ],
+  "backlog": [
+    {
+      "priority": "p2",
+      "title": "Absorber deuda legacy de workspace_memory antes de apagar la lectura dual",
+      "rationale": "Quedan 2 registros legacy por absorber desde KnowledgeFact a WorkspaceMemoryEntry."
+    },
+    {
+      "priority": "follow-up",
+      "title": "Mantener la cadencia actual de drills local y API.",
+      "rationale": "Accion derivada automaticamente desde la revision de riesgo."
+    }
+  ]
+}

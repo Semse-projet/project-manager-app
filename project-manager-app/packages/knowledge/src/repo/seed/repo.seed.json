@@ -1,0 +1,185 @@
+{
+  "namespace": "semse.repo",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "semse_root",
+      "name": "SEMSE Root",
+      "kind": "ecosystem",
+      "description": "Raiz del ecosistema SEMSE con documentacion soberana y monorepo vivo.",
+      "responsibilities": ["governance", "product_vision", "implementation_root"],
+      "parentId": null,
+      "paths": ["/home/yoni/labsemse"],
+      "aliases": ["semse", "ecosystem_root"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.99, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "repository_rules",
+      "name": "Repository Rules",
+      "kind": "documentation",
+      "description": "Reglas de canonicidad, precedencia y organizacion del repositorio.",
+      "responsibilities": ["canonicity", "precedence"],
+      "parentId": "semse_root",
+      "paths": ["/home/yoni/labsemse/repository-rules"],
+      "aliases": ["repository-rules", "canonicity"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "vision_docs",
+      "name": "Vision",
+      "kind": "documentation",
+      "description": "Base documental soberana de vision de producto.",
+      "responsibilities": ["vision", "product_intent"],
+      "parentId": "semse_root",
+      "paths": ["/home/yoni/labsemse/vision"],
+      "aliases": ["vision", "vision_docs"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "program_docs",
+      "name": "Program",
+      "kind": "documentation",
+      "description": "Planificacion, roadmap y ejecucion del ecosistema.",
+      "responsibilities": ["roadmap", "execution"],
+      "parentId": "semse_root",
+      "paths": ["/home/yoni/labsemse/program"],
+      "aliases": ["program", "roadmap_docs"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.96, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "agents_docs",
+      "name": "Agents Docs",
+      "kind": "documentation",
+      "description": "Base documental soberana del subsistema agentic.",
+      "responsibilities": ["agent_documentation", "agent_runtime_specs"],
+      "parentId": "semse_root",
+      "paths": ["/home/yoni/labsemse/agents"],
+      "aliases": ["agents", "agentic_docs"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.97, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "project_manager_app",
+      "name": "Project Manager App",
+      "kind": "workspace",
+      "description": "Monorepo vivo principal donde se implementan apps y packages de SEMSE.",
+      "responsibilities": ["runtime", "implementation"],
+      "parentId": "semse_root",
+      "paths": ["/home/yoni/labsemse/project-manager-app"],
+      "aliases": ["monorepo", "project-manager-app"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.99, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "apps_api",
+      "name": "API App",
+      "kind": "application",
+      "description": "Backend canonico de NestJS para los modulos de SEMSE.",
+      "responsibilities": ["backend", "http_api"],
+      "parentId": "project_manager_app",
+      "paths": ["/home/yoni/labsemse/project-manager-app/apps/api"],
+      "aliases": ["api", "backend"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "apps_web",
+      "name": "Web App",
+      "kind": "application",
+      "description": "Frontend canonico de Next.js y rutas proxy del ecosistema.",
+      "responsibilities": ["frontend", "proxy_ui"],
+      "parentId": "project_manager_app",
+      "paths": ["/home/yoni/labsemse/project-manager-app/apps/web"],
+      "aliases": ["web", "frontend"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "packages_schemas",
+      "name": "Schemas Package",
+      "kind": "package",
+      "description": "Contratos y validaciones compartidas del monorepo.",
+      "responsibilities": ["contracts", "validation"],
+      "parentId": "project_manager_app",
+      "paths": ["/home/yoni/labsemse/project-manager-app/packages/schemas"],
+      "aliases": ["schemas", "contracts_pkg"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "packages_knowledge",
+      "name": "Knowledge Package",
+      "kind": "package",
+      "description": "Seeds, loaders y queries reutilizables para dominios de conocimiento.",
+      "responsibilities": ["knowledge_domains", "seeds", "queries"],
+      "parentId": "project_manager_app",
+      "paths": ["/home/yoni/labsemse/project-manager-app/packages/knowledge"],
+      "aliases": ["knowledge", "knowledge_pkg"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    },
+    {
+      "id": "packages_agents",
+      "name": "Agents Package",
+      "kind": "package",
+      "description": "Catalogos, runtime y agentes server-only del ecosistema.",
+      "responsibilities": ["agents", "runtime_catalog"],
+      "parentId": "project_manager_app",
+      "paths": ["/home/yoni/labsemse/project-manager-app/packages/agents"],
+      "aliases": ["agents_pkg", "agent_runtime"],
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0", "status": "canonical" }
+    }
+  ],
+  "relations": [
+    {
+      "id": "repository_rules_canonical_for_semse_root",
+      "type": "canonical_for",
+      "sourceId": "repository_rules",
+      "targetId": "semse_root",
+      "description": "Las reglas de repositorio gobiernan la precedencia del ecosistema.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.99, "version": "1.0.0" }
+    },
+    {
+      "id": "vision_documents_project_manager_app",
+      "type": "documents",
+      "sourceId": "vision_docs",
+      "targetId": "project_manager_app",
+      "description": "La vision documenta la intencion de producto que implementa el monorepo.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.96, "version": "1.0.0" }
+    },
+    {
+      "id": "program_documents_project_manager_app",
+      "type": "documents",
+      "sourceId": "program_docs",
+      "targetId": "project_manager_app",
+      "description": "El programa orienta la ejecucion del monorepo.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.95, "version": "1.0.0" }
+    },
+    {
+      "id": "apps_api_implemented_by_packages_schemas",
+      "type": "depends_on",
+      "sourceId": "apps_api",
+      "targetId": "packages_schemas",
+      "description": "La API depende de los contratos canonicos.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0" }
+    },
+    {
+      "id": "apps_api_depends_on_packages_agents",
+      "type": "depends_on",
+      "sourceId": "apps_api",
+      "targetId": "packages_agents",
+      "description": "La API consume runtime y agentes especializados.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.97, "version": "1.0.0" }
+    },
+    {
+      "id": "packages_knowledge_depends_on_packages_schemas",
+      "type": "depends_on",
+      "sourceId": "packages_knowledge",
+      "targetId": "packages_schemas",
+      "description": "Knowledge usa contratos compartidos definidos en schemas.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.98, "version": "1.0.0" }
+    },
+    {
+      "id": "agents_docs_documents_packages_agents",
+      "type": "documents",
+      "sourceId": "agents_docs",
+      "targetId": "packages_agents",
+      "description": "La documentacion agentic describe el subsistema de agentes.",
+      "metadata": { "source": "semse_repo_seed", "confidence": 0.96, "version": "1.0.0" }
+    }
+  ]
+}

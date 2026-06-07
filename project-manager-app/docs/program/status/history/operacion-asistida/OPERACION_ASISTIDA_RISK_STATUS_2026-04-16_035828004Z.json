@@ -1,0 +1,26 @@
+{
+  "generatedAtIso": "2026-04-16T03:58:28.004Z",
+  "sourceRiskReview": "docs/bcp/evidence/risk-review-latest.json",
+  "sourceLegacyAudit": "docs/bcp/evidence/workspace-memory-legacy-sync-latest.json",
+  "status": "healthy",
+  "summary": {
+    "maxSeverity": "none",
+    "openRisks": 0,
+    "latestMode": "api",
+    "latestStatus": "pass",
+    "latestAgeMinutes": 0,
+    "modeCoverage": [
+      "api",
+      "local"
+    ],
+    "legacyPendingBackfillRecords": 0
+  },
+  "risks": [],
+  "backlog": [
+    {
+      "priority": "keep",
+      "title": "Mantener cadencia local/API del modulo operacion asistida",
+      "rationale": "No hay riesgos abiertos; el objetivo es sostener la disciplina de evidencia y restore."
+    }
+  ]
+}
