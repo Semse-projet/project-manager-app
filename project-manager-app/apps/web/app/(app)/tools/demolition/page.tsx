@@ -1,11 +1,5 @@
-import { DemolitionToolClient } from "./demolition-tool-client";
+import { redirect } from "next/navigation";
 
 export default function DemolitionToolPage() {
-  return (
-    <main className="min-h-screen bg-slate-950 p-6">
-      <div className="mx-auto max-w-6xl">
-        <DemolitionToolClient />
-      </div>
-    </main>
-  );
+  redirect("/tools/demolition/dashboard");
 }

@@ -17,8 +17,10 @@ import {
   Video
 } from "lucide-react";
 import {
+  acceptBid,
   fetchJob,
   fetchJobAgentSignals,
+  fetchJobBids,
   fetchJobEscrow,
   fetchJobEvidence,
   fetchJobMilestones,
@@ -26,6 +28,7 @@ import {
   fundJobEscrow,
   mutateMilestone,
   releaseMilestoneEscrow,
+  type BidView,
   sendNotification,
   type JobAgentSignal
 } from "../../../../semse-api";
@@ -71,6 +74,13 @@ const PAYMENT_TYPE_META: Record<string, { label: string; color: string; bg: stri
   HOLDBACK: { label: "Retención", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   FEE: { label: "Fee", color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
   REFUND: { label: "Reembolso", color: "#ef4444", bg: "rgba(239,68,68,.12)" }
+};
+
+const BID_STATUS_META: Record<BidView["status"], { label: string; color: string; bg: string }> = {
+  submitted: { label: "Enviada", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  accepted: { label: "Aceptada", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  rejected: { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
+  withdrawn: { label: "Retirada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
 
 function asString(value: unknown): string | undefined {
@@ -135,6 +145,13 @@ function formatDate(value?: string): string {
   return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function formatBidBudget(bid: BidView): string {
+  if (bid.budgetMin != null && bid.budgetMax != null) {
+    return `${formatMoney(bid.budgetMin)} - ${formatMoney(bid.budgetMax)}`;
+  }
+  return formatMoney(bid.budgetMin ?? bid.budgetMax ?? undefined);
+}
+
 function EvidenceIcon({ kind }: { kind: string }) {
   if (kind === "PHOTO") return <ImageIcon size={15} color="var(--brand)" />;
   if (kind === "VIDEO") return <Video size={15} color="var(--accent)" />;
@@ -191,6 +208,8 @@ export default function ClientJobDetailPage() {
   const jobId = typeof params?.jobId === "string" ? params.jobId : "";
 
   const [job, setJob] = useState<JobDetail | null>(null);
+  const [bids, setBids] = useState<BidView[]>([]);
+  const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
   const [milestones, setMilestones] = useState<JobMilestone[]>([]);
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<JobPayment[]>([]);
@@ -208,15 +227,17 @@ export default function ClientJobDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [jobResult, milestonesResult, escrowResult, evidenceResult, paymentsResult, signalsResult] = await Promise.all([
+      const [jobResult, milestonesResult, escrowResult, evidenceResult, paymentsResult, signalsResult, bidsResult] = await Promise.all([
         fetchJob(jobId),
         fetchJobMilestones(jobId).catch(() => []),
         fetchJobEscrow(jobId).catch(() => null),
         fetchJobEvidence(jobId).catch(() => []),
         fetchJobPayments(jobId).catch(() => []),
-        fetchJobAgentSignals(jobId).catch(() => [])
+        fetchJobAgentSignals(jobId).catch(() => []),
+        fetchJobBids(jobId).catch(() => []),
       ]);
       setJob(jobResult as unknown as JobDetail);
+      setBids(bidsResult);
       setMilestones(milestonesResult);
       setEscrow(escrowResult);
       setEvidence(evidenceResult);
@@ -248,6 +269,8 @@ export default function ClientJobDetailPage() {
   const holdbackAmount = fundedAmount !== undefined && holdbackPct !== undefined
     ? fundedAmount * (holdbackPct / 100)
     : undefined;
+  const acceptedBid = bids.find((bid) => bid.status === "accepted");
+  const submittedBidCount = bids.filter((bid) => bid.status === "submitted").length;
   const approvedSignals = agentSignals.filter((signal) => signal.status === "completed");
   const latestEvidence = evidence
     .slice()
@@ -327,6 +350,29 @@ export default function ClientJobDetailPage() {
       setError(caught instanceof Error ? caught.message : "No se pudo liberar el pago.");
     } finally {
       setPendingAction(null);
+    }
+  }
+
+  async function handleAcceptBid(bid: BidView) {
+    if (pendingAction || acceptingBidId || bid.status !== "submitted") return;
+    setAcceptingBidId(bid.id);
+    setError(null);
+    try {
+      await acceptBid(bid.id);
+      const proName = bid.proName ?? bid.proEmail ?? "Profesional";
+      const jobTitle = asString(job?.title) ?? "trabajo";
+      sendNotification({
+        title: "Propuesta aceptada",
+        body: `El cliente aceptó la propuesta de ${proName} para "${jobTitle}".`,
+        kind: "job",
+        targetRole: "worker",
+        linkHref: `/worker/jobs/${jobId}`,
+      }).catch(() => {});
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo aceptar la propuesta.");
+    } finally {
+      setAcceptingBidId(null);
     }
   }
 
@@ -472,6 +518,86 @@ export default function ClientJobDetailPage() {
                   ) : null}
                 </div>
               </div>
+            </section>
+          ) : null}
+
+          {bids.length > 0 || normalizedJobStatus === "posted" || normalizedJobStatus === "published" ? (
+            <section style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap", marginBottom: "14px" }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "var(--ink)" }}>Propuestas</h2>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--muted)" }}>
+                    {bids.length > 0
+                      ? `${submittedBidCount} por revisar · ${acceptedBid ? "1 aceptada" : "sin adjudicar"}`
+                      : "Aún no hay propuestas para este trabajo."}
+                  </p>
+                </div>
+                <Link
+                  href={`/client/professionals?jobId=${encodeURIComponent(jobId)}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)", textDecoration: "none", fontSize: 12, fontWeight: 700 }}
+                >
+                  Buscar profesionales <ArrowUpRight size={13} />
+                </Link>
+              </div>
+
+              {bids.length === 0 ? (
+                <div style={{ padding: "14px 16px", borderRadius: "12px", border: "1px dashed var(--border)", color: "var(--muted)", fontSize: "12px" }}>
+                  Cuando un profesional envíe una propuesta, podrás revisar presupuesto, disponibilidad y aceptarla desde aquí.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {bids.map((bid) => {
+                    const meta = BID_STATUS_META[bid.status] ?? BID_STATUS_META.submitted;
+                    const isAccepted = bid.status === "accepted";
+                    const isActionable = bid.status === "submitted" && !acceptedBid;
+                    const isBusy = acceptingBidId === bid.id;
+                    return (
+                      <div key={bid.id} style={{ padding: "14px 16px", borderRadius: "14px", background: "var(--bg)", border: `1px solid ${isAccepted ? "rgba(16,185,129,.28)" : "var(--border)"}` }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "start" }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                              <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{bid.proName ?? bid.proEmail ?? "Profesional"}</strong>
+                              <span style={{ display: "inline-flex", padding: "4px 9px", borderRadius: "999px", background: meta.bg, color: meta.color, fontSize: "11px", fontWeight: 700 }}>
+                                {meta.label}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: "11px", color: "var(--muted)" }}>
+                              {bid.proEmail ?? bid.proUserId} · enviada {formatDate(bid.createdAt)}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)" }}>{formatBidBudget(bid)}</div>
+                            <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: 2 }}>
+                              Disponible {formatDate(bid.availableFrom ?? undefined)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {bid.note ? (
+                          <p style={{ margin: "10px 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: 1.5 }}>
+                            {bid.note}
+                          </p>
+                        ) : null}
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "12px" }}>
+                          <span style={{ fontSize: "11px", color: isAccepted ? "#10b981" : "var(--faint)" }}>
+                            {isAccepted ? "Este profesional quedó adjudicado al trabajo." : acceptedBid ? "Ya hay una propuesta aceptada." : "Lista para decisión del cliente."}
+                          </span>
+                          {isActionable ? (
+                            <button
+                              onClick={() => void handleAcceptBid(bid)}
+                              disabled={isBusy}
+                              style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "#10b981", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: isBusy ? "wait" : "pointer", opacity: isBusy ? 0.75 : 1 }}
+                            >
+                              {isBusy ? "Aceptando..." : "Aceptar propuesta"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
           ) : null}
 

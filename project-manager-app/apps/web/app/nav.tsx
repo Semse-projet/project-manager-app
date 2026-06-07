@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "../lib/cn";
 import { fetchNotifications, markNotificationRead } from "./semse-api";
+import { PushEnableButton } from "../components/notifications/PushEnableButton";
+import { useCurrentUser } from "../hooks/useCurrentUser";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -21,6 +23,7 @@ function NotificationBell() {
   const [items, setItems] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
     const load = async () => {
@@ -32,9 +35,19 @@ function NotificationBell() {
       }
     };
     void load();
-    const timer = setInterval(() => void load(), 30_000);
+    const timer = setInterval(() => void load(), 60_000);
     return () => clearInterval(timer);
   }, []);
+
+  // SSE: real-time unread badge increment when a new notification arrives
+  useEffect(() => {
+    if (typeof window === "undefined" || !user?.id) return;
+    const TENANT_ID = process.env.NEXT_PUBLIC_SEMSE_TENANT_ID ?? "default";
+    const es = new EventSource(`/api/semse/sse?channels=notifications:${TENANT_ID}:${user.id}`);
+    es.addEventListener("notification:new", () => setUnread((v) => v + 1));
+    return () => es.close();
+  }, [user?.id]);
+
 
   useEffect(() => {
     if (!open) return;
@@ -213,6 +226,7 @@ export function Nav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <PushEnableButton />
           <NotificationBell />
           <div
             aria-label="Estado del sistema"

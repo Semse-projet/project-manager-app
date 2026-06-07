@@ -228,6 +228,36 @@ export function ObserverPanel() {
             </div>
           )}
 
+          {/* RAG Memory Health */}
+          <div style={{ background: "rgba(168,85,247,.06)", border: "1px solid rgba(168,85,247,.2)", borderRadius: 10, padding: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <Database size={13} color="#d946ef" />
+              <span style={{ fontSize: 12, fontWeight: 800 }}>RAG Memory Health</span>
+              <span style={{ fontSize: 9, color: "var(--muted)", background: "rgba(217,70,239,.12)", padding: "2px 6px", borderRadius: 99, marginLeft: "auto" }}>
+                {snap.intelligenceHealth.ragEmbedded}/{snap.intelligenceHealth.ragChunks} chunks
+              </span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div style={{ padding: 8, background: "rgba(255,255,255,.02)", borderRadius: 8 }}>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 2 }}>Documentos</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#d946ef" }}>{snap.intelligenceHealth.ragDocuments}</div>
+              </div>
+              <div style={{ padding: 8, background: "rgba(255,255,255,.02)", borderRadius: 8 }}>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 2 }}>Total chunks</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#d946ef" }}>{snap.intelligenceHealth.ragChunks}</div>
+              </div>
+              <div style={{ padding: 8, background: "rgba(255,255,255,.02)", borderRadius: 8 }}>
+                <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 2 }}>Con embeddings</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: snap.intelligenceHealth.ragEmbedded === snap.intelligenceHealth.ragChunks ? "#86efac" : "#fcd34d" }}>
+                  {snap.intelligenceHealth.ragEmbedded}
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, textAlign: "center" }}>
+              Mode: <span style={{ fontWeight: 600, color: "#d946ef" }}>{snap.intelligenceHealth.embeddingsMode}</span>
+            </div>
+          </div>
+
           {/* Patterns */}
           {snap.patterns.length > 0 && (
             <div>
