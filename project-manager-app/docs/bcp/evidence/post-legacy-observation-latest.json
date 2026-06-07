@@ -1,0 +1,46 @@
+{
+  "observedAt": "2026-04-17T14:16:24.561Z",
+  "summary": {
+    "multipartProvider": "filesystem_multipart",
+    "legacyMentionsInRuntimePaths": 0,
+    "contextualSurfacesObserved": 7
+  },
+  "legacyMentions": [],
+  "inspected": {
+    "apps/api/src/modules/evidence/evidence.controller.ts": {
+      "multipart": true,
+      "uploadMultipartPart": true,
+      "contextMemoryNaming": false
+    },
+    "apps/web/app/jobs/[jobId]/evidence/page.tsx": {
+      "multipart": true,
+      "uploadMultipartPart": true,
+      "contextMemoryNaming": false
+    },
+    "apps/web/app/(app)/admin/disputes/page.tsx": {
+      "multipart": true,
+      "uploadMultipartPart": true,
+      "contextMemoryNaming": false
+    },
+    "apps/web/app/(app)/worker/tracker/page.tsx": {
+      "multipart": true,
+      "uploadMultipartPart": true,
+      "contextMemoryNaming": false
+    },
+    "apps/web/app/(app)/worker/field-ops/page.tsx": {
+      "multipart": false,
+      "uploadMultipartPart": false,
+      "contextMemoryNaming": true
+    },
+    "apps/web/app/api/semse/field-ops/facts/route.ts": {
+      "multipart": false,
+      "uploadMultipartPart": false,
+      "contextMemoryNaming": true
+    },
+    "apps/web/app/semse-api.ts": {
+      "multipart": true,
+      "uploadMultipartPart": true,
+      "contextMemoryNaming": false
+    }
+  }
+}

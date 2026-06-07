@@ -1,0 +1,24 @@
+{
+  "generatedAtIso": "2026-04-16T03:47:50.050Z",
+  "sourceRiskReview": "docs/bcp/evidence/risk-review-latest.json",
+  "status": "healthy",
+  "summary": {
+    "maxSeverity": "none",
+    "openRisks": 0,
+    "latestMode": "api",
+    "latestStatus": "pass",
+    "latestAgeMinutes": 0,
+    "modeCoverage": [
+      "api",
+      "local"
+    ]
+  },
+  "risks": [],
+  "backlog": [
+    {
+      "priority": "keep",
+      "title": "Mantener cadencia local/API del modulo operacion asistida",
+      "rationale": "No hay riesgos abiertos; el objetivo es sostener la disciplina de evidencia y restore."
+    }
+  ]
+}

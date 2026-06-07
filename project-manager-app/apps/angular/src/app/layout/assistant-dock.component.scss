@@ -1,0 +1,135 @@
+.assistant-trigger {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 999px;
+  color: white;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+  box-shadow: 0 22px 44px rgba(59, 130, 246, 0.28);
+}
+
+.assistant-trigger strong,
+.assistant-trigger span {
+  display: block;
+}
+
+.assistant-trigger strong {
+  font-size: 13px;
+}
+
+.assistant-trigger span {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.assistant-trigger__orb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 7px rgba(255, 106, 0, 0.16);
+}
+
+.assistant-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 92px;
+  z-index: 29;
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 120px);
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+  overflow: auto;
+}
+
+.assistant-panel__header,
+.assistant-panel__composer-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.assistant-panel__header h3 {
+  margin: 10px 0 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.04em;
+}
+
+.assistant-panel__close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.assistant-panel__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistant-panel__chip {
+  border: 0;
+}
+
+.assistant-panel__messages {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-panel__bubble {
+  max-width: 90%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  line-height: 1.55;
+  font-size: 13px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+.assistant-panel__bubble.is-user {
+  justify-self: end;
+  background: linear-gradient(135deg, var(--brand), var(--brand-strong));
+  color: white;
+}
+
+.assistant-panel__bubble.is-assistant {
+  background: var(--surface-strong);
+  border: 1px solid rgba(255, 106, 0, 0.18);
+}
+
+.assistant-panel__error {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.assistant-panel__composer {
+  display: grid;
+  gap: 12px;
+}
+
+.assistant-panel__composer-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .assistant-panel {
+    right: 12px;
+    bottom: 82px;
+  }
+
+  .assistant-trigger {
+    right: 12px;
+    bottom: 12px;
+  }
+}

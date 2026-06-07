@@ -9,37 +9,101 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: project-manager-app
+
 jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Spec preflight
+        run: pnpm spec:preflight
+
+      - name: Unit tests (monorepo root — auth, shared, logic)
+        run: pnpm test:unit
+
+      - name: Verify workspace
+        run: pnpm verify:workspace
+
   unit-coverage:
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Unit tests with coverage thresholds
-        run: npm run test:coverage
+        run: pnpm test:coverage
 
       - name: Coverage summary (PR/Run)
         if: always()
         run: |
-          node --input-type=module -e "import fs from 'node:fs'; const p='coverage/coverage-summary.json'; if (!fs.existsSync(p)) process.exit(0); const t=JSON.parse(fs.readFileSync(p,'utf8')).total; const lines=[`Coverage Summary`,`- Lines: ${t.lines.pct}%`,`- Branches: ${t.branches.pct}%`,`- Functions: ${t.functions.pct}%`,`- Statements: ${t.statements.pct}%`].join('\n'); fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines + '\n');"
+          node --input-type=module -e "import fs from 'node:fs'; const p='apps/api/coverage/coverage-summary.json'; if (!fs.existsSync(p)) process.exit(0); const t=JSON.parse(fs.readFileSync(p,'utf8')).total; const lines=[`Coverage Summary`,`- Lines: ${t.lines.pct}%`,`- Branches: ${t.branches.pct}%`,`- Functions: ${t.functions.pct}%`,`- Statements: ${t.statements.pct}%`].join('\n'); fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines + '\n');"
 
       - name: Upload coverage to Codecov
         if: always()
         uses: codecov/codecov-action@v5
         with:
-          files: coverage/lcov.info
+          files: project-manager-app/apps/api/coverage/lcov.info
           flags: unit
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -50,31 +114,38 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-html
-          path: coverage/
+          path: project-manager-app/apps/api/coverage/
           if-no-files-found: ignore
 
   e2e:
+    needs: quality-gates
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: pnpm test:e2e
 
       - name: Upload Playwright artifacts
         if: always()
@@ -82,6 +153,6 @@ jobs:
         with:
           name: playwright-artifacts
           path: |
-            playwright-report/
-            test-results/
+            project-manager-app/playwright-report/
+            project-manager-app/test-results/
           if-no-files-found: ignore

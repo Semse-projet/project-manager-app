@@ -1,0 +1,172 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const PAINTING_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "painting_area",
+    category: "interior_painting",
+    step: 1,
+    label: {
+      es: "Cual es el area aproximada de la pared o paredes?",
+      en: "What is the approximate area of the wall or walls?",
+    },
+    description: {
+      es: "El area es el factor con mayor impacto en el costo.",
+      en: "Area has the highest impact on cost.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    tip: {
+      es: "Si no sabes el area exacta, elige un rango o sube fotos.",
+      en: "If you do not know the exact area, pick a range or upload photos.",
+    },
+    options: [
+      { label: { es: "Menos de 100 sq ft", en: "Under 100 sq ft" }, value: "under_100_sqft" },
+      { label: { es: "100 - 250 sq ft", en: "100 - 250 sq ft" }, value: "100_250_sqft" },
+      { label: { es: "250 - 500 sq ft", en: "250 - 500 sq ft" }, value: "250_500_sqft" },
+      { label: { es: "500 - 750 sq ft", en: "500 - 750 sq ft" }, value: "500_750_sqft" },
+      { label: { es: "Mas de 750 sq ft", en: "Over 750 sq ft" }, value: "over_750_sqft" },
+    ],
+  },
+  {
+    id: "painting_condition",
+    category: "interior_painting",
+    step: 2,
+    label: {
+      es: "Cual es la condicion actual de la pared?",
+      en: "What is the current condition of the wall?",
+    },
+    description: {
+      es: "La condicion define cuanta preparacion hace falta antes de pintar.",
+      en: "Condition defines how much prep work is needed before painting.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    tip: {
+      es: "Si ves manchas oscuras o humedad, selecciona moho o humedad.",
+      en: "If you see dark spots or moisture, select mold or moisture.",
+    },
+    options: [
+      { label: { es: "Buenas condiciones", en: "Good condition" }, value: "good" },
+      { label: { es: "Grietas o agujeros pequenos", en: "Small cracks or holes" }, value: "minor_repairs" },
+      { label: { es: "Lijado y preparacion extensa", en: "Sanding and extensive prep" }, value: "extensive_prep" },
+      { label: { es: "Pintura descascarada", en: "Peeling or flaking paint" }, value: "peeling_paint" },
+      {
+        label: { es: "Moho o humedad", en: "Mold or moisture" },
+        value: "mold_or_moisture",
+        hint: { es: "Requiere tratamiento previo", en: "Requires prior treatment" },
+      },
+    ],
+    warningIfSelected: {
+      optionValue: "mold_or_moisture",
+      warningId: "warning_mold_present",
+    },
+  },
+  {
+    id: "painting_coats",
+    category: "interior_painting",
+    step: 3,
+    label: {
+      es: "Cuantas capas de pintura necesita?",
+      en: "How many coats of paint are needed?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    tip: {
+      es: "Para cubrir colores oscuros o manchas suelen hacer falta 3 capas o mas.",
+      en: "Dark colors or stains usually need 3 or more coats.",
+    },
+    options: [
+      { label: { es: "1 capa", en: "1 coat" }, value: "1" },
+      { label: { es: "2 capas", en: "2 coats" }, value: "2" },
+      { label: { es: "3 capas", en: "3 coats" }, value: "3" },
+      { label: { es: "Mas de 3", en: "More than 3" }, value: "4_plus" },
+    ],
+  },
+  {
+    id: "painting_estimate_preference",
+    category: "interior_painting",
+    step: 4,
+    label: {
+      es: "Que deseas incluir en el presupuesto?",
+      en: "What do you want included in the estimate?",
+    },
+    required: true,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Solo mano de obra", en: "Labor only" }, value: "labor_only" },
+      { label: { es: "Solo materiales", en: "Materials only" }, value: "materials_only" },
+      { label: { es: "Materiales y mano de obra", en: "Materials and labor" }, value: "both" },
+      { label: { es: "Materiales, mano de obra y limpieza", en: "Materials, labor, and cleanup" }, value: "full_service" },
+    ],
+    warningIfSelected: {
+      optionValue: "labor_only",
+      warningId: "warning_labor_only_materials",
+    },
+  },
+  {
+    id: "painting_pricing_mode",
+    category: "interior_painting",
+    step: 5,
+    label: {
+      es: "Como prefieres calcular el costo?",
+      en: "How do you prefer to calculate the cost?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "medium",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Por area", en: "Per area" }, value: "per_area" },
+      {
+        label: { es: "Por hora", en: "Hourly" },
+        value: "hourly",
+        hint: { es: "El total puede variar segun condiciones", en: "Total may vary depending on conditions" },
+      },
+      { label: { es: "Precio fijo estimado", en: "Fixed price estimate" }, value: "fixed" },
+    ],
+    warningIfSelected: {
+      optionValue: "hourly",
+      warningId: "warning_hourly_pricing",
+    },
+  },
+  {
+    id: "painting_duration",
+    category: "interior_painting",
+    step: 6,
+    label: {
+      es: "Cuanto tiempo estimas para completar el trabajo?",
+      en: "How long do you estimate the job will take?",
+    },
+    required: false,
+    affectsEstimate: false,
+    estimateImpact: "low",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "1 a 2 dias", en: "1-2 days" }, value: "1_2_days" },
+      { label: { es: "3 a 5 dias", en: "3-5 days" }, value: "3_5_days" },
+      { label: { es: "1 a 2 semanas", en: "1-2 weeks" }, value: "1_2_weeks" },
+      { label: { es: "Mas de 2 semanas", en: "More than 2 weeks" }, value: "more_than_2_weeks" },
+    ],
+  },
+];
+

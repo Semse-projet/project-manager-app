@@ -1,0 +1,123 @@
+import type { IntakeQuestion } from "../../smart-intake.types.js";
+
+export const BATHROOM_QUESTIONS: IntakeQuestion[] = [
+  {
+    id: "bathroom_scope",
+    category: "bathroom_remodel",
+    step: 1,
+    label: {
+      es: "¿Qué tipo de remodelación necesita el baño?",
+      en: "What type of bathroom remodel is needed?",
+    },
+    description: {
+      es: "El alcance define si es una actualización cosmética o remodelación completa.",
+      en: "Scope defines whether this is a cosmetic update or full remodel.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: true,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Actualización cosmética (pintura, accesorios)", en: "Cosmetic update (paint, fixtures)" }, value: "cosmetic" },
+      { label: { es: "Cambio de azulejos / piso", en: "Tile or floor replacement" }, value: "tile_floor" },
+      { label: { es: "Reemplazo de tina / ducha", en: "Tub or shower replacement" }, value: "tub_shower" },
+      { label: { es: "Remodelación completa", en: "Full remodel" }, value: "full_remodel" },
+    ],
+  },
+  {
+    id: "bathroom_size",
+    category: "bathroom_remodel",
+    step: 2,
+    label: {
+      es: "¿Qué tamaño tiene el baño?",
+      en: "How large is the bathroom?",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Baño pequeño / medio baño (menos de 40 sq ft)", en: "Small / half bath (under 40 sq ft)" }, value: "small" },
+      { label: { es: "Baño completo (40 – 80 sq ft)", en: "Full bath (40 – 80 sq ft)" }, value: "medium" },
+      { label: { es: "Baño principal (80 – 120 sq ft)", en: "Master bath (80 – 120 sq ft)" }, value: "large" },
+      { label: { es: "Baño de lujo (más de 120 sq ft)", en: "Luxury bath (over 120 sq ft)" }, value: "extra_large" },
+    ],
+  },
+  {
+    id: "bathroom_plumbing",
+    category: "bathroom_remodel",
+    step: 3,
+    label: {
+      es: "¿Se necesita mover o reemplazar la plomería?",
+      en: "Does the plumbing need to be moved or replaced?",
+    },
+    description: {
+      es: "Mover tuberías aumenta significativamente el costo y el tiempo.",
+      en: "Moving pipes significantly increases cost and time.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "No — misma ubicación", en: "No — same location" }, value: "no_move" },
+      { label: { es: "Reemplazar accesorios solo", en: "Replace fixtures only" }, value: "fixtures_only" },
+      { label: { es: "Sí — reubicar tuberías", en: "Yes — relocate pipes" }, value: "relocate" },
+    ],
+    warningIfSelected: {
+      optionValue: "relocate",
+      warningId: "warning_plumbing_relocation",
+    },
+  },
+  {
+    id: "bathroom_materials",
+    category: "bathroom_remodel",
+    step: 4,
+    label: {
+      es: "¿Qué nivel de materiales prefiere?",
+      en: "What material quality level do you prefer?",
+    },
+    description: {
+      es: "Los materiales son el factor de costo más variable en una remodelación de baño.",
+      en: "Materials are the most variable cost factor in a bathroom remodel.",
+    },
+    required: false,
+    affectsEstimate: true,
+    estimateImpact: "high",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Económico — funcional y limpio", en: "Budget — functional and clean" }, value: "budget" },
+      { label: { es: "Estándar — buena calidad", en: "Standard — good quality" }, value: "standard" },
+      { label: { es: "Premium — alta gama", en: "Premium — high end" }, value: "premium" },
+    ],
+  },
+  {
+    id: "bathroom_timeline",
+    category: "bathroom_remodel",
+    step: 5,
+    label: {
+      es: "¿Cuál es su plazo ideal para completar el proyecto?",
+      en: "What is your ideal timeline to complete the project?",
+    },
+    required: false,
+    affectsEstimate: false,
+    estimateImpact: "low",
+    answerType: "single_choice",
+    allowOther: false,
+    allowNotSure: true,
+    options: [
+      { label: { es: "Lo más pronto posible", en: "As soon as possible" }, value: "asap" },
+      { label: { es: "En 2 – 4 semanas", en: "In 2 – 4 weeks" }, value: "2_4_weeks" },
+      { label: { es: "En 1 – 3 meses", en: "In 1 – 3 months" }, value: "1_3_months" },
+      { label: { es: "Más de 3 meses", en: "Over 3 months" }, value: "flexible" },
+    ],
+  },
+];

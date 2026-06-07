@@ -1,0 +1,98 @@
+import type { AiModelDefinition } from "../types/ai-model.types.js";
+
+export const MODEL_REGISTRY: AiModelDefinition[] = [
+  {
+    slug: "claude-sonnet",
+    provider: "anthropic",
+    providerMode: "external_api",
+    displayName: "Claude Sonnet (Active)",
+    modelName: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6",
+    enabled: true,
+    capabilities: ["reasoning", "agentic_planning", "structured_output", "tool_use", "document_analysis", "coding", "construction_domain"],
+    bestFor: ["project_planning", "architecture_review", "complex_planning", "quality_validation", "rag_answer"],
+    costTier: "high",
+    privacyLevel: "standard_external",
+    supportsJsonMode: true,
+    supportsStreaming: true,
+    supportsToolUse: true,
+  },
+  {
+    slug: "deepseek-reasoner",
+    provider: "deepseek",
+    providerMode: "external_api",
+    displayName: "DeepSeek Reasoner",
+    modelName: process.env.DEEPSEEK_REASONER_MODEL ?? "deepseek-reasoner",
+    enabled: !!(process.env.DEEPSEEK_API_KEY),
+    capabilities: ["reasoning", "coding", "agentic_planning", "structured_output", "cost_efficient", "risk_analysis", "data_extraction"],
+    bestFor: ["project_planning", "code_generation", "risk_analysis", "estimate_review"],
+    costTier: "low",
+    privacyLevel: "standard_external",
+    supportsJsonMode: true,
+    supportsStreaming: true,
+  },
+  {
+    slug: "deepseek-chat",
+    provider: "deepseek",
+    providerMode: "external_api",
+    displayName: "DeepSeek Chat",
+    modelName: process.env.DEEPSEEK_DEFAULT_MODEL ?? "deepseek-chat",
+    enabled: !!(process.env.DEEPSEEK_API_KEY),
+    capabilities: ["summarization", "classification", "structured_output", "cost_efficient", "multilingual"],
+    bestFor: ["general_chat", "document_summary", "low_cost_tasks"],
+    costTier: "very_low",
+    privacyLevel: "standard_external",
+    supportsJsonMode: true,
+    supportsStreaming: true,
+  },
+  {
+    slug: "kimi-k2",
+    provider: "kimi",
+    providerMode: "external_api",
+    displayName: "Kimi K2",
+    modelName: process.env.KIMI_DEFAULT_MODEL ?? "kimi-k2",
+    enabled: !!(process.env.KIMI_API_KEY),
+    capabilities: ["long_context", "document_analysis", "reasoning", "agentic_planning", "coding", "structured_output", "tool_use", "data_extraction"],
+    bestFor: ["construction_contract_analysis", "submittal_review", "permit_compliance", "rfi_generation"],
+    costTier: "medium",
+    privacyLevel: "standard_external",
+    supportsJsonMode: true,
+    supportsStreaming: true,
+    contextWindowTokens: 131072,
+  },
+  {
+    slug: "ollama-local",
+    provider: "ollama",
+    providerMode: "local",
+    displayName: "Ollama Local",
+    modelName: process.env.OLLAMA_MODEL ?? "llama3.1",
+    enabled: process.env.ENABLE_OPEN_SOURCE_MODELS === "true",
+    capabilities: ["private_inference", "summarization", "classification", "cost_efficient"],
+    bestFor: ["field_report_generation", "document_summary"],
+    costTier: "very_low",
+    privacyLevel: "local_only",
+    supportsStreaming: true,
+  },
+  {
+    slug: "openai-gpt4",
+    provider: "openai",
+    providerMode: "external_api",
+    displayName: "GPT-4",
+    modelName: process.env.OPENAI_MODEL ?? "gpt-4.1",
+    enabled: !!(process.env.OPENAI_API_KEY),
+    capabilities: ["reasoning", "structured_output", "tool_use", "coding", "document_analysis"],
+    bestFor: ["architecture_review", "model_evaluation", "training_data_generation"],
+    costTier: "high",
+    privacyLevel: "standard_external",
+    supportsJsonMode: true,
+    supportsStreaming: true,
+    supportsToolUse: true,
+  },
+];
+
+export function getEnabledModels(): AiModelDefinition[] {
+  return MODEL_REGISTRY.filter((m) => m.enabled);
+}
+
+export function getModelBySlug(slug: string): AiModelDefinition | undefined {
+  return MODEL_REGISTRY.find((m) => m.slug === slug);
+}

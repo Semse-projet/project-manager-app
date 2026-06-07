@@ -1,0 +1,16 @@
+{
+  "generatedAtIso": "2026-04-16T03:58:27.566Z",
+  "mode": "dry-run",
+  "summary": {
+    "legacyFacts": 2,
+    "parsableLegacyFacts": 2,
+    "uniqueLegacyRecords": 2,
+    "existingDedicatedRecords": 2,
+    "pendingBackfillRecords": 0,
+    "migratedRecords": 0
+  },
+  "pendingSample": [],
+  "recommendations": [
+    "No hay registros legacy pendientes de absorber. Ya se puede planificar el retiro gradual de la lectura desde KnowledgeFact."
+  ]
+}

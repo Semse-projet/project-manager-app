@@ -1,0 +1,40 @@
+{
+  "generatedAtIso": "2026-04-16T04:23:44.063Z",
+  "drill": "operacion_asistida_restore_multienv",
+  "environments": [
+    {
+      "name": "primary",
+      "port": 4140,
+      "source": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042349160Z.json",
+      "restoreSource": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042349160Z.json"
+    },
+    {
+      "name": "recovery",
+      "port": 4141,
+      "source": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042355047Z.json",
+      "restoreSource": "docs/bcp/evidence/operacion-asistida-bcp-drill-api-2026-04-16_042355047Z.json"
+    }
+  ],
+  "checks": [
+    {
+      "name": "all environments produced successful drill evidence",
+      "status": "pass"
+    },
+    {
+      "name": "all environments produced successful restore evidence",
+      "status": "pass"
+    },
+    {
+      "name": "environment labels are distinct",
+      "status": "pass"
+    },
+    {
+      "name": "workspace ids are isolated per environment",
+      "status": "pass"
+    },
+    {
+      "name": "correlation ids are isolated per environment",
+      "status": "pass"
+    }
+  ]
+}

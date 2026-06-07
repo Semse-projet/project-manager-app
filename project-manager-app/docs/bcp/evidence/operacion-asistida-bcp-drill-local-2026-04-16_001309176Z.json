@@ -1,0 +1,206 @@
+{
+  "generatedAtIso": "2026-04-16T00:13:09.176Z",
+  "drill": "operacion_asistida_backup_recovery",
+  "mode": "local",
+  "targets": {
+    "rto": "4h",
+    "rpo": "15m"
+  },
+  "switch": {
+    "local": "SEMSE_BCP_DRILL_MODE=local npm run drill:operacion-asistida:bcp",
+    "api": "SEMSE_BCP_DRILL_MODE=api SEMSE_API_URL=http://127.0.0.1:4000 npm run drill:operacion-asistida:bcp"
+  },
+  "evidenceFiles": {
+    "latest": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-latest.json",
+    "manifest": "docs/bcp/evidence/manifest.json",
+    "historical": "docs/bcp/evidence/operacion-asistida-bcp-drill-local-2026-04-16_001309176Z.json"
+  },
+  "tenantId": "tnt_bcp_drill_1776298389177",
+  "actor": {
+    "userId": "usr_bcp_operator",
+    "orgId": "org_bcp",
+    "roles": "OPS_ADMIN"
+  },
+  "ids": {
+    "workspaceId": "workspace-bcp-1776298389177",
+    "repoId": "repo-semse-bcp",
+    "taskId": "task-operacion-asistida-bcp",
+    "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+  },
+  "checks": [
+    {
+      "name": "operatorContext survives restore simulation",
+      "status": "pass"
+    },
+    {
+      "name": "workspace_memory links to AgentRun",
+      "status": "pass"
+    },
+    {
+      "name": "Ops trace can be reconstructed by correlationId",
+      "status": "pass"
+    },
+    {
+      "name": "AuditLog explains lifecycle",
+      "status": "pass"
+    },
+    {
+      "name": "backup_recovery remains non-runtime evidence",
+      "status": "pass"
+    }
+  ],
+  "evidence": {
+    "operatorContext": {
+      "tenantId": "tnt_bcp_drill_1776298389177",
+      "orgId": "org_bcp",
+      "operatorId": "usr_bcp_operator",
+      "roles": [
+        "OPS_ADMIN"
+      ],
+      "source": "request",
+      "workspaceId": "workspace-bcp-1776298389177",
+      "repoId": "repo-semse-bcp",
+      "taskId": "task-operacion-asistida-bcp",
+      "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+    },
+    "agentRun": {
+      "id": "run_bcp_1776298389179",
+      "tenantId": "tnt_bcp_drill_1776298389177",
+      "agentType": "risk",
+      "triggerType": "manual",
+      "status": "completed",
+      "correlationId": "corr-operacion-asistida-bcp-1776298389177",
+      "input": {
+        "operatorContext": {
+          "tenantId": "tnt_bcp_drill_1776298389177",
+          "orgId": "org_bcp",
+          "operatorId": "usr_bcp_operator",
+          "roles": [
+            "OPS_ADMIN"
+          ],
+          "source": "request",
+          "workspaceId": "workspace-bcp-1776298389177",
+          "repoId": "repo-semse-bcp",
+          "taskId": "task-operacion-asistida-bcp",
+          "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+        },
+        "eventType": "operacion_asistida.bcp_drill",
+        "scope": "Local BCP drill for operator context and workspace memory recovery."
+      },
+      "output": {
+        "actionType": "classify",
+        "summary": "Local BCP drill completed",
+        "confidence": 0.92,
+        "requiresHumanReview": false
+      }
+    },
+    "workspaceMemory": {
+      "id": "mem_run_bcp_1776298389179",
+      "tenantId": "tnt_bcp_drill_1776298389177",
+      "orgId": "org_bcp",
+      "createdBy": "usr_bcp_operator",
+      "workspaceId": "workspace-bcp-1776298389177",
+      "repoId": "repo-semse-bcp",
+      "runId": "run_bcp_1776298389179",
+      "taskId": "task-operacion-asistida-bcp",
+      "kind": "run_summary",
+      "scope": "agent_runtime",
+      "title": "Operacion asistida BCP drill",
+      "summary": "Recovered local trace links operatorContext, AgentRun and workspace_memory.",
+      "tags": [
+        "agent-runtime",
+        "backup-recovery",
+        "bcp-drill"
+      ],
+      "sourceRef": "corr-operacion-asistida-bcp-1776298389177",
+      "updatedAtIso": "2026-04-16T00:13:09.176Z"
+    },
+    "auditLog": [
+      {
+        "action": "agent_run.created",
+        "actorId": "usr_bcp_operator",
+        "targetId": "run_bcp_1776298389179",
+        "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+      },
+      {
+        "action": "agent_run.completed",
+        "actorId": "usr_bcp_operator",
+        "targetId": "run_bcp_1776298389179",
+        "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+      }
+    ],
+    "trace": {
+      "correlationId": "corr-operacion-asistida-bcp-1776298389177",
+      "runs": [
+        {
+          "id": "run_bcp_1776298389179",
+          "tenantId": "tnt_bcp_drill_1776298389177",
+          "agentType": "risk",
+          "triggerType": "manual",
+          "status": "completed",
+          "correlationId": "corr-operacion-asistida-bcp-1776298389177",
+          "input": {
+            "operatorContext": {
+              "tenantId": "tnt_bcp_drill_1776298389177",
+              "orgId": "org_bcp",
+              "operatorId": "usr_bcp_operator",
+              "roles": [
+                "OPS_ADMIN"
+              ],
+              "source": "request",
+              "workspaceId": "workspace-bcp-1776298389177",
+              "repoId": "repo-semse-bcp",
+              "taskId": "task-operacion-asistida-bcp",
+              "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+            },
+            "eventType": "operacion_asistida.bcp_drill",
+            "scope": "Local BCP drill for operator context and workspace memory recovery."
+          },
+          "output": {
+            "actionType": "classify",
+            "summary": "Local BCP drill completed",
+            "confidence": 0.92,
+            "requiresHumanReview": false
+          }
+        }
+      ],
+      "workspaceMemory": [
+        {
+          "id": "mem_run_bcp_1776298389179",
+          "tenantId": "tnt_bcp_drill_1776298389177",
+          "orgId": "org_bcp",
+          "createdBy": "usr_bcp_operator",
+          "workspaceId": "workspace-bcp-1776298389177",
+          "repoId": "repo-semse-bcp",
+          "runId": "run_bcp_1776298389179",
+          "taskId": "task-operacion-asistida-bcp",
+          "kind": "run_summary",
+          "scope": "agent_runtime",
+          "title": "Operacion asistida BCP drill",
+          "summary": "Recovered local trace links operatorContext, AgentRun and workspace_memory.",
+          "tags": [
+            "agent-runtime",
+            "backup-recovery",
+            "bcp-drill"
+          ],
+          "sourceRef": "corr-operacion-asistida-bcp-1776298389177",
+          "updatedAtIso": "2026-04-16T00:13:09.176Z"
+        }
+      ],
+      "auditLog": [
+        {
+          "action": "agent_run.created",
+          "actorId": "usr_bcp_operator",
+          "targetId": "run_bcp_1776298389179",
+          "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+        },
+        {
+          "action": "agent_run.completed",
+          "actorId": "usr_bcp_operator",
+          "targetId": "run_bcp_1776298389179",
+          "correlationId": "corr-operacion-asistida-bcp-1776298389177"
+        }
+      ]
+    }
+  }
+}
