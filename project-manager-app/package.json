@@ -71,6 +71,7 @@
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:ci": "pnpm test:coverage && pnpm test:e2e",
     "test:unit": "pnpm build:packages && node --experimental-strip-types --test tests/unit/*.test.mjs tests/unit/*.test.ts",
+    "test:integration": "pnpm build:api && pnpm --filter @semse/api test:integration",
     "coverage": "pnpm test:coverage",
     "test:coverage": "pnpm build:api && pnpm --filter @semse/api test:coverage",
     "test:e2e": "playwright test",

@@ -324,6 +324,19 @@ export async function fetchRatings(): Promise<{ actorUserId: string | null; item
   return fetchSemse<{ actorUserId: string | null; items: RatingListItem[] }>("/api/semse/ratings");
 }
 
+export async function createRating(input: {
+  jobId: string;
+  toUserId: string;
+  score: number;
+  comment?: string;
+}): Promise<RatingListItem> {
+  return fetchSemse<RatingListItem>("/api/semse/ratings", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
 export async function fetchJob(jobId: string): Promise<JobRecordView> {
   return fetchSemse<JobRecordView>(`/api/semse/jobs/${jobId}`);
 }
@@ -359,6 +372,30 @@ export async function fetchJobPayments(jobId: string): Promise<Record<string, un
 
 export async function fetchJobContract(jobId: string): Promise<Record<string, unknown>> {
   return fetchSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/contracts/current`);
+}
+
+export type BidView = {
+  id: string;
+  jobId: string;
+  proUserId: string;
+  proEmail?: string;
+  proName?: string;
+  budgetMin?: number | null;
+  budgetMax?: number | null;
+  note?: string | null;
+  status: "submitted" | "accepted" | "rejected" | "withdrawn";
+  availableFrom?: string | null;
+  createdAt: string;
+};
+
+export async function fetchJobBids(jobId: string): Promise<BidView[]> {
+  return fetchSemse<BidView[]>(`/api/semse/jobs/${jobId}/bids`);
+}
+
+export async function acceptBid(bidId: string): Promise<Record<string, unknown>> {
+  return fetchSemse<Record<string, unknown>>(`/api/semse/bids/${bidId}/accept`, {
+    method: "POST",
+  });
 }
 
 export async function fetchJobPaymentReadiness(jobId: string): Promise<Record<string, unknown>> {

@@ -5,6 +5,12 @@ import { buildMilestones } from "../core/milestone-engine.js";
 import { estimateLabor } from "../core/labor-engine.js";
 import { buildEvidenceChecklist } from "../core/evidence-engine.js";
 import type { EvidenceItem, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../core/types.js";
+import {
+  computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
+  computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
+  buildProductionSchedule, assessHiddenDamageProbability, assessScheduleRisk,
+  buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
+} from "../core/extended-metrics.js";
 
 export type ProjectManagerInput = {
   projectName: string;
@@ -183,6 +189,46 @@ export function calculateProjectManager(input: ProjectManagerInput): SemseToolRe
 
   const evidenceRequired: EvidenceItem[] = evidence.items;
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Scope and contract finalization",  daysMin: 1, daysMax: 3, crew: 1, description: "Finalize scope, budget, schedule, and signed contract" },
+    { name: "Trade coordination and kickoff",   daysMin: 1, daysMax: 2, crew: 1, description: "Coordinate all trades, establish communication protocol" },
+    { name: "Active project management",        daysMin: 5, daysMax: 30, crew: 1, description: "Daily site visits, milestone tracking, issue resolution" },
+    { name: "Punch list and closeout",          daysMin: 1, daysMax: 3, crew: 1, description: "Compile punch list, coordinate corrections, final walkthroughs" },
+    { name: "Documentation and handoff",        daysMin: 0, daysMax: 1, crew: 1, description: "Deliver all warranties, permits, and project documentation" },
+  ]);
+
+  const inspectionGate = buildInspectionGate(
+    "Before each trade mobilizes — confirm prerequisites complete",
+    ["Prior trade completion photos", "Material delivery confirmation", "Site readiness check"],
+    "Prerequisite work incomplete or site not ready for next trade",
+    "No trade begins until PM confirms prerequisites are met and documented."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: true,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: true,
+    hasComplexDetails: true,
+  });
+
+  const upsells = [
+    { service: "Daily photo progress reports", reason: "Clients who see daily updates request fewer changes — reduces scope creep." },
+    { service: "Material procurement service", reason: "PM handles all ordering — eliminates client coordination and material delays." },
+    { service: "Post-project warranty management", reason: "Offer 90-day warranty coordination for all trades — recurring relationship." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 2.50),
+    roiPercent:          150,
+    notes:               "PM oversight prevents 15-30% cost overruns on complex projects — ROI exceeds 150% on multi-trade jobs.",
+  };
+
   return {
     toolId: `project-manager-${Date.now()}`,
     trade: "project-manager",
@@ -204,6 +250,12 @@ export function calculateProjectManager(input: ProjectManagerInput): SemseToolRe
       "Permit and inspection handling varies by locality and scope.",
       "Daily logs and evidence are assumed to be provided from the field or client workspace.",
     ],
+    productionSchedule,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

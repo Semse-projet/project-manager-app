@@ -1,4 +1,15 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+
+// Normalize a phone number to E.164 format (+1XXXXXXXXXX for US/CA numbers).
+// Returns null if the input is too short to be a valid number.
+function normalizePhoneE164(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (digits.length > 7) return `+${digits}`;
+  return null;
+}
 import {
   CommunicationDirection,
   CommunicationMessageStatus,
@@ -230,15 +241,24 @@ export class CommunicationsRepository {
   }
 
   async upsertThreadFromInbound(actor: CommunicationsActor, input: InboundCommunicationMessage): Promise<CommunicationThreadRecord> {
-    const externalThreadId = input.externalThreadId ?? input.contactPhone;
-    const existing = await this.prisma.conversationThread.findUnique({
+    // Normalize the phone to E.164 (+1XXXXXXXXXX) before using it as the dedup key.
+    // WhatsApp Cloud sends numbers in different formats across webhook calls:
+    // "19852663263", "+19852663263", "+1 985 266 3263" — all must map to the same thread.
+    const normalizedPhone = normalizePhoneE164(input.contactPhone);
+    const externalThreadId = input.externalThreadId ?? normalizedPhone ?? input.contactPhone;
+
+    // Also search by normalized phone in case a previous thread used a different format.
+    const existing = await this.prisma.conversationThread.findFirst({
       where: {
-        tenantId_channel_externalThreadId: {
-          tenantId: actor.tenantId,
-          channel: input.channel,
-          externalThreadId,
-        },
+        tenantId: actor.tenantId,
+        channel: input.channel,
+        OR: [
+          { externalThreadId },
+          ...(normalizedPhone ? [{ contactPhone: normalizedPhone }] : []),
+          { contactPhone: input.contactPhone },
+        ],
       },
+      orderBy: { updatedAt: "desc" },
     });
 
     const data = {

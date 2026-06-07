@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { type BidRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { BidsRepository } from "./bids.repository.js";
 
 @Injectable()
@@ -12,6 +13,7 @@ export class BidsService {
     private readonly bidsRepository: BidsRepository,
     private readonly auditService: AuditService,
     @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly sse?: SseEventBusService,
   ) {}
 
   async list(input: {
@@ -48,6 +50,14 @@ export class BidsService {
       timestamp: new Date().toISOString()
     });
 
+    // SSE: notify the job channel so client's proposals page auto-refreshes
+    this.sse?.emit(`bids:${input.tenantId}`, "bid:submitted", {
+      bidId:  bid.id,
+      jobId:  input.jobId,
+      proUserId: input.userId,
+      ts:     Date.now(),
+    });
+
     return bid;
   }
 
@@ -72,6 +82,15 @@ export class BidsService {
       requestId: input.requestId,
       timestamp: new Date().toISOString()
     });
+
+    // SSE: notify the professional in real-time that their bid was accepted
+    if (bid.professionalUserId) {
+      this.sse?.emit(`notifications:${input.tenantId}:${bid.professionalUserId}`, "bid:accepted", {
+        bidId:  bid.id,
+        jobId:  (bid as Record<string, unknown>).jobId,
+        ts:     Date.now(),
+      });
+    }
 
     // Notify the professional that their bid was accepted → job_assigned notification
     if (this.prisma && bid.professionalUserId) {

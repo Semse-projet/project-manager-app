@@ -1,298 +1,140 @@
 "use client";
-
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeft, BadgeCheck, Calculator, CheckCircle2, ClipboardList, FileText, Hammer, ShieldAlert } from "lucide-react";
-import { Badge, Button, Card, Input, MetricCard, Select } from "@/components/ui";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Hammer } from "lucide-react";
+import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
+import { ToolResultPanel } from "../ToolResultPanel";
+
+export type ConcreteSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
 
 type ConcreteInput = {
-  lengthFt: number;
-  widthFt: number;
-  thicknessIn: number;
-  wastePercent: number;
-  mixStrength: "2500psi" | "3000psi" | "3500psi" | "4000psi";
-  reinforced: boolean;
-  formworkIncluded: boolean;
-  pumpRequired: boolean;
+  squareFeet: number;
+  thickness: number;
+  type: "standard" | "reinforced" | "colored" | "stamped" | "polished";
+  finish: "broom" | "smooth" | "exposed_aggregate" | "custom";
+  prep: "minimal" | "standard" | "extensive" | "excavation";
+  reinforcement: "none" | "rebar" | "wire_mesh" | "post_tension";
+  complexity: "simple" | "moderate" | "complex";
   mode: ToolMode;
 };
 
 const INITIAL_INPUT: ConcreteInput = {
-  lengthFt: 20,
-  widthFt: 15,
-  thicknessIn: 4,
-  wastePercent: 10,
-  mixStrength: "3000psi",
-  reinforced: true,
-  formworkIncluded: true,
-  pumpRequired: false,
+  squareFeet: 500,
+  thickness: 4,
+  type: "standard",
+  finish: "broom",
+  prep: "standard",
+  reinforcement: "none",
+  complexity: "moderate",
   mode: "professional",
 };
 
-const RISK_LABELS: Record<SemseToolResult["risk"]["level"], string> = {
-  low: "Low risk",
-  medium: "Medium risk",
-  high: "High risk",
-  critical: "Critical risk",
-};
-
-const RISK_VARIANTS: Record<SemseToolResult["risk"]["level"], "default" | "info" | "warn" | "error" | "brand"> = {
-  low: "default",
-  medium: "info",
-  high: "warn",
-  critical: "error",
-};
+const SECTIONS: Array<{ id: ConcreteSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/concrete/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/concrete/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/concrete/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/concrete/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/concrete/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/concrete/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/concrete/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/concrete/research", icon: Globe2 },
+];
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <MetricCard
-      label={label}
-      value={value}
-      sub={sub}
-      className="min-h-[112px]"
-    />
-  );
-}
+type ConcreteToolClientProps = { section: ConcreteSection };
 
-function SectionTitle({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-        {icon}
-      </div>
-      <div>
-        <h2 className="text-lg font-semibold text-ink">{title}</h2>
-        <p className="text-sm text-muted">{description}</p>
-      </div>
-    </div>
-  );
-}
-
-function ResultSection({ result }: { result: SemseToolResult }) {
-  const riskVariant = RISK_VARIANTS[result.risk.level];
-
-  return (
-    <div className="grid gap-6">
-      <Card className="grid gap-4 border-brand/20 bg-brand/[0.04]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="grid gap-1">
-            <Badge variant={riskVariant}>{RISK_LABELS[result.risk.level]}</Badge>
-            <h3 className="text-2xl font-bold tracking-tight text-ink">
-              {result.projectType}
-            </h3>
-            <p className="text-sm text-muted">
-              {result.trade} · {result.mode} · {result.isValid ? "valid input" : "validation issues detected"}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs uppercase tracking-[0.2em] text-muted">Total estimate</p>
-            <p className="text-3xl font-bold text-brand">{formatCurrency(result.costs.total)}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-4">
-          <Metric label="Materials" value={formatCurrency(result.costs.materials)} />
-          <Metric label="Labor" value={formatCurrency(result.costs.labor)} />
-          <Metric label="Risk score" value={`${result.risk.score}/100`} sub="SEMSE risk engine" />
-          <Metric
-            label="Deposit / escrow"
-            value={formatCurrency(result.costs.total * 0.35)}
-            sub="Approximate starting point"
-          />
-        </div>
-      </Card>
-
-      {result.validationIssues.length > 0 && (
-        <Card className="grid gap-3 border-amber-500/20 bg-amber-500/[0.05]">
-          <SectionTitle
-            icon={<ShieldAlert size={18} />}
-            title="Validation issues"
-            description="The engine returned validation warnings or errors that should be reviewed."
-          />
-          <ul className="grid gap-2 text-sm text-amber-100">
-            {result.validationIssues.map((issue) => (
-              <li key={`${issue.field}-${issue.message}`} className="rounded-lg border border-amber-500/20 bg-black/10 px-3 py-2">
-                <span className="font-semibold uppercase tracking-wide">{issue.severity}</span>
-                {" · "}
-                <span>{issue.field}</span>
-                {" — "}
-                <span>{issue.message}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      <Card className="grid gap-4">
-        <SectionTitle
-          icon={<Hammer size={18} />}
-          title="Materials"
-          description="A deterministic material takeoff generated by the tools engine."
-        />
-        <div className="overflow-hidden rounded-xl border border-white/[0.08]">
-          <table className="w-full text-sm">
-            <thead className="bg-white/[0.03] text-muted">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium">Item</th>
-                <th className="px-4 py-3 text-left font-medium">Qty</th>
-                <th className="px-4 py-3 text-left font-medium">Cost</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result.materials.map((item) => (
-                <tr key={`${item.name}-${item.category}`} className="border-t border-white/[0.06]">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-ink">{item.name}</div>
-                    <div className="text-xs text-muted">{item.category}</div>
-                  </td>
-                  <td className="px-4 py-3 text-muted">
-                    {item.quantity} {item.unit}
-                  </td>
-                  <td className="px-4 py-3 text-ink">{formatCurrency(item.totalCost)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="grid gap-4">
-        <SectionTitle
-          icon={<ClipboardList size={18} />}
-          title="Milestones"
-          description="Suggested payment checkpoints suitable for escrow and release control."
-        />
-        <div className="grid gap-3">
-          {result.milestones.map((milestone) => (
-            <div key={`${milestone.sequence}-${milestone.title}`} className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="text-sm font-semibold text-ink">
-                    {milestone.sequence}. {milestone.title}
-                  </div>
-                  <div className="text-sm text-muted">{milestone.description}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-brand">{milestone.percentage}%</div>
-                  <div className="text-xs text-muted">{formatCurrency(milestone.amount)}</div>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {milestone.evidenceRequired.map((item) => (
-                  <Badge key={item} variant="info">
-                    {item}
-                  </Badge>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted">{milestone.releaseTrigger}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card className="grid gap-4">
-        <SectionTitle
-          icon={<FileText size={18} />}
-          title="Evidence checklist"
-          description="Artifacts the field team should capture before release."
-        />
-        <div className="grid gap-2 md:grid-cols-2">
-          {result.evidenceRequired.map((item) => (
-            <div key={`${item.type}-${item.description}`} className="flex items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
-              <div className="mt-0.5 text-brand">
-                {item.required ? <BadgeCheck size={16} /> : <CheckCircle2 size={16} />}
-              </div>
-              <div>
-                <div className="text-sm font-medium text-ink">{item.description}</div>
-                <div className="text-xs uppercase tracking-wide text-muted">
-                  {item.type}{item.milestone ? ` · milestone ${item.milestone}` : ""}
-                  {item.required ? " · required" : ""}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {(result.warnings.length > 0 || result.recommendations.length > 0) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {result.warnings.length > 0 && (
-            <Card className="grid gap-3 border-amber-500/20 bg-amber-500/[0.05]">
-              <SectionTitle
-                icon={<AlertTriangle size={18} />}
-                title="Warnings"
-                description="Operational alerts from the engine."
-              />
-              <ul className="grid gap-2 text-sm text-amber-100">
-                {result.warnings.map((warning) => (
-                  <li key={warning} className="rounded-lg border border-amber-500/20 bg-black/10 px-3 py-2">
-                    {warning}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
-          {result.recommendations.length > 0 && (
-            <Card className="grid gap-3 border-emerald-500/20 bg-emerald-500/[0.05]">
-              <SectionTitle
-                icon={<BadgeCheck size={18} />}
-                title="Recommendations"
-                description="Suggested operational follow-up."
-              />
-              <ul className="grid gap-2 text-sm text-emerald-100">
-                {result.recommendations.map((recommendation) => (
-                  <li key={recommendation} className="rounded-lg border border-emerald-500/20 bg-black/10 px-3 py-2">
-                    {recommendation}
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function ConcreteToolClient() {
+export function ConcreteToolClient({ section }: ConcreteToolClientProps) {
   const [input, setInput] = useState<ConcreteInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleCalculate() {
+  const costPerSqft = useMemo(() => {
+    const baseCost: Record<typeof input.type, number> = {
+      standard: 4.5, reinforced: 6.5, colored: 7.0, stamped: 12.0, polished: 15.0,
+    };
+    const base = baseCost[input.type];
+    const finishFactor = { broom: 1.0, smooth: 1.1, exposed_aggregate: 1.3, custom: 1.6 }[input.finish];
+    const prepFactor = { minimal: 0.8, standard: 1.0, extensive: 1.4, excavation: 2.0 }[input.prep];
+    const reinforceFactor = { none: 1.0, rebar: 1.2, wire_mesh: 1.1, post_tension: 1.5 }[input.reinforcement];
+    const complexFactor = { simple: 1.0, moderate: 1.2, complex: 1.5 }[input.complexity];
+    return base * finishFactor * prepFactor * reinforceFactor * complexFactor;
+  }, [input.type, input.finish, input.prep, input.reinforcement, input.complexity]);
+
+  const estimatedCost = useMemo(() => input.squareFeet * costPerSqft * 1.15, [input.squareFeet, costPerSqft]);
+
+  async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const data = await calculateSemseTool({
-        tool: "concrete",
-        mode: input.mode,
-        input,
-      });
-      setResult(data);
+      const response = await calculateSemseTool({ tool: "concrete", mode: input.mode, input });
+      setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Area</div><div className="text-2xl font-bold">{input.squareFeet} sqft</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Type</div><div className="text-lg font-bold">{input.type}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Concrete Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Square Feet" type="number" value={input.squareFeet} onChange={(e) => setInput({...input, squareFeet: Number(e.target.value)})} />
+                <Input label="Thickness (in)" type="number" value={input.thickness} onChange={(e) => setInput({...input, thickness: Number(e.target.value)})} />
+                <Select label="Type" value={input.type} onChange={(e) => setInput({...input, type: e.target.value as any})}>
+                  <option value="standard">Standard</option>
+                  <option value="reinforced">Reinforced</option>
+                  <option value="colored">Colored</option>
+                  <option value="stamped">Stamped</option>
+                  <option value="polished">Polished</option>
+                </Select>
+                <Select label="Finish" value={input.finish} onChange={(e) => setInput({...input, finish: e.target.value as any})}>
+                  <option value="broom">Broom</option>
+                  <option value="smooth">Smooth</option>
+                  <option value="exposed_aggregate">Exposed Aggregate</option>
+                  <option value="custom">Custom</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Area: {input.squareFeet} sqft • Thickness: {input.thickness}\" • Type: {input.type}</p></Card>;
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">Concrete: {input.squareFeet} sqft @ {input.thickness}\" • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Concrete Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.squareFeet} sqft</p></Card>;
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Site prep, forming & reinforcement, pour, finishing, curing...</p></Card>;
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Flatness, slope, strength, finish quality, curing time, seal application...</p></Card>;
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Concrete Research</h3><Input placeholder="Search concrete types, finishes, durability, maintenance..." /></Card>;
+      default:
+        return null;
     }
   }
 
@@ -300,174 +142,25 @@ export function ConcreteToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Concrete calculator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Calculate slab volume, mix requirements, reinforcement, milestone plan and evidence checklist through the tools API.
-          </p>
+          <div className="flex items-center gap-3"><Hammer className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Concrete Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete concrete estimation with materials, labor, and finishing options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <SectionTitle
-              icon={<Calculator size={18} />}
-              title="Input"
-              description="Enter slab dimensions and mix preferences. The engine handles pricing and risk logic."
-            />
-
-            <div className="grid gap-4">
-              <Input
-                label="Length (ft)"
-                type="number"
-                min={0}
-                value={input.lengthFt}
-                onChange={(event) => setInput((current) => ({ ...current, lengthFt: Number(event.target.value) }))}
-              />
-
-              <Input
-                label="Width (ft)"
-                type="number"
-                min={0}
-                value={input.widthFt}
-                onChange={(event) => setInput((current) => ({ ...current, widthFt: Number(event.target.value) }))}
-              />
-
-              <Input
-                label="Thickness (in)"
-                type="number"
-                min={2}
-                max={24}
-                value={input.thicknessIn}
-                onChange={(event) => setInput((current) => ({ ...current, thicknessIn: Number(event.target.value) }))}
-              />
-
-              <Input
-                label="Waste (%)"
-                type="number"
-                min={0}
-                max={30}
-                value={input.wastePercent}
-                onChange={(event) => setInput((current) => ({ ...current, wastePercent: Number(event.target.value) }))}
-              />
-
-              <Select
-                label="Mix strength"
-                value={input.mixStrength}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mixStrength: event.target.value as ConcreteInput["mixStrength"],
-                  }))
-                }
-              >
-                <option value="2500psi">2500 PSI</option>
-                <option value="3000psi">3000 PSI</option>
-                <option value="3500psi">3500 PSI</option>
-                <option value="4000psi">4000 PSI</option>
-              </Select>
-
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Reinforced</span>
-                <input
-                  type="checkbox"
-                  checked={input.reinforced}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      reinforced: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Include formwork</span>
-                <input
-                  type="checkbox"
-                  checked={input.formworkIncluded}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      formworkIncluded: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Pump required</span>
-                <input
-                  type="checkbox"
-                  checked={input.pumpRequired}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      pumpRequired: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            <Button onClick={() => void handleCalculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate concrete"}
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ResultSection result={result} />
-            ) : (
-              <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
-                <div className="grid gap-3 p-8">
-                  <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <Calculator size={24} />
-                  </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the concrete flow through the tools API.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Volume</Badge>
-                    <Badge variant="info">Mix</Badge>
-                    <Badge variant="warn">Milestones</Badge>
-                    <Badge variant="success">Evidence</Badge>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

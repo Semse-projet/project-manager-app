@@ -1,86 +1,168 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, DoorOpen, Calculator } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Frame } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
+export type WindowsDoorsSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
+
 type WindowsDoorsInput = {
-  windows: number;
-  doors: number;
-  installType:
-    | "replacement"
-    | "newConstruction"
-    | "exteriorDoor"
-    | "interiorDoor"
-    | "slidingDoor";
-  windowCost: number;
-  doorCost: number;
-  laborPerUnit: number;
-  exteriorWork: boolean;
-  flashingRequired: boolean;
-  trimIncluded: boolean;
+  projectType: "windows_only" | "doors_only" | "mixed" | "full_replacement" | "retrofit";
+  materialType: "vinyl" | "wood" | "fiberglass" | "aluminum" | "composite";
+  quantity: number;
+  glass: "single_pane" | "double_pane" | "triple_pane" | "energy_star";
+  style: "double_hung" | "casement" | "sliding" | "fixed" | "entry_door" | "patio";
+  installComplexity: "simple" | "moderate" | "complex" | "structural";
+  weatherSealing: "standard" | "premium" | "full_weatherization";
   mode: ToolMode;
 };
 
 const INITIAL_INPUT: WindowsDoorsInput = {
-  windows: 4,
-  doors: 1,
-  installType: "replacement",
-  windowCost: 280,
-  doorCost: 450,
-  laborPerUnit: 160,
-  exteriorWork: true,
-  flashingRequired: true,
-  trimIncluded: true,
+  projectType: "mixed",
+  materialType: "vinyl",
+  quantity: 6,
+  glass: "double_pane",
+  style: "double_hung",
+  installComplexity: "moderate",
+  weatherSealing: "standard",
   mode: "professional",
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <Input
-      label={label}
-      type="number"
-      step={step}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  );
+const SECTIONS: Array<{ id: WindowsDoorsSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/windows-doors/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/windows-doors/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/windows-doors/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/windows-doors/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/windows-doors/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/windows-doors/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/windows-doors/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/windows-doors/research", icon: Globe2 },
+];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function WindowsDoorsToolClient() {
+type WindowsDoorsToolClientProps = { section: WindowsDoorsSection };
+
+export function WindowsDoorsToolClient({ section }: WindowsDoorsToolClientProps) {
   const [input, setInput] = useState<WindowsDoorsInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const costPerUnit = useMemo(() => {
+    const baseCost: Record<typeof input.materialType, number> = {
+      vinyl: 250, wood: 400, fiberglass: 350, aluminum: 300, composite: 500,
+    };
+    const base = baseCost[input.materialType] || 300;
+    const glassFactor = { single_pane: 0.8, double_pane: 1.0, triple_pane: 1.3, energy_star: 1.5 }[input.glass];
+    const complexityFactor = { simple: 1.0, moderate: 1.2, complex: 1.5, structural: 2.0 }[input.installComplexity];
+    const sealFactor = { standard: 1.0, premium: 1.2, full_weatherization: 1.4 }[input.weatherSealing];
+    return base * glassFactor * complexityFactor * sealFactor;
+  }, [input.materialType, input.glass, input.installComplexity, input.weatherSealing]);
+
+  const estimatedCost = useMemo(() => input.quantity * costPerUnit * 1.12, [input.quantity, costPerUnit]);
+
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await calculateSemseTool({
-        tool: "windowsDoors",
-        mode: input.mode,
-        input,
-      });
+      const response = await calculateSemseTool({ tool: "windows-doors", mode: input.mode, input });
       setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Quantity</div><div className="text-2xl font-bold">{input.quantity}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Material</div><div className="text-lg font-bold">{input.materialType}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Windows & Doors Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Select label="Project Type" value={input.projectType} onChange={(e) => setInput({...input, projectType: e.target.value as any})}>
+                  <option value="windows_only">Windows Only</option>
+                  <option value="doors_only">Doors Only</option>
+                  <option value="mixed">Mixed</option>
+                  <option value="full_replacement">Full Replacement</option>
+                  <option value="retrofit">Retrofit</option>
+                </Select>
+                <Select label="Material" value={input.materialType} onChange={(e) => setInput({...input, materialType: e.target.value as any})}>
+                  <option value="vinyl">Vinyl</option>
+                  <option value="wood">Wood</option>
+                  <option value="fiberglass">Fiberglass</option>
+                  <option value="aluminum">Aluminum</option>
+                  <option value="composite">Composite</option>
+                </Select>
+                <Input label="Quantity" type="number" value={input.quantity} onChange={(e) => setInput({...input, quantity: Number(e.target.value)})} />
+                <Select label="Glass Type" value={input.glass} onChange={(e) => setInput({...input, glass: e.target.value as any})}>
+                  <option value="single_pane">Single Pane</option>
+                  <option value="double_pane">Double Pane</option>
+                  <option value="triple_pane">Triple Pane</option>
+                  <option value="energy_star">Energy Star</option>
+                </Select>
+                <Select label="Style" value={input.style} onChange={(e) => setInput({...input, style: e.target.value as any})}>
+                  <option value="double_hung">Double Hung</option>
+                  <option value="casement">Casement</option>
+                  <option value="sliding">Sliding</option>
+                  <option value="fixed">Fixed</option>
+                  <option value="entry_door">Entry Door</option>
+                  <option value="patio">Patio Door</option>
+                </Select>
+                <Select label="Complexity" value={input.installComplexity} onChange={(e) => setInput({...input, installComplexity: e.target.value as any})}>
+                  <option value="simple">Simple</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="complex">Complex</option>
+                  <option value="structural">Structural</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Type: {input.projectType} • Material: {input.materialType} • Qty: {input.quantity} • Style: {input.style}</p></Card>;
+
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">{input.materialType} {input.style}: {input.quantity} units • Glass: {input.glass} • Cost/unit: {formatCurrency(costPerUnit)}</p></Card>;
+
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Windows & Doors Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.quantity} units • {input.materialType}</p></Card>;
+
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Measurement & ordering, removal of old units, frame preparation, new unit install, sealing & trim...</p></Card>;
+
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Alignment, seal integrity, operation, weatherproofing, trim quality, caulking...</p></Card>;
+
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Windows & Doors Research</h3><Input placeholder="Search materials, styles, energy efficiency ratings, installation methods..." /></Card>;
+
+      default:
+        return null;
     }
   }
 
@@ -88,178 +170,25 @@ export function WindowsDoorsToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Windows / Doors calculator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Estimate replacement windows, doors, flashing, trim, labor, risk, evidence and escrow-ready closeout.
-          </p>
+          <div className="flex items-center gap-3"><Frame className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Windows & Doors Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete windows and doors estimation with materials, labor, and installation options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                <Calculator size={18} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Input</h2>
-                <p className="text-sm text-muted">
-                  Exterior / interior openings with strong weatherproofing controls.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <NumberField
-                label="Windows"
-                value={input.windows}
-                onChange={(value) => setInput((current) => ({ ...current, windows: value }))}
-              />
-              <NumberField
-                label="Doors"
-                value={input.doors}
-                onChange={(value) => setInput((current) => ({ ...current, doors: value }))}
-              />
-
-              <Select
-                label="Install type"
-                value={input.installType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    installType: event.target.value as WindowsDoorsInput["installType"],
-                  }))
-                }
-              >
-                <option value="replacement">Replacement</option>
-                <option value="newConstruction">New construction</option>
-                <option value="exteriorDoor">Exterior door</option>
-                <option value="interiorDoor">Interior door</option>
-                <option value="slidingDoor">Sliding door</option>
-              </Select>
-
-              <NumberField
-                label="Window cost"
-                value={input.windowCost}
-                onChange={(value) => setInput((current) => ({ ...current, windowCost: value }))}
-              />
-              <NumberField
-                label="Door cost"
-                value={input.doorCost}
-                onChange={(value) => setInput((current) => ({ ...current, doorCost: value }))}
-              />
-              <NumberField
-                label="Labor per unit"
-                value={input.laborPerUnit}
-                onChange={(value) => setInput((current) => ({ ...current, laborPerUnit: value }))}
-              />
-
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Exterior work</span>
-                <input
-                  type="checkbox"
-                  checked={input.exteriorWork}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      exteriorWork: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Flashing required</span>
-                <input
-                  type="checkbox"
-                  checked={input.flashingRequired}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      flashingRequired: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Trim included</span>
-                <input
-                  type="checkbox"
-                  checked={input.trimIncluded}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      trimIncluded: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
-            <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-4 text-sm text-amber-100">
-              <strong>Note:</strong> exterior installs should always document flashing, sealant, plumb / level checks and final weatherproofing.
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate Windows / Doors"}
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ToolResultPanel result={result} />
-            ) : (
-              <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
-                <div className="grid gap-3 p-8">
-                  <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <DoorOpen size={24} />
-                  </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the windows / doors flow through the tools API.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Openings</Badge>
-                    <Badge variant="info">Weatherproofing</Badge>
-                    <Badge variant="warn">Escrow</Badge>
-                    <Badge variant="success">Evidence</Badge>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

@@ -69,7 +69,7 @@ type CircuitStatus = "within_range" | "review" | "near_limit" | "overloaded" | "
 
 type ElectricalInput = {
   watts: number;
-  voltage: 120 | 208 | 220 | 240;
+  voltage: 120 | 208 | 220 | 240 | 277 | 480;
   powerFactor: number;
   phase: 1 | 3;
   isContinuous: boolean;
@@ -166,6 +166,8 @@ const INITIAL_ENGINE_INPUT: ElectricalInput = {
   outdoorWork: false,
   mode: "professional",
 };
+
+const ELECTRICAL_VOLTAGES: ElectricalInput["voltage"][] = [120, 208, 220, 240, 277, 480];
 
 const INITIAL_SCOPE: ScopeState = {
   projectName: "Kitchen rewire - Martinez",
@@ -1014,7 +1016,11 @@ function ElectricalEstimateCalculator({
 
         <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
           <Input label="Watts" type="number" value={engineInput.watts} onChange={(event) => setEngineInput({ ...engineInput, watts: Number(event.target.value) })} />
-          <Input label="Voltage" type="number" value={engineInput.voltage} onChange={(event) => setEngineInput({ ...engineInput, voltage: Number(event.target.value) as ElectricalInput["voltage"] })} />
+          <Select label="Voltage" value={engineInput.voltage} onChange={(event) => setEngineInput({ ...engineInput, voltage: Number(event.target.value) as ElectricalInput["voltage"] })}>
+            {ELECTRICAL_VOLTAGES.map((voltage) => (
+              <option key={voltage} value={voltage}>{voltage}V</option>
+            ))}
+          </Select>
           <Input label="Power factor" type="number" step={0.01} value={engineInput.powerFactor} onChange={(event) => setEngineInput({ ...engineInput, powerFactor: Number(event.target.value) })} />
           <Input label="Run distance" type="number" value={engineInput.runFeet} onChange={(event) => setEngineInput({ ...engineInput, runFeet: Number(event.target.value) })} />
           <Input label="Circuits" type="number" value={engineInput.numCircuits} onChange={(event) => setEngineInput({ ...engineInput, numCircuits: Number(event.target.value) })} />

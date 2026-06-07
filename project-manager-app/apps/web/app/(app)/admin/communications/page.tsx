@@ -82,6 +82,8 @@ type CommunicationChannelAccount = {
   phoneNumberId: string | null;
   displayPhone: string | null;
   status: string;
+  _envConfigured?: boolean;
+  _warning?: string;
 };
 
 type CommunicationInboundResult = {
@@ -104,11 +106,24 @@ async function fetchSemse<T>(path: string, init?: RequestInit): Promise<T> {
   const payload = await response.json().catch(() => ({})) as ApiEnvelope<T>;
 
   if (!response.ok) {
-    throw new Error(payload.error?.message ?? `SEMSE API ${path} returned ${response.status}`);
+    // Extract the most human-readable error from the API envelope.
+    const rawMsg = payload.error?.message;
+    let humanMsg: string;
+    if (typeof rawMsg === "string") {
+      humanMsg = rawMsg;
+    } else if (rawMsg && typeof rawMsg === "object" && "message" in rawMsg) {
+      humanMsg = String((rawMsg as { message: unknown }).message);
+    } else if (rawMsg && typeof rawMsg === "object" && "code" in rawMsg) {
+      const coded = rawMsg as { code?: string; message?: string };
+      humanMsg = coded.message ?? coded.code ?? "Error del proveedor";
+    } else {
+      humanMsg = `Error ${response.status} en ${path}`;
+    }
+    throw new Error(humanMsg);
   }
 
   if (!("data" in payload)) {
-    throw new Error(`SEMSE API ${path} returned an invalid envelope`);
+    throw new Error(`La respuesta de ${path} no tiene el formato esperado.`);
   }
 
   return payload.data as T;
@@ -750,7 +765,13 @@ export default function AdminCommunicationsPage() {
               </div>
 
               <form onSubmit={handleSend} style={{ borderTop: "1px solid var(--border)", padding: "14px", display: "grid", gap: "9px", background: "var(--surface)" }}>
-                {sendError ? <p style={{ color: "#fca5a5", fontSize: "12px" }}>{sendError}</p> : null}
+                {sendError ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 10px", borderRadius: "7px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                    <XCircle size={13} style={{ color: "#fca5a5", flexShrink: 0 }} />
+                    <p style={{ color: "#fca5a5", fontSize: "12px", margin: 0, flex: 1 }}>{sendError}</p>
+                    <button type="button" onClick={() => setSendError(null)} style={{ color: "#94a3b8", fontSize: "11px", background: "none", border: "none", cursor: "pointer", padding: 0 }}>×</button>
+                  </div>
+                ) : null}
                 {sendSuccess ? <p style={{ color: "#5eead4", fontSize: "12px" }}>{sendSuccess}</p> : null}
                 <div style={{ display: "flex", gap: "5px", flexWrap: "wrap" }}>
                   {QUICK_REPLIES.map((qr) => (
@@ -842,7 +863,7 @@ export default function AdminCommunicationsPage() {
               { label: "Lead capture", value: "Inbound project-like crea ContractorLead", ok: true },
               { label: "Smart intake", value: "Analisis enlazado al thread", ok: true },
               { label: "Outbox", value: "Persistencia antes/despues del provider", ok: true },
-              { label: "WhatsApp real", value: "Depende de credenciales Cloud API", ok: channelAccounts.some((account) => account.provider === "WHATSAPP_CLOUD") },
+              { label: "WhatsApp real", value: channelAccounts.some(a => a.provider === "WHATSAPP_CLOUD" && a._envConfigured) ? "Configurado por variables de entorno (sin cuenta DB)" : channelAccounts.some(a => a.provider === "WHATSAPP_CLOUD") ? "Cuenta DB registrada" : "Depende de credenciales Cloud API", ok: channelAccounts.some((account) => account.provider === "WHATSAPP_CLOUD") },
             ].map((item) => (
               <div key={item.label} style={{ display: "flex", alignItems: "flex-start", gap: "10px", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)" }}>
                 {item.ok ? <CheckCircle2 size={15} style={{ color: "#34d399", marginTop: "2px", flexShrink: 0 }} /> : <XCircle size={15} style={{ color: "#f59e0b", marginTop: "2px", flexShrink: 0 }} />}
@@ -871,13 +892,16 @@ export default function AdminCommunicationsPage() {
               </div>
             ) : null}
             {channelAccounts.map((account) => (
-              <div key={account.id} style={{ border: "1px solid var(--border)", borderRadius: "8px", background: "var(--bg)", padding: "11px" }}>
+              <div key={account.id} style={{ border: `1px solid ${account._envConfigured ? "rgba(245,158,11,0.3)" : "var(--border)"}`, borderRadius: "8px", background: "var(--bg)", padding: "11px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
                   <p style={{ fontSize: "13px", fontWeight: 850, color: "var(--ink)", margin: 0 }}>{account.label}</p>
                   <StatusPill value={account.status} />
                 </div>
-                <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "6px" }}>{account.provider.replace("_", " ")}</p>
+                <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "6px" }}>{account.provider.replace(/_/g, " ")}</p>
                 <p style={{ fontSize: "11px", color: "var(--faint)", marginTop: "4px" }}>{account.displayPhone || account.phoneNumberId || shortId(account.id)}</p>
+                {account._warning ? (
+                  <p style={{ fontSize: "11px", color: "#fbbf24", marginTop: "6px", lineHeight: 1.4 }}>{account._warning}</p>
+                ) : null}
               </div>
             ))}
           </div>

@@ -24,8 +24,9 @@ const FOOTER_COLS = [
     links: [
       { label: "Sobre SEMSE Project", href: "#" },
       { label: "Profesionales verificados", href: "#profesionales" },
-      { label: "Privacidad", href: "#" },
-      { label: "Términos de servicio", href: "#" },
+      { label: "Privacidad", href: "/privacy" },
+      { label: "Términos de servicio", href: "/terms" },
+      { label: "Eliminación de datos", href: "/data-deletion" },
     ],
   },
 ];

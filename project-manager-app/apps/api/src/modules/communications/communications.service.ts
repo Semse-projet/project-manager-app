@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   CommunicationMessageStatus,
@@ -117,7 +117,40 @@ export class CommunicationsService {
   }
 
   async listChannelAccounts(actor: CommunicationsActor) {
-    return this.repository.listChannelAccounts(actor);
+    const dbAccounts = await this.repository.listChannelAccounts(actor);
+
+    // If no DB accounts exist but WhatsApp Cloud is configured via env vars,
+    // synthesize a virtual account record so the UI doesn't show "0 cuentas".
+    if (dbAccounts.length === 0) {
+      const mode = this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock";
+      const accessToken = this.config.get<string>("WHATSAPP_CLOUD_ACCESS_TOKEN");
+      const phoneNumberId = this.config.get<string>("WHATSAPP_CLOUD_PHONE_NUMBER_ID");
+
+      if (accessToken && phoneNumberId) {
+        return [
+          {
+            id: "env-configured",
+            tenantId: actor.tenantId,
+            orgId: actor.orgId ?? null,
+            provider: "WHATSAPP_CLOUD",
+            label: "WhatsApp Cloud (env)",
+            externalAccountId: null,
+            phoneNumberId: phoneNumberId.slice(-4).padStart(phoneNumberId.length, "*"),
+            displayPhone: null,
+            status: mode === "live" ? "active" : "mock",
+            settingsJson: null,
+            secretRef: null,
+            createdByUserId: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            _envConfigured: true,
+            _warning: "WhatsApp Cloud configured through environment variables — no DB account record exists.",
+          },
+        ];
+      }
+    }
+
+    return dbAccounts;
   }
 
   async listThreads(actor: CommunicationsActor, input: {
@@ -329,12 +362,25 @@ export class CommunicationsService {
         provider: result.raw,
       };
     } catch (error) {
+      const safeError = error instanceof Error ? error.message : String(error);
       await this.repository.markOutboundDelivery({
         deliveryId: delivery.id,
         status: CommunicationMessageStatus.FAILED,
-        error: error instanceof Error ? error.message : String(error),
+        error: safeError.slice(0, 1000),
       });
-      throw error;
+
+      // Re-throw HttpExceptions (BadRequestException from adapter) as-is so the
+      // controller returns 400 with a structured body instead of a generic 500.
+      if (error instanceof BadRequestException || error instanceof ForbiddenException) {
+        throw error;
+      }
+
+      // Convert unknown errors into a structured 500 with a safe message.
+      throw new InternalServerErrorException({
+        code: "PROVIDER_FAILED",
+        message: "Message delivery failed due to an unexpected error. Please try again later.",
+        retryable: true,
+      });
     }
   }
 

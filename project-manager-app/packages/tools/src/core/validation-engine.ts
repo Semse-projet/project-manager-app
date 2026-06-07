@@ -8,6 +8,9 @@ export function required(field: string, value: unknown): ValidationIssue | null 
 }
 
 export function positive(field: string, value: number, label = field): ValidationIssue | null {
+  if (!Number.isFinite(value)) {
+    return { field, severity: "error", message: `${label} debe ser un número válido.` };
+  }
   if (value <= 0) {
     return { field, severity: "error", message: `${label} debe ser mayor a 0.` };
   }
@@ -17,12 +20,37 @@ export function positive(field: string, value: number, label = field): Validatio
 export function range(
   field: string, value: number, min: number, max: number, label = field
 ): ValidationIssue | null {
+  if (!Number.isFinite(value)) {
+    return {
+      field,
+      severity: "error",
+      message: `${label} debe ser un número válido.`,
+      suggestion: `Valor actual: ${String(value)}`,
+    };
+  }
   if (value < min || value > max) {
     return {
       field,
       severity: "error",
       message: `${label} debe estar entre ${min} y ${max}.`,
       suggestion: `Valor actual: ${value}`,
+    };
+  }
+  return null;
+}
+
+export function oneOf<T extends string>(
+  field: string,
+  value: unknown,
+  allowed: readonly T[],
+  label = field,
+): ValidationIssue | null {
+  if (typeof value !== "string" || !allowed.includes(value as T)) {
+    return {
+      field,
+      severity: "error",
+      message: `${label} debe ser uno de: ${allowed.join(", ")}.`,
+      suggestion: `Valor actual: ${String(value)}`,
     };
   }
   return null;

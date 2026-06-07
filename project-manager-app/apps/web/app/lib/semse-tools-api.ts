@@ -1,5 +1,5 @@
 export type ToolMode = "client" | "professional" | "admin";
-export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors" | "insulation" | "demolition" | "masonry" | "deck" | "fencing" | "landscaping" | "project-manager" | "labor" | "solar" | "bathroom" | "bathroom-remodel" | "bathroom_remodel" | "kitchen" | "kitchen-remodel" | "kitchen_remodel" | "cleaning" | "residential-cleaning" | "siding" | "exterior-siding" | "siding-installation";
+export type SupportedTool = "roofing" | "concrete" | "electrical" | "plumbing" | "hvac" | "painting" | "drywall" | "flooring" | "carpentry" | "tile" | "windowsDoors" | "windows-doors" | "windowDoors" | "insulation" | "demolition" | "masonry" | "deck" | "fencing" | "landscaping" | "project-manager" | "labor" | "solar" | "bathroom" | "bathroom-remodel" | "bathroom_remodel" | "kitchen" | "kitchen-remodel" | "kitchen_remodel" | "cleaning" | "residential-cleaning" | "siding" | "exterior-siding" | "siding-installation" | "doors-mods" | "electrical-subsystems" | "structural" | "specialty-trades" | "equipment-rental";
 
 export type ValidationIssue = {
   field: string;
@@ -80,6 +80,65 @@ export type EvidenceItem = {
   milestone?: number;
 };
 
+// ── Extended metrics types (Algorithm Engine v2+) ────────────────────────────
+
+export type ProductionPhase = {
+  name: string;
+  daysMin: number;
+  daysMax: number;
+  crew: number;
+  description?: string;
+};
+
+export type ProductionSchedule = {
+  totalDaysMin: number;
+  totalDaysMax: number;
+  crewSizeRecommended: number;
+  phases: ProductionPhase[];
+};
+
+export type PriceBands = {
+  low: number;
+  mid: number;
+  high: number;
+  currency: "USD";
+  notes: { low: string; mid: string; high: string };
+};
+
+export type WarrantyTerms = {
+  laborDays: number;
+  scope: string;
+  exclusions: string[];
+};
+
+export type UpsellOpportunity = {
+  service: string;
+  reason: string;
+  additionalCostRange?: { min: number; max: number };
+};
+
+export type RoiEstimate = {
+  investmentAmount: number;
+  estimatedValueAdded: number;
+  roiPercent: number;
+  notes?: string;
+};
+
+export type ScheduleRisk = {
+  delayProbability: "low" | "medium" | "high";
+  estimatedDelayDays: number;
+  factors: string[];
+};
+
+export type InspectionGate = {
+  timing: string;
+  requiredItems: string[];
+  stopCondition: string;
+  notes?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export type SemseToolResult = {
   toolId: string;
   trade: string;
@@ -98,6 +157,17 @@ export type SemseToolResult = {
   recommendations: string[];
   assumptions: string[];
   createdAt: string;
+  // Extended metrics (v2+ engines)
+  productionSchedule?: ProductionSchedule;
+  priceBands?: PriceBands;
+  warranty?: WarrantyTerms;
+  upsells?: UpsellOpportunity[];
+  roi?: RoiEstimate;
+  scheduleRisk?: ScheduleRisk;
+  inspectionGate?: InspectionGate;
+  confidenceScore?: { score: number; label: string; breakdown?: Record<string, boolean> };
+  safeToProceed?: { safe: boolean; reason?: string; blockers?: string[] };
+  [key: string]: unknown;
 };
 
 export type ToolCalculateRequest = {
