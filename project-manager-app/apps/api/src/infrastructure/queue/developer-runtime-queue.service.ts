@@ -1,5 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { Queue } from "bullmq";
+import { Queue, type QueueOptions } from "bullmq";
 import { Redis } from "ioredis";
 import { SEMSE_DEVELOPER_RUNTIME_QUEUE } from "@semse/shared";
 
@@ -85,7 +85,7 @@ export class DeveloperRuntimeQueueService implements OnModuleInit, OnModuleDestr
 
       this.connection = connection;
       this.queue = new Queue(SEMSE_DEVELOPER_RUNTIME_QUEUE, {
-        connection,
+        connection: connection as QueueOptions["connection"],
         defaultJobOptions: {
           removeOnComplete: 500,
           removeOnFail: 1000,
