@@ -78,6 +78,16 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.reviews": "Reseñas",
     "nav.financeHub": "Hub Financiero",
 
+    // ── OS Groups ─────────────────────────────────────────────────────────────
+    "os.missionControl": "Mission Control",
+    "os.client": "Client OS",
+    "os.contractor": "Contractor OS",
+    "os.operations": "Operations OS",
+    "os.marketplace": "Marketplace OS",
+    "os.governance": "Governance OS",
+    "os.ai": "AI Mission Control",
+    "os.system": "System",
+
     // ── Sections ──────────────────────────────────────────────────────────────
     "section.main": "Principal",
     "section.control": "Control",
@@ -710,6 +720,16 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.documents": "Documents",
     "nav.reviews": "Reviews",
     "nav.financeHub": "Finance Hub",
+
+    // ── OS Groups ─────────────────────────────────────────────────────────────
+    "os.missionControl": "Mission Control",
+    "os.client": "Client OS",
+    "os.contractor": "Contractor OS",
+    "os.operations": "Operations OS",
+    "os.marketplace": "Marketplace OS",
+    "os.governance": "Governance OS",
+    "os.ai": "AI Mission Control",
+    "os.system": "System",
 
     // ── Sections ──────────────────────────────────────────────────────────────
     "section.main": "Main",

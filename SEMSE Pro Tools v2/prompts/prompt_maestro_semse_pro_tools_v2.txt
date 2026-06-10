@@ -1,0 +1,63 @@
+# Prompt maestro — SEMSE Pro Tools v2 Hardened Core Package
+
+Actúa como arquitecto senior full-stack especializado en TypeScript, construcción digital, marketplaces de servicios, escrow, evidencia operativa y sistemas de cotización.
+
+Estamos desarrollando SEMSE Pro Tools v2.
+
+## Contexto
+
+SEMSE Project es una plataforma marketplace para construcción, remodelación y servicios profesionales. Tiene cliente, profesional y admin. Las herramientas actuales existen como calculadoras MVP para concreto, carpintería, electricidad, plomería, pintura, drywall, pisos, roofing, HVAC, cotizador/escrow e inspección. Ahora deben endurecerse para operar como motores técnicos de cálculo, cotización, riesgo, evidencia y escrow.
+
+## Objetivo de esta fase
+
+Crear el Hardened Core Package.
+
+## Archivos requeridos
+
+- core/types.ts
+- core/validation-engine.ts
+- core/risk-engine.ts
+- core/cost-engine.ts
+- core/labor-engine.ts
+- core/material-engine.ts
+- core/milestone-engine.ts
+- core/evidence-engine.ts
+- business/quote-escrow-engine.ts
+- business/dispute-prevention-engine.ts
+- business/change-order-engine.ts
+- trades/concrete/concrete.engine.ts
+- trades/electrical/electrical.engine.ts
+- trades/roofing/roofing.engine.ts
+- tests/core-engine.test.ts
+- tests/concrete-engine.test.ts
+
+## Requisitos
+
+1. Usar TypeScript estricto.
+2. Usar funciones puras.
+3. No depender de React.
+4. No depender de DOM.
+5. No usar APIs externas.
+6. Validar inputs.
+7. Retornar objetos estructurados.
+8. Incluir warnings y recommendations.
+9. Calcular riskScore.
+10. Calcular milestones.
+11. Calcular evidenceRequired.
+12. Calcular costSummary.
+13. Preparar integración futura con PostgreSQL/Prisma.
+14. Preparar integración futura con Prometeo AI Advisor.
+15. Agregar pruebas unitarias.
+
+## Prioridad
+
+Implementar primero Concrete Engine como referencia para replicar el patrón al resto de oficios. Luego Electrical Engine y Roofing Engine por ser de alto riesgo.
+
+## Entrega esperada
+
+- Código TypeScript completo.
+- Tipos claros.
+- Algoritmos comentados.
+- Tests de casos normales y extremos.
+- Ejemplo de output JSON.
+

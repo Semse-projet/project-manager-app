@@ -26,29 +26,92 @@
 
 | Spec ID | Domain | Status | Risk | API | UI | Tests | Related Files | Last Verified |
 |---|---|---|---|---|---|---|---|---|
-| [semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | APPROVED | high | yes | no | yes | 5 | 2026-05-25 |
-| [api-buildops](docs/specs/api/buildops.spec.md) | buildops | APPROVED | high | yes | yes | yes | 3 | 2026-05-25 |
-| [api-communications](docs/specs/api/communications.spec.md) | communications | APPROVED | high | yes | no | yes | 2 | 2026-05-25 |
-| [api-consciousness-observer](docs/specs/api/consciousness.spec.md) | ops | APPROVED | medium | yes | yes | yes | 3 | 2026-05-25 |
-| [api-contract-lifecycle](docs/specs/api/contracts.spec.md) | contracts | APPROVED | high | yes | no | yes | 2 | 2026-05-25 |
-| [api-dispute-lifecycle](docs/specs/api/disputes.spec.md) | disputes | APPROVED | critical | yes | no | yes | 2 | 2026-05-25 |
-| [api-evidence-upload-review](docs/specs/api/evidence.spec.md) | evidence | APPROVED | critical | yes | no | yes | 3 | 2026-05-25 |
-| [api-smart-intake](docs/specs/api/intake.spec.md) | smart-intake | APPROVED | medium | yes | yes | yes | 3 | 2026-05-25 |
-| [api-job-lifecycle-bids](docs/specs/api/jobs.spec.md) | jobs | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
-| [api-milestone-lifecycle](docs/specs/api/milestones.spec.md) | milestones | APPROVED | critical | yes | yes | yes | 3 | 2026-05-25 |
-| [api-payments-escrow](docs/specs/api/payments.spec.md) | payments | APPROVED | critical | yes | no | yes | 4 | 2026-05-25 |
-| [api-prometeo-rag-trade-knowledge](docs/specs/api/prometeo.spec.md) | prometeo | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
-| [fsm-buildops-plan-lifecycle](docs/specs/fsm/buildops-lifecycle.spec.md) | buildops | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
-| [fsm-escrow-lifecycle](docs/specs/fsm/escrow-lifecycle.spec.md) | payments | APPROVED | critical | yes | no | yes | 3 | 2026-05-25 |
-| [fsm-job-lifecycle](docs/specs/fsm/job-lifecycle.spec.md) | jobs | APPROVED | high | yes | no | yes | 3 | 2026-05-25 |
-| [fsm-milestone-lifecycle](docs/specs/fsm/milestone-lifecycle.spec.md) | milestones | APPROVED | critical | yes | no | yes | 3 | 2026-05-25 |
-| [m1-1-material-pricing](docs/specs/tools/fase-1/m1.1-material-pricing.spec.md) | tools | DRAFT | medium | yes | no | yes | 4 | 2026-05-25 |
-| [ui-admin-flows](docs/specs/ui/admin-flows.spec.md) | ui | APPROVED | high | yes | yes | yes | 3 | 2026-05-25 |
-| [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | APPROVED | high | yes | yes | yes | 4 | 2026-05-25 |
-| [ui-smart-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | APPROVED | medium | yes | yes | yes | 3 | 2026-05-25 |
-| [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | APPROVED | high | yes | yes | yes | 4 | 2026-05-25 |
+| [semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | high | yes | no | yes | 5 | 2026-06-09 |
+| [api-agents-runtime](docs/specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-buildops](docs/specs/api/buildops.spec.md) | buildops | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
+| [api-change-orders](docs/specs/api/change-orders.spec.md) | change-orders | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-communications](docs/specs/api/communications.spec.md) | communications | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
+| [api-consciousness-observer](docs/specs/api/consciousness.spec.md) | ops | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
+| [api-contract-lifecycle](docs/specs/api/contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
+| [api-dispute-lifecycle](docs/specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 2 | 2026-06-09 |
+| [api-evidence-upload-review](docs/specs/api/evidence.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [api-field-ops](docs/specs/api/field-ops.spec.md) | field-ops | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
+| [api-smart-intake](docs/specs/api/intake.spec.md) | smart-intake | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
+| [api-job-lifecycle-bids](docs/specs/api/jobs.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-matching](docs/specs/api/matching.spec.md) | matching | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
+| [api-milestone-lifecycle](docs/specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-06-07 |
+| [api-payments-escrow](docs/specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
+| [api-prometeo-rag-trade-knowledge](docs/specs/api/prometeo.spec.md) | prometeo | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-reservations](docs/specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [fsm-agent-run-lifecycle](docs/specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
+| [fsm-buildops-plan-lifecycle](docs/specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [fsm-escrow-lifecycle](docs/specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [fsm-job-lifecycle](docs/specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [fsm-milestone-lifecycle](docs/specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [fsm-reservation-lifecycle](docs/specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
+| [m1-1-material-pricing](docs/specs/tools/fase-1/m1.1-material-pricing.spec.md) | tools | VERIFIED | medium | yes | no | yes | 4 | 2026-06-09 |
+| [m1-2-regional-costs](docs/specs/tools/fase-1/m1.2-regional-costs.spec.md) | tools | VERIFIED | medium | yes | no | yes | 4 | 2026-06-09 |
+| [m1-3-stripe-escrow](docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
+| [m1-4-contracts](docs/specs/tools/fase-1/m1.4-contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m2-1-lien-rights](docs/specs/tools/fase-2/m2.1-lien-rights.spec.md) | tools | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [m2-2-dispute-docs](docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
+| [m2-3-weather](docs/specs/tools/fase-2/m2.3-weather.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m3-1-proactive-agents](docs/specs/tools/fase-3/m3.1-proactive-agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m3-2-extended-metrics](docs/specs/tools/fase-3/m3.2-extended-metrics.spec.md) | tools | VERIFIED | medium | yes | no | yes | 3 | 2026-06-09 |
+| [m3-3-labor-calibration](docs/specs/tools/fase-3/m3.3-labor-calibration.spec.md) | tools | VERIFIED | medium | yes | no | yes | 3 | 2026-06-09 |
+| [m4-1-accounting](docs/specs/tools/fase-4/m4.1-accounting.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m4-2-geo-permits](docs/specs/tools/fase-4/m4.2-geo-permits.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m4-3-field-comms](docs/specs/tools/fase-4/m4.3-field-comms.spec.md) | communications | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m5-1-ml-risk](docs/specs/tools/fase-5/m5.1-ml-risk.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m5-2-public-api](docs/specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [m5-3-monetization](docs/specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [ui-admin-flows](docs/specs/ui/admin-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
+| [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
+| [ui-smart-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
+| [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
+| [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | APPROVED | missing | yes | yes | yes | 6 | missing |
+| [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
 
 <!-- SPEC_INDEX:END -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ## NIVEL 0 — Constitución y Gobierno
@@ -111,21 +174,22 @@
 
 | Dominio | Ruta | Estado | Tests | Gaps documentados |
 |---|---|---|---|---|
-| Jobs / Marketplace | `docs/specs/api/jobs.spec.md` | APPROVED | MISSING | 8 |
-| Milestones | `docs/specs/api/milestones.spec.md` | APPROVED | MISSING | 5 |
-| Evidence | `docs/specs/api/evidence.spec.md` | APPROVED | MISSING | 6 |
-| Payments / Escrow | `docs/specs/api/payments.spec.md` | APPROVED | MISSING | 7 |
-| Disputes | `docs/specs/api/disputes.spec.md` | APPROVED | MISSING | 3 |
-| Contracts | `docs/specs/api/contracts.spec.md` | APPROVED | MISSING | 2 |
-| BuildOps | `docs/specs/api/buildops.spec.md` | APPROVED | MISSING | 3 |
-| Communications | `docs/specs/api/communications.spec.md` | APPROVED | MISSING | 1 (P0) |
-| Consciousness / Observer | `docs/specs/api/consciousness.spec.md` | APPROVED | MISSING | 0 |
-| Smart Intake | `docs/specs/api/intake.spec.md` | APPROVED | MISSING | 3 |
-| Prometeo RAG | `docs/specs/api/prometeo.spec.md` | APPROVED | MISSING | 0 |
-| Agents / Orchestration | `docs/specs/api/agents.spec.md` | MISSING | MISSING | — |
-| Change Orders | `docs/specs/api/change-orders.spec.md` | MISSING | MISSING | — |
-| Matching | `docs/specs/api/matching.spec.md` | MISSING | MISSING | — |
-| Reservations | `docs/specs/api/reservations.spec.md` | MISSING | MISSING | — |
+| Jobs / Marketplace | `docs/specs/api/jobs.spec.md` | VERIFIED | LINKED | 8 |
+| Milestones | `docs/specs/api/milestones.spec.md` | VERIFIED | LINKED | 5 |
+| Evidence | `docs/specs/api/evidence.spec.md` | VERIFIED | LINKED | 6 |
+| Payments / Escrow | `docs/specs/api/payments.spec.md` | VERIFIED | LINKED | 7 |
+| Disputes | `docs/specs/api/disputes.spec.md` | APPROVED | LINKED | 3 |
+| Contracts | `docs/specs/api/contracts.spec.md` | APPROVED | LINKED | 2 |
+| BuildOps | `docs/specs/api/buildops.spec.md` | APPROVED | LINKED | 3 |
+| Communications | `docs/specs/api/communications.spec.md` | APPROVED | LINKED | 1 (P0) |
+| Consciousness / Observer | `docs/specs/api/consciousness.spec.md` | APPROVED | LINKED | 0 |
+| Smart Intake | `docs/specs/api/intake.spec.md` | APPROVED | LINKED | 3 |
+| Prometeo RAG | `docs/specs/api/prometeo.spec.md` | APPROVED | LINKED | 0 |
+| Agents / Orchestration | `docs/specs/api/agents.spec.md` | APPROVED | LINKED | needs controller-level lifecycle tests |
+| Change Orders | `docs/specs/api/change-orders.spec.md` | VERIFIED | LINKED | controller/RBAC tests complete |
+| Matching | `docs/specs/api/matching.spec.md` | VERIFIED | LINKED | controller/RBAC tests complete |
+| Reservations | `docs/specs/api/reservations.spec.md` | VERIFIED | LINKED | unit/controller tests complete |
+| Field Ops | `docs/specs/api/field-ops.spec.md` | VERIFIED | LINKED | controller/RBAC tests complete |
 
 ---
 
@@ -133,12 +197,12 @@
 
 | Flujo | Ruta | Estado | Alineado con Prisma |
 |---|---|---|---|
-| Job lifecycle | `docs/specs/fsm/job-lifecycle.spec.md` | APPROVED | ✅ |
-| Milestone lifecycle | `docs/specs/fsm/milestone-lifecycle.spec.md` | APPROVED | ✅ |
+| Job lifecycle | `docs/specs/fsm/job-lifecycle.spec.md` | VERIFIED | ✅ |
+| Milestone lifecycle | `docs/specs/fsm/milestone-lifecycle.spec.md` | VERIFIED | ✅ |
 | Escrow / Payment lifecycle | `docs/specs/fsm/escrow-lifecycle.spec.md` | APPROVED | ⚠️ Enum faltante en Prisma |
 | BuildOps plan lifecycle | `docs/specs/fsm/buildops-lifecycle.spec.md` | APPROVED | ✅ |
-| Reservation lifecycle | `docs/specs/fsm/reservation-lifecycle.spec.md` | MISSING | — |
-| Agent run lifecycle | `docs/specs/fsm/agent-run-lifecycle.spec.md` | MISSING | — |
+| Reservation lifecycle | `docs/specs/fsm/reservation-lifecycle.spec.md` | APPROVED | N/A — domain-store/repository flow |
+| Agent run lifecycle | `docs/specs/fsm/agent-run-lifecycle.spec.md` | APPROVED | ✅ AgentRun-backed |
 
 ---
 
@@ -150,6 +214,7 @@
 | Professional flows | `docs/specs/ui/pro-flows.spec.md` | APPROVED |
 | Admin / Ops flows | `docs/specs/ui/admin-flows.spec.md` | APPROVED |
 | Smart Intake flow | `docs/specs/ui/intake-flow.spec.md` | APPROVED |
+| Work OS Navigation + Decision Intelligence | `docs/specs/ui/work-os-navigation-decision-intelligence.spec.md` | APPROVED |
 
 ---
 
@@ -176,13 +241,13 @@
 
 ## Gaps P1 — Specs faltantes para módulos con código
 
-| # | Módulo | Spec necesario | Complejidad |
+| # | Módulo | Spec necesario | Estado |
 |---|---|---|---|
-| 1 | `agents/` | `docs/specs/api/agents.spec.md` | Alta |
-| 2 | `change-orders/` | `docs/specs/api/change-orders.spec.md` | Media |
-| 3 | `matching/` | `docs/specs/api/matching.spec.md` | Alta |
-| 4 | `reservations/` | `docs/specs/fsm/reservation-lifecycle.spec.md` | Media |
-| 5 | `field-ops/` | `docs/specs/api/field-ops.spec.md` | Media |
+| 1 | `agents/` | `docs/specs/api/agents.spec.md` | CERRADO — APPROVED, falta VERIFIED |
+| 2 | `change-orders/` | `docs/specs/api/change-orders.spec.md` | CERRADO — VERIFIED |
+| 3 | `matching/` | `docs/specs/api/matching.spec.md` | CERRADO — VERIFIED |
+| 4 | `reservations/` | `docs/specs/api/reservations.spec.md` + `docs/specs/fsm/reservation-lifecycle.spec.md` | CERRADO — VERIFIED |
+| 5 | `field-ops/` | `docs/specs/api/field-ops.spec.md` | CERRADO — VERIFIED |
 
 ---
 
@@ -196,17 +261,25 @@
 |---|---|---|---|
 | Harness Agentico | `docs/AGENTIC_HARNESS.md` | APPROVED | Manual de vuelo del agente en modo loop |
 | Master Plan ProTools | `docs/PROTOOLS_MASTER_PLAN.md` | ACTIVE | 5 fases, 16 módulos, 64 bloques con tracking de estado |
-| Spec M1.1 Material Pricing | `docs/specs/tools/fase-1/m1.1-material-pricing.spec.md` | DRAFT | BLS PPI + EstimationPro + FRED + caché Prisma |
+| Spec M1.1 Material Pricing | `docs/specs/tools/fase-1/m1.1-material-pricing.spec.md` | APPROVED | BLS PPI + EstimationPro + FRED + caché Prisma |
 | **Arquitectura 6 Agentes** | `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md` | **APPROVED** | Marketplace·BuildOps·ProTools·Evidence·Crowd·Prometeo — fronteras, eventos, tipos, flujo |
-| Spec M1.2 Regional Costs | `docs/specs/tools/fase-1/m1.2-regional-costs.spec.md` | MISSING | BLS OEWS + multiplicadores por zip |
-| Spec M1.3 Stripe Escrow | `docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | MISSING | Stripe Connect manual payouts |
-| Spec M1.4 Contracts | `docs/specs/tools/fase-1/m1.4-contracts.spec.md` | MISSING | HelloSign e-signature |
-| Spec M2.1 Lien Rights | `docs/specs/tools/fase-2/m2.1-lien-rights.spec.md` | MISSING | LienGrid API 50 estados |
-| Spec M2.2 Dispute Docs | `docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md` | MISSING | GPS foto + daily logs + change order trail |
-| Spec M2.3 Weather | `docs/specs/tools/fase-2/m2.3-weather.spec.md` | MISSING | Tomorrow.io alerts |
-| Spec M3.1 Proactive Agents | `docs/specs/tools/fase-3/m3.1-proactive-agents.spec.md` | MISSING | 6 agentes de alerta regla-basados |
-| Spec M3.2 Extended Metrics | `docs/specs/tools/fase-3/m3.2-extended-metrics.spec.md` | MISSING | Completar 20 trades |
-| Spec M3.3 Labor Calibration | `docs/specs/tools/fase-3/m3.3-labor-calibration.spec.md` | MISSING | NECA/PHCC/RSMeans |
+| Spec M1.2 Regional Costs | `docs/specs/tools/fase-1/m1.2-regional-costs.spec.md` | APPROVED | BLS OEWS + multiplicadores por zip |
+| Spec M1.3 Stripe Escrow | `docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | APPROVED | Stripe Connect manual payouts |
+| Spec M1.4 Contracts | `docs/specs/tools/fase-1/m1.4-contracts.spec.md` | APPROVED | HelloSign e-signature |
+| Spec M2.1 Lien Rights | `docs/specs/tools/fase-2/m2.1-lien-rights.spec.md` | APPROVED | LienGrid API 50 estados |
+| Spec M2.2 Dispute Docs | `docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md` | APPROVED | GPS foto + daily logs + change order trail |
+| Spec M2.3 Weather | `docs/specs/tools/fase-2/m2.3-weather.spec.md` | APPROVED | Tomorrow.io alerts |
+| Spec M3.1 Proactive Agents | `docs/specs/tools/fase-3/m3.1-proactive-agents.spec.md` | APPROVED | 6 agentes de alerta regla-basados |
+| Spec M3.2 Extended Metrics | `docs/specs/tools/fase-3/m3.2-extended-metrics.spec.md` | APPROVED | Completar 20 trades |
+| Spec M3.3 Labor Calibration | `docs/specs/tools/fase-3/m3.3-labor-calibration.spec.md` | APPROVED | NECA/PHCC/RSMeans |
+| Spec M4.1 Accounting | `docs/specs/tools/fase-4/m4.1-accounting.spec.md` | APPROVED | QuickBooks/Xero sync |
+| Spec M4.2 Geo + Permits | `docs/specs/tools/fase-4/m4.2-geo-permits.spec.md` | APPROVED | Google Maps/OpenGov/Aerial View |
+| Spec M4.3 Field Comms | `docs/specs/tools/fase-4/m4.3-field-comms.spec.md` | APPROVED | WhatsApp/SMS/PWA field comms |
+| Spec M5.1 ML Risk | `docs/specs/tools/fase-5/m5.1-ml-risk.spec.md` | APPROVED | ProjectOutcome + predictive risk |
+| Spec M5.2 Public API | `docs/specs/tools/fase-5/m5.2-public-api.spec.md` | APPROVED | Partner API, webhooks, white-label |
+| Spec M5.3 Monetization | `docs/specs/tools/fase-5/m5.3-monetization.spec.md` | APPROVED | Subscription tiers + escrow transaction fee |
+
+Nota: los specs de Fase 2-5 estan `APPROVED` como contratos implementables. Sus bloques del Master Plan siguen `PENDING` hasta que exista codigo, migraciones, credenciales de proveedor y pruebas suficientes para elevarlos a `IMPLEMENTED` o `VERIFIED`.
 
 ---
 
@@ -217,13 +290,13 @@ Nivel 0 (Gobierno):          4/4   ████████████ 100%
 Nivel 1 (Visión):            7/7   ████████████ 100%
 Nivel 2 (Dominio):           8/8   ████████████ 100%
 Nivel 3 (ADRs):              9/9   ████████████ 100%
-Nivel 4 (API contracts):    11/15  █████████░░░  73%  ← 4 MISSING
-Nivel 5 (FSM specs):         4/6   ████████░░░░  67%  ← 2 MISSING
-Nivel 6 (UI flows):          4/4   ████████████ 100%
+Nivel 4 (API contracts):    16/16  ████████████ 100%  ← LINKED, varios faltan VERIFIED
+Nivel 5 (FSM specs):         6/6   ████████████ 100%  ← LINKED, varios faltan VERIFIED
+Nivel 6 (UI flows):          5/5   ████████████ 100%  ← LINKED, varios faltan VERIFIED
 Nivel 7 (Infra/Seguridad):   3/3   ████████████ 100%
 
-Score global SDD: 50/56 = 89%
+Score global SDD: Specs linkeados 100% para niveles 0-7. Verificacion ejecutable: ver bloque generado y `pnpm spec:coverage`.
 
 Gaps P0 cerrados:  1/4  (25%)  ← PRÓXIMO FOCO
-Gaps P1 cerrados:  0/5  (0%)   ← DESPUÉS DE P0
+Gaps P1 cerrados:  5/5  (100%) ← Specs creados; varios ya están en VERIFIED con pruebas de controller/RBAC
 ```

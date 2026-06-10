@@ -5,7 +5,7 @@ type: spec
 feature: "Contract Lifecycle"
 domain: "contracts"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -24,7 +24,7 @@ related_endpoints:
 related_events: []
 related_agents:
   - contract-reviewer
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Contract Lifecycle

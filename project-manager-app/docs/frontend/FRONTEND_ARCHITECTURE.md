@@ -325,3 +325,20 @@ Tailwind v4 generates only the CSS actually used — no dead-weight stylesheet b
 5. **Type-safe API responses** — remove `Record<string, unknown>` from milestone/dispute/evidence state, replace with proper schema types from `@semse/schemas`
 6. **Optimistic UI** — for milestone actions and escrow funding
 7. **Error boundaries** — wrap client pages in React error boundaries
+
+---
+
+## 9. Navigation and Work OS Registry
+
+SEMSE OS uses a centralized navigation registry to define all client, worker, and admin routes.
+File: `apps/web/lib/navigation-registry.ts`
+
+When introducing new pages or routing categories:
+1. **Declare Node in Registry**: Every new route must be registered in the `navigationRegistry` array.
+2. **Specify Metadata**:
+   - `layer`: `"mission-control" | "workspace" | "context"`
+   - `os`: `"mission-control" | "client" | "contractor" | "operations" | "marketplace" | "governance" | "ai" | "system"`
+   - `owner`: The operational team owning this segment (e.g. `"operations"`, `"platform"`, `"ai-operations"`)
+   - `roles`: Who can access this route (e.g. `["admin"]`)
+   - `status`: `"active" | "alias" | "deprecated" | "planned"`
+3. **Sidebar Grouping**: The admin sidebar automatically renders navigation items grouped by their `os` property. Flat lists are reserved for worker/client role views.

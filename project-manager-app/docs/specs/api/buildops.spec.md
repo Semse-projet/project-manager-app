@@ -5,7 +5,7 @@ type: spec
 feature: "BuildOps — Gestión de Proyectos de Obra"
 domain: "buildops"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -28,7 +28,7 @@ related_events:
   - buildops-plan-rerun-completed
 related_agents:
   - buildops
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: BuildOps

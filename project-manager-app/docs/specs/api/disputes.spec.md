@@ -5,7 +5,7 @@ type: spec
 feature: "Dispute Lifecycle"
 domain: "disputes"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: critical
 date: "2026-05-20"
@@ -27,7 +27,7 @@ related_events:
   - dispute.opened
 related_agents:
   - dispute-analyzer
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Dispute Lifecycle
