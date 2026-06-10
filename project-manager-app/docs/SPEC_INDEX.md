@@ -69,7 +69,7 @@
 | [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui-smart-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
-| [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | APPROVED | missing | yes | yes | yes | 6 | missing |
+| [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
 
 <!-- SPEC_INDEX:END -->

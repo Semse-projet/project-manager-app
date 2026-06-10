@@ -3,7 +3,7 @@ type: spec
 feature: "Public Landing and Operational Entry"
 domain: "ui"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 risk: low
 branch: "feature/landing-clean-stable"
 date: "2026-06-10"
