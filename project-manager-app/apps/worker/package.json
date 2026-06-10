@@ -12,6 +12,6 @@
     "@semse/shared": "workspace:*",
     "bullmq": "^5.50.1",
     "ioredis": "^5.11.1",
-    "pino": "^9.6.0"
+    "pino": "^10.3.1"
   }
 }
