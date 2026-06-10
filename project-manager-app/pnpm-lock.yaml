@@ -194,8 +194,8 @@ importers:
   apps/web:
     dependencies:
       '@next/swc-wasm-nodejs':
-        specifier: ^15.5.12
-        version: 15.5.18
+        specifier: ^16.2.6
+        version: 16.2.6
       '@semse/agents':
         specifier: workspace:*
         version: link:../../packages/agents
@@ -1924,8 +1924,8 @@ packages:
     os: [linux]
     libc: [musl]
 
-  '@next/swc-wasm-nodejs@15.5.18':
-    resolution: {integrity: sha512-y9RKuvE8rc19WQfySDdOSnTu5khTUMviVEzBjag9zLx9hu7DCiYrTIEzwC2pOLsUYKyLsCWEOslrUigRR7v2Fw==}
+  '@next/swc-wasm-nodejs@16.2.6':
+    resolution: {integrity: sha512-hwa9pdxfzDsug/m4eukZiy2bOXasDAlZG41YCNHqJfXaVQ0c544ox6MvAbvJn7GaVHDrkD+pwVeJz2djKjcsUA==}
 
   '@next/swc-win32-arm64-msvc@15.5.12':
     resolution: {integrity: sha512-xhsL1OvQSfGmlL5RbOmU+FV120urrgFpYLq+6U8C6KIym32gZT6XF/SDE92jKzzlPWskkbjOKCpqk5m4i8PEfg==}
@@ -7192,7 +7192,7 @@ snapshots:
   '@next/swc-linux-x64-musl@15.5.12':
     optional: true
 
-  '@next/swc-wasm-nodejs@15.5.18': {}
+  '@next/swc-wasm-nodejs@16.2.6': {}
 
   '@next/swc-win32-arm64-msvc@15.5.12':
     optional: true
