@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import {
   WorkerVerificationRepository,
-  type WorkerVerificationInput,
 } from "./worker-verification.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
