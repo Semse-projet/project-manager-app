@@ -27,7 +27,7 @@ export class StripePaymentProvider implements PaymentProviderPort {
     if (!secretKey) {
       throw new Error("StripePaymentProvider requires STRIPE_SECRET_KEY env var");
     }
-    this.stripe = new Stripe(secretKey, { apiVersion: "2026-05-27.dahlia" });
+    this.stripe = new Stripe(secretKey, { apiVersion: "2026-04-22.dahlia" });
   }
 
   async createFundingIntent(input: CreateFundingIntentInput): Promise<FundingIntentRecord> {

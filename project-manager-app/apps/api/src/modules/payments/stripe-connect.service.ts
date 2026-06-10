@@ -32,7 +32,7 @@ export class StripeConnectService {
   constructor(private readonly prisma: PrismaService) {
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
     this.stripe = secretKey
-      ? new Stripe(secretKey, { apiVersion: "2026-05-27.dahlia" })
+      ? new Stripe(secretKey, { apiVersion: "2026-04-22.dahlia" })
       : null;
     if (!this.stripe) {
       this.logger.warn("[StripeConnect] STRIPE_SECRET_KEY not set — running in mock mode");
