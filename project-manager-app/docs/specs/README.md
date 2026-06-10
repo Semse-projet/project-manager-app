@@ -16,17 +16,39 @@ specs/
 ├── api/     ← Contratos de endpoints REST (input/output/errores/FSM/efectos)
 ├── fsm/     ← Máquinas de estado formales por entidad
 ├── ui/      ← Flujos de usuario por rol (client/pro/admin)
+├── agents/  ← Arquitectura de agentes SEMSE
+├── tools/   ← Specs ProTools por fase del Master Plan
 └── archive/ ← Specs deprecated (no eliminar)
 ```
 
-## Estado actual de specs P1
+## Estado actual
+
+Estado al 2026-06-09:
+
+- `44` specs formales en `docs/specs`.
+- `pnpm spec:preflight` pasa con `0` errores y `0` warnings.
+- `communications` ya está `VERIFIED` por la cobertura de firma HMAC del webhook de WhatsApp.
+- `field-ops`, `matching`, `reservations` y `jobs` ya están `VERIFIED` con pruebas de controller/RBAC y contratos de transición.
+- No quedan specs marcados como `MISSING` en la matriz generada.
+- Las fases futuras del Master Plan ProTools ya tienen specs `APPROVED` como contrato implementable.
+- El trabajo pendiente ya no es crear archivos faltantes, sino implementar los bloques `PENDING` del Master Plan y elevar specs high/critical a `VERIFIED` con pruebas controller/RBAC/e2e suficientes.
+
+## Specs prioritarios
 
 | Spec | Estado | Prioridad |
 |------|--------|-----------|
-| `api/milestones.spec.md` | 🔴 MISSING | P1 — próximo a crear |
-| `api/jobs.spec.md` | 🔴 MISSING | P1 |
-| `api/evidence.spec.md` | 🔴 MISSING | P1 |
-| `api/payments.spec.md` | 🔴 MISSING | P1 |
+| `api/milestones.spec.md` | VERIFIED | Critico — mantener sincronizado con FSM y tests |
+| `api/jobs.spec.md` | VERIFIED | Alto — marketplace/job lifecycle |
+| `api/evidence.spec.md` | VERIFIED | Critico — evidencia y revision |
+| `api/payments.spec.md` | VERIFIED | Critico — escrow/payments |
+| `api/agents.spec.md` | APPROVED | Alto — runtime de agentes |
+| `api/change-orders.spec.md` | VERIFIED | Alto — cambios de alcance y payment readiness |
+| `api/field-ops.spec.md` | VERIFIED | Alto — tracker, worklogs y campo |
+| `api/matching.spec.md` | VERIFIED | Alto — matching explicable |
+| `api/reservations.spec.md` | VERIFIED | Alto — hold/accept/release/expire |
+| `ui/work-os-navigation-decision-intelligence.spec.md` | APPROVED | Alto — navegacion Work OS y decision intelligence |
+
+La matriz generada en `docs/SPEC_INDEX.md` es la fuente de verdad para el estado completo. Esta tabla solo resume specs prioritarios para trabajo activo.
 
 Para crear un spec: usar `/speckit.specify` con template `semse-spec.md`.
 

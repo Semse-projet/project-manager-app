@@ -123,7 +123,7 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
 
       this.connection = connection;
       this.queue = new Queue(SEMSE_AGENT_RUN_QUEUE, {
-        connection,
+        connection: connection as any,
         defaultJobOptions: {
           removeOnComplete: 500,
           removeOnFail: 1000

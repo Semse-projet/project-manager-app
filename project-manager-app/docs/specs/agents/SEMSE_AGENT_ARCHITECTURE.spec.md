@@ -2,7 +2,7 @@
 id: semse-agent-architecture
 title: "SEMSE Agent Architecture"
 domain: agents
-status: APPROVED
+status: VERIFIED
 owner: semse-core
 risk: high
 related_files:
@@ -28,7 +28,7 @@ related_agents:
   - evidence
   - crowd
   - prometeo
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # SPEC: Arquitectura de Agentes SEMSE OS

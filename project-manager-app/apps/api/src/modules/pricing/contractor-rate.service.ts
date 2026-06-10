@@ -25,8 +25,11 @@ export type UpsertContractorRateInput = {
 @Injectable()
 export class ContractorRateService {
   private readonly logger = new Logger(ContractorRateService.name);
+  private readonly prisma: PrismaService;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(prisma: PrismaService) {
+    this.prisma = prisma;
+  }
 
   async getOverride(userId: string): Promise<ContractorRateOverrideView | null> {
     const row = await this.prisma.contractorRateOverride.findUnique({ where: { userId } });

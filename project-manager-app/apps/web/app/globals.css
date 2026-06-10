@@ -143,6 +143,30 @@
   --violet:     #7c3aed;
 }
 
+html[data-theme="dark"] .public-theme,
+.public-theme[data-theme="dark"] {
+  --bg:         #050810;
+  --surface:    #0c1017;
+  --raised:     #111827;
+  --overlay:    #1a2333;
+  --ink:        #f1f5f9;
+  --muted:      #94a3b8;
+  --faint:      #4b6280;
+  --line:       rgba(255,255,255,.06);
+  --border:     #1f2d3d;
+  --border-2:   #273548;
+  --brand:      #3b82f6;
+  --brand-dim:  rgba(59,130,246,.12);
+  --brand-dark: #60a5fa;
+  --accent:     #ff6a00;
+  --accent-dim: rgba(255,106,0,.12);
+  --ok:         #10b981;
+  --warn:       #f59e0b;
+  --error:      #ef4444;
+  --signal:     #06b6d4;
+  --violet:     #8b5cf6;
+}
+
 /* ── SEMSE Animations ── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }

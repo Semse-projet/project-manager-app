@@ -4,6 +4,11 @@ dist/
 .angular/
 **/.angular/
 *.tsbuildinfo
+# Environment files — NEVER commit secrets or real values
+.env
+.env.local
+.env.*.local
+.env.production
 packages/db/.env
 package-lock.legacy.json
 playwright-report/

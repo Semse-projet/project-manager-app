@@ -126,11 +126,13 @@ const ZIP_PREFIX_TO_STATE: Record<string, string> = {
 @Injectable()
 export class LocationCostService {
   private readonly logger = new Logger(LocationCostService.name);
+  private readonly prisma: PrismaService;
+  private readonly oews: OewsService;
 
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly oews: OewsService,
-  ) {}
+  constructor(prisma: PrismaService, oews: OewsService) {
+    this.prisma = prisma;
+    this.oews = oews;
+  }
 
   /** Main entry point — returns LocationMultipliers for a given ZIP code.
    *  Reads from DB cache if fresh, otherwise fetches from BLS OEWS. */

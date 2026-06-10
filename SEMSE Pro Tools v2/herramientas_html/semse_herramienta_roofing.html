@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Herramienta SEMSE de Roofing</title>
+<style>
+:root{
+  --bg:#070b14;--panel:#0f172a;--panel2:#111827;--muted:#94a3b8;--text:#e5e7eb;
+  --brand:#22d3ee;--brand2:#a78bfa;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;
+  --line:rgba(148,163,184,.25);--card:rgba(15,23,42,.88)
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(circle at top left,rgba(34,211,238,.2),transparent 35%),linear-gradient(135deg,#020617,#0f172a 55%,#111827);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh;padding:24px}
+.wrap{max-width:1180px;margin:0 auto}
+.header{border:1px solid var(--line);background:linear-gradient(135deg,rgba(15,23,42,.92),rgba(17,24,39,.82));border-radius:28px;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.35);margin-bottom:18px}
+.kicker{color:var(--brand);font-weight:800;letter-spacing:.12em;text-transform:uppercase;font-size:.78rem}
+h1{margin:.35rem 0 .4rem;font-size:clamp(1.8rem,4vw,3rem);line-height:1.05}
+.sub{color:var(--muted);max-width:850px;line-height:1.55}
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.tab{border:1px solid var(--line);background:rgba(15,23,42,.7);color:var(--text);padding:11px 14px;border-radius:999px;cursor:pointer;font-weight:750}
+.tab.active{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#020617;border-color:transparent}
+.panel{display:none;border:1px solid var(--line);background:rgba(2,6,23,.55);border-radius:28px;padding:18px;box-shadow:0 16px 42px rgba(0,0,0,.25)}
+.panel.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.card{border:1px solid var(--line);background:var(--card);border-radius:22px;padding:16px}
+.card h3{margin:.1rem 0 1rem;color:#f8fafc}
+label{display:block;margin:10px 0 6px;color:#cbd5e1;font-weight:700;font-size:.9rem}
+input,select,textarea{width:100%;border:1px solid var(--line);background:#020617;color:var(--text);border-radius:14px;padding:11px;font-size:1rem}
+textarea{min-height:100px;resize:vertical}
+button.primary{width:100%;margin-top:14px;border:0;border-radius:16px;padding:13px 16px;font-weight:900;cursor:pointer;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#020617}
+.result{border-left:5px solid var(--brand);background:rgba(15,23,42,.9);border-radius:18px;padding:14px;margin-top:14px}
+.big{font-size:1.7rem;font-weight:950}
+.small{font-size:.86rem;color:var(--muted);line-height:1.45}
+.badge{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:6px 10px;color:#cbd5e1;background:rgba(15,23,42,.75);font-size:.82rem;margin:4px 6px 4px 0}
+.table{width:100%;border-collapse:collapse;margin-top:12px;overflow:hidden;border-radius:16px}
+.table th,.table td{border-bottom:1px solid var(--line);padding:10px;text-align:left}
+.table th{color:#67e8f9;background:rgba(34,211,238,.08)}
+.footer{color:var(--muted);font-size:.82rem;margin:20px 0;text-align:center}
+@media print{body{background:white;color:black}.tab,.footer,button{display:none}.panel{display:block!important;border:1px solid #ddd;background:white}.card,.header{background:white;color:black;border:1px solid #ddd}.sub,.small{color:#333}input,select,textarea{border:1px solid #999;color:black;background:white}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="header">
+    <div class="kicker">SEMSE OS · Prometeo · Contractor Tools</div>
+    <h1>Suite de herramientas para contratistas</h1>
+    <p class="sub">Paquete operativo para profesionales de construcción y servicios: plomería, pintura, drywall, pisos, techo, HVAC básico, cotizador con hitos/escrow e inspección. Diseñado para integrarse como módulos dentro de SEMSE / Sunset Project.</p>
+    <div>
+      <span class="badge">🧱 construcción</span><span class="badge">🧾 presupuestos</span><span class="badge">🔐 escrow</span><span class="badge">📋 reportes</span><span class="badge">🤖 IA operativa</span>
+    </div>
+  </section>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="plumbing">🚰 Plomería</button>
+    <button class="tab" data-tab="paint">🎨 Pintura</button>
+    <button class="tab" data-tab="drywall">🧱 Drywall</button>
+    <button class="tab" data-tab="flooring">🪵 Pisos</button>
+    <button class="tab" data-tab="roofing">🏠 Roofing</button>
+    <button class="tab" data-tab="hvac">🌬️ HVAC básico</button>
+    <button class="tab" data-tab="quote">🧾 Cotizador + Escrow</button>
+    <button class="tab" data-tab="inspection">📋 Inspección</button>
+  </div>
+
+  <section id="plumbing" class="panel active">
+    <div class="grid">
+      <div class="card">
+        <h3>🚰 Estimador de tubería</h3>
+        <label>Longitud total de recorrido (ft)</label><input id="pl_len" type="number" value="60">
+        <label>Material</label><select id="pl_mat"><option value="pex">PEX</option><option value="cpvc">CPVC</option><option value="copper">Cobre</option><option value="pvc">PVC drenaje</option></select>
+        <label>Diámetro</label><select id="pl_dia"><option value="0.5">1/2"</option><option value="0.75">3/4"</option><option value="1">1"</option><option value="2">2"</option><option value="3">3"</option></select>
+        <label>Número de fixtures / salidas</label><input id="pl_fix" type="number" value="4">
+        <label>% desperdicio</label><input id="pl_waste" type="number" value="12">
+        <button class="primary" onclick="calcPlumbing()">Calcular plomería</button>
+        <div class="result" id="pl_out"></div>
+      </div>
+      <div class="card">
+        <h3>📌 Checklist rápido</h3>
+        <span class="badge">Cierre de agua</span><span class="badge">Prueba de presión</span><span class="badge">Pendiente drenaje</span><span class="badge">Fugas visibles</span><span class="badge">Permiso si aplica</span>
+        <p class="small">Para trabajos reales, valida código local, presión, tipo de conexión, ventilación sanitaria y compatibilidad de materiales.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="paint" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>🎨 Calculadora de pintura</h3>
+        <label>Largo del cuarto (ft)</label><input id="pa_l" type="number" value="12">
+        <label>Ancho del cuarto (ft)</label><input id="pa_w" type="number" value="10">
+        <label>Altura paredes (ft)</label><input id="pa_h" type="number" value="8">
+        <label>Puertas</label><input id="pa_doors" type="number" value="1">
+        <label>Ventanas</label><input id="pa_windows" type="number" value="2">
+        <label>Capas</label><input id="pa_coats" type="number" value="2">
+        <label>Cobertura por galón (sq ft)</label><input id="pa_cov" type="number" value="350">
+        <button class="primary" onclick="calcPaint()">Calcular pintura</button>
+        <div class="result" id="pa_out"></div>
+      </div>
+      <div class="card"><h3>🧰 Materiales sugeridos</h3><span class="badge">Primer</span><span class="badge">Rodillos</span><span class="badge">Brochas</span><span class="badge">Tape</span><span class="badge">Plástico</span><span class="badge">Masilla</span><p class="small">El cálculo descuenta 20 sq ft por puerta y 15 sq ft por ventana. Ajusta según dimensiones reales.</p></div>
+    </div>
+  </section>
+
+  <section id="drywall" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>🧱 Drywall / Sheetrock</h3>
+        <label>Área de pared/techo (sq ft)</label><input id="dw_area" type="number" value="480">
+        <label>Tamaño de panel</label><select id="dw_panel"><option value="32">4x8 = 32 sq ft</option><option value="40">4x10 = 40 sq ft</option><option value="48">4x12 = 48 sq ft</option></select>
+        <label>% desperdicio</label><input id="dw_waste" type="number" value="10">
+        <label>Tornillos por panel</label><input id="dw_screws" type="number" value="32">
+        <button class="primary" onclick="calcDrywall()">Calcular drywall</button>
+        <div class="result" id="dw_out"></div>
+      </div>
+      <div class="card"><h3>📌 Acabado</h3><p class="small">Incluye estimación de paneles, compuesto/joint compound, cinta y tornillos. Para nivel 4/5 de acabado, aumenta compuesto y mano de obra.</p></div>
+    </div>
+  </section>
+
+  <section id="flooring" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>🪵 Pisos / Flooring</h3>
+        <label>Largo (ft)</label><input id="fl_l" type="number" value="20">
+        <label>Ancho (ft)</label><input id="fl_w" type="number" value="15">
+        <label>Tipo</label><select id="fl_type"><option value="vinyl">Vinyl plank</option><option value="tile">Cerámica/Tile</option><option value="laminate">Laminado</option><option value="hardwood">Hardwood</option></select>
+        <label>Cobertura por caja (sq ft)</label><input id="fl_box" type="number" value="23">
+        <label>% desperdicio</label><input id="fl_waste" type="number" value="10">
+        <button class="primary" onclick="calcFlooring()">Calcular pisos</button>
+        <div class="result" id="fl_out"></div>
+      </div>
+      <div class="card"><h3>✅ Revisión previa</h3><span class="badge">Subfloor nivelado</span><span class="badge">Humedad</span><span class="badge">Transiciones</span><span class="badge">Baseboards</span><span class="badge">Underlayment</span></div>
+    </div>
+  </section>
+
+  <section id="roofing" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>🏠 Roofing / Shingles</h3>
+        <label>Área de techo proyectada (sq ft)</label><input id="rf_area" type="number" value="1600">
+        <label>Pitch factor</label><select id="rf_pitch"><option value="1.00">Plano/bajo 0-3/12</option><option value="1.12" selected>Medio 4/12</option><option value="1.20">6/12</option><option value="1.30">8/12</option><option value="1.42">10/12</option></select>
+        <label>% desperdicio</label><input id="rf_waste" type="number" value="12">
+        <label>Bundles por square</label><input id="rf_bundles" type="number" value="3">
+        <button class="primary" onclick="calcRoofing()">Calcular roofing</button>
+        <div class="result" id="rf_out"></div>
+      </div>
+      <div class="card"><h3>⚠️ Seguridad</h3><p class="small">El roofing requiere revisión de estructura, humedad, underlayment, flashing, ventilación y normas locales. No sustituyas inspección profesional.</p></div>
+    </div>
+  </section>
+
+  <section id="hvac" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>🌬️ HVAC básico / BTU</h3>
+        <label>Área acondicionada (sq ft)</label><input id="hv_area" type="number" value="600">
+        <label>Altura techo (ft)</label><input id="hv_h" type="number" value="8">
+        <label>Aislamiento</label><select id="hv_iso"><option value="0.9">Bueno</option><option value="1.0" selected>Normal</option><option value="1.2">Malo</option></select>
+        <label>Exposición solar</label><select id="hv_sun"><option value="0.95">Baja</option><option value="1.0" selected>Media</option><option value="1.15">Alta</option></select>
+        <button class="primary" onclick="calcHVAC()">Calcular BTU/toneladas</button>
+        <div class="result" id="hv_out"></div>
+      </div>
+      <div class="card"><h3>📌 Nota</h3><p class="small">Estimación preliminar. Para instalación real se recomienda cálculo Manual J, revisión de ductos, cargas térmicas, ventanas, orientación y humedad.</p></div>
+    </div>
+  </section>
+
+  <section id="quote" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>🧾 Cotizador + hitos / escrow</h3>
+        <label>Nombre del proyecto</label><input id="qt_name" value="Remodelación baño">
+        <label>Materiales ($)</label><input id="qt_mat" type="number" value="1800">
+        <label>Mano de obra ($)</label><input id="qt_lab" type="number" value="2200">
+        <label>Overhead %</label><input id="qt_oh" type="number" value="12">
+        <label>Margen ganancia %</label><input id="qt_profit" type="number" value="18">
+        <label>Hitos</label><select id="qt_miles"><option value="3">3 hitos</option><option value="4">4 hitos</option><option value="5">5 hitos</option></select>
+        <button class="primary" onclick="calcQuote()">Generar cotización</button>
+        <div class="result" id="qt_out"></div>
+      </div>
+      <div class="card"><h3>🔐 Lógica SEMSE</h3><p class="small">Este módulo traduce el presupuesto en hitos verificables: depósito, inicio, entrega parcial, inspección y cierre. Es ideal para escrow, disputas y evidencia.</p></div>
+    </div>
+  </section>
+
+  <section id="inspection" class="panel">
+    <div class="grid">
+      <div class="card">
+        <h3>📋 Reporte de inspección</h3>
+        <label>Área revisada</label><input id="in_area" value="Baño principal">
+        <label>Riesgo</label><select id="in_risk"><option>Bajo</option><option>Medio</option><option>Alto</option><option>Crítico</option></select>
+        <label>Observaciones</label><textarea id="in_obs">Sin fugas visibles. Requiere sellado en esquina inferior y revisión de ventilación.</textarea>
+        <label>Evidencia requerida</label><select id="in_evidence"><option>Fotos antes/después</option><option>Video corto</option><option>Factura/materiales</option><option>Firma cliente</option></select>
+        <button class="primary" onclick="genInspection()">Generar reporte</button>
+        <div class="result" id="in_out"></div>
+      </div>
+      <div class="card"><h3>🤖 Uso con IA</h3><p class="small">El reporte puede convertirse en evidencia para disputas, liberación de escrow, historial del activo y entrenamiento del asistente operacional.</p></div>
+    </div>
+  </section>
+
+  <div class="footer">SEMSE Pro Tools Suite · Calculadoras referenciales · Verificar códigos locales, permisos y condiciones reales antes de ejecutar.</div>
+</div>
+
+<script>
+const money = n => '$' + Number(n||0).toLocaleString(undefined,{maximumFractionDigits:2});
+function set(id, html){document.getElementById(id).innerHTML = html}
+
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); document.getElementById(b.dataset.tab).classList.add('active');
+}));
+
+function calcPlumbing(){
+  const len=+pl_len.value, fix=+pl_fix.value, waste=+pl_waste.value/100;
+  const total=len*(1+waste);
+  const fittings=Math.ceil(fix*3 + total/20);
+  const valves=Math.max(1, Math.ceil(fix/2));
+  const price={pex:0.65,cpvc:0.9,copper:3.25,pvc:1.15}[pl_mat.value]*(pl_dia.value>=2?1.8:1);
+  const mat=total*price + fittings*2.25 + valves*8;
+  set('pl_out',`<div class="big">${Math.ceil(total)} ft tubería</div><div>${fittings} fittings · ${valves} válvulas</div><div class="small">Material estimado: ${money(mat)} · Añade prueba de presión y evidencia fotográfica.</div>`);
+}
+function calcPaint(){
+  const wall=2*(+pa_l.value + +pa_w.value)*(+pa_h.value);
+  const deduct=(+pa_doors.value*20)+(+pa_windows.value*15);
+  const net=Math.max(0,wall-deduct);
+  const gallons=Math.ceil((net*(+pa_coats.value))/(+pa_cov.value));
+  set('pa_out',`<div class="big">${gallons} galones</div><div>${Math.round(net)} sq ft netos · ${pa_coats.value} capas</div><div class="small">Recomendado: primer si hay color oscuro, drywall nuevo o manchas.</div>`);
+}
+function calcDrywall(){
+  const area=+dw_area.value*(1+(+dw_waste.value/100));
+  const panels=Math.ceil(area/(+dw_panel.value));
+  const compound=Math.ceil(panels*0.55);
+  const tape=Math.ceil(panels*12);
+  const screws=Math.ceil(panels*(+dw_screws.value));
+  set('dw_out',`<div class="big">${panels} paneles</div><div>${compound} gal compuesto · ${tape} ft cinta · ${screws} tornillos</div><div class="small">Aumenta 10-15% si hay muchos cortes, closets o nichos.</div>`);
+}
+function calcFlooring(){
+  const area=(+fl_l.value)*(+fl_w.value);
+  const total=area*(1+(+fl_waste.value/100));
+  const boxes=Math.ceil(total/(+fl_box.value));
+  const transitions=Math.max(1,Math.ceil(area/250));
+  set('fl_out',`<div class="big">${boxes} cajas</div><div>${Math.round(total)} sq ft con desperdicio · ${transitions} transiciones aprox.</div><div class="small">Tipo: ${fl_type.options[fl_type.selectedIndex].text}. Verifica nivelación y humedad del subfloor.</div>`);
+}
+function calcRoofing(){
+  const roof=(+rf_area.value)*(+rf_pitch.value);
+  const total=roof*(1+(+rf_waste.value/100));
+  const squares=Math.ceil(total/100);
+  const bundles=Math.ceil(squares*(+rf_bundles.value));
+  set('rf_out',`<div class="big">${squares} squares</div><div>${bundles} bundles · ${Math.round(total)} sq ft reales</div><div class="small">Incluye margen para ridge, starter, valley y cortes. Revisar flashing y ventilación.</div>`);
+}
+function calcHVAC(){
+  const area=+hv_area.value, h=+hv_h.value;
+  const btu=area*20*(h/8)*(+hv_iso.value)*(+hv_sun.value);
+  const tons=btu/12000;
+  set('hv_out',`<div class="big">${Math.round(btu).toLocaleString()} BTU/h</div><div>${tons.toFixed(2)} toneladas aprox.</div><div class="small">Estimación inicial; para contrato real usar Manual J.</div>`);
+}
+function calcQuote(){
+  const base=(+qt_mat.value)+(+qt_lab.value);
+  const overhead=base*(+qt_oh.value/100);
+  const subtotal=base+overhead;
+  const profit=subtotal*(+qt_profit.value/100);
+  const total=subtotal+profit;
+  const n=+qt_miles.value;
+  let rows='';
+  for(let i=1;i<=n;i++){ rows+=`<tr><td>Hito ${i}</td><td>${money(total/n)}</td><td>${i===1?'Depósito/inicio':i===n?'Inspección y cierre':'Avance verificable'}</td></tr>`; }
+  set('qt_out',`<div class="big">${money(total)}</div><div class="small">Base ${money(base)} · Overhead ${money(overhead)} · Ganancia ${money(profit)}</div><table class="table"><tr><th>Hito</th><th>Monto escrow</th><th>Criterio</th></tr>${rows}</table>`);
+}
+function genInspection(){
+  const stamp=new Date().toLocaleString();
+  set('in_out',`<div class="big">Reporte: ${in_area.value}</div><div>Riesgo: <b>${in_risk.value}</b> · Evidencia: ${in_evidence.value}</div><p>${in_obs.value}</p><div class="small">Generado: ${stamp} · Uso: evidencia de proyecto / disputa / liberación de hito.</div>`);
+}
+document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+document.querySelector('.tab[data-tab="roofing"]').classList.add('active');
+document.getElementById('roofing').classList.add('active');
+calcPlumbing(); calcPaint(); calcDrywall(); calcFlooring(); calcRoofing(); calcHVAC(); calcQuote(); genInspection();
+</script>
+</body></html>

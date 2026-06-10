@@ -5,7 +5,7 @@ type: spec
 feature: "Client UI Flows"
 domain: "ui"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -28,7 +28,7 @@ related_events:
   - milestone.approved
   - payment.released
 related_agents: []
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Client UI Flows

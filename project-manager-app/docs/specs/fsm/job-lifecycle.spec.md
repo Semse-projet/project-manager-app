@@ -5,7 +5,7 @@ type: spec
 feature: "Job FSM"
 domain: "jobs"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -18,13 +18,14 @@ related_files:
 related_tests:
   - apps/api/test/jobs.fsm.test.ts
   - apps/api/test/jobs.service.test.ts
+  - apps/api/test/jobs.controller.test.ts
 related_endpoints:
   - v1/jobs
 related_events:
   - job.status_changed
 related_agents:
   - marketplace
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # FSM Spec: Job Lifecycle

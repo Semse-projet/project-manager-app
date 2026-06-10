@@ -5,7 +5,7 @@ type: spec
 feature: "Payments & Escrow"
 domain: "payments"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: critical
 branch: "feat/payments-spec"
@@ -24,6 +24,7 @@ related_files:
 related_tests:
   - apps/api/test/payments.spec-contract.test.ts
   - apps/api/test/payment-governance.service.test.ts
+  - apps/api/test/payments.controller.test.ts
   - tests/unit/payment-escrow-status-prisma.test.ts
 related_endpoints:
   - v1/payments
@@ -33,7 +34,7 @@ related_events:
 related_agents:
   - crowd
   - Justus
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Payments & Escrow

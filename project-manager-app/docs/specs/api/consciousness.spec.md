@@ -5,7 +5,7 @@ type: spec
 feature: "Consciousness & Observer — Espejo Interno del Ecosistema"
 domain: "ops"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: medium
 date: "2026-05-20"
@@ -25,7 +25,7 @@ related_events:
   - agents:system
 related_agents:
   - mission-control
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Consciousness & Observer

@@ -5,7 +5,7 @@ type: spec
 feature: "Communications Gateway — WhatsApp & Inbox"
 domain: "communications"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -20,7 +20,7 @@ related_endpoints:
   - v1/communications
 related_events: []
 related_agents: []
-last_verified: 2026-05-25
+last_verified: 2026-06-07
 ---
 
 # Spec: Communications Gateway
@@ -149,7 +149,10 @@ describe("GET /v1/communications/webhooks/whatsapp") {
 
 | Gap | Severidad |
 |-----|-----------|
-| `POST /webhooks/whatsapp` no valida `X-Hub-Signature-256` — riesgo de spoofing | 🔴 P1 |
 | No hay rate limiting en el webhook de Meta — puede saturarse en picos | 🟡 Media |
 | `GET /threads` no implementa paginación real actualmente | 🟡 Media |
 | Tokens de canal (`accessToken`) deben almacenarse cifrados, no en texto plano | 🟡 Media |
+
+## 6. Estado de verificación
+
+La validación HMAC de `X-Hub-Signature-256` para el webhook de WhatsApp ya está implementada y cubierta por `apps/api/test/communications-whatsapp-webhook-signature.test.ts`. El riesgo de spoofing por firma inválida queda cerrado en el contrato actual.
