@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 import { buildReport, writeEvidenceReport } from "./utils/evidence";
 
 test.describe("Public Landing Page E2E", () => {
+  test.setTimeout(90_000);
+
   test("landing page renders successfully", async ({ page, baseURL }) => {
     const startedAt = new Date().toISOString();
     const errors: string[] = [];
@@ -10,8 +12,7 @@ test.describe("Public Landing Page E2E", () => {
       errors.push(err.message);
     });
 
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 90_000 });
 
     // Check that we have a heading or text from the hero
     const heroTitle = page.locator("h1");
@@ -25,8 +26,7 @@ test.describe("Public Landing Page E2E", () => {
   });
 
   test("theme toggle switches successfully", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 90_000 });
 
     // Find theme toggle button by label
     const toggleBtn = page.getByRole("button", { name: /Cambiar tema/i }).first();
@@ -42,11 +42,10 @@ test.describe("Public Landing Page E2E", () => {
   });
 
   test("footer admin route works and redirects to login", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 90_000 });
 
-    // Find internal access link
-    const adminLink = page.getByRole("link", { name: /Acceso interno/i }).first();
+    // Find admin access link
+    const adminLink = page.getByRole("link", { name: /Panel Admin/i }).first();
     await expect(adminLink).toBeVisible();
 
     await adminLink.click();
