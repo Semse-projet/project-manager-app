@@ -1,7 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
 import { PaymentGovernanceRepository, type PaymentReleaseInput } from "./payment-governance.repository.js";
 import { PaymentGovernanceDiagnosticsService } from "./diagnostics.service.js";
-import type { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 export interface PaymentReleaseResult {
   success: boolean;

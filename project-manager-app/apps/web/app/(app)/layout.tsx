@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
+import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
@@ -61,12 +62,7 @@ import {
 type NavRole = "worker" | "client" | "admin";
 type ThemePreference = "dark" | "light";
 
-interface NavItem {
-  labelKey: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  section?: string;
-}
+interface NavItem extends ShellNavItem {}
 
 const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
@@ -420,35 +416,83 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     window.localStorage.setItem("semse-theme", value);
   };
 
+  const shellNavModel = useMemo(
+    () =>
+      buildShellNavItems({
+        role,
+        items: nav.items,
+        collapsed,
+        pathname: pathname ?? "",
+        t,
+      }),
+    [nav.items, pathname, collapsed, role, t],
+  );
+
   const shellNavItems = useMemo(
     () =>
-      nav.items.map((item) => {
-        const Icon = item.icon;
-        const active = (pathname ?? "").startsWith(item.href);
-        const label = t(item.labelKey);
-
-        return {
-          key: item.href,
-          label,
-          active,
-          node: (
-            <Link
-              href={item.href}
-              title={collapsed ? label : undefined}
-              className={[
-                "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
-              ].join(" ")}
-            >
-              <span className="flex h-5 w-5 items-center justify-center">
-                <Icon size={16} />
-              </span>
-              {!collapsed ? <span className="truncate">{label}</span> : null}
-            </Link>
-          ),
-        };
-      }),
-    [nav.items, pathname, collapsed, language, t],
+      role === "admin"
+        ? shellNavModel.map((group) => {
+            const navGroup = group as unknown as { key: string; label: string; items: ShellNavLink[] };
+            return {
+              key: navGroup.key,
+              label: navGroup.label,
+              node: (
+                <div className="space-y-2">
+                  {!collapsed ? (
+                    <div className="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                      {navGroup.label}
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
+                    {navGroup.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.key}
+                          href={item.href}
+                          title={collapsed ? item.label : undefined}
+                          className={[
+                            "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
+                            item.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                          ].join(" ")}
+                        >
+                          <span className="flex h-5 w-5 items-center justify-center">
+                            <Icon size={16} />
+                          </span>
+                          {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ),
+            };
+          })
+        : shellNavModel.map((item) => {
+            const navItem = item as ShellNavLink;
+            const Icon = navItem.icon;
+            return {
+              key: navItem.key,
+              label: navItem.label,
+              active: navItem.active,
+              node: (
+                <Link
+                  href={navItem.href}
+                  title={collapsed ? navItem.label : undefined}
+                  className={[
+                    "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
+                    navItem.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                  ].join(" ")}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center">
+                    <Icon size={16} />
+                  </span>
+                  {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
+                </Link>
+              ),
+            };
+          }),
+    [shellNavModel, role, collapsed],
   );
 
   return (

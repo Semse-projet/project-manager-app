@@ -5,7 +5,7 @@ type: spec
 feature: "Milestone Lifecycle"
 domain: "milestones"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: critical
 branch: "feat/milestone-spec"
@@ -19,6 +19,7 @@ related_files:
   - packages/schemas/src/escrow-view.types.ts
 related_tests:
   - apps/api/test/milestones.spec-contract.test.ts
+  - apps/api/test/milestones-policy.test.ts
   - tests/e2e-semse/buildops-milestones.spec.ts
 related_endpoints:
   - v1/milestones
@@ -28,7 +29,7 @@ related_events:
   - milestone.approved
 related_agents:
   - evidence-coach
-last_verified: 2026-05-25
+last_verified: 2026-06-07
 ---
 
 # Spec: Milestone Lifecycle

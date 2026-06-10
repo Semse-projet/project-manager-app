@@ -5,7 +5,7 @@ type: spec
 feature: "Evidence Upload & Review"
 domain: "evidence"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: critical
 branch: "feat/evidence-spec"
@@ -32,7 +32,7 @@ related_events:
 related_agents:
   - evidence-coach
   - evidence-analyzer
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Evidence Upload & Review

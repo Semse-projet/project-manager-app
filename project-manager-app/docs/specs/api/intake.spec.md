@@ -5,7 +5,7 @@ type: spec
 feature: "Smart Intake — Wizard Anónimo"
 domain: "smart-intake"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: medium
 date: "2026-05-20"
@@ -25,7 +25,7 @@ related_events:
   - buildops.bridge.completed
 related_agents:
   - intake-interpreter
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Smart Intake

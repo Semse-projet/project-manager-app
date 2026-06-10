@@ -117,6 +117,22 @@ export function DashboardClient({ jobs }: DashboardClientProps) {
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 py-8 space-y-8">
+      {/* Migration Alert Banner */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl border border-brand/20 bg-brand/[0.06] text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-brand font-bold">◈ NOTA:</span>
+          <span className="text-muted">
+            SEMSE está migrando a una arquitectura de 3 capas (Mission Control {"->"} Workspace {"->"} Context Panel).
+          </span>
+        </div>
+        <Link
+          href="/admin/mission-control"
+          className="text-xs font-bold text-brand hover:underline shrink-0"
+        >
+          Probar Mission Control →
+        </Link>
+      </div>
+
       {/* ── Encabezado ─────────────────────────────────────── */}
       <div>
         <p className="text-xs text-muted capitalize">{today}</p>

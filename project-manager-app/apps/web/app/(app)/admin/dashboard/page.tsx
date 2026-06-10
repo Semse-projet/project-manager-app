@@ -94,6 +94,42 @@ export default function AdminDashboardPage() {
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+      {/* Migration Alert Banner */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          padding: "12px 16px",
+          background: "rgba(139, 92, 246, 0.1)",
+          border: "1px solid rgba(139, 92, 246, 0.2)",
+          borderRadius: "12px",
+          marginBottom: "20px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Activity size={16} color="#8b5cf6" />
+          <span style={{ fontSize: "13px", color: "var(--ink)", fontWeight: 500 }}>
+            Un nuevo **Mission Control** ejecutivo y centrado en excepciones está disponible.
+          </span>
+        </div>
+        <Link
+          href="/admin/mission-control"
+          style={{
+            fontSize: "12px",
+            color: "#8b5cf6",
+            fontWeight: 700,
+            textDecoration: "none",
+            background: "rgba(139, 92, 246, 0.15)",
+            padding: "6px 12px",
+            borderRadius: "8px",
+          }}
+        >
+          Probar Mission Control
+        </Link>
+      </div>
+
       {/* Header */}
       <div style={{ marginBottom: "28px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
         <div>

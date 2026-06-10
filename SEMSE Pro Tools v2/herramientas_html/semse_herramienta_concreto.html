@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SEMSE Tools — Calculadora de Concreto</title>
+<style>
+:root{--bg:#0f172a;--card:#111827;--muted:#94a3b8;--text:#f8fafc;--accent:#f59e0b;--accent2:#22c55e;--line:#263244;--danger:#ef4444}*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:radial-gradient(circle at top,#1e293b,#020617);color:var(--text);min-height:100vh;padding:24px}.wrap{max-width:1100px;margin:auto}.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;align-items:stretch;margin-bottom:18px}.panel,.card{background:rgba(17,24,39,.88);border:1px solid var(--line);border-radius:26px;box-shadow:0 24px 70px rgba(0,0,0,.35)}.panel{padding:26px}.badge{display:inline-flex;gap:8px;align-items:center;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);color:#fbbf24;border-radius:999px;padding:8px 12px;font-weight:700;font-size:.85rem}h1{font-size:clamp(2rem,4vw,3.7rem);line-height:1;margin:18px 0 12px}.lead{color:#cbd5e1;font-size:1.05rem;line-height:1.55}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}.card{padding:18px}.span6{grid-column:span 6}.span4{grid-column:span 4}.span8{grid-column:span 8}.span12{grid-column:span 12}label{display:block;color:#dbeafe;font-weight:800;margin:12px 0 7px}.hint{font-size:.78rem;color:var(--muted);margin-top:6px}input,select{width:100%;padding:13px 14px;border-radius:16px;border:1px solid #334155;background:#020617;color:#f8fafc;font-size:1rem}button{border:0;border-radius:18px;padding:14px 18px;font-weight:900;cursor:pointer;background:linear-gradient(135deg,var(--accent),#f97316);color:#111827;width:100%;font-size:1rem;margin-top:16px}.results{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:12px}.result{background:#020617;border:1px solid #334155;border-left:5px solid var(--accent);border-radius:20px;padding:14px}.k{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.v{font-size:1.7rem;font-weight:950;margin-top:4px}.unit{font-size:.85rem;color:var(--muted);font-weight:600}.ok{border-left-color:var(--accent2)}.warn{border-left-color:var(--danger)}.table{width:100%;border-collapse:collapse;margin-top:10px;overflow:hidden;border-radius:14px}th,td{text-align:left;padding:11px;border-bottom:1px solid #334155}th{color:#fde68a;background:#1f2937}.note{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:18px;padding:14px;color:#cbd5e1;margin-top:12px;line-height:1.5}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{width:auto;flex:1;min-width:190px}.small{font-size:.9rem;color:#cbd5e1}@media(max-width:800px){.hero{grid-template-columns:1fr}.span6,.span4,.span8{grid-column:span 12}body{padding:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section class="hero">
+    <div class="panel">
+      <div class="badge">🧱 SEMSE Tools · Concreto / Fundición</div>
+      <h1>Calculadora de concreto para obra</h1>
+      <p class="lead">Calcula volumen, bolsas de cemento, arena, grava, agua, desperdicio y costo estimado. Basada en el ejemplo de 15 m², 10 cm de espesor, mezcla 1:2:3 y 7.5 bolsas de 42.5 kg por m³.</p>
+    </div>
+    <div class="panel">
+      <h2 style="margin-top:0">Resultado rápido</h2>
+      <div id="quickResult" class="v">—</div>
+      <p class="small">Actualiza los campos y se recalcula automáticamente.</p>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="card span6">
+      <h2>Datos de la losa / fundición</h2>
+      <label>Área a fundir (m²)</label>
+      <input id="area" type="number" value="15" step="0.1" />
+      <label>Espesor</label>
+      <div class="grid" style="gap:10px"><div class="span8"><input id="espesor" type="number" value="10" step="0.5" /></div><div class="span4"><select id="unidadEspesor"><option value="cm">cm</option><option value="m">m</option><option value="in">pulgadas</option></select></div></div>
+      <label>Tipo de trabajo</label>
+      <select id="tipoTrabajo">
+        <option value="piso">Piso / terraza / pasillo</option>
+        <option value="contrapiso">Contrapiso ligero</option>
+        <option value="entrada">Entrada vehicular ligera</option>
+        <option value="estructural">Elemento estructural — revisar con ingeniero</option>
+      </select>
+      <label>Desperdicio / merma (%)</label>
+      <input id="merma" type="number" value="8" step="1" />
+    </div>
+
+    <div class="card span6">
+      <h2>Mezcla y costos</h2>
+      <label>Proporción cemento:arena:grava</label>
+      <select id="mezcla">
+        <option value="1:2:3" selected>1:2:3 — uso general</option>
+        <option value="1:2.5:3.5">1:2.5:3.5 — general económico</option>
+        <option value="1:3:4">1:3:4 — contrapiso / relleno</option>
+        <option value="1:1.5:2.5">1:1.5:2.5 — mayor resistencia</option>
+      </select>
+      <label>Bolsas por m³ para bolsa de referencia</label>
+      <input id="bolsasM3" type="number" value="7.5" step="0.1" />
+      <label>Peso de bolsa disponible</label>
+      <select id="pesoBolsa"><option value="42.5">42.5 kg</option><option value="40">40 kg</option><option value="50">50 kg</option><option value="25">25 kg</option><option value="94">94 lb</option></select>
+      <label>Precio por bolsa</label>
+      <input id="precioBolsa" type="number" value="0" step="0.01" placeholder="Opcional" />
+      <button onclick="calcular()">Calcular materiales</button>
+    </div>
+
+    <div class="card span12">
+      <h2>Materiales estimados</h2>
+      <div class="results" id="results"></div>
+      <div class="actions"><button onclick="window.print()">Imprimir reporte</button><button onclick="copiarReporte()">Copiar resumen</button></div>
+      <div class="note"><strong>Nota:</strong> Esto es una estimación de obra. Para losas estructurales, zapatas, columnas o vigas, usa diseño de mezcla y revisión profesional. La herramienta ayuda a presupuestar, no sustituye cálculo estructural.</div>
+    </div>
+
+    <div class="card span12">
+      <h2>Tabla rápida para 15 m² con mezcla 1:2:3</h2>
+      <table class="table"><thead><tr><th>Espesor</th><th>Volumen</th><th>Bolsas 42.5 kg</th><th>Con 8% merma</th></tr></thead><tbody><tr><td>5 cm</td><td>0.75 m³</td><td>5.6</td><td>7 bolsas</td></tr><tr><td>10 cm</td><td>1.50 m³</td><td>11.25</td><td>13 bolsas</td></tr><tr><td>15 cm</td><td>2.25 m³</td><td>16.9</td><td>19 bolsas</td></tr></tbody></table>
+    </div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+function espesorM(){let e=parseFloat($('espesor').value)||0;let u=$('unidadEspesor').value;if(u==='cm')return e/100;if(u==='in')return e*0.0254;return e}
+function mixParts(){return $('mezcla').value.split(':').map(Number)}
+function calcular(){const area=parseFloat($('area').value)||0;const h=espesorM();const vol=area*h;const merma=(parseFloat($('merma').value)||0)/100;const volMerma=vol*(1+merma);const bolsasM3=parseFloat($('bolsasM3').value)||7.5;const peso=parseFloat($('pesoBolsa').value)||42.5;const pesoKg=peso===94?42.64:peso;const bolsas=vol*bolsasM3*(42.5/pesoKg);const bolsasCompra=Math.ceil(bolsas*(1+merma));const [c,a,g]=mixParts();const arena=volMerma*(a/2)*0.55;const grava=volMerma*(g/3)*0.85;const agua=volMerma*190;const precio=parseFloat($('precioBolsa').value)||0;const costoCemento=precio?bolsasCompra*precio:0;const alerta=$('tipoTrabajo').value==='estructural'?'<div class="result warn"><div class="k">Advertencia</div><div class="v">Ingeniero</div><div class="unit">Requiere revisión estructural</div></div>':'';$('quickResult').innerHTML=`${bolsasCompra} bolsas <span class="unit">con merma</span>`;$('results').innerHTML=`<div class="result"><div class="k">Volumen neto</div><div class="v">${vol.toFixed(2)} <span class="unit">m³</span></div></div><div class="result ok"><div class="k">Volumen con merma</div><div class="v">${volMerma.toFixed(2)} <span class="unit">m³</span></div></div><div class="result"><div class="k">Cemento exacto</div><div class="v">${bolsas.toFixed(1)} <span class="unit">bolsas</span></div></div><div class="result ok"><div class="k">Comprar</div><div class="v">${bolsasCompra} <span class="unit">bolsas</span></div></div><div class="result"><div class="k">Arena</div><div class="v">${arena.toFixed(2)} <span class="unit">m³</span></div></div><div class="result"><div class="k">Grava</div><div class="v">${grava.toFixed(2)} <span class="unit">m³</span></div></div><div class="result"><div class="k">Agua aprox.</div><div class="v">${Math.round(agua)} <span class="unit">L</span></div></div>${costoCemento?`<div class="result"><div class="k">Costo cemento</div><div class="v">$${costoCemento.toFixed(2)}</div></div>`:''}${alerta}`}
+function copiarReporte(){const txt=`Concreto SEMSE: área ${$('area').value} m², espesor ${$('espesor').value}${$('unidadEspesor').value}, mezcla ${$('mezcla').value}. Resultado: ${$('quickResult').innerText}.`;navigator.clipboard.writeText(txt).then(()=>alert('Resumen copiado'))}
+['area','espesor','unidadEspesor','mezcla','bolsasM3','pesoBolsa','merma','precioBolsa','tipoTrabajo'].forEach(id=>$(id).addEventListener('input',calcular));window.addEventListener('DOMContentLoaded',calcular);
+</script>
+</body>
+</html>

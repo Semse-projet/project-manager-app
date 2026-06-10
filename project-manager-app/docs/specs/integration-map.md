@@ -2,8 +2,9 @@
 type: spec
 feature: "Integration Map — Mapa de Integraciones del Ecosistema"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 date: "2026-05-20"
+last_verified: "2026-06-09"
 spec_index: "docs/SPEC_INDEX.md"
 ---
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { EvidenceGatewayRepository, type EvidenceValidationInput } from "./evidence-gateway.repository.js";
-import type { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 export interface EvidenceUploadRequest {
   projectId: string;

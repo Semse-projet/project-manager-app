@@ -5,7 +5,7 @@ type: spec
 feature: "Job Lifecycle & Bids"
 domain: "jobs"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: high
 branch: "feat/jobs-spec"
@@ -24,6 +24,7 @@ related_files:
 related_tests:
   - apps/api/test/jobs.fsm.test.ts
   - apps/api/test/jobs.service.test.ts
+  - apps/api/test/jobs.controller.test.ts
   - apps/api/test/marketplace-bids.test.ts
 related_endpoints:
   - v1/jobs
@@ -32,7 +33,7 @@ related_events:
   - job.status_changed
 related_agents:
   - marketplace
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # Spec: Job Lifecycle & Bids

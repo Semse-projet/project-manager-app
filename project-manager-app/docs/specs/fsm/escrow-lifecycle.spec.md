@@ -5,7 +5,7 @@ type: spec
 feature: "Escrow FSM"
 domain: "payments"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
 owner: semse-core
 risk: critical
 date: "2026-05-20"
@@ -28,7 +28,7 @@ related_events:
 related_agents:
   - crowd
   - Justus
-last_verified: 2026-05-25
+last_verified: 2026-06-09
 ---
 
 # FSM Spec: Escrow Lifecycle

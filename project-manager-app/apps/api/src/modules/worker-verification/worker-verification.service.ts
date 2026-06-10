@@ -3,7 +3,7 @@ import {
   WorkerVerificationRepository,
   type WorkerVerificationInput,
 } from "./worker-verification.repository.js";
-import type { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
 export interface VerificationState {
   workerId: string;
