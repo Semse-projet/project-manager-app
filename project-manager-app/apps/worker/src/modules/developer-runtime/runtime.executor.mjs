@@ -35,8 +35,14 @@ function snippet(value, max = 1200) {
   return value.trim().slice(0, max) || undefined;
 }
 
-function relativeRepoPath(rootPath, absolutePath) {
-  return path.relative(rootPath, absolutePath) || ".";
+// Repo-relative path derived only from mission data (never from path.resolve),
+// so it can be passed safely as a git argument without tainting the command.
+function repoRelativePath(targetPath = "") {
+  const normalized = path.normalize(String(targetPath));
+  if (path.isAbsolute(normalized) || normalized === ".." || normalized.startsWith(`..${path.sep}`)) {
+    throw new Error(`Path escapes repo root: ${targetPath}`);
+  }
+  return normalized;
 }
 
 function getApprovalState(approvals, stepId) {
@@ -353,7 +359,7 @@ async function executeWriteFile({ rootPath, mission, step }) {
   }
 
   const filePath = ensureRepoScopedPath(rootPath, operation.path);
-  const relPath = relativeRepoPath(rootPath, filePath);
+  const relPath = repoRelativePath(operation.path);
   const dirPath = path.dirname(filePath);
   await fs.mkdir(dirPath, { recursive: true });
   await fs.writeFile(filePath, operation.content, "utf8");
@@ -391,7 +397,7 @@ async function executePatchFile({ rootPath, mission, step }) {
   }
 
   const filePath = ensureRepoScopedPath(rootPath, operation.path);
-  const relPath = relativeRepoPath(rootPath, filePath);
+  const relPath = repoRelativePath(operation.path);
   const original = await fs.readFile(filePath, "utf8");
   if (!original.includes(operation.find)) {
     return {
