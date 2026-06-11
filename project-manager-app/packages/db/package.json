@@ -19,6 +19,6 @@
   },
   "devDependencies": {
     "prisma": "^6.4.1",
-    "tsx": "^4.19.4"
+    "tsx": "^4.22.4"
   }
 }
