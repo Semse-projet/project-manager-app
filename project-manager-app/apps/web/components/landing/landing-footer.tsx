@@ -14,6 +14,7 @@ const FOOTER_COLS = [
     title: "Plataforma",
     links: [
       { label: "Cómo funciona", href: "#como-funciona" },
+      { label: "Pagos seguros", href: "#pagos" },
       { label: "Publicar proyecto", href: "/client/jobs/new" },
       { label: "Unirse como profesional", href: "/login?from=/worker/dashboard" },
       { label: "Panel Admin", href: "/login?from=/admin/dashboard" },
