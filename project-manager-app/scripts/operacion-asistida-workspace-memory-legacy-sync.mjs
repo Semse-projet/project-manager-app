@@ -11,7 +11,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const now = new Date();
-const stamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_").replace("Z", "Z");
+const stamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_");
 const evidenceDir = process.env.SEMSE_BCP_EVIDENCE_DIR ?? join("docs", "bcp", "evidence");
 const latestPath =
   process.env.SEMSE_WORKSPACE_MEMORY_LEGACY_SYNC_REPORT_PATH ??

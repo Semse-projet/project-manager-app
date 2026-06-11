@@ -5,7 +5,8 @@ export function sanitizeBranchName(task: string): string {
   const slug = task
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
     .slice(0, 48);
   return `feat/${slug || "autonomous-change"}`;
 }

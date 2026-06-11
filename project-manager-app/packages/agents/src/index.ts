@@ -402,7 +402,8 @@ export const agentCatalog = [
   "orchestrator",
   "ecv",
   "field-ops",
-  "project-copilot"
+  "project-copilot",
+  "browser-agent"
 ] as const;
 
 export type AgentCatalogRole = (typeof agentCatalog)[number];

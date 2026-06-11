@@ -14,7 +14,7 @@ loadEnv({ path: path.join(repoRoot, "packages/db/.env") });
 const prisma = new PrismaClient();
 
 function uniqueId(prefix) {
-  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}_${Date.now().toString(36)}_${crypto.randomBytes(3).toString("hex")}`;
 }
 
 function readApiEnvValue(key) {

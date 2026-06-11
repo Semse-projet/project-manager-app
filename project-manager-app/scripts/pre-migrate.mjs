@@ -12,7 +12,7 @@
  */
 import prismaClientPkg from "@prisma/client";
 const { PrismaClient } = prismaClientPkg;
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { createHash, randomUUID } from "crypto";
 import { readFileSync, readdirSync, existsSync, statSync } from "fs";
 import { resolve, join, dirname } from "path";
@@ -34,16 +34,16 @@ function getPrismaCli() {
   try {
     const req = createRequire(import.meta.url);
     const cli = req.resolve("prisma/build/index.js");
-    return `${process.execPath} "${cli}"`;
+    return { file: process.execPath, args: [cli] };
   } catch {
     // Fallback to PATH binary
-    return "prisma";
+    return { file: "prisma", args: [] };
   }
 }
 
-function run(cmd) {
-  console.log(`  [pre-migrate] $ ${cmd.replace(ROOT, ".")}`);
-  execSync(cmd, { stdio: "inherit", cwd: ROOT });
+function run(file, args) {
+  console.log(`  [pre-migrate] $ ${file} ${args.join(" ").replace(ROOT, ".")}`);
+  execFileSync(file, args, { stdio: "inherit", cwd: ROOT });
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ async function baselineIfNeeded() {
   //         (safe for additive changes; non-fatal if destructive drift exists)
   const prismaCli = getPrismaCli();
   try {
-    run(`${prismaCli} db push --schema "${SCHEMA}" --skip-generate --accept-data-loss=false`);
+    run(prismaCli.file, [...prismaCli.args, "db", "push", "--schema", SCHEMA, "--skip-generate", "--accept-data-loss=false"]);
     console.log("[pre-migrate] ✓ db push complete");
   } catch {
     console.warn("[pre-migrate] db push skipped (non-fatal — destructive change detected or binary unavailable)");

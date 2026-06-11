@@ -2399,3 +2399,52 @@ export async function syncConnectAccount(): Promise<{
 }> {
   return mutateSemse("/api/semse/payments/connect/sync", {});
 }
+
+// ── Browser Agent ─────────────────────────────────────────────────────────────
+
+export interface BrowserInspectionResult {
+  runId: string;
+  status: string;
+  url: string;
+  projectId?: string;
+  milestoneId?: string;
+  success?: boolean;
+  finalUrl?: string;
+  title?: string;
+  pageStatus?: string;
+  severity?: string;
+  loadTimeMs?: number;
+  consoleErrors?: Array<{ text: string; location?: { url: string; lineNumber: number; columnNumber?: number } }>;
+  networkFailures?: Array<{ url: string; method: string; status?: number; statusText?: string; errorText?: string }>;
+  visibleTextSample?: string;
+  screenshotBase64?: string;
+  aiSummary?: {
+    summary_es: string;
+    summary_en: string;
+    severity: string;
+    recommendations: string[];
+    github_issue_body?: string;
+    claude_fix_prompt?: string;
+  };
+  createdAt: string;
+  completedAt?: string;
+}
+
+export async function startBrowserInspection(input: {
+  url: string;
+  projectId?: string;
+  milestoneId?: string;
+  includeScreenshot?: boolean;
+  includeText?: boolean;
+  includeAiSummary?: boolean;
+}): Promise<{ runId: string; status: string; correlationId: string }> {
+  return mutateSemse<{ runId: string; status: string; correlationId: string }>(
+    "/api/semse/browser-agent/inspect",
+    input as Record<string, unknown>
+  );
+}
+
+export async function fetchBrowserInspectionResult(runId: string): Promise<BrowserInspectionResult> {
+  return fetchSemse<BrowserInspectionResult>(`/api/semse/browser-agent/inspect/${encodeURIComponent(runId)}`);
+}
+

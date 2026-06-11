@@ -74,7 +74,12 @@ export class TechnicalRuntimeService {
     const safePath = await this.assertSafePath(path ?? ".");
     try {
       // Usamos grep para buscar patrones de forma eficiente
-      const { stdout } = await execAsync(`grep -rIl "${query.replace(/"/g, '\\"')}" "${safePath}" | head -n 50`);
+      const escapedQuery = query
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, '\\$')
+        .replace(/`/g, '\\`');
+      const { stdout } = await execAsync(`grep -rIl "${escapedQuery}" "${safePath}" | head -n 50`);
       return stdout.trim().split("\n").filter(Boolean).map(p => p.replace(this.rootPath + "/", ""));
     } catch (err) {
       this.logger.warn(`Search failed or no matches found: ${String(err)}`);

@@ -35,7 +35,10 @@ function isLocalCompatibleEndpoint(baseUrl: string | undefined): boolean {
 // Ensure baseUrl ends with /v1 so that appending /chat/completions gives the correct OpenAI-compatible path.
 // Ollama's base URL is typically http://localhost:11434 (no /v1), while the OpenAI SDK convention is to include /v1.
 function normalizeOpenAiBaseUrl(url: string): string {
-  const stripped = url.replace(/\/+$/, "");
+  let stripped = url.trim();
+  while (stripped.endsWith("/")) {
+    stripped = stripped.slice(0, -1);
+  }
   return /\/v\d+$/.test(stripped) ? stripped : `${stripped}/v1`;
 }
 

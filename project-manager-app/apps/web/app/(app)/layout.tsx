@@ -126,6 +126,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.users", href: "/admin/users", icon: Users },
       { labelKey: "nav.disputes", href: "/admin/disputes", icon: AlertTriangle },
       { labelKey: "nav.qaCenter", href: "/admin/qa", icon: ShieldCheck, section: "section.control" },
+      { labelKey: "nav.browserAgent", href: "/admin/browser-agent", icon: Eye },
       { labelKey: "nav.compliance", href: "/admin/compliance", icon: CheckSquare },
       { labelKey: "nav.finance", href: "/admin/finance", icon: CreditCard },
       { labelKey: "nav.travelOps", href: "/admin/travel", icon: PlaneTakeoff },

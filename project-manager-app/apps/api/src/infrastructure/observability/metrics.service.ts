@@ -57,7 +57,10 @@ export class MetricsService {
     for (const [routeKey, metric] of this.routeMetrics.entries()) {
       const [method, ...routeParts] = routeKey.split(" ");
       const route = routeParts.join(" ");
-      const routeLabel = route.replace(/"/g, '\\"');
+      const routeLabel = route
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, '\\n');
       lines.push(
         `semse_http_route_requests_total{method="${method}",route="${routeLabel}"} ${metric.requests}`
       );

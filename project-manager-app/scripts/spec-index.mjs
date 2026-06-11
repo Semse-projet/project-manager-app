@@ -68,5 +68,7 @@ function link(label, href) {
 }
 
 function escapeCell(value) {
-  return String(value ?? "").replace(/\|/g, "\\|");
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\|/g, "\\|");
 }

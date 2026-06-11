@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const now = new Date();
-const stamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_").replace("Z", "Z");
+const stamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_");
 const evidenceDir = process.env.SEMSE_BCP_EVIDENCE_DIR ?? join("docs", "bcp", "evidence");
 const latestPath = join(evidenceDir, "restore-multienv-latest.json");
 const historicalPath = join(evidenceDir, `restore-multienv-${stamp}.json`);

@@ -105,9 +105,10 @@ function commandForStep(step) {
 async function runShellCommand(command, cwd, onChunk) {
   const startedAt = Date.now();
   return new Promise((resolve) => {
-    const child = spawn("/bin/bash", ["-c", command], {
+    const child = spawn(command, [], {
       cwd,
       env: process.env,
+      shell: "/bin/bash",
       stdio: ["ignore", "pipe", "pipe"],
     });
 

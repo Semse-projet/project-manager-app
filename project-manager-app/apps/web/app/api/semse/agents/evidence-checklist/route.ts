@@ -50,6 +50,11 @@ function generateLocalChecklist(trade: string) {
       { label: "Foto primer aplicado",      kind: "photo",    description: "Primer en zona preparada" },
       { label: "Foto acabado final",        kind: "photo",    description: "Resultado final de pintura" },
     ],
+    carpentry: [
+      { label: "Foto ensamble y nivelación", kind: "photo",    description: "Estructura principal alineada y fija" },
+      { label: "Foto colocación de herrajes", kind: "photo",    description: "Bisagras, cajones y tiradores en funcionamiento" },
+      { label: "Foto acabado final aplicado", kind: "photo",    description: "Superficie barnizada o pintada con detalle de uniones" },
+    ],
   };
   const required = templates[trade.toLowerCase()] ?? [
     { label: "Foto antes de empezar", kind: "photo", description: "Estado inicial del área" },

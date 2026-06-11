@@ -24,7 +24,7 @@ const GUARDRAIL_PATTERNS = [
 
 function isGuardrailed(path: string): boolean {
   const lower = path.toLowerCase();
-  return GUARDRAIL_PATHS.some((g) => lower.includes(g.replace("*", ""))) ||
+  return GUARDRAIL_PATHS.some((g) => lower.includes(g.replace(/\*/g, ""))) ||
          GUARDRAIL_PATTERNS.some((p) => lower.includes(p));
 }
 

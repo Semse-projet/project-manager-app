@@ -1,3 +1,5 @@
+import { handleBrowserAgent } from "./browser-agent/browser-agent.runner.mjs";
+
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
@@ -542,6 +544,7 @@ const SPECIALIZED_HANDLERS = {
   "legal-agent":     handleLegalAgent,
   "financial-agent": handleFinancialAgent,
   "qa-agent":        handleQaAgent,
+  "browser-agent":   handleBrowserAgent,
 };
 
 export function shouldUseSpecializedWorkerHandler(agentType) {
