@@ -12,9 +12,8 @@ const STAGES = ["branch", "change", "commit", "push", "pr"];
 
 async function main() {
   console.log("[smoke:autonomy:staged] starting", {
-    apiBaseUrl: config.apiBaseUrl,
+    apiOrigin: new URL(config.apiBaseUrl).origin,
     tenantId: config.tenantId,
-    userId: config.userId,
     stages: STAGES
   });
 

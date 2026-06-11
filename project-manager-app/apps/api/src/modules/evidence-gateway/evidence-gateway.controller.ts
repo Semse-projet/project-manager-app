@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, Res } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Param, Post, Req, Res } from "@nestjs/common";
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { EvidenceGatewayService } from "./evidence-gateway.service.js";
 import { ok } from "../../common/api-response.js";
@@ -8,6 +8,13 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 
 function actor(req: FastifyRequest) {
   return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
+}
+
+function assertSafeRouteId(value: string, label: string): string {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(value)) {
+    throw new BadRequestException(`Invalid ${label}`);
+  }
+  return value;
 }
 
 @Controller("v1/evidence")
@@ -48,6 +55,7 @@ export class EvidenceGatewayController {
     @Res() res: FastifyReply,
     @Param("projectId") projectId: string,
   ) {
+    const safeProjectId = assertSafeRouteId(projectId, "projectId");
     // Set SSE headers
     res.header("Content-Type", "text/event-stream");
     res.header("Cache-Control", "no-cache");
@@ -57,7 +65,7 @@ export class EvidenceGatewayController {
     res.send(
       `data: ${JSON.stringify({
         event: "connected",
-        projectId,
+        projectId: safeProjectId,
         timestamp: new Date().toISOString(),
       })}\n\n`,
     );
@@ -72,7 +80,7 @@ export class EvidenceGatewayController {
       res.send(
         `data: ${JSON.stringify({
           event: "heartbeat",
-          projectId,
+          projectId: safeProjectId,
           timestamp: new Date().toISOString(),
         })}\n\n`,
       );

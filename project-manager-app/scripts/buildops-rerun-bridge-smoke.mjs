@@ -12,6 +12,7 @@
  * Exit code 0 if all checks pass, 1 if any fail.
  */
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { PrismaClient } from "@prisma/client";
@@ -42,7 +43,7 @@ function fail(label, reason) {
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 function uid(prefix) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 }
 
 async function readJson(resp) {

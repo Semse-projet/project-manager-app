@@ -13,6 +13,7 @@
  *   DATABASE_URL    (for seed/cleanup via Prisma)
  */
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { PrismaClient } from "@prisma/client";
@@ -30,7 +31,7 @@ const results = [];
 const pass = (label) => { results.push({ ok: true, label }); console.log(`  ✅  ${label}`); };
 const fail = (label, reason) => { results.push({ ok: false, label, reason }); console.error(`  ❌  ${label}\n      ${reason}`); };
 
-function uid(p) { return `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`; }
+function uid(p) { return `${p}_${randomUUID().replaceAll("-", "").slice(0, 12)}`; }
 
 // ── HTTP helpers ─────────────────────────────────────────────────────────────
 

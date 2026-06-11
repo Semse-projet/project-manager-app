@@ -175,7 +175,7 @@ export class CommunicationsController {
     @Res() reply: FastifyReply,
   ) {
     const response = this.communications.verifyWhatsAppWebhook({ mode, token, challenge });
-    return reply.type("text/plain").send(response);
+    return reply.header("X-Content-Type-Options", "nosniff").type("text/plain; charset=utf-8").send(response);
   }
 
   @Post("webhooks/whatsapp")
