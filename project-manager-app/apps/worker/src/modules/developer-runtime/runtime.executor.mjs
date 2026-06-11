@@ -326,12 +326,13 @@ function resolvePatchOperation(mission, step) {
 }
 
 async function getGitDiff(rootPath, relPath) {
-  const result = await runShellCommand(`git diff -- ${JSON.stringify(relPath)}`, rootPath);
+  const result = await runProcess("git", ["diff", "--", relPath], rootPath);
   if (result.ok && result.stdout.trim()) {
     return result.stdout.trim().slice(0, 4000);
   }
-  const staged = await runShellCommand(
-    `git diff --cached -- ${JSON.stringify(relPath)}`,
+  const staged = await runProcess(
+    "git",
+    ["diff", "--cached", "--", relPath],
     rootPath,
   );
   if (staged.ok && staged.stdout.trim()) {
