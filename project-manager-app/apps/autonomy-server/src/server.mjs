@@ -234,7 +234,8 @@ createServer(async (req, res) => {
         error: error instanceof Error ? error.message : String(error),
         errorType: error instanceof Error ? error.constructor.name : "Unknown",
       });
-      return json(res, 500, { error: String(error), runId });
+      // No exponer detalles del error al cliente; ya quedó logueado arriba.
+      return json(res, 500, { error: "internal_error", runId });
     }
   }
 

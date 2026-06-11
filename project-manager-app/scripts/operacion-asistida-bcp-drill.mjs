@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 const now = new Date();
 const mode = readMode();
-const runStamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_").replace("Z", "Z");
+const runStamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_");
 const defaultActorSuffix = String(now.getTime());
 
 const config = {

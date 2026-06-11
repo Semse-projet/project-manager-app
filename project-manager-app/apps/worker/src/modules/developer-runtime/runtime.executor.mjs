@@ -103,9 +103,13 @@ function commandForStep(step) {
 }
 
 async function runShellCommand(command, cwd, onChunk) {
+  return runProcess("/bin/bash", ["-c", command], cwd, onChunk);
+}
+
+async function runProcess(file, args, cwd, onChunk) {
   const startedAt = Date.now();
   return new Promise((resolve) => {
-    const child = spawn("/bin/bash", ["-c", command], {
+    const child = spawn(file, args, {
       cwd,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
@@ -221,8 +225,11 @@ async function executeSearchCode({ rootPath, step }) {
   const query = typeof step.expectedOutput === "string" && step.expectedOutput.trim()
     ? step.expectedOutput.trim()
     : "developer-runtime";
-  const rgCommand = `rg -n --hidden --glob '!node_modules' --glob '!.git' ${JSON.stringify(query)} ${JSON.stringify(rootPath)}`;
-  const result = await runShellCommand(rgCommand, rootPath);
+  const result = await runProcess(
+    "rg",
+    ["-n", "--hidden", "--glob", "!node_modules", "--glob", "!.git", "--", query, "."],
+    rootPath,
+  );
   return {
     ...result,
     stdout: result.stdout.split("\n").filter(Boolean).slice(0, SEARCH_LIMIT).join("\n"),

@@ -78,7 +78,7 @@ const BASE = "http://localhost:4000";
 const DOC = buildDidDocument("user-123", "verified", "trusted", BASE);
 
 test("DID Document has correct @context", () => {
-  assert.ok(DOC["@context"].includes("https://www.w3.org/ns/did/v1"));
+  assert.ok(DOC["@context"].some((ctx: string) => ctx === "https://www.w3.org/ns/did/v1"));
 });
 
 test("DID Document id matches did:semse format", () => {
