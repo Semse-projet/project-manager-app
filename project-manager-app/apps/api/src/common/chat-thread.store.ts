@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { ChatMessage, ChatThread } from "./domain-store.js";
 
 // ── In-memory thread store ────────────────────────────────────────────────────
@@ -17,7 +18,7 @@ export function createThread(params: {
 }): ChatThread {
   const now = new Date().toISOString();
   const thread: ChatThread = {
-    id: `thr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `thr_${Date.now()}_${randomUUID().slice(0, 8)}`,
     tenantId: params.tenantId,
     userId: params.userId,
     agentId: params.agentId,
