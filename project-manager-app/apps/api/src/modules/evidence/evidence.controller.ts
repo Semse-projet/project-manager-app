@@ -142,7 +142,16 @@ export class EvidenceController {
   }
 
   private getMultipartSessionPath(sessionId: string) {
-    return path.join(this.multipartRoot, `${sessionId}.json`);
+    if (!/^mus_[0-9a-f-]{36}$/.test(sessionId)) {
+      throw new BadRequestException("Invalid multipart session id");
+    }
+
+    const root = path.resolve(this.multipartRoot);
+    const resolved = path.resolve(root, `${sessionId}.json`);
+    if (!resolved.startsWith(`${root}${path.sep}`)) {
+      throw new BadRequestException("Invalid multipart session path");
+    }
+    return resolved;
   }
 
   private async saveMultipartManifest(manifest: MultipartSessionManifest) {
@@ -166,7 +175,7 @@ export class EvidenceController {
     const plan = this.buildUploadPlan(input);
     const chunkSize = plan.multipart?.recommendedChunkSizeBytes ?? 10 * 1024 * 1024;
     const partCount = Math.max(1, Math.ceil(input.fileSizeBytes / chunkSize));
-    const sessionId = `mus_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `mus_${randomUUID()}`;
     const baseUrl = this.getBaseUrl(headers);
     const expiresAt = new Date(Date.now() + 1000 * 60 * 30).toISOString();
 

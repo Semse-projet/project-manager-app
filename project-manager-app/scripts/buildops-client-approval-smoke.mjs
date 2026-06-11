@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
@@ -14,7 +15,7 @@ const apiBaseUrl = (process.env.SEMSE_API_URL ?? "http://127.0.0.1:4000").replac
 const prisma = new PrismaClient();
 
 function uniqueId(prefix) {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  return `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 }
 
 function actorHeaders(actor) {

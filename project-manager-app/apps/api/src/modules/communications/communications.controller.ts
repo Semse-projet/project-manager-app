@@ -175,7 +175,9 @@ export class CommunicationsController {
     @Res() reply: FastifyReply,
   ) {
     const response = this.communications.verifyWhatsAppWebhook({ mode, token, challenge });
-    return reply.type("text/plain").send(response);
+    // Meta envia hub.challenge numerico; cualquier otro caracter no es eco valido
+    const safeResponse = response.replace(/[^0-9A-Za-z_-]/g, "");
+    return reply.header("X-Content-Type-Options", "nosniff").type("text/plain; charset=utf-8").send(safeResponse);
   }
 
   @Post("webhooks/whatsapp")

@@ -10,7 +10,13 @@ const DIST_DIR = path.resolve(__dirname, '../apps/angular/dist/angular/browser')
 const INDEX_FILE = path.join(DIST_DIR, 'index.html');
 const HOST = process.env.HOST ?? '0.0.0.0';
 const PORT = Number(process.env.PORT ?? '4300');
-const API_BASE_URL = process.env.SEMSE_API_URL ?? 'http://127.0.0.1:4000';
+const API_BASE_URL = resolveApiBaseUrl(process.env.SEMSE_API_URL ?? 'http://127.0.0.1:4000');
+const ALLOWED_API_HOSTS = new Set(
+  (process.env.SEMSE_API_ALLOWED_HOSTS ?? '127.0.0.1,localhost,::1')
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean),
+);
 
 const MIME_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -37,6 +43,21 @@ function contentTypeFor(filePath) {
   return MIME_TYPES.get(path.extname(filePath).toLowerCase()) ?? 'application/octet-stream';
 }
 
+function resolveApiBaseUrl(rawUrl) {
+  const parsed = new URL(rawUrl);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('SEMSE_API_URL must use http or https');
+  }
+  parsed.pathname = parsed.pathname.replace(/\/+$/, '/');
+  parsed.search = '';
+  parsed.hash = '';
+  return parsed;
+}
+
+function isAllowedApiTarget(target) {
+  return target.origin === API_BASE_URL.origin && ALLOWED_API_HOSTS.has(target.hostname.toLowerCase());
+}
+
 function resolveStaticPath(urlPathname) {
   const normalized = decodeURIComponent(urlPathname.split('?')[0] || '/');
   const relativePath = normalized === '/' ? 'index.html' : normalized.replace(/^\/+/, '');
@@ -48,7 +69,31 @@ function resolveStaticPath(urlPathname) {
 }
 
 function proxyApi(req, res) {
-  const target = new URL(req.url, API_BASE_URL);
+  let target;
+  try {
+    // El cliente solo aporta path+query; el origin del destino siempre es API_BASE_URL
+    const requested = new URL(req.url, 'http://request.invalid');
+    target = new URL(`${requested.pathname}${requested.search}`, API_BASE_URL.origin);
+  } catch (error) {
+    send(
+      res,
+      502,
+      JSON.stringify({ error: 'api_proxy_invalid_target', message: error.message }),
+      { 'Content-Type': 'application/json; charset=utf-8' },
+    );
+    return;
+  }
+
+  if (!isAllowedApiTarget(target)) {
+    send(
+      res,
+      403,
+      JSON.stringify({ error: 'api_proxy_target_forbidden' }),
+      { 'Content-Type': 'application/json; charset=utf-8' },
+    );
+    return;
+  }
+
   const client = target.protocol === 'https:' ? https : http;
   const proxyReq = client.request(
     target,

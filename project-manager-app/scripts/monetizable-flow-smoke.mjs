@@ -16,6 +16,7 @@
  *   DATABASE_URL   (for seed/cleanup)
  */
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
 import { PrismaClient } from "@prisma/client";
@@ -28,7 +29,7 @@ const prisma  = new PrismaClient();
 const results = [];
 const pass = (label) => { results.push({ ok: true, label }); console.log(`  ✅  ${label}`); };
 const fail = (label, reason) => { results.push({ ok: false, label, reason }); console.error(`  ❌  ${label}\n      ${reason}`); };
-const uid  = (p) => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 5)}`;
+const uid  = (p) => `${p}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 
 async function api(method, path, { actorHeaders, sessionToken, body } = {}) {
   const headers = { "content-type": "application/json" };

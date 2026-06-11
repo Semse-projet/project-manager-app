@@ -102,12 +102,12 @@ test("service endpoints include trust-passport, reputation, identity", () => {
 
 test("trust-passport service endpoint points to verify route", () => {
   const svc = DOC.service.find((s) => s.type === "TrustPassportService");
-  assert.ok(svc?.serviceEndpoint.endsWith("/v1/trust-passport/verify"));
+  assert.equal(new URL(svc?.serviceEndpoint ?? "").pathname, "/v1/trust-passport/verify");
 });
 
 test("reputation service endpoint includes userId", () => {
   const svc = DOC.service.find((s) => s.type === "ReputationService");
-  assert.ok(svc?.serviceEndpoint.includes("user-123"));
+  assert.equal(new URL(svc?.serviceEndpoint ?? "").pathname, "/v1/users/user-123/reputation");
 });
 
 test("semse:metadata has verificationStatus and reputationTier", () => {

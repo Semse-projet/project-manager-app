@@ -8,6 +8,15 @@ const config = {
   roles: process.env.SEMSE_ROLES ?? "OPS_ADMIN,WORKER",
 };
 
+function publicConfig() {
+  return {
+    apiOrigin: new URL(config.apiBaseUrl).origin,
+    tenantId: config.tenantId,
+    orgId: config.orgId,
+    roles: config.roles,
+  };
+}
+
 async function request(method, path, body) {
   if (!request.accessToken) {
     const authResponse = await fetch(`${config.apiBaseUrl}/v1/auth/token`, {
@@ -71,7 +80,7 @@ async function requestExpectFailure(method, path, body) {
 }
 
 async function main() {
-  console.log("[smoke:travel] starting", config);
+  console.log("[smoke:travel] starting", publicConfig());
 
   const health = await request("GET", "/v1/health");
   assert.ok(health, "health should respond");

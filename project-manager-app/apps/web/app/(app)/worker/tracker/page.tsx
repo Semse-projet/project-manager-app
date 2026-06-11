@@ -73,6 +73,10 @@ function formatSessionRange(session: TrackerSessionView) {
   return `${start} – ${end}`;
 }
 
+function safeRouteId(value: string | undefined) {
+  return value && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : "";
+}
+
 function elapsedFromSession(session: TrackerSessionView | null): number {
   if (!session) return 0;
   if (session.status !== "RUNNING" || !session.resumedAt) {
@@ -194,6 +198,7 @@ export default function WorkerTrackerPage() {
   }, [selectedJob, activeSession?.jobId]);
 
   const currentJobId = activeSession?.jobId ?? selectedJob;
+  const currentJobRouteId = safeRouteId(currentJobId);
   const currentJob = activeSession?.job
     ?? jobs.find((job) => job.id === currentJobId)
     ?? null;
@@ -559,15 +564,15 @@ export default function WorkerTrackerPage() {
           </div>
 
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "14px" }}>
-            {currentJobId ? (
+            {currentJobRouteId ? (
               <>
-                <Link href={`/jobs/${currentJobId}`} style={linkButton()}>
+                <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}`} style={linkButton()}>
                   Ver trabajo
                 </Link>
-                <Link href={`/jobs/${currentJobId}/escrow`} style={linkButton()}>
+                <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}/escrow`} style={linkButton()}>
                   Ver escrow
                 </Link>
-                <Link href={`/jobs/${currentJobId}/evidence`} style={linkButton()}>
+                <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}/evidence`} style={linkButton()}>
                   Ver evidencia
                 </Link>
               </>
