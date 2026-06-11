@@ -71,7 +71,9 @@ function resolveStaticPath(urlPathname) {
 function proxyApi(req, res) {
   let target;
   try {
-    target = new URL(req.url, API_BASE_URL);
+    // El cliente solo aporta path+query; el origin del destino siempre es API_BASE_URL
+    const requested = new URL(req.url, 'http://request.invalid');
+    target = new URL(`${requested.pathname}${requested.search}`, API_BASE_URL.origin);
   } catch (error) {
     send(
       res,
