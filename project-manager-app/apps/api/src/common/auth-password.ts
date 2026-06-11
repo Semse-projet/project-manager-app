@@ -19,9 +19,6 @@ export function hashPassword(password: string): string {
 
 export function verifyPassword(password: string, hashedPassword: string): boolean {
   const [version, saltEncoded, derivedEncoded] = hashedPassword.split("$");
-  if (/^[a-f0-9]{64}$/i.test(hashedPassword)) {
-    return sha256(password) === hashedPassword.toLowerCase();
-  }
   if (version !== PASSWORD_HASH_VERSION || !saltEncoded || !derivedEncoded) {
     return false;
   }

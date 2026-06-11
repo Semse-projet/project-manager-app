@@ -589,6 +589,66 @@ export default async function LandingPage() {
         </ScrollReveal>
       </section>
 
+      {/* ── PAGOS PROTEGIDOS (ENTRADAS POR ROL) ── */}
+      <section id="pagos" className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 border-t border-slate-200/50 dark:border-slate-900/50">
+        <div className="text-center max-w-3xl mx-auto mb-14">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/25 text-xs font-bold text-blue-500 mb-6 uppercase tracking-wider">
+            <ShieldCheck size={12} />
+            Pagos protegidos por escrow
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+            El dinero se mueve cuando el trabajo está hecho
+          </h2>
+          <p className="text-lg text-slate-500 dark:text-slate-400">
+            Fondeas el escrow, el profesional trabaja con la garantía de cobro, y los fondos se liberan por hitos aprobados. Con Stripe y trazabilidad completa.
+          </p>
+        </div>
+
+        <ScrollReveal>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm flex flex-col">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Soy cliente</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 flex-1">
+                Deposita el presupuesto en escrow y libera pagos solo al aprobar cada hito. Tu dinero protegido de inicio a fin.
+              </p>
+              <Link
+                href="/login?from=/client/payments"
+                data-testid="landing-payments-client-cta"
+                className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm transition-colors duration-200"
+              >
+                Fondear mi proyecto
+              </Link>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm flex flex-col">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Soy profesional</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 flex-1">
+                Conecta tu cuenta de cobro con Stripe, mira tu escrow asegurado antes de empezar y recibe liberaciones automáticas por hito.
+              </p>
+              <Link
+                href="/login?from=/worker/payments"
+                data-testid="landing-payments-worker-cta"
+                className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-colors duration-200"
+              >
+                Configurar mis cobros
+              </Link>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm flex flex-col">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Administro la operación</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-6 flex-1">
+                Facturas, gastos, escrows activos y reembolsos en un panel financiero único con trazabilidad por proyecto.
+              </p>
+              <Link
+                href="/login?from=/admin/finance"
+                data-testid="landing-payments-admin-cta"
+                className="inline-flex items-center justify-center px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold text-sm transition-colors duration-200"
+              >
+                Abrir panel financiero
+              </Link>
+            </div>
+          </div>
+        </ScrollReveal>
+      </section>
+
       {/* ── PROMETEO IA PROMO (SIMULADOR DE AGENTES DE IA) ── */}
       <section id="prometeo" className="relative z-10 py-24 overflow-hidden border-t border-slate-800 bg-slate-950">
         <ScrollReveal>

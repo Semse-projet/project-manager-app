@@ -7,6 +7,7 @@ import { Menu, X, Sparkles } from "lucide-react";
 const NAV_LINKS = [
   { href: "#como-funciona", label: "Cómo funciona" },
   { href: "#servicios", label: "Servicios" },
+  { href: "#pagos", label: "Pagos seguros" },
   { href: "#profesionales", label: "Profesionales" },
   { href: "#ia-prometeo", label: "IA Prometeo" },
 ];

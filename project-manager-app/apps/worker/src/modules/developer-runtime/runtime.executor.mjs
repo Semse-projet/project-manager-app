@@ -35,8 +35,14 @@ function snippet(value, max = 1200) {
   return value.trim().slice(0, max) || undefined;
 }
 
-function relativeRepoPath(rootPath, absolutePath) {
-  return path.relative(rootPath, absolutePath) || ".";
+// Repo-relative path derived only from mission data (never from path.resolve),
+// so it can be passed safely as a git argument without tainting the command.
+function repoRelativePath(targetPath = "") {
+  const normalized = path.normalize(String(targetPath));
+  if (path.isAbsolute(normalized) || normalized === ".." || normalized.startsWith(`..${path.sep}`)) {
+    throw new Error(`Path escapes repo root: ${targetPath}`);
+  }
+  return normalized;
 }
 
 function getApprovalState(approvals, stepId) {
@@ -103,12 +109,15 @@ function commandForStep(step) {
 }
 
 async function runShellCommand(command, cwd, onChunk) {
+  return runProcess("/bin/bash", ["-c", command], cwd, onChunk);
+}
+
+async function runProcess(file, args, cwd, onChunk) {
   const startedAt = Date.now();
   return new Promise((resolve) => {
-    const child = spawn(command, [], {
+    const child = spawn(file, args, {
       cwd,
       env: process.env,
-      shell: "/bin/bash",
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -222,8 +231,11 @@ async function executeSearchCode({ rootPath, step }) {
   const query = typeof step.expectedOutput === "string" && step.expectedOutput.trim()
     ? step.expectedOutput.trim()
     : "developer-runtime";
-  const rgCommand = `rg -n --hidden --glob '!node_modules' --glob '!.git' ${JSON.stringify(query)} ${JSON.stringify(rootPath)}`;
-  const result = await runShellCommand(rgCommand, rootPath);
+  const result = await runProcess(
+    "rg",
+    ["-n", "--hidden", "--glob", "!node_modules", "--glob", "!.git", "--", query, "."],
+    rootPath,
+  );
   return {
     ...result,
     stdout: result.stdout.split("\n").filter(Boolean).slice(0, SEARCH_LIMIT).join("\n"),
@@ -320,12 +332,13 @@ function resolvePatchOperation(mission, step) {
 }
 
 async function getGitDiff(rootPath, relPath) {
-  const result = await runShellCommand(`git diff -- ${JSON.stringify(relPath)}`, rootPath);
+  const result = await runProcess("git", ["diff", "--", relPath], rootPath);
   if (result.ok && result.stdout.trim()) {
     return result.stdout.trim().slice(0, 4000);
   }
-  const staged = await runShellCommand(
-    `git diff --cached -- ${JSON.stringify(relPath)}`,
+  const staged = await runProcess(
+    "git",
+    ["diff", "--cached", "--", relPath],
     rootPath,
   );
   if (staged.ok && staged.stdout.trim()) {
@@ -346,7 +359,7 @@ async function executeWriteFile({ rootPath, mission, step }) {
   }
 
   const filePath = ensureRepoScopedPath(rootPath, operation.path);
-  const relPath = relativeRepoPath(rootPath, filePath);
+  const relPath = repoRelativePath(operation.path);
   const dirPath = path.dirname(filePath);
   await fs.mkdir(dirPath, { recursive: true });
   await fs.writeFile(filePath, operation.content, "utf8");
@@ -384,7 +397,7 @@ async function executePatchFile({ rootPath, mission, step }) {
   }
 
   const filePath = ensureRepoScopedPath(rootPath, operation.path);
-  const relPath = relativeRepoPath(rootPath, filePath);
+  const relPath = repoRelativePath(operation.path);
   const original = await fs.readFile(filePath, "utf8");
   if (!original.includes(operation.find)) {
     return {

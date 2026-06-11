@@ -498,6 +498,15 @@ export async function releaseMilestoneEscrow(
   return mutateSemse<Record<string, unknown>>(`/api/semse/milestones/${milestoneId}/release`, input);
 }
 
+export async function refundEscrow(input: {
+  projectId?: string;
+  escrowId?: string;
+  amount: number;
+  reason: string;
+}): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>(`/api/semse/escrow/refund`, input);
+}
+
 export async function fetchDisputes(): Promise<Record<string, unknown>[]> {
   return fetchSemse<Record<string, unknown>[]>(`/api/semse/disputes`);
 }

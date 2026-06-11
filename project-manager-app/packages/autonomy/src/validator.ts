@@ -2,11 +2,13 @@ import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 
 export function sanitizeBranchName(task: string): string {
+  // Runs of invalid chars collapse to a single "-", so trimming one leading
+  // and one trailing hyphen is enough (avoids polynomial regex backtracking).
   const slug = task
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "")
+    .replace(/^-/, "")
+    .replace(/-$/, "")
     .slice(0, 48);
   return `feat/${slug || "autonomous-change"}`;
 }
