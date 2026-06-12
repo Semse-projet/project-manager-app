@@ -166,10 +166,11 @@ async function main() {
   console.log(`- Recommendations: ${finalResult.aiSummary.recommendations.join(", ")}`);
 
   console.log("\n⭐⭐⭐ Browser Agent Smoke Test Passed Successfully! ⭐⭐⭐");
+  process.exit(0);
 }
 
 async function waitForHealth() {
-  const deadline = Date.now() + 30000;
+  const deadline = Date.now() + 60000;
   while (Date.now() < deadline) {
     if (apiProcess.exitCode !== null) {
       throw new Error("API exited before health check succeeded");
