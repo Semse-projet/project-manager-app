@@ -1,0 +1,38 @@
+name: Railway Deploy
+
+# La GitHub App de Railway no esta instalada en la org Semse-projet, por lo
+# que Railway no recibe eventos de push. Este workflow dispara el deploy
+# refrescando la conexion del repo (serviceConnect re-lee HEAD de main y
+# construye). Si algun dia se instala la app nativa de Railway, este workflow
+# puede eliminarse.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Railway deploys
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -euo pipefail
+          # semse-worker, semse-API, semse-web (proyecto SEMSEproject)
+          for svc in \
+            26cd1c52-1a07-4f05-8b21-9a225e601d7a \
+            2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 \
+            40ab1cd0-b0a6-4760-a43f-8742c1962ef7; do
+            response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+              -H "Authorization: Bearer $RAILWAY_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\":\"mutation { serviceConnect(id: \\\"$svc\\\", input: { repo: \\\"Semse-projet/project-manager-app\\\", branch: \\\"main\\\" }) { id } }\"}")
+            echo "$response" | grep -q '"serviceConnect"' \
+              || { echo "Deploy trigger failed for service $svc: $response"; exit 1; }
+            echo "Deploy disparado para servicio $svc"
+          done
