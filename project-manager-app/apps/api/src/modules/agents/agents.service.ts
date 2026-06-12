@@ -123,8 +123,8 @@ function isGovernedRuntimeAgent(agentType: string): agentType is RuntimeAgentRol
   return runtimeAgentRoles.includes(agentType as RuntimeAgentRole);
 }
 
-function isSpecializedWorkerAgentType(agentType: string): agentType is "field-ops" | "project-copilot" {
-  return agentType === "field-ops" || agentType === "project-copilot";
+function isSpecializedWorkerAgentType(agentType: string): agentType is "field-ops" | "project-copilot" | "browser-agent" {
+  return agentType === "field-ops" || agentType === "project-copilot" || agentType === "browser-agent";
 }
 
 @Injectable()

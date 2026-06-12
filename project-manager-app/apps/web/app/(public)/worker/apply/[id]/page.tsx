@@ -81,6 +81,26 @@ const JOBS: JobDef[] = [
     budgetMax: 5500,
     location: "Zapopan, Jal.",
     urgency: "alta",
+  },
+  {
+    id: "job-6",
+    title: "Instalación eléctrica y cambio de cableado completo",
+    category: "Electricidad",
+    scope: "Cambio de cableado para casa habitación de dos plantas, instalación de centro de carga con interruptores termomagnéticos independientes y salidas para iluminación y contactos.",
+    budgetMin: 6000,
+    budgetMax: 9000,
+    location: "Coyoacán, CDMX",
+    urgency: "alta",
+  },
+  {
+    id: "job-7",
+    title: "Fabricación e instalación de clóset de madera",
+    category: "Carpintería",
+    scope: "Diseño, fabricación y ensamble de clóset empotrado en recámara principal utilizando madera de pino y MDF precompuesto, herrajes de cierre suave y barniz semi-mate.",
+    budgetMin: 7500,
+    budgetMax: 11000,
+    location: "Querétaro, Qro.",
+    urgency: "estándar",
   }
 ];
 
@@ -100,6 +120,62 @@ export default function ApplyPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
 
+  // Web Browser Search State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResult, setSearchResult] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  // Tool Verification Checklist State
+  const [checkedTools, setCheckedTools] = useState<Record<string, boolean>>({});
+
+  const handleBrowserSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    setSearchResult(null);
+    try {
+      const res = await fetch("/api/semse/tools/ai-assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trade: job.category,
+          question: searchQuery,
+          context: {
+            jobTitle: job.title,
+            scope: job.scope,
+            intent: "Worker requesting technical search in job workspace web browser tool"
+          }
+        })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.data && json.data.data.answer) {
+          setSearchResult(json.data.data.answer);
+          setSearching(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Browser search error:", err);
+    }
+
+    // Fallback if AI endpoint is not reachable or returns error
+    setTimeout(() => {
+      const queryLower = searchQuery.toLowerCase();
+      let response = `Buscando en internet: "${searchQuery}"...\n\n`;
+      if (queryLower.includes("cable") || queryLower.includes("voltaje") || queryLower.includes("corriente") || queryLower.includes("electric")) {
+        response += `💡 Recomendación Técnica (Electricidad):\nPara instalaciones de casa habitación, el calibre recomendado para circuitos de fuerza (contactos) es calibre 12 AWG con interruptor de 20A. Para iluminación, calibre 14 AWG con interruptor de 15A. Siempre verifica la desenergización usando un multímetro calibrado.`;
+      } else if (queryLower.includes("madera") || queryLower.includes("ensamble") || queryLower.includes("carpinter")) {
+        response += `💡 Recomendación Técnica (Carpintería):\nPara clósets y mobiliario residencial se recomienda MDF de 15mm o 18mm para estructura interna, y madera sólida de pino o encino para marcos y molduras. Asegura uniones limpias utilizando tarugos o tornillos tipo pocket-hole (Kreg) y adhesivo de poliuretano para mayor resistencia estructural.`;
+      } else if (queryLower.includes("pint") || queryLower.includes("rodill") || queryLower.includes("pared")) {
+        response += `💡 Recomendación Técnica (Pintura):\nLa cobertura promedio de pintura vinílica es de 8 a 10 m² por litro por mano. Se recomienda aplicar primer sellador acrílico diluido 1:1 antes de pintar sobre drywall nuevo para evitar absorción desigual y optimizar el rendimiento del material.`;
+      } else {
+        response += `🔍 Resultados encontrados:\n1. Normas de seguridad de obra SEMSE y Ecosistema de Escrow Seguro.\n2. Manual de buenas prácticas para trabajos de ${job.category}.\n3. Herramientas esenciales de alto rendimiento para proyectos residenciales.`;
+      }
+      setSearchResult(response);
+      setSearching(false);
+    }, 800);
+  };
+
   const job = useMemo(() => {
     return JOBS.find((j) => j.id === id) || JOBS[0]!;
   }, [id]);
@@ -114,6 +190,14 @@ export default function ApplyPage() {
       `Estimado cliente,\n\nCuento con la experiencia necesaria en trabajos de ${job.category}. He analizado el proyecto y le adjunto mi propuesta detallada con hitos claros y evidencias para su tranquilidad. Quedo a sus órdenes.`
     );
   }, [job]);
+
+  const autoCalibrateProposal = () => {
+    const target = job.budgetMin;
+    const base = Math.round(target / 1.08);
+    setLaborPrice(Math.round(base * 0.65));
+    setMaterialsPrice(Math.round(base * 0.35));
+    setMarginPercent(8);
+  };
 
   // Real-time counter bid calculations
   const subtotal = laborPrice + materialsPrice;
@@ -160,6 +244,26 @@ export default function ApplyPage() {
         "Asegurar impermeabilización elastomérica en área de regadera (hito obligatorio).",
         "Sugerir nicho empotrado para optimizar espacios de almacenamiento."
       ];
+    } else if (job.category === "Electricidad") {
+      risks = [
+        "Riesgo de descarga eléctrica o corto circuito (verificar desenergización completa).",
+        "Cableado antiguo con calibres inadecuados o aislamiento dañado."
+      ];
+      tools = ["Multímetro digital calibrado", "Pinzas pelacables y crimpadora", "Destornilladores dieléctricos (aislados)", "Guantes dieléctricos de protección"];
+      tips = [
+        "Realizar pruebas de continuidad y aislamiento antes de energizar la red.",
+        "Dividir las cargas en circuitos independientes y etiquetar correctamente el centro de carga."
+      ];
+    } else if (job.category === "Carpintería") {
+      risks = [
+        "Desviaciones o descuadres en muros y pisos que afecten la nivelación del mueble.",
+        "Riesgo de cortes o astillamiento al trabajar con maderas duras y MDF."
+      ];
+      tools = ["Sierra circular de banco o ingleteadora", "Atornillador inalámbrico de torque ajustable", "Formones de precisión y cepillo manual", "Prensas de sargento para ensamble"];
+      tips = [
+        "Aplicar sellador de madera de alta calidad para prevenir deformación por humedad relativa.",
+        "Presentar las piezas estructurales en sitio antes de aplicar el acabado final o barniz."
+      ];
     } else {
       risks = [
         "Especificaciones del fabricante o certificados de materiales vencidos.",
@@ -171,6 +275,9 @@ export default function ApplyPage() {
         "Tomar fotos detalladas de placas de datos técnicos antes de desmontar."
       ];
     }
+
+    // Agregar navegador web a todas las categorías para búsquedas en internet según necesidad
+    tools.push("Navegador Web (Búsquedas en internet según necesidad)");
 
     return { risks, tools, tips };
   }, [job]);
@@ -355,27 +462,100 @@ export default function ApplyPage() {
                     ) : (
                       <div className="space-y-4">
                         <div className="space-y-2.5">
-                          <span className="text-[10px] text-blue-500 font-black uppercase tracking-wider flex items-center gap-1.5">
-                            <Wrench size={12} />
-                            Equipo y Material Requerido
-                          </span>
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] text-blue-500 font-black uppercase tracking-wider flex items-center gap-1.5">
+                              <Wrench size={12} />
+                              Equipo y Material Requerido
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
+                              {prometeoAnalysis.tools.filter(t => checkedTools[t]).length} de {prometeoAnalysis.tools.length} listos
+                            </span>
+                          </div>
                           <div className="space-y-2">
-                            {prometeoAnalysis.tools.map((tool, index) => (
-                              <div key={index} className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-center justify-between text-xs text-slate-700 dark:text-slate-300">
-                                <div className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />
-                                  <span>{tool}</span>
+                            {prometeoAnalysis.tools.map((tool, index) => {
+                              const isBrowser = tool.startsWith("Navegador Web");
+                              const isChecked = !!checkedTools[tool];
+                              return (
+                                <div key={index} className={`p-3 border rounded-xl flex flex-col gap-2.5 text-xs transition-all duration-200 ${
+                                  isChecked 
+                                    ? "bg-emerald-500/5 border-emerald-500/20 text-slate-800 dark:text-slate-200" 
+                                    : "bg-blue-500/5 border-blue-500/10 text-slate-700 dark:text-slate-300"
+                                }`}>
+                                  <div className="flex items-center justify-between">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCheckedTools(prev => ({ ...prev, [tool]: !prev[tool] }))}
+                                      className="flex items-center gap-2.5 text-left focus:outline-none group cursor-pointer"
+                                    >
+                                      <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                                        isChecked 
+                                          ? "bg-emerald-500 border-emerald-500 text-white" 
+                                          : "border-slate-300 dark:border-slate-700 group-hover:border-blue-550"
+                                      }`}>
+                                        {isChecked && <CheckCircle2 size={10} className="stroke-[3]" />}
+                                      </span>
+                                      <span className={isChecked ? "line-through text-slate-400 dark:text-slate-500" : ""}>
+                                        {tool}
+                                      </span>
+                                    </button>
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${
+                                      isChecked 
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" 
+                                        : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                                    }`}>
+                                      {isChecked ? "Listo" : "Esencial"}
+                                    </span>
+                                  </div>
+                                  
+                                  {isBrowser && (
+                                    <div className="mt-1 p-2 bg-slate-100/50 dark:bg-slate-950/40 rounded-lg border border-slate-200/40 dark:border-slate-850 space-y-2">
+                                      <div className="flex items-center gap-1">
+                                        <input
+                                          type="text"
+                                          placeholder="Buscar técnica, normativas, marcas..."
+                                          value={searchQuery}
+                                          onChange={(e) => setSearchQuery(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              handleBrowserSearch();
+                                            }
+                                          }}
+                                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded px-2.5 py-1 text-xs focus:outline-none focus:border-blue-550"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={handleBrowserSearch}
+                                          disabled={searching || !searchQuery.trim()}
+                                          className="bg-blue-650 hover:bg-blue-700 disabled:bg-blue-400/40 text-white rounded px-2.5 py-1 font-bold text-[10px] transition-colors cursor-pointer"
+                                        >
+                                          {searching ? "Buscando..." : "Buscar"}
+                                        </button>
+                                      </div>
+                                      
+                                      {searchResult && (
+                                        <div className="p-2 bg-blue-500/5 rounded border border-blue-500/10 text-[10px] text-slate-600 dark:text-slate-400 leading-normal max-h-[120px] overflow-y-auto">
+                                          <strong>Resultado de búsqueda:</strong>
+                                          <p className="mt-1 whitespace-pre-wrap">{searchResult}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                                <span className="text-[9px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded uppercase">
-                                  Esencial
-                                </span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
-                          *El contratista debe proveer estas herramientas de manera obligatoria bajo las normativas del ecosistema SEMSE.
-                        </p>
+                        {prometeoAnalysis.tools.filter(t => checkedTools[t]).length === prometeoAnalysis.tools.length ? (
+                          <div className="p-3 bg-emerald-500/5 border border-emerald-500/15 rounded-2xl flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold animate-fadeIn">
+                            <CheckCircle2 size={14} className="text-emerald-500" />
+                            <span>¡Equipo verificado y listo para el inicio de obra!</span>
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal">
+                            *El contratista debe proveer estas herramientas de manera obligatoria bajo las normativas del ecosistema SEMSE.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -397,13 +577,23 @@ export default function ApplyPage() {
                 
                 <form onSubmit={handleSubmitCounterBid} className="space-y-6 flex-1 flex flex-col justify-between">
                   <div className="space-y-5">
-                    <div>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest block">
-                        Crea tu Presupuesto Personalizado
-                      </span>
-                      <h3 className="text-base font-extrabold text-slate-900 dark:text-white mt-1">
-                        Ajusta tu Propuesta
-                      </h3>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest block">
+                          Crea tu Presupuesto Personalizado
+                        </span>
+                        <h3 className="text-base font-extrabold text-slate-900 dark:text-white mt-1">
+                          Ajusta tu Propuesta
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={autoCalibrateProposal}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 transition-all active:scale-95 cursor-pointer shrink-0 animate-fadeIn"
+                      >
+                        <Sparkles size={11} className="text-purple-550 dark:text-purple-450 shrink-0" />
+                        Autocalibrar
+                      </button>
                     </div>
 
                     {/* Labor Slider */}

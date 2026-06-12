@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { SemseToolResult } from "../../../../../packages/tools/dist/index.js";
@@ -38,7 +39,7 @@ export class AlgorithmRunService {
 
       await this.prisma.algorithmRun.create({
         data: {
-          id:                `arn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          id:                `arn_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
           tenantId:          context?.tenantId ?? null,
           userId:            context?.userId ?? null,
           jobId:             context?.jobId ?? null,

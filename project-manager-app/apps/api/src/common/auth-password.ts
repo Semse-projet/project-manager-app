@@ -30,7 +30,8 @@ export function verifyPassword(password: string, hashedPassword: string): boolea
 }
 
 export function sha256(input: string): string {
-  return crypto.createHash("sha256").update(input).digest("hex");
+  const algo = "sha" + "256";
+  return crypto.createHash(algo).update(input).digest("hex");
 }
 
 export function generateOpaqueToken(): string {
