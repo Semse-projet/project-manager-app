@@ -1,10 +1,10 @@
 name: Railway Deploy
 
 # La GitHub App de Railway no esta instalada en la org Semse-projet, por lo
-# que Railway no recibe eventos de push. Este workflow dispara el deploy
-# refrescando la conexion del repo (serviceConnect re-lee HEAD de main y
-# construye). Si algun dia se instala la app nativa de Railway, este workflow
-# puede eliminarse.
+# que Railway no recibe eventos de push. Este workflow despliega el commit
+# exacto del push via serviceInstanceDeployV2 (la lectura de HEAD por parte
+# de Railway tiene lag, asi que se pasa el SHA explicito). Si algun dia se
+# instala la app nativa de Railway, este workflow puede eliminarse.
 on:
   push:
     branches: [main]
@@ -14,13 +14,16 @@ concurrency:
   group: railway-deploy
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Railway deploys
+      - name: Deploy exact commit to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
         run: |
           set -euo pipefail
           # semse-worker, semse-API, semse-web (proyecto SEMSEproject)
@@ -31,8 +34,8 @@ jobs:
             response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\":\"mutation { serviceConnect(id: \\\"$svc\\\", input: { repo: \\\"Semse-projet/project-manager-app\\\", branch: \\\"main\\\" }) { id } }\"}")
-            echo "$response" | grep -q '"serviceConnect"' \
-              || { echo "Deploy trigger failed for service $svc: $response"; exit 1; }
-            echo "Deploy disparado para servicio $svc"
+              -d "{\"query\":\"mutation { serviceInstanceDeployV2(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", commitSha: \\\"$GITHUB_SHA\\\") }\"}")
+            echo "$response" | grep -q '"serviceInstanceDeployV2"' \
+              || { echo "Deploy failed for service $svc: $response"; exit 1; }
+            echo "Deploy de $GITHUB_SHA disparado para servicio $svc"
           done
