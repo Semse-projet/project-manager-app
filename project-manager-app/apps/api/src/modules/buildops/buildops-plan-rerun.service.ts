@@ -487,18 +487,26 @@ export class BuildOpsPlanRerunService {
   }
 
   private async runSerializable<T>(work: (tx: RerunTx) => Promise<T>): Promise<T> {
-    try {
-      return await this.prisma.$transaction(
-        async (tx) => work(tx as RerunTx),
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        },
-      );
-    } catch (error) {
-      if (isConcurrentConflict(error)) {
-        throw new ConflictException(SERIALIZATION_CONFLICT_MESSAGE);
+    // Bajo aislamiento Serializable los conflictos P2034/40001 son esperables;
+    // se reintenta la transaccion completa antes de devolver 409 al cliente.
+    const maxAttempts = 3;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => work(tx as RerunTx),
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          },
+        );
+      } catch (error) {
+        if (!isConcurrentConflict(error)) {
+          throw error;
+        }
+        if (attempt >= maxAttempts) {
+          throw new ConflictException(SERIALIZATION_CONFLICT_MESSAGE);
+        }
+        await new Promise((resolve) => setTimeout(resolve, attempt * 50));
       }
-      throw error;
     }
   }
 
