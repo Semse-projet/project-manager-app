@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { LLMModule } from "../../infrastructure/llm/llm.module.js";
+import { GraphifyModule } from "../graphify/graphify.module.js";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService } from "./embedding.service.js";
@@ -9,7 +10,7 @@ import { PrometeoService } from "./prometeo.service.js";
 import { TradeGuideService } from "./trade-guide.service.js";
 
 @Module({
-  imports: [LLMModule],
+  imports: [LLMModule, GraphifyModule],
   controllers: [PrometeoController],
   providers: [ChunkerService, DocumentParserService, EmbeddingService, PrometeoRepository, PrometeoService, TradeGuideService],
   exports: [PrometeoService, EmbeddingService, ChunkerService, DocumentParserService, TradeGuideService],
