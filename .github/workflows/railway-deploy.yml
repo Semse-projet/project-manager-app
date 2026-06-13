@@ -26,11 +26,12 @@ jobs:
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
         run: |
           set -euo pipefail
-          # semse-worker, semse-API, semse-web (proyecto SEMSEproject)
+          # semse-worker, semse-API, semse-web, semse-vision (proyecto SEMSEproject)
           for svc in \
             26cd1c52-1a07-4f05-8b21-9a225e601d7a \
             2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 \
-            40ab1cd0-b0a6-4760-a43f-8742c1962ef7; do
+            40ab1cd0-b0a6-4760-a43f-8742c1962ef7 \
+            63a901e8-189e-4748-97f7-b7e60e628ee2; do
             response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
