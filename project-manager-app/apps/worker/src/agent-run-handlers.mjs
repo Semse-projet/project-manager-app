@@ -490,7 +490,7 @@ async function handleFinancialAgent({ run, requestJson, tenantId, logger }) {
 
 async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   const context = extractContext(run);
-  const { projectId } = await resolveProjectAndJob(context, requestJson, tenantId);
+  const { projectId, jobId } = await resolveProjectAndJob(context, requestJson, tenantId);
 
   const [evidenceRes, milestonesRes] = await Promise.all([
     requestJson(`/v1/projects/${encodeURIComponent(projectId)}/evidence`, { method: "GET" }, { tenantId }),
@@ -500,9 +500,8 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   const evidence = Array.isArray(evidenceRes?.data) ? evidenceRes.data.map((e) => asObject(e)) : [];
   const milestones = Array.isArray(milestonesRes?.data) ? milestonesRes.data.map((m) => asObject(m)) : [];
 
-  const photoCount = evidence.filter((e) => normalizeStatus(e.kind) === "photo").length;
-  const videoCount = evidence.filter((e) => normalizeStatus(e.kind) === "video").length;
-  const docCount   = evidence.filter((e) => normalizeStatus(e.kind) === "document").length;
+  const photoEvidence = evidence.filter((e) => normalizeStatus(e.kind) === "photo" || normalizeStatus(e.kind) === "video");
+  const docCount = evidence.filter((e) => normalizeStatus(e.kind) === "document").length;
 
   const submittedMilestones = milestones.filter((m) => {
     const s = normalizeStatus(m.statusRaw ?? m.status);
@@ -510,18 +509,78 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   });
 
   const qaIssues = [];
-  if (photoCount === 0) qaIssues.push("Sin fotos de trabajo. Imposible validar ejecución visual.");
+  let duplicateCount = 0;
+  let lowQualityCount = 0;
+  let processedCount = 0;
+
+  // Process each evidence through OpenCV using our Vision Service
+  for (const item of photoEvidence) {
+    try {
+      const evidenceId = asString(item.id);
+      // Try GET first
+      let visionRes = await requestJson(`/v1/vision/evidence/${encodeURIComponent(evidenceId)}`, { method: "GET" }, { allow404: true, tenantId });
+      
+      // If 404, trigger analysis
+      if (!visionRes || !visionRes.data) {
+        visionRes = await requestJson(`/v1/vision/analyze`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            evidenceId,
+            imageUrl: `mock://evidence/${evidenceId}`,
+            jobId: jobId || undefined,
+            milestoneId: item.milestoneId || undefined
+          })
+        }, { tenantId });
+      }
+
+      const analysis = asObject(visionRes?.data);
+      if (analysis && (analysis.status === "completed" || analysis.status === "success")) {
+        processedCount += 1;
+        if (asNumber(analysis.duplicateRisk) >= 0.85) {
+          duplicateCount += 1;
+        }
+        if (!analysis.canAutoApprove || asNumber(analysis.qualityScore) < 0.60) {
+          lowQualityCount += 1;
+        }
+      }
+    } catch (err) {
+      logger.warn({ evidenceId: item.id, error: err.message }, "Failed to process vision analysis for evidence item");
+    }
+  }
+
+  if (photoEvidence.length === 0) {
+    qaIssues.push("Sin fotos o videos de trabajo. Imposible validar ejecución visual.");
+  }
   if (submittedMilestones.length > 0 && evidence.length < submittedMilestones.length) {
     qaIssues.push(`${submittedMilestones.length} hito(s) enviados con ${evidence.length} evidencia(s) total — ratio bajo.`);
   }
+  if (duplicateCount > 0) {
+    qaIssues.push(`Alerta de fraude: ${duplicateCount} imagen(es) sospechosa(s) de duplicidad.`);
+  }
+  if (lowQualityCount > 0) {
+    qaIssues.push(`Calidad deficiente: ${lowQualityCount} imagen(es) borrosa(s) o mal iluminadas.`);
+  }
 
-  const qaScore = evidence.length === 0 ? 0 : Math.min(100, Math.round((photoCount * 40 + videoCount * 35 + docCount * 25) / Math.max(1, milestones.length)));
+  // Calculate base score
+  let qaScore = evidence.length === 0 ? 0 : Math.min(100, Math.round((photoEvidence.length * 40 + docCount * 25) / Math.max(1, milestones.length)));
+
+  // Apply visual criteria penalties
+  if (duplicateCount > 0) {
+    qaScore = 0; // Fraud resets quality score to zero
+  } else if (lowQualityCount > 0) {
+    qaScore = Math.max(10, qaScore - (lowQualityCount * 15)); // Penalize 15 points per bad image
+  }
 
   const result = {
     projectId,
     evidenceTotal: evidence.length,
-    photoCount, videoCount, docCount,
+    photoCount: photoEvidence.length,
+    docCount,
     submittedMilestones: submittedMilestones.length,
+    visionProcessedCount: processedCount,
+    visionDuplicatesCount: duplicateCount,
+    visionLowQualityCount: lowQualityCount,
     qaScore,
     qaStatus: qaScore >= 70 ? "pass" : qaScore >= 40 ? "partial" : "fail",
     qaIssues,
@@ -530,7 +589,7 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
       : `Solicitar evidencia adicional antes de aprobar: ${qaIssues.join("; ")}`,
   };
 
-  const summary = `QA Agent evaluó '${projectId}': score=${qaScore}/100 (${evidence.length} evidencias, ${qaIssues.length} issues).`;
+  const summary = `QA Agent evaluó '${projectId}': score=${qaScore}/100 (${evidence.length} evidencias, ${processedCount} procesadas por Vision, ${qaIssues.length} issues).`;
   logger.info({ runId: run.id, projectId, qaScore }, "qa-agent handler completed");
   return { summary, result };
 }

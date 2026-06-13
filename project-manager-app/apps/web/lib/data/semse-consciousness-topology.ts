@@ -309,6 +309,19 @@ export const SEMSE_NEURONS: Record<string, Neuron> = {
     inputs: ["evidence_quality", "behavioral_pattern"],
     outputs: ["trust_score", "reputation_update"],
   },
+  vision_analysis: {
+    id: "vision_analysis",
+    label: "Vision Analysis Engine",
+    cortex: "evidencia",
+    status: "mature",
+    maturity: 95,
+    criticality: "high",
+    monetizationImpact: "high",
+    energy: 70,
+    description: "Análisis técnico de OpenCV (blur, lighting, contrast, duplicates)",
+    inputs: ["evidence_item"],
+    outputs: ["quality_score", "duplicate_risk"],
+  },
 
   // CORTEX GOBERNANZA
   governance_proposals: {
@@ -844,6 +857,7 @@ export const SEMSE_CORTEX: Record<CortexType, CortexRegion> = {
       SEMSE_NEURONS.evidence_review,
       SEMSE_NEURONS.evidence_storage,
       SEMSE_NEURONS.trust_signals,
+      SEMSE_NEURONS.vision_analysis,
     ],
     energyFlow: 62,
     healthScore: 78,
@@ -926,6 +940,8 @@ export const MONETIZATION_FLOWS = [
     id: "evidence_to_payment",
     name: "Evidence → Payment",
     neurons: [
+      "evidence_upload",
+      "vision_analysis",
       "evidence_review",
       "payment_governance",
       "escrow",

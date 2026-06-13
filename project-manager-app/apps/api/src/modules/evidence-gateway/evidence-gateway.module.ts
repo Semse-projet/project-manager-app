@@ -3,9 +3,10 @@ import { EvidenceGatewayController } from "./evidence-gateway.controller.js";
 import { EvidenceGatewayService } from "./evidence-gateway.service.js";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseModule } from "../../infrastructure/sse/sse.module.js";
+import { VisionModule } from "../vision/vision.module.js";
 
 @Module({
-  imports: [SseModule],
+  imports: [SseModule, VisionModule],
   controllers: [EvidenceGatewayController],
   providers: [EvidenceGatewayService, EvidenceGatewayRepository],
   exports: [EvidenceGatewayService],
