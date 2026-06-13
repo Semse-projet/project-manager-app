@@ -10,6 +10,37 @@ class EvidenceAnalyzeRequest(BaseModel):
     expectedWork: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
+# --- Blueprint ---
+class BlueprintRequest(BaseModel):
+    imageUrl: str
+    trade: Optional[str] = None
+
+class BlueprintResult(BaseModel):
+    lineCount: int
+    density: float
+    lines: List[List[int]]
+    isBlueprint: bool
+
+# --- Perspective ---
+class PerspectiveCorrectionRequest(BaseModel):
+    imageUrl: str
+    returnBase64: bool = False
+
+class PerspectiveCorrectionResult(BaseModel):
+    corrected: bool
+    base64Image: Optional[str] = None
+    widthPx: int
+    heightPx: int
+
+# --- Document Binarize ---
+class BinarizeRequest(BaseModel):
+    imageUrl: str
+
+class BinarizeResult(BaseModel):
+    base64Image: str
+    widthPx: int
+    heightPx: int
+
 class BeforeAfterRequest(BaseModel):
     beforeImageUrl: str
     afterImageUrl: str

@@ -1,5 +1,14 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { AnalyzeEvidenceDto, VisionResultDto } from "../dto/index.js";
+import {
+  AnalyzeEvidenceDto,
+  VisionResultDto,
+  BlueprintDto,
+  BlueprintResultDto,
+  PerspectiveCorrectionDto,
+  PerspectiveCorrectionResultDto,
+  BinarizeDto,
+  BinarizeResultDto,
+} from "../dto/index.js";
 
 @Injectable()
 export class VisionServiceClient {
@@ -35,6 +44,43 @@ export class VisionServiceClient {
     } catch (error: any) {
       clearTimeout(id);
       this.logger.error(`Failed to analyze evidence ${payload.evidenceId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async analyzeBlueprint(payload: BlueprintDto): Promise<BlueprintResultDto> {
+    return this.post<BlueprintResultDto>("/v1/evidence/blueprint", payload);
+  }
+
+  async correctPerspective(payload: PerspectiveCorrectionDto): Promise<PerspectiveCorrectionResultDto> {
+    return this.post<PerspectiveCorrectionResultDto>("/v1/evidence/perspective-correct", payload);
+  }
+
+  async binarizeDocument(payload: BinarizeDto): Promise<BinarizeResultDto> {
+    return this.post<BinarizeResultDto>("/v1/evidence/document-binarize", payload);
+  }
+
+  private async post<T>(path: string, body: unknown): Promise<T> {
+    const baseUrl = process.env.VISION_SERVICE_URL || "http://localhost:8080";
+    const timeoutMs = parseInt(process.env.VISION_ANALYSIS_TIMEOUT_MS || "30000", 10);
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(id);
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Vision Service ${path} returned ${response.status}: ${errText}`);
+      }
+      return (await response.json()) as T;
+    } catch (error: any) {
+      clearTimeout(id);
+      this.logger.error(`Vision Service ${path} failed: ${error.message}`);
       throw error;
     }
   }

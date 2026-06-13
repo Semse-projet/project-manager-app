@@ -1,6 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { VisionRepository } from "./vision.repository.js";
 import { VisionServiceClient } from "./clients/vision-service.client.js";
+import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
 
 @Injectable()
 export class VisionService {
@@ -8,7 +10,9 @@ export class VisionService {
 
   constructor(
     private readonly visionRepository: VisionRepository,
-    private readonly visionServiceClient: VisionServiceClient
+    private readonly visionServiceClient: VisionServiceClient,
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
   ) {}
 
   async runAnalysis(input: {
@@ -81,5 +85,40 @@ export class VisionService {
 
   async getByMilestone(milestoneId: string) {
     return this.visionRepository.listByMilestone(milestoneId);
+  }
+
+  async analyzeBlueprint(imageUrl: string, trade?: string) {
+    return this.visionServiceClient.analyzeBlueprint({ imageUrl, trade });
+  }
+
+  async correctPerspective(imageUrl: string, returnBase64 = false) {
+    return this.visionServiceClient.correctPerspective({ imageUrl, returnBase64 });
+  }
+
+  async binarizeDocument(imageUrl: string) {
+    return this.visionServiceClient.binarizeDocument({ imageUrl });
+  }
+
+  async analyzeByEvidenceId(evidenceId: string) {
+    const existing = await this.visionRepository.findByEvidenceId(evidenceId).catch(() => null);
+    if (existing?.status === "completed") return existing;
+
+    const evidence = await this.prisma.evidence.findUnique({
+      where: { id: evidenceId },
+      select: { id: true, bucketKey: true, milestoneId: true, metadataJson: true },
+    });
+    if (!evidence) throw new NotFoundException(`Evidence ${evidenceId} not found`);
+
+    const imageUrl = evidence.bucketKey
+      ? this.storageService.publicUrl(evidence.bucketKey)
+      : `mock://evidence/${evidenceId}`;
+
+    const meta = evidence.metadataJson as Record<string, unknown> | null;
+    return this.runAnalysis({
+      evidenceId,
+      imageUrl,
+      jobId: (meta?.jobId as string) ?? undefined,
+      milestoneId: evidence.milestoneId ?? undefined,
+    });
   }
 }

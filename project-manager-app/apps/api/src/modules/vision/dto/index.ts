@@ -44,3 +44,40 @@ export interface VisionResultDto {
   governance: GovernanceResultDto;
   rawResult: Record<string, any>;
 }
+
+// --- Blueprint ---
+export class BlueprintDto {
+  imageUrl!: string;
+  trade?: string;
+}
+
+export interface BlueprintResultDto {
+  lineCount: number;
+  density: number;
+  lines: number[][];
+  isBlueprint: boolean;
+}
+
+// --- Perspective Correction ---
+export class PerspectiveCorrectionDto {
+  imageUrl!: string;
+  returnBase64?: boolean;
+}
+
+export interface PerspectiveCorrectionResultDto {
+  corrected: boolean;
+  base64Image?: string;
+  widthPx: number;
+  heightPx: number;
+}
+
+// --- Document Binarize ---
+export class BinarizeDto {
+  imageUrl!: string;
+}
+
+export interface BinarizeResultDto {
+  base64Image: string;
+  widthPx: number;
+  heightPx: number;
+}

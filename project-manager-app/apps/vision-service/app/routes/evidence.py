@@ -1,4 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
+import base64
+import cv2
 import requests
 from app.schemas.evidence import (
     EvidenceAnalyzeRequest,
@@ -8,7 +10,13 @@ from app.schemas.evidence import (
     DuplicateCheckRequest,
     DuplicateResult,
     QualityResult,
-    GovernanceResult
+    GovernanceResult,
+    BlueprintRequest,
+    BlueprintResult,
+    PerspectiveCorrectionRequest,
+    PerspectiveCorrectionResult,
+    BinarizeRequest,
+    BinarizeResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -16,6 +24,9 @@ from app.analyzers.lighting import analyze_lighting
 from app.analyzers.contrast import analyze_contrast
 from app.analyzers.duplicate import calculate_dhash, check_duplicate
 from app.analyzers.before_after import compare_before_after
+from app.analyzers.perspective import correct_perspective
+from app.analyzers.binarization import binarize_document
+from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -26,6 +37,10 @@ router = APIRouter()
 def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
     # 1. Load image and download raw bytes for EXIF extraction
     image = load_image_from_url(request.imageUrl)
+
+    # Optional perspective correction before quality analysis
+    if request.metadata and request.metadata.get("correctPerspective"):
+        image = correct_perspective(image)
     
     exif_metadata = {
         "timestamp": None,
@@ -128,11 +143,48 @@ def compare_before_after_endpoint(request: BeforeAfterRequest):
 def check_duplicate_endpoint(request: DuplicateCheckRequest):
     image = load_image_from_url(request.imageUrl)
     img_hash = calculate_dhash(image)
-    
+
     duplicate_risk, matched_idx = check_duplicate(img_hash, request.existingHashes)
-    
+
     return DuplicateResult(
         duplicateRisk=duplicate_risk,
         matchedHashIndex=matched_idx,
         hashValue=img_hash
     )
+
+@router.post("/blueprint", response_model=BlueprintResult, tags=["evidence"])
+def blueprint_endpoint(request: BlueprintRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = extract_blueprint_lines(image)
+    return BlueprintResult(
+        lineCount=result["line_count"],
+        density=result["density"],
+        lines=result["lines"],
+        isBlueprint=result["line_count"] > 10 and result["density"] > 0.05,
+    )
+
+@router.post("/perspective-correct", response_model=PerspectiveCorrectionResult, tags=["evidence"])
+def perspective_correct_endpoint(request: PerspectiveCorrectionRequest):
+    image = load_image_from_url(request.imageUrl)
+    corrected = correct_perspective(image)
+    corrected_flag = corrected.shape != image.shape or not (corrected == image).all()
+    h, w = corrected.shape[:2]
+    b64 = None
+    if request.returnBase64:
+        _, buf = cv2.imencode(".jpg", corrected)
+        b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
+    return PerspectiveCorrectionResult(
+        corrected=corrected_flag,
+        base64Image=b64,
+        widthPx=w,
+        heightPx=h,
+    )
+
+@router.post("/document-binarize", response_model=BinarizeResult, tags=["evidence"])
+def document_binarize_endpoint(request: BinarizeRequest):
+    image = load_image_from_url(request.imageUrl)
+    binarized = binarize_document(image)
+    h, w = binarized.shape[:2]
+    _, buf = cv2.imencode(".png", binarized)
+    b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
+    return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)

@@ -1,7 +1,7 @@
-import { Controller, Post, Get, Body, Param, Req } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -46,6 +46,46 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.getByMilestone(milestoneId);
+    return ok(requestId, result);
+  }
+
+  @Post("analyze-by-evidence/:evidenceId")
+  async analyzeByEvidenceId(
+    @Req() req: FastifyRequest,
+    @Param("evidenceId") evidenceId: string
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.analyzeByEvidenceId(evidenceId);
+    return ok(requestId, result);
+  }
+
+  @Post("blueprint")
+  async blueprint(
+    @Req() req: FastifyRequest,
+    @Body() dto: BlueprintDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.analyzeBlueprint(dto.imageUrl, dto.trade);
+    return ok(requestId, result);
+  }
+
+  @Post("perspective-correct")
+  async perspectiveCorrect(
+    @Req() req: FastifyRequest,
+    @Body() dto: PerspectiveCorrectionDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.correctPerspective(dto.imageUrl, dto.returnBase64);
+    return ok(requestId, result);
+  }
+
+  @Post("document-binarize")
+  async documentBinarize(
+    @Req() req: FastifyRequest,
+    @Body() dto: BinarizeDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.binarizeDocument(dto.imageUrl);
     return ok(requestId, result);
   }
 }

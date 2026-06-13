@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { VisionService } from "../vision/vision.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
 
 export interface EvidenceUploadRequest {
   projectId: string;
@@ -28,6 +29,7 @@ export class EvidenceGatewayService {
   constructor(
     private readonly repository: EvidenceGatewayRepository,
     private readonly visionService: VisionService,
+    private readonly storageService: StorageService,
     private readonly sseBus?: SseEventBusService,
   ) {}
 
@@ -229,9 +231,12 @@ export class EvidenceGatewayService {
       }
 
       // Execute OpenCV real-time visual assessment through our Vision module
+      const imageUrl = evidence.bucketKey
+        ? this.storageService.publicUrl(evidence.bucketKey)
+        : `mock://evidence/${evidence.id}`;
       const analysis = await this.visionService.runAnalysis({
         evidenceId: evidence.id,
-        imageUrl: `mock://evidence/${evidence.id}`,
+        imageUrl,
         jobId: evidence.metadataJson?.jobId as string || undefined,
         milestoneId: evidence.milestoneId || undefined,
       });
