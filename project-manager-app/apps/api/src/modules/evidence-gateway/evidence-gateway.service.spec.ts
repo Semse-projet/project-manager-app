@@ -3,6 +3,7 @@ import { BadRequestException } from "@nestjs/common";
 import { EvidenceGatewayService } from "./evidence-gateway.service.js";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { VisionService } from "../vision/vision.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
 
 describe("EvidenceGatewayService", () => {
   let service: EvidenceGatewayService;
@@ -22,12 +23,17 @@ describe("EvidenceGatewayService", () => {
     getAnalysis: jest.fn().mockResolvedValue({ duplicateRisk: 0.1 }),
   };
 
+  const mockStorageService = {
+    publicUrl: jest.fn((key: string) => `https://api.example.com/v1/uploads/files/${encodeURIComponent(key)}`),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EvidenceGatewayService,
         { provide: EvidenceGatewayRepository, useValue: mockRepository },
         { provide: VisionService, useValue: mockVisionService },
+        { provide: StorageService, useValue: mockStorageService },
       ],
     }).compile();
 
@@ -89,6 +95,27 @@ describe("EvidenceGatewayService", () => {
   });
 
   describe("validateEvidenceAsync", () => {
+    it("should pass real storage URL to vision analysis (not mock)", async () => {
+      const evidenceId = "ev-real";
+      const projectId = "proj-123";
+      const bucketKey = "tenants/t1/evidence/photo.jpg";
+
+      mockRepository.getEvidence.mockResolvedValue({
+        id: evidenceId,
+        kind: "PHOTO",
+        bucketKey,
+        metadataJson: {},
+      } as any);
+      mockRepository.updateEvidenceValidation.mockResolvedValue({} as any);
+
+      await service.validateEvidenceAsync(evidenceId, projectId);
+
+      expect(mockStorageService.publicUrl).toHaveBeenCalledWith(bucketKey);
+      const imageUrlUsed = mockVisionService.runAnalysis.mock.calls[0]?.[0]?.imageUrl as string;
+      expect(imageUrlUsed).not.toContain("mock://");
+      expect(imageUrlUsed).toContain(encodeURIComponent(bucketKey));
+    });
+
     it("should validate evidence and update status to passed", async () => {
       const evidenceId = "ev-123";
       const projectId = "proj-123";

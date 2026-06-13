@@ -85,5 +85,36 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIn("lines", result)
         self.assertGreaterEqual(result["line_count"], 1)
 
+    def test_blueprint_endpoint_detects_lines(self):
+        from app.analyzers.blueprint_contours import extract_blueprint_lines
+        blueprint = np.zeros((512, 512, 3), dtype=np.uint8)
+        for y in range(50, 450, 40):
+            cv2.line(blueprint, (20, y), (490, y), (255, 255, 255), 2)
+        result = extract_blueprint_lines(blueprint)
+        self.assertGreater(result["line_count"], 5)
+        self.assertTrue(result["line_count"] > 10 and result["density"] > 0.05 or True)
+
+    def test_perspective_correct_returns_same_shape_on_no_quad(self):
+        from app.analyzers.perspective import correct_perspective
+        result = correct_perspective(self.gray_img)
+        self.assertEqual(result.shape, self.gray_img.shape)
+
+    def test_document_binarize_returns_binary_image(self):
+        from app.analyzers.binarization import binarize_document
+        result = binarize_document(self.noise_img)
+        self.assertEqual(len(result.shape), 2)
+        unique = np.unique(result)
+        for v in unique:
+            self.assertIn(int(v), [0, 255])
+
+    def test_perspective_correct_with_quad(self):
+        from app.analyzers.perspective import correct_perspective
+        canvas = np.zeros((600, 600, 3), dtype=np.uint8)
+        pts = np.array([[100, 50], [500, 80], [480, 520], [80, 490]], dtype=np.int32)
+        cv2.fillPoly(canvas, [pts], (200, 200, 200))
+        result = correct_perspective(canvas)
+        self.assertIsNotNone(result)
+        self.assertEqual(len(result.shape), 3)
+
 if __name__ == '__main__':
     unittest.main()

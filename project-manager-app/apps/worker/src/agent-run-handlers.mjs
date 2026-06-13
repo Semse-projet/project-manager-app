@@ -517,22 +517,12 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   for (const item of photoEvidence) {
     try {
       const evidenceId = asString(item.id);
-      // Try GET first
-      let visionRes = await requestJson(`/v1/vision/evidence/${encodeURIComponent(evidenceId)}`, { method: "GET" }, { allow404: true, tenantId });
-      
-      // If 404, trigger analysis
-      if (!visionRes || !visionRes.data) {
-        visionRes = await requestJson(`/v1/vision/analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            evidenceId,
-            imageUrl: `mock://evidence/${evidenceId}`,
-            jobId: jobId || undefined,
-            milestoneId: item.milestoneId || undefined
-          })
-        }, { tenantId });
-      }
+      // analyze-by-evidence resolves the real bucketKey server-side (idempotent — returns cached if already done)
+      const visionRes = await requestJson(
+        `/v1/vision/analyze-by-evidence/${encodeURIComponent(evidenceId)}`,
+        { method: "POST" },
+        { tenantId }
+      );
 
       const analysis = asObject(visionRes?.data);
       if (analysis && (analysis.status === "completed" || analysis.status === "success")) {
