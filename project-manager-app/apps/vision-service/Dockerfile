@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application code
 COPY app/ ./app/
 
-# Expose port
+# Expose port (Railway injects $PORT at runtime)
 EXPOSE 8080
 
-# Run uvicorn server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Use $PORT from Railway env (fallback 8080 for local dev)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
