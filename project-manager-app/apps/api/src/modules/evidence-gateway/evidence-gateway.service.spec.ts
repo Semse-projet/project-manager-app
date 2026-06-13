@@ -2,6 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { BadRequestException } from "@nestjs/common";
 import { EvidenceGatewayService } from "./evidence-gateway.service.js";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
+import { VisionService } from "../vision/vision.service.js";
 
 describe("EvidenceGatewayService", () => {
   let service: EvidenceGatewayService;
@@ -16,11 +17,17 @@ describe("EvidenceGatewayService", () => {
     logValidationEvent: jest.fn(),
   };
 
+  const mockVisionService = {
+    runAnalysis: jest.fn().mockResolvedValue({ qualityScore: 0.85, canAutoApprove: true }),
+    getAnalysis: jest.fn().mockResolvedValue({ duplicateRisk: 0.1 }),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EvidenceGatewayService,
         { provide: EvidenceGatewayRepository, useValue: mockRepository },
+        { provide: VisionService, useValue: mockVisionService },
       ],
     }).compile();
 

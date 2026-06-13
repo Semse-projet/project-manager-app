@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { EvidenceGatewayRepository } from "./evidence-gateway.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { VisionService } from "../vision/vision.service.js";
 
 export interface EvidenceUploadRequest {
   projectId: string;
@@ -26,6 +27,7 @@ export class EvidenceGatewayService {
 
   constructor(
     private readonly repository: EvidenceGatewayRepository,
+    private readonly visionService: VisionService,
     private readonly sseBus?: SseEventBusService,
   ) {}
 
@@ -221,50 +223,63 @@ export class EvidenceGatewayService {
   }
 
   private async assessQuality(evidence: any): Promise<number> {
-    // Simulate quality assessment based on file type and metadata
-    let score = 0.5;
-
-    if (evidence.kind === "PHOTO") {
-      score = 0.75;
-    } else if (evidence.kind === "VIDEO") {
-      score = 0.70;
-    } else if (evidence.kind === "DOCUMENT") {
-      score = 0.65;
-    }
-
-    // Check for metadata that indicates quality
-    if (evidence.metadataJson) {
-      const meta = evidence.metadataJson as Record<string, unknown>;
-      if (meta.resolution && meta.fileSize) {
-        score += 0.1;
+    try {
+      if (evidence.kind !== "PHOTO" && evidence.kind !== "VIDEO") {
+        return 0.70; // Non-image/video default
       }
-      if (meta.timestamp) {
-        score += 0.05;
-      }
-    }
 
-    return Math.min(score, 1.0);
+      // Execute OpenCV real-time visual assessment through our Vision module
+      const analysis = await this.visionService.runAnalysis({
+        evidenceId: evidence.id,
+        imageUrl: `mock://evidence/${evidence.id}`,
+        jobId: evidence.metadataJson?.jobId as string || undefined,
+        milestoneId: evidence.milestoneId || undefined,
+      });
+
+      return analysis.qualityScore ?? 0.5;
+    } catch (error) {
+      this.logger.error(`Vision analysis failed inside gateway: ${error instanceof Error ? error.message : String(error)}`);
+      return 0.5; // Fallback to basic score on failure
+    }
   }
 
   private async scoreAgainstRequirements(evidence: any): Promise<ValidationScore> {
     const qualityScore = await this.assessQuality(evidence);
-    const completenessScore = 0.8; // Evidence uploaded = complete
-    const relevanceScore = evidence.milestoneId ? 0.85 : 0.65; // Higher if tied to milestone
+    
+    // Check if there is a suspected duplicate or critical warning from OpenCV
+    let duplicateRisk = 0.0;
+    try {
+      const analysis = await this.visionService.getAnalysis(evidence.id);
+      duplicateRisk = analysis.duplicateRisk ?? 0.0;
+    } catch {
+      // Ignore if not analyzed yet
+    }
 
-    const overall = qualityScore * 0.5 + completenessScore * 0.3 + relevanceScore * 0.2;
+    const completenessScore = 0.8;
+    const relevanceScore = evidence.milestoneId ? 0.85 : 0.65;
+
+    // Apply penalty to overall score if image is duplicate (fraud protection)
+    let overall = qualityScore * 0.5 + completenessScore * 0.3 + relevanceScore * 0.2;
+    if (duplicateRisk >= 0.85) {
+      overall = 0.0; // Fail validation entirely
+    }
+
+    const status = overall >= 0.65 ? "passed" : overall >= 0.5 ? "manual_review" : "failed";
 
     return {
       overall: Math.min(overall, 1.0),
       qualityScore,
       completenessScore,
       relevanceScore,
-      status: overall >= 0.65 ? "passed" : overall >= 0.5 ? "manual_review" : "failed",
+      status,
       feedback:
-        overall >= 0.75
-          ? "Evidence quality is excellent"
-          : overall >= 0.65
-            ? "Evidence quality is acceptable"
-            : "Evidence quality needs improvement",
+        duplicateRisk >= 0.85
+          ? "CRITICAL: Suspected image duplication / fraud detected"
+          : overall >= 0.75
+            ? "Evidence quality is excellent"
+            : overall >= 0.65
+              ? "Evidence quality is acceptable"
+              : "Evidence quality needs improvement",
     };
   }
 }

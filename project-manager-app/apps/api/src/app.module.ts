@@ -65,6 +65,7 @@ import { PaymentGovernanceModule } from "./modules/payment-governance/payment-go
 import { EvidenceGatewayModule } from "./modules/evidence-gateway/evidence-gateway.module.js";
 import { WorkerVerificationModule } from "./modules/worker-verification/worker-verification.module.js";
 import { BrowserAgentModule } from "./modules/browser-agent/browser-agent.module.js";
+import { VisionModule } from "./modules/vision/vision.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -143,6 +144,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     EvidenceGatewayModule,
     WorkerVerificationModule,
     BrowserAgentModule,
+    VisionModule,
   ],
   controllers: [HealthController],
   providers: [
