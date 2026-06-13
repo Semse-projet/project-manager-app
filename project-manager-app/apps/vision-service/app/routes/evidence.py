@@ -1,14 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends
 import requests
 from app.schemas.evidence import (
-    EvidenceAnalyzeRequest, 
+    EvidenceAnalyzeRequest,
     EvidenceAnalyzeResponse,
     BeforeAfterRequest,
     BeforeAfterResult,
     DuplicateCheckRequest,
     DuplicateResult,
     QualityResult,
-    RiskResult,
     GovernanceResult
 )
 from app.services.image_loader import load_image_from_url
