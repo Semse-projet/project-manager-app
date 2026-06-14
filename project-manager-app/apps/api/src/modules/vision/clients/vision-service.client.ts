@@ -8,6 +8,8 @@ import {
   PerspectiveCorrectionResultDto,
   BinarizeDto,
   BinarizeResultDto,
+  SafetyCheckDto,
+  SafetyCheckResultDto,
   ReferenceMatchDto,
   ReferenceMatchResultDto,
   TradeDetectionDto,
@@ -64,6 +66,10 @@ export class VisionServiceClient {
 
   async binarizeDocument(payload: BinarizeDto): Promise<BinarizeResultDto> {
     return this.post<BinarizeResultDto>("/v1/evidence/document-binarize", payload);
+  }
+
+  async checkSafety(payload: SafetyCheckDto): Promise<SafetyCheckResultDto> {
+    return this.post<SafetyCheckResultDto>("/v1/evidence/safety-check", payload);
   }
 
   async matchReference(payload: ReferenceMatchDto): Promise<ReferenceMatchResultDto> {

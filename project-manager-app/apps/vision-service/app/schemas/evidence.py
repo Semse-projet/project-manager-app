@@ -82,6 +82,18 @@ class EvidenceAnalyzeResponse(BaseModel):
     governance: GovernanceResult
     rawResult: Dict[str, Any]
 
+# --- Safety Detection ---
+class SafetyCheckRequest(BaseModel):
+    imageUrl: str
+    trade: Optional[str] = None
+
+class SafetyCheckResult(BaseModel):
+    helmetDetected: bool
+    vestDetected: bool
+    harnessDetected: bool
+    complianceScore: float
+    violations: List[str]
+
 # --- Reference Match ---
 class ReferenceMatchRequest(BaseModel):
     deliveredImageUrl: str
