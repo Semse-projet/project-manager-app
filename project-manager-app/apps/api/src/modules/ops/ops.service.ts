@@ -693,4 +693,84 @@ export class OpsService {
   async getWorkerQueueMetrics() {
     return this.agentQueueService.getMetrics();
   }
+
+  async getMissionControlSummary(tenantId: string): Promise<{
+    openSignals: number;
+    criticalSignals: number;
+    blockedPayments: number;
+    activeDisputes: number;
+    pendingMilestones: number;
+    pendingEvidence: number;
+    openChangeOrders: number;
+    riskAlerts: number;
+    nextAction: string;
+    generatedAt: string;
+  }> {
+    const [
+      openSignals,
+      criticalSignals,
+      blockedPayments,
+      activeDisputes,
+      pendingMilestones,
+      pendingEvidence,
+      openChangeOrders,
+    ] = await Promise.all([
+      this.prisma.operationalSignal.count({
+        where: { tenantId, status: "open" },
+      }),
+      this.prisma.operationalSignal.count({
+        where: { tenantId, status: "open", severity: { in: ["critical", "high"] } },
+      }),
+      this.prisma.milestone.count({
+        where: {
+          project: { tenantId },
+          deletedAt: null,
+          status: "APPROVED",
+          paymentReadiness: { not: "released" },
+        },
+      }),
+      this.prisma.dispute.count({
+        where: { tenantId, status: { in: ["OPEN", "ASSIGNED", "UNDER_REVIEW"] } },
+      }),
+      this.prisma.milestone.count({
+        where: {
+          project: { tenantId },
+          deletedAt: null,
+          status: { in: ["SUBMITTED", "AWAITING_REVIEW"] },
+        },
+      }),
+      this.prisma.evidence.count({
+        where: {
+          project: { tenantId },
+          validationStatus: { in: ["pending", "manual_review"] },
+        },
+      }),
+      this.prisma.changeOrderCandidate.count({
+        where: { tenantId, status: { in: ["predicted", "submitted"] } },
+      }),
+    ]);
+
+    const riskAlerts = criticalSignals + activeDisputes;
+
+    let nextAction = "System healthy — no urgent actions required";
+    if (activeDisputes > 0) nextAction = `Resolve ${activeDisputes} active dispute(s) to unblock payments`;
+    else if (criticalSignals > 0) nextAction = `Review ${criticalSignals} critical signal(s) in Mission Control`;
+    else if (blockedPayments > 0) nextAction = `Release payment for ${blockedPayments} approved milestone(s)`;
+    else if (pendingMilestones > 0) nextAction = `Review ${pendingMilestones} milestone(s) pending approval`;
+    else if (openChangeOrders > 0) nextAction = `Process ${openChangeOrders} open change order(s)`;
+    else if (pendingEvidence > 0) nextAction = `Review ${pendingEvidence} pending evidence item(s)`;
+
+    return {
+      openSignals,
+      criticalSignals,
+      blockedPayments,
+      activeDisputes,
+      pendingMilestones,
+      pendingEvidence,
+      openChangeOrders,
+      riskAlerts,
+      nextAction,
+      generatedAt: new Date().toISOString(),
+    };
+  }
 }

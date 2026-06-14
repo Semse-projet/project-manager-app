@@ -54,6 +54,17 @@ export class OpsController {
     return ok(requestId, this.llmOrchestrator.metricsSnapshot());
   }
 
+  // ── Operational Mission Control ───────────────────────────────────────────
+
+  @Get("mission-control/summary")
+  @RequirePermissions("ops:dashboard:read")
+  async getMissionControlSummary(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const { tenantId } = resolveRequestContext(req);
+    const data = await this.opsService.getMissionControlSummary(tenantId);
+    return ok(requestId, data);
+  }
+
   // ── AI Mission Control ─────────────────────────────────────────────────────
 
   @Get("ai-mission-control/summary")
