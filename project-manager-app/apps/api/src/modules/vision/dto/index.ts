@@ -82,6 +82,20 @@ export interface BinarizeResultDto {
   heightPx: number;
 }
 
+// --- Trade Detector ---
+export class TradeDetectionDto {
+  imageUrl!: string;
+  expectedTrade?: string;
+}
+
+export interface TradeDetectionResultDto {
+  detectedTrade: string;
+  confidence: number;
+  tradeScores: Record<string, number>;
+  expectedTrade?: string;
+  match?: boolean;
+}
+
 // --- Batch Analyze ---
 export class BatchAnalyzeItemDto {
   evidenceId!: string;

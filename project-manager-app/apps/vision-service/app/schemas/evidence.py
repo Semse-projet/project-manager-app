@@ -82,6 +82,18 @@ class EvidenceAnalyzeResponse(BaseModel):
     governance: GovernanceResult
     rawResult: Dict[str, Any]
 
+# --- Trade Detector ---
+class TradeDetectionRequest(BaseModel):
+    imageUrl: str
+    expectedTrade: Optional[str] = None
+
+class TradeDetectionResult(BaseModel):
+    detectedTrade: str
+    confidence: float
+    tradeScores: Dict[str, float]
+    expectedTrade: Optional[str] = None
+    match: Optional[bool] = None
+
 # --- Batch Analyze (depends on EvidenceAnalyzeResponse) ---
 class BatchAnalyzeRequest(BaseModel):
     items: List[EvidenceAnalyzeRequest]

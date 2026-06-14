@@ -99,6 +99,10 @@ export class VisionService {
     return this.visionServiceClient.binarizeDocument({ imageUrl });
   }
 
+  async detectTrade(imageUrl: string, expectedTrade?: string) {
+    return this.visionServiceClient.detectTrade({ imageUrl, expectedTrade });
+  }
+
   async runBatchAnalysis(items: Array<{ evidenceId: string; imageUrl: string; jobId?: string; milestoneId?: string; trade?: string }>, jobId?: string, milestoneId?: string) {
     const batchResult = await this.visionServiceClient.batchAnalyze({
       items: items.map(i => ({ ...i, imageUrl: i.imageUrl })),

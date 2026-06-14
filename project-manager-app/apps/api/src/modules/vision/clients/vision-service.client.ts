@@ -8,6 +8,8 @@ import {
   PerspectiveCorrectionResultDto,
   BinarizeDto,
   BinarizeResultDto,
+  TradeDetectionDto,
+  TradeDetectionResultDto,
   BatchAnalyzeDto,
   BatchAnalyzeResultDto,
 } from "../dto/index.js";
@@ -60,6 +62,10 @@ export class VisionServiceClient {
 
   async binarizeDocument(payload: BinarizeDto): Promise<BinarizeResultDto> {
     return this.post<BinarizeResultDto>("/v1/evidence/document-binarize", payload);
+  }
+
+  async detectTrade(payload: TradeDetectionDto): Promise<TradeDetectionResultDto> {
+    return this.post<TradeDetectionResultDto>("/v1/evidence/detect-trade", payload);
   }
 
   async batchAnalyze(payload: BatchAnalyzeDto): Promise<BatchAnalyzeResultDto> {
