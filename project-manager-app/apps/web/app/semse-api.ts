@@ -413,6 +413,17 @@ export async function fetchJobEvidence(jobId: string): Promise<Record<string, un
   return fetchSemse<Record<string, unknown>[]>(`/api/semse/jobs/${jobId}/evidence`);
 }
 
+export async function fetchVisionByJob(jobId: string): Promise<Record<string, unknown>[]> {
+  const envelope = await fetchSemse<{ data: Record<string, unknown>[] }>(`/api/semse/vision?jobId=${encodeURIComponent(jobId)}`);
+  return Array.isArray((envelope as unknown as { data: Record<string, unknown>[] }).data)
+    ? (envelope as unknown as { data: Record<string, unknown>[] }).data
+    : (Array.isArray(envelope) ? envelope as Record<string, unknown>[] : []);
+}
+
+export async function triggerVisionEndpoint(endpoint: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint, payload });
+}
+
 export async function presignEvidence(input: {
   filename: string;
   contentType: string;
