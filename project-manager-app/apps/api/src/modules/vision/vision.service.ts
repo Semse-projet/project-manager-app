@@ -99,6 +99,10 @@ export class VisionService {
     return this.visionServiceClient.binarizeDocument({ imageUrl });
   }
 
+  async matchReference(deliveredImageUrl: string, referenceImageUrl: string) {
+    return this.visionServiceClient.matchReference({ deliveredImageUrl, referenceImageUrl });
+  }
+
   async detectTrade(imageUrl: string, expectedTrade?: string) {
     return this.visionServiceClient.detectTrade({ imageUrl, expectedTrade });
   }

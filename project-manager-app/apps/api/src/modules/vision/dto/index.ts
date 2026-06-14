@@ -82,6 +82,21 @@ export interface BinarizeResultDto {
   heightPx: number;
 }
 
+// --- Reference Match ---
+export class ReferenceMatchDto {
+  deliveredImageUrl!: string;
+  referenceImageUrl!: string;
+}
+
+export interface ReferenceMatchResultDto {
+  similarityScore: number;
+  orbMatchCount: number;
+  orbScore: number;
+  ssimScore: number;
+  histogramScore: number;
+  meetsStandard: boolean;
+}
+
 // --- Trade Detector ---
 export class TradeDetectionDto {
   imageUrl!: string;

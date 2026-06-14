@@ -85,6 +85,35 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIn("lines", result)
         self.assertGreaterEqual(result["line_count"], 1)
 
+    def test_match_reference_identical_images(self):
+        from app.analyzers.reference_match import match_reference
+        result = match_reference(self.noise_img, self.noise_img)
+        self.assertIn("similarityScore", result)
+        self.assertGreater(result["similarityScore"], 0.5)
+        self.assertTrue(result["meetsStandard"])
+
+    def test_match_reference_different_images(self):
+        from app.analyzers.reference_match import match_reference
+        result = match_reference(self.gray_img, self.black_img)
+        self.assertIn("similarityScore", result)
+        self.assertIn("orbMatchCount", result)
+        self.assertIn("ssimScore", result)
+        self.assertIn("histogramScore", result)
+        self.assertIsInstance(result["meetsStandard"], bool)
+
+    def test_match_reference_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/match-reference", json={
+            "deliveredImageUrl": "mock://delivered",
+            "referenceImageUrl": "mock://reference",
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("similarityScore", data)
+        self.assertIn("meetsStandard", data)
+
     def test_detect_trade_returns_known_trade(self):
         from app.analyzers.trade_detector import detect_trade
         result = detect_trade(self.gray_img)

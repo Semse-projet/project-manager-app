@@ -19,6 +19,8 @@ from app.schemas.evidence import (
     PerspectiveCorrectionResult,
     BinarizeRequest,
     BinarizeResult,
+    ReferenceMatchRequest,
+    ReferenceMatchResult,
     TradeDetectionRequest,
     TradeDetectionResult,
     BatchAnalyzeRequest,
@@ -35,6 +37,7 @@ from app.analyzers.perspective import correct_perspective
 from app.analyzers.binarization import binarize_document
 from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
+from app.analyzers.reference_match import match_reference
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -204,6 +207,13 @@ def document_binarize_endpoint(request: BinarizeRequest):
     _, buf = cv2.imencode(".png", binarized)
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)
+
+@router.post("/match-reference", response_model=ReferenceMatchResult, tags=["evidence"])
+def match_reference_endpoint(request: ReferenceMatchRequest):
+    delivered = load_image_from_url(request.deliveredImageUrl)
+    reference = load_image_from_url(request.referenceImageUrl)
+    result = match_reference(delivered, reference)
+    return ReferenceMatchResult(**result)
 
 @router.post("/detect-trade", response_model=TradeDetectionResult, tags=["evidence"])
 def detect_trade_endpoint(request: TradeDetectionRequest):
