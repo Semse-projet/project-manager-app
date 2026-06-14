@@ -82,6 +82,41 @@ class EvidenceAnalyzeResponse(BaseModel):
     governance: GovernanceResult
     rawResult: Dict[str, Any]
 
+# --- Area Estimator ---
+class AreaEstimateRequest(BaseModel):
+    imageUrl: str
+    expectedAreaM2: Optional[float] = None
+
+class AreaEstimateResult(BaseModel):
+    estimatedAreaM2: float
+    confidence: float
+    referenceObjectUsed: bool
+    method: str
+    withinExpectedRange: Optional[bool] = None
+
+# --- Location Consistency ---
+class ConsistencyCheckRequest(BaseModel):
+    imageUrls: List[str]
+
+class ConsistencyCheckResult(BaseModel):
+    consistencyScore: float
+    outlierIndices: List[int]
+    allSameLocation: bool
+    pairwiseScores: List[float]
+
+# --- Progress Timeline ---
+class TimelineRequest(BaseModel):
+    imageUrls: List[str]
+    labels: Optional[List[str]] = None
+    outputWidth: int = 640
+    outputHeight: int = 480
+    fps: int = 2
+
+class TimelineResult(BaseModel):
+    base64Gif: str
+    frameCount: int
+    durationMs: int
+
 # --- Safety Detection ---
 class SafetyCheckRequest(BaseModel):
     imageUrl: str

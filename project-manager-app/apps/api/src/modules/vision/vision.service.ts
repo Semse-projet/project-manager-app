@@ -99,6 +99,18 @@ export class VisionService {
     return this.visionServiceClient.binarizeDocument({ imageUrl });
   }
 
+  async estimateArea(imageUrl: string, expectedAreaM2?: number) {
+    return this.visionServiceClient.estimateArea({ imageUrl, expectedAreaM2 });
+  }
+
+  async checkConsistency(imageUrls: string[]) {
+    return this.visionServiceClient.checkConsistency({ imageUrls });
+  }
+
+  async buildTimeline(imageUrls: string[], labels?: string[], fps = 2, outputWidth = 640, outputHeight = 480) {
+    return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth, outputHeight });
+  }
+
   async checkSafety(imageUrl: string, trade?: string) {
     return this.visionServiceClient.checkSafety({ imageUrl, trade });
   }
