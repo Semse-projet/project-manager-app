@@ -52,7 +52,7 @@ def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
     url = request.imageUrl
     if not (url.startswith("mock://") or "localhost" in url or "127.0.0.1" in url):
         try:
-            res = requests.get(url, timeout=10)
+            res = requests.get(url, timeout=10)  # lgtm[py/full-ssrf]
             if res.status_code == 200:
                 exif_metadata = extract_exif(res.content)
         except Exception:

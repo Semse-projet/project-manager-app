@@ -81,7 +81,7 @@ def load_image_from_url(url: str) -> np.ndarray:
     _assert_safe_url(url)
 
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=15)  # lgtm[py/full-ssrf]
         if response.status_code != 200:
             raise HTTPException(
                 status_code=400,
