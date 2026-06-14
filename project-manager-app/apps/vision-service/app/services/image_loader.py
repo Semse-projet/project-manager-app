@@ -1,20 +1,48 @@
+import socket
+import ipaddress
 import requests
 import numpy as np
 import cv2
+from urllib.parse import urlparse
 from fastapi import HTTPException
 
+_BLOCKED_RANGES = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _validate_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in ("https", "http"):
+        raise HTTPException(status_code=400, detail="Only http/https image URLs are allowed.")
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid URL: missing hostname.")
+    try:
+        resolved_ip = socket.getaddrinfo(hostname, None)[0][4][0]
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail=f"Cannot resolve hostname: {hostname}")
+    addr = ipaddress.ip_address(resolved_ip)
+    for blocked in _BLOCKED_RANGES:
+        if addr in blocked:
+            raise HTTPException(status_code=400, detail="Image URL resolves to a private/internal address.")
+
+
 def load_image_from_url(url: str) -> np.ndarray:
-    """
-    Downloads an image from a URL and decodes it for OpenCV.
-    Supports mock:// or localhost URLs by returning a generated dummy image for test stability.
-    """
     if url.startswith("mock://") or "localhost" in url or "127.0.0.1" in url:
-        # Generate dummy 512x512 image
         image = np.ones((512, 512, 3), dtype=np.uint8) * 128
-        # Add text and lines so it's not a flat image (which has 0 variance/contrast)
         cv2.putText(image, "SEMSE Vision Mock", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         cv2.line(image, (0, 0), (512, 512), (0, 0, 255), 3)
         return image
+
+    _validate_url(url)
 
     try:
         response = requests.get(url, timeout=15)
@@ -23,17 +51,13 @@ def load_image_from_url(url: str) -> np.ndarray:
                 status_code=400,
                 detail=f"Failed to fetch image from URL: {url}. Status code: {response.status_code}"
             )
-        
-        # Convert raw image bytes to a numpy array and decode
         image_bytes = np.frombuffer(response.content, np.uint8)
         image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
-        
         if image is None:
             raise HTTPException(
                 status_code=400,
                 detail="Downloaded bytes could not be decoded into a valid image."
             )
-            
         return image
     except requests.RequestException as e:
         raise HTTPException(
