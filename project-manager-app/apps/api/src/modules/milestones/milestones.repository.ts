@@ -798,4 +798,89 @@ export class MilestonesRepository {
       milestone: { status: milestone.status, paymentReadiness: status, evidenceReadiness: milestone.evidenceReadiness },
     };
   }
+
+  async getVisionSummary(milestoneId: string, tenantId: string): Promise<{
+    milestoneId: string;
+    totalAnalyzed: number;
+    avgQualityScore: number | null;
+    avgBlurScore: number | null;
+    avgBrightnessScore: number | null;
+    riskLevelCounts: Record<string, number>;
+    requiresHumanReviewCount: number;
+    canAutoApproveCount: number;
+    overallVisionReady: boolean;
+    blockers: string[];
+    generatedAt: string;
+  }> {
+    const analyses = await this.prisma.visionAnalysis.findMany({
+      where: {
+        milestoneId,
+        status: "completed",
+      },
+      select: {
+        qualityScore: true,
+        blurScore: true,
+        brightnessScore: true,
+        riskLevel: true,
+        requiresHumanReview: true,
+        canAutoApprove: true,
+        riskReasons: true,
+      },
+    });
+
+    if (analyses.length === 0) {
+      return {
+        milestoneId,
+        totalAnalyzed: 0,
+        avgQualityScore: null,
+        avgBlurScore: null,
+        avgBrightnessScore: null,
+        riskLevelCounts: {},
+        requiresHumanReviewCount: 0,
+        canAutoApproveCount: 0,
+        overallVisionReady: false,
+        blockers: ["No vision analyses found for this milestone"],
+        generatedAt: new Date().toISOString(),
+      };
+    }
+
+    const scored = analyses.filter(a => a.qualityScore !== null);
+    const avgQuality = scored.length > 0
+      ? scored.reduce((s, a) => s + (a.qualityScore ?? 0), 0) / scored.length : null;
+    const avgBlur = scored.length > 0
+      ? scored.reduce((s, a) => s + (a.blurScore ?? 0), 0) / scored.length : null;
+    const avgBrightness = scored.length > 0
+      ? scored.reduce((s, a) => s + (a.brightnessScore ?? 0), 0) / scored.length : null;
+
+    const riskLevelCounts: Record<string, number> = {};
+    for (const a of analyses) {
+      const lvl = a.riskLevel ?? "unknown";
+      riskLevelCounts[lvl] = (riskLevelCounts[lvl] ?? 0) + 1;
+    }
+
+    const requiresHumanReviewCount = analyses.filter(a => a.requiresHumanReview).length;
+    const canAutoApproveCount = analyses.filter(a => a.canAutoApprove).length;
+
+    const blockers: string[] = [];
+    const criticalCount = (riskLevelCounts["critical"] ?? 0) + (riskLevelCounts["high"] ?? 0);
+    if (criticalCount > 0) blockers.push(`${criticalCount} photo(s) flagged as high/critical risk`);
+    if (avgQuality !== null && avgQuality < 0.5) blockers.push(`Average quality score ${(avgQuality * 100).toFixed(0)}% is below 50% threshold`);
+    if (requiresHumanReviewCount > 0) blockers.push(`${requiresHumanReviewCount} photo(s) require human review`);
+
+    const overallVisionReady = blockers.length === 0 && analyses.length > 0;
+
+    return {
+      milestoneId,
+      totalAnalyzed: analyses.length,
+      avgQualityScore: avgQuality !== null ? Math.round(avgQuality * 1000) / 1000 : null,
+      avgBlurScore: avgBlur !== null ? Math.round(avgBlur * 1000) / 1000 : null,
+      avgBrightnessScore: avgBrightness !== null ? Math.round(avgBrightness * 1000) / 1000 : null,
+      riskLevelCounts,
+      requiresHumanReviewCount,
+      canAutoApproveCount,
+      overallVisionReady,
+      blockers,
+      generatedAt: new Date().toISOString(),
+    };
+  }
 }

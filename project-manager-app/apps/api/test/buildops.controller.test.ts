@@ -48,6 +48,10 @@ function createController() {
       calls.push({ method: "recoverStalePromotions", input });
       return { recovered: 1 };
     },
+    async getProjectActivity(tenantId: string, projectId: string, limit: number) {
+      calls.push({ method: "getProjectActivity", tenantId, projectId, limit });
+      return { projectId, events: [], total: 0, generatedAt: new Date().toISOString() };
+    },
   } as never;
 
   const approvalService = {
@@ -107,6 +111,7 @@ test("buildops controller declares permissions and wraps representative payloads
     ["overview", "projects:read"],
     ["listProjects", "projects:read"],
     ["getProjectHealth", "projects:read"],
+    ["getProjectActivity", "projects:read"],
     ["detail", "projects:read"],
     ["createProject", "projects:create"],
     ["createFromToolResult", "projects:create"],
@@ -135,6 +140,7 @@ test("buildops controller declares permissions and wraps representative payloads
   };
 
   const health = await controller.getProjectHealth(actor as never, "proj_1");
+  const activity = await controller.getProjectActivity(actor as never, "proj_1");
   const created = await controller.createFromToolResult(actor as never, {
     sourceTool: "pricing",
     sourceToolInput: { jobId: "job_1" },
@@ -147,6 +153,8 @@ test("buildops controller declares permissions and wraps representative payloads
 
   assert.equal(health.requestId, "req_bop_1");
   assert.equal(health.data.healthScore, 82);
+  assert.equal(activity.data.projectId, "proj_1");
+  assert.ok(Array.isArray(activity.data.events));
   assert.equal(created.data.id, "bop_2");
   assert.equal(approved.data.status, "approved");
   assert.equal(rag.data.insufficientContext, true);
