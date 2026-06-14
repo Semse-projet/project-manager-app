@@ -1,4 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
+import { GraphifyService } from "../graphify/graphify.service.js";
 import { ChunkerService } from "./chunker.service.js";
 import { DocumentParserService } from "./document-parser.service.js";
 import { EmbeddingService, cosineSimilarity, isZeroVector, type EmbeddingVector } from "./embedding.service.js";
@@ -70,6 +71,7 @@ export class PrometeoService {
     private readonly chunker: ChunkerService,
     private readonly embedding: EmbeddingService,
     private readonly parser: DocumentParserService,
+    @Optional() private readonly graphify?: GraphifyService,
   ) {}
 
   // ── Ingest ──────────────────────────────────────────────────────────────────
@@ -436,19 +438,31 @@ export class PrometeoService {
   async buildRagContext(input: {
     tenantId: string; projectId?: string; query: string; topK?: number;
   }): Promise<RagContext> {
-    const results = await this.search({ ...input, topK: input.topK ?? 6 });
-    if (!results.length) return { chunks: [], contextBlock: "", tokenEstimate: 0 };
+    const [results, structuralCtx] = await Promise.all([
+      this.search({ ...input, topK: input.topK ?? 6 }),
+      this.graphify ? this.graphify.buildStructuralContext(input.query) : Promise.resolve(""),
+    ]);
 
-    const lines: string[] = ["## Contexto documental (Prometeo RAG)"];
+    const lines: string[] = [];
     let total = 0;
 
-    for (const r of results) {
-      const excerpt = r.text.slice(0, 600);
-      const block = `### ${r.documentTitle}\n${excerpt}`;
-      if (total + block.length > MAX_CONTEXT_CHARS) break;
-      lines.push(block);
-      total += block.length;
+    if (structuralCtx) {
+      lines.push(structuralCtx);
+      total += structuralCtx.length;
     }
+
+    if (results.length) {
+      lines.push("## Contexto documental (Prometeo RAG)");
+      for (const r of results) {
+        const excerpt = r.text.slice(0, 600);
+        const block = `### ${r.documentTitle}\n${excerpt}`;
+        if (total + block.length > MAX_CONTEXT_CHARS) break;
+        lines.push(block);
+        total += block.length;
+      }
+    }
+
+    if (!lines.length) return { chunks: [], contextBlock: "", tokenEstimate: 0 };
 
     return {
       chunks: results,
