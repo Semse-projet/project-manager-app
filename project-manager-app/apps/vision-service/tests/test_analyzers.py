@@ -85,6 +85,32 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIn("lines", result)
         self.assertGreaterEqual(result["line_count"], 1)
 
+    def test_batch_analyze_two_items(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        payload = {
+            "items": [
+                {"evidenceId": "ev_batch_1", "imageUrl": "mock://a"},
+                {"evidenceId": "ev_batch_2", "imageUrl": "mock://b"},
+            ]
+        }
+        resp = client.post("/v1/evidence/batch-analyze", json=payload)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["completed"], 2)
+        self.assertEqual(data["failed"], 0)
+        self.assertGreater(data["batchDurationMs"], 0)
+
+    def test_batch_analyze_rejects_over_limit(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        items = [{"evidenceId": f"ev_{i}", "imageUrl": "mock://x"} for i in range(21)]
+        resp = client.post("/v1/evidence/batch-analyze", json={"items": items})
+        self.assertEqual(resp.status_code, 422)
+
     def test_blueprint_endpoint_detects_lines(self):
         from app.analyzers.blueprint_contours import extract_blueprint_lines
         blueprint = np.zeros((512, 512, 3), dtype=np.uint8)

@@ -81,3 +81,22 @@ class EvidenceAnalyzeResponse(BaseModel):
     progress: Optional[BeforeAfterResult] = None
     governance: GovernanceResult
     rawResult: Dict[str, Any]
+
+# --- Batch Analyze (depends on EvidenceAnalyzeResponse) ---
+class BatchAnalyzeRequest(BaseModel):
+    items: List[EvidenceAnalyzeRequest]
+    jobId: Optional[str] = None
+    milestoneId: Optional[str] = None
+
+class BatchItemResult(BaseModel):
+    evidenceId: str
+    status: str
+    result: Optional[EvidenceAnalyzeResponse] = None
+    error: Optional[str] = None
+
+class BatchAnalyzeResponse(BaseModel):
+    total: int
+    completed: int
+    failed: int
+    batchDurationMs: float
+    results: List[BatchItemResult]

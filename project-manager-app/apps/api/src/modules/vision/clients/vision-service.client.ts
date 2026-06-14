@@ -8,6 +8,8 @@ import {
   PerspectiveCorrectionResultDto,
   BinarizeDto,
   BinarizeResultDto,
+  BatchAnalyzeDto,
+  BatchAnalyzeResultDto,
 } from "../dto/index.js";
 
 @Injectable()
@@ -58,6 +60,10 @@ export class VisionServiceClient {
 
   async binarizeDocument(payload: BinarizeDto): Promise<BinarizeResultDto> {
     return this.post<BinarizeResultDto>("/v1/evidence/document-binarize", payload);
+  }
+
+  async batchAnalyze(payload: BatchAnalyzeDto): Promise<BatchAnalyzeResultDto> {
+    return this.post<BatchAnalyzeResultDto>("/v1/evidence/batch-analyze", payload);
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
