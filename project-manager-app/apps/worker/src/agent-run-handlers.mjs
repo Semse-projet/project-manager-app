@@ -512,6 +512,7 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   let duplicateCount = 0;
   let lowQualityCount = 0;
   let processedCount = 0;
+  const analyzedEvidenceIds = [];
 
   // Process each evidence through OpenCV using our Vision Service
   for (const item of photoEvidence) {
@@ -527,6 +528,7 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
       const analysis = asObject(visionRes?.data);
       if (analysis && (analysis.status === "completed" || analysis.status === "success")) {
         processedCount += 1;
+        analyzedEvidenceIds.push(evidenceId);
         if (asNumber(analysis.duplicateRisk) >= 0.85) {
           duplicateCount += 1;
         }
@@ -536,6 +538,24 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
       }
     } catch (err) {
       logger.warn({ evidenceId: item.id, error: err.message }, "Failed to process vision analysis for evidence item");
+    }
+  }
+
+  // Multi-image location consistency check — flags outlier images from different locations
+  let consistencyScore = 1;
+  let outlierCount = 0;
+  if (analyzedEvidenceIds.length >= 2) {
+    try {
+      const consistencyRes = await requestJson(
+        "/v1/vision/consistency-by-ids",
+        { method: "POST", body: JSON.stringify({ evidenceIds: analyzedEvidenceIds }) },
+        { tenantId }
+      );
+      const consistency = asObject(consistencyRes?.data);
+      consistencyScore = asNumber(consistency?.consistencyScore ?? 1);
+      outlierCount = Array.isArray(consistency?.outlierIndices) ? consistency.outlierIndices.length : 0;
+    } catch (err) {
+      logger.warn({ error: err.message }, "Failed to run location consistency check");
     }
   }
 
@@ -551,6 +571,9 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   if (lowQualityCount > 0) {
     qaIssues.push(`Calidad deficiente: ${lowQualityCount} imagen(es) borrosa(s) o mal iluminadas.`);
   }
+  if (outlierCount > 0) {
+    qaIssues.push(`Inconsistencia de ubicación: ${outlierCount} imagen(es) no corresponden al mismo lugar de trabajo.`);
+  }
 
   // Calculate base score
   let qaScore = evidence.length === 0 ? 0 : Math.min(100, Math.round((photoEvidence.length * 40 + docCount * 25) / Math.max(1, milestones.length)));
@@ -560,6 +583,8 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
     qaScore = 0; // Fraud resets quality score to zero
   } else if (lowQualityCount > 0) {
     qaScore = Math.max(10, qaScore - (lowQualityCount * 15)); // Penalize 15 points per bad image
+  } else if (outlierCount > 0) {
+    qaScore = Math.max(10, qaScore - (outlierCount * 20)); // Penalize 20 points per location outlier
   }
 
   const result = {
@@ -571,6 +596,8 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
     visionProcessedCount: processedCount,
     visionDuplicatesCount: duplicateCount,
     visionLowQualityCount: lowQualityCount,
+    visionConsistencyScore: consistencyScore,
+    visionOutlierCount: outlierCount,
     qaScore,
     qaStatus: qaScore >= 70 ? "pass" : qaScore >= 40 ? "partial" : "fail",
     qaIssues,

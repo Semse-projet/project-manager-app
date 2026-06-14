@@ -107,6 +107,20 @@ export class VisionService {
     return this.visionServiceClient.checkConsistency({ imageUrls });
   }
 
+  async checkConsistencyByIds(evidenceIds: string[]) {
+    if (evidenceIds.length < 2) {
+      return { consistencyScore: 1, outlierIndices: [], allSameLocation: true, pairwiseScores: [] };
+    }
+    const rows = await this.prisma.evidence.findMany({
+      where: { id: { in: evidenceIds } },
+      select: { id: true, bucketKey: true },
+    });
+    const imageUrls = rows.map(r =>
+      r.bucketKey ? this.storageService.publicUrl(r.bucketKey) : `mock://evidence/${r.id}`
+    );
+    return this.visionServiceClient.checkConsistency({ imageUrls });
+  }
+
   async buildTimeline(imageUrls: string[], labels?: string[], fps = 2, outputWidth = 640, outputHeight = 480) {
     return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth, outputHeight });
   }

@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -146,6 +146,16 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.checkConsistency(dto.imageUrls);
+    return ok(requestId, result);
+  }
+
+  @Post("consistency-by-ids")
+  async consistencyByIds(
+    @Req() req: FastifyRequest,
+    @Body() dto: ConsistencyByIdsDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.checkConsistencyByIds(dto.evidenceIds);
     return ok(requestId, result);
   }
 
