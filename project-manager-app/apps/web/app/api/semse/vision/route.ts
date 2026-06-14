@@ -26,13 +26,16 @@ export async function GET(request: NextRequest) {
 const ALLOWED_VISION_ENDPOINTS = new Set([
   "analyze",
   "batch",
-  "quality-check",
   "detect-trade",
   "estimate-area",
   "check-consistency",
+  "consistency-by-ids",
   "progress-timeline",
-  "reference-match",
-  "safety-detection",
+  "match-reference",
+  "safety-check",
+  "blueprint",
+  "perspective-correct",
+  "document-binarize",
 ]);
 
 export async function POST(request: NextRequest) {
