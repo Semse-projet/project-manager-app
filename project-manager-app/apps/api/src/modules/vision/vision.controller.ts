@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -86,6 +86,16 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.binarizeDocument(dto.imageUrl);
+    return ok(requestId, result);
+  }
+
+  @Post("safety-check")
+  async safetyCheck(
+    @Req() req: FastifyRequest,
+    @Body() dto: SafetyCheckDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.checkSafety(dto.imageUrl, dto.trade);
     return ok(requestId, result);
   }
 

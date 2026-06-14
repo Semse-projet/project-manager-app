@@ -19,6 +19,8 @@ from app.schemas.evidence import (
     PerspectiveCorrectionResult,
     BinarizeRequest,
     BinarizeResult,
+    SafetyCheckRequest,
+    SafetyCheckResult,
     ReferenceMatchRequest,
     ReferenceMatchResult,
     TradeDetectionRequest,
@@ -38,6 +40,7 @@ from app.analyzers.binarization import binarize_document
 from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
+from app.analyzers.safety_detector import detect_safety_equipment
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -207,6 +210,12 @@ def document_binarize_endpoint(request: BinarizeRequest):
     _, buf = cv2.imencode(".png", binarized)
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)
+
+@router.post("/safety-check", response_model=SafetyCheckResult, tags=["evidence"])
+def safety_check_endpoint(request: SafetyCheckRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = detect_safety_equipment(image)
+    return SafetyCheckResult(**result)
 
 @router.post("/match-reference", response_model=ReferenceMatchResult, tags=["evidence"])
 def match_reference_endpoint(request: ReferenceMatchRequest):

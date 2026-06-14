@@ -99,6 +99,10 @@ export class VisionService {
     return this.visionServiceClient.binarizeDocument({ imageUrl });
   }
 
+  async checkSafety(imageUrl: string, trade?: string) {
+    return this.visionServiceClient.checkSafety({ imageUrl, trade });
+  }
+
   async matchReference(deliveredImageUrl: string, referenceImageUrl: string) {
     return this.visionServiceClient.matchReference({ deliveredImageUrl, referenceImageUrl });
   }

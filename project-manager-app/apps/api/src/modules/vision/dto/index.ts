@@ -82,6 +82,20 @@ export interface BinarizeResultDto {
   heightPx: number;
 }
 
+// --- Safety Check ---
+export class SafetyCheckDto {
+  imageUrl!: string;
+  trade?: string;
+}
+
+export interface SafetyCheckResultDto {
+  helmetDetected: boolean;
+  vestDetected: boolean;
+  harnessDetected: boolean;
+  complianceScore: number;
+  violations: string[];
+}
+
 // --- Reference Match ---
 export class ReferenceMatchDto {
   deliveredImageUrl!: string;

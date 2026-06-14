@@ -85,6 +85,36 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIn("lines", result)
         self.assertGreaterEqual(result["line_count"], 1)
 
+    def test_safety_check_on_gray_image(self):
+        from app.analyzers.safety_detector import detect_safety_equipment
+        result = detect_safety_equipment(self.gray_img)
+        self.assertIn("helmetDetected", result)
+        self.assertIn("vestDetected", result)
+        self.assertIn("harnessDetected", result)
+        self.assertIn("complianceScore", result)
+        self.assertIn("violations", result)
+        self.assertIsInstance(result["violations"], list)
+        self.assertGreaterEqual(result["complianceScore"], 0.0)
+        self.assertLessEqual(result["complianceScore"], 1.0)
+
+    def test_safety_check_with_yellow_helmet(self):
+        from app.analyzers.safety_detector import detect_safety_equipment
+        img = np.zeros((400, 400, 3), dtype=np.uint8)
+        # Draw yellow region in upper portion
+        cv2.rectangle(img, (150, 20), (250, 120), (0, 220, 220), -1)  # BGR yellow
+        result = detect_safety_equipment(img)
+        self.assertTrue(result["helmetDetected"])
+
+    def test_safety_check_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/safety-check", json={"imageUrl": "mock://test"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("complianceScore", data)
+        self.assertIn("violations", data)
+
     def test_match_reference_identical_images(self):
         from app.analyzers.reference_match import match_reference
         result = match_reference(self.noise_img, self.noise_img)
