@@ -440,7 +440,7 @@ export class PrometeoService {
   }): Promise<RagContext> {
     const [results, structuralCtx] = await Promise.all([
       this.search({ ...input, topK: input.topK ?? 6 }),
-      this.graphify?.buildStructuralContext(input.query) ?? Promise.resolve(""),
+      this.graphify ? this.graphify.buildStructuralContext(input.query) : Promise.resolve(""),
     ]);
 
     const lines: string[] = [];
