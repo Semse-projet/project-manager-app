@@ -19,6 +19,10 @@ from app.schemas.evidence import (
     PerspectiveCorrectionResult,
     BinarizeRequest,
     BinarizeResult,
+    AreaEstimateRequest,
+    AreaEstimateResult,
+    ConsistencyCheckRequest,
+    ConsistencyCheckResult,
     TimelineRequest,
     TimelineResult,
     SafetyCheckRequest,
@@ -44,6 +48,8 @@ from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
 from app.analyzers.safety_detector import detect_safety_equipment
 from app.analyzers.timeline_builder import build_progress_timeline
+from app.analyzers.area_estimator import estimate_area
+from app.analyzers.location_consistency import check_location_consistency
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -213,6 +219,26 @@ def document_binarize_endpoint(request: BinarizeRequest):
     _, buf = cv2.imencode(".png", binarized)
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)
+
+@router.post("/estimate-area", response_model=AreaEstimateResult, tags=["evidence"])
+def estimate_area_endpoint(request: AreaEstimateRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = estimate_area(image)
+    within_range = None
+    if request.expectedAreaM2 is not None:
+        ratio = result["estimatedAreaM2"] / (request.expectedAreaM2 + 1e-9)
+        within_range = 0.70 <= ratio <= 1.30
+    return AreaEstimateResult(**result, withinExpectedRange=within_range)
+
+@router.post("/check-consistency", response_model=ConsistencyCheckResult, tags=["evidence"])
+def check_consistency_endpoint(request: ConsistencyCheckRequest):
+    if len(request.imageUrls) < 2:
+        raise HTTPException(status_code=422, detail="At least 2 images required for consistency check")
+    if len(request.imageUrls) > 20:
+        raise HTTPException(status_code=422, detail="Maximum 20 images per consistency check")
+    images = [load_image_from_url(url) for url in request.imageUrls]
+    result = check_location_consistency(images)
+    return ConsistencyCheckResult(**result)
 
 @router.post("/progress-timeline", response_model=TimelineResult, tags=["evidence"])
 def progress_timeline_endpoint(request: TimelineRequest):

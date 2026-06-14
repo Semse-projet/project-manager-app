@@ -8,6 +8,10 @@ import {
   PerspectiveCorrectionResultDto,
   BinarizeDto,
   BinarizeResultDto,
+  AreaEstimateDto,
+  AreaEstimateResultDto,
+  ConsistencyCheckDto,
+  ConsistencyCheckResultDto,
   TimelineDto,
   TimelineResultDto,
   SafetyCheckDto,
@@ -68,6 +72,14 @@ export class VisionServiceClient {
 
   async binarizeDocument(payload: BinarizeDto): Promise<BinarizeResultDto> {
     return this.post<BinarizeResultDto>("/v1/evidence/document-binarize", payload);
+  }
+
+  async estimateArea(payload: AreaEstimateDto): Promise<AreaEstimateResultDto> {
+    return this.post<AreaEstimateResultDto>("/v1/evidence/estimate-area", payload);
+  }
+
+  async checkConsistency(payload: ConsistencyCheckDto): Promise<ConsistencyCheckResultDto> {
+    return this.post<ConsistencyCheckResultDto>("/v1/evidence/check-consistency", payload);
   }
 
   async buildTimeline(payload: TimelineDto): Promise<TimelineResultDto> {
