@@ -154,7 +154,7 @@ class TestAnalyzers(unittest.TestCase):
         self.assertGreater(len(result), 100)
         import base64
         decoded = base64.b64decode(result)
-        self.assertTrue(decoded[:6] in [b"GIF87a", b"GIF89a"])
+        self.assertIn(decoded[:6], [b"GIF87a", b"GIF89a"])
 
     def test_timeline_endpoint(self):
         from fastapi.testclient import TestClient
