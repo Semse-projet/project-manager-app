@@ -69,6 +69,22 @@ export class BuildOpsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  @Get("projects/:projectId/activity")
+  @RequirePermissions("projects:read")
+  async getProjectActivity(
+    @Req() req: FastifyRequest,
+    @Param("projectId") projectId: string,
+    @Query("limit") limit?: string,
+  ) {
+    const c = ctx(req);
+    const data = await this.buildOpsService.getProjectActivity(
+      c.tenantId,
+      projectId,
+      limit ? Math.min(200, Math.max(1, parseInt(limit, 10))) : 40,
+    );
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Get("projects/:projectId")
   @RequirePermissions("projects:read")
   async detail(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {

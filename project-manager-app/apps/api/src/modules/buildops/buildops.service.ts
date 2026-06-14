@@ -296,6 +296,156 @@ export class BuildOpsService {
     };
   }
 
+  async getProjectActivity(tenantId: string, projectId: string, limit = 40): Promise<{
+    projectId: string;
+    events: Array<{
+      id: string;
+      type: string;
+      title: string;
+      detail: string;
+      severity: "info" | "warning" | "critical";
+      occurredAt: string;
+      entityType: string;
+      entityId: string;
+    }>;
+    total: number;
+    generatedAt: string;
+  }> {
+    const safeLimit = Math.max(1, Math.min(limit, 200));
+
+    const [milestones, changeOrders, signals, algorithmRuns, evidence] = await Promise.all([
+      this.prisma.milestone.findMany({
+        where: { project: { tenantId, id: projectId }, deletedAt: null },
+        select: { id: true, title: true, status: true, updatedAt: true, sequence: true },
+        orderBy: { updatedAt: "desc" },
+        take: safeLimit,
+      }),
+      this.prisma.changeOrderCandidate.findMany({
+        where: { tenantId, buildOpsProjectId: projectId },
+        select: { id: true, title: true, status: true, estimatedMin: true, estimatedMax: true, createdAt: true, updatedAt: true },
+        orderBy: { updatedAt: "desc" },
+        take: safeLimit,
+      }),
+      this.prisma.operationalSignal.findMany({
+        where: { tenantId, buildOpsProjectId: projectId },
+        select: { id: true, title: true, type: true, severity: true, status: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: safeLimit,
+      }),
+      this.prisma.algorithmRun.findMany({
+        where: { buildOpsProjectId: projectId },
+        select: { id: true, trade: true, confidenceScore: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      this.prisma.evidence.findMany({
+        where: { project: { id: projectId } },
+        select: { id: true, validationStatus: true, createdAt: true },
+        orderBy: { createdAt: "desc" },
+        take: safeLimit,
+      }),
+    ]);
+
+    type ActivityEvent = {
+      id: string;
+      type: string;
+      title: string;
+      detail: string;
+      severity: "info" | "warning" | "critical";
+      occurredAt: string;
+      entityType: string;
+      entityId: string;
+    };
+
+    const events: ActivityEvent[] = [];
+
+    for (const ms of milestones) {
+      const sev: "info" | "warning" | "critical" =
+        ms.status === "REJECTED" ? "warning" : ms.status === "APPROVED" ? "info" : "info";
+      events.push({
+        id: `ms_evt_${ms.id}`,
+        type: "milestone_status",
+        title: `Milestone ${ms.sequence ?? ""}: ${ms.title}`,
+        detail: `Status changed to ${ms.status}`,
+        severity: sev,
+        occurredAt: ms.updatedAt.toISOString(),
+        entityType: "Milestone",
+        entityId: ms.id,
+      });
+    }
+
+    for (const co of changeOrders) {
+      const costAvg = co.estimatedMin && co.estimatedMax
+        ? (Number(co.estimatedMin) + Number(co.estimatedMax)) / 2 : 0;
+      const sev: "info" | "warning" | "critical" =
+        co.status === "rejected" || co.status === "applied" ? "warning" :
+        co.status === "approved" ? "info" : "info";
+      events.push({
+        id: `co_evt_${co.id}_${co.updatedAt.getTime()}`,
+        type: "change_order",
+        title: co.title ?? "Change order",
+        detail: `Status: ${co.status}${costAvg > 0 ? ` · Est. $${Math.round(costAvg).toLocaleString()}` : ""}`,
+        severity: sev,
+        occurredAt: co.updatedAt.toISOString(),
+        entityType: "ChangeOrderCandidate",
+        entityId: co.id,
+      });
+    }
+
+    for (const sig of signals) {
+      const sev: "info" | "warning" | "critical" =
+        sig.severity === "critical" ? "critical" : sig.severity === "high" ? "warning" : "info";
+      events.push({
+        id: `sig_evt_${sig.id}`,
+        type: "signal",
+        title: sig.title ?? sig.type,
+        detail: `Signal ${sig.status} · severity: ${sig.severity}`,
+        severity: sev,
+        occurredAt: sig.createdAt.toISOString(),
+        entityType: "OperationalSignal",
+        entityId: sig.id,
+      });
+    }
+
+    for (const run of algorithmRuns) {
+      events.push({
+        id: `run_evt_${run.id}`,
+        type: "algorithm_run",
+        title: `Algorithm run — ${run.trade ?? "unknown trade"}`,
+        detail: `Confidence: ${run.confidenceScore ?? "N/A"}`,
+        severity: "info" as const,
+        occurredAt: run.createdAt.toISOString(),
+        entityType: "AlgorithmRun",
+        entityId: run.id,
+      });
+    }
+
+    for (const ev of evidence) {
+      const sev: "info" | "warning" | "critical" =
+        ev.validationStatus === "rejected" ? "warning" : "info";
+      events.push({
+        id: `ev_evt_${ev.id}`,
+        type: "evidence",
+        title: `Evidence uploaded`,
+        detail: `Validation status: ${ev.validationStatus ?? "pending"}`,
+        severity: sev,
+        occurredAt: ev.createdAt.toISOString(),
+        entityType: "Evidence",
+        entityId: ev.id,
+      });
+    }
+
+    events.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime());
+    const sliced = events.slice(0, safeLimit);
+
+    return {
+      projectId,
+      events: sliced,
+      total: events.length,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   async recoverStalePromotions(input: { tenantId: string; olderThanMinutes?: number }): Promise<{ recovered: number; cutoff: string }> {
     const olderThanMinutes = Math.max(5, Math.min(input.olderThanMinutes ?? 15, 24 * 60));
     const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
