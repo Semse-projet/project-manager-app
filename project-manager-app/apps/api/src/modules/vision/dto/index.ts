@@ -82,6 +82,21 @@ export interface BinarizeResultDto {
   heightPx: number;
 }
 
+// --- Progress Timeline ---
+export class TimelineDto {
+  imageUrls!: string[];
+  labels?: string[];
+  outputWidth?: number;
+  outputHeight?: number;
+  fps?: number;
+}
+
+export interface TimelineResultDto {
+  base64Gif: string;
+  frameCount: number;
+  durationMs: number;
+}
+
 // --- Safety Check ---
 export class SafetyCheckDto {
   imageUrl!: string;

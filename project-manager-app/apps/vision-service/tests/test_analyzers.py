@@ -85,6 +85,40 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIn("lines", result)
         self.assertGreaterEqual(result["line_count"], 1)
 
+    def test_build_timeline_returns_base64_gif(self):
+        from app.analyzers.timeline_builder import build_progress_timeline
+        result = build_progress_timeline(
+            ["mock://a", "mock://b", "mock://c"],
+            labels=["Before", "During", "After"],
+        )
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result), 100)
+        import base64
+        decoded = base64.b64decode(result)
+        self.assertTrue(decoded[:6] in [b"GIF87a", b"GIF89a"])
+
+    def test_timeline_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/progress-timeline", json={
+            "imageUrls": ["mock://a", "mock://b"],
+            "labels": ["Inicio", "Fin"],
+            "fps": 2,
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("base64Gif", data)
+        self.assertEqual(data["frameCount"], 2)
+        self.assertGreater(len(data["base64Gif"]), 100)
+
+    def test_timeline_rejects_single_image(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/progress-timeline", json={"imageUrls": ["mock://a"]})
+        self.assertEqual(resp.status_code, 422)
+
     def test_safety_check_on_gray_image(self):
         from app.analyzers.safety_detector import detect_safety_equipment
         result = detect_safety_equipment(self.gray_img)

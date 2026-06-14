@@ -8,6 +8,8 @@ import {
   PerspectiveCorrectionResultDto,
   BinarizeDto,
   BinarizeResultDto,
+  TimelineDto,
+  TimelineResultDto,
   SafetyCheckDto,
   SafetyCheckResultDto,
   ReferenceMatchDto,
@@ -66,6 +68,10 @@ export class VisionServiceClient {
 
   async binarizeDocument(payload: BinarizeDto): Promise<BinarizeResultDto> {
     return this.post<BinarizeResultDto>("/v1/evidence/document-binarize", payload);
+  }
+
+  async buildTimeline(payload: TimelineDto): Promise<TimelineResultDto> {
+    return this.post<TimelineResultDto>("/v1/evidence/progress-timeline", payload);
   }
 
   async checkSafety(payload: SafetyCheckDto): Promise<SafetyCheckResultDto> {

@@ -82,6 +82,19 @@ class EvidenceAnalyzeResponse(BaseModel):
     governance: GovernanceResult
     rawResult: Dict[str, Any]
 
+# --- Progress Timeline ---
+class TimelineRequest(BaseModel):
+    imageUrls: List[str]
+    labels: Optional[List[str]] = None
+    outputWidth: int = 640
+    outputHeight: int = 480
+    fps: int = 2
+
+class TimelineResult(BaseModel):
+    base64Gif: str
+    frameCount: int
+    durationMs: int
+
 # --- Safety Detection ---
 class SafetyCheckRequest(BaseModel):
     imageUrl: str

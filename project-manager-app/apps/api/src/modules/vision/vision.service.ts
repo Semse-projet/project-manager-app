@@ -99,6 +99,10 @@ export class VisionService {
     return this.visionServiceClient.binarizeDocument({ imageUrl });
   }
 
+  async buildTimeline(imageUrls: string[], labels?: string[], fps = 2, outputWidth = 640, outputHeight = 480) {
+    return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth, outputHeight });
+  }
+
   async checkSafety(imageUrl: string, trade?: string) {
     return this.visionServiceClient.checkSafety({ imageUrl, trade });
   }

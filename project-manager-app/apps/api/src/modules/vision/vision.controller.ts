@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -86,6 +86,16 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.binarizeDocument(dto.imageUrl);
+    return ok(requestId, result);
+  }
+
+  @Post("progress-timeline")
+  async progressTimeline(
+    @Req() req: FastifyRequest,
+    @Body() dto: TimelineDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.buildTimeline(dto.imageUrls, dto.labels, dto.fps, dto.outputWidth, dto.outputHeight);
     return ok(requestId, result);
   }
 
