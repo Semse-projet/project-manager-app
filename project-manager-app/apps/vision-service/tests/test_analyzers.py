@@ -249,5 +249,98 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(len(result.shape), 3)
 
+    def test_estimate_area_returns_result(self):
+        from app.analyzers.area_estimator import estimate_area
+        result = estimate_area(self.gray_img)
+        self.assertIn("estimatedAreaM2", result)
+        self.assertIn("confidence", result)
+        self.assertIn("method", result)
+        self.assertIn("referenceObjectUsed", result)
+        self.assertGreater(result["estimatedAreaM2"], 0)
+
+    def test_estimate_area_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/estimate-area", json={
+            "imageUrl": "mock://test",
+            "expectedAreaM2": 10.0,
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("estimatedAreaM2", data)
+        self.assertIn("withinExpectedRange", data)
+        self.assertIsInstance(data["withinExpectedRange"], bool)
+
+    def test_check_consistency_same_images(self):
+        from app.analyzers.location_consistency import check_location_consistency
+        images = [self.gray_img.copy(), self.gray_img.copy(), self.gray_img.copy()]
+        result = check_location_consistency(images)
+        self.assertIn("consistencyScore", result)
+        self.assertGreater(result["consistencyScore"], 0.5)
+        self.assertEqual(result["outlierIndices"], [])
+        self.assertTrue(result["allSameLocation"])
+
+    def test_check_consistency_different_images(self):
+        from app.analyzers.location_consistency import check_location_consistency
+        result = check_location_consistency([self.gray_img, self.black_img, self.noise_img])
+        self.assertIn("consistencyScore", result)
+        self.assertIn("pairwiseScores", result)
+        self.assertEqual(len(result["pairwiseScores"]), 3)  # 3 pairs for 3 images
+
+    def test_check_consistency_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/check-consistency", json={
+            "imageUrls": ["mock://a", "mock://b", "mock://c"],
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("consistencyScore", data)
+        self.assertIn("outlierIndices", data)
+        self.assertIn("allSameLocation", data)
+
+    def test_check_consistency_rejects_single_image(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/check-consistency", json={"imageUrls": ["mock://a"]})
+        self.assertEqual(resp.status_code, 422)
+
+    def test_build_timeline_returns_base64_gif(self):
+        from app.analyzers.timeline_builder import build_progress_timeline
+        result = build_progress_timeline(
+            ["mock://a", "mock://b", "mock://c"],
+            labels=["Before", "During", "After"],
+        )
+        self.assertIsInstance(result, str)
+        self.assertGreater(len(result), 100)
+        import base64
+        decoded = base64.b64decode(result)
+        self.assertTrue(decoded[:6] in [b"GIF87a", b"GIF89a"])
+
+    def test_timeline_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/progress-timeline", json={
+            "imageUrls": ["mock://a", "mock://b"],
+            "labels": ["Inicio", "Fin"],
+            "fps": 2,
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("base64Gif", data)
+        self.assertEqual(data["frameCount"], 2)
+        self.assertGreater(len(data["base64Gif"]), 100)
+
+    def test_timeline_rejects_single_image(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/progress-timeline", json={"imageUrls": ["mock://a"]})
+        self.assertEqual(resp.status_code, 422)
+
 if __name__ == '__main__':
     unittest.main()

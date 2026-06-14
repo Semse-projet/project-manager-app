@@ -111,6 +111,47 @@ export interface ReferenceMatchResultDto {
   meetsStandard: boolean;
 }
 
+// --- Area Estimator ---
+export class AreaEstimateDto {
+  imageUrl!: string;
+  expectedAreaM2?: number;
+}
+
+export interface AreaEstimateResultDto {
+  estimatedAreaM2: number;
+  confidence: number;
+  referenceObjectUsed: boolean;
+  method: string;
+  withinExpectedRange?: boolean;
+}
+
+// --- Location Consistency ---
+export class ConsistencyCheckDto {
+  imageUrls!: string[];
+}
+
+export interface ConsistencyCheckResultDto {
+  consistencyScore: number;
+  outlierIndices: number[];
+  allSameLocation: boolean;
+  pairwiseScores: number[];
+}
+
+// --- Progress Timeline ---
+export class TimelineDto {
+  imageUrls!: string[];
+  labels?: string[];
+  fps?: number;
+  outputWidth?: number;
+  outputHeight?: number;
+}
+
+export interface TimelineResultDto {
+  base64Gif: string;
+  frameCount: number;
+  durationMs: number;
+}
+
 // --- Trade Detector ---
 export class TradeDetectionDto {
   imageUrl!: string;

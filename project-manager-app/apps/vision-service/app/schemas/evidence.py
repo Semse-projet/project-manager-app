@@ -107,6 +107,43 @@ class ReferenceMatchResult(BaseModel):
     histogramScore: float
     meetsStandard: bool
 
+# --- Area Estimator ---
+class AreaEstimateRequest(BaseModel):
+    imageUrl: str
+    expectedAreaM2: Optional[float] = None
+
+class AreaEstimateResult(BaseModel):
+    estimatedAreaM2: float
+    confidence: float
+    referenceObjectUsed: bool
+    method: str
+    withinExpectedRange: Optional[bool] = None
+
+# --- Location Consistency ---
+class ConsistencyCheckRequest(BaseModel):
+    imageUrls: List[str]
+
+    model_config = {"json_schema_extra": {"examples": [{"imageUrls": ["mock://a", "mock://b"]}]}}
+
+class ConsistencyCheckResult(BaseModel):
+    consistencyScore: float
+    outlierIndices: List[int]
+    allSameLocation: bool
+    pairwiseScores: List[float]
+
+# --- Progress Timeline ---
+class TimelineRequest(BaseModel):
+    imageUrls: List[str]
+    labels: Optional[List[str]] = None
+    fps: Optional[int] = 2
+    outputWidth: Optional[int] = 640
+    outputHeight: Optional[int] = 480
+
+class TimelineResult(BaseModel):
+    base64Gif: str
+    frameCount: int
+    durationMs: float
+
 # --- Trade Detector ---
 class TradeDetectionRequest(BaseModel):
     imageUrl: str

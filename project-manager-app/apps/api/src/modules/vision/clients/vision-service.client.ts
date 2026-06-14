@@ -12,6 +12,12 @@ import {
   SafetyCheckResultDto,
   ReferenceMatchDto,
   ReferenceMatchResultDto,
+  AreaEstimateDto,
+  AreaEstimateResultDto,
+  ConsistencyCheckDto,
+  ConsistencyCheckResultDto,
+  TimelineDto,
+  TimelineResultDto,
   TradeDetectionDto,
   TradeDetectionResultDto,
   BatchAnalyzeDto,
@@ -74,6 +80,18 @@ export class VisionServiceClient {
 
   async matchReference(payload: ReferenceMatchDto): Promise<ReferenceMatchResultDto> {
     return this.post<ReferenceMatchResultDto>("/v1/evidence/match-reference", payload);
+  }
+
+  async estimateArea(payload: AreaEstimateDto): Promise<AreaEstimateResultDto> {
+    return this.post<AreaEstimateResultDto>("/v1/evidence/estimate-area", payload);
+  }
+
+  async checkConsistency(payload: ConsistencyCheckDto): Promise<ConsistencyCheckResultDto> {
+    return this.post<ConsistencyCheckResultDto>("/v1/evidence/check-consistency", payload);
+  }
+
+  async buildTimeline(payload: TimelineDto): Promise<TimelineResultDto> {
+    return this.post<TimelineResultDto>("/v1/evidence/progress-timeline", payload);
   }
 
   async detectTrade(payload: TradeDetectionDto): Promise<TradeDetectionResultDto> {

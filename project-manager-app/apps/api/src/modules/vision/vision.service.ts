@@ -107,6 +107,18 @@ export class VisionService {
     return this.visionServiceClient.matchReference({ deliveredImageUrl, referenceImageUrl });
   }
 
+  async estimateArea(imageUrl: string, expectedAreaM2?: number) {
+    return this.visionServiceClient.estimateArea({ imageUrl, expectedAreaM2 });
+  }
+
+  async checkConsistency(imageUrls: string[]) {
+    return this.visionServiceClient.checkConsistency({ imageUrls });
+  }
+
+  async buildTimeline(imageUrls: string[], labels?: string[], fps?: number, outputWidth?: number, outputHeight?: number) {
+    return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth, outputHeight });
+  }
+
   async detectTrade(imageUrl: string, expectedTrade?: string) {
     return this.visionServiceClient.detectTrade({ imageUrl, expectedTrade });
   }

@@ -23,6 +23,12 @@ from app.schemas.evidence import (
     SafetyCheckResult,
     ReferenceMatchRequest,
     ReferenceMatchResult,
+    AreaEstimateRequest,
+    AreaEstimateResult,
+    ConsistencyCheckRequest,
+    ConsistencyCheckResult,
+    TimelineRequest,
+    TimelineResult,
     TradeDetectionRequest,
     TradeDetectionResult,
     BatchAnalyzeRequest,
@@ -41,6 +47,9 @@ from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
 from app.analyzers.safety_detector import detect_safety_equipment
+from app.analyzers.area_estimator import estimate_area
+from app.analyzers.location_consistency import check_location_consistency
+from app.analyzers.timeline_builder import build_progress_timeline
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -223,6 +232,38 @@ def match_reference_endpoint(request: ReferenceMatchRequest):
     reference = load_image_from_url(request.referenceImageUrl)
     result = match_reference(delivered, reference)
     return ReferenceMatchResult(**result)
+
+@router.post("/estimate-area", response_model=AreaEstimateResult, tags=["evidence"])
+def estimate_area_endpoint(request: AreaEstimateRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = estimate_area(image)
+    within = None
+    if request.expectedAreaM2 is not None:
+        within = abs(result["estimatedAreaM2"] - request.expectedAreaM2) / max(request.expectedAreaM2, 1) < 0.30
+    return AreaEstimateResult(**result, withinExpectedRange=within)
+
+@router.post("/check-consistency", response_model=ConsistencyCheckResult, tags=["evidence"])
+def check_consistency_endpoint(request: ConsistencyCheckRequest):
+    if len(request.imageUrls) < 2:
+        raise HTTPException(status_code=422, detail="At least 2 image URLs required")
+    images = [load_image_from_url(url) for url in request.imageUrls]
+    result = check_location_consistency(images)
+    return ConsistencyCheckResult(**result)
+
+@router.post("/progress-timeline", response_model=TimelineResult, tags=["evidence"])
+def progress_timeline_endpoint(request: TimelineRequest):
+    if len(request.imageUrls) < 2:
+        raise HTTPException(status_code=422, detail="At least 2 image URLs required")
+    import time as _time
+    t0 = _time.monotonic()
+    b64 = build_progress_timeline(
+        request.imageUrls,
+        labels=request.labels,
+        fps=request.fps or 2,
+        output_size=(request.outputWidth or 640, request.outputHeight or 480),
+    )
+    elapsed_ms = (_time.monotonic() - t0) * 1000
+    return TimelineResult(base64Gif=b64, frameCount=len(request.imageUrls), durationMs=round(elapsed_ms, 2))
 
 @router.post("/detect-trade", response_model=TradeDetectionResult, tags=["evidence"])
 def detect_trade_endpoint(request: TradeDetectionRequest):
