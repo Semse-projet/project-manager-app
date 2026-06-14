@@ -99,6 +99,38 @@ export class VisionService {
     return this.visionServiceClient.binarizeDocument({ imageUrl });
   }
 
+  async runBatchAnalysis(items: Array<{ evidenceId: string; imageUrl: string; jobId?: string; milestoneId?: string; trade?: string }>, jobId?: string, milestoneId?: string) {
+    const batchResult = await this.visionServiceClient.batchAnalyze({
+      items: items.map(i => ({ ...i, imageUrl: i.imageUrl })),
+      jobId,
+      milestoneId,
+    });
+
+    // Persist each completed result to DB
+    await Promise.allSettled(
+      batchResult.results
+        .filter(r => r.status === "completed" && r.result)
+        .map(r => this.visionRepository.upsertByEvidenceId(r.evidenceId, {
+          jobId,
+          milestoneId,
+          status: "completed",
+          qualityScore: r.result!.quality.qualityScore,
+          blurScore: r.result!.quality.blurScore,
+          brightnessScore: r.result!.quality.brightnessScore,
+          contrastScore: r.result!.quality.contrastScore,
+          duplicateRisk: r.result!.duplicate?.duplicateRisk,
+          requiresHumanReview: r.result!.governance.requiresHumanReview,
+          canAutoApprove: r.result!.governance.canAutoApprove,
+          recommendedAction: r.result!.governance.recommendedAction,
+          riskLevel: r.result!.rawResult?.riskLevel ?? "low",
+          riskReasons: r.result!.rawResult?.reasons ?? [],
+          rawResult: r.result!.rawResult,
+        }))
+    );
+
+    return batchResult;
+  }
+
   async analyzeByEvidenceId(evidenceId: string) {
     const existing = await this.visionRepository.findByEvidenceId(evidenceId).catch(() => null);
     if (existing?.status === "completed") return existing;

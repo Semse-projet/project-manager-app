@@ -91,4 +91,12 @@ export class VisionRepository {
       orderBy: { createdAt: "desc" },
     });
   }
+
+  async upsertByEvidenceId(evidenceId: string, input: Partial<CreateVisionAnalysisInput>) {
+    return this.prisma.visionAnalysis.upsert({
+      where: { evidenceId },
+      create: { evidenceId, ...input, status: input.status ?? "pending" },
+      update: input,
+    });
+  }
 }

@@ -81,3 +81,35 @@ export interface BinarizeResultDto {
   widthPx: number;
   heightPx: number;
 }
+
+// --- Batch Analyze ---
+export class BatchAnalyzeItemDto {
+  evidenceId!: string;
+  jobId?: string;
+  milestoneId?: string;
+  trade?: string;
+  imageUrl!: string;
+  expectedWork?: string;
+  metadata?: Record<string, any>;
+}
+
+export class BatchAnalyzeDto {
+  items!: BatchAnalyzeItemDto[];
+  jobId?: string;
+  milestoneId?: string;
+}
+
+export interface BatchItemResultDto {
+  evidenceId: string;
+  status: string;
+  result?: VisionResultDto;
+  error?: string;
+}
+
+export interface BatchAnalyzeResultDto {
+  total: number;
+  completed: number;
+  failed: number;
+  batchDurationMs: number;
+  results: BatchItemResultDto[];
+}

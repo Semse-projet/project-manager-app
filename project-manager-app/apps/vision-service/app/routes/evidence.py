@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 import base64
 import cv2
 import requests
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from app.schemas.evidence import (
     EvidenceAnalyzeRequest,
     EvidenceAnalyzeResponse,
@@ -17,6 +19,9 @@ from app.schemas.evidence import (
     PerspectiveCorrectionResult,
     BinarizeRequest,
     BinarizeResult,
+    BatchAnalyzeRequest,
+    BatchAnalyzeResponse,
+    BatchItemResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -188,3 +193,38 @@ def document_binarize_endpoint(request: BinarizeRequest):
     _, buf = cv2.imencode(".png", binarized)
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)
+
+def _analyze_single(item: EvidenceAnalyzeRequest) -> BatchItemResult:
+    try:
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        import json
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/analyze", json=item.model_dump())
+        if resp.status_code == 200:
+            result = EvidenceAnalyzeResponse(**resp.json())
+            return BatchItemResult(evidenceId=item.evidenceId, status="completed", result=result)
+        return BatchItemResult(evidenceId=item.evidenceId, status="failed", error=resp.text)
+    except Exception as e:
+        return BatchItemResult(evidenceId=item.evidenceId, status="failed", error=str(e))
+
+@router.post("/batch-analyze", response_model=BatchAnalyzeResponse, tags=["evidence"])
+def batch_analyze_endpoint(request: BatchAnalyzeRequest):
+    if len(request.items) > 20:
+        raise HTTPException(status_code=422, detail="Batch size cannot exceed 20 items")
+    t0 = time.monotonic()
+    results: list[BatchItemResult] = []
+    with ThreadPoolExecutor(max_workers=min(len(request.items), 8)) as executor:
+        futures = {executor.submit(_analyze_single, item): item for item in request.items}
+        for future in as_completed(futures):
+            results.append(future.result())
+    elapsed_ms = (time.monotonic() - t0) * 1000
+    completed = sum(1 for r in results if r.status == "completed")
+    failed = len(results) - completed
+    return BatchAnalyzeResponse(
+        total=len(results),
+        completed=completed,
+        failed=failed,
+        batchDurationMs=round(elapsed_ms, 2),
+        results=results,
+    )
