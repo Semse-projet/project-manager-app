@@ -85,6 +85,54 @@ class TestAnalyzers(unittest.TestCase):
         self.assertIn("lines", result)
         self.assertGreaterEqual(result["line_count"], 1)
 
+    def test_detect_trade_returns_known_trade(self):
+        from app.analyzers.trade_detector import detect_trade
+        result = detect_trade(self.gray_img)
+        self.assertIn("detectedTrade", result)
+        self.assertIn("confidence", result)
+        self.assertIn("tradeScores", result)
+        self.assertIsInstance(result["confidence"], float)
+        self.assertGreaterEqual(result["confidence"], 0.0)
+        self.assertLessEqual(result["confidence"], 1.0)
+
+    def test_detect_trade_with_expected_trade(self):
+        from app.analyzers.trade_detector import detect_trade
+        result = detect_trade(self.noise_img, expected_trade="electrical")
+        self.assertIn("match", result)
+        self.assertIn("expectedTrade", result)
+        self.assertEqual(result["expectedTrade"], "electrical")
+        self.assertIsInstance(result["match"], bool)
+
+    def test_detect_trade_all_trades_scored(self):
+        from app.analyzers.trade_detector import detect_trade, TRADE_PROFILES
+        result = detect_trade(self.gray_img)
+        for trade in TRADE_PROFILES:
+            self.assertIn(trade, result["tradeScores"])
+
+    def test_detect_trade_endpoint(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/detect-trade", json={"imageUrl": "mock://test", "expectedTrade": "painting"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("detectedTrade", data)
+        self.assertIn("match", data)
+
+    def test_analyze_includes_trade_match_when_trade_provided(self):
+        from fastapi.testclient import TestClient
+        from app.main import app as vision_app
+        client = TestClient(vision_app)
+        resp = client.post("/v1/evidence/analyze", json={
+            "evidenceId": "ev_trade_test",
+            "imageUrl": "mock://test",
+            "trade": "painting",
+        })
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertIn("tradeMatch", data["rawResult"])
+        self.assertIsNotNone(data["rawResult"]["tradeMatch"])
+
     def test_batch_analyze_two_items(self):
         from fastapi.testclient import TestClient
         from app.main import app as vision_app

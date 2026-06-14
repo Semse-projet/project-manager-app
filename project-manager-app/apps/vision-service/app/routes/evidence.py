@@ -19,6 +19,8 @@ from app.schemas.evidence import (
     PerspectiveCorrectionResult,
     BinarizeRequest,
     BinarizeResult,
+    TradeDetectionRequest,
+    TradeDetectionResult,
     BatchAnalyzeRequest,
     BatchAnalyzeResponse,
     BatchItemResult,
@@ -32,6 +34,7 @@ from app.analyzers.before_after import compare_before_after
 from app.analyzers.perspective import correct_perspective
 from app.analyzers.binarization import binarize_document
 from app.analyzers.blueprint_contours import extract_blueprint_lines
+from app.analyzers.trade_detector import detect_trade
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -91,17 +94,24 @@ def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
         duplicate_risk=duplicate_risk
     )
     
-    # 7. Collect reasons for risk
+    # 7. Optional trade detection
+    trade_match_result = None
+    if request.trade:
+        trade_match_result = detect_trade(image, request.trade)
+
+    # 8. Collect reasons for risk
     reasons = []
     if duplicate_risk >= 0.85:
         reasons.append("DUPLICATE_SUSPECTED")
     if not usable:
         reasons.append("LOW_QUALITY")
-        
+    if trade_match_result and trade_match_result.get("match") is False:
+        reasons.append("TRADE_MISMATCH")
+
     risk_level = "low"
     if reasons:
         risk_level = "critical" if "DUPLICATE_SUSPECTED" in reasons else "high"
-        
+
     return EvidenceAnalyzeResponse(
         evidenceId=request.evidenceId,
         status="completed",
@@ -126,7 +136,8 @@ def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
         rawResult={
             "riskLevel": risk_level,
             "reasons": reasons,
-            "metadata": exif_metadata
+            "metadata": exif_metadata,
+            "tradeMatch": trade_match_result,
         }
     )
 
@@ -193,6 +204,12 @@ def document_binarize_endpoint(request: BinarizeRequest):
     _, buf = cv2.imencode(".png", binarized)
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)
+
+@router.post("/detect-trade", response_model=TradeDetectionResult, tags=["evidence"])
+def detect_trade_endpoint(request: TradeDetectionRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = detect_trade(image, request.expectedTrade)
+    return TradeDetectionResult(**result)
 
 def _analyze_single(item: EvidenceAnalyzeRequest) -> BatchItemResult:
     try:
