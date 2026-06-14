@@ -166,6 +166,11 @@ export interface TradeDetectionResultDto {
   match?: boolean;
 }
 
+// --- Consistency by Evidence IDs ---
+export class ConsistencyByIdsDto {
+  evidenceIds!: string[];
+}
+
 // --- Batch Analyze ---
 export class BatchAnalyzeItemDto {
   evidenceId!: string;
