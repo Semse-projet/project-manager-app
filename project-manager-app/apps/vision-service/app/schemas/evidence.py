@@ -82,6 +82,19 @@ class EvidenceAnalyzeResponse(BaseModel):
     governance: GovernanceResult
     rawResult: Dict[str, Any]
 
+# --- Reference Match ---
+class ReferenceMatchRequest(BaseModel):
+    deliveredImageUrl: str
+    referenceImageUrl: str
+
+class ReferenceMatchResult(BaseModel):
+    similarityScore: float
+    orbMatchCount: int
+    orbScore: float
+    ssimScore: float
+    histogramScore: float
+    meetsStandard: bool
+
 # --- Trade Detector ---
 class TradeDetectionRequest(BaseModel):
     imageUrl: str
