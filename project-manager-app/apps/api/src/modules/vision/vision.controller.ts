@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -126,6 +126,26 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.detectTrade(dto.imageUrl, dto.expectedTrade);
+    return ok(requestId, result);
+  }
+
+  @Post("estimate-area")
+  async estimateArea(
+    @Req() req: FastifyRequest,
+    @Body() dto: AreaEstimateDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.estimateArea(dto.imageUrl, dto.expectedAreaM2);
+    return ok(requestId, result);
+  }
+
+  @Post("check-consistency")
+  async checkConsistency(
+    @Req() req: FastifyRequest,
+    @Body() dto: ConsistencyCheckDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.checkConsistency(dto.imageUrls);
     return ok(requestId, result);
   }
 

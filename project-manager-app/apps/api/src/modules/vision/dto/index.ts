@@ -82,6 +82,32 @@ export interface BinarizeResultDto {
   heightPx: number;
 }
 
+// --- Area Estimator ---
+export class AreaEstimateDto {
+  imageUrl!: string;
+  expectedAreaM2?: number;
+}
+
+export interface AreaEstimateResultDto {
+  estimatedAreaM2: number;
+  confidence: number;
+  referenceObjectUsed: boolean;
+  method: string;
+  withinExpectedRange?: boolean;
+}
+
+// --- Location Consistency ---
+export class ConsistencyCheckDto {
+  imageUrls!: string[];
+}
+
+export interface ConsistencyCheckResultDto {
+  consistencyScore: number;
+  outlierIndices: number[];
+  allSameLocation: boolean;
+  pairwiseScores: number[];
+}
+
 // --- Progress Timeline ---
 export class TimelineDto {
   imageUrls!: string[];
