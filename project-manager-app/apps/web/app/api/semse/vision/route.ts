@@ -23,14 +23,29 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const ALLOWED_VISION_ENDPOINTS = new Set([
+  "analyze",
+  "batch",
+  "quality-check",
+  "detect-trade",
+  "estimate-area",
+  "check-consistency",
+  "progress-timeline",
+  "reference-match",
+  "safety-detection",
+]);
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as Record<string, unknown>;
-    const endpoint = String(body.endpoint ?? "analyze");
+    const rawEndpoint = String(body.endpoint ?? "analyze");
+    if (!ALLOWED_VISION_ENDPOINTS.has(rawEndpoint)) {
+      return NextResponse.json({ error: "Invalid endpoint" }, { status: 400 });
+    }
     const cfg = await getServerConfig(request);
     const headers = { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) };
 
-    const resp = await fetch(`${API}/v1/vision/${endpoint}`, {
+    const resp = await fetch(`${API}/v1/vision/${rawEndpoint}`, {
       method: "POST",
       headers,
       body: JSON.stringify(body.payload ?? body),
