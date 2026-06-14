@@ -19,6 +19,8 @@ from app.schemas.evidence import (
     PerspectiveCorrectionResult,
     BinarizeRequest,
     BinarizeResult,
+    TimelineRequest,
+    TimelineResult,
     SafetyCheckRequest,
     SafetyCheckResult,
     ReferenceMatchRequest,
@@ -41,6 +43,7 @@ from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
 from app.analyzers.safety_detector import detect_safety_equipment
+from app.analyzers.timeline_builder import build_progress_timeline
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -210,6 +213,25 @@ def document_binarize_endpoint(request: BinarizeRequest):
     _, buf = cv2.imencode(".png", binarized)
     b64 = base64.b64encode(buf.tobytes()).decode("utf-8")
     return BinarizeResult(base64Image=b64, widthPx=w, heightPx=h)
+
+@router.post("/progress-timeline", response_model=TimelineResult, tags=["evidence"])
+def progress_timeline_endpoint(request: TimelineRequest):
+    if len(request.imageUrls) < 2:
+        raise HTTPException(status_code=422, detail="At least 2 images are required to build a timeline")
+    if len(request.imageUrls) > 30:
+        raise HTTPException(status_code=422, detail="Maximum 30 images per timeline")
+    b64_gif = build_progress_timeline(
+        image_urls=request.imageUrls,
+        labels=request.labels,
+        output_size=(request.outputWidth, request.outputHeight),
+        fps=request.fps,
+    )
+    duration_ms = max(100, int(1000 / request.fps)) * len(request.imageUrls)
+    return TimelineResult(
+        base64Gif=b64_gif,
+        frameCount=len(request.imageUrls),
+        durationMs=duration_ms,
+    )
 
 @router.post("/safety-check", response_model=SafetyCheckResult, tags=["evidence"])
 def safety_check_endpoint(request: SafetyCheckRequest):
