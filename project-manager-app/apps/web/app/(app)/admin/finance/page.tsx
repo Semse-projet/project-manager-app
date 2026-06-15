@@ -257,6 +257,9 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
   const [refundOk, setRefundOk] = useState<string | null>(null);
+  const [releaseBusy, setReleaseBusy] = useState<string | null>(null);
+  const [releaseOk, setReleaseOk] = useState<string | null>(null);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
 
   const totalEscrow = txns.filter(t => t.type === "DEPOSIT" && t.status === "PENDING").reduce((s, t) => s + t.amount, 0);
   const totalReleased = txns.filter(t => t.type === "RELEASE").reduce((s, t) => s + t.amount, 0);
@@ -278,6 +281,22 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
     finally { setRefundBusy(false); }
   }
 
+  async function submitRelease(e: JobEscrowInfo) {
+    setReleaseBusy(e.escrowId); setReleaseOk(null); setReleaseError(null);
+    try {
+      const res = await fetch("/api/semse/payment-governance/release", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ escrowId: e.escrowId, amount: e.amount, reason: "Manual release from admin finance panel" }),
+      });
+      if (!res.ok) throw new Error((await res.json() as { error?: { message?: string } }).error?.message ?? "Error");
+      setReleaseOk(`Liberación de ${fmt(e.amount)} emitida para "${e.jobTitle}"`);
+      onRefresh();
+    } catch (err) { setReleaseError(err instanceof Error ? err.message : "Error al liberar"); }
+    finally { setReleaseBusy(null); }
+  }
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(175px, 1fr))", gap: 14 }}>
@@ -286,10 +305,13 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
         <KpiCard label="Reembolsado" value={fmt(totalRefunded)} sub="A clientes" icon={TrendingDown} color="#fbbf24" />
       </div>
 
-      {refundOk && (
+      {(refundOk ?? releaseOk) && (
         <div data-testid="admin-escrow-refund-ok" style={{ background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.25)", borderRadius: 12, padding: 12, color: "#10b981", fontSize: 13 }}>
-          {refundOk}
+          {refundOk ?? releaseOk}
         </div>
+      )}
+      {releaseError && (
+        <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 12, padding: 12, color: "#fca5a5", fontSize: 13 }}>{releaseError}</div>
       )}
 
       {refundableEscrows.length > 0 && (
@@ -305,8 +327,15 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
                 <Badge status={e.status.toLowerCase()} />
                 <div style={{ fontWeight: 800, fontSize: 14 }}>{fmt(e.amount)}</div>
                 <button
+                  disabled={releaseBusy === e.escrowId}
+                  onClick={() => { void submitRelease(e); }}
+                  style={smBtn("rgba(16,185,129,.15)", "#10b981")}
+                >
+                  {releaseBusy === e.escrowId ? "Liberando…" : "Liberar"}
+                </button>
+                <button
                   data-testid={`admin-escrow-refund-${e.escrowId}`}
-                  onClick={() => { setRefundTarget(e); setRefundAmount(String(e.amount || "")); setRefundReason(""); setRefundError(null); setRefundOk(null); }}
+                  onClick={() => { setRefundTarget(e); setRefundAmount(String(e.amount || "")); setRefundReason(""); setRefundError(null); setRefundOk(null); setReleaseOk(null); }}
                   style={smBtn("rgba(251,191,36,.15)", "#fbbf24")}
                 >
                   Reembolsar
