@@ -405,6 +405,16 @@ export const navigationRegistry: NavigationNode[] = [
     status: "active",
   },
   {
+    id: "admin-reputation",
+    labelKey: "nav.reputation",
+    canonicalHref: "/admin/reputation",
+    layer: "workspace",
+    os: "operations",
+    roles: ["admin"],
+    owner: "operations",
+    status: "active",
+  },
+  {
     id: "admin-worker",
     labelKey: "nav.worker",
     canonicalHref: "/admin/worker",
