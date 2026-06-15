@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
-export async function PATCH(request: NextRequest) {
+async function handleReadAll(request: NextRequest) {
   try {
     const data = await fetchSemseDataForRequest<Record<string, unknown>>(
       "/v1/notifications/read-all",
@@ -16,3 +16,6 @@ export async function PATCH(request: NextRequest) {
     return handleServerError(error);
   }
 }
+
+export const PATCH = handleReadAll;
+export const POST = handleReadAll;
