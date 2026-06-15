@@ -157,11 +157,13 @@ function SignalCard({
   signal,
   onAcknowledge,
   onResolve,
+  onDismiss,
   loading,
 }: {
   signal: OperationalSignal;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
+  onDismiss: (id: string) => void;
   loading: string | null;
 }) {
   const color = SEVERITY_COLOR[signal.severity] ?? "#94a3b8";
@@ -278,6 +280,23 @@ function SignalCard({
             {isLoading ? "…" : "Resolve"}
           </button>
         )}
+        {signal.status !== "dismissed" && signal.status !== "resolved" && (
+          <button
+            onClick={() => onDismiss(signal.id)}
+            disabled={isLoading}
+            style={{
+              padding: "4px 10px",
+              borderRadius: "6px",
+              border: "1px solid rgba(100,116,139,.3)",
+              background: "rgba(100,116,139,.08)",
+              color: "#94a3b8",
+              fontSize: "11px",
+              cursor: isLoading ? "not-allowed" : "pointer",
+            }}
+          >
+            {isLoading ? "…" : "Dismiss"}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -364,6 +383,14 @@ export default function MissionControlPage() {
     try {
       await fetch(`/api/semse/operational-signals/${id}/resolve`, { method: "PATCH", credentials: "include" });
       setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "resolved" as const } : s));
+    } finally { setActionLoading(null); }
+  }
+
+  async function handleDismiss(id: string) {
+    setActionLoading(id);
+    try {
+      await fetch(`/api/semse/operational-signals/${id}/dismiss`, { method: "PATCH", credentials: "include" });
+      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "dismissed" as const } : s));
     } finally { setActionLoading(null); }
   }
 
@@ -612,6 +639,7 @@ export default function MissionControlPage() {
               signal={signal}
               onAcknowledge={handleAcknowledge}
               onResolve={handleResolve}
+              onDismiss={handleDismiss}
               loading={actionLoading}
             />
           ))}
