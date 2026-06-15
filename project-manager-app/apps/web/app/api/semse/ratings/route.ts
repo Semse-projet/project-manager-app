@@ -48,3 +48,20 @@ export async function GET(request: NextRequest) {
     return handleServerError(error);
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = (await request.json()) as Record<string, unknown>;
+    const data = await fetchSemseDataForRequest<RatingRecord>(
+      "/v1/ratings",
+      request,
+      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }
+    );
+    return NextResponse.json({ data }, { status: 201 });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not configured")) {
+      return runtimeDisabledResponse();
+    }
+    return handleServerError(error);
+  }
+}
