@@ -607,9 +607,14 @@ export default function ClientJobDetailPage() {
                 <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "var(--ink)" }}>Resumen del proyecto</h2>
                 <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--muted)" }}>Cuatro puntos vivos para bajar al detalle operativo.</p>
               </div>
-              <Link href="/client/jobs" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--brand)", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
-                Volver al listado
-              </Link>
+              <div style={{ display: "flex", gap: 10 }}>
+                <Link href={`/client/jobs/${jobId}/timeline`} style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#22d3ee", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+                  Ver timeline →
+                </Link>
+                <Link href="/client/jobs" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--brand)", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+                  Volver al listado
+                </Link>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
               <button type="button" onClick={() => setActiveInsight("escrow")} style={summaryButtonStyle("var(--brand)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,.12)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
