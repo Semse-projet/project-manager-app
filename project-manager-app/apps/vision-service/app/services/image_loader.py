@@ -12,11 +12,11 @@ from fastapi import HTTPException
 # partial-SSRF at worst, which CodeQL does not flag as critical.
 _ALLOWED_HOST_RE = re.compile(
     r"^("
-    r"[a-z0-9\-]+\.railway\.app"
-    r"|[a-z0-9\-]+\.amazonaws\.com"
-    r"|[a-z0-9\-]+\.supabase\.co"
-    r"|[a-z0-9\-]+\.supabase\.in"
-    r"|[a-z0-9\-]+\.cloudinary\.com"
+    r"[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.railway\.app"
+    r"|[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.amazonaws\.com"
+    r"|[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.supabase\.co"
+    r"|[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.supabase\.in"
+    r"|[a-z0-9\-]+(?:\.[a-z0-9\-]+)*\.cloudinary\.com"
     r"|[a-z0-9\-\.]+\.backblazeb2\.com"
     r"|[a-z0-9\-\.]+\.r2\.cloudflarestorage\.com"
     r"|[a-z0-9\-\.]+\.blob\.core\.windows\.net"
