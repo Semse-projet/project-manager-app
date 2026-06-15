@@ -10,6 +10,7 @@ import { fetchBuildOpsMilestones, type BuildOpsMilestone } from "../../../lib/bu
 import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
 import { EvidenceReviewAdminCard } from "@/components/milestones/EvidenceReviewAdminCard";
 import { MilestoneVisionSummaryCard } from "@/components/milestones/MilestoneVisionSummaryCard";
+import { MilestoneReadinessCard } from "@/components/milestones/MilestoneReadinessCard";
 import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 
 const fallbackMilestones: BuildOpsMilestone[] = [];
@@ -134,6 +135,7 @@ export default function BuildOpsMilestonesPage() {
                     <span>{milestone.approvedAt ? new Date(milestone.approvedAt).toLocaleDateString() : t("buildops.notApproved")}</span>
                   </div>
                 </Card>
+                {showGovernance && <MilestoneReadinessCard milestoneId={milestone.id} />}
                 {showEvidenceReview && <MilestoneVisionSummaryCard milestoneId={milestone.id} />}
                 {showEvidenceReview && <EvidenceReviewAdminCard milestoneId={milestone.id} onReviewed={() => refreshGov(milestone.id)} />}
                 {showGovernance && <MilestoneGovernancePanel key={`gov-${milestone.id}-${govKeys[milestone.id] ?? 0}`} milestoneId={milestone.id} />}
