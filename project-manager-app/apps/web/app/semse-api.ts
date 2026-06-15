@@ -2468,3 +2468,28 @@ export async function fetchBrowserInspectionResult(runId: string): Promise<Brows
   return fetchSemse<BrowserInspectionResult>(`/api/semse/browser-agent/inspect/${encodeURIComponent(runId)}`);
 }
 
+export interface ActivityEvent {
+  id: string;
+  type: string;
+  title: string;
+  detail: string;
+  severity: "info" | "warning" | "critical";
+  occurredAt: string;
+  entityType: string;
+  entityId: string;
+}
+
+export async function fetchBuildOpsProjects(): Promise<Record<string, unknown>[]> {
+  const result = await fetchSemse<Record<string, unknown>[] | { data: Record<string, unknown>[] }>("/api/semse/buildops/projects");
+  return Array.isArray(result) ? result : ((result as { data: Record<string, unknown>[] }).data ?? []);
+}
+
+export async function fetchProjectActivity(buildOpsProjectId: string, limit = 40): Promise<ActivityEvent[]> {
+  const envelope = await fetchSemse<{ data: ActivityEvent[] }>(
+    `/api/semse/buildops/projects/${encodeURIComponent(buildOpsProjectId)}/activity?limit=${limit}`
+  );
+  return Array.isArray(envelope)
+    ? (envelope as ActivityEvent[])
+    : ((envelope as { data: ActivityEvent[] }).data ?? []);
+}
+
