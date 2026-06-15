@@ -162,3 +162,87 @@ test("W.D2: diferentes entityIds producen diferentes job IDs", () => {
   const id2 = deduplicateJobId("curator", "entity-456");
   assert.notEqual(id1, id2);
 });
+
+// ── QA Agent: Vision-gated auto-approval ──────────────────────────────────────
+
+type VisionSummary = { overallVisionReady: boolean; blockers: string[]; totalAnalyzed: number };
+type Milestone = { id: string; status: string };
+
+async function simulateQaAutoApprove(
+  duplicateCount: number,
+  milestones: Milestone[],
+  visionSummaryFn: (id: string) => VisionSummary,
+  approveFn: (id: string) => void,
+): Promise<string[]> {
+  const approved: string[] = [];
+  if (duplicateCount > 0) return approved;
+  for (const m of milestones) {
+    const summary = visionSummaryFn(m.id);
+    if (summary.overallVisionReady) {
+      approveFn(m.id);
+      approved.push(m.id);
+    }
+  }
+  return approved;
+}
+
+test("W.QA1: milestone vision-ready sin fraude → auto-aprobado", async () => {
+  const approved: string[] = [];
+  const result = await simulateQaAutoApprove(
+    0,
+    [{ id: "m-1", status: "submitted" }],
+    () => ({ overallVisionReady: true, blockers: [], totalAnalyzed: 3 }),
+    (id) => approved.push(id),
+  );
+  assert.deepEqual(result, ["m-1"]);
+  assert.deepEqual(approved, ["m-1"]);
+});
+
+test("W.QA2: duplicados detectados → sin auto-aprobación", async () => {
+  const approved: string[] = [];
+  const result = await simulateQaAutoApprove(
+    2,
+    [{ id: "m-1", status: "submitted" }],
+    () => ({ overallVisionReady: true, blockers: [], totalAnalyzed: 3 }),
+    (id) => approved.push(id),
+  );
+  assert.deepEqual(result, []);
+  assert.deepEqual(approved, []);
+});
+
+test("W.QA3: milestone con blockers Vision → no se aprueba", async () => {
+  const approved: string[] = [];
+  const result = await simulateQaAutoApprove(
+    0,
+    [{ id: "m-2", status: "submitted" }],
+    () => ({ overallVisionReady: false, blockers: ["1 foto de alto riesgo"], totalAnalyzed: 2 }),
+    (id) => approved.push(id),
+  );
+  assert.deepEqual(result, []);
+});
+
+test("W.QA4: aprobación parcial — solo milestones vision-ready se aprueban", async () => {
+  const summaries: Record<string, VisionSummary> = {
+    "m-ready":   { overallVisionReady: true,  blockers: [], totalAnalyzed: 4 },
+    "m-blocked": { overallVisionReady: false, blockers: ["Calidad baja"], totalAnalyzed: 2 },
+  };
+  const approved: string[] = [];
+  const result = await simulateQaAutoApprove(
+    0,
+    [{ id: "m-ready", status: "submitted" }, { id: "m-blocked", status: "awaiting_review" }],
+    (id) => summaries[id]!,
+    (id) => approved.push(id),
+  );
+  assert.deepEqual(result, ["m-ready"]);
+  assert.equal(approved.length, 1);
+});
+
+test("W.QA5: sin hitos sometidos → auto-aprobación vacía", async () => {
+  const result = await simulateQaAutoApprove(
+    0,
+    [],
+    () => ({ overallVisionReady: true, blockers: [], totalAnalyzed: 0 }),
+    () => {},
+  );
+  assert.deepEqual(result, []);
+});

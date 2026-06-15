@@ -587,6 +587,34 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
     qaScore = Math.max(10, qaScore - (outlierCount * 20)); // Penalize 20 points per location outlier
   }
 
+  // Vision-gated milestone auto-approval — only when no fraud detected
+  const autoApprovedMilestones = [];
+  if (duplicateCount === 0 && submittedMilestones.length > 0) {
+    for (const milestone of submittedMilestones) {
+      const milestoneId = asString(milestone.id);
+      if (!milestoneId) continue;
+      try {
+        const summaryRes = await requestJson(
+          `/v1/milestones/${encodeURIComponent(milestoneId)}/vision-summary`,
+          { method: "GET" },
+          { tenantId },
+        );
+        const visionSummary = asObject(summaryRes?.data);
+        if (visionSummary?.overallVisionReady === true) {
+          await requestJson(
+            `/v1/milestones/${encodeURIComponent(milestoneId)}/approve`,
+            { method: "POST" },
+            { tenantId },
+          );
+          autoApprovedMilestones.push(milestoneId);
+          logger.info({ milestoneId, qaScore }, "Milestone auto-approved via Vision AI gate");
+        }
+      } catch (err) {
+        logger.warn({ milestoneId, error: err.message }, "Failed to auto-approve milestone");
+      }
+    }
+  }
+
   const result = {
     projectId,
     evidenceTotal: evidence.length,
@@ -601,13 +629,19 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
     qaScore,
     qaStatus: qaScore >= 70 ? "pass" : qaScore >= 40 ? "partial" : "fail",
     qaIssues,
-    recommendation: qaScore >= 70
-      ? "Calidad de evidencia suficiente para revisión de hitos."
-      : `Solicitar evidencia adicional antes de aprobar: ${qaIssues.join("; ")}`,
+    autoApprovedMilestones,
+    recommendation: autoApprovedMilestones.length > 0
+      ? `${autoApprovedMilestones.length} hito(s) aprobado(s) automáticamente por Vision AI.`
+      : qaScore >= 70
+        ? "Calidad de evidencia suficiente para revisión de hitos."
+        : `Solicitar evidencia adicional antes de aprobar: ${qaIssues.join("; ")}`,
   };
 
-  const summary = `QA Agent evaluó '${projectId}': score=${qaScore}/100 (${evidence.length} evidencias, ${processedCount} procesadas por Vision, ${qaIssues.length} issues).`;
-  logger.info({ runId: run.id, projectId, qaScore }, "qa-agent handler completed");
+  const autoApproveNote = autoApprovedMilestones.length > 0
+    ? ` ${autoApprovedMilestones.length} hito(s) auto-aprobado(s).`
+    : "";
+  const summary = `QA Agent evaluó '${projectId}': score=${qaScore}/100 (${evidence.length} evidencias, ${processedCount} procesadas por Vision, ${qaIssues.length} issues).${autoApproveNote}`;
+  logger.info({ runId: run.id, projectId, qaScore, autoApprovedCount: autoApprovedMilestones.length }, "qa-agent handler completed");
   return { summary, result };
 }
 
