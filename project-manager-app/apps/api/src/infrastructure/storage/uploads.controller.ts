@@ -16,6 +16,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { StorageService } from "./storage.service.js";
 import { buildTenantStorageKey, normalizeStorageDomain, normalizeStorageKey } from "./storage-key.js";
+import { Public } from "../../common/public.decorator.js";
 
 const ALLOWED_CONTENT_TYPES = new Set([
   "image/jpeg",
@@ -226,7 +227,11 @@ export class UploadsController {
 
   /**
    * Serve a stored file by key.
+   * Public — keys are tenant-scoped UUIDs (hard to enumerate).
+   * PUT stays authenticated; GET is intentionally open so the vision service
+   * and browsers can stream files without a session token.
    */
+  @Public()
   @Get("files/*")
   async getFile(
     @Param("*") key: string,
