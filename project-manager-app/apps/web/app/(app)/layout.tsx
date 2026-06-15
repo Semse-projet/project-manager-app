@@ -118,6 +118,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.contractors", href: "/admin/contractors", icon: Building2 },
       { labelKey: "nav.marketplace", href: "/admin/marketplace", icon: Store },
       { labelKey: "nav.trust", href: "/admin/trust", icon: ShieldCheck },
+      { labelKey: "nav.reputation", href: "/admin/reputation", icon: Star },
       { labelKey: "nav.worker", href: "/admin/worker", icon: Cpu },
       { labelKey: "nav.autonomy", href: "/admin/autonomy", icon: GitBranch },
       { labelKey: "nav.developerRuntime", href: "/admin/developer-runtime", icon: Bot },
