@@ -95,7 +95,7 @@
   },
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.5.5",
-    "@playwright/test": "^1.54.2",
+    "@playwright/test": "^1.61.0",
     "@semse/agents": "workspace:*",
     "@semse/knowledge": "workspace:*",
     "@semse/schemas": "workspace:*",
