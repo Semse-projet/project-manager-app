@@ -62,6 +62,18 @@ type BuildOpsOverview = {
   openDisputes?: number;
 };
 
+type MissionControlSummary = {
+  openSignals: number;
+  criticalSignals: number;
+  blockedPayments: number;
+  activeDisputes: number;
+  pendingMilestones: number;
+  pendingEvidence: number;
+  openChangeOrders: number;
+  nextAction: string | null;
+  generatedAt: string;
+};
+
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -278,6 +290,7 @@ export default function MissionControlPage() {
   const [runs, setRuns] = useState<IntelligenceRun[]>([]);
   const [overview, setOverview] = useState<BuildOpsOverview | null>(null);
   const [brief, setBrief] = useState<PrometeoBrief | null>(null);
+  const [mcSummary, setMcSummary] = useState<MissionControlSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [filter, setFilter] = useState<"open" | "critical" | "high" | "all">("open");
@@ -289,11 +302,12 @@ export default function MissionControlPage() {
     setLoading(true);
     setError(null);
     try {
-      const [sigRes, runRes, ovRes, briefRes] = await Promise.all([
+      const [sigRes, runRes, ovRes, briefRes, mcRes] = await Promise.all([
         fetch("/api/semse/operational-signals?limit=100", { credentials: "include" }),
         fetch("/api/semse/intelligence-runs?limit=10", { credentials: "include" }),
         fetch("/api/semse/buildops/overview", { credentials: "include" }).catch(() => null),
         fetch("/api/semse/prometeo-brief", { credentials: "include" }).catch(() => null),
+        fetch("/api/semse/ops/mission-control/summary", { credentials: "include" }).catch(() => null),
       ]);
       const sigData = (await sigRes.json()) as { data?: OperationalSignal[] };
       const runData = (await runRes.json()) as { data?: IntelligenceRun[] };
@@ -306,6 +320,10 @@ export default function MissionControlPage() {
       if (briefRes?.ok) {
         const briefData = (await briefRes.json()) as { data?: PrometeoBrief };
         setBrief(briefData.data ?? null);
+      }
+      if (mcRes?.ok) {
+        const mcData = (await mcRes.json()) as { data?: MissionControlSummary };
+        setMcSummary(mcData.data ?? null);
       }
     } catch {
       setError("No se pudieron cargar las señales operacionales.");
@@ -510,7 +528,26 @@ export default function MissionControlPage() {
           {overview?.openDisputes !== undefined && overview.openDisputes > 0 && (
             <StatCard label="Disputas abiertas" value={overview.openDisputes} color="#ef4444" emoji="⚖️" />
           )}
+          {mcSummary?.pendingEvidence !== undefined && mcSummary.pendingEvidence > 0 && (
+            <StatCard label="Evidencia pendiente" value={mcSummary.pendingEvidence} color="#a78bfa" emoji="🖼️" />
+          )}
+          {mcSummary?.openChangeOrders !== undefined && mcSummary.openChangeOrders > 0 && (
+            <StatCard label="Change orders" value={mcSummary.openChangeOrders} color="#fb923c" emoji="📋" />
+          )}
         </div>
+        {!brief && mcSummary?.nextAction && (
+          <div style={{
+            marginTop: "10px",
+            padding: "8px 12px",
+            background: "rgba(139,92,246,.08)",
+            border: "1px solid rgba(139,92,246,.2)",
+            borderRadius: "8px",
+            fontSize: "12px",
+            color: "#c4b5fd",
+          }}>
+            🎯 <strong>Siguiente acción:</strong> {mcSummary.nextAction}
+          </div>
+        )}
       </div>
 
       {/* Filters */}
