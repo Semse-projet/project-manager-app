@@ -7,7 +7,7 @@ import {
 } from "../knowledge/workspace-memory.business-records.js";
 import { PaymentsRepository } from "./payments.repository.js";
 import { PaymentProviderRegistry } from "./providers/payment-provider.registry.js";
-import { type PaymentMethodType, type PaymentProviderKey } from "./payments.types.js";
+import { paymentProviderKeys, type PaymentMethodType, type PaymentProviderKey } from "./payments.types.js";
 import { ProjectsService } from "../projects/projects.service.js";
 import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
@@ -187,6 +187,121 @@ export class PaymentsService {
     };
   }
 
+  paymentProviderReadiness() {
+    const configuredDefaultProvider = this.resolveConfiguredDefaultProvider();
+    const availableProviders = this.paymentProviderRegistry.availableKeys();
+    const stripeSecretConfigured = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+    const stripeWebhookSecretConfigured = Boolean(process.env.STRIPE_WEBHOOK_SECRET?.trim());
+    const paypalConfigured = Boolean(process.env.PAYPAL_CLIENT_ID?.trim() && process.env.PAYPAL_CLIENT_SECRET?.trim());
+    const adyenConfigured = Boolean(process.env.ADYEN_API_KEY?.trim() && process.env.ADYEN_MERCHANT_ACCOUNT?.trim());
+    const adyenPayoutConfigured = adyenConfigured && Boolean(process.env.ADYEN_SOURCE_BALANCE_ACCOUNT_ID?.trim());
+    const productionRuntime = process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production";
+    const warnings: string[] = [];
+
+    if (configuredDefaultProvider === "stripe" && !availableProviders.includes("stripe")) {
+      warnings.push("PAYMENT_PROVIDER is stripe but STRIPE_SECRET_KEY is not configured");
+    }
+    if (configuredDefaultProvider !== "stripe" && !availableProviders.includes(configuredDefaultProvider)) {
+      warnings.push(`PAYMENT_PROVIDER is ${configuredDefaultProvider} but that provider is not implemented`);
+    }
+    if (productionRuntime && configuredDefaultProvider === "stripe" && !stripeWebhookSecretConfigured) {
+      warnings.push("STRIPE_WEBHOOK_SECRET is required for Stripe webhooks in production");
+    }
+    if (productionRuntime && configuredDefaultProvider === "mock") {
+      warnings.push("Production runtime is using mock payments as the default provider");
+    }
+    if (configuredDefaultProvider === "paypal" && !paypalConfigured) {
+      warnings.push("PAYMENT_PROVIDER is paypal but PAYPAL_CLIENT_ID/PAYPAL_CLIENT_SECRET are not configured");
+    }
+    if (configuredDefaultProvider === "adyen" && !adyenConfigured) {
+      warnings.push("PAYMENT_PROVIDER is adyen but ADYEN_API_KEY/ADYEN_MERCHANT_ACCOUNT are not configured");
+    }
+
+    return {
+      configuredDefaultProvider,
+      availableProviders,
+      rails: [
+        {
+          key: "stripe",
+          label: "Stripe Connect",
+          clientFunding: true,
+          professionalPayout: true,
+          automatic: true,
+          configured: stripeSecretConfigured,
+          ready: availableProviders.includes("stripe") && (!productionRuntime || stripeWebhookSecretConfigured),
+          requiredEnv: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+        },
+        {
+          key: "paypal",
+          label: "PayPal Payouts",
+          clientFunding: true,
+          professionalPayout: true,
+          automatic: true,
+          configured: paypalConfigured,
+          ready: availableProviders.includes("paypal"),
+          requiredEnv: ["PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET"]
+        },
+        {
+          key: "adyen",
+          label: "Adyen Checkout / Transfers",
+          clientFunding: true,
+          professionalPayout: true,
+          automatic: true,
+          configured: adyenConfigured,
+          ready: availableProviders.includes("adyen") && adyenPayoutConfigured,
+          requiredEnv: ["ADYEN_API_KEY", "ADYEN_MERCHANT_ACCOUNT", "ADYEN_SOURCE_BALANCE_ACCOUNT_ID"]
+        },
+        {
+          key: "bank-transfer",
+          label: "Bank / ACH manual rail",
+          clientFunding: true,
+          professionalPayout: true,
+          automatic: false,
+          configured: true,
+          ready: availableProviders.includes("bank-transfer"),
+          requiredEnv: []
+        },
+        {
+          key: "zelle",
+          label: "Zelle business payout instruction",
+          clientFunding: false,
+          professionalPayout: true,
+          automatic: false,
+          configured: true,
+          ready: true,
+          requiredEnv: []
+        },
+        {
+          key: "cashapp",
+          label: "Cash App payout instruction",
+          clientFunding: false,
+          professionalPayout: true,
+          automatic: false,
+          configured: true,
+          ready: true,
+          requiredEnv: []
+        }
+      ],
+      stripe: {
+        secretConfigured: stripeSecretConfigured,
+        webhookSecretConfigured: stripeWebhookSecretConfigured,
+        ready: availableProviders.includes("stripe") && (!productionRuntime || stripeWebhookSecretConfigured)
+      },
+      paypal: {
+        configured: paypalConfigured,
+        ready: availableProviders.includes("paypal")
+      },
+      adyen: {
+        configured: adyenConfigured,
+        payoutConfigured: adyenPayoutConfigured,
+        ready: availableProviders.includes("adyen") && adyenPayoutConfigured
+      },
+      mode: configuredDefaultProvider === "mock" ? "mock" : "live",
+      ready: warnings.length === 0,
+      warnings
+    };
+  }
+
   async deposit(input: {
     tenantId: string;
     orgId: string;
@@ -206,7 +321,7 @@ export class PaymentsService {
 
     const project = await this.paymentsRepository.ensureProject(input);
     const currency = (input.currency ?? "USD").toUpperCase();
-    const provider = input.provider ?? "mock";
+    const provider = this.resolveProvider(input.provider);
     const methodType = input.methodType ?? "bank_transfer";
     const paymentProvider = this.paymentProviderRegistry.resolve(provider);
 
@@ -454,21 +569,39 @@ export class PaymentsService {
       throw new ConflictException("insufficient escrow funds for release");
     }
 
-    const provider = input.provider ?? "mock";
+    const provider = this.resolveProvider(input.provider);
     const methodType = input.methodType ?? "payout_bank";
     const paymentProvider = this.paymentProviderRegistry.resolve(provider);
+    const recipient = await this.paymentsRepository.findAcceptedProfessionalByProject(milestone.projectId);
+    const payoutMethod = recipient
+      ? await this.getWorkerPayoutMethod({
+          tenantId: input.tenantId,
+          orgId: recipient.orgId ?? input.orgId,
+          userId: recipient.userId
+        })
+      : null;
 
     const payoutIntent = await paymentProvider.createPayoutIntent({
       tenantId: input.tenantId,
       projectId: milestone.projectId,
       milestoneId: milestone.id,
+      recipientUserId: recipient?.userId,
       provider,
       methodType,
       money: {
         amount,
         currency: escrow.currency
       },
-      externalRef: `release_${milestone.id}_${Date.now()}`
+      externalRef: `release_${milestone.id}_${Date.now()}`,
+      metadata: {
+        recipientEmail: recipient?.email,
+        payoutMethodType: payoutMethod?.type,
+        paypalEmail: payoutMethod?.type === "paypal" ? payoutMethod.email : undefined,
+        zelleHandle: payoutMethod?.type === "zelle" ? payoutMethod.email : undefined,
+        cashAppTag: payoutMethod?.type === "cashapp" ? payoutMethod.email : undefined,
+        bankName: payoutMethod?.type === "bank_account" ? payoutMethod.bankName : undefined,
+        last4: payoutMethod?.last4
+      }
     });
 
     const transaction = await this.paymentsRepository.releaseFunds({
@@ -551,7 +684,7 @@ export class PaymentsService {
       throw new ConflictException("insufficient escrow funds for refund");
     }
 
-    const provider = input.provider ?? "mock";
+    const provider = this.resolveProvider(input.provider);
     const methodType = input.methodType ?? "bank_transfer";
     const paymentProvider = this.paymentProviderRegistry.resolve(provider);
 
@@ -641,5 +774,17 @@ export class PaymentsService {
       providerRef: input.providerRef ?? "n/a",
       requestId: input.requestId
     };
+  }
+
+  private resolveProvider(provider?: PaymentProviderKey): PaymentProviderKey {
+    return provider ?? this.resolveConfiguredDefaultProvider();
+  }
+
+  private resolveConfiguredDefaultProvider(): PaymentProviderKey {
+    const configured = (process.env.PAYMENT_PROVIDER ?? process.env.SEMSE_PAYMENT_PROVIDER ?? "mock").trim();
+    if ((paymentProviderKeys as readonly string[]).includes(configured)) {
+      return configured as PaymentProviderKey;
+    }
+    throw new BadRequestException(`unsupported payment provider '${configured}'`);
   }
 }
