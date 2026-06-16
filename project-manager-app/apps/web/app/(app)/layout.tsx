@@ -294,7 +294,7 @@ function Sidebar({
 
       {(!collapsed || mobile) && (
         <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)" }}>
-          <Link
+          <a
             href="/logout"
             style={{
               display: "flex",
@@ -310,7 +310,7 @@ function Sidebar({
           >
             <LogOut size={15} />
             {t("ui.signOut")}
-          </Link>
+          </a>
         </div>
       )}
     </aside>
@@ -532,7 +532,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           onCollapsedChange={setCollapsed}
           sidebarFooter={
             !collapsed ? (
-              <Link
+              <a
                 href="/logout"
                 style={{
                   display: "flex",
@@ -548,7 +548,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
               >
                 <LogOut size={15} />
                 {t("ui.signOut")}
-              </Link>
+              </a>
             ) : null
           }
           className="min-h-screen"

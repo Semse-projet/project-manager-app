@@ -159,6 +159,22 @@ export class JobsService {
     return enriched;
   }
 
+  private async enrichJobsWithClientUser(jobs: JobRecord[]): Promise<JobRecord[]> {
+    if (jobs.length === 0) return jobs;
+    const orgIds = [...new Set(jobs.map((j) => j.clientOrgId).filter((id): id is string => Boolean(id)))];
+    if (orgIds.length === 0) return jobs;
+    const memberships = await this.prisma.membership.findMany({
+      where: { orgId: { in: orgIds } },
+      select: { orgId: true, userId: true },
+      distinct: ["orgId"],
+    });
+    const clientUserByOrgId = new Map(memberships.map((m) => [m.orgId, m.userId]));
+    return jobs.map((j) => {
+      const userId = j.clientOrgId ? clientUserByOrgId.get(j.clientOrgId) : undefined;
+      return userId ? { ...j, clientUserId: userId } : j;
+    });
+  }
+
   async update(input: {
     tenantId: string;
     orgId: string;
@@ -238,10 +254,8 @@ export class JobsService {
     status?: JobRecord["status"];
   }): Promise<JobRecord[]> {
     const jobs = await this.jobsRepository.listByTenant(input);
-    return this.enrichJobsWithPreferredProfessional({
-      tenantId: input.tenantId,
-      jobs,
-    });
+    const enriched = await this.enrichJobsWithPreferredProfessional({ tenantId: input.tenantId, jobs });
+    return this.enrichJobsWithClientUser(enriched);
   }
 
   async detail(input: {
@@ -251,9 +265,10 @@ export class JobsService {
     jobId: string;
   }): Promise<JobRecord> {
     const job = await this.jobsRepository.findById(input);
+    const [withClientUser] = await this.enrichJobsWithClientUser([job]);
     return this.enrichJobWithPreferredProfessional({
       tenantId: input.tenantId,
-      job,
+      job: withClientUser ?? job,
     });
   }
 

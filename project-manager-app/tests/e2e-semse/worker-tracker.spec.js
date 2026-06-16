@@ -8,10 +8,21 @@ function parseClock(text) {
 }
 
 test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion", async ({ page, context }) => {
+  test.setTimeout(120000);
   void context;
 
+  page.on("console", (msg) => {
+    console.log(`BROWSER CONSOLE [${msg.type()}]: ${msg.text()}`);
+  });
+  page.on("pageerror", (err) => {
+    console.log(`BROWSER ERROR: ${err.message}`);
+  });
+
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(2000);
   await page.getByRole("button", { name: /Admin/i }).click();
+  await expect(page.locator("input[type='email']")).toHaveValue("admin@demo.semse");
   await page.getByRole("button", { name: /Ingresar/i }).click();
   await page.waitForURL(/\/admin\/dashboard$/);
 

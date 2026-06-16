@@ -26,6 +26,8 @@ export type JobRecord = {
   location?: string;
   urgency?: string;
   deadline?: string;
+  clientOrgId?: string;
+  clientUserId?: string;
   preferredProfessional?: {
     userId: string;
     displayName: string;
