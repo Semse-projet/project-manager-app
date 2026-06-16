@@ -46,6 +46,17 @@ function createController() {
         contract: { id: "ctr_1", tenantId: String(input.tenantId ?? "tenant_1"), jobId: String(input.jobId ?? "job_1"), clientOrgId: "org_client_1", professionalOrgId: "org_pro_1", clientUserId: "usr_client_1", professionalUserId: "usr_pro_1", termsJson: {} },
       };
     },
+    paymentProviderReadiness() {
+      calls.push({ method: "paymentProviderReadiness" });
+      return {
+        configuredDefaultProvider: "stripe",
+        availableProviders: ["mock", "stripe"],
+        stripe: { secretConfigured: true, webhookSecretConfigured: true, ready: true },
+        mode: "live",
+        ready: true,
+        warnings: [],
+      };
+    },
     async release(input: Record<string, unknown>) {
       calls.push({ method: "release", input });
       return { transaction: { id: "txn_rel", tenantId: String(input.tenantId ?? "tenant_1"), escrowId: "esc_1", projectId: "proj_1", type: "release", amount: 500, status: "succeeded", createdAt: "2026-06-09T12:00:00.000Z" } };
@@ -75,6 +86,7 @@ test("payments controller declares permissions", () => {
     ["listByJob", "jobs:read"],
     ["paymentReadinessByJob", "jobs:read"],
     ["escrowByJob", "projects:financials:read"],
+    ["providerReadiness", "projects:financials:read"],
     ["release", "projects:financials:write"],
     ["refund", "projects:financials:write"],
     ["webhook", undefined as unknown as string],
@@ -105,6 +117,7 @@ test("payments controller wraps visible escrow/contract/transaction payloads", a
   });
 
   const escrow = await controller.escrowByJob(actor as never, "job_1");
+  const providerReadiness = await controller.providerReadiness(actor as never);
   const listed = await controller.listByJob(actor as never, "job_1");
 
   assert.equal(funded.requestId, "req_pay_1");
@@ -112,6 +125,8 @@ test("payments controller wraps visible escrow/contract/transaction payloads", a
   assert.equal(funded.data.escrow.statusRaw, "held");
   assert.equal(funded.data.contract.signatureStatus, "PARTIALLY_SIGNED");
   assert.equal(escrow.data.escrow.status, "ACTIVE");
+  assert.equal(providerReadiness.data.configuredDefaultProvider, "stripe");
+  assert.equal(providerReadiness.data.ready, true);
   assert.equal(listed.data[0]?.status, "SUCCEEDED");
   assert.equal(calls[0]?.method, "depositByJob");
 });

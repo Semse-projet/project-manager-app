@@ -86,8 +86,31 @@ LLM_DEFAULT_PROVIDER=anthropic
 LLM_FALLBACK_PROVIDERS=anthropic,openai,template
 ANTHROPIC_API_KEY=<optional but strongly recommended>
 OPENAI_API_KEY=<optional>
-STRIPE_SECRET_KEY=<optional, Block B>
+PAYMENT_PROVIDER=mock
+STRIPE_SECRET_KEY=<required when PAYMENT_PROVIDER=stripe>
+STRIPE_WEBHOOK_SECRET=<required for Stripe webhooks in production>
+STRIPE_CONNECT_ACCOUNT_ID=<optional legacy Connect fallback>
+PAYPAL_CLIENT_ID=<required when PAYMENT_PROVIDER=paypal>
+PAYPAL_CLIENT_SECRET=<required when PAYMENT_PROVIDER=paypal>
+PAYPAL_ENVIRONMENT=sandbox
+ADYEN_API_KEY=<required when PAYMENT_PROVIDER=adyen>
+ADYEN_MERCHANT_ACCOUNT=<required when PAYMENT_PROVIDER=adyen>
+ADYEN_SOURCE_BALANCE_ACCOUNT_ID=<required for Adyen payouts>
+ADYEN_ENVIRONMENT=test
 ```
+
+For live payments, set `PAYMENT_PROVIDER=stripe` only after `STRIPE_SECRET_KEY`
+and `STRIPE_WEBHOOK_SECRET` are present as API Service Variables. Then call
+`GET /v1/payments/provider-readiness` with a finance-readable user/token and
+confirm `ready: true` before running deposit or release flows.
+
+For PayPal, set `PAYMENT_PROVIDER=paypal` after `PAYPAL_CLIENT_ID` and
+`PAYPAL_CLIENT_SECRET` are present. Professionals must save a PayPal email in
+`/worker/payments` before PayPal payouts can be released.
+
+For Adyen, set `PAYMENT_PROVIDER=adyen` only after Checkout and Balance Platform
+credentials are ready. Zelle and Cash App are manual payout instructions in
+SEMSE until a supported payout API contract exists.
 
 ## 6. Set Web variables
 

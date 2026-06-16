@@ -99,6 +99,41 @@ export class PaymentsRepository {
     });
   }
 
+  async findAcceptedProfessionalByProject(projectId: string): Promise<{
+    userId: string;
+    orgId?: string;
+    email?: string;
+  } | null> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        job: {
+          select: {
+            reservations: {
+              where: { status: "ACCEPTED" },
+              orderBy: { acceptedAt: "desc" },
+              take: 1,
+              select: {
+                professionalId: true,
+                professionalOrgId: true,
+                professional: { select: { email: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+    const reservation = project?.job?.reservations?.[0];
+    if (!reservation) {
+      return null;
+    }
+    return {
+      userId: reservation.professionalId,
+      orgId: reservation.professionalOrgId ?? undefined,
+      email: reservation.professional.email ?? undefined
+    };
+  }
+
   async hasOpenDisputeForProject(projectId: string): Promise<boolean> {
     const dispute = await this.prisma.dispute.findFirst({
       where: {

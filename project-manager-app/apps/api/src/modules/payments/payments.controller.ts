@@ -184,6 +184,12 @@ export class PaymentsController {
     });
   }
 
+  @Get("v1/payments/provider-readiness")
+  @RequirePermissions("projects:financials:read")
+  async providerReadiness(@Req() req: { headers?: Record<string, unknown> }) {
+    return ok(resolveRequestId(req.headers ?? {}), this.paymentsService.paymentProviderReadiness());
+  }
+
   @Post("v1/milestones/:milestoneId/escrow/release")
   @RequirePermissions("projects:financials:write")
   async release(

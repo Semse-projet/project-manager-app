@@ -2420,6 +2420,30 @@ export async function syncConnectAccount(): Promise<{
   return mutateSemse("/api/semse/payments/connect/sync", {});
 }
 
+export type PaymentRailReadiness = {
+  key: string;
+  label: string;
+  clientFunding: boolean;
+  professionalPayout: boolean;
+  automatic: boolean;
+  configured: boolean;
+  ready: boolean;
+  requiredEnv: string[];
+};
+
+export type PaymentProviderReadiness = {
+  configuredDefaultProvider: string;
+  availableProviders: string[];
+  rails: PaymentRailReadiness[];
+  mode: "mock" | "live";
+  ready: boolean;
+  warnings: string[];
+};
+
+export async function fetchPaymentProviderReadiness(): Promise<PaymentProviderReadiness> {
+  return fetchSemse<PaymentProviderReadiness>("/api/semse/payments/provider-readiness");
+}
+
 // ── Browser Agent ─────────────────────────────────────────────────────────────
 
 export interface BrowserInspectionResult {
@@ -2492,4 +2516,3 @@ export async function fetchProjectActivity(buildOpsProjectId: string, limit = 40
     ? (envelope as ActivityEvent[])
     : ((envelope as { data: ActivityEvent[] }).data ?? []);
 }
-

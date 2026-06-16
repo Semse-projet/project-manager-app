@@ -38,6 +38,19 @@ These must be set in Railway console as Service Variables (not build args):
 | `AWS_S3_BUCKET` | string | optional | User secret | S3 bucket for file storage |
 | `AWS_ACCESS_KEY_ID` | string | optional | User secret | S3 credentials |
 | `AWS_SECRET_ACCESS_KEY` | string | optional | User secret | S3 credentials |
+| `PAYMENT_PROVIDER` | enum | optional | Value: `mock` or `stripe` | Default provider for escrow deposit/release/refund when request body omits `provider` |
+| `STRIPE_SECRET_KEY` | string | required for Stripe | Stripe Dashboard | Runtime secret only; enables the Stripe provider |
+| `STRIPE_WEBHOOK_SECRET` | string | required for Stripe production webhooks | Stripe Dashboard webhook endpoint | Required when Stripe webhooks are active in production |
+| `STRIPE_CONNECT_ACCOUNT_ID` | string | optional | Stripe Connect | Legacy fallback destination when a contractor-specific Connect account is unavailable |
+| `PAYPAL_CLIENT_ID` | string | required for PayPal | PayPal Developer | Enables PayPal Orders and PayPal Payouts |
+| `PAYPAL_CLIENT_SECRET` | string | required for PayPal | PayPal Developer | Runtime secret only |
+| `PAYPAL_ENVIRONMENT` | enum | optional | `sandbox` or `live` | Defaults to sandbox unless set to `live` |
+| `PAYPAL_BASE_URL` | string | optional | PayPal API | Override for custom environments |
+| `ADYEN_API_KEY` | string | required for Adyen | Adyen Customer Area | Enables Adyen Checkout/Transfers |
+| `ADYEN_MERCHANT_ACCOUNT` | string | required for Adyen funding/refunds | Adyen Customer Area | Merchant account used for Checkout payments |
+| `ADYEN_SOURCE_BALANCE_ACCOUNT_ID` | string | required for Adyen payouts | Adyen Balance Platform | Source balance account for payouts/transfers |
+| `ADYEN_DEFAULT_TARGET_BALANCE_ACCOUNT_ID` | string | optional | Adyen Balance Platform | Fallback target account until per-professional Adyen onboarding is modeled |
+| `ADYEN_ENVIRONMENT` | enum | optional | `test` or `live` | Defaults to test unless set to `live` |
 
 **Example .env for local testing** (never commit with real values):
 ```bash
@@ -57,7 +70,49 @@ OLLAMA_BASE_URL=http://ollama.railway.internal:11434
 OLLAMA_MODEL=qwen2.5:3b
 OLLAMA_TIMEOUT_MS=120000
 STORAGE_PROVIDER=s3
+PAYMENT_PROVIDER=mock
+# PAYMENT_PROVIDER=stripe
+# STRIPE_SECRET_KEY=sk_live_xxx
+# STRIPE_WEBHOOK_SECRET=whsec_xxx
+# PAYMENT_PROVIDER=paypal
+# PAYPAL_CLIENT_ID=...
+# PAYPAL_CLIENT_SECRET=...
+# PAYMENT_PROVIDER=adyen
+# ADYEN_API_KEY=...
+# ADYEN_MERCHANT_ACCOUNT=...
+# ADYEN_SOURCE_BALANCE_ACCOUNT_ID=...
 ```
+
+### Payments Readiness Check
+
+After changing payment variables, verify the runtime configuration without exposing secrets:
+
+```bash
+curl -H "Authorization: Bearer <token>" \
+  https://semse-api-xxxx.railway.app/v1/payments/provider-readiness
+```
+
+Expected production Stripe posture:
+
+```json
+{
+  "configuredDefaultProvider": "stripe",
+  "availableProviders": ["mock", "stripe"],
+  "stripe": {
+    "secretConfigured": true,
+    "webhookSecretConfigured": true,
+    "ready": true
+  },
+  "mode": "live",
+  "ready": true,
+  "warnings": []
+}
+```
+
+Zelle and Cash App are stored as professional payout instructions and remain
+manual/audited rails unless SEMSE signs a bank or platform agreement that
+exposes a supported payout API. Do not mark them as automatic in production
+without that provider contract.
 
 ### Web Service (`semse-web`)
 

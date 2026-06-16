@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DollarSign, Lock, CheckCircle, Clock, Plus, ChevronRight, RefreshCw, Inbox, AlertTriangle, Scale } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import Link from "next/link";
-import { fetchJobPaymentReadiness, fetchJobPayments, fetchJobs, fetchJobMilestones, mutateMilestone, releaseMilestoneEscrow, fetchDisputes } from "../../../semse-api";
+import { fetchJobPaymentReadiness, fetchJobPayments, fetchJobs, fetchJobMilestones, mutateMilestone, releaseMilestoneEscrow, fetchDisputes, fetchPaymentProviderReadiness, type PaymentProviderReadiness } from "../../../semse-api";
 import { EscrowFundModal } from "../../../components/payments/EscrowFundModal";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
@@ -77,6 +77,7 @@ export default function ClientPaymentsPage() {
   const [selectedJobId, setSelectedJobId] = useState<string>(initialJobId);
   const [releasing, setReleasing]       = useState<string | null>(null);
   const [disputedJobIds, setDisputedJobIds] = useState<Set<string>>(new Set());
+  const [paymentReadiness, setPaymentReadiness] = useState<PaymentProviderReadiness | null>(null);
 
   useEffect(() => {
     const nextTabParam = searchParams?.get("tab");
@@ -184,6 +185,9 @@ export default function ClientPaymentsPage() {
   }, [selectedJobId]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void fetchPaymentProviderReadiness().then(setPaymentReadiness).catch(() => undefined);
+  }, []);
 
   async function handleRelease(milestoneId: string) {
     setReleasing(milestoneId);
@@ -310,6 +314,26 @@ export default function ClientPaymentsPage() {
         <StatCard label="Total liberado"   value={`$${totalSpent.toLocaleString()}`}   icon={CheckCircle} color="green"  loading={loading} />
         <StatCard label="Proyectos activos" value={activeProjects}                     icon={Clock}       color="amber"  loading={loading} />
       </div>
+
+      {paymentReadiness && (
+        <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 16px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>Formas de fondear escrow</div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                Provider por defecto: {paymentReadiness.configuredDefaultProvider} · modo {paymentReadiness.mode}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {paymentReadiness.rails.filter((rail) => rail.clientFunding).map((rail) => (
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "#10b981" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                  {rail.label}{rail.automatic ? "" : " · manual"}
+                </span>
+              ))}
+            </div>
+          </div>
+        </HtmlInCanvasPanel>
+      )}
 
       {selectedJobId && selectedJob && (
         <HtmlInCanvasPanel

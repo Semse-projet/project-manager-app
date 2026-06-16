@@ -13,11 +13,13 @@ import {
   fetchJobEscrow,
   fetchJobPayments,
   fetchJobs,
+  fetchPaymentProviderReadiness,
   markInvoicePaid,
   refundEscrow,
   rejectExpense,
   sendInvoice,
   type Invoice,
+  type PaymentProviderReadiness,
   type ProjectExpense,
 } from "../../../semse-api";
 
@@ -98,6 +100,7 @@ export default function AdminFinancePage() {
   const [escrows, setEscrows] = useState<JobEscrowInfo[]>([]);
   const [escrowLoading, setEscrowLoading] = useState(false);
   const [escrowLoaded, setEscrowLoaded] = useState(false);
+  const [paymentReadiness, setPaymentReadiness] = useState<PaymentProviderReadiness | null>(null);
 
   async function load() {
     setLoading(true); setError(null);
@@ -155,6 +158,9 @@ export default function AdminFinancePage() {
 
   useEffect(() => { void load(); }, []);
   useEffect(() => {
+    void fetchPaymentProviderReadiness().then(setPaymentReadiness).catch(() => undefined);
+  }, []);
+  useEffect(() => {
     if (tab === "escrow" && !escrowLoaded && !escrowLoading) void loadEscrow();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -198,6 +204,43 @@ export default function AdminFinancePage() {
         <KpiCard label="Gastos pendientes" value={String(pendingExpenses.length)} sub="Por revisar" icon={Clock} color="#fbbf24" alert={pendingExpenses.length > 0} />
         {duplicates.length > 0 && <KpiCard label="Duplicados" value={String(duplicates.length)} sub="Revisión requerida" icon={TrendingDown} color="#f87171" alert />}
       </div>
+
+      {paymentReadiness && (
+        <div style={{ background: "var(--surface)", border: `1px solid ${paymentReadiness.ready ? "var(--border)" : "rgba(245,158,11,.35)"}`, borderRadius: 16, padding: 16, display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>Payment rails</div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>
+                Default: {paymentReadiness.configuredDefaultProvider} · mode: {paymentReadiness.mode} · available: {paymentReadiness.availableProviders.join(", ")}
+              </div>
+            </div>
+            <Badge status={paymentReadiness.ready ? "ready" : "review"} />
+          </div>
+          {paymentReadiness.warnings.length > 0 && (
+            <div style={{ display: "grid", gap: 4 }}>
+              {paymentReadiness.warnings.map((warning) => (
+                <div key={warning} style={{ fontSize: 12, color: "#fbbf24" }}>{warning}</div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 8 }}>
+            {paymentReadiness.rails.map((rail) => (
+              <div key={rail.key} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)" }}>{rail.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "#10b981" : "#f59e0b" }}>{rail.ready ? "READY" : "SETUP"}</span>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
+                  {rail.clientFunding ? "cliente" : ""}{rail.clientFunding && rail.professionalPayout ? " + " : ""}{rail.professionalPayout ? "profesional" : ""} · {rail.automatic ? "automático" : "manual"}
+                </div>
+                {rail.requiredEnv.length > 0 && (
+                  <div style={{ fontSize: 10, color: "var(--faint)", marginTop: 5 }}>{rail.requiredEnv.join(", ")}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", gap: 4 }}>
