@@ -692,6 +692,12 @@ export class JobsService {
       payload: { jobId: input.jobId, proUserId, clientUserId },
     }).catch(() => undefined);
 
+    void this.notifications?.handleEvent({
+      tenantId: input.tenantId,
+      eventType: "rating.requested",
+      payload: { jobId: input.jobId, proUserId, clientUserId },
+    }).catch(() => undefined);
+
     this.logger.log(`[Jobs] systemCompleteJob: job ${input.jobId} auto-completed (all milestones approved)`);
   }
 }

@@ -437,6 +437,32 @@ function mapEventToNotifications(
       }];
     }
 
+    // ── Ratings ───────────────────────────────────────────────────────────────
+    case "rating.requested": {
+      const proUserId    = extractStr(payload, "proUserId");
+      const clientUserId = extractStr(payload, "clientUserId");
+      const specs: NotificationSpec[] = [];
+      if (proUserId) {
+        specs.push({
+          userId: proUserId,
+          type: "rating_requested_pro",
+          title: "Califica tu experiencia",
+          body: "¿Cómo fue trabajar en este proyecto? Tu calificación ayuda a fortalecer la comunidad.",
+          payload: { jobId: payload.jobId },
+        });
+      }
+      if (clientUserId) {
+        specs.push({
+          userId: clientUserId,
+          type: "rating_requested_client",
+          title: "Califica al profesional",
+          body: "Tu proyecto fue completado. Comparte tu experiencia con el contratista.",
+          payload: { jobId: payload.jobId },
+        });
+      }
+      return specs;
+    }
+
     default:
       return [];
   }

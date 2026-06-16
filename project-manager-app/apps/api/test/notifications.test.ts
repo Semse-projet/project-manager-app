@@ -303,3 +303,52 @@ test("N.MA4: notificación milestone_approved es best-effort — error no bloque
     assert.ok(notifThrew, "error de notificación fue capturado");
   });
 });
+
+// ── Rating request notifications ──────────────────────────────────────────────
+
+function mapRatingRequested(payload: EventPayload): NotificationSpec[] {
+  const proUserId    = extractStr(payload, "proUserId");
+  const clientUserId = extractStr(payload, "clientUserId");
+  const specs: NotificationSpec[] = [];
+  if (proUserId) {
+    specs.push({
+      userId: proUserId,
+      type: "rating_requested_pro",
+      title: "Califica tu experiencia",
+      body: "¿Cómo fue trabajar en este proyecto? Tu calificación ayuda a fortalecer la comunidad.",
+    });
+  }
+  if (clientUserId) {
+    specs.push({
+      userId: clientUserId,
+      type: "rating_requested_client",
+      title: "Califica al profesional",
+      body: "Tu proyecto fue completado. Comparte tu experiencia con el contratista.",
+    });
+  }
+  return specs;
+}
+
+test("N.RR1: rating.requested con ambas partes → 2 notificaciones", () => {
+  const specs = mapRatingRequested({ proUserId: "pro-1", clientUserId: "client-1", jobId: "j-1" });
+  assert.equal(specs.length, 2);
+  assert.ok(specs.some((s) => s.userId === "pro-1" && s.type === "rating_requested_pro"));
+  assert.ok(specs.some((s) => s.userId === "client-1" && s.type === "rating_requested_client"));
+});
+
+test("N.RR2: rating.requested solo proUserId → 1 notificación al contratista", () => {
+  const specs = mapRatingRequested({ proUserId: "pro-1", jobId: "j-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.type, "rating_requested_pro");
+});
+
+test("N.RR3: rating.requested solo clientUserId → 1 notificación al cliente", () => {
+  const specs = mapRatingRequested({ clientUserId: "client-1", jobId: "j-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.type, "rating_requested_client");
+});
+
+test("N.RR4: rating.requested sin ninguna parte → 0 notificaciones", () => {
+  const specs = mapRatingRequested({ jobId: "j-1" });
+  assert.equal(specs.length, 0);
+});
