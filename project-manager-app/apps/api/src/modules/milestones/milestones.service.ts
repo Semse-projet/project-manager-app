@@ -9,6 +9,7 @@ import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import type { EscrowReleaseService } from "../payments/escrow-release.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
 
 @Injectable()
 export class MilestonesService {
@@ -21,6 +22,7 @@ export class MilestonesService {
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
     @Optional() private readonly escrowRelease?: EscrowReleaseService,
+    @Optional() private readonly notifications?: NotificationsService,
   ) {}
 
   private syncContext(tenantId: string, projectId: string, source: string, reason: string): void {
@@ -223,6 +225,19 @@ export class MilestonesService {
     }));
 
     this.syncContext(input.tenantId, context.projectId, "milestone.approved", "milestone approved");
+
+    if (context.proUserId) {
+      void this.notifications?.handleEvent({
+        tenantId: input.tenantId,
+        eventType: "milestone.approved",
+        payload: {
+          proUserId: context.proUserId,
+          milestoneId: milestone.id,
+          projectId: context.projectId,
+          jobId: context.jobId,
+        },
+      }).catch(() => undefined);
+    }
 
     void this.intelligenceAgent?.evaluateMilestone({
       tenantId: input.tenantId,

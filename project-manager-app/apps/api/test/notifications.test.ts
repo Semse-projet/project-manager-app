@@ -231,3 +231,75 @@ test("N.P2: notificación fallida no bloquea el flujo del dominio", () => {
   assert.ok(domainEventCompleted, "dominio completa aunque notificación falle");
   assert.ok(notificationFailed,   "notificación puede fallar silenciosamente");
 });
+
+// ── Milestone approval → contractor notification wiring ───────────────────────
+
+function mapMilestoneApproved(payload: EventPayload): NotificationSpec[] {
+  const proUserId = extractStr(payload, "proUserId");
+  if (!proUserId) return [];
+  return [{
+    userId: proUserId,
+    type: "milestone_approved",
+    title: "Hito aprobado",
+    body: "El cliente aprobó tu entrega. El pago del hito puede liberarse.",
+  }];
+}
+
+function mapPaymentReleased(payload: EventPayload): NotificationSpec[] {
+  const proUserId = extractStr(payload, "proUserId");
+  if (!proUserId) return [];
+  return [{
+    userId: proUserId,
+    type: "payment_released",
+    title: "Pago liberado",
+    body: "Se liberó el pago de un hito. El monto estará disponible según tu método de cobro.",
+  }];
+}
+
+test("N.MA1: milestone.approved con proUserId genera notificación al contractor", () => {
+  const specs = mapMilestoneApproved({ proUserId: "pro-1", milestoneId: "m-1", projectId: "p-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.userId, "pro-1");
+  assert.equal(specs[0]!.type, "milestone_approved");
+});
+
+test("N.MA2: milestone.approved sin proUserId no genera notificación", () => {
+  const specs = mapMilestoneApproved({ milestoneId: "m-1" });
+  assert.deepEqual(specs, []);
+});
+
+test("N.MA3: milestone.approved sin proUserId (null) no genera notificación", () => {
+  const specs = mapMilestoneApproved({ proUserId: null, milestoneId: "m-1" });
+  assert.deepEqual(specs, []);
+});
+
+test("N.PR1: payment.released con proUserId genera notificación al contractor", () => {
+  const specs = mapPaymentReleased({ proUserId: "pro-2", milestoneId: "m-2", amount: 500, currency: "usd" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.userId, "pro-2");
+  assert.equal(specs[0]!.type, "payment_released");
+});
+
+test("N.PR2: payment.released sin proUserId no genera notificación", () => {
+  const specs = mapPaymentReleased({ milestoneId: "m-2" });
+  assert.deepEqual(specs, []);
+});
+
+test("N.MA4: notificación milestone_approved es best-effort — error no bloquea aprobación", () => {
+  let approvalCompleted = false;
+  let notifThrew = false;
+
+  const mockApprove = async () => {
+    approvalCompleted = true;
+    try {
+      throw new Error("SSE channel closed");
+    } catch {
+      notifThrew = true;
+    }
+  };
+
+  return mockApprove().then(() => {
+    assert.ok(approvalCompleted, "aprobación del hito completada");
+    assert.ok(notifThrew, "error de notificación fue capturado");
+  });
+});

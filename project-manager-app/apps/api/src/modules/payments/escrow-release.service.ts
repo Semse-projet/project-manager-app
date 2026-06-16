@@ -1,7 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { PaymentGovernanceService } from "./payment-governance.service.js";
 import { StripeConnectService } from "./stripe-connect.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
 
 export type EscrowReleaseResult = {
   milestoneId:    string;
@@ -23,6 +24,7 @@ export class EscrowReleaseService {
     private readonly prisma: PrismaService,
     private readonly governance: PaymentGovernanceService,
     private readonly connect: StripeConnectService,
+    @Optional() private readonly notifications?: NotificationsService,
   ) {}
 
   /** Called from MilestonesService.approve() via @Optional injection. */
@@ -93,6 +95,18 @@ export class EscrowReleaseService {
         });
 
         this.logger.log(`[EscrowRelease] Released $${netAmountUsd} for milestone ${milestoneId} → transfer ${transferId}`);
+
+        void this.notifications?.handleEvent({
+          tenantId,
+          eventType: "payment.released",
+          payload: {
+            proUserId: recipientId,
+            milestoneId,
+            projectId: milestone.project?.id ?? "",
+            amount: netAmountUsd,
+            currency,
+          },
+        }).catch(() => undefined);
       } catch (err) {
         this.logger.error(`[EscrowRelease] Transfer failed for ${milestoneId}: ${(err as Error).message}`);
         return { milestoneId, released: false, blockers: [(err as Error).message], governanceResult: gov };
