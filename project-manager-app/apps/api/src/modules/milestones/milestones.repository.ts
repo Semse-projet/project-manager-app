@@ -894,4 +894,17 @@ export class MilestonesRepository {
       generatedAt: new Date().toISOString(),
     };
   }
+
+  async checkAllMilestonesApproved(input: { tenantId: string; projectId: string }): Promise<boolean> {
+    if (!databaseEnabled()) return false;
+    const [total, approved] = await Promise.all([
+      this.prisma.milestone.count({
+        where: { projectId: input.projectId, deletedAt: null },
+      }),
+      this.prisma.milestone.count({
+        where: { projectId: input.projectId, deletedAt: null, status: "APPROVED" },
+      }),
+    ]);
+    return total > 0 && total === approved;
+  }
 }
