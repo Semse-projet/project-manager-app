@@ -200,7 +200,7 @@ export default function WorkerJobDetailPage() {
                 {normalizedStatus === "completed" && jobId ? (
                   <div style={{ marginTop: 10 }}>
                     <Link
-                      href="/worker/review"
+                      href={`/worker/jobs/${jobId}/rate`}
                       style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.1)", color: "#10b981", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       ⭐ Calificar al cliente
