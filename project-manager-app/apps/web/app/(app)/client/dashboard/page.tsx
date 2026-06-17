@@ -193,6 +193,53 @@ export default function ClientDashboardPage() {
         />
       </div>
 
+      {/* Reputation widget */}
+      {!loading && totalReceived > 0 && (
+        <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: "11px", color: "#a5b4fc", fontWeight: 800, marginBottom: 4 }}>MI REPUTACIÓN COMO CLIENTE</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", gap: 2 }}>
+                  {[1,2,3,4,5].map(i => (
+                    <Star key={i} size={14} fill={i <= Math.round(avgReceived) ? "#fbbf24" : "none"} color={i <= Math.round(avgReceived) ? "#fbbf24" : "var(--border)"} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{avgReceived.toFixed(1)}</span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>({totalReceived} calificacion{totalReceived !== 1 ? "es" : ""})</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: `${CLIENT_TIER[tier]?.color ?? "#64748b"}18`, color: CLIENT_TIER[tier]?.color ?? "#64748b" }}>
+                  {CLIENT_TIER[tier]?.label ?? tier}
+                </span>
+              </div>
+            </div>
+            <Link href="/client/reviews" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(129,140,248,.24)", background: "rgba(129,140,248,.1)", color: "#a5b4fc", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+              Ver historial <ArrowRight size={13} />
+            </Link>
+          </div>
+        </HtmlInCanvasPanel>
+      )}
+
+      {/* Pending ratings */}
+      {!loading && unratedJobs.length > 0 && (
+        <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
+          <div style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 800, marginBottom: 10 }}>CALIFICA A TUS PROFESIONALES</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {unratedJobs.map(job => (
+              <div key={job.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
+                <Star size={15} color="#fbbf24" fill="none" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</p>
+                  <p style={{ fontSize: 11, color: "var(--muted)" }}>Trabajo completado · Sin calificación</p>
+                </div>
+                <Link href={`/client/jobs/${job.id}/rate`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", color: "#fbbf24", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                  Calificar <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </HtmlInCanvasPanel>
+      )}
+
       {!loading && jobsWithPreferred.length > 0 ? (
         <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={76}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
