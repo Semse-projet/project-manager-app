@@ -369,8 +369,31 @@ function mapEventToNotifications(
 
     // ── Job lifecycle ────────────────────────────────────────────────────────
     case "job.published": {
-      // Broadcast to a system queue for matching — individual recipients handled by matching engine
+      // Individual contractor notifications handled by MarketplaceAgent via "job.matched"
       return [];
+    }
+
+    case "job.matched": {
+      // Sent by MarketplaceAgent after running the matching algorithm on a new job
+      const matchedUserIds = Array.isArray(payload.matchedUserIds) ? payload.matchedUserIds as string[] : [];
+      const jobTitle = extractStr(payload, "jobTitle") ?? "Nuevo trabajo";
+      const trade    = extractStr(payload, "trade") ?? "";
+      const location = extractStr(payload, "location") ?? "";
+      const urgency  = extractStr(payload, "urgency") ?? "medium";
+      const budgetMin = typeof payload.budgetMin === "number" ? payload.budgetMin : null;
+      const budgetMax = typeof payload.budgetMax === "number" ? payload.budgetMax : null;
+      const budgetText = budgetMin && budgetMax
+        ? ` · $${Math.round(budgetMin / 1000)}k–$${Math.round(budgetMax / 1000)}k`
+        : "";
+      const urgencyLabel: Record<string, string> = { urgent: "⚡ Urgente", high: "Alta prioridad", medium: "", low: "" };
+      const urgencyPrefix = urgencyLabel[urgency] ? `${urgencyLabel[urgency]} — ` : "";
+      return matchedUserIds.map((userId) => ({
+        userId,
+        type: "job_matched",
+        title: `${urgencyPrefix}Nuevo trabajo disponible`,
+        body: `${jobTitle}${location ? ` en ${location}` : ""}${budgetText}. Oficio: ${trade}. ¡Aplica ahora!`,
+        payload: { jobId: payload.jobId, trade, urgency },
+      }));
     }
 
     case "job.completed": {
