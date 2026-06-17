@@ -463,6 +463,20 @@ function mapEventToNotifications(
       return specs;
     }
 
+    case "rating.submitted": {
+      const toUserId = extractStr(payload, "toUserId");
+      const score    = typeof payload.score === "number" ? payload.score : null;
+      if (!toUserId) return [];
+      const stars = score !== null ? `${"★".repeat(score)}${"☆".repeat(5 - score)} (${score}/5)` : "";
+      return [{
+        userId: toUserId,
+        type: "rating_received",
+        title: "Recibiste una calificación",
+        body: stars ? `Alguien calificó tu trabajo: ${stars}` : "Alguien calificó tu trabajo. Revisa tu perfil.",
+        payload: { jobId: payload.jobId, ratingId: payload.ratingId },
+      }];
+    }
+
     default:
       return [];
   }
