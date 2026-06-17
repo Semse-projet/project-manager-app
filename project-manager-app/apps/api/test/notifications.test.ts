@@ -46,6 +46,25 @@ function mapEventToNotifications(eventType: string, payload: EventPayload): Noti
       if (!client) return [];
       return [{ userId: client, type: "change_order", title: "Change order enviado", body: "Hay un cambio de alcance pendiente de tu aprobación." }];
     }
+    case "job.matched": {
+      const matchedUserIds = Array.isArray(payload.matchedUserIds) ? payload.matchedUserIds as string[] : [];
+      const jobTitle = extractStr(payload, "jobTitle") ?? "Nuevo trabajo";
+      const trade    = extractStr(payload, "trade") ?? "";
+      const urgency  = typeof payload.urgency === "string" ? payload.urgency : "medium";
+      const budgetMin = typeof payload.budgetMin === "number" ? payload.budgetMin : null;
+      const budgetMax = typeof payload.budgetMax === "number" ? payload.budgetMax : null;
+      const budgetText = budgetMin && budgetMax
+        ? ` · $${Math.round(budgetMin / 1000)}k–$${Math.round(budgetMax / 1000)}k`
+        : "";
+      const urgencyLabel: Record<string, string> = { urgent: "⚡ Urgente", high: "Alta prioridad", medium: "", low: "" };
+      const urgencyPrefix = urgencyLabel[urgency] ? `${urgencyLabel[urgency]} — ` : "";
+      return matchedUserIds.map((userId) => ({
+        userId,
+        type: "job_matched",
+        title: `${urgencyPrefix}Nuevo trabajo disponible`,
+        body: `${jobTitle}${budgetText}. Oficio: ${trade}. ¡Aplica ahora!`,
+      })) as NotificationSpec[];
+    }
     default:
       return [];
   }
@@ -350,5 +369,39 @@ test("N.RR3: rating.requested solo clientUserId → 1 notificación al cliente",
 
 test("N.RR4: rating.requested sin ninguna parte → 0 notificaciones", () => {
   const specs = mapRatingRequested({ jobId: "j-1" });
+  assert.equal(specs.length, 0);
+});
+
+// ── Rating received notifications ──────────────────────────────────────────────
+
+function mapRatingSubmitted(payload: EventPayload): NotificationSpec[] {
+  const toUserId = extractStr(payload, "toUserId");
+  const score    = typeof payload.score === "number" ? payload.score : null;
+  if (!toUserId) return [];
+  const stars = score !== null ? `${"★".repeat(score)}${"☆".repeat(5 - score)} (${score}/5)` : "";
+  return [{
+    userId: toUserId,
+    type: "rating_received",
+    title: "Recibiste una calificación",
+    body: stars ? `Alguien calificó tu trabajo: ${stars}` : "Alguien calificó tu trabajo. Revisa tu perfil.",
+  }];
+}
+
+test("N.RS1: rating.submitted con score → notificación con estrellas al destinatario", () => {
+  const specs = mapRatingSubmitted({ toUserId: "user-2", score: 4, jobId: "j-1", ratingId: "r-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.userId, "user-2");
+  assert.equal(specs[0]!.type, "rating_received");
+  assert.ok(specs[0]!.body.includes("4/5"));
+});
+
+test("N.RS2: rating.submitted sin score → notificación genérica", () => {
+  const specs = mapRatingSubmitted({ toUserId: "user-2", jobId: "j-1" });
+  assert.equal(specs.length, 1);
+  assert.ok(specs[0]!.body.includes("perfil"));
+});
+
+test("N.RS3: rating.submitted sin toUserId → 0 notificaciones", () => {
+  const specs = mapRatingSubmitted({ score: 5, jobId: "j-1" });
   assert.equal(specs.length, 0);
 });

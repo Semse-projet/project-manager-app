@@ -22,6 +22,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
 import { useLanguage } from "../../../../lib/language-context";
+import { fetchRatings, type RatingListItem } from "../../../semse-api";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-US", {
@@ -80,24 +81,43 @@ function EmptyPanel({
   );
 }
 
+const TRUST_TIER: Record<string, { label: string; color: string }> = {
+  emerging:    { label: "Emergente",    color: "#64748b" },
+  growing:     { label: "En crecimiento", color: "#3b82f6" },
+  established: { label: "Establecido", color: "#8b5cf6" },
+  trusted:     { label: "De confianza", color: "#10b981" },
+};
+
+function reputationTier(totalRatings: number, avg: number): string {
+  if (totalRatings === 0) return "emerging";
+  if (totalRatings < 5 || avg < 3.5) return "emerging";
+  if (totalRatings < 10 || avg < 4.0) return "growing";
+  if (totalRatings < 25 || avg < 4.5) return "established";
+  return "trusted";
+}
+
 export default function WorkerDashboardPage() {
   const { t } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [receivedRatings, setReceivedRatings] = useState<RatingListItem[]>([]);
 
   useEffect(() => {
-    fetch("/api/semse/jobs")
-      .then((response) => response.json())
-      .then((payload: { data?: JobRecordView[]; error?: { message: string } }) => {
-        if (payload.error) {
-          setApiError(payload.error.message);
-          return;
-        }
-        setJobs(payload.data ?? []);
-      })
-      .catch(() => setApiError("No se pudo conectar con el servidor"))
-      .finally(() => setLoading(false));
+    void Promise.all([
+      fetch("/api/semse/jobs")
+        .then((r) => r.json())
+        .then((payload: { data?: JobRecordView[]; error?: { message: string } }) => {
+          if (payload.error) { setApiError(payload.error.message); return; }
+          setJobs(payload.data ?? []);
+        })
+        .catch(() => setApiError("No se pudo conectar con el servidor")),
+      fetchRatings()
+        .then(({ actorUserId, items }) => {
+          setReceivedRatings(items.filter((r) => r.toUser.id === actorUserId));
+        })
+        .catch(() => undefined),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const metrics = useMemo(() => {
@@ -383,6 +403,51 @@ export default function WorkerDashboardPage() {
           </div>
         </HtmlInCanvasPanel>
       </div>
+
+      {/* Reputation widget */}
+      {!loading && (() => {
+        const avgScore = receivedRatings.length > 0
+          ? receivedRatings.reduce((s, r) => s + r.score, 0) / receivedRatings.length
+          : 0;
+        const tier = reputationTier(receivedRatings.length, avgScore);
+        const tierMeta = TRUST_TIER[tier] ?? TRUST_TIER.emerging!;
+        return (
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "18px 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "14px", flexWrap: "wrap" }}>
+              <div>
+                <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Mi reputación</h2>
+                <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>Basada en calificaciones recibidas de clientes.</p>
+              </div>
+              <Link href="/worker/review" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                Ver reseñas <ArrowRight size={13} />
+              </Link>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px" }}>
+              <div style={{ background: "var(--raised)", borderRadius: "12px", padding: "14px 12px", textAlign: "center" }}>
+                <div style={{ display: "flex", gap: "2px", justifyContent: "center", marginBottom: "6px" }}>
+                  {[1,2,3,4,5].map((n) => (
+                    <Star key={n} size={14} fill={n <= Math.round(avgScore) ? "#fbbf24" : "none"} color={n <= Math.round(avgScore) ? "#fbbf24" : "var(--border)"} />
+                  ))}
+                </div>
+                <p style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", margin: "0 0 2px" }}>
+                  {receivedRatings.length === 0 ? "—" : avgScore.toFixed(1)}
+                </p>
+                <p style={{ fontSize: "11px", color: "var(--muted)" }}>Promedio</p>
+              </div>
+              <div style={{ background: "var(--raised)", borderRadius: "12px", padding: "14px 12px", textAlign: "center" }}>
+                <p style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", margin: "0 0 2px" }}>{receivedRatings.length}</p>
+                <p style={{ fontSize: "11px", color: "var(--muted)" }}>Reseñas recibidas</p>
+              </div>
+              <div style={{ background: "var(--raised)", borderRadius: "12px", padding: "14px 12px", textAlign: "center" }}>
+                <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 99, fontSize: "11px", fontWeight: 700, background: `${tierMeta.color}22`, color: tierMeta.color, border: `1px solid ${tierMeta.color}44`, marginBottom: "6px" }}>
+                  {tierMeta.label}
+                </span>
+                <p style={{ fontSize: "11px", color: "var(--muted)" }}>Nivel de confianza</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <section>
         <div
