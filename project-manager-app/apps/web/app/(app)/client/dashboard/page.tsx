@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users } from "lucide-react";
+import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users, Star } from "lucide-react";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
@@ -15,6 +15,7 @@ import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { ClientSummaryCardLink } from "../../../components/client/ClientSummaryCardLink";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { CLIENT_ROUTES, clientDisputesHref, clientJobsHref, clientPaymentsHref } from "../../../lib/client-routes";
+import { fetchRatings, type RatingListItem } from "../../../semse-api";
 
 // ─────────────────────────────────────────────────────────────
 // COMPONENTE
@@ -43,20 +44,48 @@ function preferredProfessionalLabel(job: JobRecordView): string | null {
   return job.preferredProfessional?.displayName?.trim() || null;
 }
 
+const CLIENT_TIER: Record<string, { label: string; color: string }> = {
+  nuevo:        { label: "Nuevo",         color: "#64748b" },
+  confiable:    { label: "Confiable",     color: "#3b82f6" },
+  preferido:    { label: "Preferido",     color: "#8b5cf6" },
+  elite:        { label: "Elite",         color: "#10b981" },
+};
+
+function clientRepTier(total: number, avg: number): string {
+  if (total === 0) return "nuevo";
+  if (total < 3 || avg < 3.5) return "nuevo";
+  if (total < 8 || avg < 4.0) return "confiable";
+  if (total < 20 || avg < 4.5) return "preferido";
+  return "elite";
+}
+
 export default function ClientDashboardPage() {
-  const [jobs, setJobs]   = useState<JobRecordView[]>([]);
+  const [jobs, setJobs]              = useState<JobRecordView[]>([]);
+  const [receivedRatings, setReceivedRatings] = useState<RatingListItem[]>([]);
+  const [actorUserId, setActorUserId]         = useState<string | null>(null);
+  const [givenJobIds, setGivenJobIds]         = useState<Set<string>>(new Set());
   const [pendingBidCount, setPendingBidCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/semse/jobs")
-      .then(r => r.json())
-      .then(async (d: { data?: JobRecordView[]; error?: { message: string } }) => {
+    const jobsPromise = fetch("/api/semse/jobs").then(r => r.json() as Promise<{ data?: JobRecordView[]; error?: { message: string } }>);
+    const ratingsPromise = fetchRatings().catch(() => ({ actorUserId: null, items: [] as RatingListItem[] }));
+
+    Promise.all([jobsPromise, ratingsPromise])
+      .then(async ([d, ratingsData]) => {
+        // Ratings
+        const actor = ratingsData.actorUserId;
+        setActorUserId(actor);
+        const given    = ratingsData.items.filter(r => r.fromUser.id === actor);
+        const received = ratingsData.items.filter(r => r.toUser.id === actor);
+        setGivenJobIds(new Set(given.map(r => r.jobId)));
+        setReceivedRatings(received);
+
+        // Jobs
         if (d.error) { setApiError(d.error.message); return; }
         const jobList = d.data ?? [];
         setJobs(jobList);
-        // Count pending bids across published jobs
         const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
         const bidCounts = await Promise.allSettled(
           published.map((j: JobRecordView) =>
@@ -81,6 +110,13 @@ export default function ClientDashboardPage() {
   const completedJobs = jobs.filter(j => j.status === "completed");
   const budgetActiveJobs = jobs.filter(j => ["accepted", "reserved", "in_progress", "review"].includes(j.status) && (j.budgetMin ?? j.budgetMax));
   const jobsWithPreferred = jobs.filter((job) => preferredProfessionalLabel(job));
+
+  const unratedJobs = completedJobs.filter(j => !givenJobIds.has(j.id)).slice(0, 3);
+  const totalReceived = receivedRatings.length;
+  const avgReceived   = totalReceived > 0
+    ? receivedRatings.reduce((s, r) => s + r.score, 0) / totalReceived
+    : 0;
+  const tier = clientRepTier(totalReceived, avgReceived);
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
