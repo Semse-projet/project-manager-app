@@ -6,13 +6,17 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { BidsService } from "./bids.service.js";
 
-const createBidSchema = bidSchema.omit({ jobId: true });
+const createBidSchema = bidSchema.omit({ jobId: true }).extend({ proOrgId: bidSchema.shape.proOrgId.optional() });
 
-@Controller("v1/bids")
-export class BidsController {
+// Dedicated controller for the static /mine route — kept separate from any
+// parametric sibling routes to avoid a Fastify find-my-way routing conflict
+// where @Controller("v1/bids") + @Get("mine") + @Post(":bidId/accept") drops
+// the static GET route silently.
+@Controller("v1/my-bids")
+export class BidsMineController {
   constructor(private readonly bidsService: BidsService) {}
 
-  @Get("mine")
+  @Get()
   @RequirePermissions("bids:read")
   async mine(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
@@ -23,6 +27,11 @@ export class BidsController {
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
+}
+
+@Controller("v1/bids")
+export class BidsController {
+  constructor(private readonly bidsService: BidsService) {}
 
   @Post(":bidId/accept")
   @RequirePermissions("bids:accept")
@@ -76,7 +85,7 @@ export class JobBidsController {
     const bid = await this.bidsService.create({
       tenantId: actor.tenantId,
       jobId,
-      proOrgId: parsed.data.proOrgId,
+      proOrgId: parsed.data.proOrgId ?? actor.orgId,
       userId: actor.userId,
       orgId: actor.orgId,
       roles: actor.roles,
