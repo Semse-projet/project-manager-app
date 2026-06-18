@@ -1,10 +1,8 @@
 name: Railway Deploy
 
-# La GitHub App de Railway no esta instalada en la org Semse-projet, por lo
-# que Railway no recibe eventos de push. Este workflow despliega el commit
-# exacto del push via serviceInstanceDeployV2 (la lectura de HEAD por parte
-# de Railway tiene lag, asi que se pasa el SHA explicito). Si algun dia se
-# instala la app nativa de Railway, este workflow puede eliminarse.
+# serviceInstanceDeploy(latestCommit: true, commitSha: SHA) triggers a REAL
+# fresh build from source — unlike serviceInstanceDeployV2 which redeploys
+# the same cached image. Always use this form when pushing code changes.
 on:
   push:
     branches: [main]
@@ -20,7 +18,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy exact commit to Railway
+      - name: Deploy exact commit to Railway (fresh build)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
@@ -35,8 +33,8 @@ jobs:
             response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\":\"mutation { serviceInstanceDeployV2(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", commitSha: \\\"$GITHUB_SHA\\\") }\"}")
-            echo "$response" | grep -q '"serviceInstanceDeployV2"' \
+              -d "{\"query\":\"mutation { serviceInstanceDeploy(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", latestCommit: true, commitSha: \\\"$GITHUB_SHA\\\") }\"}")
+            echo "$response" | grep -q '"serviceInstanceDeploy"' \
               || { echo "Deploy failed for service $svc: $response"; exit 1; }
-            echo "Deploy de $GITHUB_SHA disparado para servicio $svc"
+            echo "Fresh build de $GITHUB_SHA disparado para servicio $svc"
           done
