@@ -12,6 +12,18 @@ const createBidSchema = bidSchema.omit({ jobId: true });
 export class BidsController {
   constructor(private readonly bidsService: BidsService) {}
 
+  @Get("v1/bids/mine")
+  @RequirePermissions("bids:read")
+  async mine(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const data = await this.bidsService.listMine({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      orgId: actor.orgId,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Get("v1/jobs/:jobId/bids")
   @RequirePermissions("bids:read")
   async list(@Req() req: { headers?: Record<string, unknown> }, @Param("jobId") jobId: string) {
