@@ -271,3 +271,59 @@ test("MB.WB5: BFF retorna array vacío cuando worker no tiene bids", () => {
   const mine = filterBidsByWorker(bids, "u1");
   assert.deepEqual(mine, []);
 });
+
+// ── Bid creation schema — correct fields (amount + etaDays) ────────────────────
+
+type CreateBidBody = {
+  jobId: string;
+  amount: number;
+  etaDays: number;
+  proOrgId?: string;
+};
+
+function validateCreateBid(body: Partial<CreateBidBody>): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (!body.jobId || body.jobId.trim().length === 0) errors.push("jobId es requerido");
+  if (body.amount === undefined || body.amount === null) errors.push("amount es requerido");
+  else if (body.amount <= 0) errors.push("amount debe ser positivo");
+  if (body.etaDays === undefined || body.etaDays === null) errors.push("etaDays es requerido");
+  else if (body.etaDays <= 0 || !Number.isInteger(body.etaDays)) errors.push("etaDays debe ser un entero positivo");
+  return { valid: errors.length === 0, errors };
+}
+
+test("MB.CS1: bid con amount y etaDays válidos es aceptado", () => {
+  const result = validateCreateBid({ jobId: "j1", amount: 1500, etaDays: 5 });
+  assert.ok(result.valid);
+  assert.equal(result.errors.length, 0);
+});
+
+test("MB.CS2: bid sin amount falla validación", () => {
+  const result = validateCreateBid({ jobId: "j1", etaDays: 3 });
+  assert.ok(!result.valid);
+  assert.ok(result.errors.some(e => e.includes("amount")));
+});
+
+test("MB.CS3: bid con amount negativo falla validación", () => {
+  const result = validateCreateBid({ jobId: "j1", amount: -100, etaDays: 3 });
+  assert.ok(!result.valid);
+  assert.ok(result.errors.some(e => e.includes("amount")));
+});
+
+test("MB.CS4: bid sin etaDays falla validación", () => {
+  const result = validateCreateBid({ jobId: "j1", amount: 800 });
+  assert.ok(!result.valid);
+  assert.ok(result.errors.some(e => e.includes("etaDays")));
+});
+
+test("MB.CS5: bid con etaDays cero falla validación", () => {
+  const result = validateCreateBid({ jobId: "j1", amount: 500, etaDays: 0 });
+  assert.ok(!result.valid);
+  assert.ok(result.errors.some(e => e.includes("etaDays")));
+});
+
+test("MB.CS6: proOrgId es opcional en el cuerpo de la petición", () => {
+  const withOrg    = validateCreateBid({ jobId: "j1", amount: 200, etaDays: 2, proOrgId: "org-abc" });
+  const withoutOrg = validateCreateBid({ jobId: "j1", amount: 200, etaDays: 2 });
+  assert.ok(withOrg.valid,    "con proOrgId debe ser válido");
+  assert.ok(withoutOrg.valid, "sin proOrgId también debe ser válido (default a actor.orgId)");
+});
