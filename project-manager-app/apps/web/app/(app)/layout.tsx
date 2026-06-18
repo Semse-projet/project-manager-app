@@ -71,6 +71,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     icon: HardHat,
     items: [
       { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
+      { labelKey: "nav.opportunities", href: "/worker/opportunities", icon: Store },
       { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
       { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
       { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
@@ -81,6 +82,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.payments", href: "/worker/payments", icon: CreditCard },
       { labelKey: "nav.travel", href: "/worker/travel", icon: PlaneTakeoff },
       { labelKey: "nav.fieldOps", href: "/worker/field-ops", icon: Wrench, section: "section.field" },
+      { labelKey: "nav.reviews", href: "/worker/review", icon: Star },
       { labelKey: "nav.myProfile", href: "/worker/profile", icon: User },
       { labelKey: "nav.aiSettings", href: "/worker/settings", icon: Settings },
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
