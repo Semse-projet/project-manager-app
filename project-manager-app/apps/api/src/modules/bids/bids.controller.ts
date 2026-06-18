@@ -6,7 +6,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { BidsService } from "./bids.service.js";
 
-const createBidSchema = bidSchema.omit({ jobId: true });
+const createBidSchema = bidSchema.omit({ jobId: true }).extend({ proOrgId: bidSchema.shape.proOrgId.optional() });
 
 @Controller()
 export class BidsController {
@@ -54,7 +54,7 @@ export class BidsController {
     const bid = await this.bidsService.create({
       tenantId: actor.tenantId,
       jobId,
-      proOrgId: parsed.data.proOrgId,
+      proOrgId: parsed.data.proOrgId ?? actor.orgId,
       userId: actor.userId,
       orgId: actor.orgId,
       roles: actor.roles,

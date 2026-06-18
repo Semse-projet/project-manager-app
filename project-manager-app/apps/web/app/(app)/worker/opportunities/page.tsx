@@ -21,10 +21,9 @@ type Job = {
 
 type BidForm = {
   jobId: string;
-  budgetMin: string;
-  budgetMax: string;
+  amount: string;
+  etaDays: string;
   note: string;
-  availableFrom: string;
 };
 
 type BidResult = { success: boolean; message: string };
@@ -103,16 +102,16 @@ export default function WorkerOpportunitiesPage() {
     if (!bidForm) return;
     setBidSubmitting(true);
     try {
+      const amount  = Number(bidForm.amount);
+      const etaDays = Number(bidForm.etaDays);
+      if (!amount || amount <= 0 || !etaDays || etaDays <= 0) {
+        setBidResult(prev => ({ ...prev, [bidForm.jobId]: { success: false, message: "Monto y días son requeridos" } }));
+        return;
+      }
       const res = await fetch("/api/semse/bids", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          jobId: bidForm.jobId,
-          budgetMin: bidForm.budgetMin ? Number(bidForm.budgetMin) : undefined,
-          budgetMax: bidForm.budgetMax ? Number(bidForm.budgetMax) : undefined,
-          note: bidForm.note.trim() || undefined,
-          availableFrom: bidForm.availableFrom || undefined,
-        }),
+        body: JSON.stringify({ jobId: bidForm.jobId, amount, etaDays }),
       });
       const json = await res.json() as { data?: unknown; error?: { message: string } };
       if (!res.ok) throw new Error(json.error?.message ?? "No se pudo enviar la propuesta");
@@ -231,34 +230,25 @@ export default function WorkerOpportunitiesPage() {
                         <div style={{ display: "grid", gap: 10 }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                             <div>
-                              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 4 }}>PRESUPUESTO MÍN ($)</label>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 4 }}>MI PRECIO ($)</label>
                               <input
-                                type="number" min="0" step="50"
-                                placeholder={money(job.budgetMin) ?? "0"}
-                                value={bidForm?.jobId === job.id ? bidForm.budgetMin : ""}
-                                onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, budgetMin: "", budgetMax: "", note: "", availableFrom: "" }), budgetMin: e.target.value }))}
+                                type="number" min="1" step="50"
+                                placeholder="ej. 1500"
+                                value={bidForm?.jobId === job.id ? bidForm.amount : ""}
+                                onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, amount: "", etaDays: "", note: "" }), amount: e.target.value }))}
                                 style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
                               />
                             </div>
                             <div>
-                              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 4 }}>PRESUPUESTO MÁX ($)</label>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 4 }}>DÍAS ESTIMADOS</label>
                               <input
-                                type="number" min="0" step="50"
-                                placeholder={money(job.budgetMax) ?? "0"}
-                                value={bidForm?.jobId === job.id ? bidForm.budgetMax : ""}
-                                onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, budgetMin: "", budgetMax: "", note: "", availableFrom: "" }), budgetMax: e.target.value }))}
+                                type="number" min="1" step="1"
+                                placeholder="ej. 5"
+                                value={bidForm?.jobId === job.id ? bidForm.etaDays : ""}
+                                onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, amount: "", etaDays: "", note: "" }), etaDays: e.target.value }))}
                                 style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
                               />
                             </div>
-                          </div>
-                          <div>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 4 }}>DISPONIBILIDAD (fecha de inicio)</label>
-                            <input
-                              type="date"
-                              value={bidForm?.jobId === job.id ? bidForm.availableFrom : ""}
-                              onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, budgetMin: "", budgetMax: "", note: "", availableFrom: "" }), availableFrom: e.target.value }))}
-                              style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
-                            />
                           </div>
                           <div>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: 4 }}>MENSAJE AL CLIENTE (opcional)</label>
@@ -266,12 +256,12 @@ export default function WorkerOpportunitiesPage() {
                               rows={2}
                               placeholder="Describe tu experiencia, enfoque o preguntas sobre el trabajo..."
                               value={bidForm?.jobId === job.id ? bidForm.note : ""}
-                              onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, budgetMin: "", budgetMax: "", note: "", availableFrom: "" }), note: e.target.value }))}
+                              onChange={e => setBidForm(prev => ({ ...(prev?.jobId === job.id ? prev : { jobId: job.id, amount: "", etaDays: "", note: "" }), note: e.target.value }))}
                               style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box" }}
                             />
                           </div>
                           <button
-                            onClick={() => { setBidForm(f => f?.jobId === job.id ? f : { jobId: job.id, budgetMin: "", budgetMax: "", note: "", availableFrom: "" }); void submitBid(); }}
+                            onClick={() => { setBidForm(f => f?.jobId === job.id ? f : { jobId: job.id, amount: "", etaDays: "", note: "" }); void submitBid(); }}
                             disabled={bidSubmitting}
                             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 20px", borderRadius: 9, border: "none", background: bidSubmitting ? "var(--muted)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, cursor: bidSubmitting ? "not-allowed" : "pointer" }}
                           >
