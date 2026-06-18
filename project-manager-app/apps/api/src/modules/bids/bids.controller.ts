@@ -8,11 +8,11 @@ import { BidsService } from "./bids.service.js";
 
 const createBidSchema = bidSchema.omit({ jobId: true });
 
-@Controller()
+@Controller("v1/bids")
 export class BidsController {
   constructor(private readonly bidsService: BidsService) {}
 
-  @Get("v1/bids/mine")
+  @Get("mine")
   @RequirePermissions("bids:read")
   async mine(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
@@ -24,7 +24,29 @@ export class BidsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
-  @Get("v1/jobs/:jobId/bids")
+  @Post(":bidId/accept")
+  @RequirePermissions("bids:accept")
+  async accept(@Req() req: { headers?: Record<string, unknown> }, @Param("bidId") bidId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const bid = await this.bidsService.accept({
+      tenantId: actor.tenantId,
+      bidId,
+      userId: actor.userId,
+      orgId: actor.orgId,
+      roles: actor.roles,
+      requestId
+    });
+
+    return ok(requestId, bid);
+  }
+}
+
+@Controller("v1/jobs")
+export class JobBidsController {
+  constructor(private readonly bidsService: BidsService) {}
+
+  @Get(":jobId/bids")
   @RequirePermissions("bids:read")
   async list(@Req() req: { headers?: Record<string, unknown> }, @Param("jobId") jobId: string) {
     const actor = resolveRequestContext(req);
@@ -37,7 +59,7 @@ export class BidsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
-  @Post("v1/jobs/:jobId/bids")
+  @Post(":jobId/bids")
   @RequirePermissions("bids:create")
   async create(
     @Req() req: { headers?: Record<string, unknown> },
@@ -60,23 +82,6 @@ export class BidsController {
       roles: actor.roles,
       amount: parsed.data.amount,
       etaDays: parsed.data.etaDays,
-      requestId
-    });
-
-    return ok(requestId, bid);
-  }
-
-  @Post("v1/bids/:bidId/accept")
-  @RequirePermissions("bids:accept")
-  async accept(@Req() req: { headers?: Record<string, unknown> }, @Param("bidId") bidId: string) {
-    const actor = resolveRequestContext(req);
-    const requestId = resolveRequestId(req.headers ?? {});
-    const bid = await this.bidsService.accept({
-      tenantId: actor.tenantId,
-      bidId,
-      userId: actor.userId,
-      orgId: actor.orgId,
-      roles: actor.roles,
       requestId
     });
 
