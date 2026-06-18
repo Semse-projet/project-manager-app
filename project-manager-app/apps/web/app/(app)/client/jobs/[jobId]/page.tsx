@@ -146,10 +146,7 @@ function formatDate(value?: string): string {
 }
 
 function formatBidBudget(bid: BidView): string {
-  if (bid.budgetMin != null && bid.budgetMax != null) {
-    return `${formatMoney(bid.budgetMin)} - ${formatMoney(bid.budgetMax)}`;
-  }
-  return formatMoney(bid.budgetMin ?? bid.budgetMax ?? undefined);
+  return formatMoney(bid.amount);
 }
 
 function EvidenceIcon({ kind }: { kind: string }) {
@@ -578,7 +575,7 @@ export default function ClientJobDetailPage() {
                           <div style={{ textAlign: "right" }}>
                             <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)" }}>{formatBidBudget(bid)}</div>
                             <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: 2 }}>
-                              Disponible {formatDate(bid.availableFrom ?? undefined)}
+                              Entrega estimada: {bid.etaDays} día{bid.etaDays !== 1 ? 's' : ''}
                             </div>
                           </div>
                         </div>

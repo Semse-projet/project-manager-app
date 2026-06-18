@@ -11,7 +11,9 @@ type StoredBid = {
   professionalUserId: string;
   amount: { toNumber(): number };
   etaDays: number;
+  note?: string | null;
   status: string;
+  professional?: { email: string; name: string | null } | null;
   job: {
     id: string;
     tenantId: string;
@@ -52,6 +54,9 @@ export class BidsRepository {
             status: true,
             clientOrgId: true
           }
+        },
+        professional: {
+          select: { email: true, name: true }
         }
       },
       orderBy: { createdAt: "desc" }
@@ -377,6 +382,9 @@ export class BidsRepository {
       professionalUserId: bid.professionalUserId,
       amount: bid.amount.toNumber(),
       etaDays: bid.etaDays,
+      note: bid.note ?? undefined,
+      proEmail: bid.professional?.email ?? undefined,
+      proName: bid.professional?.name ?? undefined,
       status: bid.status.toLowerCase() as BidRecord["status"]
     };
   }

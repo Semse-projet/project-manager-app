@@ -72,6 +72,9 @@ export type BidRecord = {
   amount: number;
   etaDays: number;
   status: "submitted" | "accepted" | "rejected";
+  proEmail?: string;
+  proName?: string;
+  note?: string;
   jobTitle?: string;
   jobCategory?: string;
   jobLocation?: string;
