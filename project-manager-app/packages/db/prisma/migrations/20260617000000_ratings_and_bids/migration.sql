@@ -1,4 +1,4 @@
--- ── Bid: add professionalUserId column (was missing from original schema) ────
+-- ── Bid: add professionalUserId column ───────────────────────────────────────
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -6,13 +6,13 @@ BEGIN
     WHERE table_name = 'Bid' AND column_name = 'professionalUserId'
   ) THEN
     ALTER TABLE "Bid" ADD COLUMN "professionalUserId" TEXT NOT NULL DEFAULT '';
-    CREATE INDEX IF NOT EXISTS "Bid_professionalUserId_status_idx" ON "Bid"("professionalUserId", "status");
+    CREATE INDEX "Bid_professionalUserId_status_idx" ON "Bid"("professionalUserId", "status");
     ALTER TABLE "Bid" ADD CONSTRAINT "Bid_professionalUserId_fkey"
       FOREIGN KEY ("professionalUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   END IF;
 END $$;
 
--- ── Bid: add missing index on jobId+status if not present ────────────────────
+-- ── Bid: jobId+status index (idempotent) ─────────────────────────────────────
 CREATE INDEX IF NOT EXISTS "Bid_jobId_status_idx" ON "Bid"("jobId", "status");
 
 -- ── Rating table ──────────────────────────────────────────────────────────────
@@ -54,16 +54,5 @@ BEGIN
   ) THEN
     ALTER TABLE "Rating" ADD CONSTRAINT "Rating_toUserId_fkey"
       FOREIGN KEY ("toUserId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-  END IF;
-END $$;
-
--- ── ContractorProfile: avgClientRating column ─────────────────────────────────
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'ContractorProfile' AND column_name = 'avgClientRating'
-  ) THEN
-    ALTER TABLE "ContractorProfile" ADD COLUMN "avgClientRating" DECIMAL(3,2) NOT NULL DEFAULT 0;
   END IF;
 END $$;
