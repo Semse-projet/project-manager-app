@@ -20,9 +20,7 @@ function money(v: number | null | undefined) {
 }
 
 function budgetLabel(bid: BidView) {
-  if (!bid.budgetMin && !bid.budgetMax) return "Sin presupuesto";
-  if (bid.budgetMin && bid.budgetMax) return `${money(bid.budgetMin)} – ${money(bid.budgetMax)}`;
-  return money(bid.budgetMin ?? bid.budgetMax) ?? "—";
+  return money(bid.amount) ?? "—";
 }
 
 export default function ClientProposalsPage() {
@@ -159,7 +157,7 @@ export default function ClientProposalsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <span className="text-sm font-semibold text-ink">
-                              {bid.proName ?? bid.proEmail ?? `Profesional ${bid.proUserId.slice(-6)}`}
+                              {bid.proEmail ?? bid.professionalUserId ?? "Profesional"}
                             </span>
                             {isAccepted && (
                               <span className="rounded-full border border-green-500/30 bg-green-950/20 px-2 py-0.5 text-xs font-bold text-green-300">
@@ -172,19 +170,15 @@ export default function ClientProposalsPage() {
                               </span>
                             )}
                           </div>
-                          {(bid.budgetMin ?? bid.budgetMax) && (
+                          {bid.amount > 0 && (
                             <p className="text-xs text-green-400 font-semibold flex items-center gap-1 mb-1">
-                              <DollarSign size={10} />{budgetLabel(bid)}
+                              <DollarSign size={10} />{budgetLabel(bid)} · {bid.etaDays} día{bid.etaDays !== 1 ? "s" : ""}
                             </p>
                           )}
                           {bid.note && (
                             <p className="text-xs text-muted leading-relaxed line-clamp-2">{bid.note}</p>
                           )}
-                          {bid.availableFrom && (
-                            <p className="text-xs text-muted mt-1">
-                              Disponible desde: {new Date(bid.availableFrom).toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}
-                            </p>
-                          )}
+
                         </div>
                         {isSubmitted && (
                           <button

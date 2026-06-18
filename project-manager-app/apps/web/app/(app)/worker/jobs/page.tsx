@@ -1,17 +1,12 @@
 "use client";
 
-/**
- * Worker — Mis Trabajos
- * Lista de trabajos activos, completados y oportunidades
- */
-
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Briefcase, Search, DollarSign } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
-import type { JobRecordView } from "@semse/schemas";
+import { fetchMyBids, type MyBidView } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 const WORKER_NEXT_ACTION: Record<string, string> = {
@@ -37,35 +32,39 @@ const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info" | 
 const TABS = ["Todos", "Activos", "Completados"] as const;
 type Tab = typeof TABS[number];
 
+function money(n?: number | null) {
+  if (n == null) return null;
+  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+}
+
 export default function WorkerJobsPage() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
-  const [jobs, setJobs]       = useState<JobRecordView[]>([]);
+  const [bids, setBids]       = useState<MyBidView[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [tab, setTab]         = useState<Tab>(() => {
-    const t = searchParams?.get("tab") as Tab | null;
-    return TABS.includes(t as Tab) ? (t as Tab) : "Todos";
+    const p = searchParams?.get("tab") as Tab | null;
+    return TABS.includes(p as Tab) ? (p as Tab) : "Todos";
   });
   const [query, setQuery]     = useState("");
 
   useEffect(() => {
-    fetch("/api/semse/jobs")
-      .then(r => r.json())
-      .then((d: { data?: JobRecordView[]; error?: { message: string } }) => {
-        if (d.error) { setApiError(d.error.message); return; }
-        setJobs(d.data ?? []);
-      })
+    fetchMyBids()
+      .then(data => setBids(data.filter(b => b.status === "accepted")))
       .catch(() => setApiError("No se pudo conectar con el servidor"))
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = jobs.filter(j => {
+  const filtered = bids.filter(b => {
+    const jobStatus = b.jobStatus ?? "accepted";
     const matchTab =
       tab === "Todos"       ? true :
-      tab === "Activos"     ? ["in_progress", "accepted", "review", "reserved"].includes(j.status) :
-      tab === "Completados" ? j.status === "completed" : true;
-    const matchQ = !query || j.title.toLowerCase().includes(query.toLowerCase()) || (j.scope ?? "").toLowerCase().includes(query.toLowerCase());
+      tab === "Activos"     ? ["in_progress", "accepted", "review", "reserved"].includes(jobStatus) :
+      tab === "Completados" ? jobStatus === "completed" : true;
+    const matchQ = !query ||
+      (b.jobTitle ?? "").toLowerCase().includes(query.toLowerCase()) ||
+      (b.jobCategory ?? "").toLowerCase().includes(query.toLowerCase());
     return matchTab && matchQ;
   });
 
@@ -86,18 +85,18 @@ export default function WorkerJobsPage() {
       {/* Tabs + Search */}
       <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }} canvasClassName="rounded-2xl" minHeight={54}>
         <div style={{ display: "flex", gap: "4px", background: "var(--surface)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-          {TABS.map(t => (
+          {TABS.map(label => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={label}
+              onClick={() => setTab(label)}
               style={{
                 padding: "6px 14px", borderRadius: "7px", border: "none",
-                background: tab === t ? "var(--brand)" : "transparent",
-                color: tab === t ? "#fff" : "var(--muted)",
+                background: tab === label ? "var(--brand)" : "transparent",
+                color: tab === label ? "#fff" : "var(--muted)",
                 fontSize: "13px", fontWeight: 600, cursor: "pointer",
               }}
             >
-              {t}
+              {label}
             </button>
           ))}
         </div>
@@ -133,17 +132,20 @@ export default function WorkerJobsPage() {
           <Briefcase size={36} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
           <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>No hay trabajos</p>
           <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
-            {jobs.length === 0 ? "Aún no tienes trabajos asignados." : "Ajusta los filtros o explora oportunidades disponibles."}
+            {bids.length === 0
+              ? "Aún no tienes trabajos aceptados. Revisa las oportunidades disponibles."
+              : "Ajusta los filtros para encontrar tus trabajos."}
           </p>
         </HtmlInCanvasPanel>
       ) : (
         <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "8px" }} canvasClassName="rounded-2xl" minHeight={380}>
-          {filtered.map(job => {
-            const sc = STATUS_CONFIG[job.status] ?? { variant: "neutral" as const, label: job.status };
+          {filtered.map(bid => {
+            const jobStatus = bid.jobStatus ?? "accepted";
+            const sc = STATUS_CONFIG[jobStatus] ?? { variant: "neutral" as const, label: jobStatus };
             return (
               <Link
-                key={job.id}
-                href={`/worker/jobs/${job.id}`}
+                key={bid.id}
+                href={`/worker/jobs/${bid.jobId}`}
                 style={{
                   display: "flex", alignItems: "flex-start", gap: "16px",
                   padding: "16px 18px",
@@ -156,29 +158,27 @@ export default function WorkerJobsPage() {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
-                    <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>{job.title}</p>
+                    <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>{bid.jobTitle ?? bid.jobId}</p>
                     <StatusBadge variant={sc.variant} text={sc.label} dot size="sm" />
                   </div>
-                  {job.scope && (
+                  {bid.jobCategory && (
                     <p style={{ fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {job.scope}
+                      {bid.jobCategory}{bid.jobLocation ? ` · ${bid.jobLocation}` : ""}
                     </p>
                   )}
-                  {WORKER_NEXT_ACTION[job.status] ? (
+                  {WORKER_NEXT_ACTION[jobStatus] ? (
                     <p style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 600, marginTop: "4px" }}>
-                      ▶ {WORKER_NEXT_ACTION[job.status]}
+                      ▶ {WORKER_NEXT_ACTION[jobStatus]}
                     </p>
                   ) : null}
                 </div>
-                {(job.budgetMin ?? job.budgetMax) ? (
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: "3px" }}>
-                      <DollarSign size={14} style={{ color: "var(--accent)" }} />
-                      {(job.budgetMin ?? job.budgetMax ?? 0).toLocaleString()}
-                    </p>
-                    <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>presupuesto</p>
-                  </div>
-                ) : null}
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: "3px" }}>
+                    <DollarSign size={14} style={{ color: "var(--accent)" }} />
+                    {bid.amount.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{bid.etaDays} días</p>
+                </div>
               </Link>
             );
           })}

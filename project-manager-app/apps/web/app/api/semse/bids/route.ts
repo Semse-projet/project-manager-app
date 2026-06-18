@@ -5,8 +5,10 @@ const SAFE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { jobId: string; budgetMin?: number; budgetMax?: number; note?: string; availableFrom?: string };
+    const body = await request.json() as { jobId: string; amount?: number; etaDays?: number; proOrgId?: string };
     if (!SAFE_ID_PATTERN.test(body.jobId ?? "")) return NextResponse.json({ error: "jobId invalido" }, { status: 400 });
+    if (!body.amount || body.amount <= 0) return NextResponse.json({ error: "amount requerido y positivo" }, { status: 400 });
+    if (!body.etaDays || body.etaDays <= 0) return NextResponse.json({ error: "etaDays requerido y positivo" }, { status: 400 });
 
     const data = await fetchSemseDataForRequest(
       `/v1/jobs/${encodeURIComponent(body.jobId)}/bids`,
@@ -14,12 +16,7 @@ export async function POST(request: NextRequest) {
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          budgetMin:     body.budgetMin,
-          budgetMax:     body.budgetMax,
-          note:          body.note,
-          availableFrom: body.availableFrom,
-        }),
+        body: JSON.stringify({ amount: body.amount, etaDays: body.etaDays }),
       }
     );
     return NextResponse.json({ data });
