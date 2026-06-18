@@ -47,6 +47,7 @@ export const rolePermissions: Record<string, string[]> = {
   ],
   PRO: [
     "jobs:read",
+    "bids:read",
     "bids:create",
     "milestones:read",
     "milestones:submit",
@@ -71,6 +72,8 @@ export const rolePermissions: Record<string, string[]> = {
     "notifications:read",
     "finance:read",
     "finance:write",
+    "field-ops:read",
+    "field-ops:write",
     "governance:read",
     "governance:vote",
     "governance:propose"

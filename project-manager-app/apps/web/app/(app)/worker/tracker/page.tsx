@@ -12,7 +12,7 @@ import {
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
-  fetchJobs,
+  fetchMyBids,
   fetchTrackerSnapshot,
   pauseTrackerSession,
   planUpload,
@@ -20,7 +20,7 @@ import {
   startTrackerSession,
   stopTrackerSession,
   uploadMultipartPart,
-  type JobRecordView,
+  type MyBidView,
   type TrackerSessionView
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -99,7 +99,7 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
 
 export default function WorkerTrackerPage() {
   const { t } = useLanguage();
-  const [jobs, setJobs] = useState<JobRecordView[]>([]);
+  const [jobs, setJobs] = useState<MyBidView[]>([]);
   const [sessions, setSessions] = useState<TrackerSessionView[]>([]);
   const [activeSession, setActiveSession] = useState<TrackerSessionView | null>(null);
   const [selectedJob, setSelectedJob] = useState("");
@@ -125,13 +125,13 @@ export default function WorkerTrackerPage() {
   const [contractMultipartProgress, setContractMultipartProgress] = useState<Record<number, "pending" | "uploading" | "uploaded">>({});
 
   const loadTracker = useCallback(async () => {
-    const [jobsResult, snapshot] = await Promise.all([
-      fetchJobs(),
+    const [bidsResult, snapshot] = await Promise.all([
+      fetchMyBids(),
       fetchTrackerSnapshot(),
     ]);
 
-    const activeJobs = jobsResult.filter((job) => ["accepted", "in_progress", "review"].includes(job.status));
-    const preferredJobId = snapshot.activeSession?.jobId ?? activeJobs[0]?.id ?? "";
+    const activeJobs = bidsResult.filter((b) => b.status === "accepted");
+    const preferredJobId = snapshot.activeSession?.jobId ?? activeJobs[0]?.jobId ?? "";
 
     setJobs(activeJobs);
     setSessions(snapshot.recentSessions);
@@ -199,9 +199,9 @@ export default function WorkerTrackerPage() {
 
   const currentJobId = activeSession?.jobId ?? selectedJob;
   const currentJobRouteId = safeRouteId(currentJobId);
+  const currentBid = jobs.find((b) => b.jobId === currentJobId);
   const currentJob = activeSession?.job
-    ?? jobs.find((job) => job.id === currentJobId)
-    ?? null;
+    ?? (currentBid ? { id: currentBid.jobId, title: currentBid.jobTitle ?? currentBid.jobId, status: currentBid.jobStatus ?? "accepted" } : null);
   const releasedAmount = payments.reduce((sum, item) => sum + (asString(item.type) === "RELEASE" ? asNumber(item.amount) ?? 0 : 0), 0);
   const fundedAmount = asNumber(escrow?.totalAmount);
   const weekSeconds = sessions
@@ -451,9 +451,9 @@ export default function WorkerTrackerPage() {
                   outline: "none",
                 }}
               >
-                {jobs.map((job) => (
-                  <option key={job.id} value={job.id}>
-                    {job.title}
+                {jobs.map((bid) => (
+                  <option key={bid.id} value={bid.jobId}>
+                    {bid.jobTitle ?? bid.jobId}
                   </option>
                 ))}
               </select>
