@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle, Loader2, Star } from "lucide-react";
-import { createRating, fetchJob } from "../../../../../../semse-api";
-import { NotificationBanner } from "../../../../../../components/notifications/NotificationBanner";
+import { createRating, fetchJob } from "../../../../../semse-api";
+import { NotificationBanner } from "../../../../../components/notifications/NotificationBanner";
 
 type Phase = "loading" | "form" | "submitting" | "success" | "error" | "already_rated" | "not_eligible";
 

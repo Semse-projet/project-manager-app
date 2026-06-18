@@ -405,3 +405,69 @@ test("N.RS3: rating.submitted sin toUserId → 0 notificaciones", () => {
   const specs = mapRatingSubmitted({ score: 5, jobId: "j-1" });
   assert.equal(specs.length, 0);
 });
+
+// ── job.matched — contractor notification ─────────────────────────────────────
+
+test("N.JM1: job.matched → uma notificación por cada matchedUserId", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1", "c2", "c3"],
+    jobTitle: "Plomería urgente",
+    trade: "plumbing",
+    urgency: "urgent",
+    budgetMin: 1000,
+    budgetMax: 2000,
+    jobId: "job-abc",
+  });
+  assert.equal(specs.length, 3, "debe generar una notif por contratista");
+  assert.equal(specs[0]?.userId, "c1");
+  assert.equal(specs[1]?.userId, "c2");
+  assert.equal(specs[2]?.userId, "c3");
+});
+
+test("N.JM2: job.matched urgente incluye prefijo ⚡ Urgente", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1"],
+    jobTitle: "Trabajo urgente",
+    urgency: "urgent",
+    trade: "electrical",
+    jobId: "job-1",
+  });
+  assert.equal(specs.length, 1);
+  assert.ok(specs[0]?.title.includes("⚡ Urgente"), "urgente debe tener prefijo de urgencia");
+  assert.equal(specs[0]?.type, "job_matched");
+});
+
+test("N.JM3: job.matched sin matchedUserIds → 0 notificaciones", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    jobTitle: "Sin contratistas",
+    trade: "painting",
+    jobId: "job-2",
+  });
+  assert.equal(specs.length, 0, "sin matchedUserIds no debe generar notificaciones");
+});
+
+test("N.JM4: job.matched con presupuesto incluye rango en body", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1"],
+    jobTitle: "Pintar sala",
+    trade: "painting",
+    urgency: "medium",
+    budgetMin: 1000,
+    budgetMax: 3000,
+    jobId: "job-3",
+  });
+  assert.equal(specs.length, 1);
+  assert.ok(specs[0]?.body.includes("$1k–$3k"), "body debe incluir rango de presupuesto");
+});
+
+test("N.JM5: job.matched medium urgency no tiene prefijo de urgencia", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1"],
+    jobTitle: "Trabajo normal",
+    urgency: "medium",
+    trade: "drywall",
+    jobId: "job-4",
+  });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]?.title, "Nuevo trabajo disponible", "urgency medium no debe tener prefijo");
+});

@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users } from "lucide-react";
+import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users, Star } from "lucide-react";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
@@ -15,6 +15,7 @@ import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { ClientSummaryCardLink } from "../../../components/client/ClientSummaryCardLink";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { CLIENT_ROUTES, clientDisputesHref, clientJobsHref, clientPaymentsHref } from "../../../lib/client-routes";
+import { fetchRatings, type RatingListItem } from "../../../semse-api";
 
 // ─────────────────────────────────────────────────────────────
 // COMPONENTE
@@ -43,20 +44,48 @@ function preferredProfessionalLabel(job: JobRecordView): string | null {
   return job.preferredProfessional?.displayName?.trim() || null;
 }
 
+const CLIENT_TIER: Record<string, { label: string; color: string }> = {
+  nuevo:        { label: "Nuevo",         color: "#64748b" },
+  confiable:    { label: "Confiable",     color: "#3b82f6" },
+  preferido:    { label: "Preferido",     color: "#8b5cf6" },
+  elite:        { label: "Elite",         color: "#10b981" },
+};
+
+function clientRepTier(total: number, avg: number): string {
+  if (total === 0) return "nuevo";
+  if (total < 3 || avg < 3.5) return "nuevo";
+  if (total < 8 || avg < 4.0) return "confiable";
+  if (total < 20 || avg < 4.5) return "preferido";
+  return "elite";
+}
+
 export default function ClientDashboardPage() {
-  const [jobs, setJobs]   = useState<JobRecordView[]>([]);
+  const [jobs, setJobs]              = useState<JobRecordView[]>([]);
+  const [receivedRatings, setReceivedRatings] = useState<RatingListItem[]>([]);
+  const [actorUserId, setActorUserId]         = useState<string | null>(null);
+  const [givenJobIds, setGivenJobIds]         = useState<Set<string>>(new Set());
   const [pendingBidCount, setPendingBidCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/semse/jobs")
-      .then(r => r.json())
-      .then(async (d: { data?: JobRecordView[]; error?: { message: string } }) => {
+    const jobsPromise = fetch("/api/semse/jobs").then(r => r.json() as Promise<{ data?: JobRecordView[]; error?: { message: string } }>);
+    const ratingsPromise = fetchRatings().catch(() => ({ actorUserId: null, items: [] as RatingListItem[] }));
+
+    Promise.all([jobsPromise, ratingsPromise])
+      .then(async ([d, ratingsData]) => {
+        // Ratings
+        const actor = ratingsData.actorUserId;
+        setActorUserId(actor);
+        const given    = ratingsData.items.filter(r => r.fromUser.id === actor);
+        const received = ratingsData.items.filter(r => r.toUser.id === actor);
+        setGivenJobIds(new Set(given.map(r => r.jobId)));
+        setReceivedRatings(received);
+
+        // Jobs
         if (d.error) { setApiError(d.error.message); return; }
         const jobList = d.data ?? [];
         setJobs(jobList);
-        // Count pending bids across published jobs
         const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
         const bidCounts = await Promise.allSettled(
           published.map((j: JobRecordView) =>
@@ -81,6 +110,13 @@ export default function ClientDashboardPage() {
   const completedJobs = jobs.filter(j => j.status === "completed");
   const budgetActiveJobs = jobs.filter(j => ["accepted", "reserved", "in_progress", "review"].includes(j.status) && (j.budgetMin ?? j.budgetMax));
   const jobsWithPreferred = jobs.filter((job) => preferredProfessionalLabel(job));
+
+  const unratedJobs = completedJobs.filter(j => !givenJobIds.has(j.id)).slice(0, 3);
+  const totalReceived = receivedRatings.length;
+  const avgReceived   = totalReceived > 0
+    ? receivedRatings.reduce((s, r) => s + r.score, 0) / totalReceived
+    : 0;
+  const tier = clientRepTier(totalReceived, avgReceived);
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
@@ -156,6 +192,53 @@ export default function ClientDashboardPage() {
           hint="Ver escrow"
         />
       </div>
+
+      {/* Reputation widget */}
+      {!loading && totalReceived > 0 && (
+        <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: "11px", color: "#a5b4fc", fontWeight: 800, marginBottom: 4 }}>MI REPUTACIÓN COMO CLIENTE</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", gap: 2 }}>
+                  {[1,2,3,4,5].map(i => (
+                    <Star key={i} size={14} fill={i <= Math.round(avgReceived) ? "#fbbf24" : "none"} color={i <= Math.round(avgReceived) ? "#fbbf24" : "var(--border)"} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{avgReceived.toFixed(1)}</span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>({totalReceived} calificacion{totalReceived !== 1 ? "es" : ""})</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: `${CLIENT_TIER[tier]?.color ?? "#64748b"}18`, color: CLIENT_TIER[tier]?.color ?? "#64748b" }}>
+                  {CLIENT_TIER[tier]?.label ?? tier}
+                </span>
+              </div>
+            </div>
+            <Link href="/client/reviews" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid rgba(129,140,248,.24)", background: "rgba(129,140,248,.1)", color: "#a5b4fc", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+              Ver historial <ArrowRight size={13} />
+            </Link>
+          </div>
+        </HtmlInCanvasPanel>
+      )}
+
+      {/* Pending ratings */}
+      {!loading && unratedJobs.length > 0 && (
+        <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
+          <div style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 800, marginBottom: 10 }}>CALIFICA A TUS PROFESIONALES</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {unratedJobs.map(job => (
+              <div key={job.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
+                <Star size={15} color="#fbbf24" fill="none" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</p>
+                  <p style={{ fontSize: 11, color: "var(--muted)" }}>Trabajo completado · Sin calificación</p>
+                </div>
+                <Link href={`/client/jobs/${job.id}/rate`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", color: "#fbbf24", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                  Calificar <Star size={12} fill="#fbbf24" color="#fbbf24" />
+                </Link>
+              </div>
+            ))}
+          </div>
+        </HtmlInCanvasPanel>
+      )}
 
       {!loading && jobsWithPreferred.length > 0 ? (
         <HtmlInCanvasPanel as="section" style={{ marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={76}>
