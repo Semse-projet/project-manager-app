@@ -55,6 +55,27 @@ function toUiJob(record: JobRecordView): Job {
   };
 }
 
+function bidToUiJob(bid: MyBidView): Job {
+  return {
+    id: bid.jobId,
+    title: bid.jobTitle,
+    description: bid.jobCategory ?? "",
+    scope: bid.jobCategory ?? "",
+    budget: {
+      min: bid.amount,
+      max: undefined,
+      type: "fixed" as const,
+    },
+    location: { type: "remote" as const },
+    status: (bid.jobStatus === "published" || bid.jobStatus === "awarded" ? "posted" : bid.jobStatus) as Job["status"],
+    clientId: "",
+    tenantId: "",
+    createdAt: new Date(),
+    attachments: [],
+    proposals: [],
+  };
+}
+
 function EmptyPanel({
   title,
   description,
@@ -123,13 +144,14 @@ export default function WorkerDashboardPage() {
   }, []);
 
   const metrics = useMemo(() => {
-    const active = jobs.filter((job) => ["in_progress", "reserved", "accepted", "review"].includes(job.status));
-    const completed = jobs.filter((job) => job.status === "completed");
-    const review = jobs.filter((job) => job.status === "review");
-    const disputes = jobs.filter((job) => job.status === "dispute");
+    const acceptedBids = myBids.filter((b) => b.status === "accepted");
+    const active = acceptedBids.filter((b) => ["in_progress", "reserved", "accepted", "review"].includes(b.jobStatus));
+    const completed = acceptedBids.filter((b) => b.jobStatus === "completed");
+    const review = acceptedBids.filter((b) => b.jobStatus === "review");
+    const disputes = acceptedBids.filter((b) => b.jobStatus === "dispute");
     const opportunities = jobs.filter((job) => ["posted", "published"].includes(job.status));
-    const activeBudget = active.reduce((total, job) => total + (job.budgetMin ?? 0), 0);
-    const completionRate = jobs.length > 0 ? Math.round((completed.length / jobs.length) * 100) : 0;
+    const activeBudget = active.reduce((total, b) => total + (b.amount ?? 0), 0);
+    const completionRate = acceptedBids.length > 0 ? Math.round((completed.length / acceptedBids.length) * 100) : 0;
     const reviewRate = active.length > 0 ? Math.round((review.length / active.length) * 100) : 0;
 
     return {
@@ -142,7 +164,7 @@ export default function WorkerDashboardPage() {
       completionRate,
       reviewRate,
     };
-  }, [jobs]);
+  }, [myBids, jobs]);
 
   return (
     <div style={{ maxWidth: "1120px", margin: "0 auto", display: "grid", gap: "28px" }}>
@@ -537,10 +559,10 @@ export default function WorkerDashboardPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-            {metrics.active.slice(0, 4).map((job) => (
-              <Link key={job.id} href={`/worker/jobs/${job.id}`} style={{ textDecoration: "none" }}>
+            {metrics.active.slice(0, 4).map((bid) => (
+              <Link key={bid.id} href={`/worker/jobs/${bid.jobId}`} style={{ textDecoration: "none" }}>
                 <JobCard
-                  job={toUiJob(job)}
+                  job={bidToUiJob(bid)}
                   compact
                   footer={
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
