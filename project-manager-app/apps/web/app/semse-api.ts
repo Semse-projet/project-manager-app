@@ -377,14 +377,13 @@ export async function fetchJobContract(jobId: string): Promise<Record<string, un
 export type BidView = {
   id: string;
   jobId: string;
-  proUserId: string;
+  proUserId?: string;
+  professionalUserId?: string;
   proEmail?: string;
-  proName?: string;
-  budgetMin?: number | null;
-  budgetMax?: number | null;
+  amount: number;
+  etaDays: number;
   note?: string | null;
   status: "submitted" | "accepted" | "rejected" | "withdrawn";
-  availableFrom?: string | null;
   createdAt: string;
 };
 

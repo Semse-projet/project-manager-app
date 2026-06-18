@@ -6,7 +6,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { BidsService } from "./bids.service.js";
 
-const createBidSchema = bidSchema.omit({ jobId: true });
+const createBidSchema = bidSchema.omit({ jobId: true }).extend({ proOrgId: bidSchema.shape.proOrgId.optional() });
 
 // GET /v1/my-bids — kept on a separate path (not /v1/bids/mine) to avoid a
 // Fastify find-my-way conflict where static+parametric sibling routes under the
@@ -84,7 +84,7 @@ export class JobBidsController {
     const bid = await this.bidsService.create({
       tenantId: actor.tenantId,
       jobId,
-      proOrgId: parsed.data.proOrgId,
+      proOrgId: parsed.data.proOrgId ?? actor.orgId,
       userId: actor.userId,
       orgId: actor.orgId,
       roles: actor.roles,

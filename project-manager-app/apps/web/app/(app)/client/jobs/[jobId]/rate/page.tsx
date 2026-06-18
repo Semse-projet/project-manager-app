@@ -81,9 +81,8 @@ export default function RateJobPage() {
           return;
         }
 
-        setProUserId(acceptedBid.proUserId);
-        if (acceptedBid.proName) setProName(acceptedBid.proName);
-        else if (acceptedBid.proEmail) setProName(acceptedBid.proEmail.split("@")[0] ?? "el profesional");
+        setProUserId(acceptedBid.professionalUserId ?? acceptedBid.proUserId ?? null);
+        if (acceptedBid.proEmail) setProName(acceptedBid.proEmail.split("@")[0] ?? "el profesional");
 
         setPhase("form");
       } catch {
