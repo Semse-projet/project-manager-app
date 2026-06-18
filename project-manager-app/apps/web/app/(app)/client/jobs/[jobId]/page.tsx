@@ -356,7 +356,7 @@ export default function ClientJobDetailPage() {
     setError(null);
     try {
       await acceptBid(bid.id);
-      const proName = bid.proName ?? bid.proEmail ?? "Profesional";
+      const proName = bid.proEmail ?? bid.professionalUserId ?? "Profesional";
       const jobTitle = asString(job?.title) ?? "trabajo";
       sendNotification({
         title: "Propuesta aceptada",
@@ -563,7 +563,7 @@ export default function ClientJobDetailPage() {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "start" }}>
                           <div>
                             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
-                              <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{bid.proName ?? bid.proEmail ?? "Profesional"}</strong>
+                              <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{bid.proEmail ?? bid.professionalUserId ?? "Profesional"}</strong>
                               <span style={{ display: "inline-flex", padding: "4px 9px", borderRadius: "999px", background: meta.bg, color: meta.color, fontSize: "11px", fontWeight: 700 }}>
                                 {meta.label}
                               </span>

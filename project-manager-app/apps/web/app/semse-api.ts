@@ -380,7 +380,6 @@ export type BidView = {
   proUserId?: string;
   professionalUserId?: string;
   proEmail?: string;
-  proName?: string;
   amount: number;
   etaDays: number;
   note?: string | null;
