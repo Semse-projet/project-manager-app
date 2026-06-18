@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, ArrowLeft, CheckCircle, Loader2, Star } from "lucide-react";
-import { createRating, fetchJob } from "../../../../../semse-api";
+import { createRating, fetchJob, fetchJobContract } from "../../../../../semse-api";
 import { NotificationBanner } from "../../../../../components/notifications/NotificationBanner";
 
 type Phase = "loading" | "form" | "submitting" | "success" | "error" | "already_rated" | "not_eligible";
@@ -64,7 +64,10 @@ export default function WorkerRateJobPage() {
     if (!jobId) return;
     (async () => {
       try {
-        const job = await fetchJob(jobId);
+        const [job, contract] = await Promise.all([
+          fetchJob(jobId),
+          fetchJobContract(jobId).catch(() => null),
+        ]);
         setJobTitle((job as any).title ?? "");
 
         const status = String((job as any).status ?? "").toLowerCase();
@@ -73,7 +76,7 @@ export default function WorkerRateJobPage() {
           return;
         }
 
-        const uid = (job as any).clientUserId ?? null;
+        const uid = (contract as any)?.clientUserId ?? null;
         if (!uid) {
           setPhase("not_eligible");
           return;
