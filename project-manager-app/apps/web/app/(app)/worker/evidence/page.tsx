@@ -15,7 +15,8 @@ import {
   uploadMultipartPart,
   completeMultipartUploadSession,
   sendNotification,
-  } from "../../../semse-api";
+  type JobRecordView,
+} from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type EvidenceRow = Record<string, unknown>;
