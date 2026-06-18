@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { CheckSquare, Clock, AlertCircle, RefreshCw, Inbox } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchTasks, updateTaskStatus, fetchJobs } from "../../../semse-api";
+import { fetchTasks, updateTaskStatus, fetchMyJobs } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type TaskStatus = "pending" | "in_progress" | "done" | "blocked";
@@ -65,7 +65,7 @@ export default function WorkerTasksPage() {
     try {
       const [rawTasks, jobs] = await Promise.all([
         fetchTasks().catch(() => [] as Record<string, unknown>[]),
-        fetchJobs().catch(() => []),
+        fetchMyJobs().catch(() => []),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of jobs) jobTitleMap[j.id] = j.title;

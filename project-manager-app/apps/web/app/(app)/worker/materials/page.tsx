@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { Package, Plus, ChevronDown, Clock, DollarSign, RefreshCw, Inbox } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchMaterials, createMaterialRequest, fetchJobs } from "../../../semse-api";
+import { fetchMaterials, createMaterialRequest, fetchMyJobs } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 interface MaterialRequest {
@@ -65,7 +65,7 @@ export default function WorkerMaterialsPage() {
     try {
       const [rawMats, rawJobs] = await Promise.all([
         fetchMaterials().catch(() => [] as Record<string, unknown>[]),
-        fetchJobs().catch(() => []),
+        fetchMyJobs().catch(() => []),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;
