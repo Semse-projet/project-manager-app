@@ -1,6 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleServerError, runtimeDisabledResponse, buildSemseRequestHeaders, getServerConfig } from "../_server";
+import { handleServerError, isApiBaseConfigured, runtimeDisabledResponse, buildSemseRequestHeaders, getServerConfig } from "../_server";
+import type { JobRecordView } from "@semse/schemas";
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
+
+export async function GET(request: NextRequest) {
+  if (!isApiBaseConfigured()) return runtimeDisabledResponse();
+  try {
+    const cfg = await getServerConfig(request);
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    const resp = await fetch(`${API}/v1/jobs${qs}`, {
+      headers: buildSemseRequestHeaders(cfg),
+    });
+    const json = await resp.json() as { requestId: string; data: JobRecordView[] };
+    return NextResponse.json(json, { status: resp.status });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not configured")) return runtimeDisabledResponse();
+    return handleServerError(error);
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
