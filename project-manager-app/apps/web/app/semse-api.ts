@@ -300,6 +300,23 @@ export async function fetchJobs(): Promise<JobRecordView[]> {
   return fetchSemse<JobRecordView[]>("/api/semse/jobs");
 }
 
+export async function fetchMyJobs(): Promise<JobRecordView[]> {
+  const bids = await fetchMyBids();
+  return bids
+    .filter(b => b.status === "accepted")
+    .map(b => ({
+      id: b.jobId,
+      tenantId: "",
+      title: b.jobTitle,
+      scope: b.jobTitle,
+      category: b.jobCategory,
+      location: b.jobLocation,
+      budgetMin: b.jobBudgetMin,
+      budgetMax: b.jobBudgetMax,
+      status: (b.jobStatus ?? "accepted") as JobRecordView["status"],
+    }));
+}
+
 export type RatingListItem = {
   id: string;
   jobId: string;

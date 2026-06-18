@@ -74,6 +74,10 @@ export const rolePermissions: Record<string, string[]> = {
     "finance:write",
     "field-ops:read",
     "field-ops:write",
+    "projects:financials:read",
+    "agents:run:worker",
+    "agents:run:manage",
+    "matching:read",
     "governance:read",
     "governance:vote",
     "governance:propose"

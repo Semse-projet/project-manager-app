@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Plus, ChevronDown, Clock, RefreshCw, Inbox, ShieldAlert } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchIncidents, createIncident, fetchJobs } from "../../../semse-api";
+import { fetchIncidents, createIncident, fetchMyJobs } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type IncidentType     = "safety" | "damage" | "delay" | "material" | "other";
@@ -77,7 +77,7 @@ export default function WorkerIncidentsPage() {
     try {
       const [rawInc, rawJobs] = await Promise.all([
         fetchIncidents().catch(() => [] as Record<string, unknown>[]),
-        fetchJobs().catch(() => []),
+        fetchMyJobs().catch(() => []),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;

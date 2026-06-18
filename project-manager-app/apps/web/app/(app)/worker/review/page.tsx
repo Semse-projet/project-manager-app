@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CheckCircle2, Inbox, MessageSquare, Star } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { createRating, fetchJobs, fetchRatings, type JobRecordView, type RatingListItem } from "../../../semse-api";
+import { createRating, fetchMyJobs, fetchRatings, type JobRecordView, type RatingListItem } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type ReviewableJob = {
@@ -65,7 +65,7 @@ export default function WorkerReviewPage() {
     setError(null);
     try {
       const [jobsData, ratingsData] = await Promise.all([
-        fetchJobs(),
+        fetchMyJobs(),
         fetchRatings(),
       ]);
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
-import { fetchJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
+import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type PayRow = {
@@ -44,7 +44,7 @@ export default function WorkerPaymentsPage() {
   const loadPayments = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobs, disputes] = await Promise.all([fetchJobs(), fetchDisputes().catch(() => [])]);
+      const [jobs, disputes] = await Promise.all([fetchMyJobs(), fetchDisputes().catch(() => [])]);
       const dJobIds = new Set<string>(
         disputes.map(d => String((d as Record<string, unknown>).jobId ?? "")).filter(Boolean)
       );

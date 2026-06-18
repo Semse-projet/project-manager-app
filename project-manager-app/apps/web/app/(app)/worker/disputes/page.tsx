@@ -10,7 +10,7 @@ import { DisputeResolutionWorkspace } from "../../../components/disputes/Dispute
 import {
   createJobDispute,
   fetchDisputes,
-  fetchJobs,
+  fetchMyJobs,
   fetchProjects,
   type JobRecordView
 } from "../../../semse-api";
@@ -92,7 +92,7 @@ export default function WorkerDisputesPage() {
     setError(null);
     try {
       const [jobsData, projectsData, disputesData] = await Promise.all([
-        fetchJobs(),
+        fetchMyJobs(),
         fetchProjects().catch(() => [] as Record<string, unknown>[]),
         fetchDisputes()
       ]);
