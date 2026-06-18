@@ -8,11 +8,14 @@ import { BidsService } from "./bids.service.js";
 
 const createBidSchema = bidSchema.omit({ jobId: true });
 
-@Controller("v1/bids")
-export class BidsController {
+// GET /v1/my-bids — kept on a separate path (not /v1/bids/mine) to avoid a
+// Fastify find-my-way conflict where static+parametric sibling routes under the
+// same @Controller prefix can silently drop the static GET route.
+@Controller("v1/my-bids")
+export class BidsMineController {
   constructor(private readonly bidsService: BidsService) {}
 
-  @Get("mine")
+  @Get()
   @RequirePermissions("bids:read")
   async mine(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
@@ -23,6 +26,11 @@ export class BidsController {
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
+}
+
+@Controller("v1/bids")
+export class BidsController {
+  constructor(private readonly bidsService: BidsService) {}
 
   @Post(":bidId/accept")
   @RequirePermissions("bids:accept")

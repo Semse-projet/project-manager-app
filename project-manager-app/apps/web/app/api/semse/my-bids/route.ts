@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const cfg = await getServerConfig(request);
     const headers = { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) };
-    const resp = await fetch(`${API}/v1/bids/mine`, { headers });
+    const resp = await fetch(`${API}/v1/my-bids`, { headers });
     if (!resp.ok) return runtimeDisabledResponse();
     const json = await resp.json() as { data: unknown };
     return NextResponse.json({ data: json.data });
