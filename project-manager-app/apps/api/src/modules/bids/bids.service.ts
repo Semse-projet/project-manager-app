@@ -25,6 +25,14 @@ export class BidsService {
     return this.bidsRepository.listByJob(input);
   }
 
+  async listMine(input: {
+    tenantId: string;
+    userId: string;
+    orgId: string;
+  }): Promise<BidRecord[]> {
+    return this.bidsRepository.listByWorker(input);
+  }
+
   async create(input: {
     tenantId: string;
     jobId: string;

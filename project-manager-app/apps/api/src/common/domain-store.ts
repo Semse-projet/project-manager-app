@@ -72,6 +72,13 @@ export type BidRecord = {
   amount: number;
   etaDays: number;
   status: "submitted" | "accepted" | "rejected";
+  jobTitle?: string;
+  jobCategory?: string;
+  jobLocation?: string;
+  jobBudgetMin?: number;
+  jobBudgetMax?: number;
+  jobStatus?: string;
+  createdAt?: string;
 };
 
 export type DisputeRecord = {

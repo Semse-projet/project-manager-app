@@ -214,3 +214,60 @@ test("MB.EC2: sin evidencia completa → pago bloqueado (integración Crowd)", (
   const canRelease = evidenceApproved && true; // simplificado
   assert.equal(canRelease, false, "sin evidencia no se puede liberar pago");
 });
+
+// ── Worker own bids (GET /v1/bids/mine) ───────────────────────────────────────
+
+type MyBidRecord = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  professionalUserId: string;
+  status: "submitted" | "accepted" | "rejected";
+  amount: number;
+  etaDays: number;
+};
+
+function filterBidsByWorker(bids: MyBidRecord[], userId: string): MyBidRecord[] {
+  return bids.filter(b => b.professionalUserId === userId);
+}
+
+test("MB.WB1: filterBidsByWorker retorna solo bids del userId dado", () => {
+  const bids: MyBidRecord[] = [
+    { id: "b1", jobId: "j1", jobTitle: "Plomería", professionalUserId: "u1", status: "submitted", amount: 500, etaDays: 3 },
+    { id: "b2", jobId: "j2", jobTitle: "Pintura",  professionalUserId: "u2", status: "submitted", amount: 300, etaDays: 2 },
+    { id: "b3", jobId: "j3", jobTitle: "Eléctrico", professionalUserId: "u1", status: "accepted",  amount: 800, etaDays: 5 },
+  ];
+  const result = filterBidsByWorker(bids, "u1");
+  assert.equal(result.length, 2);
+  assert.ok(result.every(b => b.professionalUserId === "u1"));
+});
+
+test("MB.WB2: filterBidsByWorker con userId sin bids retorna []", () => {
+  const bids: MyBidRecord[] = [
+    { id: "b1", jobId: "j1", jobTitle: "Plomería", professionalUserId: "u1", status: "submitted", amount: 500, etaDays: 3 },
+  ];
+  const result = filterBidsByWorker(bids, "u99");
+  assert.equal(result.length, 0);
+});
+
+test("MB.WB3: estado accepted es visible para el worker", () => {
+  const bids: MyBidRecord[] = [
+    { id: "b1", jobId: "j1", jobTitle: "Pintura", professionalUserId: "u1", status: "accepted", amount: 600, etaDays: 4 },
+  ];
+  const mine = filterBidsByWorker(bids, "u1");
+  assert.equal(mine[0]?.status, "accepted");
+});
+
+test("MB.WB4: estado rejected es visible para el worker", () => {
+  const bids: MyBidRecord[] = [
+    { id: "b1", jobId: "j1", jobTitle: "Drywall", professionalUserId: "u1", status: "rejected", amount: 200, etaDays: 2 },
+  ];
+  const mine = filterBidsByWorker(bids, "u1");
+  assert.equal(mine[0]?.status, "rejected");
+});
+
+test("MB.WB5: BFF retorna array vacío cuando worker no tiene bids", () => {
+  const bids: MyBidRecord[] = [];
+  const mine = filterBidsByWorker(bids, "u1");
+  assert.deepEqual(mine, []);
+});

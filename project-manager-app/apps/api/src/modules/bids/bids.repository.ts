@@ -60,6 +60,56 @@ export class BidsRepository {
     return bids.map((bid) => this.toRecord(bid));
   }
 
+  async listByWorker(input: {
+    tenantId: string;
+    userId: string;
+    orgId: string;
+  }): Promise<BidRecord[]> {
+    await this.actorContextService.ensureActorContext(input);
+
+    const bids = await this.prisma.bid.findMany({
+      where: {
+        professionalUserId: input.userId,
+        job: { tenantId: input.tenantId }
+      },
+      include: {
+        job: {
+          select: {
+            id: true,
+            tenantId: true,
+            title: true,
+            category: true,
+            location: true,
+            budgetMin: true,
+            budgetMax: true,
+            status: true,
+            clientOrgId: true
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+
+    return bids.map((bid) => ({
+      id: bid.id,
+      tenantId: bid.job.tenantId,
+      jobId: bid.jobId,
+      proOrgId: bid.proOrgId,
+      professionalUserId: bid.professionalUserId ?? undefined,
+      amount: bid.amount.toNumber(),
+      etaDays: bid.etaDays,
+      status: bid.status.toLowerCase() as BidRecord["status"],
+      jobTitle: bid.job.title,
+      jobCategory: bid.job.category ?? undefined,
+      jobLocation: bid.job.location ?? undefined,
+      jobBudgetMin: bid.job.budgetMin?.toNumber() ?? undefined,
+      jobBudgetMax: bid.job.budgetMax?.toNumber() ?? undefined,
+      jobStatus: bid.job.status.toLowerCase(),
+      createdAt: bid.createdAt.toISOString(),
+    }));
+  }
+
   async create(input: {
     tenantId: string;
     jobId: string;

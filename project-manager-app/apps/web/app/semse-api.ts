@@ -398,6 +398,28 @@ export async function acceptBid(bidId: string): Promise<Record<string, unknown>>
   });
 }
 
+export type MyBidView = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobCategory?: string;
+  jobLocation?: string;
+  jobBudgetMin?: number;
+  jobBudgetMax?: number;
+  jobStatus: string;
+  amount: number;
+  etaDays: number;
+  status: "submitted" | "accepted" | "rejected";
+  createdAt: string;
+};
+
+export async function fetchMyBids(): Promise<MyBidView[]> {
+  const r = await fetchSemse<MyBidView[] | { data: MyBidView[] }>("/api/semse/my-bids").catch(() => []);
+  if (Array.isArray(r)) return r;
+  const d = (r as { data?: MyBidView[] }).data;
+  return Array.isArray(d) ? d : [];
+}
+
 export async function fetchJobPaymentReadiness(jobId: string): Promise<Record<string, unknown>> {
   return fetchSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/payment-readiness`);
 }

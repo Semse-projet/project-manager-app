@@ -22,7 +22,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
 import { useLanguage } from "../../../../lib/language-context";
-import { fetchRatings, type RatingListItem } from "../../../semse-api";
+import { fetchRatings, fetchMyBids, type RatingListItem, type MyBidView } from "../../../semse-api";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-US", {
@@ -102,6 +102,7 @@ export default function WorkerDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [receivedRatings, setReceivedRatings] = useState<RatingListItem[]>([]);
+  const [myBids, setMyBids] = useState<MyBidView[]>([]);
 
   useEffect(() => {
     void Promise.all([
@@ -117,6 +118,7 @@ export default function WorkerDashboardPage() {
           setReceivedRatings(items.filter((r) => r.toUser.id === actorUserId));
         })
         .catch(() => undefined),
+      fetchMyBids().then(setMyBids).catch(() => undefined),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -448,6 +450,41 @@ export default function WorkerDashboardPage() {
           </div>
         );
       })()}
+
+      {/* Mis propuestas */}
+      {!loading && myBids.length > 0 && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "18px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "14px", flexWrap: "wrap" }}>
+            <div>
+              <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Mis propuestas</h2>
+              <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>Últimas propuestas enviadas.</p>
+            </div>
+            <Link href="/worker/opportunities" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              Ver oportunidades <ArrowRight size={13} />
+            </Link>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {myBids.slice(0, 5).map(bid => {
+              const BID_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                submitted: { label: "Enviada",   color: "#3b82f6", bg: "rgba(59,130,246,.1)" },
+                accepted:  { label: "Aceptada",  color: "#10b981", bg: "rgba(16,185,129,.1)" },
+                rejected:  { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.1)"  },
+              };
+              const s = BID_STATUS[bid.status] ?? BID_STATUS["submitted"]!;
+              const amt = new Intl.NumberFormat("es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bid.amount);
+              return (
+                <div key={bid.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--raised)", borderRadius: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bid.jobTitle}</p>
+                    <p style={{ fontSize: 11, color: "var(--muted)" }}>{amt} · {bid.etaDays} días</p>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: s.bg, color: s.color, whiteSpace: "nowrap" }}>{s.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <section>
         <div
