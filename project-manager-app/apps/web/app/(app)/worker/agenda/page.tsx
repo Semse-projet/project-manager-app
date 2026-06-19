@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Calendar, CheckCircle, Clock, MapPin } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
+import { fetchMyJobs } from "../../../semse-api";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 
@@ -139,11 +140,8 @@ export default function WorkerAgendaPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/semse/jobs")
-      .then((r) => r.json())
-      .then((d: { data?: JobRecordView[] }) => {
-        setJobs((d.data ?? []).map(toAgendaJob));
-      })
+    fetchMyJobs()
+      .then((data) => setJobs(data.map(toAgendaJob)))
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);

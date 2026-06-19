@@ -152,7 +152,8 @@ export class MilestonesService {
         professionalId: input.userId,
         evidenceCount: context.evidenceCount,
         checklistComplete: context.evidenceCount > 0,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        clientUserId: context.clientUserId,
       },
       triggers: ["evidence-coach", "notification", "audit"]
     };

@@ -66,6 +66,32 @@ export class BidsService {
       ts:     Date.now(),
     });
 
+    // Notify client org members about the new bid
+    if (this.prisma) {
+      void this.prisma.job.findUnique({
+        where: { id: input.jobId },
+        select: { title: true, clientOrgId: true },
+      }).then(async (job) => {
+        if (!job) return;
+        const members = await this.prisma!.membership.findMany({
+          where: { orgId: job.clientOrgId, role: { key: "CLIENT" } },
+          select: { userId: true },
+        });
+        await Promise.all(members.map((m) =>
+          this.prisma!.notification.create({
+            data: {
+              tenantId: input.tenantId,
+              userId:   m.userId,
+              type:     "bid_received",
+              title:    "Nueva propuesta recibida",
+              body:     `Un profesional envió una propuesta para "${job.title}". Revísala y decide.`,
+              payload:  { jobId: input.jobId, bidId: bid.id } as object,
+            },
+          }).catch((err: Error) => this.logger.warn(`[BidsService] Client notify failed: ${err.message}`))
+        ));
+      }).catch((err: Error) => this.logger.warn(`[BidsService] Job lookup failed: ${err.message}`));
+    }
+
     return bid;
   }
 
