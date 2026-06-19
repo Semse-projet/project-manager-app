@@ -56,6 +56,7 @@ type MilestoneEventContext = {
   jobId: string;
   evidenceCount: number;
   proUserId: string | null;
+  clientUserId: string | null;
 };
 
 function toMilestoneRecord(milestone: StoredMilestone, tenantId: string): MilestoneRecord {
@@ -292,6 +293,9 @@ export class MilestonesRepository {
                   select: { professionalId: true },
                   take: 1,
                 },
+                contract: {
+                  select: { clientUserId: true },
+                },
               },
             },
           },
@@ -314,6 +318,7 @@ export class MilestonesRepository {
       jobId: milestone.project.jobId,
       evidenceCount: milestone._count.evidence,
       proUserId: milestone.project.job?.reservations?.[0]?.professionalId ?? null,
+      clientUserId: milestone.project.job?.contract?.clientUserId ?? null,
     };
   }
 
