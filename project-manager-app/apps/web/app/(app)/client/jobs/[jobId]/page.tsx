@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   acceptBid,
+  createJobMilestone,
   fetchJob,
   fetchJobAgentSignals,
   fetchJobBids,
@@ -218,6 +219,8 @@ export default function ClientJobDetailPage() {
   const [changeReasons, setChangeReasons] = useState<Record<string, string>>({});
   const [showChangeForm, setShowChangeForm] = useState<Record<string, boolean>>({});
   const [activeInsight, setActiveInsight] = useState<InsightPanelId | null>(null);
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [newMilestone, setNewMilestone] = useState({ title: "", amount: "", sequence: "" });
 
   const loadDetail = useCallback(async () => {
     if (!jobId) return;
@@ -370,6 +373,25 @@ export default function ClientJobDetailPage() {
       setError(caught instanceof Error ? caught.message : "No se pudo aceptar la propuesta.");
     } finally {
       setAcceptingBidId(null);
+    }
+  }
+
+  async function handleCreateMilestone() {
+    if (pendingAction || !newMilestone.title.trim()) return;
+    const amount = Number(newMilestone.amount);
+    const sequence = newMilestone.sequence ? Number(newMilestone.sequence) : milestones.length + 1;
+    if (!amount || amount <= 0) { setError("El monto debe ser mayor a cero."); return; }
+    setPendingAction("create-milestone");
+    setError(null);
+    try {
+      await createJobMilestone(jobId, { title: newMilestone.title.trim(), amount, sequence });
+      setNewMilestone({ title: "", amount: "", sequence: "" });
+      setShowMilestoneForm(false);
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo crear el milestone.");
+    } finally {
+      setPendingAction(null);
     }
   }
 
@@ -738,8 +760,61 @@ export default function ClientJobDetailPage() {
                   {milestoneSummary.approved}/{milestoneSummary.total} hitos aprobados
                 </p>
               </div>
+              {["accepted", "in_progress", "review"].includes(normalizedJobStatus) ? (
+                <button
+                  onClick={() => setShowMilestoneForm((v) => !v)}
+                  style={{ padding: "8px 12px", borderRadius: "10px", border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                >
+                  {showMilestoneForm ? "Cancelar" : "+ Agregar hito"}
+                </button>
+              ) : null}
             </div>
+
+            {showMilestoneForm ? (
+              <div style={{ padding: "16px", borderRadius: "12px", border: "1px solid rgba(99,102,241,.25)", background: "rgba(99,102,241,.06)", marginBottom: "14px", display: "grid", gap: "10px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#818cf8", marginBottom: "2px" }}>Nuevo hito de pago</div>
+                <input
+                  value={newMilestone.title}
+                  onChange={(e) => setNewMilestone((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="Título del hito (ej: Instalación eléctrica completa)"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <input
+                    type="number"
+                    value={newMilestone.amount}
+                    onChange={(e) => setNewMilestone((p) => ({ ...p, amount: e.target.value }))}
+                    placeholder="Monto (USD)"
+                    min={1}
+                    style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "13px", outline: "none" }}
+                  />
+                  <input
+                    type="number"
+                    value={newMilestone.sequence}
+                    onChange={(e) => setNewMilestone((p) => ({ ...p, sequence: e.target.value }))}
+                    placeholder={`Orden (auto: ${milestones.length + 1})`}
+                    min={1}
+                    style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "13px", outline: "none" }}
+                  />
+                </div>
+                <button
+                  onClick={() => void handleCreateMilestone()}
+                  disabled={pendingAction !== null || !newMilestone.title.trim() || !newMilestone.amount}
+                  style={{ padding: "10px 14px", borderRadius: "10px", border: "none", background: "#6366f1", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: (!newMilestone.title.trim() || !newMilestone.amount) ? 0.5 : 1 }}
+                >
+                  Crear hito
+                </button>
+              </div>
+            ) : null}
+
             <div style={{ display: "grid", gap: "10px" }}>
+              {milestones.length === 0 && !showMilestoneForm ? (
+                <div style={{ padding: "18px 20px", borderRadius: "14px", border: "1px dashed var(--border)", color: "var(--muted)", fontSize: "12px", textAlign: "center" }}>
+                  {["accepted", "in_progress", "review"].includes(normalizedJobStatus)
+                    ? 'Todavía no hay hitos definidos. Usa "Agregar hito" para estructurar los pagos del proyecto.'
+                    : "No hay hitos configurados para este trabajo."}
+                </div>
+              ) : null}
               {milestones
                 .slice()
                 .sort((left, right) => (asNumber(left.sequence) ?? 0) - (asNumber(right.sequence) ?? 0))

@@ -288,6 +288,7 @@ export class MilestonesRepository {
             jobId: true,
             job: {
               select: {
+                clientOrgId: true,
                 reservations: {
                   where: { status: "ACCEPTED" },
                   select: { professionalId: true },
@@ -312,13 +313,26 @@ export class MilestonesRepository {
       throw new NotFoundException(`Milestone '${input.milestoneId}' not found`);
     }
 
+    let clientUserId = milestone.project.job?.contract?.clientUserId ?? null;
+
+    if (!clientUserId) {
+      const clientOrgId = milestone.project.job?.clientOrgId;
+      if (clientOrgId) {
+        const member = await this.prisma.membership.findFirst({
+          where: { orgId: clientOrgId, role: { key: "CLIENT" } },
+          select: { userId: true },
+        });
+        clientUserId = member?.userId ?? null;
+      }
+    }
+
     return {
       milestoneId: milestone.id,
       projectId: milestone.projectId,
       jobId: milestone.project.jobId,
       evidenceCount: milestone._count.evidence,
       proUserId: milestone.project.job?.reservations?.[0]?.professionalId ?? null,
-      clientUserId: milestone.project.job?.contract?.clientUserId ?? null,
+      clientUserId,
     };
   }
 
