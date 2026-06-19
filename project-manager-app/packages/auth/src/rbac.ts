@@ -85,6 +85,7 @@ export const rolePermissions: Record<string, string[]> = {
   WORKER: [
     "agents:run:worker",
     "agents:run:manage",
+    "bids:read",
     "field-ops:read",
     "field-ops:write"
   ],

@@ -6,21 +6,20 @@ import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } 
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { ChevronDown, Clock, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
 import {
-  completeMultipartUploadSession,
-  createMultipartUploadSession,
   createManualTrackerSession,
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
-  fetchMyBids,
+  fetchTimeTrackerJobs,
+  fetchTimeTrackerSummary,
   fetchTrackerSnapshot,
   pauseTrackerSession,
-  planUpload,
   resumeTrackerSession,
   startTrackerSession,
   stopTrackerSession,
-  uploadMultipartPart,
-  type MyBidView,
+  updateTimeTrackerSessionNotes,
+  type JobRecordView,
+  type TimeTrackerSummaryView,
   type TrackerSessionView
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -91,6 +90,15 @@ function elapsedFromSession(session: TrackerSessionView | null): number {
   return session.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - resumedAt) / 1000));
 }
 
+function manualDurationSeconds(date: string, startTime: string, endTime: string): number | null {
+  const startedAt = new Date(`${date}T${startTime}:00`);
+  const endedAt = new Date(`${date}T${endTime}:00`);
+  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime()) || endedAt <= startedAt) {
+    return null;
+  }
+  return Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
+}
+
 const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: string; bg: string }> = {
   RUNNING: { label: "Corriendo", color: "#10b981", bg: "rgba(16,185,129,.12)" },
   PAUSED: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
@@ -99,7 +107,7 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
 
 export default function WorkerTrackerPage() {
   const { t } = useLanguage();
-  const [jobs, setJobs] = useState<MyBidView[]>([]);
+  const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [sessions, setSessions] = useState<TrackerSessionView[]>([]);
   const [activeSession, setActiveSession] = useState<TrackerSessionView | null>(null);
   const [selectedJob, setSelectedJob] = useState("");
@@ -116,29 +124,27 @@ export default function WorkerTrackerPage() {
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
   const [contract, setContract] = useState<Record<string, unknown> | null>(null);
-  const [contractFilename, setContractFilename] = useState("contrato-operativo.pdf");
-  const [contractSizeMb, setContractSizeMb] = useState("8");
-  const [planningContract, setPlanningContract] = useState(false);
-  const [contractUploadPlan, setContractUploadPlan] = useState<Record<string, unknown> | null>(null);
-  const [contractMultipartSession, setContractMultipartSession] = useState<Record<string, unknown> | null>(null);
-  const [completingContractMultipart, setCompletingContractMultipart] = useState(false);
-  const [contractMultipartProgress, setContractMultipartProgress] = useState<Record<number, "pending" | "uploading" | "uploaded">>({});
+  const [weekSummary, setWeekSummary] = useState<TimeTrackerSummaryView | null>(null);
+  const [monthSummary, setMonthSummary] = useState<TimeTrackerSummaryView | null>(null);
 
   const loadTracker = useCallback(async () => {
-    const [bidsResult, snapshot] = await Promise.all([
-      fetchMyBids(),
+    const [assignedJobs, snapshot, weekResult, monthResult] = await Promise.all([
+      fetchTimeTrackerJobs(),
       fetchTrackerSnapshot(),
+      fetchTimeTrackerSummary("week"),
+      fetchTimeTrackerSummary("month"),
     ]);
 
-    const activeJobs = bidsResult.filter((b) => b.status === "accepted");
-    const preferredJobId = snapshot.activeSession?.jobId ?? activeJobs[0]?.jobId ?? "";
+    const preferredJobId = snapshot.activeSession?.jobId ?? assignedJobs[0]?.id ?? "";
 
-    setJobs(activeJobs);
+    setJobs(assignedJobs);
     setSessions(snapshot.recentSessions);
     setActiveSession(snapshot.activeSession);
     setSelectedJob(snapshot.activeSession?.jobId ?? preferredJobId);
     setNotes(snapshot.activeSession?.notes ?? "");
     setElapsed(elapsedFromSession(snapshot.activeSession));
+    setWeekSummary(weekResult);
+    setMonthSummary(monthResult);
   }, []);
 
   useEffect(() => {
@@ -199,17 +205,23 @@ export default function WorkerTrackerPage() {
 
   const currentJobId = activeSession?.jobId ?? selectedJob;
   const currentJobRouteId = safeRouteId(currentJobId);
-  const currentBid = jobs.find((b) => b.jobId === currentJobId);
   const currentJob = activeSession?.job
-    ?? (currentBid ? { id: currentBid.jobId, title: currentBid.jobTitle ?? currentBid.jobId, status: currentBid.jobStatus ?? "accepted" } : null);
+    ?? jobs.find((job) => job.id === currentJobId)
+    ?? null;
   const releasedAmount = payments.reduce((sum, item) => sum + (asString(item.type) === "RELEASE" ? asNumber(item.amount) ?? 0 : 0), 0);
   const fundedAmount = asNumber(escrow?.totalAmount);
+  const sessionElapsed = (session: TrackerSessionView) => (
+    activeSession?.id === session.id ? elapsed : session.elapsedSeconds
+  );
   const weekSeconds = sessions
     .filter((item) => Date.now() - new Date(item.startedAt).getTime() <= 7 * 24 * 3600 * 1000)
-    .reduce((sum, item) => sum + item.elapsedSeconds, 0);
+    .reduce((sum, item) => sum + sessionElapsed(item), 0);
   const monthSeconds = sessions
     .filter((item) => Date.now() - new Date(item.startedAt).getTime() <= 30 * 24 * 3600 * 1000)
-    .reduce((sum, item) => sum + item.elapsedSeconds, 0);
+    .reduce((sum, item) => sum + sessionElapsed(item), 0);
+  const displayedWeekSeconds = Math.max(weekSummary?.totalSeconds ?? 0, weekSeconds);
+  const displayedMonthSeconds = Math.max(monthSummary?.totalSeconds ?? 0, monthSeconds);
+  const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd);
 
   async function refreshAfterMutation() {
     await loadTracker();
@@ -247,97 +259,6 @@ export default function WorkerTrackerPage() {
     }
   }
 
-  async function handlePlanContractUpload() {
-    const sizeMb = Number(contractSizeMb);
-    if (!contractFilename.trim() || !Number.isFinite(sizeMb) || sizeMb <= 0) {
-      setError("Define un nombre y tamaño válidos para planificar el documento contractual.");
-      return;
-    }
-
-    setPlanningContract(true);
-    setError(null);
-    try {
-      const lowerName = contractFilename.toLowerCase();
-      const contentType = lowerName.endsWith(".pdf")
-        ? "application/pdf"
-        : lowerName.endsWith(".docx")
-          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          : lowerName.endsWith(".doc")
-            ? "application/msword"
-            : "application/octet-stream";
-
-      const result = await planUpload({
-        domain: "contract",
-        filename: contractFilename.trim(),
-        contentType,
-        fileSizeBytes: Math.round(sizeMb * 1024 * 1024),
-        source: sizeMb > 25 ? "external_transfer" : "project_copilot",
-      });
-      setContractUploadPlan(result);
-      if (asString(result.recommendedStrategy) === "external_transfer") {
-        const session = await createMultipartUploadSession({
-          domain: "contract",
-          filename: contractFilename.trim(),
-          contentType,
-          fileSizeBytes: Math.round(sizeMb * 1024 * 1024),
-          source: "external_transfer"
-        });
-        setContractMultipartSession(session);
-        const parts = Array.isArray(session.parts) ? session.parts as Array<Record<string, unknown>> : [];
-        setContractMultipartProgress(
-          Object.fromEntries(parts.map((part, index) => [asNumber(part.partNumber) ?? index + 1, "pending"]))
-        );
-      } else {
-        setContractMultipartSession(null);
-        setContractMultipartProgress({});
-      }
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo planificar la carga contractual.");
-      setContractUploadPlan(null);
-      setContractMultipartSession(null);
-      setContractMultipartProgress({});
-    } finally {
-      setPlanningContract(false);
-    }
-  }
-
-  async function handleCompleteContractMultipart() {
-    const sessionId = asString(contractMultipartSession?.sessionId);
-    const parts = Array.isArray(contractMultipartSession?.parts)
-      ? contractMultipartSession.parts as Array<Record<string, unknown>>
-      : [];
-    if (!sessionId || parts.length === 0 || completingContractMultipart) return;
-
-    setCompletingContractMultipart(true);
-    setError(null);
-    try {
-      for (const [index, part] of parts.entries()) {
-        const partNumber = asNumber(part.partNumber) ?? index + 1;
-        const bytes = typeof asNumber(part.endByte) === "number" && typeof asNumber(part.startByte) === "number"
-          ? Math.max(1, (asNumber(part.endByte) ?? 0) - (asNumber(part.startByte) ?? 0) + 1)
-          : 1024 * 1024;
-        setContractMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        await uploadMultipartPart({
-          sessionId,
-          partNumber,
-          contentLength: bytes
-        });
-        setContractMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
-      }
-      await completeMultipartUploadSession({
-        sessionId,
-        parts: parts.map((part, index) => ({
-          partNumber: asNumber(part.partNumber) ?? index + 1,
-          etag: `etag-part-${asNumber(part.partNumber) ?? index + 1}`
-        }))
-      });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo completar la sesión multipart contractual.");
-    } finally {
-      setCompletingContractMultipart(false);
-    }
-  }
-
   async function handleResume() {
     if (!activeSession || saving) return;
     setSaving(true);
@@ -369,8 +290,27 @@ export default function WorkerTrackerPage() {
     }
   }
 
+  async function handleSaveActiveNote() {
+    if (!activeSession || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const session = await updateTimeTrackerSessionNotes(activeSession.id, { notes });
+      setActiveSession(session);
+      await loadTracker();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo guardar la nota.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleManualSave() {
     if (!selectedJob || saving) return;
+    if (manualPreviewSeconds === null) {
+      setError("La entrada manual necesita una hora final posterior a la hora inicial.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -428,8 +368,18 @@ export default function WorkerTrackerPage() {
         <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "18px" }}>
           {activeSession
             ? `${STATUS_META[activeSession.status].label}: ${activeSession.job.title}`
-            : "Selecciona un trabajo y presiona Iniciar"}
+            : jobs.length === 0 && !loading
+              ? "Aún no tienes trabajos aceptados para registrar tiempo."
+              : "Selecciona un trabajo y presiona Iniciar"}
         </p>
+
+        {!activeSession && jobs.length === 0 && !loading ? (
+          <div style={{ marginBottom: "18px" }}>
+            <Link href="/worker/opportunities" style={linkButton()}>
+              Buscar oportunidades
+            </Link>
+          </div>
+        ) : null}
 
         {!activeSession ? (
           <div style={{ marginBottom: "16px", maxWidth: "420px", marginInline: "auto" }}>
@@ -451,9 +401,12 @@ export default function WorkerTrackerPage() {
                   outline: "none",
                 }}
               >
-                {jobs.map((bid) => (
-                  <option key={bid.id} value={bid.jobId}>
-                    {bid.jobTitle ?? bid.jobId}
+                {jobs.length === 0 ? (
+                  <option value="">Sin trabajos aceptados</option>
+                ) : null}
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.title}
                   </option>
                 ))}
               </select>
@@ -472,7 +425,7 @@ export default function WorkerTrackerPage() {
           </div>
         ) : null}
 
-        <div style={{ marginBottom: "18px", maxWidth: "420px", marginInline: "auto" }}>
+        <div style={{ marginBottom: "18px", maxWidth: "520px", marginInline: "auto", display: "grid", gridTemplateColumns: activeSession ? "1fr auto" : "1fr", gap: "8px" }}>
           <input
             data-testid="tracker-notes-input"
             value={notes}
@@ -490,6 +443,16 @@ export default function WorkerTrackerPage() {
               boxSizing: "border-box",
             }}
           />
+          {activeSession ? (
+            <button
+              data-testid="tracker-save-note-button"
+              onClick={() => void handleSaveActiveNote()}
+              disabled={saving}
+              style={secondaryButton()}
+            >
+              Guardar nota
+            </button>
+          ) : null}
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
@@ -498,7 +461,7 @@ export default function WorkerTrackerPage() {
               data-testid="tracker-start-button"
               onClick={() => void handleStart()}
               disabled={!selectedJob || saving}
-              style={primaryButton("#10b981", saving)}
+              style={primaryButton("#10b981", !selectedJob || saving)}
             >
               <Play size={16} fill="#fff" /> Iniciar
             </button>
@@ -525,10 +488,69 @@ export default function WorkerTrackerPage() {
       </HtmlInCanvasPanel>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
-        <MetricCard label="Esta semana" value={fmtSeconds(weekSeconds)} color="var(--brand)" />
-        <MetricCard label="Este mes" value={fmtSeconds(monthSeconds)} color="#10b981" />
-        <MetricCard label="Sesiones" value={String(sessions.length)} color="#8b5cf6" />
+        <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
+        <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="#10b981" />
+        <MetricCard label="Días trabajados" value={String(weekSummary?.daysWorked ?? "—")} color="#8b5cf6" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: "12px" }}>
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>RESUMEN SEMANAL</p>
+              <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>Tiempo por trabajo</h2>
+            </div>
+            <span style={{ fontSize: "11px", color: "var(--muted)" }}>
+              {weekSummary?.sessionCount ?? 0} sesiones · {weekSummary?.sessionsWithoutNotes ?? 0} sin nota
+            </span>
+          </div>
+
+          <div style={{ display: "grid", gap: "10px" }}>
+            {weekSummary?.byJob.length ? (
+              weekSummary.byJob.slice(0, 5).map((item) => {
+                const pct = displayedWeekSeconds > 0 ? Math.min(100, Math.round((item.seconds / displayedWeekSeconds) * 100)) : 0;
+                return (
+                  <div key={item.jobId} style={{ display: "grid", gap: "6px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "12px" }}>
+                      <span style={{ color: "var(--ink)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.jobTitle}</span>
+                      <span style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtSeconds(item.seconds)}</span>
+                    </div>
+                    <div style={{ height: "7px", borderRadius: "999px", background: "rgba(148,163,184,.18)", overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: "var(--brand)" }} />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6 }}>Sin tiempo registrado esta semana.</p>
+            )}
+          </div>
+        </div>
+
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: "12px" }}>
+            <div>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>LIBRETA</p>
+              <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>Notas recientes</h2>
+            </div>
+            <span style={{ fontSize: "11px", color: "var(--muted)" }}>Últimas 10</span>
+          </div>
+
+          <div style={{ display: "grid", gap: "10px" }}>
+            {weekSummary?.recentNotes.length ? (
+              weekSummary.recentNotes.slice(0, 4).map((item) => (
+                <div key={item.sessionId} style={{ borderLeft: "3px solid var(--brand)", paddingLeft: "10px" }}>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--ink)", fontWeight: 700 }}>{item.jobTitle}</p>
+                  <p style={{ margin: "3px 0", fontSize: "12px", color: "var(--muted)", lineHeight: 1.45 }}>{item.note}</p>
+                  <p style={{ margin: 0, fontSize: "11px", color: "var(--muted)" }}>{formatSessionDate(item.startedAt)}</p>
+                </div>
+              ))
+            ) : (
+              <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6 }}>Las sesiones con nota aparecerán aquí para seguimiento y cierre semanal.</p>
+            )}
+          </div>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.2fr .8fr", gap: "16px" }}>
@@ -595,9 +617,12 @@ export default function WorkerTrackerPage() {
                 <input value={manualStart} onChange={(event) => setManualStart(event.target.value)} type="time" style={inputStyle()} />
                 <input value={manualEnd} onChange={(event) => setManualEnd(event.target.value)} type="time" style={inputStyle()} />
               </div>
+              <p style={{ fontSize: "12px", color: manualPreviewSeconds === null ? "#ef4444" : "var(--muted)", margin: 0 }}>
+                Duración: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
+              </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
               <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => void handleManualSave()} disabled={!selectedJob || saving} style={primaryButton("var(--brand)", saving)}>
+                <button onClick={() => void handleManualSave()} disabled={!selectedJob || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !selectedJob || manualPreviewSeconds === null || saving)}>
                   Guardar
                 </button>
                 <button onClick={() => setShowForm(false)} style={secondaryButton()}>
@@ -614,76 +639,6 @@ export default function WorkerTrackerPage() {
           <div style={{ marginTop: "16px", display: "grid", gap: "8px" }}>
             <MiniStat label="Pagos" value={String(payments.length)} icon={<Receipt size={14} color="var(--brand)" />} />
             <MiniStat label="Contrato" value={contract ? "Disponible" : "Sin contrato"} icon={<ShieldCheck size={14} color="#10b981" />} />
-          </div>
-
-          <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid var(--border)", display: "grid", gap: "10px" }}>
-            <div>
-              <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>Planificar documento contractual</p>
-              <p style={{ fontSize: "12px", color: "var(--muted)", lineHeight: 1.5, marginTop: "4px" }}>
-                Calcula si el contrato debe subirse directo o por transferencia externa antes de adjuntarlo al trabajo.
-              </p>
-            </div>
-            <input
-              value={contractFilename}
-              onChange={(event) => setContractFilename(event.target.value)}
-              placeholder="contrato-operativo.pdf"
-              style={inputStyle()}
-            />
-            <input
-              value={contractSizeMb}
-              onChange={(event) => setContractSizeMb(event.target.value)}
-              type="number"
-              min="1"
-              step="1"
-              placeholder="Tamaño en MB"
-              style={inputStyle()}
-            />
-            <button onClick={() => void handlePlanContractUpload()} disabled={planningContract} style={primaryButton("#0f766e", planningContract)}>
-              {planningContract ? "Planificando..." : "Planificar carga contractual"}
-            </button>
-            {contractUploadPlan ? (
-              <div style={{ padding: "12px", borderRadius: "12px", border: "1px solid rgba(15,118,110,.18)", background: "rgba(15,118,110,.06)", display: "grid", gap: "6px" }}>
-                <p style={{ fontSize: "12px", fontWeight: 700, color: "#0f766e" }}>
-                  Estrategia: {asString(contractUploadPlan.recommendedStrategy) ?? "—"}
-                </p>
-                <p style={{ fontSize: "12px", color: "var(--muted)" }}>
-                  {asString(contractUploadPlan.uploadGuidance) ?? "Sin guía operativa"}
-                </p>
-                <p style={{ fontSize: "11px", color: "var(--muted)" }}>
-                  Límite simple: {Math.round((asNumber(contractUploadPlan.maxSingleUploadBytes) ?? 0) / (1024 * 1024))} MB
-                </p>
-              </div>
-            ) : null}
-            {contractMultipartSession ? (
-              <div style={{ padding: "12px", borderRadius: "12px", border: "1px solid rgba(20,184,166,.22)", background: "rgba(20,184,166,.08)", display: "grid", gap: "6px" }}>
-                <p style={{ fontSize: "12px", fontWeight: 700, color: "#0f766e" }}>
-                  Sesión multipart contractual
-                </p>
-                <p style={{ fontSize: "12px", color: "var(--muted)" }}>
-                  ID: {asString(contractMultipartSession.sessionId) ?? "—"} · proveedor: {asString(contractMultipartSession.provider) ?? "—"}
-                </p>
-                <p style={{ fontSize: "11px", color: "var(--muted)" }}>
-                  Partes: {Array.isArray(contractMultipartSession.parts) ? contractMultipartSession.parts.length : 0}
-                </p>
-                {Array.isArray(contractMultipartSession.parts)
-                  ? (contractMultipartSession.parts as Array<Record<string, unknown>>).slice(0, 4).map((part, index) => {
-                      const partNumber = asNumber(part.partNumber) ?? index + 1;
-                      return (
-                        <p key={partNumber} style={{ fontSize: "11px", color: "var(--muted)" }}>
-                          Parte {partNumber}: {contractMultipartProgress[partNumber] ?? "pending"}
-                        </p>
-                      );
-                    })
-                  : null}
-                <button
-                  onClick={() => void handleCompleteContractMultipart()}
-                  disabled={completingContractMultipart}
-                  style={primaryButton("#0f766e", completingContractMultipart)}
-                >
-                  {completingContractMultipart ? "Cerrando sesión..." : "Completar sesión multipart"}
-                </button>
-              </div>
-            ) : null}
           </div>
         </div>
       </div>
