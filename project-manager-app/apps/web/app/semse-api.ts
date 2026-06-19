@@ -387,8 +387,47 @@ export type BidView = {
   createdAt: string;
 };
 
+export type TimeTrackerSummaryView = {
+  range: "week" | "month";
+  totalSeconds: number;
+  sessionCount: number;
+  daysWorked: number;
+  openSessionCount: number;
+  sessionsWithoutNotes: number;
+  activeSession: TrackerSessionView | null;
+  byJob: Array<{
+    jobId: string;
+    jobTitle: string;
+    seconds: number;
+  }>;
+  recentNotes: Array<{
+    sessionId: string;
+    jobId: string;
+    jobTitle: string;
+    note: string | null;
+    startedAt: string;
+  }>;
+};
+
 export async function fetchJobBids(jobId: string): Promise<BidView[]> {
   return fetchSemse<BidView[]>(`/api/semse/jobs/${jobId}/bids`);
+}
+
+export async function fetchTimeTrackerJobs(): Promise<JobRecordView[]> {
+  return fetchSemse<JobRecordView[]>("/api/semse/time-tracker/jobs");
+}
+
+export async function fetchTimeTrackerSummary(range: "week" | "month"): Promise<TimeTrackerSummaryView> {
+  return fetchSemse<TimeTrackerSummaryView>(`/api/semse/time-tracker/summary?range=${range}`);
+}
+
+export async function updateTimeTrackerSessionNotes(sessionId: string, input: {
+  notes?: string;
+}): Promise<TrackerSessionView> {
+  return mutateSemse<TrackerSessionView>(
+    `/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/notes`,
+    input,
+  );
 }
 
 export async function acceptBid(bidId: string): Promise<Record<string, unknown>> {
@@ -413,8 +452,10 @@ export type MyBidView = {
 };
 
 export async function fetchMyBids(): Promise<MyBidView[]> {
-  const r = await fetchSemse<MyBidView[] | { data: MyBidView[] }>("/api/semse/my-bids").catch(() => []);
+  const r = await fetchSemse<MyBidView[] | { data: MyBidView[] } | { bids: MyBidView[]; total: number }>("/api/semse/my-bids").catch(() => []);
   if (Array.isArray(r)) return r;
+  const bids = (r as { bids?: MyBidView[] }).bids;
+  if (Array.isArray(bids)) return bids;
   const d = (r as { data?: MyBidView[] }).data;
   return Array.isArray(d) ? d : [];
 }
