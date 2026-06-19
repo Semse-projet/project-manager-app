@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Briefcase, Search, DollarSign } from "lucide-react";
+import { Briefcase, Search, DollarSign, Clock, XCircle } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { fetchMyBids, type MyBidView } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -29,44 +29,57 @@ const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info" | 
   cancelled:   { variant: "neutral", label: "Cancelado"   },
 };
 
-const TABS = ["Todos", "Activos", "Completados"] as const;
-type Tab = typeof TABS[number];
+const BID_STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "neutral" | "error"; label: string }> = {
+  submitted: { variant: "warning", label: "Pendiente" },
+  rejected:  { variant: "error",   label: "Rechazada" },
+  accepted:  { variant: "success", label: "Aceptada"  },
+};
 
-function money(n?: number | null) {
-  if (n == null) return null;
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
-}
+const TABS = ["Todos", "Activos", "Completados", "Propuestas"] as const;
+type Tab = typeof TABS[number];
 
 export default function WorkerJobsPage() {
   const { t } = useLanguage();
   const searchParams = useSearchParams();
-  const [bids, setBids]       = useState<MyBidView[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [allBids, setAllBids]   = useState<MyBidView[]>([]);
+  const [loading, setLoading]   = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [tab, setTab]         = useState<Tab>(() => {
+  const [tab, setTab]           = useState<Tab>(() => {
     const p = searchParams?.get("tab") as Tab | null;
     return TABS.includes(p as Tab) ? (p as Tab) : "Todos";
   });
-  const [query, setQuery]     = useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     fetchMyBids()
-      .then(data => setBids(data.filter(b => b.status === "accepted")))
+      .then(data => setAllBids(data))
       .catch(() => setApiError("No se pudo conectar con el servidor"))
       .finally(() => setLoading(false));
   }, []);
 
-  const filtered = bids.filter(b => {
-    const jobStatus = b.jobStatus ?? "accepted";
-    const matchTab =
-      tab === "Todos"       ? true :
-      tab === "Activos"     ? ["in_progress", "accepted", "review", "reserved"].includes(jobStatus) :
-      tab === "Completados" ? jobStatus === "completed" : true;
-    const matchQ = !query ||
-      (b.jobTitle ?? "").toLowerCase().includes(query.toLowerCase()) ||
-      (b.jobCategory ?? "").toLowerCase().includes(query.toLowerCase());
-    return matchTab && matchQ;
-  });
+  const bids = useMemo(() => allBids.filter(b => b.status === "accepted"), [allBids]);
+  const proposals = useMemo(() => allBids.filter(b => b.status !== "accepted"), [allBids]);
+
+  const filtered = useMemo(() => {
+    if (tab === "Propuestas") {
+      return proposals.filter(b =>
+        !query ||
+        (b.jobTitle ?? "").toLowerCase().includes(query.toLowerCase()) ||
+        (b.jobCategory ?? "").toLowerCase().includes(query.toLowerCase())
+      );
+    }
+    return bids.filter(b => {
+      const jobStatus = b.jobStatus ?? "accepted";
+      const matchTab =
+        tab === "Todos"       ? true :
+        tab === "Activos"     ? ["in_progress", "accepted", "review", "reserved"].includes(jobStatus) :
+        tab === "Completados" ? jobStatus === "completed" : true;
+      const matchQ = !query ||
+        (b.jobTitle ?? "").toLowerCase().includes(query.toLowerCase()) ||
+        (b.jobCategory ?? "").toLowerCase().includes(query.toLowerCase());
+      return matchTab && matchQ;
+    });
+  }, [tab, bids, proposals, query]);
 
   return (
     <div style={{ maxWidth: "900px", margin: "0 auto" }}>
@@ -85,20 +98,40 @@ export default function WorkerJobsPage() {
       {/* Tabs + Search */}
       <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }} canvasClassName="rounded-2xl" minHeight={54}>
         <div style={{ display: "flex", gap: "4px", background: "var(--surface)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-          {TABS.map(label => (
-            <button
-              key={label}
-              onClick={() => setTab(label)}
-              style={{
-                padding: "6px 14px", borderRadius: "7px", border: "none",
-                background: tab === label ? "var(--brand)" : "transparent",
-                color: tab === label ? "#fff" : "var(--muted)",
-                fontSize: "13px", fontWeight: 600, cursor: "pointer",
-              }}
-            >
-              {label}
-            </button>
-          ))}
+          {TABS.map(label => {
+            const count =
+              label === "Propuestas" ? proposals.length :
+              label === "Activos"    ? bids.filter(b => ["in_progress", "accepted", "review", "reserved"].includes(b.jobStatus ?? "accepted")).length :
+              label === "Completados"? bids.filter(b => b.jobStatus === "completed").length :
+              null;
+            return (
+              <button
+                key={label}
+                onClick={() => setTab(label)}
+                style={{
+                  padding: "6px 14px", borderRadius: "7px", border: "none",
+                  background: tab === label ? "var(--brand)" : "transparent",
+                  color: tab === label ? "#fff" : "var(--muted)",
+                  fontSize: "13px", fontWeight: 600, cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: "5px",
+                }}
+              >
+                {label}
+                {count != null && count > 0 && (
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    minWidth: "18px", height: "18px", padding: "0 4px",
+                    borderRadius: "9px",
+                    background: tab === label ? "rgba(255,255,255,.25)" : label === "Propuestas" ? "rgba(251,191,36,.2)" : "rgba(16,185,129,.15)",
+                    color: tab === label ? "#fff" : label === "Propuestas" ? "#fbbf24" : "#10b981",
+                    fontSize: "10px", fontWeight: 800,
+                  }}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div style={{ position: "relative" }}>
@@ -130,12 +163,58 @@ export default function WorkerJobsPage() {
       ) : filtered.length === 0 ? (
         <HtmlInCanvasPanel as="section" style={{ padding: "48px 24px", textAlign: "center", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px" }} canvasClassName="rounded-2xl" minHeight={220}>
           <Briefcase size={36} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
-          <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>No hay trabajos</p>
-          <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
-            {bids.length === 0
-              ? "Aún no tienes trabajos aceptados. Revisa las oportunidades disponibles."
-              : "Ajusta los filtros para encontrar tus trabajos."}
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>
+            {tab === "Propuestas" ? "Sin propuestas enviadas" : "No hay trabajos"}
           </p>
+          <p style={{ fontSize: "13px", color: "var(--muted)", marginTop: "4px" }}>
+            {tab === "Propuestas"
+              ? "Tus propuestas enviadas aparecerán aquí mientras el cliente decide."
+              : bids.length === 0
+                ? "Aún no tienes trabajos aceptados. Revisa las oportunidades disponibles."
+                : "Ajusta los filtros para encontrar tus trabajos."}
+          </p>
+        </HtmlInCanvasPanel>
+      ) : tab === "Propuestas" ? (
+        <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "8px" }} canvasClassName="rounded-2xl" minHeight={380}>
+          {filtered.map(bid => {
+            const bidSc = BID_STATUS_CONFIG[bid.status] ?? { variant: "neutral" as const, label: bid.status };
+            const isPending = bid.status === "submitted";
+            return (
+              <div
+                key={bid.id}
+                style={{
+                  display: "flex", alignItems: "flex-start", gap: "16px",
+                  padding: "16px 18px",
+                  background: "var(--surface)", border: `1px solid ${bid.status === "rejected" ? "rgba(239,68,68,.2)" : "var(--border)"}`,
+                  borderRadius: "12px",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
+                    <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>{bid.jobTitle ?? bid.jobId}</p>
+                    <StatusBadge variant={bidSc.variant} text={bidSc.label} dot size="sm" />
+                  </div>
+                  {bid.jobCategory && (
+                    <p style={{ fontSize: "12px", color: "var(--muted)" }}>
+                      {bid.jobCategory}{bid.jobLocation ? ` · ${bid.jobLocation}` : ""}
+                    </p>
+                  )}
+                  <p style={{ fontSize: "11px", marginTop: "4px", color: isPending ? "#fbbf24" : "#ef4444", fontWeight: 600 }}>
+                    {isPending
+                      ? "▶ Esperando decisión del cliente"
+                      : "✕ El cliente eligió otra propuesta"}
+                  </p>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: "3px", justifyContent: "flex-end" }}>
+                    {isPending ? <Clock size={14} style={{ color: "#fbbf24" }} /> : <XCircle size={14} style={{ color: "#ef4444" }} />}
+                    {bid.amount.toLocaleString()}
+                  </p>
+                  <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{bid.etaDays} días</p>
+                </div>
+              </div>
+            );
+          })}
         </HtmlInCanvasPanel>
       ) : (
         <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "8px" }} canvasClassName="rounded-2xl" minHeight={380}>
