@@ -120,3 +120,34 @@ test("StripeConnectService upgrades persisted mock account before creating live 
     }
   }
 });
+
+test("StripeConnectService returns safe Stripe diagnostics when account creation fails", async () => {
+  const previousKey = process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_SECRET_KEY = "sk_test_semse";
+
+  try {
+    const { prisma } = createPrismaStub();
+    const service = new StripeConnectService(prisma as never);
+    (service as unknown as { stripe: unknown }).stripe = {
+      accounts: {
+        async create() {
+          const error = new Error("Your account is not enabled for Connect onboarding.");
+          (error as Error & { code?: string; type?: string }).code = "account_invalid";
+          (error as Error & { code?: string; type?: string }).type = "StripeInvalidRequestError";
+          throw error;
+        },
+      },
+    };
+
+    await assert.rejects(
+      () => service.getOrCreateAccount("usr_2", "worker@example.com"),
+      /Stripe respondió: code=account_invalid; type=StripeInvalidRequestError; message=Your account is not enabled/,
+    );
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.STRIPE_SECRET_KEY;
+    } else {
+      process.env.STRIPE_SECRET_KEY = previousKey;
+    }
+  }
+});

@@ -92,7 +92,7 @@ export class StripeConnectService {
         url = link.url;
       } catch (error) {
         this.logger.error(`[StripeConnect] Onboarding link failed for ${row.stripeAccountId}: ${this.errorMessage(error)}`);
-        throw new BadGatewayException("No pudimos crear el enlace de onboarding de Stripe. Revisa la configuración de Stripe Connect.");
+        throw new BadGatewayException(`No pudimos crear el enlace de onboarding de Stripe. ${this.publicStripeDiagnostic(error)}`);
       }
     } else {
       url = `${returnUrl}?mock=true&account=${row.stripeAccountId}`;
@@ -130,7 +130,7 @@ export class StripeConnectService {
           : "pending";
       } catch (error) {
         this.logger.error(`[StripeConnect] Sync failed for ${row.stripeAccountId}: ${this.errorMessage(error)}`);
-        throw new BadGatewayException("No pudimos sincronizar la cuenta Stripe Connect. Intenta de nuevo en unos minutos.");
+        throw new BadGatewayException(`No pudimos sincronizar la cuenta Stripe Connect. ${this.publicStripeDiagnostic(error)}`);
       }
     }
 
@@ -245,7 +245,7 @@ export class StripeConnectService {
       return account.id;
     } catch (error) {
       this.logger.error(`[StripeConnect] Account creation failed for user ${userId}: ${this.errorMessage(error)}`);
-      throw new BadGatewayException("No pudimos crear la cuenta Stripe Connect. Revisa la configuración de Stripe.");
+      throw new BadGatewayException(`No pudimos crear la cuenta Stripe Connect. ${this.publicStripeDiagnostic(error)}`);
     }
   }
 
@@ -255,6 +255,22 @@ export class StripeConnectService {
 
   private errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  private publicStripeDiagnostic(error: unknown): string {
+    const record = error && typeof error === "object" ? error as Record<string, unknown> : {};
+    const rawMessage = this.errorMessage(error);
+    const message = rawMessage.length > 220 ? `${rawMessage.slice(0, 220)}...` : rawMessage;
+    const code = typeof record.code === "string" ? record.code : undefined;
+    const type = typeof record.type === "string" ? record.type : undefined;
+    const parts = [
+      code ? `code=${code}` : null,
+      type ? `type=${type}` : null,
+      message ? `message=${message}` : null,
+    ].filter(Boolean);
+    return parts.length > 0
+      ? `Stripe respondió: ${parts.join("; ")}`
+      : "Revisa la configuración de Stripe Connect.";
   }
 
   private toView(row: StripeConnectRow): ConnectAccountView {
