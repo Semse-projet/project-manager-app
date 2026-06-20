@@ -19,6 +19,7 @@ export class TimeTrackerController {
     const actor = resolveRequestContext(req);
     const data = await this.service.listTrackerJobs({
       tenantId: actor.tenantId,
+      orgId: actor.orgId,
       createdBy: actor.userId,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
