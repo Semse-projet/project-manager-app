@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { ChevronDown, Clock, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
 import {
@@ -18,11 +18,29 @@ import {
   startTrackerSession,
   stopTrackerSession,
   updateTimeTrackerSessionNotes,
+  SemseApiError,
   type JobRecordView,
   type TimeTrackerSummaryView,
   type TrackerSessionView
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import {
+  clearTrackerLocalState,
+  createTrackerEventId,
+  createTrackerLocalState,
+  enqueueTrackerEvent,
+  hasTrackerLocalWork,
+  markTrackerSyncFailed,
+  markTrackerSynced,
+  markTrackerSyncing,
+  readTrackerLocalState,
+  startTrackerLocalSession,
+  updateTrackerLocalSession,
+  writeTrackerLocalState,
+  type TrackerLocalSession,
+  type TrackerLocalState,
+  type TrackerPendingEvent,
+} from "./trackerLocalStore";
 
 function pad(n: number) {
   return String(Math.floor(n)).padStart(2, "0");
@@ -90,6 +108,82 @@ function elapsedFromSession(session: TrackerSessionView | null): number {
   return session.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - resumedAt) / 1000));
 }
 
+function elapsedFromLocalSession(session: TrackerLocalSession | null): number {
+  if (!session) return 0;
+  if (session.status !== "RUNNING" || !session.resumedAt) return session.accumulatedSeconds;
+
+  const resumedAt = new Date(session.resumedAt).getTime();
+  if (Number.isNaN(resumedAt)) return session.accumulatedSeconds;
+
+  return session.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - resumedAt) / 1000));
+}
+
+function localSessionToView(session: TrackerLocalSession, jobs: JobRecordView[]): TrackerSessionView {
+  const job = jobs.find((item) => item.id === session.jobId);
+  const jobTitle = session.jobTitle ?? job?.title ?? "Trabajo guardado localmente";
+  return {
+    id: session.backendSessionId ?? session.id,
+    jobId: session.jobId,
+    job: {
+      id: session.jobId,
+      title: jobTitle,
+      status: job?.status ?? "LOCAL_PENDING",
+    },
+    status: session.status,
+    startedAt: session.startedAt,
+    resumedAt: session.resumedAt ?? null,
+    pausedAt: session.pausedAt ?? null,
+    stoppedAt: session.stoppedAt ?? null,
+    accumulatedSeconds: session.accumulatedSeconds,
+    elapsedSeconds: elapsedFromLocalSession(session),
+    notes: session.notes ?? null,
+    updatedAt: session.updatedAt,
+  } as TrackerSessionView;
+}
+
+function viewToLocalSession(session: TrackerSessionView): TrackerLocalSession {
+  return {
+    id: session.id,
+    backendSessionId: session.id,
+    jobId: session.jobId,
+    jobTitle: session.job.title,
+    status: session.status,
+    startedAt: session.startedAt,
+    resumedAt: session.resumedAt ?? undefined,
+    pausedAt: session.pausedAt ?? undefined,
+    stoppedAt: session.stoppedAt ?? undefined,
+    accumulatedSeconds: session.accumulatedSeconds,
+    notes: session.notes ?? undefined,
+    updatedAt: session.updatedAt,
+  };
+}
+
+function ensureLocalStateForSession(state: TrackerLocalState, session: TrackerSessionView): TrackerLocalState {
+  if (state.activeSession?.id === session.id || state.activeSession?.backendSessionId === session.id) return state;
+  return {
+    ...state,
+    activeSession: viewToLocalSession(session),
+  };
+}
+
+function isLikelyConnectionError(caught: unknown) {
+  return (
+    typeof navigator !== "undefined" && !navigator.onLine
+  ) || (
+    caught instanceof TypeError && caught.message.toLowerCase().includes("fetch")
+  );
+}
+
+function friendlyConnectionMessage(action: string) {
+  return `${action}. Tu tiempo se sigue guardando en este dispositivo y se sincronizará cuando haya conexión.`;
+}
+
+function shouldPreserveLocalEvent(caught: unknown) {
+  if (isLikelyConnectionError(caught)) return true;
+  if (caught instanceof SemseApiError) return caught.status >= 500;
+  return false;
+}
+
 function manualDurationSeconds(date: string, startTime: string, endTime: string): number | null {
   const startedAt = new Date(`${date}T${startTime}:00`);
   const endedAt = new Date(`${date}T${endTime}:00`);
@@ -126,6 +220,18 @@ export default function WorkerTrackerPage() {
   const [contract, setContract] = useState<Record<string, unknown> | null>(null);
   const [weekSummary, setWeekSummary] = useState<TimeTrackerSummaryView | null>(null);
   const [monthSummary, setMonthSummary] = useState<TimeTrackerSummaryView | null>(null);
+  const [trackerLocalState, setTrackerLocalState] = useState<TrackerLocalState>(() => createTrackerLocalState());
+  const [isOnline, setIsOnline] = useState(true);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  const persistTrackerLocalState = useCallback((nextState: TrackerLocalState) => {
+    setTrackerLocalState(nextState);
+    if (hasTrackerLocalWork(nextState) || nextState.syncStatus === "failed") {
+      writeTrackerLocalState(window.localStorage, nextState);
+    } else {
+      clearTrackerLocalState(window.localStorage);
+    }
+  }, []);
 
   const loadTracker = useCallback(async () => {
     const [assignedJobs, snapshot, weekResult, monthResult] = await Promise.all([
@@ -146,6 +252,107 @@ export default function WorkerTrackerPage() {
     setWeekSummary(weekResult);
     setMonthSummary(monthResult);
   }, []);
+
+  const syncPendingEvents = useCallback(async (state: TrackerLocalState = trackerLocalState) => {
+    if (state.pendingEvents.length === 0 || saving) return;
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
+    const syncingState = markTrackerSyncing(state);
+    persistTrackerLocalState(syncingState);
+    setSyncNotice("Sincronizando horas guardadas localmente...");
+
+    const sessionIdMap = new Map<string, string>();
+
+    try {
+      for (const event of syncingState.pendingEvents) {
+        switch (event.type) {
+          case "start": {
+            const session = await startTrackerSession({ jobId: event.jobId, notes: event.notes });
+            sessionIdMap.set(event.localSessionId, session.id);
+            break;
+          }
+          case "pause": {
+            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await pauseTrackerSession(sessionId, { notes: event.notes });
+            break;
+          }
+          case "resume": {
+            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await resumeTrackerSession(sessionId, { notes: event.notes });
+            break;
+          }
+          case "stop": {
+            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await stopTrackerSession(sessionId, { notes: event.notes });
+            break;
+          }
+          case "update_note": {
+            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await updateTimeTrackerSessionNotes(sessionId, { notes: event.notes });
+            break;
+          }
+          case "manual_session":
+            await createManualTrackerSession({
+              jobId: event.jobId,
+              date: event.date,
+              startTime: event.startTime,
+              endTime: event.endTime,
+              notes: event.notes,
+            });
+            break;
+        }
+      }
+
+      const syncedState = markTrackerSynced(syncingState);
+      persistTrackerLocalState(syncedState);
+      setSyncNotice("Sincronización completada. Tus horas ya están protegidas en SEMSE.");
+      await loadTracker();
+    } catch (caught) {
+      const failedState = markTrackerSyncFailed(syncingState, caught instanceof Error ? caught.message : "No se pudo sincronizar el tracker.");
+      persistTrackerLocalState(failedState);
+      setSyncNotice("No pudimos sincronizar ahora. Seguiremos intentando automáticamente.");
+    }
+  }, [loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
+
+  useEffect(() => {
+    const storedState = readTrackerLocalState(window.localStorage);
+    setTrackerLocalState(storedState);
+    setIsOnline(navigator.onLine);
+
+    if (storedState.activeSession && storedState.activeSession.status !== "STOPPED") {
+      setActiveSession(localSessionToView(storedState.activeSession, jobs));
+      setSelectedJob(storedState.activeSession.jobId);
+      setNotes(storedState.activeSession.notes ?? "");
+      setElapsed(elapsedFromLocalSession(storedState.activeSession));
+      setSyncNotice("Sesión recuperada. Encontramos una jornada guardada localmente.");
+    } else if (storedState.pendingEvents.length > 0) {
+      setSyncNotice("Hay cambios del tracker pendientes de sincronizar.");
+    }
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      setSyncNotice("Conexión restaurada. Sincronizando cambios pendientes...");
+      void syncPendingEvents(readTrackerLocalState(window.localStorage));
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncNotice("Sin conexión. Tu tiempo se sigue guardando en este dispositivo.");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isOnline && trackerLocalState.pendingEvents.length > 0 && trackerLocalState.syncStatus !== "syncing") {
+      void syncPendingEvents(trackerLocalState);
+    }
+  }, [isOnline, syncPendingEvents, trackerLocalState]);
 
   useEffect(() => {
     const run = async () => {
@@ -222,6 +429,47 @@ export default function WorkerTrackerPage() {
   const displayedWeekSeconds = Math.max(weekSummary?.totalSeconds ?? 0, weekSeconds);
   const displayedMonthSeconds = Math.max(monthSummary?.totalSeconds ?? 0, monthSeconds);
   const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd);
+  const pendingEventCount = trackerLocalState.pendingEvents.length;
+  const syncBanner = useMemo(() => {
+    if (!isOnline) {
+      return {
+        tone: "warning" as const,
+        title: "Sin conexión",
+        message: "Tu tiempo se sigue guardando en este dispositivo. SEMSE sincronizará los cambios cuando vuelva la señal.",
+      };
+    }
+    if (trackerLocalState.syncStatus === "syncing") {
+      return {
+        tone: "info" as const,
+        title: "Sincronizando",
+        message: "Estamos enviando a SEMSE los cambios guardados localmente.",
+      };
+    }
+    if (trackerLocalState.syncStatus === "failed") {
+      return {
+        tone: "danger" as const,
+        title: "Sincronización pendiente",
+        message: trackerLocalState.lastError
+          ? `No pudimos sincronizar ahora: ${trackerLocalState.lastError}`
+          : "No pudimos sincronizar ahora. Seguiremos intentando automáticamente.",
+      };
+    }
+    if (pendingEventCount > 0) {
+      return {
+        tone: "warning" as const,
+        title: "Cambios pendientes",
+        message: `${pendingEventCount} ${pendingEventCount === 1 ? "acción está" : "acciones están"} guardadas localmente y pendientes de sincronizar.`,
+      };
+    }
+    if (syncNotice) {
+      return {
+        tone: "success" as const,
+        title: "Tracker protegido",
+        message: syncNotice,
+      };
+    }
+    return null;
+  }, [isOnline, pendingEventCount, syncNotice, trackerLocalState.lastError, trackerLocalState.syncStatus]);
 
   async function refreshAfterMutation() {
     await loadTracker();
@@ -231,14 +479,44 @@ export default function WorkerTrackerPage() {
 
   async function handleStart() {
     if (!selectedJob || saving) return;
+    if (activeSession || trackerLocalState.activeSession) {
+      setError("Ya hay una sesión activa. Pausa o detén la sesión actual antes de iniciar otra.");
+      return;
+    }
     setSaving(true);
     setError(null);
+    const selectedJobRecord = jobs.find((job) => job.id === selectedJob);
+    const localStart = startTrackerLocalSession(readTrackerLocalState(window.localStorage), {
+      jobId: selectedJob,
+      jobTitle: selectedJobRecord?.title,
+      notes,
+    });
+    persistTrackerLocalState(localStart.state);
+    setActiveSession(localSessionToView(localStart.localSession, jobs));
+    setElapsed(0);
     try {
       const session = await startTrackerSession({ jobId: selectedJob, notes });
+      const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
+      persistTrackerLocalState({
+        ...localStart.state,
+        activeSession: null,
+        pendingEvents: remainingEvents,
+        syncStatus: remainingEvents.length > 0 ? "pending" : "synced",
+        lastSyncedAt: new Date().toISOString(),
+        lastError: undefined,
+      });
       setActiveSession(session);
       await refreshAfterMutation();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión.");
+      if (shouldPreserveLocalEvent(caught)) {
+        setSyncNotice(friendlyConnectionMessage("No pudimos iniciar en SEMSE ahora"));
+      } else {
+        const cleanState = markTrackerSynced(localStart.state);
+        persistTrackerLocalState(cleanState);
+        setActiveSession(null);
+        setElapsed(0);
+        setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión.");
+      }
     } finally {
       setSaving(false);
     }
@@ -248,12 +526,30 @@ export default function WorkerTrackerPage() {
     if (!activeSession || saving) return;
     setSaving(true);
     setError(null);
+    const localTimestamp = new Date().toISOString();
+    const event: TrackerPendingEvent = {
+      id: createTrackerEventId(),
+      type: "pause",
+      sessionId: activeSession.id,
+      notes,
+      localTimestamp,
+    };
     try {
       const session = await pauseTrackerSession(activeSession.id, { notes });
       setActiveSession(session);
       await refreshAfterMutation();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo pausar la sesión.");
+      if (shouldPreserveLocalEvent(caught)) {
+        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const nextState = updateTrackerLocalSession(baseState, event);
+        persistTrackerLocalState(nextState);
+        if (nextState.activeSession) {
+          setActiveSession(localSessionToView(nextState.activeSession, jobs));
+        }
+        setSyncNotice(friendlyConnectionMessage("No pudimos pausar en SEMSE ahora"));
+      } else {
+        setError(caught instanceof Error ? caught.message : "No se pudo pausar la sesión.");
+      }
     } finally {
       setSaving(false);
     }
@@ -263,12 +559,30 @@ export default function WorkerTrackerPage() {
     if (!activeSession || saving) return;
     setSaving(true);
     setError(null);
+    const localTimestamp = new Date().toISOString();
+    const event: TrackerPendingEvent = {
+      id: createTrackerEventId(),
+      type: "resume",
+      sessionId: activeSession.id,
+      notes,
+      localTimestamp,
+    };
     try {
       const session = await resumeTrackerSession(activeSession.id, { notes });
       setActiveSession(session);
       await refreshAfterMutation();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo reanudar la sesión.");
+      if (shouldPreserveLocalEvent(caught)) {
+        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const nextState = updateTrackerLocalSession(baseState, event);
+        persistTrackerLocalState(nextState);
+        if (nextState.activeSession) {
+          setActiveSession(localSessionToView(nextState.activeSession, jobs));
+        }
+        setSyncNotice(friendlyConnectionMessage("No pudimos reanudar en SEMSE ahora"));
+      } else {
+        setError(caught instanceof Error ? caught.message : "No se pudo reanudar la sesión.");
+      }
     } finally {
       setSaving(false);
     }
@@ -278,13 +592,30 @@ export default function WorkerTrackerPage() {
     if (!activeSession || saving) return;
     setSaving(true);
     setError(null);
+    const localTimestamp = new Date().toISOString();
+    const event: TrackerPendingEvent = {
+      id: createTrackerEventId(),
+      type: "stop",
+      sessionId: activeSession.id,
+      notes,
+      localTimestamp,
+    };
     try {
       await stopTrackerSession(activeSession.id, { notes });
       setNotes("");
       setActiveSession(null);
       await refreshAfterMutation();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo detener la sesión.");
+      if (shouldPreserveLocalEvent(caught)) {
+        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const nextState = updateTrackerLocalSession(baseState, event);
+        persistTrackerLocalState(nextState);
+        setNotes("");
+        setActiveSession(null);
+        setSyncNotice(friendlyConnectionMessage("No pudimos detener en SEMSE ahora"));
+      } else {
+        setError(caught instanceof Error ? caught.message : "No se pudo detener la sesión.");
+      }
     } finally {
       setSaving(false);
     }
@@ -294,12 +625,29 @@ export default function WorkerTrackerPage() {
     if (!activeSession || saving) return;
     setSaving(true);
     setError(null);
+    const event: TrackerPendingEvent = {
+      id: createTrackerEventId(),
+      type: "update_note",
+      sessionId: activeSession.id,
+      notes,
+      localTimestamp: new Date().toISOString(),
+    };
     try {
       const session = await updateTimeTrackerSessionNotes(activeSession.id, { notes });
       setActiveSession(session);
       await loadTracker();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo guardar la nota.");
+      if (shouldPreserveLocalEvent(caught)) {
+        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const nextState = updateTrackerLocalSession(baseState, event);
+        persistTrackerLocalState(nextState);
+        if (nextState.activeSession) {
+          setActiveSession(localSessionToView(nextState.activeSession, jobs));
+        }
+        setSyncNotice(friendlyConnectionMessage("No pudimos guardar la nota en SEMSE ahora"));
+      } else {
+        setError(caught instanceof Error ? caught.message : "No se pudo guardar la nota.");
+      }
     } finally {
       setSaving(false);
     }
@@ -313,6 +661,17 @@ export default function WorkerTrackerPage() {
     }
     setSaving(true);
     setError(null);
+    const localTimestamp = new Date().toISOString();
+    const event: TrackerPendingEvent = {
+      id: createTrackerEventId(),
+      type: "manual_session",
+      jobId: selectedJob,
+      date: manualDate,
+      startTime: manualStart,
+      endTime: manualEnd,
+      notes: manualNotes,
+      localTimestamp,
+    };
     try {
       await createManualTrackerSession({
         jobId: selectedJob,
@@ -323,7 +682,15 @@ export default function WorkerTrackerPage() {
       });
       await refreshAfterMutation();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo guardar la entrada manual.");
+      if (shouldPreserveLocalEvent(caught)) {
+        const nextState = enqueueTrackerEvent(readTrackerLocalState(window.localStorage), event);
+        persistTrackerLocalState(nextState);
+        setShowForm(false);
+        setManualNotes("");
+        setSyncNotice(friendlyConnectionMessage("No pudimos guardar la entrada manual en SEMSE ahora"));
+      } else {
+        setError(caught instanceof Error ? caught.message : "No se pudo guardar la entrada manual.");
+      }
     } finally {
       setSaving(false);
     }
@@ -348,6 +715,30 @@ export default function WorkerTrackerPage() {
         </div>
         <NotificationBanner audience="worker" />
       </HtmlInCanvasPanel>
+
+      {syncBanner ? (
+        <div data-testid="tracker-sync-banner" style={syncBannerStyle(syncBanner.tone)}>
+          <strong style={{ color: "var(--ink)", fontSize: "13px" }}>{syncBanner.title}</strong>
+          <span style={{ color: "var(--muted)", fontSize: "13px", lineHeight: 1.45 }}>{syncBanner.message}</span>
+          {isOnline && pendingEventCount > 0 && trackerLocalState.syncStatus !== "syncing" ? (
+            <button
+              type="button"
+              onClick={() => void syncPendingEvents(readTrackerLocalState(window.localStorage))}
+              disabled={saving}
+              style={{ ...linkButton(), marginLeft: "auto" }}
+            >
+              Reintentar ahora
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div style={{ ...syncBannerStyle("danger"), color: "#b91c1c" }}>
+          <strong style={{ fontSize: "13px" }}>Acción no completada</strong>
+          <span style={{ fontSize: "13px", lineHeight: 1.45 }}>{error}</span>
+        </div>
+      ) : null}
 
       <HtmlInCanvasPanel as="section" style={{ ...card, textAlign: "center" }} canvasClassName="rounded-2xl" minHeight={340}>
         <div
@@ -450,7 +841,7 @@ export default function WorkerTrackerPage() {
               disabled={saving}
               style={secondaryButton()}
             >
-              Guardar nota
+              {saving ? "Guardando..." : "Guardar nota"}
             </button>
           ) : null}
         </div>
@@ -463,24 +854,24 @@ export default function WorkerTrackerPage() {
               disabled={!selectedJob || saving}
               style={primaryButton("#10b981", !selectedJob || saving)}
             >
-              <Play size={16} fill="#fff" /> Iniciar
+              <Play size={16} fill="#fff" /> {saving ? "Iniciando..." : "Iniciar"}
             </button>
           ) : activeSession.status === "RUNNING" ? (
             <>
               <button data-testid="tracker-pause-button" onClick={() => void handlePause()} disabled={saving} style={secondaryButton()}>
-                <Pause size={16} /> Pausar
+                <Pause size={16} /> {saving ? "Pausando..." : "Pausar"}
               </button>
               <button data-testid="tracker-stop-button" onClick={() => void handleStop()} disabled={saving} style={dangerButton()}>
-                <Square size={16} /> Guardar y detener
+                <Square size={16} /> {saving ? "Deteniendo..." : "Guardar y detener"}
               </button>
             </>
           ) : (
             <>
               <button data-testid="tracker-resume-button" onClick={() => void handleResume()} disabled={saving} style={primaryButton("var(--brand)", saving)}>
-                <Play size={16} fill="#fff" /> Reanudar
+                <Play size={16} fill="#fff" /> {saving ? "Reanudando..." : "Reanudar"}
               </button>
               <button data-testid="tracker-stop-button" onClick={() => void handleStop()} disabled={saving} style={dangerButton()}>
-                <Square size={16} /> Detener
+                <Square size={16} /> {saving ? "Deteniendo..." : "Detener"}
               </button>
             </>
           )}
@@ -623,7 +1014,7 @@ export default function WorkerTrackerPage() {
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
               <div style={{ display: "flex", gap: "8px" }}>
                 <button onClick={() => void handleManualSave()} disabled={!selectedJob || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !selectedJob || manualPreviewSeconds === null || saving)}>
-                  Guardar
+                  {saving ? "Guardando..." : "Guardar"}
                 </button>
                 <button onClick={() => setShowForm(false)} style={secondaryButton()}>
                   Cancelar
@@ -702,6 +1093,26 @@ function MiniStat({ label, value, icon }: { label: string; value: string; icon: 
       <p style={{ fontSize: "14px", color: "var(--ink)", fontWeight: 700 }}>{value}</p>
     </div>
   );
+}
+
+function syncBannerStyle(tone: "info" | "success" | "warning" | "danger"): CSSProperties {
+  const palette = {
+    info: { background: "rgba(59,130,246,.08)", border: "rgba(59,130,246,.22)" },
+    success: { background: "rgba(16,185,129,.08)", border: "rgba(16,185,129,.22)" },
+    warning: { background: "rgba(245,158,11,.1)", border: "rgba(245,158,11,.28)" },
+    danger: { background: "rgba(239,68,68,.08)", border: "rgba(239,68,68,.22)" },
+  }[tone];
+
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+    padding: "12px 14px",
+    borderRadius: "12px",
+    background: palette.background,
+    border: `1px solid ${palette.border}`,
+  };
 }
 
 function primaryButton(background: string, disabled: boolean): CSSProperties {
