@@ -128,7 +128,12 @@ export function readTrackerLocalState(storage: TrackerStorageLike | undefined | 
     const raw = storage.getItem(TRACKER_LOCAL_STORE_KEY);
     if (!raw) return createTrackerLocalState();
     const parsed = JSON.parse(raw) as unknown;
-    return isTrackerLocalState(parsed) ? parsed : createTrackerLocalState();
+    if (!isTrackerLocalState(parsed)) return createTrackerLocalState();
+
+    return {
+      ...parsed,
+      lastError: normalizeUnknownText(parsed.lastError),
+    };
   } catch {
     return createTrackerLocalState();
   }
@@ -296,4 +301,27 @@ export function updateTrackerLocalSession(
 export function normalizeOptionalText(value: string | undefined): string | undefined {
   const text = value?.trim();
   return text ? text : undefined;
+}
+
+function normalizeUnknownText(value: unknown): string | undefined {
+  if (typeof value === "string") return normalizeOptionalText(value);
+
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => normalizeUnknownText(item))
+      .filter((item): item is string => Boolean(item));
+    return normalized.length > 0 ? normalized.join(" ") : undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (
+      normalizeUnknownText(record.message) ??
+      normalizeUnknownText(record.error) ??
+      normalizeUnknownText(record.detail) ??
+      normalizeUnknownText(record.details)
+    );
+  }
+
+  return undefined;
 }
