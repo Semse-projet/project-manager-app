@@ -67,3 +67,56 @@ test("StripeConnectService uses mock onboarding and transfer fallback when Strip
     }
   }
 });
+
+test("StripeConnectService upgrades persisted mock account before creating live onboarding link", async () => {
+  const previousKey = process.env.STRIPE_SECRET_KEY;
+  process.env.STRIPE_SECRET_KEY = "sk_test_semse";
+
+  try {
+    const { prisma, rows } = createPrismaStub();
+    rows.set("usr_1", {
+      userId: "usr_1",
+      stripeAccountId: "acct_mock_usr1",
+      status: "pending",
+      chargesEnabled: false,
+      payoutsEnabled: false,
+      onboardingUrl: null,
+      country: "US",
+      currency: "usd",
+      updatedAt: new Date("2026-06-20T12:00:00.000Z"),
+    });
+    const service = new StripeConnectService(prisma as never);
+    let onboardingAccount = "";
+    (service as unknown as { stripe: unknown }).stripe = {
+      accounts: {
+        async create() {
+          return { id: "acct_live_usr1" };
+        },
+      },
+      accountLinks: {
+        async create(input: { account: string }) {
+          onboardingAccount = input.account;
+          return { url: "https://connect.stripe.test/onboard" };
+        },
+      },
+    };
+
+    const link = await service.createOnboardingLink(
+      "usr_1",
+      "https://app.example.com/return",
+      "https://app.example.com/refresh",
+    );
+
+    assert.equal(onboardingAccount, "acct_live_usr1");
+    assert.equal(link.stripeAccountId, "acct_live_usr1");
+    assert.equal(link.onboardingUrl, "https://connect.stripe.test/onboard");
+    assert.equal(rows.get("usr_1")?.stripeAccountId, "acct_live_usr1");
+    assert.equal(rows.get("usr_1")?.onboardingUrl, "https://connect.stripe.test/onboard");
+  } finally {
+    if (previousKey === undefined) {
+      delete process.env.STRIPE_SECRET_KEY;
+    } else {
+      process.env.STRIPE_SECRET_KEY = previousKey;
+    }
+  }
+});
