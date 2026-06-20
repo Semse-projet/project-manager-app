@@ -104,3 +104,18 @@ test("tracker local store keeps queue when sync fails and clears it when sync su
   assert.equal(synced.syncStatus, "synced");
   assert.equal(synced.lastSyncedAt, "2026-06-20T16:05:00.000Z");
 });
+
+test("tracker local store normalizes object-shaped persisted errors", () => {
+  const storage = new MemoryStorage();
+  storage.setItem(TRACKER_LOCAL_STORE_KEY, JSON.stringify({
+    version: 1,
+    activeSession: null,
+    pendingEvents: [],
+    syncStatus: "failed",
+    lastError: { message: "Backend unavailable" },
+  }));
+
+  const restored = readTrackerLocalState(storage);
+
+  assert.equal(restored.lastError, "Backend unavailable");
+});

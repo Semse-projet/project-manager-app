@@ -95,14 +95,40 @@ export class SemseApiError extends Error {
   }
 }
 
+function normalizeErrorMessage(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => normalizeErrorMessage(item))
+      .filter((item): item is string => Boolean(item));
+    return normalized.length > 0 ? normalized.join(" ") : undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (
+      normalizeErrorMessage(record.message) ??
+      normalizeErrorMessage(record.error) ??
+      normalizeErrorMessage(record.detail) ??
+      normalizeErrorMessage(record.details)
+    );
+  }
+
+  return undefined;
+}
+
 async function readErrorMessage(response: Response): Promise<string | undefined> {
   try {
     const payload = (await response.json()) as {
-      error?: { message?: string };
-      message?: string;
+      error?: unknown;
+      message?: unknown;
     };
 
-    return payload.error?.message ?? payload.message;
+    return normalizeErrorMessage(payload.error) ?? normalizeErrorMessage(payload.message);
   } catch {
     return undefined;
   }
