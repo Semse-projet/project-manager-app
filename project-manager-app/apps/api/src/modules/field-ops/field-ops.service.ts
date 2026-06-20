@@ -106,10 +106,12 @@ export class FieldOpsService {
 
   async listTrackerJobs(input: {
     tenantId: string;
+    orgId: string;
     createdBy: string;
   }) {
     return this.repo.listJobsForTracker({
       tenantId: input.tenantId,
+      orgId: input.orgId,
       userId: input.createdBy,
     });
   }
@@ -198,7 +200,7 @@ export class FieldOpsService {
     notes?: string;
   }): Promise<TrackerSessionView> {
     const [job, activeSession] = await Promise.all([
-      this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId, userId: input.createdBy }),
+      this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId, orgId: input.orgId, userId: input.createdBy }),
       this.repo.findActiveTrackerSession({ tenantId: input.tenantId, createdBy: input.createdBy }),
     ]);
 
@@ -408,7 +410,7 @@ export class FieldOpsService {
     endTime: string;
     notes?: string;
   }): Promise<TrackerSessionView> {
-    const job = await this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId, userId: input.createdBy });
+    const job = await this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId, orgId: input.orgId, userId: input.createdBy });
     if (!job) {
       throw new BadRequestException("jobId is invalid for the tracker");
     }

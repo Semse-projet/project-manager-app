@@ -174,18 +174,69 @@ export class FieldOpsRepository {
 
   // ── Tracker Sessions ──────────────────────────────────────────────────────
 
-  async findJobForTracker(input: { tenantId: string; jobId: string; userId: string }) {
+  private trackerJobAssignmentWhere(input: { orgId: string; userId: string }): Prisma.JobWhereInput[] {
+    return [
+      {
+        bids: {
+          some: {
+            professionalUserId: input.userId,
+            status: "ACCEPTED" as const,
+          },
+        },
+      },
+      {
+        reservations: {
+          some: {
+            professionalId: input.userId,
+            status: {
+              in: ["ACTIVE", "ACCEPTED"],
+            },
+          },
+        },
+      },
+      {
+        reservations: {
+          some: {
+            professionalOrgId: input.orgId,
+            status: {
+              in: ["ACTIVE", "ACCEPTED"],
+            },
+          },
+        },
+      },
+      {
+        contract: {
+          is: {
+            professionalUserId: input.userId,
+            deletedAt: null,
+          },
+        },
+      },
+      {
+        contract: {
+          is: {
+            professionalOrgId: input.orgId,
+            deletedAt: null,
+          },
+        },
+      },
+      {
+        project: {
+          is: {
+            assignedProOrgId: input.orgId,
+          },
+        },
+      },
+    ];
+  }
+
+  async findJobForTracker(input: { tenantId: string; jobId: string; orgId: string; userId: string }) {
     return this.client.job.findFirst({
       where: {
         id: input.jobId,
         tenantId: input.tenantId,
         deletedAt: null,
-        bids: {
-          some: {
-            professionalUserId: input.userId,
-            status: "ACCEPTED",
-          },
-        },
+        OR: this.trackerJobAssignmentWhere(input),
       },
       select: {
         id: true,
@@ -195,17 +246,12 @@ export class FieldOpsRepository {
     });
   }
 
-  async listJobsForTracker(input: { tenantId: string; userId: string }) {
+  async listJobsForTracker(input: { tenantId: string; orgId: string; userId: string }) {
     const jobs = await this.client.job.findMany({
       where: {
         tenantId: input.tenantId,
         deletedAt: null,
-        bids: {
-          some: {
-            professionalUserId: input.userId,
-            status: "ACCEPTED",
-          },
-        },
+        OR: this.trackerJobAssignmentWhere(input),
       },
       select: {
         id: true,
