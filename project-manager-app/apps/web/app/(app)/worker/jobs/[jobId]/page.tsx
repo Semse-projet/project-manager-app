@@ -19,9 +19,8 @@ import {
   fetchJob,
   fetchJobMilestones,
   fetchJobEvidence,
-  fetchJobPayments,
   mutateMilestone,
-  type JobAgentSignal,
+  transitionJobStatus,
 } from "../../../../semse-api";
 import { JobDisputeHistory } from "../../../../components/disputes/JobDisputeHistory";
 import { NotificationBanner } from "../../../../components/notifications/NotificationBanner";
@@ -72,8 +71,8 @@ const MILESTONE_META: Record<string, { label: string; color: string; bg: string 
 
 const WORKER_NEXT_ACTION: Record<string, { label: string; detail: string; tone: string }> = {
   reserved:    { label: "Reservado — confirma tu disponibilidad",           detail: "El cliente aún no acepta. Puedes esperar o contactarlo.",           tone: "#f59e0b" },
-  accepted:    { label: "Aceptado — espera a que se fondee el escrow",      detail: "Cuando el escrow esté activo podrás comenzar el primer milestone.", tone: "#8b5cf6" },
-  in_progress: { label: "En progreso — avanza y envía el milestone",        detail: "Sube evidencia y marca el milestone como completado.",              tone: "#06b6d4" },
+  accepted:    { label: "Aceptado — inicia el trabajo cuando el escrow esté activo", detail: "Presiona 'Iniciar trabajo' para comenzar. El cliente debe fondear el escrow primero.", tone: "#8b5cf6" },
+  in_progress: { label: "En progreso — avanza y envía los milestones",      detail: "Sube evidencia y marca cada milestone como completado.",            tone: "#06b6d4" },
   review:      { label: "En revisión — el cliente está evaluando tu entrega", detail: "Espera aprobación. Puedes subir evidencia adicional si hace falta.", tone: "#f59e0b" },
   dispute:     { label: "Disputa activa — aporta evidencia",                detail: "El equipo de ops está revisando. Sube pruebas de tu trabajo.",      tone: "#ef4444" },
   completed:   { label: "Trabajo completado",                               detail: "El trabajo se cerró correctamente.",                                tone: "#10b981" },
@@ -118,6 +117,19 @@ export default function WorkerJobDetailPage() {
   }, [jobId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const handleStartJob = async () => {
+    if (pendingAction) return;
+    setPendingAction("start-job");
+    try {
+      await transitionJobStatus(jobId, "in_progress");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo iniciar el trabajo.");
+    } finally {
+      setPendingAction(null);
+    }
+  };
 
   const handleSubmitMilestone = async (milestoneId: string) => {
     if (pendingAction) return;
@@ -186,6 +198,34 @@ export default function WorkerJobDetailPage() {
               <div>
                 <strong style={{ fontSize: "14px", color: nextAction.tone, display: "block", marginBottom: "2px" }}>{nextAction.label}</strong>
                 <span style={{ fontSize: "12px", color: "var(--muted)" }}>{nextAction.detail}</span>
+                {normalizedStatus === "accepted" ? (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      onClick={() => void handleStartJob()}
+                      disabled={pendingAction !== null}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "#8b5cf6", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                    >
+                      ▶ Iniciar trabajo
+                    </button>
+                  </div>
+                ) : null}
+                {normalizedStatus === "in_progress" ? (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      onClick={async () => {
+                        if (pendingAction) return;
+                        setPendingAction("send-review");
+                        try { await transitionJobStatus(jobId, "review"); await load(); }
+                        catch (e) { setError(e instanceof Error ? e.message : "Error al enviar para revisión."); }
+                        finally { setPendingAction(null); }
+                      }}
+                      disabled={pendingAction !== null}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "#06b6d4", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                    >
+                      Enviar para revisión →
+                    </button>
+                  </div>
+                ) : null}
                 {normalizedStatus === "dispute" ? (
                   <div style={{ marginTop: 10 }}>
                     <Link
