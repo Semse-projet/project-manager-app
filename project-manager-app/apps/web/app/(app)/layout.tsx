@@ -585,16 +585,74 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           theme={theme}
           onThemeChange={handleThemeChange}
         />
-        <main style={{ flex: 1, padding: "24px", overflow: "auto" }}>{children}</main>
+        <main style={{ flex: 1, padding: "24px", overflow: "auto", paddingBottom: role === "worker" ? "80px" : "24px" }}>{children}</main>
       </div>
+
+      {role === "worker" && <WorkerMobileBottomNav pathname={pathname ?? ""} />}
 
       <style>{`
         @media (max-width: 768px) {
           .desktop-sidebar { display: none; }
           .mobile-menu-btn { display: flex !important; }
         }
+        .worker-bottom-nav { display: none; }
+        @media (max-width: 768px) {
+          .worker-bottom-nav { display: flex !important; }
+        }
       `}</style>
     </div>
+  );
+}
+
+function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
+  const tabs = [
+    { href: "/worker/dashboard",    icon: LayoutDashboard, label: "Inicio" },
+    { href: "/worker/jobs",         icon: Briefcase,        label: "Trabajos" },
+    { href: "/worker/tracker",      icon: Clock,            label: "Tiempo" },
+    { href: "/worker/evidence",     icon: Camera,           label: "Evidencia" },
+    { href: "/worker/opportunities",icon: Store,            label: "Ofertas" },
+  ] as const;
+
+  return (
+    <nav
+      className="worker-bottom-nav"
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 64,
+        background: "var(--surface, #111827)",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        zIndex: 99,
+        alignItems: "center",
+        justifyContent: "space-around",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      {tabs.map(({ href, icon: Icon, label }) => {
+        const active = pathname === href || pathname.startsWith(href + "/");
+        return (
+          <Link
+            key={href}
+            href={href}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              padding: "8px 12px",
+              color: active ? "#10b981" : "var(--muted, #6b7280)",
+              textDecoration: "none",
+              minWidth: 56,
+            }}
+          >
+            <Icon size={20} />
+            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
