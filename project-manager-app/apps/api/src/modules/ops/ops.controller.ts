@@ -460,6 +460,22 @@ export class OpsController {
     return ok(requestId, runs);
   }
 
+  @Post("algorithm-engine/replay/:id")
+  @RequirePermissions("ops:dashboard:read")
+  async algorithmEngineReplay(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const result = await this.algorithmRunService.replay({
+      id,
+      tenantId: ctx.tenantId,
+      userId:   ctx.userId,
+    });
+    return ok(requestId, result);
+  }
+
   // ── Ecosystem Metrics — métricas del ecosistema completo ────────────────────
 
   /** Métricas del ecosistema: jobs, bids, milestones, evidencia, agentes, RAG, señales. */
