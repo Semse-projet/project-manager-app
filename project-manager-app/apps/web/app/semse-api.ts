@@ -428,6 +428,8 @@ export type BidView = {
   note?: string | null;
   status: "submitted" | "accepted" | "rejected" | "withdrawn";
   createdAt: string;
+  avgRating?: number;
+  ratingCount?: number;
 };
 
 export type TimeTrackerSummaryView = {
