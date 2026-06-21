@@ -29,6 +29,7 @@ import {
   fundJobEscrow,
   mutateMilestone,
   releaseMilestoneEscrow,
+  transitionJobStatus,
   type BidView,
   sendNotification,
   type JobAgentSignal
@@ -376,6 +377,20 @@ export default function ClientJobDetailPage() {
     }
   }
 
+  async function handlePublishJob() {
+    if (pendingAction) return;
+    setPendingAction("publish-job");
+    setError(null);
+    try {
+      await transitionJobStatus(jobId, "posted");
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo publicar el trabajo.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   async function handleCreateMilestone() {
     if (pendingAction || !newMilestone.title.trim()) return;
     const amount = Number(newMilestone.amount);
@@ -399,7 +414,9 @@ export default function ClientJobDetailPage() {
   const jobStatusMeta = JOB_STATUS_META[normalizedJobStatus] ?? JOB_STATUS_META.posted;
 
   const JOB_NEXT_ACTION: Record<string, { label: string; detail: string; tone: string }> = {
+    draft:       { label: "Publicar para recibir propuestas", detail: "Tu trabajo está en borrador. Publícalo para que los profesionales puedan enviarte propuestas.", tone: "#6366f1" },
     posted:      { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
+    published:   { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
     reserved:    { label: "Acepta o rechaza la reserva", detail: "Un profesional reservó el trabajo. Acepta para avanzar o libera la reserva.", tone: "#fbbf24" },
     accepted:    { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
     in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "#06b6d4" },
@@ -496,6 +513,17 @@ export default function ClientJobDetailPage() {
               <div style={{ flex: 1 }}>
                 <strong style={{ fontSize: "14px", color: nextActionGuide.tone, display: "block", marginBottom: "2px" }}>{nextActionGuide.label}</strong>
                 <span style={{ fontSize: "12px", color: "var(--muted)" }}>{nextActionGuide.detail}</span>
+                {normalizedJobStatus === "draft" ? (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      onClick={() => void handlePublishJob()}
+                      disabled={pendingAction !== null}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                    >
+                      Publicar trabajo →
+                    </button>
+                  </div>
+                ) : null}
                 {normalizedJobStatus === "dispute" ? (
                   <div style={{ marginTop: 10 }}>
                     <Link
