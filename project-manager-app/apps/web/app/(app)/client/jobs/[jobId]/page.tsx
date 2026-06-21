@@ -619,6 +619,14 @@ export default function ClientJobDetailPage() {
                               <span style={{ display: "inline-flex", padding: "4px 9px", borderRadius: "999px", background: meta.bg, color: meta.color, fontSize: "11px", fontWeight: 700 }}>
                                 {meta.label}
                               </span>
+                              {bid.avgRating != null ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "#f59e0b", fontWeight: 700 }}>
+                                  &#9733; {bid.avgRating.toFixed(1)}
+                                  <span style={{ color: "var(--muted)", fontWeight: 400 }}>({bid.ratingCount})</span>
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "11px", color: "var(--faint)" }}>Sin calificaciones</span>
+                              )}
                             </div>
                             <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                               {bid.proEmail ?? bid.proUserId} · enviada {formatDate(bid.createdAt)}

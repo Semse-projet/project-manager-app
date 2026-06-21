@@ -13,7 +13,10 @@ type StoredBid = {
   etaDays: number;
   status: string;
   note?: string | null;
-  professional?: { email: string } | null;
+  professional?: {
+    email: string;
+    ratingsReceived?: Array<{ score: number }>;
+  } | null;
   job: {
     id: string;
     tenantId: string;
@@ -55,7 +58,12 @@ export class BidsRepository {
             clientOrgId: true
           }
         },
-        professional: { select: { email: true } }
+        professional: {
+            select: {
+              email: true,
+              ratingsReceived: { select: { score: true }, take: 100 }
+            }
+          }
       },
       orderBy: { createdAt: "desc" }
     })) as StoredBid[];
@@ -375,6 +383,12 @@ export class BidsRepository {
   }
 
   private toRecord(bid: StoredBid): BidRecord {
+    const ratings = bid.professional?.ratingsReceived ?? [];
+    const ratingCount = ratings.length;
+    const avgRating = ratingCount > 0
+      ? Math.round((ratings.reduce((s, r) => s + r.score, 0) / ratingCount) * 10) / 10
+      : undefined;
+
     return {
       id: bid.id,
       tenantId: bid.job.tenantId,
@@ -385,7 +399,9 @@ export class BidsRepository {
       etaDays: bid.etaDays,
       note: bid.note ?? undefined,
       proEmail: bid.professional?.email ?? undefined,
-      status: bid.status.toLowerCase() as BidRecord["status"]
+      status: bid.status.toLowerCase() as BidRecord["status"],
+      avgRating,
+      ratingCount: ratingCount > 0 ? ratingCount : undefined,
     };
   }
 
