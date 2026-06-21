@@ -250,7 +250,7 @@ export class EvidenceGatewayService {
 
   private async scoreAgainstRequirements(evidence: any): Promise<ValidationScore> {
     const qualityScore = await this.assessQuality(evidence);
-    
+
     // Check if there is a suspected duplicate or critical warning from OpenCV
     let duplicateRisk = 0.0;
     try {
@@ -263,13 +263,41 @@ export class EvidenceGatewayService {
     const completenessScore = 0.8;
     const relevanceScore = evidence.milestoneId ? 0.85 : 0.65;
 
-    // Apply penalty to overall score if image is duplicate (fraud protection)
-    let overall = qualityScore * 0.5 + completenessScore * 0.3 + relevanceScore * 0.2;
+    // Reference similarity: if the milestone has a referenceImageUrl in its checklistSchema,
+    // compare the delivered photo against it and blend the score (×0.3 weight).
+    let referenceSimilarity: number | null = null;
+    const checklistSchema = evidence.milestone?.checklistSchema as Record<string, unknown> | null | undefined;
+    const referenceImageUrl = typeof checklistSchema?.referenceImageUrl === "string" ? checklistSchema.referenceImageUrl : null;
+    if (referenceImageUrl && (evidence.kind === "PHOTO" || evidence.kind === "VIDEO")) {
+      try {
+        const imageUrl = evidence.bucketKey
+          ? this.storageService.publicUrl(evidence.bucketKey)
+          : `mock://evidence/${evidence.id}`;
+        const matchResult = await this.visionService.matchReference(imageUrl, referenceImageUrl);
+        referenceSimilarity = typeof matchResult?.similarityScore === "number" ? matchResult.similarityScore : null;
+      } catch (err) {
+        this.logger.warn(`Reference match failed for evidence ${evidence.id as string}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    // Compute overall score — weights shift when reference similarity is available
+    let overall: number;
     if (duplicateRisk >= 0.85) {
-      overall = 0.0; // Fail validation entirely
+      overall = 0.0;
+    } else if (referenceSimilarity !== null) {
+      overall = qualityScore * 0.4 + completenessScore * 0.2 + relevanceScore * 0.1 + referenceSimilarity * 0.3;
+    } else {
+      overall = qualityScore * 0.5 + completenessScore * 0.3 + relevanceScore * 0.2;
     }
 
     const status = overall >= 0.65 ? "passed" : overall >= 0.5 ? "manual_review" : "failed";
+
+    const feedbackParts: string[] = [];
+    if (duplicateRisk >= 0.85) feedbackParts.push("CRITICAL: Suspected image duplication / fraud detected");
+    else if (referenceSimilarity !== null) feedbackParts.push(`Reference similarity: ${Math.round(referenceSimilarity * 100)}%`);
+    if (feedbackParts.length === 0) {
+      feedbackParts.push(overall >= 0.75 ? "Evidence quality is excellent" : overall >= 0.65 ? "Evidence quality is acceptable" : "Evidence quality needs improvement");
+    }
 
     return {
       overall: Math.min(overall, 1.0),
@@ -277,14 +305,7 @@ export class EvidenceGatewayService {
       completenessScore,
       relevanceScore,
       status,
-      feedback:
-        duplicateRisk >= 0.85
-          ? "CRITICAL: Suspected image duplication / fraud detected"
-          : overall >= 0.75
-            ? "Evidence quality is excellent"
-            : overall >= 0.65
-              ? "Evidence quality is acceptable"
-              : "Evidence quality needs improvement",
+      feedback: feedbackParts.join(" | "),
     };
   }
 }
