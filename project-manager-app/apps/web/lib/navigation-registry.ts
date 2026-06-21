@@ -713,6 +713,16 @@ export const navigationRegistry: NavigationNode[] = [
     status: "active",
   },
   {
+    id: "admin-tools-catalog",
+    labelKey: "nav.toolsCatalog",
+    canonicalHref: "/admin/tools",
+    layer: "workspace",
+    os: "system",
+    roles: ["admin"],
+    owner: "platform",
+    status: "active",
+  },
+  {
     id: "admin-ecosystem",
     labelKey: "nav.ecosystem",
     canonicalHref: "/admin/ecosystem",
