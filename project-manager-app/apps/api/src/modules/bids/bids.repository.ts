@@ -102,6 +102,7 @@ export class BidsRepository {
       professionalUserId: bid.professionalUserId ?? undefined,
       amount: bid.amount.toNumber(),
       etaDays: bid.etaDays,
+      note: bid.note ?? undefined,
       status: bid.status.toLowerCase() as BidRecord["status"],
       jobTitle: bid.job.title,
       jobCategory: bid.job.category ?? undefined,

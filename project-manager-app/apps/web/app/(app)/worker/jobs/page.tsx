@@ -11,7 +11,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 
 const WORKER_NEXT_ACTION: Record<string, string> = {
   reserved:    "Acepta el trabajo para confirmar tu lugar.",
-  accepted:    "Espera a que el cliente fondee el escrow y luego comienza.",
+  accepted:    "Abre el trabajo para ver si el escrow está listo.",
   in_progress: "Avanza el milestone y sube evidencia cuando termines.",
   review:      "El cliente está revisando tu entrega. Espera aprobación.",
   dispute:     "Hay una disputa activa. Aporta evidencia si la tienes.",
@@ -197,6 +197,11 @@ export default function WorkerJobsPage() {
                   {bid.jobCategory && (
                     <p style={{ fontSize: "12px", color: "var(--muted)" }}>
                       {bid.jobCategory}{bid.jobLocation ? ` · ${bid.jobLocation}` : ""}
+                    </p>
+                  )}
+                  {bid.note && (
+                    <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px", fontStyle: "italic" }}>
+                      "{bid.note}"
                     </p>
                   )}
                   <p style={{ fontSize: "11px", marginTop: "4px", color: isPending ? "#fbbf24" : "#ef4444", fontWeight: 600 }}>

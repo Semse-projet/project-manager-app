@@ -48,6 +48,7 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
         if (!linkHref) {
           if (type === "bid_received"              && jobId) linkHref = `/client/jobs/${jobId}`;
           else if (type === "job_assigned"         && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "bid_rejected"                 ) linkHref = `/worker/opportunities`;
           else if (type === "milestone_submitted"  && jobId) linkHref = `/client/jobs/${jobId}`;
           else if (type === "milestone_approved"   && jobId) linkHref = `/worker/jobs/${jobId}`;
           else if (type === "milestone_rejected"   && jobId) linkHref = `/worker/jobs/${jobId}`;
