@@ -171,6 +171,18 @@ export class ConsistencyByIdsDto {
   evidenceIds!: string[];
 }
 
+// --- Batch by evidence IDs ---
+export class BatchByIdsDto {
+  evidenceIds!: string[];
+  jobId?: string;
+  milestoneId?: string;
+}
+
+// --- Job photo timeline ---
+export class JobTimelineQueryDto {
+  fps?: number;
+}
+
 // --- Batch Analyze ---
 export class BatchAnalyzeItemDto {
   evidenceId!: string;
