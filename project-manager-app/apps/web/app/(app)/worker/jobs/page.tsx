@@ -11,7 +11,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 
 const WORKER_NEXT_ACTION: Record<string, string> = {
   reserved:    "Acepta el trabajo para confirmar tu lugar.",
-  accepted:    "Espera a que el cliente fondee el escrow y luego comienza.",
+  accepted:    "Abre el trabajo para ver si el escrow está listo.",
   in_progress: "Avanza el milestone y sube evidencia cuando termines.",
   review:      "El cliente está revisando tu entrega. Espera aprobación.",
   dispute:     "Hay una disputa activa. Aporta evidencia si la tienes.",
