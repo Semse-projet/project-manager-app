@@ -199,6 +199,11 @@ export default function WorkerJobsPage() {
                       {bid.jobCategory}{bid.jobLocation ? ` · ${bid.jobLocation}` : ""}
                     </p>
                   )}
+                  {bid.note && (
+                    <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px", fontStyle: "italic" }}>
+                      "{bid.note}"
+                    </p>
+                  )}
                   <p style={{ fontSize: "11px", marginTop: "4px", color: isPending ? "#fbbf24" : "#ef4444", fontWeight: 600 }}>
                     {isPending
                       ? "▶ Esperando decisión del cliente"

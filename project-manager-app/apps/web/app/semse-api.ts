@@ -490,6 +490,7 @@ export type MyBidView = {
   jobStatus: string;
   amount: number;
   etaDays: number;
+  note?: string | null;
   status: "submitted" | "accepted" | "rejected";
   createdAt: string;
 };
