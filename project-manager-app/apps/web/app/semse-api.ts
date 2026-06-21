@@ -538,6 +538,16 @@ export async function presignEvidence(input: {
   return mutateSemse<Record<string, unknown>>(`/api/semse/evidence/presign`, input);
 }
 
+export async function transitionJobStatus(
+  jobId: string,
+  targetStatus: string
+): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>(
+    `/api/semse/jobs/${jobId}/transition`,
+    { targetStatus }
+  );
+}
+
 export async function planUpload(input: {
   domain: "evidence" | "contract" | "dispute" | "travel";
   filename: string;
