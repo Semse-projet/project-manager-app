@@ -157,6 +157,14 @@ export default function IntelligenceRoomPage() {
     } finally { setActionLoading(null); }
   }
 
+  async function handleDismiss(id: string) {
+    setActionLoading(id);
+    try {
+      await fetch(`/api/semse/operational-signals/${id}/dismiss`, { method: "PATCH", credentials: "include" });
+      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "dismissed" as const } : s));
+    } finally { setActionLoading(null); }
+  }
+
   const openSignals = signals.filter((s) => s.status === "open" || s.status === "acknowledged");
   const riskColor = RISK_COLOR[project?.riskLevel ?? "low"] ?? "#94a3b8";
   const statusColor = STATUS_COLOR[project?.status ?? "active"] ?? "#94a3b8";
@@ -316,6 +324,11 @@ export default function IntelligenceRoomPage() {
                   <button onClick={() => handleResolve(signal.id)} disabled={isLoading} style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(34,197,94,.3)", background: "rgba(34,197,94,.08)", color: "#86efac", fontSize: "11px", cursor: isLoading ? "not-allowed" : "pointer" }}>
                     {isLoading ? "…" : "Resolve"}
                   </button>
+                  {signal.status !== "dismissed" && (
+                    <button onClick={() => handleDismiss(signal.id)} disabled={isLoading} style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(100,116,139,.3)", background: "rgba(100,116,139,.08)", color: "#94a3b8", fontSize: "11px", cursor: isLoading ? "not-allowed" : "pointer" }}>
+                      {isLoading ? "…" : "Dismiss"}
+                    </button>
+                  )}
                 </div>
               </div>
             );
