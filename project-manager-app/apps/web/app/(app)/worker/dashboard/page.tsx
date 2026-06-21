@@ -481,8 +481,8 @@ export default function WorkerDashboardPage() {
               <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Mis propuestas</h2>
               <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>Últimas propuestas enviadas.</p>
             </div>
-            <Link href="/worker/opportunities" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
-              Ver oportunidades <ArrowRight size={13} />
+            <Link href="/worker/bids" style={{ fontSize: "12px", color: "var(--brand)", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}>
+              Ver todas <ArrowRight size={13} />
             </Link>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

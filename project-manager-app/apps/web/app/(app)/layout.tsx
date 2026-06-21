@@ -72,6 +72,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     items: [
       { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
       { labelKey: "nav.opportunities", href: "/worker/opportunities", icon: Store },
+      { labelKey: "nav.myBids", href: "/worker/bids", icon: Send },
       { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
       { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
       { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
