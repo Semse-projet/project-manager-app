@@ -59,6 +59,7 @@ export class EvidenceGatewayRepository {
       where: { id: evidenceId },
       include: {
         project: { select: { id: true, tenantId: true } },
+        milestone: { select: { id: true, checklistSchema: true } },
       },
     });
   }
