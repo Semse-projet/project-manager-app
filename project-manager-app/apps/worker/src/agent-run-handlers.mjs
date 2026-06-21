@@ -514,30 +514,50 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   let processedCount = 0;
   const analyzedEvidenceIds = [];
 
-  // Process each evidence through OpenCV using our Vision Service
-  for (const item of photoEvidence) {
-    try {
-      const evidenceId = asString(item.id);
-      // analyze-by-evidence resolves the real bucketKey server-side (idempotent — returns cached if already done)
-      const visionRes = await requestJson(
-        `/v1/vision/analyze-by-evidence/${encodeURIComponent(evidenceId)}`,
-        { method: "POST" },
-        { tenantId }
-      );
-
-      const analysis = asObject(visionRes?.data);
-      if (analysis && (analysis.status === "completed" || analysis.status === "success")) {
-        processedCount += 1;
-        analyzedEvidenceIds.push(evidenceId);
-        if (asNumber(analysis.duplicateRisk) >= 0.85) {
-          duplicateCount += 1;
+  // Batch-analyze all photo evidence — one call per 20 items instead of N sequential calls
+  if (photoEvidence.length > 0) {
+    const BATCH_SIZE = 20;
+    const allEvidenceIds = photoEvidence.map((e) => asString(e.id));
+    for (let i = 0; i < allEvidenceIds.length; i += BATCH_SIZE) {
+      const chunk = allEvidenceIds.slice(i, i + BATCH_SIZE);
+      try {
+        const batchRes = await requestJson(
+          "/v1/vision/batch-by-ids",
+          { method: "POST", body: JSON.stringify({ evidenceIds: chunk, jobId }) },
+          { tenantId }
+        );
+        const batchData = asObject(batchRes?.data);
+        const results = Array.isArray(batchData?.results) ? batchData.results : [];
+        for (const r of results) {
+          if (r.status === "completed" && r.result) {
+            processedCount += 1;
+            analyzedEvidenceIds.push(asString(r.evidenceId));
+            if (asNumber(r.result?.duplicate?.duplicateRisk) >= 0.85) duplicateCount += 1;
+            if (!r.result?.governance?.canAutoApprove || asNumber(r.result?.quality?.qualityScore) < 0.60) lowQualityCount += 1;
+          }
         }
-        if (!analysis.canAutoApprove || asNumber(analysis.qualityScore) < 0.60) {
-          lowQualityCount += 1;
+      } catch (err) {
+        logger.warn({ chunkStart: i, error: err.message }, "Batch vision analysis failed — falling back to individual calls");
+        // Fallback: analyze each item individually so QA is never completely blind
+        for (const evidenceId of chunk) {
+          try {
+            const visionRes = await requestJson(
+              `/v1/vision/analyze-by-evidence/${encodeURIComponent(evidenceId)}`,
+              { method: "POST" },
+              { tenantId }
+            );
+            const analysis = asObject(visionRes?.data);
+            if (analysis && (analysis.status === "completed" || analysis.status === "success")) {
+              processedCount += 1;
+              analyzedEvidenceIds.push(evidenceId);
+              if (asNumber(analysis.duplicateRisk) >= 0.85) duplicateCount += 1;
+              if (!analysis.canAutoApprove || asNumber(analysis.qualityScore) < 0.60) lowQualityCount += 1;
+            }
+          } catch (fallbackErr) {
+            logger.warn({ evidenceId, error: fallbackErr.message }, "Fallback vision analysis also failed");
+          }
         }
       }
-    } catch (err) {
-      logger.warn({ evidenceId: item.id, error: err.message }, "Failed to process vision analysis for evidence item");
     }
   }
 

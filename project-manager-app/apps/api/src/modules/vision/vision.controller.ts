@@ -1,7 +1,7 @@
-import { Controller, Post, Get, Body, Param, Req } from "@nestjs/common";
+import { Controller, Post, Get, Body, Param, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto, BatchByIdsDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -166,6 +166,27 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.runBatchAnalysis(dto.items, dto.jobId, dto.milestoneId);
+    return ok(requestId, result);
+  }
+
+  @Post("batch-by-ids")
+  async batchByIds(
+    @Req() req: FastifyRequest,
+    @Body() dto: BatchByIdsDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.runBatchByIds(dto.evidenceIds, dto.jobId, dto.milestoneId);
+    return ok(requestId, result);
+  }
+
+  @Get("job/:jobId/timeline")
+  async jobTimeline(
+    @Req() req: FastifyRequest,
+    @Param("jobId") jobId: string,
+    @Query("fps") fps?: string,
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.buildJobTimeline(jobId, fps ? parseInt(fps, 10) : 2);
     return ok(requestId, result);
   }
 }
