@@ -46,12 +46,17 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
 
         let linkHref: string | undefined = typeof n.linkHref === "string" ? n.linkHref : undefined;
         if (!linkHref) {
-          if (type === "bid_received"         && jobId) linkHref = `/client/jobs/${jobId}`;
-          else if (type === "job_assigned"    && jobId) linkHref = `/worker/jobs/${jobId}`;
-          else if (type === "milestone_submitted" && jobId) linkHref = `/client/jobs/${jobId}`;
-          else if (type === "milestone_approved"  && jobId) linkHref = `/worker/jobs/${jobId}`;
-          else if (type === "milestone_rejected"  && jobId) linkHref = `/worker/jobs/${jobId}`;
-          else if (type === "escrow_released" && jobId) linkHref = `/worker/jobs/${jobId}`;
+          if (type === "bid_received"              && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "job_assigned"         && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "milestone_submitted"  && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "milestone_approved"   && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "milestone_rejected"   && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "escrow_released"      && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "job_completed"        && jobId) linkHref = `/worker/jobs/${jobId}/rate`;
+          else if (type === "job_completed_client" && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "rating_requested_pro" && jobId) linkHref = `/worker/jobs/${jobId}/rate`;
+          else if (type === "rating_requested_client" && jobId) linkHref = `/client/jobs/${jobId}/rate`;
+          else if (type === "intake_converted"     && jobId) linkHref = `/client/jobs/${jobId}`;
           else if (type === "dispute_opened"  && disputeId) linkHref = `/client/disputes`;
           else if (type === "dispute_resolved"&& disputeId) linkHref = `/worker/disputes`;
           else if (milestoneId && jobId) linkHref = `/client/jobs/${jobId}`;
