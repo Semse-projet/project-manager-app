@@ -418,7 +418,9 @@ export default function ClientJobDetailPage() {
     posted:      { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
     published:   { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
     reserved:    { label: "Acepta o rechaza la reserva", detail: "Un profesional reservó el trabajo. Acepta para avanzar o libera la reserva.", tone: "#fbbf24" },
-    accepted:    { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
+    accepted:    escrowStatus === "FUNDED" || escrowStatus === "ACTIVE"
+      ? { label: "Escrow fondeado — esperando al profesional", detail: "Los fondos ya están protegidos. El profesional puede iniciar el trabajo en cualquier momento.", tone: "#10b981" }
+      : { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
     in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "#06b6d4" },
     review:      { label: "Aprueba o pide cambios", detail: "El profesional envió para revisión. Aprueba el milestone o solicita cambios.", tone: "#8b5cf6" },
     dispute:     { label: "Disputa activa", detail: "Hay una disputa abierta. El equipo de ops está revisando. Puedes aportar evidencia.", tone: "#ef4444" },
