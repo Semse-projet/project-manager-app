@@ -146,6 +146,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.coordinator", href: "/admin/coordinator", icon: GitBranch },
       { labelKey: "nav.missionControl", href: "/admin/mission-control", icon: Activity, section: "section.control" },
       { labelKey: "nav.algorithmEngine", href: "/admin/algorithm-engine", icon: BarChart2 },
+      { labelKey: "nav.toolsCatalog", href: "/admin/tools", icon: Package },
       { labelKey: "nav.aiMissionControl", href: "/admin/ai-mission-control", icon: Brain },
       { labelKey: "nav.agents", href: "/admin/agents", icon: Bot, section: "section.ai" },
       { labelKey: "nav.consciousness", href: "/admin/consciousness", icon: Eye },
