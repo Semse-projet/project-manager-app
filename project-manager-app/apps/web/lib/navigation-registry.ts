@@ -81,6 +81,17 @@ export const navigationRegistry: NavigationNode[] = [
     entityType: "job",
   },
   {
+    id: "worker-bids",
+    labelKey: "nav.myBids",
+    canonicalHref: "/worker/bids",
+    layer: "workspace",
+    os: "contractor",
+    roles: ["worker"],
+    owner: "marketplace-operations",
+    status: "active",
+    entityType: "proposal",
+  },
+  {
     id: "worker-tasks",
     labelKey: "nav.tasks",
     canonicalHref: "/worker/tasks",

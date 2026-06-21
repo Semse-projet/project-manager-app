@@ -179,10 +179,10 @@ export default function ClientProjectsPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
                   <Link
-                    href={`/client/jobs?projectId=${project.id}`}
+                    href={`/client/projects/${project.id}`}
                     style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
                   >
-                    Ver trabajos
+                    Ver detalle
                   </Link>
                   <Link
                     href={`/client/projects/${project.id}/copilot`}
