@@ -70,7 +70,8 @@ export const bidSchema = z.object({
   jobId: z.string().min(1),
   proOrgId: z.string().min(1),
   amount: z.number().positive(),
-  etaDays: z.number().int().positive()
+  etaDays: z.number().int().positive(),
+  note: z.string().max(1000).optional(),
 });
 
 export type JobRecordStatus = z.infer<typeof jobRecordStatusSchema>;

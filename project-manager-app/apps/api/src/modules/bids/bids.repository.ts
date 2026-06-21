@@ -122,6 +122,7 @@ export class BidsRepository {
     roles?: string[];
     amount: number;
     etaDays: number;
+    note?: string;
   }): Promise<BidRecord> {
     await this.actorContextService.ensureActorContext(input);
     await this.ensureProfessionalMembership(input);
@@ -201,6 +202,7 @@ export class BidsRepository {
         professionalUserId: input.userId,
         amount: input.amount,
         etaDays: input.etaDays,
+        note: input.note,
         status: "SUBMITTED"
       },
       include: {

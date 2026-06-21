@@ -90,6 +90,7 @@ export class JobBidsController {
       roles: actor.roles,
       amount: parsed.data.amount,
       etaDays: parsed.data.etaDays,
+      note: parsed.data.note,
       requestId
     });
 

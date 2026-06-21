@@ -108,10 +108,12 @@ export default function WorkerOpportunitiesPage() {
         setBidResult(prev => ({ ...prev, [bidForm.jobId]: { success: false, message: "Monto y días son requeridos" } }));
         return;
       }
+      const payload: Record<string, unknown> = { jobId: bidForm.jobId, amount, etaDays };
+      if (bidForm.note.trim()) payload.note = bidForm.note.trim();
       const res = await fetch("/api/semse/bids", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jobId: bidForm.jobId, amount, etaDays }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json() as { data?: unknown; error?: { message: string } };
       if (!res.ok) throw new Error(json.error?.message ?? "No se pudo enviar la propuesta");
