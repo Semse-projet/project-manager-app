@@ -42,6 +42,7 @@ export class BidsService {
     roles: string[];
     amount: number;
     etaDays: number;
+    note?: string;
     requestId: string;
   }): Promise<BidRecord> {
     const bid = await this.bidsRepository.create(input);
