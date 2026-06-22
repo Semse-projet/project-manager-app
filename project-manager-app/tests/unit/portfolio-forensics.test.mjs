@@ -32,7 +32,7 @@ test("portfolio forensics: detects potential deepfake/AI generation", async () =
 test("portfolio forensics: assesses portfolio image quality", async () => {
   const scenarios = [
     { sharpness: 100, contrast: 20, expected: "low" },
-    { sharpness: 500, contrast: 50, expected: "medium" },
+    { sharpness: 800, contrast: 70, expected: "medium" }, // 0.8*(70/80)*0.85 = 0.595 → in [0.5,0.7)
     { sharpness: 1200, contrast: 90, expected: "high" },
   ];
 

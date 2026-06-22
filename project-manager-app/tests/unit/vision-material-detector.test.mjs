@@ -192,7 +192,7 @@ test("vision material detector: scoring algorithm weighted correctly", async () 
   };
 
   const sum = weights.color + weights.edge_density + weights.texture_variance;
-  assert.equal(sum, 0.9); // Before expectation bonus
+  assert.ok(Math.abs(sum - 0.9) < 1e-9); // Before expectation bonus (floating-point safe)
   assert.ok(weights.expectation_bonus > 1.0);
 });
 

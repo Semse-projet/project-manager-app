@@ -118,6 +118,7 @@ test("material detector: identifies damaged material condition", async () => {
     condition: "damaged",
     confidence: 0.75,
     estimated_stock: "low",
+    notes: ["visible signs of damage detected"],
   };
 
   assert.equal(result.condition, "damaged");
