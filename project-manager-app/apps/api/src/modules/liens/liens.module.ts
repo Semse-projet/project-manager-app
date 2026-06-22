@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { LiensService } from './liens.service';
 import { LiensController } from './liens.controller';
+import { ProjectLiensService } from './project-liens.service';
+import { LienAlertsScheduler } from './lien-alerts.scheduler';
+import { LienSchedulerController } from './lien-scheduler.controller';
 import { LienGridClient } from '../../integrations/liengrid';
 
 @Module({
-  controllers: [LiensController],
+  controllers: [LiensController, LienSchedulerController],
   providers: [
     LiensService,
+    ProjectLiensService,
+    LienAlertsScheduler,
     {
       provide: LienGridClient,
       useFactory: () => {
@@ -20,6 +25,6 @@ import { LienGridClient } from '../../integrations/liengrid';
       },
     },
   ],
-  exports: [LiensService],
+  exports: [LiensService, ProjectLiensService, LienAlertsScheduler],
 })
 export class LiensModule {}
