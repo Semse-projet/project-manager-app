@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { LiensService } from './liens.service';
-import { LiensController } from './liens.controller';
-import { ProjectLiensService } from './project-liens.service';
-import { LienAlertsScheduler } from './lien-alerts.scheduler';
-import { LienSchedulerController } from './lien-scheduler.controller';
-import { NoticeGeneratorService } from './notice-generator.service';
-import { NoticeController } from './notice.controller';
-import { LienGridClient } from '../../integrations/liengrid';
+import { LiensService } from './liens.service.js';
+import { LiensController } from './liens.controller.js';
+import { ProjectLiensService } from './project-liens.service.js';
+import { LienAlertsScheduler } from './lien-alerts.scheduler.js';
+import { LienSchedulerController } from './lien-scheduler.controller.js';
+import { NoticeGeneratorService } from './notice-generator.service.js';
+import { NoticeController } from './notice.controller.js';
+import { LienGridClient } from '../../integrations/liengrid.js';
 
 @Module({
   controllers: [LiensController, LienSchedulerController, NoticeController],

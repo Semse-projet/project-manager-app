@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { DrawRequestService } from './draw-request.service';
+import { DrawRequestService } from './draw-request.service.js';
 
 /**
  * DrawRequest Controller — endpoints para draws y retainage.

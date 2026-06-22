@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Param, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { WeatherAlertService } from './weather-alert.service';
-import { WeatherMatrixService } from './weather-matrix.service';
+import { WeatherAlertService } from './weather-alert.service.js';
+import { WeatherMatrixService } from './weather-matrix.service.js';
 
 /**
  * Weather Controller — endpoints para alertas de clima.

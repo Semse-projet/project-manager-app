@@ -73,7 +73,7 @@ test('WeatherMatrixService — Concrete rule: NO rain (curing)', () => {
   };
 
   const weather = { precipitation: 2 };
-  const canWork = weather.precipitation <= (concreteRule.maxPrecipitation || 10);
+  const canWork = weather.precipitation <= (concreteRule.maxPrecipitation ?? 10);
 
   assert.strictEqual(canWork, false);
 });

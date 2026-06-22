@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Headers, Logger, BadRequestException } from '@nestjs/common';
-import { LenderClient } from '../../integrations/lender-api';
-import { DrawRequestService } from './draw-request.service';
+import { LenderClient } from '../../integrations/lender-api.js';
+import { DrawRequestService } from './draw-request.service.js';
 
 /**
  * Lender Webhook Controller — recibir eventos del lender.

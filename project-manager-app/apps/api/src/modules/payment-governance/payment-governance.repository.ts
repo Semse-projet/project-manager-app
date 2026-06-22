@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
-import type { PaymentTxnType, PaymentTxnStatus, EscrowStatus } from "@prisma/client";
+import type { EscrowStatus, PaymentTxnStatus, PaymentTxnType } from "@prisma/client";
 
 export interface PaymentReleaseInput {
   escrowId: string;

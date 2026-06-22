@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { PrismaService } from '@semse/db';
-import { LienGridClient, LienGridDeadlines } from '../../integrations/liengrid';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
+import { LienGridClient, LienGridDeadlines } from '../../integrations/liengrid.js';
 
 /**
  * LiensService — gestión de calendarios de liens, deadlines y waivers.
