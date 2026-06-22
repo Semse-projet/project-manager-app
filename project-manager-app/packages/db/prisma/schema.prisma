@@ -2564,3 +2564,107 @@ model LocationCostIndex {
   @@index([validUntil])
 }
 
+/// Calendario de deadlines de liens por proyecto y estado.
+/// Integración con LienGrid API (50 estados US).
+/// Un calendar por proyecto × estado combinación.
+model LienCalendar {
+  id                          String   @id @default(cuid())
+  projectId                   String
+  project                     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  stateName                   String   // "California", "Texas", "New York", etc.
+  preliminaryNoticeDeadline   DateTime
+  waiverDeadline              DateTime
+  finalNoticeDeadline         DateTime?
+  statusLienDeadline          DateTime?
+
+  status                      String   @default("CREATED")  // CREATED | ALERTED_30D | ALERTED_7D | ALERTED_3D | NOTICE_SENT | NOTICE_DELIVERED | NOTICE_FAILED
+  requiresNotary              Boolean  @default(false)
+  requiresCertifiedMail       Boolean  @default(true)
+
+  // Caché de integración
+  liengridResponseJson        Json?    // Respuesta cruda de LienGrid API
+  lastFetchedAt               DateTime?
+  fetchRetryCount             Int      @default(0)
+
+  notices                     LienNotice[]
+  waivers                     LienWaiver[]
+
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@unique([projectId, stateName])
+  @@index([projectId])
+  @@index([status])
+  @@index([preliminaryNoticeDeadline])
+}
+
+/// Preliminary notice enviado vía Lob.com (correo certificado digital).
+model LienNotice {
+  id                          String   @id @default(cuid())
+  lienCalendarId              String
+  lienCalendar                LienCalendar @relation(fields: [lienCalendarId], references: [id], onDelete: Cascade)
+
+  noticeType                  String   // "preliminary" | "final" | "status_lien"
+  recipientType               String   // "owner" | "general_contractor" | "lender" | "architect"
+
+  // Generación del notice
+  generatedAt                 DateTime
+  noticeContent               String   @db.Text  // HTML o plain text
+
+  // Envío vía Lob.com
+  sentVia                     String   // "certified_mail" | "email" | "manual"
+  lobLetterTrackingId         String?  // ID de Lob para seguimiento
+  lobLetterUrl                String?  // URL a PDF en CDN de Lob
+  sentAt                      DateTime?
+
+  // Seguimiento de entrega
+  status                      String   @default("DRAFT")  // DRAFT | NOTICE_SENT | DELIVERY_PENDING | NOTICE_DELIVERED | DELIVERY_FAILED
+  deliveredAt                 DateTime?
+
+  // Audit
+  createdBy                   String   // User ID
+  sentBy                      String?  // User ID si envío manual
+
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([lienCalendarId])
+  @@index([status])
+  @@index([sentAt])
+}
+
+/// Waiver de lien condicional o incondicional.
+/// Gate en FSM de Payments: no liberar escrow sin waiver firmado.
+model LienWaiver {
+  id                          String   @id @default(cuid())
+  lienCalendarId              String
+  lienCalendar                LienCalendar @relation(fields: [lienCalendarId], references: [id], onDelete: Cascade)
+
+  escrowId                    String?  // Reference a PaymentEscrow si aplica
+  milestoneId                 String?  // Reference a Milestone
+
+  waiverType                  String   // "conditional" | "unconditional"
+  releaseAmount               Decimal? @db.Decimal(15, 2)  // Null = unconditional (libera todo)
+
+  status                      String   @default("PENDING")  // PENDING | SIGNED | REJECTED | EXPIRED
+
+  // Firma digital
+  signingUrl                  String?  // URL de firma digital (HelloSign/Dropbox Sign)
+  signedAt                    DateTime?
+  signature                   String?  @db.Text  // Base64 encoded signature image
+  signedBy                    String?  // User ID (PRO contratista)
+
+  // Expiration
+  requiredBefore              DateTime // Fecha límite para firmar
+  expiresAt                   DateTime? // Para waivers condicionales
+
+  // Audit
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  @@index([lienCalendarId])
+  @@index([status])
+  @@index([requiredBefore])
+}
+
