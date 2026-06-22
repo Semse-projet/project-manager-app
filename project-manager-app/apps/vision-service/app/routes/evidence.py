@@ -34,6 +34,8 @@ from app.schemas.evidence import (
     BatchAnalyzeRequest,
     BatchAnalyzeResponse,
     BatchItemResult,
+    DetectMaterialRequest,
+    DetectMaterialResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -50,6 +52,7 @@ from app.analyzers.safety_detector import detect_safety_equipment
 from app.analyzers.timeline_builder import build_progress_timeline
 from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
+from app.analyzers.material_detector import detect_material
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -311,4 +314,16 @@ def batch_analyze_endpoint(request: BatchAnalyzeRequest):
         failed=failed,
         batchDurationMs=round(elapsed_ms, 2),
         results=results,
+    )
+
+@router.post("/detect-material", response_model=DetectMaterialResult, tags=["evidence"])
+def detect_material_endpoint(request: DetectMaterialRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = detect_material(image, request.expectedMaterial)
+    return DetectMaterialResult(
+        material=result["material"],
+        condition=result["condition"],
+        confidence=result["confidence"],
+        estimated_stock=result.get("estimated_stock"),
+        notes=result.get("notes", []),
     )

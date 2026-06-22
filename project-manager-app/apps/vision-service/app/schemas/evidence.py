@@ -172,3 +172,15 @@ class BatchAnalyzeResponse(BaseModel):
     failed: int
     batchDurationMs: float
     results: List[BatchItemResult]
+
+# --- Material Detection ---
+class DetectMaterialRequest(BaseModel):
+    imageUrl: str
+    expectedMaterial: Optional[str] = None
+
+class DetectMaterialResult(BaseModel):
+    material: str
+    condition: str
+    confidence: float
+    estimated_stock: Optional[str] = None
+    notes: List[str] = []

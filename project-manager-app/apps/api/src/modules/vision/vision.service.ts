@@ -229,4 +229,8 @@ export class VisionService {
       milestoneId: evidence.milestoneId ?? undefined,
     });
   }
+
+  async detectMaterial(imageUrl: string, expectedMaterial?: string) {
+    return this.visionServiceClient.detectMaterial({ imageUrl, expectedMaterial });
+  }
 }

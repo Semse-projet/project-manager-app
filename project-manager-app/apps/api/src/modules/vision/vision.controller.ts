@@ -129,6 +129,16 @@ export class VisionController {
     return ok(requestId, result);
   }
 
+  @Post("detect-material")
+  async detectMaterial(
+    @Req() req: FastifyRequest,
+    @Body() dto: { imageUrl: string; expectedMaterial?: string }
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.detectMaterial(dto.imageUrl, dto.expectedMaterial);
+    return ok(requestId, result);
+  }
+
   @Post("estimate-area")
   async estimateArea(
     @Req() req: FastifyRequest,
