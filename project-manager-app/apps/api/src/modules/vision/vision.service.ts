@@ -229,4 +229,16 @@ export class VisionService {
       milestoneId: evidence.milestoneId ?? undefined,
     });
   }
+
+  async detectMaterial(imageUrl: string, expectedMaterial?: string) {
+    return this.visionServiceClient.detectMaterial({ imageUrl, expectedMaterial });
+  }
+
+  async classifySpace(imageUrl: string) {
+    return this.visionServiceClient.classifySpace({ imageUrl });
+  }
+
+  async analyzePortfolio(imageUrl: string, imageHash?: string) {
+    return this.visionServiceClient.analyzePortfolio({ imageUrl, imageHash });
+  }
 }

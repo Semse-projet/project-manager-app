@@ -34,6 +34,14 @@ from app.schemas.evidence import (
     BatchAnalyzeRequest,
     BatchAnalyzeResponse,
     BatchItemResult,
+    DetectMaterialRequest,
+    DetectMaterialResult,
+    ClassifySpaceRequest,
+    ClassifySpaceResult,
+    SafetyCheckRequest,
+    SafetyCheckResult,
+    PortfolioForensicsRequest,
+    PortfolioForensicsResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -46,10 +54,13 @@ from app.analyzers.binarization import binarize_document
 from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
-from app.analyzers.safety_detector import detect_safety_equipment
+from app.analyzers.safety_detector import detect_safety_equipment, estimate_height_risk, calculate_compliance_score
 from app.analyzers.timeline_builder import build_progress_timeline
 from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
+from app.analyzers.material_detector import detect_material
+from app.analyzers.space_classifier import classify_space
+from app.analyzers.portfolio_forensics import analyze_portfolio_image
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -311,4 +322,59 @@ def batch_analyze_endpoint(request: BatchAnalyzeRequest):
         failed=failed,
         batchDurationMs=round(elapsed_ms, 2),
         results=results,
+    )
+
+@router.post("/detect-material", response_model=DetectMaterialResult, tags=["evidence"])
+def detect_material_endpoint(request: DetectMaterialRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = detect_material(image, request.expectedMaterial)
+    return DetectMaterialResult(
+        material=result["material"],
+        condition=result["condition"],
+        confidence=result["confidence"],
+        estimated_stock=result.get("estimated_stock"),
+        notes=result.get("notes", []),
+    )
+
+@router.post("/classify-space", response_model=ClassifySpaceResult, tags=["evidence"])
+def classify_space_endpoint(request: ClassifySpaceRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = classify_space(image)
+    return ClassifySpaceResult(
+        category=result["category"],
+        confidence=result["confidence"],
+        category_scores=result["category_scores"],
+        key_features=result["key_features"],
+        skip_questions_allowed=result["skip_questions_allowed"],
+    )
+
+@router.post("/safety-check", response_model=SafetyCheckResult, tags=["evidence"])
+def safety_check_endpoint(request: SafetyCheckRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = detect_safety_equipment(image)
+
+    # Adjust compliance score if at height
+    height_risk = estimate_height_risk(image)
+    adjusted_compliance = calculate_compliance_score(result, height_risk)
+
+    return SafetyCheckResult(
+        helmet_detected=result["helmet_detected"],
+        vest_detected=result["vest_detected"],
+        harness_detected=result["harness_detected"],
+        compliance_score=adjusted_compliance,
+        violations=result["violations"],
+        worker_safety_level=result["worker_safety_level"],
+    )
+
+@router.post("/analyze-portfolio", response_model=PortfolioForensicsResult, tags=["evidence"])
+def analyze_portfolio_endpoint(request: PortfolioForensicsRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = analyze_portfolio_image(image, request.imageHash)
+    return PortfolioForensicsResult(
+        fraud_risk=result["fraud_risk"],
+        duplicate_risk=result["duplicate_risk"],
+        deepfake_risk=result["deepfake_risk"],
+        portfolio_quality_score=result["portfolio_quality_score"],
+        red_flags=result["red_flags"],
+        recommendation=result["recommendation"],
     )

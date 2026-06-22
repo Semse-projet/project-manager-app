@@ -215,11 +215,18 @@ export const HtmlInCanvasPanel = forwardRef<HtmlInCanvasPanelHandle, HtmlInCanva
     const canvasRef = useRef<HtmlInCanvasCanvasElement | null>(null);
     const contentRef = useRef<HTMLDivElement | null>(null);
     const fallbackRef = useRef<HTMLElement | null>(null);
+    const nativePaintReadyRef = useRef(false);
     const [enabled, setEnabled] = useState(false);
 
     async function captureCurrentFrame() {
       const canvas = canvasRef.current as HTMLCanvasElement | null;
-      if (enabled && canvas) return canvasToBlob(canvas);
+      if (enabled && canvas && nativePaintReadyRef.current) {
+        const blob = await canvasToBlob(canvas);
+        if (blob) return blob;
+      }
+
+      const content = contentRef.current;
+      if (content) return captureElementFallback(content, minHeight);
 
       const fallback = fallbackRef.current;
       if (!fallback) return null;
@@ -294,6 +301,7 @@ export const HtmlInCanvasPanel = forwardRef<HtmlInCanvasPanelHandle, HtmlInCanva
       const contentNode = content;
       const drawContext = context;
       let frameId = 0;
+      let nativePaintRetries = 0;
       const resizeObserver = new ResizeObserver(scheduleDraw);
       const mutationObserver = new MutationObserver(scheduleDraw);
 
@@ -317,9 +325,19 @@ export const HtmlInCanvasPanel = forwardRef<HtmlInCanvasPanelHandle, HtmlInCanva
 
         drawContext.scale(dpr, dpr);
         drawContext.clearRect(0, 0, width, height);
-        const transform = drawContext.drawElementImage?.(contentNode, 0, 0);
-        if (transform && typeof transform === "object" && "toString" in transform) {
-          contentNode.style.transform = transform.toString();
+        try {
+          const transform = drawContext.drawElementImage?.(contentNode, 0, 0);
+          nativePaintReadyRef.current = true;
+          nativePaintRetries = 0;
+          if (transform && typeof transform === "object" && "toString" in transform) {
+            contentNode.style.transform = transform.toString();
+          }
+        } catch {
+          nativePaintReadyRef.current = false;
+          if (nativePaintRetries < SUPPORT_DETECTION_RETRIES) {
+            nativePaintRetries += 1;
+            window.setTimeout(scheduleDraw, SUPPORT_DETECTION_RETRY_MS);
+          }
         }
       }
 

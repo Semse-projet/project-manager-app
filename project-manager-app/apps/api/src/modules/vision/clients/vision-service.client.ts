@@ -102,6 +102,18 @@ export class VisionServiceClient {
     return this.post<BatchAnalyzeResultDto>("/v1/evidence/batch-analyze", payload);
   }
 
+  async detectMaterial(payload: { imageUrl: string; expectedMaterial?: string }): Promise<any> {
+    return this.post<any>("/v1/evidence/detect-material", payload);
+  }
+
+  async classifySpace(payload: { imageUrl: string }): Promise<any> {
+    return this.post<any>("/v1/evidence/classify-space", payload);
+  }
+
+  async analyzePortfolio(payload: { imageUrl: string; imageHash?: string }): Promise<any> {
+    return this.post<any>("/v1/evidence/analyze-portfolio", payload);
+  }
+
   private async post<T>(path: string, body: unknown): Promise<T> {
     const baseUrl = process.env.VISION_SERVICE_URL || "http://localhost:8080";
     const timeoutMs = parseInt(process.env.VISION_ANALYSIS_TIMEOUT_MS || "30000", 10);
