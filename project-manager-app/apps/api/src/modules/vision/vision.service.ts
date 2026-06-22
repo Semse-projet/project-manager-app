@@ -207,6 +207,22 @@ export class VisionService {
     return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth: 640, outputHeight: 480 });
   }
 
+  async detectMaterial(imageUrl: string, expectedMaterial?: string, enrich = true) {
+    return this.visionServiceClient.detectMaterial({ imageUrl, expectedMaterial, enrich });
+  }
+
+  async classifySpace(imageUrl: string, enrich = true) {
+    return this.visionServiceClient.classifySpace({ imageUrl, enrich });
+  }
+
+  async analyzePortfolio(imageUrl: string, imageHash?: string, enrich = true) {
+    return this.visionServiceClient.analyzePortfolio({ imageUrl, imageHash, enrich });
+  }
+
+  async checkSafetyEnriched(imageUrl: string, trade?: string) {
+    return this.visionServiceClient.checkSafetyEnriched({ imageUrl, trade });
+  }
+
   async analyzeByEvidenceId(evidenceId: string) {
     const existing = await this.visionRepository.findByEvidenceId(evidenceId).catch(() => null);
     if (existing?.status === "completed") return existing;

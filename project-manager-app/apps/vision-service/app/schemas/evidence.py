@@ -128,6 +128,7 @@ class SafetyCheckResult(BaseModel):
     harnessDetected: bool
     complianceScore: float
     violations: List[str]
+    insight: Optional[str] = None
 
 # --- Reference Match ---
 class ReferenceMatchRequest(BaseModel):
@@ -154,6 +155,51 @@ class TradeDetectionResult(BaseModel):
     expectedTrade: Optional[str] = None
     match: Optional[bool] = None
 
+# --- Material Detector ---
+class DetectMaterialRequest(BaseModel):
+    imageUrl: str
+    expectedMaterial: Optional[str] = None
+    enrich: bool = True
+
+class DetectMaterialResult(BaseModel):
+    material: str
+    condition: str
+    stockLevel: str
+    confidence: float
+    allScores: Dict[str, float]
+    notes: List[str]
+    insight: Optional[str] = None
+
+# --- Space Classifier ---
+class ClassifySpaceRequest(BaseModel):
+    imageUrl: str
+    enrich: bool = True
+
+class ClassifySpaceResult(BaseModel):
+    category: str
+    confidence: float
+    skipQuestionsAllowed: bool
+    categoryScores: Dict[str, float]
+    suggestedQuestions: List[str]
+    keyFeatures: List[str]
+    insight: Optional[str] = None
+
+# --- Portfolio Forensics ---
+class AnalyzePortfolioRequest(BaseModel):
+    imageUrl: str
+    imageHash: Optional[str] = None
+    enrich: bool = True
+
+class PortfolioForensicsResult(BaseModel):
+    duplicateScore: float
+    deepfakeScore: float
+    qualityScore: float
+    fraudRisk: float
+    recommendation: str
+    redFlags: List[str]
+    details: Dict[str, Any]
+    insight: Optional[str] = None
+
 # --- Batch Analyze (depends on EvidenceAnalyzeResponse) ---
 class BatchAnalyzeRequest(BaseModel):
     items: List[EvidenceAnalyzeRequest]
@@ -172,52 +218,3 @@ class BatchAnalyzeResponse(BaseModel):
     failed: int
     batchDurationMs: float
     results: List[BatchItemResult]
-
-# --- Material Detection ---
-class DetectMaterialRequest(BaseModel):
-    imageUrl: str
-    expectedMaterial: Optional[str] = None
-
-class DetectMaterialResult(BaseModel):
-    material: str
-    condition: str
-    confidence: float
-    estimated_stock: Optional[str] = None
-    notes: List[str] = []
-
-# --- Space Classification ---
-class ClassifySpaceRequest(BaseModel):
-    imageUrl: str
-
-class ClassifySpaceResult(BaseModel):
-    category: str
-    confidence: float
-    category_scores: Dict[str, float]
-    key_features: List[str]
-    skip_questions_allowed: bool
-
-# --- Safety Detection ---
-class SafetyCheckRequest(BaseModel):
-    imageUrl: str
-    trade: Optional[str] = None
-
-class SafetyCheckResult(BaseModel):
-    helmet_detected: bool
-    vest_detected: bool
-    harness_detected: bool
-    compliance_score: float
-    violations: List[str]
-    worker_safety_level: str
-
-# --- Portfolio Forensics ---
-class PortfolioForensicsRequest(BaseModel):
-    imageUrl: str
-    imageHash: Optional[str] = None
-
-class PortfolioForensicsResult(BaseModel):
-    fraud_risk: float
-    duplicate_risk: float
-    deepfake_risk: float
-    portfolio_quality_score: float
-    red_flags: List[str]
-    recommendation: str

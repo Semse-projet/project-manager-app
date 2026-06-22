@@ -22,6 +22,12 @@ import {
   TradeDetectionResultDto,
   BatchAnalyzeDto,
   BatchAnalyzeResultDto,
+  DetectMaterialDto,
+  DetectMaterialResultDto,
+  ClassifySpaceDto,
+  ClassifySpaceResultDto,
+  AnalyzePortfolioDto,
+  PortfolioForensicsResultDto,
 } from "../dto/index.js";
 
 @Injectable()
@@ -102,16 +108,20 @@ export class VisionServiceClient {
     return this.post<BatchAnalyzeResultDto>("/v1/evidence/batch-analyze", payload);
   }
 
-  async detectMaterial(payload: { imageUrl: string; expectedMaterial?: string }): Promise<any> {
-    return this.post<any>("/v1/evidence/detect-material", payload);
+  async detectMaterial(payload: DetectMaterialDto): Promise<DetectMaterialResultDto> {
+    return this.post<DetectMaterialResultDto>("/v1/evidence/detect-material", payload);
   }
 
-  async classifySpace(payload: { imageUrl: string }): Promise<any> {
-    return this.post<any>("/v1/evidence/classify-space", payload);
+  async classifySpace(payload: ClassifySpaceDto): Promise<ClassifySpaceResultDto> {
+    return this.post<ClassifySpaceResultDto>("/v1/evidence/classify-space", payload);
   }
 
-  async analyzePortfolio(payload: { imageUrl: string; imageHash?: string }): Promise<any> {
-    return this.post<any>("/v1/evidence/analyze-portfolio", payload);
+  async analyzePortfolio(payload: AnalyzePortfolioDto): Promise<PortfolioForensicsResultDto> {
+    return this.post<PortfolioForensicsResultDto>("/v1/evidence/analyze-portfolio", payload);
+  }
+
+  async checkSafetyEnriched(payload: SafetyCheckDto): Promise<SafetyCheckResultDto> {
+    return this.post<SafetyCheckResultDto>("/v1/evidence/safety-check-enriched", payload);
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
