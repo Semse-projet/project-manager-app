@@ -237,7 +237,13 @@ test("browser-agent service: getInspectionResult returns completed inspection da
       detail: async () => STUB_RUN_COMPLETED,
     } as never,
     {} as never,
-    {} as never
+    {
+      generate: async () => ({
+        content: "AI summary of inspection",
+        model: "stub",
+        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+      }),
+    } as never
   );
 
   const context = {
