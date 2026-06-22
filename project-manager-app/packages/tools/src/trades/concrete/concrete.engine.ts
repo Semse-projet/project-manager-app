@@ -3,6 +3,12 @@ import { applyLocation, buildCostSummary, material, materialTotal, priceOf } fro
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
 import type { EvidenceItem, LaborEstimate, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
+import {
+  computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
+  computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
+  buildProductionSchedule, assessHiddenDamageProbability, assessScheduleRisk,
+  buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
+} from "../../core/extended-metrics.js";
 
 // ─── Mix ratios (cement:sand:gravel) by strength ──────────────────────────────
 const MIX_RATIOS: Record<string, { cement: number; sand: number; gravel: number; psi: number }> = {
@@ -157,6 +163,46 @@ export function runConcreteEngine(input: ConcreteInput): SemseToolResult {
     ...(input.pumpRequired ? ["Coordinar camión de concreto premezclado para mayor control de calidad."] : []),
   ];
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Subgrade and forming",        daysMin: 1, daysMax: 2, crew: 3, description: "Grade, compact subbase, set forms to elevation" },
+    { name: "Rebar and reinforcement",     daysMin: 0, daysMax: 1, crew: 2, description: "Install rebar grid, chairs, and tie wire" },
+    { name: "Pour and spread",             daysMin: 1, daysMax: 1, crew: 4, description: "Place concrete, strike off, and spread to forms" },
+    { name: "Finish and cure",             daysMin: 1, daysMax: 2, crew: 2, description: "Float, broom, edge, apply cure compound" },
+    { name: "Strip forms and seal",        daysMin: 1, daysMax: 1, crew: 2, description: "Strip forms, backfill edges, apply sealer if included" },
+  ]);
+
+  const inspectionGate = buildInspectionGate(
+    "After forming and rebar — before concrete placement",
+    ["Form elevation and dimension photos", "Rebar spacing and chair photos", "Sub-base compaction verification"],
+    "Form misalignment or rebar deficiency found requiring correction before pour",
+    "All forms and rebar must be inspected and approved before any concrete is placed."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: false,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: true,
+    scopeIsLarge: false,
+    hasComplexDetails: false,
+  });
+
+  const upsells = [
+    { service: "Concrete sealer and color hardener", reason: "Apply at pour time — protects surface and adds aesthetic value for minimal cost." },
+    { service: "Control joint saw-cutting", reason: "Prevents random cracking — schedule saw crew day after pour while crew is demobilizing." },
+    { service: "Fiber reinforcement additive", reason: "Add to mix at batch plant — reduces surface cracking with no extra labor." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 0.90),
+    roiPercent:          90,
+    notes:               "Concrete flatwork and structures provide permanent value and return ~90% in property and functional value.",
+  };
+
   return {
     toolId: `concrete-${Date.now()}`,
     trade: "concrete",
@@ -178,6 +224,12 @@ export function runConcreteEngine(input: ConcreteInput): SemseToolResult {
       "Mezcla manual. Para premezclado, reemplazar cemento/arena/grava por yd³ de concreto (~$145/yd³).",
       "Resistencia de 28 días según ASTM C39.",
     ],
+    productionSchedule,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

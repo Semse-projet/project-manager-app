@@ -7,7 +7,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
 import { assertProjectFinancialsReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
 
-const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
+const { EscrowStatus, Prisma } = prismaClientPackage as typeof import("@prisma/client");
 
 type PaymentTx = PrismaTypes.TransactionClient & Pick<PrismaService, "milestone" | "paymentEscrow" | "paymentTxn">;
 
@@ -97,6 +97,41 @@ export class PaymentsRepository {
         deletedAt: null
       }
     });
+  }
+
+  async findAcceptedProfessionalByProject(projectId: string): Promise<{
+    userId: string;
+    orgId?: string;
+    email?: string;
+  } | null> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        job: {
+          select: {
+            reservations: {
+              where: { status: "ACCEPTED" },
+              orderBy: { acceptedAt: "desc" },
+              take: 1,
+              select: {
+                professionalId: true,
+                professionalOrgId: true,
+                professional: { select: { email: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+    const reservation = project?.job?.reservations?.[0];
+    if (!reservation) {
+      return null;
+    }
+    return {
+      userId: reservation.professionalId,
+      orgId: reservation.professionalOrgId ?? undefined,
+      email: reservation.professional.email ?? undefined
+    };
   }
 
   async hasOpenDisputeForProject(projectId: string): Promise<boolean> {
@@ -250,7 +285,7 @@ export class PaymentsRepository {
               totalAmount: existing.totalAmount.plus(input.amount),
               jobId: existing.jobId ?? input.jobId,
               contractId: existing.contractId ?? input.contractId,
-              status: "active"
+              status: EscrowStatus.ACTIVE
             }
           })
         : await db.paymentEscrow.create({
@@ -261,7 +296,7 @@ export class PaymentsRepository {
               providerRef: input.providerRef,
               currency: input.currency,
               totalAmount: input.amount,
-              status: "active"
+              status: EscrowStatus.ACTIVE
             }
           });
 
@@ -422,7 +457,7 @@ export class PaymentsRepository {
         if (refundable - input.amount <= 0) {
           await db.paymentEscrow.update({
             where: { id: input.escrowId },
-            data: { status: "closed" }
+            data: { status: EscrowStatus.CLOSED }
           });
         }
 

@@ -42,9 +42,9 @@ function preferredProfessionalLabel(job: JobRecordView): string | null {
 
 const FILTERS = [
   { key: "all",       label: "Todos"      },
+  { key: "draft",     label: "Borradores" },
   { key: "active",    label: "Activos"    },
   { key: "pending",   label: "Esperando propuestas" },
-  { key: "posted",    label: "Publicados" },
   { key: "review",    label: "En revisión" },
   { key: "completed", label: "Completados" },
 ];
@@ -98,9 +98,9 @@ export default function ClientJobsPage() {
   const filtered = jobs.filter(j => {
     const matchFilter =
       filter === "all"       ? true :
+      filter === "draft"     ? j.status === "draft" :
       filter === "active"    ? ["in_progress", "reserved", "accepted", "review"].includes(j.status) :
-      filter === "pending"   ? ["posted", "published", "review"].includes(j.status) :
-      filter === "posted"    ? j.status === "posted" :
+      filter === "pending"   ? ["posted", "published"].includes(j.status) :
       filter === "review"    ? j.status === "review" :
       filter === "completed" ? j.status === "completed" : true;
     const matchQ = !query || j.title.toLowerCase().includes(query.toLowerCase());
@@ -108,12 +108,12 @@ export default function ClientJobsPage() {
   });
 
   const headerCopy: Record<string, { title: string; detail: string }> = {
-    all: { title: "Todos tus trabajos", detail: "Vista general de trabajos, estados y presupuesto." },
-    active: { title: "Trabajos activos", detail: "Trabajos reservados, aceptados, en progreso o en revisión." },
-    pending: { title: "Esperando propuestas", detail: "Trabajos publicados o en revisión que todavía requieren respuesta o propuestas." },
-    posted: { title: "Trabajos publicados", detail: "Trabajos ya visibles para profesionales, todavía sin movimiento operativo." },
-    review: { title: "Trabajos en revisión", detail: "Trabajos donde ya hay entrega o revisión pendiente de tu parte." },
-    completed: { title: "Trabajos completados", detail: "Historial de trabajos cerrados correctamente." }
+    all:       { title: "Todos tus trabajos",       detail: "Vista general de trabajos, estados y presupuesto." },
+    draft:     { title: "Borradores",               detail: "Trabajos guardados pero aún no publicados. Completa el formulario para publicarlos." },
+    active:    { title: "Trabajos activos",          detail: "Trabajos reservados, aceptados, en progreso o en revisión." },
+    pending:   { title: "Esperando propuestas",      detail: "Trabajos publicados que todavía no tienen una propuesta aceptada." },
+    review:    { title: "Trabajos en revisión",      detail: "Trabajos donde ya hay entrega o revisión pendiente de tu parte." },
+    completed: { title: "Trabajos completados",      detail: "Historial de trabajos cerrados correctamente." },
   };
   const currentCopy = headerCopy[filter] ?? headerCopy.all;
 

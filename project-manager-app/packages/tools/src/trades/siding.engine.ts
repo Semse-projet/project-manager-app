@@ -1,4 +1,4 @@
-import { collect, isValid, warn } from "../core/validation-engine.js";
+import { collect, isValid, oneOf, positive, range, warn } from "../core/validation-engine.js";
 import { buildCostSummary, material, materialTotal } from "../core/cost-engine.js";
 import { computeRisk, factor } from "../core/risk-engine.js";
 import { buildMilestones } from "../core/milestone-engine.js";
@@ -85,13 +85,35 @@ const WASTE_FACTOR: Record<SidingMaterial, number> = {
   metal:           0.08,
 };
 
+const SIDING_MATERIALS = ["vinyl", "insulated_vinyl", "fiber_cement", "wood", "engineered_wood", "metal"] as const;
+const STORY_COUNTS = ["1", "2", "3"] as const;
+const FLASHING_CONDITIONS = ["good", "poor", "unknown"] as const;
+const TOOL_MODES = ["client", "professional", "admin"] as const;
+
+function normalizePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function normalizeOneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  return typeof value === "string" && allowed.includes(value as T) ? value as T : fallback;
+}
+
 // ── Main engine ───────────────────────────────────────────────────────────────
 
 export function calculateSiding(input: SidingInput): SemseToolResult {
   const issues = collect(
-    input.wallSqFt <= 0
-      ? warn("wallSqFt", "Wall area must be greater than zero.")
-      : null,
+    oneOf("sidingType", input.sidingType, SIDING_MATERIALS, "Siding material"),
+    oneOf("stories", String(input.stories), STORY_COUNTS, "Stories"),
+    oneOf("flashingCondition", input.flashingCondition, FLASHING_CONDITIONS, "Flashing condition"),
+    oneOf("mode", input.mode, TOOL_MODES, "Mode"),
+    positive("wallSqFt", input.wallSqFt, "Wall area"),
+    range("windowCount", input.windowCount, 0, 120, "Window count"),
+    range("doorCount", input.doorCount, 0, 40, "Door count"),
+    range("corners", input.corners, 0, 80, "Outside corners"),
     input.visibleWaterDamage
       ? warn("visibleWaterDamage", "Visible water damage increases probability of hidden moisture and sheathing damage.")
       : null,
@@ -107,22 +129,31 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     input.clientProvidesMaterials
       ? warn("clientProvidesMaterials", "Client-provided materials: verify product specs and coverage before installation.")
       : null,
-    input.stories >= 2
+    Number.isFinite(input.stories) && input.stories >= 2
       ? warn("stories", "Two-story or higher access increases labor cost and safety risk.")
       : null,
   );
 
+  const sidingType = normalizeOneOf(input.sidingType, SIDING_MATERIALS, "vinyl");
+  const stories = Number(normalizeOneOf(String(input.stories), STORY_COUNTS, "1")) as SidingInput["stories"];
+  const flashingCondition = normalizeOneOf(input.flashingCondition, FLASHING_CONDITIONS, "unknown");
+  const mode = normalizeOneOf(input.mode, TOOL_MODES, "professional");
+  const wallSqFt = normalizePositive(input.wallSqFt, 100);
+  const windowCount = Math.max(0, Math.round(normalizeRange(input.windowCount, 0, 120, 0)));
+  const doorCount = Math.max(0, Math.round(normalizeRange(input.doorCount, 0, 40, 0)));
+  const corners = Math.max(0, Math.round(normalizeRange(input.corners, 0, 80, 0)));
+
   // ── Area / materials ─────────────────────────────────────────────────────
-  const wasteFactor   = WASTE_FACTOR[input.sidingType];
-  const adjustedArea  = Math.round(input.wallSqFt * (1 + wasteFactor));
-  const heightMult    = input.stories === 3 ? 1.35 : input.stories === 2 ? 1.18 : 1.0;
-  const matCost       = MATERIAL_COST_PER_SQFT[input.sidingType];
-  const laborCost     = LABOR_COST_PER_SQFT[input.sidingType];
+  const wasteFactor   = WASTE_FACTOR[sidingType];
+  const adjustedArea  = Math.round(wallSqFt * (1 + wasteFactor));
+  const heightMult    = stories === 3 ? 1.35 : stories === 2 ? 1.18 : 1.0;
+  const matCost       = MATERIAL_COST_PER_SQFT[sidingType];
+  const laborCost     = LABOR_COST_PER_SQFT[sidingType];
 
   const removalCostPerSqFt = 1.20;
   const houseWrapCostPerSqFt = input.houseWrapIncluded ? 0.65 : 0;
   const flashingAllowancePerWindow = 85;
-  const trimLinFt = Math.round(input.corners * 8 + input.windowCount * 6 + input.doorCount * 8);
+  const trimLinFt = Math.round(corners * 8 + windowCount * 6 + doorCount * 8);
   const trimCostPerFt = 4.50;
 
   const mats = input.clientProvidesMaterials
@@ -131,13 +162,13 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
         material("Installation accessories (nails, adhesive, tape)", 1, "lot", adjustedArea * 0.35, "Accessories"),
       ]
     : [
-        material(`${input.sidingType.replace("_", " ")} siding`, adjustedArea, "sqft", matCost, "Siding"),
-        material("J-channel / starter strip", Math.ceil(input.wallSqFt / 100), "kit", 45, "Trim"),
-        material("Corner posts", input.corners, "unit", 28, "Trim"),
-        material("Window/door trim", input.windowCount + input.doorCount, "opening", 55, "Trim"),
+        material(`${sidingType.replace("_", " ")} siding`, adjustedArea, "sqft", matCost, "Siding"),
+        material("J-channel / starter strip", Math.ceil(wallSqFt / 100), "kit", 45, "Trim"),
+        material("Corner posts", corners, "unit", 28, "Trim"),
+        material("Window/door trim", windowCount + doorCount, "opening", 55, "Trim"),
         material("Fasteners / nails / tape", 1, "lot", adjustedArea * 0.18, "Accessories"),
         ...(input.houseWrapIncluded ? [material("House wrap / weather barrier", adjustedArea, "sqft", 0.65, "Moisture barrier")] : []),
-        ...(input.soffitFasciaIncluded ? [material("Soffit / fascia boards", Math.ceil(input.wallSqFt / 80), "kit", 180, "Soffit/Fascia")] : []),
+        ...(input.soffitFasciaIncluded ? [material("Soffit / fascia boards", Math.ceil(wallSqFt / 80), "kit", 180, "Soffit/Fascia")] : []),
       ];
 
   const laborHours =
@@ -148,24 +179,24 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
 
   const laborBase = estimateLabor({
     baseHours:   laborHours,
-    crewSize:    input.stories >= 2 ? 3 : 2,
-    ratePerHour: input.sidingType === "fiber_cement" ? 85 : 70,
-    difficulty:  input.stories >= 2 || input.visibleWaterDamage ? "complex" : "moderate",
+    crewSize:    stories >= 2 ? 3 : 2,
+    ratePerHour: sidingType === "fiber_cement" ? 85 : 70,
+    difficulty:  stories >= 2 || input.visibleWaterDamage ? "complex" : "moderate",
     notes: [
-      `Material: ${input.sidingType} — ${adjustedArea} sqft (incl. ${Math.round(wasteFactor * 100)}% waste)`,
-      `Stories: ${input.stories} — height multiplier: ${heightMult}x`,
+      `Material: ${sidingType} — ${adjustedArea} sqft (incl. ${Math.round(wasteFactor * 100)}% waste)`,
+      `Stories: ${stories} — height multiplier: ${heightMult}x`,
       `Trim: ${trimLinFt} lin.ft`,
     ],
   });
 
-  const removalCost      = input.removeOldSiding ? Math.round(input.wallSqFt * removalCostPerSqFt) : 0;
-  const flashingCost     = Math.round(input.windowCount * flashingAllowancePerWindow);
-  const hiddenDamageAllowance = input.visibleWaterDamage ? Math.round(input.wallSqFt * 0.85) : 0;
+  const removalCost      = input.removeOldSiding ? Math.round(wallSqFt * removalCostPerSqFt) : 0;
+  const flashingCost     = Math.round(windowCount * flashingAllowancePerWindow);
+  const hiddenDamageAllowance = input.visibleWaterDamage ? Math.round(wallSqFt * 0.85) : 0;
 
   const costs = buildCostSummary(
     materialTotal(mats) + removalCost + flashingCost + hiddenDamageAllowance,
     laborBase.totalCost,
-    { overhead: 0.15, profit: 0.22, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: input.wallSqFt }
+    { overhead: 0.15, profit: 0.22, taxRate: 0.07, semseFeeRate: 0.05, perUnitDivisor: wallSqFt }
   );
 
   // ── Risk ──────────────────────────────────────────────────────────────────
@@ -173,11 +204,11 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     [
       factor("visibleWaterDamage",  "Visible water damage",          0.25, input.visibleWaterDamage),
       factor("removeOldSiding",     "Old siding removal",            0.18, input.removeOldSiding),
-      factor("flashingPoor",        "Poor flashing condition",       0.15, input.flashingCondition === "poor"),
-      factor("flashingUnknown",     "Unknown flashing condition",    0.10, input.flashingCondition === "unknown"),
-      factor("twoStory",            "Two-story or higher access",    0.12, input.stories >= 2),
-      factor("threeStory",          "Three-story — high access risk",0.12, input.stories === 3),
-      factor("fiberCement",         "Fiber cement — heavier labor",  0.06, input.sidingType === "fiber_cement"),
+      factor("flashingPoor",        "Poor flashing condition",       0.15, flashingCondition === "poor"),
+      factor("flashingUnknown",     "Unknown flashing condition",    0.10, flashingCondition === "unknown"),
+      factor("twoStory",            "Two-story or higher access",    0.12, stories >= 2),
+      factor("threeStory",          "Three-story — high access risk",0.12, stories === 3),
+      factor("fiberCement",         "Fiber cement — heavier labor",  0.06, sidingType === "fiber_cement"),
       factor("clientMaterials",     "Client-provided materials",     0.08, input.clientProvidesMaterials),
       factor("noHouseWrap",         "House wrap not included",       0.08, !input.houseWrapIncluded),
     ],
@@ -251,18 +282,18 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
 
   // ── Extended metrics ──────────────────────────────────────────────────────
   const confidenceScore = computeConfidenceScore({
-    hasMeasurements:      input.wallSqFt > 0,
+    hasMeasurements:      wallSqFt > 0,
     hasPhotos:            false,
-    hasConditionData:     input.flashingCondition !== "unknown",
-    hasMaterialSelection: input.sidingType !== undefined,
+    hasConditionData:     flashingCondition !== "unknown",
+    hasMaterialSelection: true,
     hasScopeConfirmed:    true,
     clientProvidesMaterials: input.clientProvidesMaterials,
-    hasUnknownConditions: input.flashingCondition === "unknown" || (input.visibleWaterDamage && input.removeOldSiding),
+    hasUnknownConditions: flashingCondition === "unknown" || (input.visibleWaterDamage && input.removeOldSiding),
     extraConfirmedFields: [
       input.houseWrapIncluded,
       input.soffitFasciaIncluded,
       !input.clientProvidesMaterials,
-      input.flashingCondition === "good",
+      flashingCondition === "good",
     ].filter(Boolean).length,
   });
 
@@ -273,13 +304,13 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     hasChangeOrderPolicy:    true,
     hasEvidenceRequired:     true,
     hasMilestones:           milestones.length > 0,
-    hasHighRiskConditions:   input.visibleWaterDamage || input.stories >= 2,
+    hasHighRiskConditions:   input.visibleWaterDamage || stories >= 2,
     priceIsFixed:            false,
     clientExpectationMismatch: input.visibleWaterDamage && !input.removeOldSiding,
   });
 
   const readinessScore = computeReadinessScore({
-    measurementsConfirmed:  input.wallSqFt > 0,
+    measurementsConfirmed:  wallSqFt > 0,
     materialsAvailable:     !input.clientProvidesMaterials,
     siteAccessConfirmed:    true,
     permitsAddressed:       true,
@@ -311,11 +342,11 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
 
   const scope = buildScope(
     [
-      `${input.sidingType.replace("_", " ")} siding installation — ${input.wallSqFt} sqft`,
+      `${sidingType.replace("_", " ")} siding installation — ${wallSqFt} sqft`,
       ...(input.removeOldSiding ? ["Old siding removal and disposal"] : []),
       ...(input.houseWrapIncluded ? ["House wrap / weather barrier"] : []),
-      `Window and door flashing (${input.windowCount + input.doorCount} openings)`,
-      `Outside corners (${input.corners}) and trim`,
+      `Window and door flashing (${windowCount + doorCount} openings)`,
+      `Outside corners (${corners}) and trim`,
       "J-channel and starter strips",
       ...(input.soffitFasciaIncluded ? ["Soffit and fascia"] : []),
       "Basic cleanup",
@@ -333,7 +364,7 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     [
       `Standard waste factor applied: ${Math.round(wasteFactor * 100)}%`,
       "Flashing for windows and doors included at standard detail",
-      `Height multiplier applied for ${input.stories}-story structure`,
+      `Height multiplier applied for ${stories}-story structure`,
     ],
     [
       "Hidden sheathing or framing damage after removal",
@@ -346,26 +377,26 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
   );
 
   const explained = buildExplainedOutput(
-    `Your ${input.sidingType.replace("_", " ")} siding project (${input.wallSqFt} sqft, ${input.stories} ${input.stories === 1 ? "story" : "stories"}) is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
+    `Your ${sidingType.replace("_", " ")} siding project (${wallSqFt} sqft, ${stories} ${stories === 1 ? "story" : "stories"}) is estimated at $${Math.round(costs.total).toLocaleString()}. ` +
     `${input.removeOldSiding ? "This includes removing existing siding with a mandatory inspection milestone before continuing. " : ""}` +
     `${input.visibleWaterDamage ? "IMPORTANT: Visible water damage increases the probability of hidden issues. A change order may be needed. " : ""}` +
     `Payments are released by milestone with photo evidence required at each stage.`,
     [
-      `Material: ${input.sidingType} — ${adjustedArea} sqft (${Math.round(wasteFactor * 100)}% waste) — $${matCost}/sqft`,
-      `Labor: ${laborBase.hours.toFixed(1)} hrs × ${input.stories >= 2 ? "3-person crew" : "2-person crew"} — height mult: ${heightMult}x`,
+      `Material: ${sidingType} — ${adjustedArea} sqft (${Math.round(wasteFactor * 100)}% waste) — $${matCost}/sqft`,
+      `Labor: ${laborBase.hours.toFixed(1)} hrs × ${stories >= 2 ? "3-person crew" : "2-person crew"} — height mult: ${heightMult}x`,
       ...(input.removeOldSiding ? ["INSPECTION GATE: Do not continue past removal without documenting sheathing. Hidden damage = change order."] : []),
       ...(input.visibleWaterDamage ? ["WATER DAMAGE: Budget $800–$2,500 for potential sheathing replacement — cannot confirm until after removal."] : []),
-      input.flashingCondition === "unknown"
+      flashingCondition === "unknown"
         ? "FLASHING UNKNOWN: Inspect all window/door flashing before installing new siding. Poor condition = change order."
-        : `Flashing condition: ${input.flashingCondition}`,
-      ...(input.stories >= 2 ? ["HEIGHT: Scaffold or lift recommended — factor in setup/breakdown time."] : []),
-      "FIBER CEMENT NOTE: Requires paint finish coat (separate quote) — factor into total project budget." + (input.sidingType === "fiber_cement" ? " ← ACTIVE" : " (not applicable)"),
+        : `Flashing condition: ${flashingCondition}`,
+      ...(stories >= 2 ? ["HEIGHT: Scaffold or lift recommended — factor in setup/breakdown time."] : []),
+      "FIBER CEMENT NOTE: Requires paint finish coat (separate quote) — factor into total project budget." + (sidingType === "fiber_cement" ? " ← ACTIVE" : " (not applicable)"),
     ]
   );
 
   const warranty = buildWarranty(
     365,
-    `${input.sidingType.replace("_", " ")} siding installation — labor warranty on installation and flashing`,
+    `${sidingType.replace("_", " ")} siding installation — labor warranty on installation and flashing`,
     [
       "Manufacturer defects in siding material",
       "Structural settlement or movement",
@@ -389,19 +420,19 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     clientMustDecide:     input.clientProvidesMaterials,
     materialsOnSite:      !input.clientProvidesMaterials,
     weatherDependent:     true,
-    scopeIsLarge:         input.wallSqFt > 2000,
-    hasComplexDetails:    input.sidingType === "fiber_cement" || input.stories >= 2,
+    scopeIsLarge:         wallSqFt > 2000,
+    hasComplexDetails:    sidingType === "fiber_cement" || stories >= 2,
   });
 
   const safeToProceed = computeSafeToProceed({
-    hasMinimalData:      input.wallSqFt > 0,
+    hasMinimalData:      wallSqFt > 0,
     readinessScore:      readinessScore.score,
     hasCriticalBlockers: false,
     hasMilestones:       milestones.length > 0,
     hasEvidencePlan:     evidence.items.length > 0,
     confidenceScore:     confidenceScore.score,
     noCriticalBlockers:  true,
-    scopeIsComplete:     !input.clientProvidesMaterials && input.flashingCondition !== "unknown",
+    scopeIsComplete:     !input.clientProvidesMaterials && flashingCondition !== "unknown",
   });
 
   const trace = buildAlgorithmTrace(
@@ -410,35 +441,35 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     ["wallSqFt", "stories", "sidingType", "removeOldSiding", "windowCount", "flashingCondition"],
     [
       ...(!input.houseWrapIncluded ? ["houseWrapIncluded — not selected"] : []),
-      ...(input.flashingCondition === "unknown" ? ["flashingCondition — unknown"] : []),
+      ...(flashingCondition === "unknown" ? ["flashingCondition — unknown"] : []),
     ],
     [
       `Waste factor: ${Math.round(wasteFactor * 100)}%`,
-      `Height multiplier: ${heightMult}x for ${input.stories} stories`,
+      `Height multiplier: ${heightMult}x for ${stories} stories`,
       "Flashing allowance per opening: $85",
     ],
     [
       { ruleId: "WATER_DAMAGE_RISK",    label: "Visible water damage",   triggered: input.visibleWaterDamage,           points: 25, reason: "Water damage increases hidden moisture risk" },
       { ruleId: "OLD_SIDING_REMOVAL",   label: "Removal required",       triggered: input.removeOldSiding,              points: 18, reason: "Creates inspection gate and potential change orders" },
-      { ruleId: "FLASHING_POOR",        label: "Poor flashing",          triggered: input.flashingCondition === "poor", points: 15, reason: "Likely change order for flashing rebuild" },
-      { ruleId: "TWO_STORY",            label: "Two-story+ access",      triggered: input.stories >= 2,                 points: 12, reason: "Increases labor cost and safety risk" },
+      { ruleId: "FLASHING_POOR",        label: "Poor flashing",          triggered: flashingCondition === "poor",       points: 15, reason: "Likely change order for flashing rebuild" },
+      { ruleId: "TWO_STORY",            label: "Two-story+ access",      triggered: stories >= 2,                       points: 12, reason: "Increases labor cost and safety risk" },
       { ruleId: "CLIENT_MATERIALS",     label: "Client materials",       triggered: input.clientProvidesMaterials,      points: 8,  reason: "Product compatibility risk" },
     ]
   );
 
   const warnings: string[] = [
     ...(input.visibleWaterDamage ? ["Visible water damage: $800–$2,500 hidden repair allowance recommended."] : []),
-    ...(input.flashingCondition !== "good" ? ["Flashing condition should be verified before final estimate."] : []),
+    ...(flashingCondition !== "good" ? ["Flashing condition should be verified before final estimate."] : []),
     ...(input.removeOldSiding ? ["Inspection gate: no additional work until sheathing documented and client approves."] : []),
-    ...(input.sidingType === "fiber_cement" ? ["Fiber cement requires paint finish — budget separately."] : []),
-    ...(input.stories >= 2 ? ["Two-story access: plan for proper scaffolding or lift."] : []),
+    ...(sidingType === "fiber_cement" ? ["Fiber cement requires paint finish — budget separately."] : []),
+    ...(stories >= 2 ? ["Two-story access: plan for proper scaffolding or lift."] : []),
   ];
 
   return {
     toolId:           `siding-${Date.now()}`,
     trade:            "siding",
-    projectType:      `${input.sidingType}-siding-installation`,
-    mode:             input.mode,
+    projectType:      `${sidingType}-siding-installation`,
+    mode,
     inputs:           { ...input },
     validationIssues: issues,
     isValid:          isValid(issues),
@@ -454,7 +485,7 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
       "Verify flashing condition on all windows and doors before installation.",
       ...(input.removeOldSiding ? ["Do not install house wrap until sheathing is inspected and documented."] : []),
       ...(input.visibleWaterDamage ? ["Add hidden damage allowance to contract. Client must approve change order if found."] : []),
-      ...(input.sidingType === "fiber_cement" ? ["Coordinate paint contractor before scheduling siding job."] : []),
+      ...(sidingType === "fiber_cement" ? ["Coordinate paint contractor before scheduling siding job."] : []),
     ],
     assumptions: [
       "Standard rectangular wall sections assumed.",
@@ -476,7 +507,7 @@ export function calculateSiding(input: SidingInput): SemseToolResult {
     // Siding-specific: inspection gate
     upsells: [
       ...(input.soffitFasciaIncluded ? [] : [{ service: "Soffit & fascia replacement", reason: "Crews are already set up with ladders — ideal time to replace.", additionalCostRange: { min: 1200, max: 3500 } }]),
-      ...(input.flashingCondition !== "good" ? [{ service: "Full window flashing upgrade", reason: "Flashing is the #1 cause of water damage. Upgrade while siding is off." }] : []),
+      ...(flashingCondition !== "good" ? [{ service: "Full window flashing upgrade", reason: "Flashing is the #1 cause of water damage. Upgrade while siding is off." }] : []),
       { service: "Exterior paint (fiber cement only)", reason: "Fiber cement requires paint — schedule the same week for best pricing." },
     ],
     roi: {

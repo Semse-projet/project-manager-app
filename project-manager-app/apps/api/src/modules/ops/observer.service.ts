@@ -3,6 +3,7 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { isZeroVector } from "../prometeo/embedding.service.js";
+import { BehavioralObserverService, type BehavioralHealth } from "./behavioral-observer.service.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ export type ObservationSnapshot = {
 
   patterns: SignalPattern[];
   alerts:   ObserverAlert[];
+  behavioralHealth: BehavioralHealth | null;
 };
 
 // ── Pattern rules ─────────────────────────────────────────────────────────────
@@ -89,15 +91,17 @@ export class SystemObserverService {
     private readonly prisma: PrismaService,
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly sse?: SseEventBusService,
+    @Optional() private readonly behavioralObserver?: BehavioralObserverService,
   ) {}
 
   async observe(tenantId: string): Promise<ObservationSnapshot> {
     const observedAt = new Date().toISOString();
 
-    const [infra, operational, intelligence] = await Promise.all([
+    const [infra, operational, intelligence, behavioralHealth] = await Promise.all([
       this.observeInfrastructure(),
       this.observeOperational(tenantId),
       this.observeIntelligence(tenantId),
+      this.behavioralObserver?.observe(tenantId).catch(() => null) ?? Promise.resolve(null),
     ]);
 
     const patterns = this.detectPatterns(operational);
@@ -114,6 +118,7 @@ export class SystemObserverService {
       intelligenceHealth: intelligence,
       patterns,
       alerts,
+      behavioralHealth: behavioralHealth ?? null,
     };
 
     // Keep last 50 in memory
@@ -266,14 +271,21 @@ export class SystemObserverService {
       ragDocuments = await this.prisma.prometeoDocument.count({ where: { tenantId } });
       ragChunks = docs.reduce((s, d) => s + d.chunkCount, 0);
 
-      const sample = await this.prisma.documentChunk.findMany({
-        where: { tenantId, documentId: { in: docs.slice(0, 30).map((d) => d.id) } },
-        select: { embeddingJson: true }, take: 300,
-      });
-      ragEmbedded = sample.filter((c) => {
-        const v = Array.isArray(c.embeddingJson) ? (c.embeddingJson as number[]) : [];
-        return !isZeroVector(v);
-      }).length;
+      // Count ALL chunks with non-zero embeddings (not a sample)
+      // Use aggregation to avoid memory overhead with large datasets
+      const chunkCounts = await Promise.all(
+        docs.map((doc) =>
+          this.prisma.documentChunk.count({
+            where: {
+              tenantId,
+              documentId: doc.id,
+              embeddingJson: { not: {} },
+            },
+          }),
+        ),
+      ).catch(() => [] as number[]);
+
+      ragEmbedded = chunkCounts.reduce((sum, count) => sum + count, 0);
     } catch { /* ignore */ }
 
     const embeddingsMode = hasOpenAI && ragEmbedded > 0 ? "hybrid" : "fts_fallback";

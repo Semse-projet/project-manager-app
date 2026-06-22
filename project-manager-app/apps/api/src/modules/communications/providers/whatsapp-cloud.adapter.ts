@@ -1,4 +1,5 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 export type WhatsAppCloudSendResult = {
@@ -21,6 +22,24 @@ export type WhatsAppStatusUpdate = {
   recipientPhone?: string;
   rawPayload: Record<string, unknown>;
 };
+
+export function verifyWhatsAppWebhookSignature(input: {
+  payload: Buffer;
+  signatureHeader?: string;
+  appSecret?: string;
+}): boolean {
+  if (!input.appSecret || !input.signatureHeader?.startsWith("sha256=")) {
+    return false;
+  }
+
+  const expected = createHmac("sha256", input.appSecret)
+    .update(input.payload)
+    .digest("hex");
+  const expectedBuf = Buffer.from(`sha256=${expected}`, "utf8");
+  const receivedBuf = Buffer.from(input.signatureHeader, "utf8");
+
+  return expectedBuf.length === receivedBuf.length && timingSafeEqual(expectedBuf, receivedBuf);
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -89,6 +108,43 @@ export class WhatsAppCloudAdapter {
     return this.config.get<string>("WHATSAPP_CLOUD_VERIFY_TOKEN");
   }
 
+  get appSecret(): string | undefined {
+    return this.config.get<string>("WHATSAPP_APP_SECRET");
+  }
+
+  get isLiveMode(): boolean {
+    return (this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock") === "live";
+  }
+
+  get requiresWebhookSignature(): boolean {
+    return this.isLiveMode || Boolean(this.appSecret);
+  }
+
+  /**
+   * Validates the X-Hub-Signature-256 header sent by Meta.
+   * Enforced in live mode, or whenever WHATSAPP_APP_SECRET is configured.
+   * Returns true when validation passes or is not required.
+   */
+  validateWebhookSignature(input: { payload: Buffer; signatureHeader?: string }): boolean {
+    if (!this.requiresWebhookSignature) {
+      return true;
+    }
+
+    if (!this.appSecret) {
+      return false;
+    }
+
+    return verifyWhatsAppWebhookSignature({
+      payload: input.payload,
+      signatureHeader: input.signatureHeader,
+      appSecret: this.appSecret,
+    });
+  }
+
+  validateSignature(rawBody: Buffer, signatureHeader: string | undefined): boolean {
+    return this.validateWebhookSignature({ payload: rawBody, signatureHeader });
+  }
+
   async sendText(input: { to: string; body: string }): Promise<WhatsAppCloudSendResult> {
     const mode = this.config.get<string>("SEMSE_COMMUNICATIONS_MODE") ?? "mock";
     const accessToken = this.config.get<string>("WHATSAPP_CLOUD_ACCESS_TOKEN");
@@ -124,7 +180,44 @@ export class WhatsAppCloudAdapter {
 
     const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
     if (!response.ok) {
-      throw new Error(`WhatsApp Cloud API error ${response.status}: ${JSON.stringify(payload)}`);
+      const metaError = (payload.error ?? {}) as Record<string, unknown>;
+      const metaCode = typeof metaError.code === "number" ? metaError.code : null;
+      const metaSubcode = typeof metaError.error_subcode === "number" ? metaError.error_subcode : null;
+      const metaMessage = typeof metaError.message === "string" ? metaError.message : "Unknown provider error";
+
+      // Map common Meta errors to actionable codes
+      let clientCode = "PROVIDER_FAILED";
+      let clientMessage = "WhatsApp message delivery failed.";
+      let retryable = false;
+
+      if (response.status === 401 || metaCode === 190) {
+        clientCode = "PROVIDER_AUTH_FAILED";
+        clientMessage = "WhatsApp Cloud access token is expired or invalid. Please update WHATSAPP_CLOUD_ACCESS_TOKEN in Railway.";
+      } else if (metaCode === 131047 || metaSubcode === 131047) {
+        clientCode = "PROVIDER_24H_WINDOW_EXPIRED";
+        clientMessage = "The WhatsApp 24-hour messaging window has expired. Use an approved template message to re-engage the customer.";
+      } else if (metaCode === 100 && metaSubcode === 33) {
+        clientCode = "PROVIDER_INVALID_PHONE";
+        clientMessage = "The recipient phone number is invalid or not registered on WhatsApp.";
+      } else if (response.status === 429) {
+        clientCode = "PROVIDER_RATE_LIMITED";
+        clientMessage = "WhatsApp Cloud rate limit reached. Retry later.";
+        retryable = true;
+      } else if (response.status >= 500) {
+        clientCode = "PROVIDER_UNAVAILABLE";
+        clientMessage = "WhatsApp Cloud is temporarily unavailable. Retry later.";
+        retryable = true;
+      }
+
+      this.logger.warn({
+        clientCode,
+        httpStatus: response.status,
+        metaCode,
+        metaSubcode,
+        metaMessage: metaMessage.slice(0, 200),
+      }, "WhatsApp Cloud send failed");
+
+      throw new BadRequestException({ code: clientCode, message: clientMessage, retryable });
     }
 
     const firstMessage = asRecord(asArray(payload.messages)[0]);

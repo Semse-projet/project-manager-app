@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, PanelsTopLeft, Calculator } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, PanelsTopLeft } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
+
+export type DrywallSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
 
 type DrywallInput = {
   wallAreaSqft: number;
@@ -31,49 +34,109 @@ const INITIAL_INPUT: DrywallInput = {
   mode: "professional",
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <Input
-      label={label}
-      type="number"
-      step={step}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  );
+const SECTIONS: Array<{ id: DrywallSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/drywall/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/drywall/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/drywall/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/drywall/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/drywall/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/drywall/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/drywall/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/drywall/research", icon: Globe2 },
+];
+
+const FINISH_LABELS = ["Level 0", "Level 1", "Level 2", "Level 3", "Level 4", "Level 5"];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function DrywallToolClient() {
+type DrywallToolClientProps = { section: DrywallSection };
+
+export function DrywallToolClient({ section }: DrywallToolClientProps) {
   const [input, setInput] = useState<DrywallInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const totalArea = useMemo(() => input.wallAreaSqft + input.ceilingAreaSqft, [input]);
+  const estimatedCost = useMemo(() => totalArea * 2.5, [totalArea]);
+
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await calculateSemseTool({
-        tool: "drywall",
-        mode: input.mode,
-        input,
-      });
+      const response = await calculateSemseTool({ tool: "drywall", mode: input.mode, input });
       setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Total Area</div><div className="text-2xl font-bold">{totalArea} sqft</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Finish Level</div><div className="text-2xl font-bold">{FINISH_LABELS[input.finishLevel]}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Drywall Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Wall Area (sqft)" type="number" value={input.wallAreaSqft} onChange={(e) => setInput({...input, wallAreaSqft: Number(e.target.value)})} />
+                <Input label="Ceiling Area (sqft)" type="number" value={input.ceilingAreaSqft} onChange={(e) => setInput({...input, ceilingAreaSqft: Number(e.target.value)})} />
+                <Select label="Panel Type" value={input.panelType} onChange={(e) => setInput({...input, panelType: e.target.value as any})}>
+                  <option value="regular">Regular</option>
+                  <option value="moisture-resistant">Moisture-Resistant</option>
+                  <option value="fire-rated">Fire-Rated</option>
+                </Select>
+                <Select label="Panel Size" value={input.panelSize} onChange={(e) => setInput({...input, panelSize: e.target.value as any})}>
+                  <option value="4x8">4x8</option>
+                  <option value="4x10">4x10</option>
+                  <option value="4x12">4x12</option>
+                </Select>
+                <Select label="Finish Level" value={String(input.finishLevel)} onChange={(e) => setInput({...input, finishLevel: Number(e.target.value) as any})}>
+                  {[0, 1, 2, 3, 4, 5].map((l) => <option key={l} value={l}>{FINISH_LABELS[l]}</option>)}
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Drywall installation, mudding, sanding, finishing...</p></Card>;
+
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials List</h3><p className="text-sm text-muted">Drywall sheets, joint compound, tape, fasteners...</p></Card>;
+
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Drywall Summary</h3><p className="text-sm text-muted">Total: {totalArea} sqft • Est: {formatCurrency(estimatedCost)}</p></Card>;
+
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Framing inspection, install, mudding, sanding, finishing...</p></Card>;
+
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Smooth finish, no pops, clean joints, proper paint prep...</p></Card>;
+
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Drywall Research</h3><Input placeholder="Search drywall techniques, materials..." /></Card>;
+
+      default:
+        return null;
     }
   }
 
@@ -81,193 +144,25 @@ export function DrywallToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Drywall calculator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Estimate panels, screws, tape, joint compound, labor, risk, milestones and evidence for drywall installation or repair.
-          </p>
+          <div className="flex items-center gap-3"><PanelsTopLeft className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Drywall Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete drywall estimation with mudding, finishing levels, and quality assurance.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                <Calculator size={18} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Input</h2>
-                <p className="text-sm text-muted">
-                  Interior repair and finish workflow that links naturally with painting.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <NumberField
-                label="Wall area (sqft)"
-                value={input.wallAreaSqft}
-                onChange={(value) => setInput((current) => ({ ...current, wallAreaSqft: value }))}
-              />
-              <NumberField
-                label="Ceiling area (sqft)"
-                value={input.ceilingAreaSqft}
-                onChange={(value) => setInput((current) => ({ ...current, ceilingAreaSqft: value }))}
-              />
-
-              <Select
-                label="Panel type"
-                value={input.panelType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    panelType: event.target.value as DrywallInput["panelType"],
-                  }))
-                }
-              >
-                <option value="regular">Regular</option>
-                <option value="moisture-resistant">Moisture resistant</option>
-                <option value="fire-rated">Fire rated</option>
-              </Select>
-
-              <Select
-                label="Panel size"
-                value={input.panelSize}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    panelSize: event.target.value as DrywallInput["panelSize"],
-                  }))
-                }
-              >
-                <option value="4x8">4x8</option>
-                <option value="4x10">4x10</option>
-                <option value="4x12">4x12</option>
-              </Select>
-
-              <Select
-                label="Finish level"
-                value={String(input.finishLevel)}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    finishLevel: Number(event.target.value) as DrywallInput["finishLevel"],
-                  }))
-                }
-              >
-                <option value="0">0</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-              </Select>
-
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Include ceiling</span>
-                <input
-                  type="checkbox"
-                  checked={input.includeCeiling}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      includeCeiling: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Repair mode</span>
-                <input
-                  type="checkbox"
-                  checked={input.repairMode}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      repairMode: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Match texture</span>
-                <input
-                  type="checkbox"
-                  checked={input.textureMatch}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      textureMatch: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
-            <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-cyan-100">
-              <strong>Note:</strong> drywall level 5 and ceiling work should request extra evidence, especially before primer or painting.
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate drywall"}
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ToolResultPanel result={result} />
-            ) : (
-              <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
-                <div className="grid gap-3 p-8">
-                  <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <PanelsTopLeft size={24} />
-                  </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the drywall flow through the tools API.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Panels</Badge>
-                    <Badge variant="info">Finish</Badge>
-                    <Badge variant="warn">Milestones</Badge>
-                    <Badge variant="success">Evidence</Badge>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SEMSE | Herramienta para Electricistas</title>
+  <style>
+    :root{
+      --bg:#07111f; --panel:#0d1b2e; --panel2:#10243c; --card:#122b47; --text:#e8f2ff; --muted:#9fb6cf;
+      --accent:#ffd24a; --accent2:#2ee6a6; --danger:#ff6370; --warn:#ffb020; --ok:#3ee383; --line:#24435f;
+      --shadow:0 20px 45px rgba(0,0,0,.35); --r:24px;
+    }
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top,#15345a 0,#07111f 45%,#040914 100%);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh;padding:22px}
+    .app{max-width:1220px;margin:0 auto}.hero{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:linear-gradient(135deg,rgba(255,210,74,.14),rgba(46,230,166,.08));border:1px solid rgba(255,255,255,.12);border-radius:32px;padding:24px;box-shadow:var(--shadow)}
+    h1{margin:0;font-size:clamp(1.8rem,4vw,3rem);letter-spacing:-.04em}.tag{display:inline-flex;gap:8px;align-items:center;border:1px solid rgba(255,210,74,.35);background:rgba(255,210,74,.1);padding:8px 12px;border-radius:99px;color:#ffeaa0;font-weight:700;font-size:.86rem;margin-bottom:10px}.subtitle{color:var(--muted);max-width:820px;line-height:1.55;margin:10px 0 0}.badge{background:rgba(46,230,166,.13);border:1px solid rgba(46,230,166,.3);border-radius:18px;padding:12px;color:#baffdf;font-size:.9rem;min-width:210px}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}.tab{border:1px solid var(--line);background:rgba(13,27,46,.88);color:var(--muted);padding:12px 14px;border-radius:16px;cursor:pointer;font-weight:800;transition:.18s}.tab:hover{transform:translateY(-1px);border-color:rgba(255,210,74,.5)}.tab.active{background:var(--accent);color:#111827;border-color:var(--accent)}
+    .panel{display:none;background:rgba(13,27,46,.88);border:1px solid rgba(255,255,255,.12);border-radius:32px;padding:20px;box-shadow:var(--shadow)}.panel.active{display:block}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.card{background:linear-gradient(180deg,rgba(18,43,71,.95),rgba(13,30,51,.95));border:1px solid rgba(255,255,255,.1);border-radius:var(--r);padding:18px}.card h2,.card h3{margin:0 0 12px}.card h2{font-size:1.25rem}.card h3{font-size:1.05rem;color:#d9ecff}.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px} label{display:block;color:#c9d9eb;font-weight:750;margin:10px 0 6px;font-size:.9rem} input,select{width:100%;border:1px solid #31516d;background:#081727;color:var(--text);border-radius:14px;padding:11px 12px;font-size:1rem;outline:none} input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,210,74,.14)} button.primary{width:100%;margin-top:14px;border:0;background:linear-gradient(135deg,var(--accent),#ffb72b);color:#111827;border-radius:18px;padding:13px 16px;font-weight:950;cursor:pointer;font-size:1rem}button.primary:hover{filter:brightness(1.05);transform:translateY(-1px)}
+    .result{background:#071727;border:1px solid #284966;border-radius:20px;padding:14px;margin-top:14px}.result .big{font-size:clamp(1.45rem,3vw,2.1rem);font-weight:950;color:#fff;letter-spacing:-.04em}.result .meta{color:var(--muted);line-height:1.45;font-size:.92rem;margin-top:6px}.pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.pill{border-radius:99px;padding:7px 10px;font-weight:850;font-size:.82rem}.ok{background:rgba(62,227,131,.14);color:#aaffce;border:1px solid rgba(62,227,131,.35)}.warn{background:rgba(255,176,32,.14);color:#ffd99a;border:1px solid rgba(255,176,32,.35)}.danger{background:rgba(255,99,112,.14);color:#ffc0c5;border:1px solid rgba(255,99,112,.35)}.info{background:rgba(100,181,255,.13);color:#c9e6ff;border:1px solid rgba(100,181,255,.32)}
+    .tablewrap{overflow:auto;border-radius:18px;border:1px solid #284966;margin-top:12px}table{width:100%;border-collapse:collapse;background:#081727}th,td{text-align:left;padding:11px;border-bottom:1px solid #1d3952;white-space:nowrap}th{color:#ffeaa0;background:#10243c;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em}td{color:#d7e8fb}.small{font-size:.82rem;color:var(--muted);line-height:1.45}.notice{margin-top:16px;border-left:5px solid var(--accent);background:rgba(255,210,74,.09);border-radius:18px;padding:14px;color:#f6e7b1}.printbar{display:flex;gap:10px;justify-content:flex-end;margin:16px 0}.ghost{border:1px solid var(--line);background:transparent;color:#cfe0f2;border-radius:14px;padding:10px 12px;font-weight:800;cursor:pointer}.ghost:hover{border-color:var(--accent);color:#fff}
+    @media print{body{background:white;color:black;padding:0}.hero,.tabs,.printbar,button.primary,.ghost{display:none}.panel{display:block!important;box-shadow:none;border:0;background:white;color:black}.card,.result{background:white;color:black;border:1px solid #ccc}.result .big,td{color:black}input,select{border:0;color:black}.app{max-width:none}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="hero">
+      <div>
+        <div class="tag">⚡ SEMSE TOOLKIT · ELECTRICIDAD</div>
+        <h1>Herramienta profesional para electricistas</h1>
+        <p class="subtitle">Calcula corriente, potencia, caída de tensión, calibre de conductor, protección, consumo eléctrico, materiales y presupuesto base para trabajos residenciales o ligeros comerciales.</p>
+      </div>
+      <div class="badge"><strong>Modo seguro:</strong><br/>Los resultados son estimaciones. Para obra real valida con código local, licencia, carga real, temperatura, canalización y autoridad competente.</div>
+    </section>
+
+    <div class="printbar"><button class="ghost" onclick="window.print()">🖨️ Imprimir reporte</button><button class="ghost" onclick="resetAll()">↺ Valores demo</button></div>
+
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="load">1. Carga eléctrica</button>
+      <button class="tab" data-tab="drop">2. Caída de tensión</button>
+      <button class="tab" data-tab="wire">3. Cable + breaker</button>
+      <button class="tab" data-tab="energy">4. Consumo</button>
+      <button class="tab" data-tab="estimate">5. Materiales + presupuesto</button>
+      <button class="tab" data-tab="safety">6. Checklist</button>
+    </nav>
+
+    <section class="panel active" id="load">
+      <div class="grid">
+        <div class="card">
+          <h2>⚡ Corriente desde potencia</h2>
+          <div class="formgrid">
+            <div><label>Potencia total</label><input id="pWatts" type="number" value="1800"></div>
+            <div><label>Voltaje</label><input id="vLoad" type="number" value="120"></div>
+            <div><label>Factor de potencia</label><input id="pfLoad" type="number" value="1" min="0.1" max="1" step="0.01"></div>
+            <div><label>Sistema</label><select id="phaseLoad"><option value="1">Monofásico</option><option value="3">Trifásico balanceado</option></select></div>
+            <div><label>Tipo de carga</label><select id="continuousLoad"><option value="no">No continua</option><option value="yes">Continua (125%)</option></select></div>
+          </div>
+          <button class="primary" onclick="calcLoad()">Calcular carga</button>
+          <div class="result"><div class="big" id="loadAmps">-- A</div><div class="meta" id="loadMeta">Ingrese datos y calcule.</div><div class="pillrow" id="loadPills"></div></div>
+        </div>
+        <div class="card">
+          <h2>🔁 Potencia desde corriente</h2>
+          <div class="formgrid">
+            <div><label>Corriente</label><input id="iPower" type="number" value="15"></div>
+            <div><label>Voltaje</label><input id="vPower" type="number" value="120"></div>
+            <div><label>Factor de potencia</label><input id="pfPower" type="number" value="1" min="0.1" max="1" step="0.01"></div>
+            <div><label>Sistema</label><select id="phasePower"><option value="1">Monofásico</option><option value="3">Trifásico balanceado</option></select></div>
+          </div>
+          <button class="primary" onclick="calcPower()">Calcular potencia</button>
+          <div class="result"><div class="big" id="powerResult">-- W</div><div class="meta" id="powerMeta">También muestra kW y VA aproximado.</div></div>
+        </div>
+      </div>
+      <div class="notice">Fórmulas: 1F → I = W / (V × FP). 3F → I = W / (√3 × V × FP). Para cargas continuas se recomienda dimensionar al 125%.</div>
+    </section>
+
+    <section class="panel" id="drop">
+      <div class="card">
+        <h2>📉 Calculadora de caída de tensión</h2>
+        <div class="formgrid">
+          <div><label>Corriente de carga (A)</label><input id="vdAmps" type="number" value="20"></div>
+          <div><label>Distancia una vía (ft)</label><input id="vdFeet" type="number" value="80"></div>
+          <div><label>Voltaje nominal</label><input id="vdVolts" type="number" value="120"></div>
+          <div><label>Material</label><select id="vdMat"><option value="cu">Cobre</option><option value="al">Aluminio</option></select></div>
+          <div><label>Calibre</label><select id="vdAwg"></select></div>
+          <div><label>Sistema</label><select id="vdPhase"><option value="1">Monofásico</option><option value="3">Trifásico</option></select></div>
+        </div>
+        <button class="primary" onclick="calcVoltageDrop()">Calcular caída</button>
+        <div class="result"><div class="big" id="vdResult">-- %</div><div class="meta" id="vdMeta">Recomendación práctica: mantener circuitos derivados cerca de 3% y total alimentador+derivado cerca de 5%.</div><div class="pillrow" id="vdPills"></div></div>
+      </div>
+    </section>
+
+    <section class="panel" id="wire">
+      <div class="grid">
+        <div class="card">
+          <h2>🔌 Selección de calibre y protección</h2>
+          <div class="formgrid">
+            <div><label>Corriente de carga (A)</label><input id="wireAmps" type="number" value="22"></div>
+            <div><label>Tipo de carga</label><select id="wireContinuous"><option value="no">No continua</option><option value="yes">Continua (125%)</option></select></div>
+            <div><label>Material</label><select id="wireMat"><option value="cu">Cobre</option><option value="al">Aluminio</option></select></div>
+            <div><label>Columna de temperatura</label><select id="tempCol"><option value="60">60°C</option><option value="75">75°C</option><option value="90">90°C</option></select></div>
+          </div>
+          <button class="primary" onclick="recommendWire()">Recomendar</button>
+          <div class="result"><div class="big" id="wireResult">--</div><div class="meta" id="wireMeta"></div><div class="pillrow" id="wirePills"></div></div>
+        </div>
+        <div class="card">
+          <h2>📘 Tabla rápida de ampacidad</h2>
+          <div class="tablewrap"><table><thead><tr><th>AWG</th><th>Cu 60°</th><th>Cu 75°</th><th>Cu 90°</th><th>Al 75°</th></tr></thead><tbody id="ampacityTable"></tbody></table></div>
+          <p class="small">Esta tabla es una guía compacta. No reemplaza cálculo de corrección por temperatura, agrupamiento, terminales, canalización, tipo de aislamiento o reglas especiales.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="energy">
+      <div class="grid">
+        <div class="card">
+          <h2>💡 Consumo y costo mensual</h2>
+          <div class="formgrid">
+            <div><label>Potencia del equipo (W)</label><input id="eWatts" type="number" value="1200"></div>
+            <div><label>Horas por día</label><input id="eHours" type="number" value="4"></div>
+            <div><label>Días por mes</label><input id="eDays" type="number" value="30"></div>
+            <div><label>Costo por kWh ($)</label><input id="eRate" type="number" value="0.16" step="0.01"></div>
+          </div>
+          <button class="primary" onclick="calcEnergy()">Calcular energía</button>
+          <div class="result"><div class="big" id="energyResult">-- kWh</div><div class="meta" id="energyMeta"></div></div>
+        </div>
+        <div class="card">
+          <h2>🏠 Cargas típicas rápidas</h2>
+          <div class="tablewrap"><table><thead><tr><th>Equipo</th><th>W típico</th><th>Corriente aprox. @120V</th></tr></thead><tbody id="applianceTable"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="estimate">
+      <div class="grid">
+        <div class="card">
+          <h2>🧾 Estimador básico de materiales</h2>
+          <div class="formgrid">
+            <div><label>Outlets / tomas</label><input id="qtyOutlets" type="number" value="8"></div>
+            <div><label>Switches</label><input id="qtySwitches" type="number" value="3"></div>
+            <div><label>Lámparas / fixtures</label><input id="qtyLights" type="number" value="5"></div>
+            <div><label>Circuitos nuevos</label><input id="qtyCircuits" type="number" value="2"></div>
+            <div><label>Cable estimado por circuito (ft)</label><input id="ftPerCircuit" type="number" value="80"></div>
+            <div><label>Precio cable por ft ($)</label><input id="wirePriceFt" type="number" value="0.85" step="0.01"></div>
+            <div><label>Tarifa mano de obra / hora ($)</label><input id="laborRate" type="number" value="75"></div>
+            <div><label>Horas estimadas</label><input id="laborHours" type="number" value="6"></div>
+            <div><label>Markup materiales (%)</label><input id="markup" type="number" value="15"></div>
+          </div>
+          <button class="primary" onclick="calcEstimate()">Generar presupuesto</button>
+          <div class="result"><div class="big" id="estimateTotal">--</div><div class="meta" id="estimateMeta"></div></div>
+        </div>
+        <div class="card">
+          <h2>📦 Lista sugerida</h2>
+          <div class="tablewrap"><table><thead><tr><th>Material</th><th>Cantidad</th><th>Subtotal</th></tr></thead><tbody id="bomTable"></tbody></table></div>
+          <p class="small">Precios demo editables. Ajusta con precios reales de proveedor local antes de cotizar.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="safety">
+      <div class="grid">
+        <div class="card">
+          <h2>✅ Checklist antes de trabajar</h2>
+          <div id="checklist"></div>
+        </div>
+        <div class="card">
+          <h2>🚧 Alertas técnicas</h2>
+          <div class="pillrow"><span class="pill danger">Desenergizar y bloquear circuito</span><span class="pill warn">Verificar ausencia de voltaje</span><span class="pill info">Identificar neutro/tierra/fase</span><span class="pill warn">No sobredimensionar breaker</span><span class="pill info">Usar GFCI/AFCI donde aplique</span></div>
+          <div class="notice">La herramienta ayuda a presupuestar y dimensionar preliminarmente. El electricista debe validar tablero, demanda, puesta a tierra, código local, permisos e inspección.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<script>
+const awgData = {
+  cu: {
+    '14': {amp60:15, amp75:20, amp90:25, ohmKft:2.525}, '12': {amp60:20, amp75:25, amp90:30, ohmKft:1.588},
+    '10': {amp60:30, amp75:35, amp90:40, ohmKft:0.999}, '8': {amp60:40, amp75:50, amp90:55, ohmKft:0.6282},
+    '6': {amp60:55, amp75:65, amp90:75, ohmKft:0.3951}, '4': {amp60:70, amp75:85, amp90:95, ohmKft:0.2485},
+    '3': {amp60:85, amp75:100, amp90:115, ohmKft:0.1970}, '2': {amp60:95, amp75:115, amp90:130, ohmKft:0.1563},
+    '1': {amp60:110, amp75:130, amp90:150, ohmKft:0.1239}, '1/0': {amp60:125, amp75:150, amp90:170, ohmKft:0.0983},
+    '2/0': {amp60:145, amp75:175, amp90:195, ohmKft:0.0779}, '3/0': {amp60:165, amp75:200, amp90:225, ohmKft:0.0618}
+  },
+  al: {
+    '12': {amp60:null, amp75:20, amp90:25, ohmKft:2.61}, '10': {amp60:null, amp75:30, amp90:35, ohmKft:1.64},
+    '8': {amp60:null, amp75:40, amp90:45, ohmKft:1.03}, '6': {amp60:null, amp75:50, amp90:55, ohmKft:0.647},
+    '4': {amp60:null, amp75:65, amp90:75, ohmKft:0.408}, '3': {amp60:null, amp75:75, amp90:85, ohmKft:0.323},
+    '2': {amp60:null, amp75:90, amp90:100, ohmKft:0.256}, '1': {amp60:null, amp75:100, amp90:115, ohmKft:0.203},
+    '1/0': {amp60:null, amp75:120, amp90:135, ohmKft:0.161}, '2/0': {amp60:null, amp75:135, amp90:150, ohmKft:0.128}, '3/0': {amp60:null, amp75:155, amp90:175, ohmKft:0.101}
+  }
+};
+const standardBreakers=[15,20,25,30,35,40,45,50,60,70,80,90,100,110,125,150,175,200];
+const appliances=[['LED room lights',80],['Microwave',1200],['Hair dryer',1500],['Portable heater',1500],['Refrigerator running',180],['Window AC',1000],['Electric range small burner',1500],['Washer',500],['Dryer electric',5000]];
+function n(id){return Number(document.getElementById(id).value)||0} function val(id){return document.getElementById(id).value} function fmt(x,d=2){return Number(x).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d})} function setText(id,text){document.getElementById(id).textContent=text} function pill(text,cls){let s=document.createElement('span');s.className='pill '+cls;s.textContent=text;return s} function setPills(id,...nodes){document.getElementById(id).replaceChildren(...nodes)}
+function calcLoad(){const P=n('pWatts'),V=n('vLoad'),pf=Math.max(n('pfLoad'),.01),ph=val('phaseLoad'),cont=val('continuousLoad')==='yes';let I= ph==='3'? P/(Math.sqrt(3)*V*pf):P/(V*pf);let design=cont?I*1.25:I;document.getElementById('loadAmps').innerHTML=`${fmt(I)} A`;document.getElementById('loadMeta').innerHTML=`Corriente de diseño: <b>${fmt(design)} A</b>. Potencia: ${fmt(P/1000)} kW. Sistema: ${ph==='3'?'trifásico':'monofásico'}.`;document.getElementById('loadPills').innerHTML=`<span class="pill ${design>80?'danger':design>40?'warn':'ok'}">Diseño ${fmt(design)} A</span><span class="pill info">FP ${pf}</span>${cont?'<span class="pill warn">Carga continua 125%</span>':''}`}
+function calcPower(){const I=n('iPower'),V=n('vPower'),pf=Math.max(n('pfPower'),.01),ph=val('phasePower');let W=ph==='3'?Math.sqrt(3)*V*I*pf:V*I*pf;let VA=ph==='3'?Math.sqrt(3)*V*I:V*I;document.getElementById('powerResult').innerHTML=`${fmt(W,0)} W <span class="unit">/ ${fmt(W/1000)} kW</span>`;document.getElementById('powerMeta').innerHTML=`Potencia aparente aproximada: ${fmt(VA,0)} VA. Factor de potencia aplicado: ${pf}.`}
+function calcVoltageDrop(){const I=n('vdAmps'),ft=n('vdFeet'),V=n('vdVolts'),mat=val('vdMat'),awg=val('vdAwg'),ph=val('vdPhase');let r=awgData[mat][awg].ohmKft;let vd=ph==='3'?Math.sqrt(3)*I*r*ft/1000:2*I*r*ft/1000;let pct=vd/V*100;setText('vdResult',`${fmt(pct)}% (${fmt(vd)} V)`);let cls=pct<=3?'ok':pct<=5?'warn':'danger';setPills('vdPills',pill(pct<=3?'Bien':pct<=5?'Aceptable revisar':'Alta caída',cls),pill(`${mat==='cu'?'Cobre':'Aluminio'} ${awg} AWG`,'info'));setText('vdMeta',`Distancia una vía: ${ft} ft. Resistencia usada: ${r} Ω/kft. ${ph==='3'?'Fórmula 3F √3×I×R×L':'Fórmula 1F 2×I×R×L'}.`)}
+function recommendWire(){const load=n('wireAmps'),cont=val('wireContinuous')==='yes',mat=val('wireMat'),temp='amp'+val('tempCol');let req=cont?load*1.25:load;let found=null;for(const [awg,d] of Object.entries(awgData[mat])){if(d[temp] && d[temp]>=req){found={awg,d};break}}let breaker=standardBreakers.find(b=>b>=load)||200;let maxOCP=found?found.d[temp]:0;if(found && breaker>maxOCP) breaker=standardBreakers.filter(b=>b<=maxOCP).pop()||maxOCP;setText('wireResult',found?`${found.awg} AWG ${mat==='cu'?'cobre':'aluminio'}`:'Requiere conductor mayor');setText('wireMeta',found?`Ampacidad seleccionada: ${found.d[temp]} A. Corriente requerida de diseño: ${fmt(req)} A. Protección base sugerida: ${breaker} A. Verifique reglas de conductor pequeño, terminales y correcciones.`:'La carga supera la tabla interna; use cálculo profesional.');setPills('wirePills',pill(found?'Conductor encontrado':'Fuera de rango',found?'ok':'danger'),...(cont?[pill('125% aplicado','warn')]:[]),pill(`Columna ${val('tempCol')}°C`,'info'))}
+function calcEnergy(){let kwh=n('eWatts')/1000*n('eHours')*n('eDays');let cost=kwh*n('eRate');document.getElementById('energyResult').innerHTML=`${fmt(kwh)} kWh/mes`;document.getElementById('energyMeta').innerHTML=`Costo estimado: <b>$${fmt(cost)}</b> por mes. Promedio diario: ${fmt(kwh/(n('eDays')||30))} kWh.`}
+function calcEstimate(){const outlets=n('qtyOutlets'),sw=n('qtySwitches'),lights=n('qtyLights'),cir=n('qtyCircuits'),ft=cir*n('ftPerCircuit'),wirePrice=n('wirePriceFt'),labor=n('laborRate')*n('laborHours'),markup=n('markup')/100;let items=[['Cable eléctrico',`${ft} ft`,ft*wirePrice],['Outlets / receptáculos',outlets,outlets*3.5],['Switches',sw,sw*4.5],['Cajas eléctricas',outlets+sw+lights,(outlets+sw+lights)*2.25],['Breakers',cir,cir*18],['Placas / covers',outlets+sw,(outlets+sw)*1.2],['Conectores / grapas / misceláneos','lote',25]];let mat=items.reduce((s,i)=>s+i[2],0);let matMarkup=mat*(1+markup);let total=matMarkup+labor;document.getElementById('estimateTotal').innerHTML=`$${fmt(total)} estimado`;document.getElementById('estimateMeta').innerHTML=`Materiales: $${fmt(mat)} · con markup: $${fmt(matMarkup)} · mano de obra: $${fmt(labor)}. No incluye permisos, inspección, drywall, panel upgrade ni troubleshooting complejo.`;document.getElementById('bomTable').innerHTML=items.map(i=>`<tr><td>${i[0]}</td><td>${i[1]}</td><td>$${fmt(i[2])}</td></tr>`).join('')}
+function populate(){let vd=document.getElementById('vdAwg');vd.innerHTML=Object.keys(awgData.cu).map(a=>`<option value="${a}">${a} AWG</option>`).join('');vd.value='12';document.getElementById('ampacityTable').innerHTML=Object.keys(awgData.cu).map(a=>{let cu=awgData.cu[a],al=awgData.al[a]||{};return `<tr><td>${a}</td><td>${cu.amp60||'-'} A</td><td>${cu.amp75||'-'} A</td><td>${cu.amp90||'-'} A</td><td>${al.amp75?al.amp75+' A':'-'}</td></tr>`}).join('');document.getElementById('applianceTable').innerHTML=appliances.map(([name,w])=>`<tr><td>${name}</td><td>${w} W</td><td>${fmt(w/120)} A</td></tr>`).join('');document.getElementById('checklist').innerHTML=['Confirmar alcance del trabajo y permiso si aplica','Apagar breaker principal o circuito específico','Bloquear/etiquetar para evitar reconexión accidental','Verificar ausencia de voltaje con multímetro/probador','Identificar conductor de fase, neutro y tierra','Validar calibre existente antes de cambiar breaker','Usar caja, conectores y tapas aprobadas','Respetar llenado de caja y canalización','Probar GFCI/AFCI donde aplique','Documentar circuito, breaker y carga final'].map(x=>`<label><input type="checkbox" style="width:auto;margin-right:8px">${x}</label>`).join('')}
+function resetAll(){location.reload()} document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active')}));
+document.getElementById('vdMat').addEventListener('change',()=>{let mat=val('vdMat');let vd=document.getElementById('vdAwg');vd.innerHTML=Object.keys(awgData[mat]).map(a=>`<option value="${a}">${a} AWG</option>`).join('')});
+['pWatts','vLoad','pfLoad','phaseLoad','continuousLoad'].forEach(id=>document.getElementById(id).addEventListener('input',calcLoad));['iPower','vPower','pfPower','phasePower'].forEach(id=>document.getElementById(id).addEventListener('input',calcPower));['vdAmps','vdFeet','vdVolts','vdMat','vdAwg','vdPhase'].forEach(id=>document.getElementById(id).addEventListener('input',calcVoltageDrop));['wireAmps','wireContinuous','wireMat','tempCol'].forEach(id=>document.getElementById(id).addEventListener('input',recommendWire));['eWatts','eHours','eDays','eRate'].forEach(id=>document.getElementById(id).addEventListener('input',calcEnergy));['qtyOutlets','qtySwitches','qtyLights','qtyCircuits','ftPerCircuit','wirePriceFt','laborRate','laborHours','markup'].forEach(id=>document.getElementById(id).addEventListener('input',calcEstimate));
+populate();calcLoad();calcPower();calcVoltageDrop();recommendWire();calcEnergy();calcEstimate();
+</script>
+</body>
+</html>

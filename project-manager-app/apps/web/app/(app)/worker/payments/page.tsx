@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
-import { fetchJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, type StripeConnectAccountView } from "../../../semse-api";
+import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type PayRow = {
@@ -39,11 +39,12 @@ export default function WorkerPaymentsPage() {
   const [platformFeeRate, setPlatformFeeRate] = useState(0.0075);
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [paymentReadiness, setPaymentReadiness] = useState<PaymentProviderReadiness | null>(null);
 
   const loadPayments = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobs, disputes] = await Promise.all([fetchJobs(), fetchDisputes().catch(() => [])]);
+      const [jobs, disputes] = await Promise.all([fetchMyJobs(), fetchDisputes().catch(() => [])]);
       const dJobIds = new Set<string>(
         disputes.map(d => String((d as Record<string, unknown>).jobId ?? "")).filter(Boolean)
       );
@@ -105,6 +106,7 @@ export default function WorkerPaymentsPage() {
     void fetchMyConnectAccount()
       .then((r) => { setConnectAccount(r.account); setPlatformFeeRate(r.platformFeeRate); })
       .catch(() => undefined);
+    void fetchPaymentProviderReadiness().then(setPaymentReadiness).catch(() => undefined);
   }, [loadPayments, loadPayoutMethod]);
 
   const released  = payments.filter(p => p.status === "released");
@@ -164,6 +166,26 @@ export default function WorkerPaymentsPage() {
         <StatCard label="Pendiente cobro" value={`$${totalPending.toLocaleString()}`}  icon={AlertTriangle} color="amber" loading={loading} />
         <StatCard label="Pagos recibidos" value={released.length}                      icon={TrendingUp}   color="violet" loading={loading} />
       </div>
+
+      {paymentReadiness && (
+        <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 16px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={72}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>Rutas de cobro disponibles</div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
+                Automáticas cuando el provider está configurado; Zelle/Cash App quedan como instrucción manual auditada.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {paymentReadiness.rails.filter((rail) => rail.professionalPayout).map((rail) => (
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "#10b981" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                  {rail.label}{rail.automatic ? "" : " · manual"}
+                </span>
+              ))}
+            </div>
+          </div>
+        </HtmlInCanvasPanel>
+      )}
 
       {/* Payout method panel */}
       {showPayout && (

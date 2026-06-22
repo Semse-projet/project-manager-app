@@ -3,6 +3,12 @@ import { applyLocation, buildCostSummary, material, materialTotal, priceOf } fro
 import { computeRisk, factor } from "../../core/risk-engine.js";
 import { buildMilestones } from "../../core/milestone-engine.js";
 import type { EvidenceItem, LaborEstimate, LocationMultipliers, MaterialPriceMap, SemseToolResult, ToolMode } from "../../core/types.js";
+import {
+  computeConfidenceScore, computeDisputeRisk, computeReadinessScore,
+  computePriceBands, buildScope, buildExplainedOutput, buildWarranty,
+  buildProductionSchedule, assessHiddenDamageProbability, assessScheduleRisk,
+  buildInspectionGate, buildAlgorithmTrace, computeSafeToProceed, ALGORITHM_VERSIONS,
+} from "../../core/extended-metrics.js";
 
 // ─── Wire gauge table (AWG → max amps @ 60°C Cu, NEC 310.15) ─────────────────
 const WIRE_TABLE: { awg: string; maxAmps: number; resistancePerFt: number }[] = [
@@ -23,6 +29,7 @@ const WIRE_TABLE: { awg: string; maxAmps: number; resistancePerFt: number }[] = 
 
 // ─── Breaker standard sizes (NEC) ────────────────────────────────────────────
 const BREAKER_SIZES = [15, 20, 25, 30, 35, 40, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200];
+const STANDARD_VOLTAGES = [120, 208, 220, 240, 277, 480] as const;
 
 function selectWire(requiredAmps: number): typeof WIRE_TABLE[0] {
   return WIRE_TABLE.find((w) => w.maxAmps >= requiredAmps) ?? WIRE_TABLE[WIRE_TABLE.length - 1];
@@ -34,6 +41,25 @@ function selectBreaker(requiredAmps: number): number {
 
 function voltDrop(amps: number, feet: number, resistancePerFt: number): number {
   return 2 * amps * feet * resistancePerFt; // 2× for round-trip
+}
+
+function phaseError(value: number) {
+  return value === 1 || value === 3
+    ? null
+    : { field: "phase", severity: "error" as const, message: "Fase debe ser 1 o 3." };
+}
+
+function normalizePositive(value: number, fallback: number): number {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function normalizeRange(value: number, min: number, max: number, fallback: number): number {
+  return Number.isFinite(value) && value >= min && value <= max ? value : fallback;
+}
+
+function conductorCountFor(voltage: number, phase: 1 | 3): number {
+  const currentCarrying = phase === 3 ? 3 : voltage >= 208 ? 2 : 2;
+  return currentCarrying + 1; // include equipment grounding conductor for material takeoff
 }
 
 // ─── Input ────────────────────────────────────────────────────────────────────
@@ -60,7 +86,11 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const issues = collect(
     positive("watts", input.watts, "Potencia (W)"),
     range("voltage", input.voltage, 100, 600, "Voltaje"),
+    STANDARD_VOLTAGES.includes(input.voltage as (typeof STANDARD_VOLTAGES)[number])
+      ? null
+      : warn("voltage", "Voltaje no estándar para el selector de la herramienta.", "Usar 120, 208, 220, 240, 277 o 480 si aplica."),
     range("powerFactor", input.powerFactor, 0.5, 1.0, "Factor de potencia"),
+    phaseError(input.phase),
     range("runFeet", input.runFeet, 1, 2000, "Longitud del tramo"),
     positive("numCircuits", input.numCircuits, "Número de circuitos"),
     input.panelUpgrade && input.watts > 20000
@@ -71,9 +101,16 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
       : null,
   );
 
+  const watts = normalizePositive(input.watts, 1);
+  const voltage = normalizeRange(input.voltage, 100, 600, 120);
+  const powerFactor = normalizeRange(input.powerFactor, 0.5, 1.0, 1);
+  const phase: 1 | 3 = input.phase === 3 ? 3 : 1;
+  const runFeet = normalizeRange(input.runFeet, 1, 2000, 1);
+  const numCircuits = Math.max(1, Math.round(normalizePositive(input.numCircuits, 1)));
+
   // 2. Calculate load
-  const sqrtPhase = input.phase === 3 ? Math.sqrt(3) : 1;
-  const baseAmps = input.watts / (input.voltage * sqrtPhase * input.powerFactor);
+  const sqrtPhase = phase === 3 ? Math.sqrt(3) : 1;
+  const baseAmps = watts / (voltage * sqrtPhase * powerFactor);
   const designAmps = input.isContinuous ? baseAmps * 1.25 : baseAmps; // NEC 210.19
 
   // 3. Wire selection
@@ -81,11 +118,12 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const breakerSize = selectBreaker(designAmps * 1.1); // 10% headroom
 
   // 4. Voltage drop
-  const vDrop = voltDrop(designAmps, input.runFeet, wire.resistancePerFt);
-  const vDropPct = (vDrop / input.voltage) * 100;
+  const vDrop = voltDrop(designAmps, runFeet, wire.resistancePerFt);
+  const vDropPct = (vDrop / voltage) * 100;
 
   // 5. Materials
-  const wireFeet = input.runFeet * input.numCircuits * 3; // 3 conductors (L/N/G)
+  const conductorCount = conductorCountFor(voltage, phase);
+  const wireFeet = runFeet * numCircuits * conductorCount;
   const wireCostPerFt: Record<string, number> = {
     "14": 0.35, "12": 0.55, "10": 0.90, "8": 1.50,
     "6": 2.20, "4": 3.20, "3": 4.00, "2": 5.00,
@@ -95,12 +133,12 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const breakerCost = input.panelUpgrade ? 850 : breakerSize >= 100 ? 120 : 45;
 
   const mats = [
-    material(`Cable THHN/THWN AWG ${wire.awg}`, wireFeet, "ft", wireUnitCost, "Conductores"),
-    material(`Breaker ${breakerSize}A`, input.numCircuits, "un", breakerCost / input.numCircuits, "Protección"),
-    material("Canaleta/conduit EMT 3/4\"", input.runFeet * input.numCircuits, "ft", 1.20, "Canalización"),
-    material("Conectores y accesorios", input.numCircuits * 2, "un", 8.50, "Accesorios"),
+    material(`Cable THHN/THWN AWG ${wire.awg}`, wireFeet, "ft", wireUnitCost, "Conductores", `${conductorCount} conductores por circuito`),
+    material(`Breaker ${breakerSize}A`, numCircuits, "un", breakerCost / numCircuits, "Protección"),
+    material("Canaleta/conduit EMT 3/4\"", runFeet * numCircuits, "ft", 1.20, "Canalización"),
+    material("Conectores y accesorios", numCircuits * 2, "un", 8.50, "Accesorios"),
     ...(input.outdoorWork
-      ? [material("Salidas GFCI exteriores", input.numCircuits, "un", 35, "Seguridad")]
+      ? [material("Salidas GFCI exteriores", numCircuits, "un", 35, "Seguridad")]
       : []),
     ...(input.panelUpgrade
       ? [material("Panel eléctrico 200A", 1, "un", 420, "Panel")]
@@ -110,7 +148,7 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
   const matCost = materialTotal(mats);
 
   // 6. Labor
-  const baseHours = 2 + (input.runFeet / 50) + (input.numCircuits * 1.5);
+  const baseHours = 2 + (runFeet / 50) + (numCircuits * 1.5);
   const panelHours = input.panelUpgrade ? 8 : 0;
   const totalHours = baseHours + panelHours;
   const ratePerHour = input.panelUpgrade ? 95 : 80;
@@ -121,7 +159,7 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
     days: Math.ceil(totalHours / 8),
     ratePerHour,
     totalCost: Math.round(totalHours * ratePerHour * 100) / 100,
-    difficulty: input.panelUpgrade ? "specialist" : input.watts > 10000 ? "complex" : "moderate",
+    difficulty: input.panelUpgrade ? "specialist" : watts > 10000 ? "complex" : "moderate",
     notes: [
       `Calibre requerido: AWG ${wire.awg} (${wire.maxAmps}A)`,
       `Breaker: ${breakerSize}A`,
@@ -136,18 +174,18 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
 
   // 8. Risk
   const risk = computeRisk([
-    factor("high_load",    "Carga > 10kW",             0.25, input.watts > 10000),
+    factor("high_load",    "Carga > 10kW",             0.25, watts > 10000),
     factor("panel_work",   "Trabajo en panel principal", 0.30, input.panelUpgrade),
     factor("outdoor",      "Trabajo exterior (GFCI req)", 0.15, input.outdoorWork),
-    factor("long_run",     "Tramo > 100ft",             0.10, input.runFeet > 100),
+    factor("long_run",     "Tramo > 100ft",             0.10, runFeet > 100),
     factor("volt_drop",    "Caída de tensión > 3%",     0.20, vDropPct > 3),
-    factor("three_phase",  "Sistema trifásico",          0.20, input.phase === 3),
+    factor("three_phase",  "Sistema trifásico",          0.20, phase === 3),
     factor("continuous",   "Cargas continuas (125%)",    0.10, input.isContinuous),
   ], {
-    requiresPermit: input.panelUpgrade || input.watts > 5000,
+    requiresPermit: input.panelUpgrade || watts > 5000,
     requiresLicense: true,
-    requiresInspection: input.panelUpgrade,
-    requiresEngineering: input.watts > 20000 || input.phase === 3,
+    requiresInspection: input.panelUpgrade || watts > 5000,
+    requiresEngineering: watts > 20000 || phase === 3,
   });
 
   // 9. Milestones
@@ -193,6 +231,46 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
     ...(risk.requiresPermit ? ["Tramitar permiso eléctrico ante autoridad local antes de iniciar."] : []),
   ];
 
+
+  const productionSchedule = buildProductionSchedule([
+    { name: "Site walkthrough and panel assessment", daysMin: 0, daysMax: 1, crew: 1, description: "Inspect panel, identify circuits, confirm scope" },
+    { name: "Rough-in wiring",                       daysMin: 1, daysMax: 3, crew: 2, description: "Pull wire, install boxes, rough conduit runs" },
+    { name: "Device and fixture installation",        daysMin: 1, daysMax: 2, crew: 2, description: "Install outlets, switches, fixtures, panels" },
+    { name: "Panel connections and labeling",         daysMin: 1, daysMax: 1, crew: 1, description: "Land circuits, label breakers, trim covers" },
+    { name: "Testing and inspection",                 daysMin: 0, daysMax: 1, crew: 1, description: "Test all circuits, pass inspection, document" },
+  ]);
+
+  const inspectionGate = buildInspectionGate(
+    "After rough-in — before any drywall or concealment",
+    ["Rough-in wiring photos", "Box placement photos", "Conduit fill and bend radius"],
+    "NEC code violation or unsafe wiring found requiring correction before concealment",
+    "Rough-in must pass inspection before any walls are closed. No exceptions on electrical."
+  );
+
+  const hiddenDamage = assessHiddenDamageProbability(undefined, false, false, false, false, false);
+
+  const scheduleRisk = assessScheduleRisk({
+    dependsOnOtherTrades: true,
+    clientMustDecide: false,
+    materialsOnSite: false,
+    weatherDependent: false,
+    scopeIsLarge: false,
+    hasComplexDetails: true,
+  });
+
+  const upsells = [
+    { service: "Whole-home surge protector", reason: "Install at panel during rough-in — protects all devices, $150-300 part, minimal labor." },
+    { service: "EV charger rough-in (Level 2)", reason: "Add 50A circuit while panel is open — avoids future trench and panel work." },
+    { service: "Arc-fault (AFCI) breaker upgrade", reason: "NEC 2020 requires AFCI in most rooms — recommend proactive upgrade for safety." },
+  ];
+
+  const roi = {
+    investmentAmount:    costs.total,
+    estimatedValueAdded: Math.round(costs.total * 1.20),
+    roiPercent:          120,
+    notes:               "Electrical upgrades return 120% via code compliance, safety, and enabling modern devices (EV, solar, smart home).",
+  };
+
   return {
     toolId: `electrical-${Date.now()}`,
     trade: "electrical",
@@ -215,6 +293,12 @@ export function runElectricalEngine(input: ElectricalInput): SemseToolResult {
       "Código NEC 2023. Verificar adopción local.",
       "Temperatura de conductor 60°C. Verificar condiciones reales.",
     ],
+    productionSchedule,
+    inspectionGate,
+    hiddenDamageAssessment: hiddenDamage,
+    scheduleRisk,
+    upsells,
+    roi,
     createdAt: new Date().toISOString(),
   };
 }

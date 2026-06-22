@@ -40,10 +40,14 @@ export const rolePermissions: Record<string, string[]> = {
     "notifications:read",
     "agents:run:create",
     "finance:read",
-    "finance:write"
+    "finance:write",
+    "governance:read",
+    "governance:vote",
+    "governance:propose"
   ],
   PRO: [
     "jobs:read",
+    "bids:read",
     "bids:create",
     "milestones:read",
     "milestones:submit",
@@ -67,11 +71,21 @@ export const rolePermissions: Record<string, string[]> = {
     "users:memberships:read",
     "notifications:read",
     "finance:read",
-    "finance:write"
+    "finance:write",
+    "field-ops:read",
+    "field-ops:write",
+    "projects:financials:read",
+    "agents:run:worker",
+    "agents:run:manage",
+    "matching:read",
+    "governance:read",
+    "governance:vote",
+    "governance:propose"
   ],
   WORKER: [
     "agents:run:worker",
     "agents:run:manage",
+    "bids:read",
     "field-ops:read",
     "field-ops:write"
   ],

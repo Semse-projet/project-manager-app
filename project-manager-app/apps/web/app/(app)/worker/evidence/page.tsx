@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Upload, Camera, FileText, Image as ImageIcon, Clock, ChevronDown, RefreshCw, CheckCircle2, AlertTriangle, Eye } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import {
-  fetchJobs,
+  fetchMyJobs,
   fetchJobMilestones,
   fetchJobEvidence,
   registerJobEvidence,
@@ -80,7 +80,7 @@ export default function WorkerEvidencePage() {
   const loadJobs = useCallback(async () => {
     setLoadingJobs(true);
     try {
-      const data = await fetchJobs();
+      const data = await fetchMyJobs();
       setJobs(data);
       if (data.length > 0 && !selectedJobId) setSelectedJobId(data[0].id);
     } catch { /* keep empty */ }

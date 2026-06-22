@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import {
   repoIdSchema,
@@ -7,11 +7,15 @@ import {
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
+import { GraphifyService } from "../graphify/graphify.service.js";
 import { RepoKnowledgeService } from "./repo-knowledge.service.js";
 
 @Controller("v1/repo-knowledge")
 export class RepoKnowledgeController {
-  constructor(private readonly repoKnowledgeService: RepoKnowledgeService) {}
+  constructor(
+    private readonly repoKnowledgeService: RepoKnowledgeService,
+    private readonly graphify: GraphifyService,
+  ) {}
 
   @Get("tree")
   async tree(@Req() req: FastifyRequest) {
@@ -48,5 +52,48 @@ export class RepoKnowledgeController {
         maxDepth: parsed.maxDepth ?? 4
       })
     );
+  }
+
+  // ── Graphify knowledge graph endpoints ──────────────────────────────────────
+
+  @Get("graphify/status")
+  async graphifyStatus(@Req() req: FastifyRequest) {
+    return ok(resolveRequestId(req.headers ?? {}), {
+      available: this.graphify.isAvailable,
+      graphPath: this.graphify.graphPath,
+    });
+  }
+
+  @Get("graphify/query")
+  async graphifyQuery(
+    @Req() req: FastifyRequest,
+    @Query("q") q: string,
+    @Query("budget") budget?: string,
+  ) {
+    const result = await this.graphify.query(q, budget ? parseInt(budget, 10) : undefined);
+    return ok(resolveRequestId(req.headers ?? {}), result);
+  }
+
+  @Get("graphify/path")
+  async graphifyPath(
+    @Req() req: FastifyRequest,
+    @Query("from") from: string,
+    @Query("to") to: string,
+  ) {
+    return ok(resolveRequestId(req.headers ?? {}), await this.graphify.path(from, to));
+  }
+
+  @Get("graphify/explain")
+  async graphifyExplain(@Req() req: FastifyRequest, @Query("node") node: string) {
+    return ok(resolveRequestId(req.headers ?? {}), await this.graphify.explain(node));
+  }
+
+  @Get("graphify/affected")
+  async graphifyAffected(
+    @Req() req: FastifyRequest,
+    @Query("node") node: string,
+    @Query("relation") relation?: string,
+  ) {
+    return ok(resolveRequestId(req.headers ?? {}), await this.graphify.affected(node, relation));
   }
 }

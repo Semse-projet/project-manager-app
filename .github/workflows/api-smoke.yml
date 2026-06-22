@@ -1,0 +1,107 @@
+name: API Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/apps/worker/**"
+      - "project-manager-app/scripts/agent-flow-smoke.sh"
+      - "project-manager-app/docs/runbooks/AGENTS_SMOKE_TEST.md"
+      - ".github/workflows/api-smoke.yml"
+
+concurrency:
+  group: api-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  agent-flow-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Build API runtime
+        run: pnpm build:api
+
+      - name: Start API
+        run: |
+          pnpm start:api > /tmp/semse-api.log 2>&1 &
+          echo $! > /tmp/semse-api.pid
+
+      - name: Wait for healthcheck
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://localhost:4000/v1/health >/dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not start in time"
+          tail -n 200 /tmp/semse-api.log || true
+          exit 1
+
+      - name: Run agent flow smoke
+        env:
+          SEMSE_API_URL: http://localhost:4000
+          SEMSE_ROLES: OPS_ADMIN,WORKER
+          SEMSE_WORKER_ID: gh-worker-smoke
+        run: ./scripts/agent-flow-smoke.sh
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/semse-api.pid ]; then
+            kill "$(cat /tmp/semse-api.pid)" || true
+          fi
+
+      - name: Upload API log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-smoke-log
+          path: /tmp/semse-api.log
+          if-no-files-found: ignore

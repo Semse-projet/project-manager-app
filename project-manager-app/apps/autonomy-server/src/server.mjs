@@ -15,6 +15,22 @@ const repoArgIndex = process.argv.indexOf("--repo");
 const PORT = Number(portArgIndex === -1 ? process.env.AUTONOMY_PORT ?? "4310" : process.argv[portArgIndex + 1]);
 const DEFAULT_REPO = repoArgIndex === -1 ? process.cwd() : process.argv[repoArgIndex + 1];
 const STATE_PATH = join(process.cwd(), ".semse-autonomy", "runs.json");
+const SERVICE_ID = randomUUID();
+const TRACE_ID = process.env.TRACE_ID ?? randomUUID();
+
+// ── Structured logging ──────────────────────────────────────────────────────
+function log(level, message, data = {}) {
+  const entry = {
+    level,
+    message,
+    timestamp: new Date().toISOString(),
+    service: "autonomy-server",
+    runId: SERVICE_ID,
+    traceId: TRACE_ID,
+    ...data,
+  };
+  console.log(JSON.stringify(entry));
+}
 
 function readRuns() {
   try { return JSON.parse(readFileSync(STATE_PATH, "utf8")); } catch { return []; }
@@ -175,6 +191,15 @@ createServer(async (req, res) => {
     if (!body.task) return json(res, 400, { error: "missing_task" });
 
     const runId = randomUUID();
+    const traceId = req.headers["x-trace-id"] ?? TRACE_ID;
+
+    log("info", "Autonomy task received", {
+      runId,
+      traceId,
+      task: body.task.substring(0, 100),
+      targetStage: body.targetStage ?? "pr",
+    });
+
     try {
       const result = await runAutonomyTask(body.task, {
         repoPath: body.repoPath ?? DEFAULT_REPO,
@@ -192,9 +217,25 @@ createServer(async (req, res) => {
       const runs = readRuns();
       runs.unshift(entry);
       writeRuns(runs.slice(0, 50));
+
+      log("info", "Autonomy task completed", {
+        runId: entry.runId,
+        traceId,
+        status: result.status,
+        filesChanged: result.filesChanged?.length ?? 0,
+        durationMs: result.durationMs,
+      });
+
       return json(res, 200, entry);
     } catch (error) {
-      return json(res, 500, { error: String(error), runId });
+      log("error", "Autonomy task failed", {
+        runId,
+        traceId,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : "Unknown",
+      });
+      // No exponer detalles del error al cliente; ya quedó logueado arriba.
+      return json(res, 500, { error: "internal_error", runId });
     }
   }
 
@@ -206,7 +247,10 @@ createServer(async (req, res) => {
 
   json(res, 404, { error: "not_found" });
 }).listen(PORT, "127.0.0.1", () => {
-  console.log(`SEMSE Autonomy Server at http://127.0.0.1:${PORT}`);
-  console.log(`Repo: ${DEFAULT_REPO}`);
-  console.log(`LLM: ${process.env.LLM_MODEL || process.env.OPENAI_MODEL || "not configured"}`);
+  log("info", "SEMSE Autonomy Server started", {
+    url: `http://127.0.0.1:${PORT}`,
+    repo: DEFAULT_REPO,
+    llmModel: process.env.LLM_MODEL || process.env.OPENAI_MODEL || "not configured",
+    port: PORT,
+  });
 });

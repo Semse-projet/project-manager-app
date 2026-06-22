@@ -28,6 +28,10 @@ const TYPE_ROUTES: Record<string, (n: Notification) => string> = {
   dispute_opened:            ()  => "/client/jobs",
   reservation_created:       ()  => "/worker/jobs",
   milestone_completed:       ()  => "/client/milestones",
+  rating_received:           ()  => "/worker/review",
+  job_matched:               (n) => n.payload?.jobId ? `/worker/opportunities` : "/worker/opportunities",
+  bid_accepted:              (n) => n.payload?.jobId ? `/worker/jobs/${String(n.payload.jobId)}` : "/worker/jobs",
+  rating_requested:          (n) => n.payload?.jobId ? `/client/jobs/${String(n.payload.jobId)}/rate` : "/client/reviews",
 };
 
 function getRoute(n: Notification): string | null {
@@ -48,6 +52,10 @@ const TYPE_COLORS: Record<string, string> = {
   dispute_opened:            "#f87171",
   reservation_created:       "#a78bfa",
   milestone_completed:       "#86efac",
+  rating_received:           "#fbbf24",
+  job_matched:               "#6366f1",
+  bid_accepted:              "#10b981",
+  rating_requested:          "#fbbf24",
 };
 
 function notifColor(type: string): string { return TYPE_COLORS[type] ?? "#94a3b8"; }

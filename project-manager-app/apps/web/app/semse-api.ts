@@ -95,14 +95,40 @@ export class SemseApiError extends Error {
   }
 }
 
+function normalizeErrorMessage(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (Array.isArray(value)) {
+    const normalized = value
+      .map((item) => normalizeErrorMessage(item))
+      .filter((item): item is string => Boolean(item));
+    return normalized.length > 0 ? normalized.join(" ") : undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return (
+      normalizeErrorMessage(record.message) ??
+      normalizeErrorMessage(record.error) ??
+      normalizeErrorMessage(record.detail) ??
+      normalizeErrorMessage(record.details)
+    );
+  }
+
+  return undefined;
+}
+
 async function readErrorMessage(response: Response): Promise<string | undefined> {
   try {
     const payload = (await response.json()) as {
-      error?: { message?: string };
-      message?: string;
+      error?: unknown;
+      message?: unknown;
     };
 
-    return payload.error?.message ?? payload.message;
+    return normalizeErrorMessage(payload.error) ?? normalizeErrorMessage(payload.message);
   } catch {
     return undefined;
   }
@@ -300,6 +326,23 @@ export async function fetchJobs(): Promise<JobRecordView[]> {
   return fetchSemse<JobRecordView[]>("/api/semse/jobs");
 }
 
+export async function fetchMyJobs(): Promise<JobRecordView[]> {
+  const bids = await fetchMyBids();
+  return bids
+    .filter(b => b.status === "accepted")
+    .map(b => ({
+      id: b.jobId,
+      tenantId: "",
+      title: b.jobTitle,
+      scope: b.jobTitle,
+      category: b.jobCategory,
+      location: b.jobLocation,
+      budgetMin: b.jobBudgetMin,
+      budgetMax: b.jobBudgetMax,
+      status: (b.jobStatus ?? "accepted") as JobRecordView["status"],
+    }));
+}
+
 export type RatingListItem = {
   id: string;
   jobId: string;
@@ -322,6 +365,19 @@ export type RatingListItem = {
 
 export async function fetchRatings(): Promise<{ actorUserId: string | null; items: RatingListItem[] }> {
   return fetchSemse<{ actorUserId: string | null; items: RatingListItem[] }>("/api/semse/ratings");
+}
+
+export async function createRating(input: {
+  jobId: string;
+  toUserId: string;
+  score: number;
+  comment?: string;
+}): Promise<RatingListItem> {
+  return fetchSemse<RatingListItem>("/api/semse/ratings", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }
 
 export async function fetchJob(jobId: string): Promise<JobRecordView> {
@@ -361,6 +417,95 @@ export async function fetchJobContract(jobId: string): Promise<Record<string, un
   return fetchSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/contracts/current`);
 }
 
+export type BidView = {
+  id: string;
+  jobId: string;
+  proUserId?: string;
+  professionalUserId?: string;
+  proEmail?: string;
+  amount: number;
+  etaDays: number;
+  note?: string | null;
+  status: "submitted" | "accepted" | "rejected" | "withdrawn";
+  createdAt: string;
+  avgRating?: number;
+  ratingCount?: number;
+};
+
+export type TimeTrackerSummaryView = {
+  range: "week" | "month";
+  totalSeconds: number;
+  sessionCount: number;
+  daysWorked: number;
+  openSessionCount: number;
+  sessionsWithoutNotes: number;
+  activeSession: TrackerSessionView | null;
+  byJob: Array<{
+    jobId: string;
+    jobTitle: string;
+    seconds: number;
+  }>;
+  recentNotes: Array<{
+    sessionId: string;
+    jobId: string;
+    jobTitle: string;
+    note: string | null;
+    startedAt: string;
+  }>;
+};
+
+export async function fetchJobBids(jobId: string): Promise<BidView[]> {
+  return fetchSemse<BidView[]>(`/api/semse/jobs/${jobId}/bids`);
+}
+
+export async function fetchTimeTrackerJobs(): Promise<JobRecordView[]> {
+  return fetchSemse<JobRecordView[]>("/api/semse/time-tracker/jobs");
+}
+
+export async function fetchTimeTrackerSummary(range: "week" | "month"): Promise<TimeTrackerSummaryView> {
+  return fetchSemse<TimeTrackerSummaryView>(`/api/semse/time-tracker/summary?range=${range}`);
+}
+
+export async function updateTimeTrackerSessionNotes(sessionId: string, input: {
+  notes?: string;
+}): Promise<TrackerSessionView> {
+  return mutateSemse<TrackerSessionView>(
+    `/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/notes`,
+    input,
+  );
+}
+
+export async function acceptBid(bidId: string): Promise<Record<string, unknown>> {
+  return fetchSemse<Record<string, unknown>>(`/api/semse/bids/${bidId}/accept`, {
+    method: "POST",
+  });
+}
+
+export type MyBidView = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobCategory?: string;
+  jobLocation?: string;
+  jobBudgetMin?: number;
+  jobBudgetMax?: number;
+  jobStatus: string;
+  amount: number;
+  etaDays: number;
+  note?: string | null;
+  status: "submitted" | "accepted" | "rejected";
+  createdAt: string;
+};
+
+export async function fetchMyBids(): Promise<MyBidView[]> {
+  const r = await fetchSemse<MyBidView[] | { data: MyBidView[] } | { bids: MyBidView[]; total: number }>("/api/semse/my-bids").catch(() => []);
+  if (Array.isArray(r)) return r;
+  const bids = (r as { bids?: MyBidView[] }).bids;
+  if (Array.isArray(bids)) return bids;
+  const d = (r as { data?: MyBidView[] }).data;
+  return Array.isArray(d) ? d : [];
+}
+
 export async function fetchJobPaymentReadiness(jobId: string): Promise<Record<string, unknown>> {
   return fetchSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/payment-readiness`);
 }
@@ -376,6 +521,17 @@ export async function fetchJobEvidence(jobId: string): Promise<Record<string, un
   return fetchSemse<Record<string, unknown>[]>(`/api/semse/jobs/${jobId}/evidence`);
 }
 
+export async function fetchVisionByJob(jobId: string): Promise<Record<string, unknown>[]> {
+  const envelope = await fetchSemse<{ data: Record<string, unknown>[] }>(`/api/semse/vision?jobId=${encodeURIComponent(jobId)}`);
+  return Array.isArray((envelope as unknown as { data: Record<string, unknown>[] }).data)
+    ? (envelope as unknown as { data: Record<string, unknown>[] }).data
+    : (Array.isArray(envelope) ? envelope as Record<string, unknown>[] : []);
+}
+
+export async function triggerVisionEndpoint(endpoint: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint, payload });
+}
+
 export async function presignEvidence(input: {
   filename: string;
   contentType: string;
@@ -383,6 +539,16 @@ export async function presignEvidence(input: {
   source?: "local_device" | "camera_capture" | "field_ops" | "project_copilot" | "external_transfer";
 }): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>(`/api/semse/evidence/presign`, input);
+}
+
+export async function transitionJobStatus(
+  jobId: string,
+  targetStatus: string
+): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>(
+    `/api/semse/jobs/${jobId}/transition`,
+    { targetStatus }
+  );
 }
 
 export async function planUpload(input: {
@@ -459,6 +625,15 @@ export async function releaseMilestoneEscrow(
   input?: { amount?: number; provider?: string; methodType?: string }
 ): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>(`/api/semse/milestones/${milestoneId}/release`, input);
+}
+
+export async function refundEscrow(input: {
+  projectId?: string;
+  escrowId?: string;
+  amount: number;
+  reason: string;
+}): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>(`/api/semse/escrow/refund`, input);
 }
 
 export async function fetchDisputes(): Promise<Record<string, unknown>[]> {
@@ -2361,4 +2536,101 @@ export async function syncConnectAccount(): Promise<{
   synced: boolean;
 }> {
   return mutateSemse("/api/semse/payments/connect/sync", {});
+}
+
+export type PaymentRailReadiness = {
+  key: string;
+  label: string;
+  clientFunding: boolean;
+  professionalPayout: boolean;
+  automatic: boolean;
+  configured: boolean;
+  ready: boolean;
+  requiredEnv: string[];
+};
+
+export type PaymentProviderReadiness = {
+  configuredDefaultProvider: string;
+  availableProviders: string[];
+  rails: PaymentRailReadiness[];
+  mode: "mock" | "live";
+  ready: boolean;
+  warnings: string[];
+};
+
+export async function fetchPaymentProviderReadiness(): Promise<PaymentProviderReadiness> {
+  return fetchSemse<PaymentProviderReadiness>("/api/semse/payments/provider-readiness");
+}
+
+// ── Browser Agent ─────────────────────────────────────────────────────────────
+
+export interface BrowserInspectionResult {
+  runId: string;
+  status: string;
+  url: string;
+  projectId?: string;
+  milestoneId?: string;
+  success?: boolean;
+  finalUrl?: string;
+  title?: string;
+  pageStatus?: string;
+  severity?: string;
+  loadTimeMs?: number;
+  consoleErrors?: Array<{ text: string; location?: { url: string; lineNumber: number; columnNumber?: number } }>;
+  networkFailures?: Array<{ url: string; method: string; status?: number; statusText?: string; errorText?: string }>;
+  visibleTextSample?: string;
+  screenshotBase64?: string;
+  aiSummary?: {
+    summary_es: string;
+    summary_en: string;
+    severity: string;
+    recommendations: string[];
+    github_issue_body?: string;
+    claude_fix_prompt?: string;
+  };
+  createdAt: string;
+  completedAt?: string;
+}
+
+export async function startBrowserInspection(input: {
+  url: string;
+  projectId?: string;
+  milestoneId?: string;
+  includeScreenshot?: boolean;
+  includeText?: boolean;
+  includeAiSummary?: boolean;
+}): Promise<{ runId: string; status: string; correlationId: string }> {
+  return mutateSemse<{ runId: string; status: string; correlationId: string }>(
+    "/api/semse/browser-agent/inspect",
+    input as Record<string, unknown>
+  );
+}
+
+export async function fetchBrowserInspectionResult(runId: string): Promise<BrowserInspectionResult> {
+  return fetchSemse<BrowserInspectionResult>(`/api/semse/browser-agent/inspect/${encodeURIComponent(runId)}`);
+}
+
+export interface ActivityEvent {
+  id: string;
+  type: string;
+  title: string;
+  detail: string;
+  severity: "info" | "warning" | "critical";
+  occurredAt: string;
+  entityType: string;
+  entityId: string;
+}
+
+export async function fetchBuildOpsProjects(): Promise<Record<string, unknown>[]> {
+  const result = await fetchSemse<Record<string, unknown>[] | { data: Record<string, unknown>[] }>("/api/semse/buildops/projects");
+  return Array.isArray(result) ? result : ((result as { data: Record<string, unknown>[] }).data ?? []);
+}
+
+export async function fetchProjectActivity(buildOpsProjectId: string, limit = 40): Promise<ActivityEvent[]> {
+  const envelope = await fetchSemse<{ data: ActivityEvent[] }>(
+    `/api/semse/buildops/projects/${encodeURIComponent(buildOpsProjectId)}/activity?limit=${limit}`
+  );
+  return Array.isArray(envelope)
+    ? (envelope as ActivityEvent[])
+    : ((envelope as { data: ActivityEvent[] }).data ?? []);
 }

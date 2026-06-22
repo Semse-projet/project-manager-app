@@ -26,6 +26,8 @@ export type JobRecord = {
   location?: string;
   urgency?: string;
   deadline?: string;
+  clientOrgId?: string;
+  clientUserId?: string;
   preferredProfessional?: {
     userId: string;
     displayName: string;
@@ -70,6 +72,17 @@ export type BidRecord = {
   amount: number;
   etaDays: number;
   status: "submitted" | "accepted" | "rejected";
+  proEmail?: string;
+  note?: string;
+  jobTitle?: string;
+  jobCategory?: string;
+  jobLocation?: string;
+  jobBudgetMin?: number;
+  jobBudgetMax?: number;
+  jobStatus?: string;
+  createdAt?: string;
+  avgRating?: number;
+  ratingCount?: number;
 };
 
 export type DisputeRecord = {
@@ -113,7 +126,7 @@ export type EscrowRecord = {
   projectId: string;
   jobId?: string;
   contractId?: string;
-  status: "active" | "closed";
+  status: "active" | "pending_settlement" | "closed" | "cancelled" | "released";
   totalAmount: number;
   currency: string;
 };

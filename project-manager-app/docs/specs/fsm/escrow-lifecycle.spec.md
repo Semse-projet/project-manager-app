@@ -1,12 +1,34 @@
 ---
+id: fsm-escrow-lifecycle
+title: "Escrow FSM"
 type: spec
 feature: "Escrow FSM"
 domain: "payments"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
+owner: semse-core
+risk: critical
 date: "2026-05-20"
 spec_index: "docs/SPEC_INDEX.md"
 source_of_truth: "docs/foundation/STATE_MACHINES.md — PaymentEscrow"
+related_files:
+  - apps/api/src/modules/payments
+  - packages/db/prisma/schema.prisma
+  - packages/schemas/src/payment.schema.ts
+related_tests:
+  - apps/api/test/payments.spec-contract.test.ts
+  - apps/api/test/payment-governance.service.test.ts
+  - tests/unit/payment-escrow-status-prisma.test.ts
+related_endpoints:
+  - v1/escrow
+  - v1/payments
+related_events:
+  - payment.released
+  - dispute.opened
+related_agents:
+  - crowd
+  - Justus
+last_verified: 2026-06-09
 ---
 
 # FSM Spec: Escrow Lifecycle

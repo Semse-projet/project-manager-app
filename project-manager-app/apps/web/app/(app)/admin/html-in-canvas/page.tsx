@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { HtmlInCanvasPanel, useHtmlInCanvasSupport, type HtmlInCanvasPanelHandle } from "@semse/ui";
-import { CheckCircle, Copy, Layers, XCircle } from "lucide-react";
+import { CheckCircle, Copy, Layers } from "lucide-react";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 function CodeBlock({ code }: { code: string }) {
@@ -69,22 +69,22 @@ function SupportBanner({ supported }: { supported: boolean }) {
       style={{
         padding: "16px 20px",
         borderRadius: "18px",
-        border: `1px solid ${supported ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.3)"}`,
-        background: supported ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
+        border: `1px solid ${supported ? "rgba(52,211,153,0.3)" : "rgba(245,158,11,0.3)"}`,
+        background: supported ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)",
         display: "flex",
         alignItems: "center",
         gap: "14px"
       }}
     >
-      {supported ? <CheckCircle size={20} color="#34d399" /> : <XCircle size={20} color="#f87171" />}
+      {supported ? <CheckCircle size={20} color="#34d399" /> : <Layers size={20} color="#f59e0b" />}
       <div>
-        <div style={{ fontWeight: 800, color: supported ? "#34d399" : "#f87171", fontSize: "0.95rem" }}>
-          {supported ? "HTML-in-Canvas activo en este navegador" : "HTML-in-Canvas no disponible"}
+        <div style={{ fontWeight: 800, color: supported ? "#34d399" : "#f59e0b", fontSize: "0.95rem" }}>
+          {supported ? "HTML-in-Canvas activo en este navegador" : "Modo fallback DOM activo"}
         </div>
         <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "4px" }}>
           {supported
             ? "drawElementImage y requestPaint detectados. Las demos de abajo renderizan HTML real en canvas."
-            : "Activa chrome://flags/#canvas-draw-element en Chrome Canary o Brave Stable (Chromium 147+). Las demos muestran el fallback DOM."}
+            : "La demo funciona con DOM y exportación PNG. Activa chrome://flags/#canvas-draw-element en Chromium compatible para probar el render nativo."}
         </div>
       </div>
     </div>
@@ -307,7 +307,7 @@ function ExportDemo() {
     setExporting(true);
     setNoSupport(false);
 
-    // El elemento ya es hijo del layoutsubtree canvas — capture() llama toBlob directamente.
+    // En modo nativo capture() usa el canvas. En fallback captura el DOM visible como PNG.
     const blob = await panelRef.current.capture();
 
     if (!blob) {
@@ -329,8 +329,8 @@ function ExportDemo() {
       <h3 style={{ marginTop: 0, marginBottom: "14px", fontSize: "1rem", fontWeight: 800 }}>4 — Exportar HTML como PNG</h3>
       <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "16px" }}>
         Reemplazo nativo de <code style={{ background: "rgba(255,255,255,0.07)", padding: "2px 6px", borderRadius: "6px" }}>html2canvas</code>.
-        El contenido vive dentro del canvas con <code style={{ background: "rgba(255,255,255,0.07)", padding: "2px 6px", borderRadius: "6px" }}>layoutsubtree</code>,
-        y <code style={{ background: "rgba(255,255,255,0.07)", padding: "2px 6px", borderRadius: "6px" }}>canvas.toBlob()</code> captura el frame actual.
+        Con soporte nativo, el contenido vive dentro del canvas con <code style={{ background: "rgba(255,255,255,0.07)", padding: "2px 6px", borderRadius: "6px" }}>layoutsubtree</code>
+        y <code style={{ background: "rgba(255,255,255,0.07)", padding: "2px 6px", borderRadius: "6px" }}>canvas.toBlob()</code>. Sin soporte nativo, SEMSE usa un fallback DOM para generar el PNG.
       </p>
       <HtmlInCanvasPanel
         ref={panelRef}
@@ -393,18 +393,18 @@ function ExportDemo() {
         )}
         {noSupport && (
           <span style={{ color: "#f87171", fontSize: "0.85rem" }}>
-            Activa el flag del navegador para habilitar la exportación.
+            No se pudo generar el PNG en este navegador.
           </span>
         )}
       </div>
       <div style={{ marginTop: "14px" }}>
-        <CodeBlock code={`// El contenido debe vivir DENTRO del layoutsubtree canvas.
-// panelRef apunta al HtmlInCanvasPanel — capture() llama toBlob().
+        <CodeBlock code={`// Con soporte nativo, el contenido vive dentro del layoutsubtree canvas.
+// Sin soporte nativo, capture() serializa el DOM visible y devuelve un PNG.
 const blob = await panelRef.current.capture();
 const url = URL.createObjectURL(blob);
 // link.download = "export.png"; link.click();
 
-// Sin html2canvas. Sin capturas externas. Privacidad preservada.`} />
+// Sin html2canvas. Sin servicios externos. Privacidad preservada.`} />
       </div>
     </div>
   );

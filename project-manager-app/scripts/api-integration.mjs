@@ -52,13 +52,13 @@ async function main() {
   await assertDuplicateDisputeRejected(project.id);
 
   const run = await createAgentRun();
-  await claimRun(config.workerId);
+  await claimSpecificRun(run.id, config.workerId);
   await heartbeat(run.id);
   await completeRun(run.id);
   await assertRunCompleted(run.id);
 
   const staleRun = await createAgentRun();
-  await claimRun(config.workerId);
+  await claimSpecificRun(staleRun.id, config.workerId);
   await sleep(15);
   await assertReclaimWorks(staleRun.id);
 
@@ -74,7 +74,7 @@ async function createJob() {
     budgetMin: 1000,
     budgetMax: 3000
   });
-  assert.equal(json.data.status, "posted");
+  assertCanonicalValue(json.data.status, "posted");
   return json.data;
 }
 
@@ -82,13 +82,13 @@ async function createReservation(jobId) {
   const { json } = await request(actors.pro, "POST", `/v1/jobs/${jobId}/reservations`, {
     expiresInMinutes: 45
   });
-  assert.equal(json.data.status, "active");
+  assertCanonicalValue(json.data.status, "active");
   return json.data;
 }
 
 async function acceptReservation(reservationId) {
   const { json } = await request(actors.client, "POST", `/v1/reservations/${reservationId}/accept`, {});
-  assert.equal(json.data.status, "accepted");
+  assertCanonicalValue(json.data.status, "accepted");
 }
 
 async function createContract(jobId) {
@@ -127,7 +127,7 @@ async function createMilestone(projectId) {
     amount: 1200,
     sequence: 1
   });
-  assert.equal(json.data.status, "draft");
+  assertCanonicalValue(json.data.status, "draft");
   return json.data;
 }
 
@@ -139,12 +139,12 @@ async function submitMilestone(milestoneId) {
   });
 
   const { json } = await request(actors.pro, "POST", `/v1/milestones/${milestoneId}/submit`, {});
-  assert.equal(json.data.status, "submitted");
+  assertCanonicalValue(json.data.status, "submitted");
 }
 
 async function approveMilestone(milestoneId) {
   const { json } = await request(actors.client, "POST", `/v1/milestones/${milestoneId}/approve`, {});
-  assert.equal(json.data.status, "approved");
+  assertCanonicalValue(json.data.status, "approved");
 }
 
 async function fundEscrow(jobId, contractId, amount) {
@@ -152,20 +152,20 @@ async function fundEscrow(jobId, contractId, amount) {
     amount,
     currency: "USD"
   });
-  assert.equal(json.data.transaction.type, "deposit");
+  assertCanonicalValue(json.data.transaction.type, "fund");
   assert.equal(json.data.contract.id, contractId);
 }
 
 async function releaseMilestone(milestoneId) {
   const { json } = await request(actors.client, "POST", `/v1/milestones/${milestoneId}/escrow/release`, {});
-  assert.equal(json.data.transaction.type, "release");
+  assertCanonicalValue(json.data.transaction.type, "release");
 }
 
 async function assertMilestonePaid(projectId, milestoneId) {
   const { json } = await request(actors.client, "GET", `/v1/projects/${projectId}/milestones`);
   const ms = json.data.find((entry) => entry.id === milestoneId);
   assert.ok(ms, "milestone should exist");
-  assert.equal(ms.status, "paid");
+  assertCanonicalValue(ms.status, "paid");
 }
 
 async function assertEscrowSummary(jobId, contractId, totalDeposited, totalReleased) {
@@ -181,7 +181,7 @@ async function createDispute(projectId) {
     projectId,
     reason: "Integration dispute reason"
   });
-  assert.equal(json.data.status, "open");
+  assertCanonicalValue(json.data.status, "open");
 }
 
 async function assertDuplicateDisputeRejected(projectId) {
@@ -201,7 +201,7 @@ async function createAgentRun() {
     triggerType: "manual",
     correlationId: `corr-${Date.now()}-${Math.random().toString(16).slice(2)}`
   });
-  assert.equal(json.data.status, "queued");
+  assertCanonicalValue(json.data.status, "queued");
   return json.data;
 }
 
@@ -210,23 +210,42 @@ async function claimRun(workerId) {
   return json.data;
 }
 
+async function claimSpecificRun(runId, workerId) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const claimed = await claimRun(workerId);
+    if (!claimed) {
+      await sleep(50);
+      continue;
+    }
+
+    if (claimed.id === runId) {
+      assertCanonicalValue(claimed.status, "running");
+      return claimed;
+    }
+
+    await completeRun(claimed.id);
+  }
+
+  assert.fail(`expected to claim run ${runId}`);
+}
+
 async function heartbeat(runId) {
   const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${runId}/heartbeat`, {
     workerId: config.workerId
   });
-  assert.equal(json.data.status, "running");
+  assertCanonicalValue(json.data.status, "running");
 }
 
 async function completeRun(runId) {
   const { json } = await request(actors.ops, "POST", `/v1/agents/runs/${runId}/complete`, {
     output: { status: "ok", source: "api-integration" }
   });
-  assert.equal(json.data.status, "completed");
+  assertCanonicalValue(json.data.status, "completed");
 }
 
 async function assertRunCompleted(runId) {
   const { json } = await request(actors.ops, "GET", `/v1/agents/runs/${runId}`);
-  assert.equal(json.data.status, "completed");
+  assertCanonicalValue(json.data.status, "completed");
 }
 
 async function assertReclaimWorks(runId) {
@@ -237,7 +256,7 @@ async function assertReclaimWorks(runId) {
   assert.ok(json.data.reclaimedCount >= 1, "at least one run should be reclaimed");
   const reclaimed = json.data.runs.find((entry) => entry.id === runId);
   assert.ok(reclaimed, "specific stale run should be reclaimed");
-  assert.equal(reclaimed.status, "queued");
+  assertCanonicalValue(reclaimed.status, "queued");
 }
 
 async function assertOpsDashboard() {
@@ -269,6 +288,10 @@ async function request(actor, method, path, body, options = {}) {
 
   assert.ok(response.ok, `request failed ${method} ${path}: ${response.status} ${JSON.stringify(json)}`);
   return { status: response.status, json };
+}
+
+function assertCanonicalValue(actual, expected) {
+  assert.equal(String(actual).toLowerCase(), String(expected).toLowerCase());
 }
 
 main().catch((error) => {

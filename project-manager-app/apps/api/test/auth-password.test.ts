@@ -10,10 +10,10 @@ test("hashPassword and verifyPassword round-trip", () => {
   assert.equal(verifyPassword("wrong-password", hashed), false);
 });
 
-test("verifyPassword accepts legacy sha256 hashes", () => {
+test("verifyPassword rejects legacy sha256 hashes (must re-hash with scrypt)", () => {
   const legacyHash = sha256("demo1234");
 
-  assert.equal(verifyPassword("demo1234", legacyHash), true);
+  assert.equal(verifyPassword("demo1234", legacyHash), false);
   assert.equal(verifyPassword("wrong-password", legacyHash), false);
 });
 

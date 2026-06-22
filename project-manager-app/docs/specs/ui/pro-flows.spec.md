@@ -1,12 +1,33 @@
 ---
+id: ui-pro-flows
+title: "Pro Contractor UI Flows"
 type: spec
 feature: "Pro (Contractor) UI Flows"
 domain: "ui"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/web/app/pro
+  - apps/web/app/(app)/tools
+  - apps/web/components/tools
+  - apps/api/src/modules/tools
+related_tests:
+  - tests/e2e-semse/pro-tools-concrete.spec.ts
+  - tests/e2e-semse/pro-tools-dashboard.spec.ts
+  - tests/e2e-semse/tools-api-routes.spec.ts
+related_endpoints:
+  - v1/tools
+  - v1/jobs
+related_events:
+  - milestone.submitted
+related_agents:
+  - protools
+last_verified: 2026-06-09
 ---
 
 # Spec: Pro UI Flows

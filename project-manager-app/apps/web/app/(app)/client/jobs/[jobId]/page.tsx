@@ -17,8 +17,11 @@ import {
   Video
 } from "lucide-react";
 import {
+  acceptBid,
+  createJobMilestone,
   fetchJob,
   fetchJobAgentSignals,
+  fetchJobBids,
   fetchJobEscrow,
   fetchJobEvidence,
   fetchJobMilestones,
@@ -26,6 +29,8 @@ import {
   fundJobEscrow,
   mutateMilestone,
   releaseMilestoneEscrow,
+  transitionJobStatus,
+  type BidView,
   sendNotification,
   type JobAgentSignal
 } from "../../../../semse-api";
@@ -71,6 +76,13 @@ const PAYMENT_TYPE_META: Record<string, { label: string; color: string; bg: stri
   HOLDBACK: { label: "Retención", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   FEE: { label: "Fee", color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
   REFUND: { label: "Reembolso", color: "#ef4444", bg: "rgba(239,68,68,.12)" }
+};
+
+const BID_STATUS_META: Record<BidView["status"], { label: string; color: string; bg: string }> = {
+  submitted: { label: "Enviada", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  accepted: { label: "Aceptada", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  rejected: { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
+  withdrawn: { label: "Retirada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
 
 function asString(value: unknown): string | undefined {
@@ -135,6 +147,10 @@ function formatDate(value?: string): string {
   return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function formatBidBudget(bid: BidView): string {
+  return formatMoney(bid.amount);
+}
+
 function EvidenceIcon({ kind }: { kind: string }) {
   if (kind === "PHOTO") return <ImageIcon size={15} color="var(--brand)" />;
   if (kind === "VIDEO") return <Video size={15} color="var(--accent)" />;
@@ -191,6 +207,8 @@ export default function ClientJobDetailPage() {
   const jobId = typeof params?.jobId === "string" ? params.jobId : "";
 
   const [job, setJob] = useState<JobDetail | null>(null);
+  const [bids, setBids] = useState<BidView[]>([]);
+  const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
   const [milestones, setMilestones] = useState<JobMilestone[]>([]);
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<JobPayment[]>([]);
@@ -202,21 +220,25 @@ export default function ClientJobDetailPage() {
   const [changeReasons, setChangeReasons] = useState<Record<string, string>>({});
   const [showChangeForm, setShowChangeForm] = useState<Record<string, boolean>>({});
   const [activeInsight, setActiveInsight] = useState<InsightPanelId | null>(null);
+  const [showMilestoneForm, setShowMilestoneForm] = useState(false);
+  const [newMilestone, setNewMilestone] = useState({ title: "", amount: "", sequence: "" });
 
   const loadDetail = useCallback(async () => {
     if (!jobId) return;
     setLoading(true);
     setError(null);
     try {
-      const [jobResult, milestonesResult, escrowResult, evidenceResult, paymentsResult, signalsResult] = await Promise.all([
+      const [jobResult, milestonesResult, escrowResult, evidenceResult, paymentsResult, signalsResult, bidsResult] = await Promise.all([
         fetchJob(jobId),
         fetchJobMilestones(jobId).catch(() => []),
         fetchJobEscrow(jobId).catch(() => null),
         fetchJobEvidence(jobId).catch(() => []),
         fetchJobPayments(jobId).catch(() => []),
-        fetchJobAgentSignals(jobId).catch(() => [])
+        fetchJobAgentSignals(jobId).catch(() => []),
+        fetchJobBids(jobId).catch(() => []),
       ]);
       setJob(jobResult as unknown as JobDetail);
+      setBids(bidsResult);
       setMilestones(milestonesResult);
       setEscrow(escrowResult);
       setEvidence(evidenceResult);
@@ -248,6 +270,8 @@ export default function ClientJobDetailPage() {
   const holdbackAmount = fundedAmount !== undefined && holdbackPct !== undefined
     ? fundedAmount * (holdbackPct / 100)
     : undefined;
+  const acceptedBid = bids.find((bid) => bid.status === "accepted");
+  const submittedBidCount = bids.filter((bid) => bid.status === "submitted").length;
   const approvedSignals = agentSignals.filter((signal) => signal.status === "completed");
   const latestEvidence = evidence
     .slice()
@@ -330,13 +354,73 @@ export default function ClientJobDetailPage() {
     }
   }
 
+  async function handleAcceptBid(bid: BidView) {
+    if (pendingAction || acceptingBidId || bid.status !== "submitted") return;
+    setAcceptingBidId(bid.id);
+    setError(null);
+    try {
+      await acceptBid(bid.id);
+      const proName = bid.proEmail ?? bid.professionalUserId ?? "Profesional";
+      const jobTitle = asString(job?.title) ?? "trabajo";
+      sendNotification({
+        title: "Propuesta aceptada",
+        body: `El cliente aceptó la propuesta de ${proName} para "${jobTitle}".`,
+        kind: "job",
+        targetRole: "worker",
+        linkHref: `/worker/jobs/${jobId}`,
+      }).catch(() => {});
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo aceptar la propuesta.");
+    } finally {
+      setAcceptingBidId(null);
+    }
+  }
+
+  async function handlePublishJob() {
+    if (pendingAction) return;
+    setPendingAction("publish-job");
+    setError(null);
+    try {
+      await transitionJobStatus(jobId, "posted");
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo publicar el trabajo.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function handleCreateMilestone() {
+    if (pendingAction || !newMilestone.title.trim()) return;
+    const amount = Number(newMilestone.amount);
+    const sequence = newMilestone.sequence ? Number(newMilestone.sequence) : milestones.length + 1;
+    if (!amount || amount <= 0) { setError("El monto debe ser mayor a cero."); return; }
+    setPendingAction("create-milestone");
+    setError(null);
+    try {
+      await createJobMilestone(jobId, { title: newMilestone.title.trim(), amount, sequence });
+      setNewMilestone({ title: "", amount: "", sequence: "" });
+      setShowMilestoneForm(false);
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo crear el milestone.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   const normalizedJobStatus = String(job?.status ?? "").toLowerCase();
   const jobStatusMeta = JOB_STATUS_META[normalizedJobStatus] ?? JOB_STATUS_META.posted;
 
   const JOB_NEXT_ACTION: Record<string, { label: string; detail: string; tone: string }> = {
+    draft:       { label: "Publicar para recibir propuestas", detail: "Tu trabajo está en borrador. Publícalo para que los profesionales puedan enviarte propuestas.", tone: "#6366f1" },
     posted:      { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
+    published:   { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
     reserved:    { label: "Acepta o rechaza la reserva", detail: "Un profesional reservó el trabajo. Acepta para avanzar o libera la reserva.", tone: "#fbbf24" },
-    accepted:    { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
+    accepted:    escrowStatus === "FUNDED" || escrowStatus === "ACTIVE"
+      ? { label: "Escrow fondeado — esperando al profesional", detail: "Los fondos ya están protegidos. El profesional puede iniciar el trabajo en cualquier momento.", tone: "#10b981" }
+      : { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
     in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "#06b6d4" },
     review:      { label: "Aprueba o pide cambios", detail: "El profesional envió para revisión. Aprueba el milestone o solicita cambios.", tone: "#8b5cf6" },
     dispute:     { label: "Disputa activa", detail: "Hay una disputa abierta. El equipo de ops está revisando. Puedes aportar evidencia.", tone: "#ef4444" },
@@ -431,6 +515,17 @@ export default function ClientJobDetailPage() {
               <div style={{ flex: 1 }}>
                 <strong style={{ fontSize: "14px", color: nextActionGuide.tone, display: "block", marginBottom: "2px" }}>{nextActionGuide.label}</strong>
                 <span style={{ fontSize: "12px", color: "var(--muted)" }}>{nextActionGuide.detail}</span>
+                {normalizedJobStatus === "draft" ? (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      onClick={() => void handlePublishJob()}
+                      disabled={pendingAction !== null}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                    >
+                      Publicar trabajo →
+                    </button>
+                  </div>
+                ) : null}
                 {normalizedJobStatus === "dispute" ? (
                   <div style={{ marginTop: 10 }}>
                     <Link
@@ -438,6 +533,16 @@ export default function ClientJobDetailPage() {
                       style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       Abrir panel de disputas
+                    </Link>
+                  </div>
+                ) : null}
+                {normalizedJobStatus === "completed" && jobId ? (
+                  <div style={{ marginTop: 10 }}>
+                    <Link
+                      href={`/client/jobs/${jobId}/rate`}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.1)", color: "#10b981", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                    >
+                      ⭐ Calificar al profesional
                     </Link>
                   </div>
                 ) : null}
@@ -475,15 +580,108 @@ export default function ClientJobDetailPage() {
             </section>
           ) : null}
 
+          {bids.length > 0 || normalizedJobStatus === "posted" || normalizedJobStatus === "published" ? (
+            <section style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", flexWrap: "wrap", marginBottom: "14px" }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "var(--ink)" }}>Propuestas</h2>
+                  <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--muted)" }}>
+                    {bids.length > 0
+                      ? `${submittedBidCount} por revisar · ${acceptedBid ? "1 aceptada" : "sin adjudicar"}`
+                      : "Aún no hay propuestas para este trabajo."}
+                  </p>
+                </div>
+                <Link
+                  href={`/client/professionals?jobId=${encodeURIComponent(jobId)}`}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--ink)", textDecoration: "none", fontSize: 12, fontWeight: 700 }}
+                >
+                  Buscar profesionales <ArrowUpRight size={13} />
+                </Link>
+              </div>
+
+              {bids.length === 0 ? (
+                <div style={{ padding: "14px 16px", borderRadius: "12px", border: "1px dashed var(--border)", color: "var(--muted)", fontSize: "12px" }}>
+                  Cuando un profesional envíe una propuesta, podrás revisar presupuesto, disponibilidad y aceptarla desde aquí.
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {bids.map((bid) => {
+                    const meta = BID_STATUS_META[bid.status] ?? BID_STATUS_META.submitted;
+                    const isAccepted = bid.status === "accepted";
+                    const isActionable = bid.status === "submitted" && !acceptedBid;
+                    const isBusy = acceptingBidId === bid.id;
+                    return (
+                      <div key={bid.id} style={{ padding: "14px 16px", borderRadius: "14px", background: "var(--bg)", border: `1px solid ${isAccepted ? "rgba(16,185,129,.28)" : "var(--border)"}` }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", alignItems: "start" }}>
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
+                              <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{bid.proEmail ?? bid.professionalUserId ?? "Profesional"}</strong>
+                              <span style={{ display: "inline-flex", padding: "4px 9px", borderRadius: "999px", background: meta.bg, color: meta.color, fontSize: "11px", fontWeight: 700 }}>
+                                {meta.label}
+                              </span>
+                              {bid.avgRating != null ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "#f59e0b", fontWeight: 700 }}>
+                                  &#9733; {bid.avgRating.toFixed(1)}
+                                  <span style={{ color: "var(--muted)", fontWeight: 400 }}>({bid.ratingCount})</span>
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "11px", color: "var(--faint)" }}>Sin calificaciones</span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "var(--muted)" }}>
+                              {bid.proEmail ?? bid.proUserId} · enviada {formatDate(bid.createdAt)}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <div style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)" }}>{formatBidBudget(bid)}</div>
+                            <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: 2 }}>
+                              Entrega estimada: {bid.etaDays} día{bid.etaDays !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        {bid.note ? (
+                          <p style={{ margin: "10px 0 0", fontSize: "12px", color: "var(--muted)", lineHeight: 1.5 }}>
+                            {bid.note}
+                          </p>
+                        ) : null}
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "12px" }}>
+                          <span style={{ fontSize: "11px", color: isAccepted ? "#10b981" : "var(--faint)" }}>
+                            {isAccepted ? "Este profesional quedó adjudicado al trabajo." : acceptedBid ? "Ya hay una propuesta aceptada." : "Lista para decisión del cliente."}
+                          </span>
+                          {isActionable ? (
+                            <button
+                              onClick={() => void handleAcceptBid(bid)}
+                              disabled={isBusy}
+                              style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "#10b981", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: isBusy ? "wait" : "pointer", opacity: isBusy ? 0.75 : 1 }}
+                            >
+                              {isBusy ? "Aceptando..." : "Aceptar propuesta"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ) : null}
+
           <section style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: "16px", fontWeight: 800, color: "var(--ink)" }}>Resumen del proyecto</h2>
                 <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--muted)" }}>Cuatro puntos vivos para bajar al detalle operativo.</p>
               </div>
-              <Link href="/client/jobs" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--brand)", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
-                Volver al listado
-              </Link>
+              <div style={{ display: "flex", gap: 10 }}>
+                <Link href={`/client/jobs/${jobId}/timeline`} style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#22d3ee", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+                  Ver timeline →
+                </Link>
+                <Link href="/client/jobs" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--brand)", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+                  Volver al listado
+                </Link>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "14px" }}>
               <button type="button" onClick={() => setActiveInsight("escrow")} style={summaryButtonStyle("var(--brand)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(59,130,246,.12)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
@@ -600,8 +798,61 @@ export default function ClientJobDetailPage() {
                   {milestoneSummary.approved}/{milestoneSummary.total} hitos aprobados
                 </p>
               </div>
+              {["accepted", "in_progress", "review"].includes(normalizedJobStatus) ? (
+                <button
+                  onClick={() => setShowMilestoneForm((v) => !v)}
+                  style={{ padding: "8px 12px", borderRadius: "10px", border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                >
+                  {showMilestoneForm ? "Cancelar" : "+ Agregar hito"}
+                </button>
+              ) : null}
             </div>
+
+            {showMilestoneForm ? (
+              <div style={{ padding: "16px", borderRadius: "12px", border: "1px solid rgba(99,102,241,.25)", background: "rgba(99,102,241,.06)", marginBottom: "14px", display: "grid", gap: "10px" }}>
+                <div style={{ fontSize: "12px", fontWeight: 700, color: "#818cf8", marginBottom: "2px" }}>Nuevo hito de pago</div>
+                <input
+                  value={newMilestone.title}
+                  onChange={(e) => setNewMilestone((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="Título del hito (ej: Instalación eléctrica completa)"
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  <input
+                    type="number"
+                    value={newMilestone.amount}
+                    onChange={(e) => setNewMilestone((p) => ({ ...p, amount: e.target.value }))}
+                    placeholder="Monto (USD)"
+                    min={1}
+                    style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "13px", outline: "none" }}
+                  />
+                  <input
+                    type="number"
+                    value={newMilestone.sequence}
+                    onChange={(e) => setNewMilestone((p) => ({ ...p, sequence: e.target.value }))}
+                    placeholder={`Orden (auto: ${milestones.length + 1})`}
+                    min={1}
+                    style={{ padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: "13px", outline: "none" }}
+                  />
+                </div>
+                <button
+                  onClick={() => void handleCreateMilestone()}
+                  disabled={pendingAction !== null || !newMilestone.title.trim() || !newMilestone.amount}
+                  style={{ padding: "10px 14px", borderRadius: "10px", border: "none", background: "#6366f1", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: (!newMilestone.title.trim() || !newMilestone.amount) ? 0.5 : 1 }}
+                >
+                  Crear hito
+                </button>
+              </div>
+            ) : null}
+
             <div style={{ display: "grid", gap: "10px" }}>
+              {milestones.length === 0 && !showMilestoneForm ? (
+                <div style={{ padding: "18px 20px", borderRadius: "14px", border: "1px dashed var(--border)", color: "var(--muted)", fontSize: "12px", textAlign: "center" }}>
+                  {["accepted", "in_progress", "review"].includes(normalizedJobStatus)
+                    ? 'Todavía no hay hitos definidos. Usa "Agregar hito" para estructurar los pagos del proyecto.'
+                    : "No hay hitos configurados para este trabajo."}
+                </div>
+              ) : null}
               {milestones
                 .slice()
                 .sort((left, right) => (asNumber(left.sequence) ?? 0) - (asNumber(right.sequence) ?? 0))

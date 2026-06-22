@@ -1,0 +1,136 @@
+name: Autonomy Staged API
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/autonomy/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/shared/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/api-autonomy-staged-smoke.mjs"
+      - ".github/workflows/autonomy-staged-api.yml"
+  pull_request:
+    paths:
+      - "project-manager-app/apps/api/**"
+      - "project-manager-app/packages/autonomy/**"
+      - "project-manager-app/packages/schemas/**"
+      - "project-manager-app/packages/shared/**"
+      - "project-manager-app/packages/db/**"
+      - "project-manager-app/scripts/api-autonomy-staged-smoke.mjs"
+      - ".github/workflows/autonomy-staged-api.yml"
+
+concurrency:
+  group: autonomy-staged-api-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: project-manager-app
+
+jobs:
+  autonomy-staged-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: semse
+          POSTGRES_PASSWORD: semse
+          POSTGRES_DB: semse
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U semse -d semse"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://semse:semse@127.0.0.1:5433/semse?schema=public
+      AUTH_SECRET: semse_local_secret_123456789012345
+      REDIS_URL: redis://127.0.0.1:6379
+      SEMSE_AUTONOMY_LOCAL_PR_MODE: "true"
+      SEMSE_API_URL: http://127.0.0.1:4112
+      SEMSE_TENANT_ID: tnt_demo
+      SEMSE_ORG_ID: org_ops
+      SEMSE_USER_ID: usr_ops_admin
+      SEMSE_ROLES: OPS_ADMIN
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: project-manager-app/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Build API runtime
+        run: pnpm build:api
+
+      - name: Start API runtime
+        run: |
+          HOST=127.0.0.1 PORT=4112 node apps/api/dist/main.js > /tmp/semse-autonomy-staged-api.log 2>&1 &
+          echo $! > /tmp/semse-autonomy-staged-api.pid
+
+      - name: Wait for healthcheck
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://127.0.0.1:4112/v1/health >/dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API did not start in time"
+          tail -n 200 /tmp/semse-autonomy-staged-api.log || true
+          exit 1
+
+      - name: Run staged autonomy smoke
+        run: pnpm smoke:autonomy:staged
+
+      - name: Stop API runtime
+        if: always()
+        run: |
+          if [ -f /tmp/semse-autonomy-staged-api.pid ]; then
+            kill "$(cat /tmp/semse-autonomy-staged-api.pid)" || true
+          fi
+
+      - name: Upload autonomy staged API log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: autonomy-staged-api-log
+          path: /tmp/semse-autonomy-staged-api.log
+          if-no-files-found: ignore

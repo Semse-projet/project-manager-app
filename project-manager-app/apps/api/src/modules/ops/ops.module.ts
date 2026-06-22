@@ -15,6 +15,7 @@ import { TrustRepository } from "../trust/trust.repository.js";
 import { TrustService } from "../trust/trust.service.js";
 import { ConsciousnessIndexService } from "./consciousness.service.js";
 import { SystemObserverService } from "./observer.service.js";
+import { BehavioralObserverService } from "./behavioral-observer.service.js";
 import { RecommendationEngineService } from "./recommendation-engine.service.js";
 import { SimulationEngineService } from "./simulation-engine.service.js";
 import { ApplyEngineService } from "./apply-engine.service.js";
@@ -22,6 +23,13 @@ import { EvolutionEngineService } from "./evolution-engine.service.js";
 import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
 import { EcosystemMetricsService } from "./ecosystem-metrics.service.js";
 import { SemseAgentsModule } from "../semse-agents/semse-agents.module.js";
+
+const providers = [
+  OpsRepository, OpsService, TrustRepository, TrustService,
+  ConsciousnessIndexService, SystemObserverService, BehavioralObserverService,
+  RecommendationEngineService, SimulationEngineService, ApplyEngineService,
+  EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService,
+];
 
 @Module({
   imports: [
@@ -31,7 +39,11 @@ import { SemseAgentsModule } from "../semse-agents/semse-agents.module.js";
     forwardRef(() => OperationalIntelligenceModule),
   ],
   controllers: [OpsController],
-  providers: [OpsRepository, OpsService, TrustRepository, TrustService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService, EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService],
-  exports: [OpsService, ConsciousnessIndexService, SystemObserverService, RecommendationEngineService, SimulationEngineService, ApplyEngineService, EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService],
+  providers,
+  exports: [
+    OpsService, ConsciousnessIndexService, SystemObserverService, BehavioralObserverService,
+    RecommendationEngineService, SimulationEngineService, ApplyEngineService,
+    EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService,
+  ],
 })
 export class OpsModule {}

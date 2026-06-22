@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, Users, AlertTriangle, DollarSign, CheckSquare, TrendingUp, RefreshCw, FileText, Shield, Bot, BarChart2, Settings, Wrench, MessageSquare } from "lucide-react";
+import { Activity, Users, AlertTriangle, Briefcase, DollarSign, CheckSquare, TrendingUp, RefreshCw, FileText, Shield, Bot, BarChart2, Settings, Wrench, MessageSquare } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge, useHtmlInCanvasSupport } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -94,6 +94,42 @@ export default function AdminDashboardPage() {
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
+      {/* Migration Alert Banner */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "12px",
+          padding: "12px 16px",
+          background: "rgba(139, 92, 246, 0.1)",
+          border: "1px solid rgba(139, 92, 246, 0.2)",
+          borderRadius: "12px",
+          marginBottom: "20px",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Activity size={16} color="#8b5cf6" />
+          <span style={{ fontSize: "13px", color: "var(--ink)", fontWeight: 500 }}>
+            Un nuevo **Mission Control** ejecutivo y centrado en excepciones está disponible.
+          </span>
+        </div>
+        <Link
+          href="/admin/mission-control"
+          style={{
+            fontSize: "12px",
+            color: "#8b5cf6",
+            fontWeight: 700,
+            textDecoration: "none",
+            background: "rgba(139, 92, 246, 0.15)",
+            padding: "6px 12px",
+            borderRadius: "8px",
+          }}
+        >
+          Probar Mission Control
+        </Link>
+      </div>
+
       {/* Header */}
       <div style={{ marginBottom: "28px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
         <div>
@@ -213,6 +249,7 @@ export default function AdminDashboardPage() {
             { label: t("nav.reports"),      href: "/admin/reports",       icon: BarChart2,     color: "#06b6d4" },
             { label: t("nav.fieldOps"),     href: "/admin/field-ops",     icon: Wrench,        color: "#84cc16" },
             { label: t("nav.qaCenter"),     href: "/admin/qa",            icon: CheckSquare,   color: "#f97316" },
+            { label: "PMO",                 href: "/admin/pmo",           icon: Briefcase,     color: "#0ea5e9" },
             { label: t("nav.settings"),     href: "/admin/settings",      icon: Settings,      color: "#64748b" },
             { label: t("nav.domainEvents"), href: "/admin/domain-events", icon: FileText,      color: "#ec4899" },
           ].map(action => {

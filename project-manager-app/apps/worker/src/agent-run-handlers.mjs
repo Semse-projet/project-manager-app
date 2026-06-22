@@ -1,3 +1,5 @@
+import { handleBrowserAgent } from "./browser-agent/browser-agent.runner.mjs";
+
 function asObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
@@ -488,7 +490,7 @@ async function handleFinancialAgent({ run, requestJson, tenantId, logger }) {
 
 async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   const context = extractContext(run);
-  const { projectId } = await resolveProjectAndJob(context, requestJson, tenantId);
+  const { projectId, jobId } = await resolveProjectAndJob(context, requestJson, tenantId);
 
   const [evidenceRes, milestonesRes] = await Promise.all([
     requestJson(`/v1/projects/${encodeURIComponent(projectId)}/evidence`, { method: "GET" }, { tenantId }),
@@ -498,9 +500,8 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   const evidence = Array.isArray(evidenceRes?.data) ? evidenceRes.data.map((e) => asObject(e)) : [];
   const milestones = Array.isArray(milestonesRes?.data) ? milestonesRes.data.map((m) => asObject(m)) : [];
 
-  const photoCount = evidence.filter((e) => normalizeStatus(e.kind) === "photo").length;
-  const videoCount = evidence.filter((e) => normalizeStatus(e.kind) === "video").length;
-  const docCount   = evidence.filter((e) => normalizeStatus(e.kind) === "document").length;
+  const photoEvidence = evidence.filter((e) => normalizeStatus(e.kind) === "photo" || normalizeStatus(e.kind) === "video");
+  const docCount = evidence.filter((e) => normalizeStatus(e.kind) === "document").length;
 
   const submittedMilestones = milestones.filter((m) => {
     const s = normalizeStatus(m.statusRaw ?? m.status);
@@ -508,28 +509,159 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   });
 
   const qaIssues = [];
-  if (photoCount === 0) qaIssues.push("Sin fotos de trabajo. Imposible validar ejecución visual.");
+  let duplicateCount = 0;
+  let lowQualityCount = 0;
+  let processedCount = 0;
+  const analyzedEvidenceIds = [];
+
+  // Batch-analyze all photo evidence — one call per 20 items instead of N sequential calls
+  if (photoEvidence.length > 0) {
+    const BATCH_SIZE = 20;
+    const allEvidenceIds = photoEvidence.map((e) => asString(e.id));
+    for (let i = 0; i < allEvidenceIds.length; i += BATCH_SIZE) {
+      const chunk = allEvidenceIds.slice(i, i + BATCH_SIZE);
+      try {
+        const batchRes = await requestJson(
+          "/v1/vision/batch-by-ids",
+          { method: "POST", body: JSON.stringify({ evidenceIds: chunk, jobId }) },
+          { tenantId }
+        );
+        const batchData = asObject(batchRes?.data);
+        const results = Array.isArray(batchData?.results) ? batchData.results : [];
+        for (const r of results) {
+          if (r.status === "completed" && r.result) {
+            processedCount += 1;
+            analyzedEvidenceIds.push(asString(r.evidenceId));
+            if (asNumber(r.result?.duplicate?.duplicateRisk) >= 0.85) duplicateCount += 1;
+            if (!r.result?.governance?.canAutoApprove || asNumber(r.result?.quality?.qualityScore) < 0.60) lowQualityCount += 1;
+          }
+        }
+      } catch (err) {
+        logger.warn({ chunkStart: i, error: err.message }, "Batch vision analysis failed — falling back to individual calls");
+        // Fallback: analyze each item individually so QA is never completely blind
+        for (const evidenceId of chunk) {
+          try {
+            const visionRes = await requestJson(
+              `/v1/vision/analyze-by-evidence/${encodeURIComponent(evidenceId)}`,
+              { method: "POST" },
+              { tenantId }
+            );
+            const analysis = asObject(visionRes?.data);
+            if (analysis && (analysis.status === "completed" || analysis.status === "success")) {
+              processedCount += 1;
+              analyzedEvidenceIds.push(evidenceId);
+              if (asNumber(analysis.duplicateRisk) >= 0.85) duplicateCount += 1;
+              if (!analysis.canAutoApprove || asNumber(analysis.qualityScore) < 0.60) lowQualityCount += 1;
+            }
+          } catch (fallbackErr) {
+            logger.warn({ evidenceId, error: fallbackErr.message }, "Fallback vision analysis also failed");
+          }
+        }
+      }
+    }
+  }
+
+  // Multi-image location consistency check — flags outlier images from different locations
+  let consistencyScore = 1;
+  let outlierCount = 0;
+  if (analyzedEvidenceIds.length >= 2) {
+    try {
+      const consistencyRes = await requestJson(
+        "/v1/vision/consistency-by-ids",
+        { method: "POST", body: JSON.stringify({ evidenceIds: analyzedEvidenceIds }) },
+        { tenantId }
+      );
+      const consistency = asObject(consistencyRes?.data);
+      consistencyScore = asNumber(consistency?.consistencyScore ?? 1);
+      outlierCount = Array.isArray(consistency?.outlierIndices) ? consistency.outlierIndices.length : 0;
+    } catch (err) {
+      logger.warn({ error: err.message }, "Failed to run location consistency check");
+    }
+  }
+
+  if (photoEvidence.length === 0) {
+    qaIssues.push("Sin fotos o videos de trabajo. Imposible validar ejecución visual.");
+  }
   if (submittedMilestones.length > 0 && evidence.length < submittedMilestones.length) {
     qaIssues.push(`${submittedMilestones.length} hito(s) enviados con ${evidence.length} evidencia(s) total — ratio bajo.`);
   }
+  if (duplicateCount > 0) {
+    qaIssues.push(`Alerta de fraude: ${duplicateCount} imagen(es) sospechosa(s) de duplicidad.`);
+  }
+  if (lowQualityCount > 0) {
+    qaIssues.push(`Calidad deficiente: ${lowQualityCount} imagen(es) borrosa(s) o mal iluminadas.`);
+  }
+  if (outlierCount > 0) {
+    qaIssues.push(`Inconsistencia de ubicación: ${outlierCount} imagen(es) no corresponden al mismo lugar de trabajo.`);
+  }
 
-  const qaScore = evidence.length === 0 ? 0 : Math.min(100, Math.round((photoCount * 40 + videoCount * 35 + docCount * 25) / Math.max(1, milestones.length)));
+  // Calculate base score
+  let qaScore = evidence.length === 0 ? 0 : Math.min(100, Math.round((photoEvidence.length * 40 + docCount * 25) / Math.max(1, milestones.length)));
+
+  // Apply visual criteria penalties
+  if (duplicateCount > 0) {
+    qaScore = 0; // Fraud resets quality score to zero
+  } else if (lowQualityCount > 0) {
+    qaScore = Math.max(10, qaScore - (lowQualityCount * 15)); // Penalize 15 points per bad image
+  } else if (outlierCount > 0) {
+    qaScore = Math.max(10, qaScore - (outlierCount * 20)); // Penalize 20 points per location outlier
+  }
+
+  // Vision-gated milestone auto-approval — only when no fraud detected
+  const autoApprovedMilestones = [];
+  if (duplicateCount === 0 && submittedMilestones.length > 0) {
+    for (const milestone of submittedMilestones) {
+      const milestoneId = asString(milestone.id);
+      if (!milestoneId) continue;
+      try {
+        const summaryRes = await requestJson(
+          `/v1/milestones/${encodeURIComponent(milestoneId)}/vision-summary`,
+          { method: "GET" },
+          { tenantId }
+        );
+        const visionSummary = asObject(summaryRes?.data);
+        if (visionSummary?.overallVisionReady === true) {
+          await requestJson(
+            `/v1/milestones/${encodeURIComponent(milestoneId)}/approve`,
+            { method: "POST" },
+            { tenantId }
+          );
+          autoApprovedMilestones.push(milestoneId);
+          logger.info({ milestoneId, qaScore }, "Milestone auto-approved via Vision AI gate");
+        }
+      } catch (err) {
+        logger.warn({ milestoneId, error: err.message }, "Failed to auto-approve milestone");
+      }
+    }
+  }
 
   const result = {
     projectId,
     evidenceTotal: evidence.length,
-    photoCount, videoCount, docCount,
+    photoCount: photoEvidence.length,
+    docCount,
     submittedMilestones: submittedMilestones.length,
+    visionProcessedCount: processedCount,
+    visionDuplicatesCount: duplicateCount,
+    visionLowQualityCount: lowQualityCount,
+    visionConsistencyScore: consistencyScore,
+    visionOutlierCount: outlierCount,
     qaScore,
     qaStatus: qaScore >= 70 ? "pass" : qaScore >= 40 ? "partial" : "fail",
     qaIssues,
-    recommendation: qaScore >= 70
-      ? "Calidad de evidencia suficiente para revisión de hitos."
-      : `Solicitar evidencia adicional antes de aprobar: ${qaIssues.join("; ")}`,
+    autoApprovedMilestones,
+    recommendation: autoApprovedMilestones.length > 0
+      ? `${autoApprovedMilestones.length} hito(s) aprobado(s) automáticamente por Vision AI.`
+      : qaScore >= 70
+        ? "Calidad de evidencia suficiente para revisión de hitos."
+        : `Solicitar evidencia adicional antes de aprobar: ${qaIssues.join("; ")}`,
   };
 
-  const summary = `QA Agent evaluó '${projectId}': score=${qaScore}/100 (${evidence.length} evidencias, ${qaIssues.length} issues).`;
-  logger.info({ runId: run.id, projectId, qaScore }, "qa-agent handler completed");
+  const autoApproveNote = autoApprovedMilestones.length > 0
+    ? ` ${autoApprovedMilestones.length} hito(s) auto-aprobado(s).`
+    : "";
+  const summary = `QA Agent evaluó '${projectId}': score=${qaScore}/100 (${evidence.length} evidencias, ${processedCount} procesadas por Vision, ${qaIssues.length} issues).${autoApproveNote}`;
+  logger.info({ runId: run.id, projectId, qaScore, autoApprovedCount: autoApprovedMilestones.length }, "qa-agent handler completed");
   return { summary, result };
 }
 
@@ -542,6 +674,7 @@ const SPECIALIZED_HANDLERS = {
   "legal-agent":     handleLegalAgent,
   "financial-agent": handleFinancialAgent,
   "qa-agent":        handleQaAgent,
+  "browser-agent":   handleBrowserAgent,
 };
 
 export function shouldUseSpecializedWorkerHandler(agentType) {

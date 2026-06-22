@@ -5,10 +5,26 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: {
-    default: "SEMSEproject",
+    default: "SEMSE Project — Profesionales verificados y pagos seguros",
     template: "%s · SEMSE",
   },
-  description: "Encuentra profesionales verificados, gestiona proyectos con IA y paga con seguridad.",
+  description: "Conecta con profesionales verificados para construcción, remodelación y mantenimiento. Gestiona proyectos con IA, protege pagos por hitos y documenta cada avance.",
+  keywords: ["construcción", "remodelación", "mantenimiento", "profesionales verificados", "pagos seguros", "SEMSE"],
+  openGraph: {
+    type: "website",
+    locale: "es_MX",
+    url: "https://semse-web-production.up.railway.app",
+    siteName: "SEMSE Project",
+    title: "SEMSE Project — Profesionales verificados y pagos seguros",
+    description: "Conecta con profesionales verificados. Pagos seguros con escrow. Gestión con IA.",
+    images: [{ url: "/icon-1024.png", width: 1024, height: 1024, alt: "SEMSE Project" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "SEMSE Project",
+    description: "Profesionales verificados. Pagos seguros. IA operativa.",
+    images: ["/icon-1024.png"],
+  },
   robots: { index: false },
 };
 

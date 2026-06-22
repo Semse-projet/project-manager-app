@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import crypto from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { AgentApprovalRequest } from "@semse/agents";
 import { getActionPolicy } from "@semse/agents";
@@ -381,7 +381,7 @@ export class ProjectCopilotHarness {
       }
     }
 
-    const sessionId = reply.threadId ?? randomUUID();
+    const sessionId = reply.threadId ?? crypto.randomUUID();
     void this.agentMemory.writeSessionSummary({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
@@ -1234,7 +1234,7 @@ export class ProjectCopilotHarness {
   ): AgentApprovalRequest {
     const riskScore = riskLevel === "high" ? 0.85 : riskLevel === "medium" ? 0.55 : 0.2;
     return {
-      id: `apr_copilot_${Date.now()}_${randomUUID().slice(0, 8)}`,
+      id: `apr_copilot_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`,
       runId: `copilot_action_${runtime.projectId}_${Date.now()}`,
       correlationId: `copilot:${runtime.projectId}:${actionType}:${Date.now()}`,
       agentType: "orchestrator",

@@ -1,10 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { exec } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join, resolve, isAbsolute } from "node:path";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 @Injectable()
 export class TechnicalRuntimeService {
@@ -73,9 +74,9 @@ export class TechnicalRuntimeService {
   async searchPatterns(query: string, path?: string): Promise<string[]> {
     const safePath = await this.assertSafePath(path ?? ".");
     try {
-      // Usamos grep para buscar patrones de forma eficiente
-      const { stdout } = await execAsync(`grep -rIl "${query.replace(/"/g, '\\"')}" "${safePath}" | head -n 50`);
-      return stdout.trim().split("\n").filter(Boolean).map(p => p.replace(this.rootPath + "/", ""));
+      // Usamos grep para buscar patrones de forma eficiente (sin shell, args directos)
+      const { stdout } = await execFileAsync("grep", ["-rIl", "--", query, safePath], { maxBuffer: 10 * 1024 * 1024 });
+      return stdout.trim().split("\n").filter(Boolean).slice(0, 50).map(p => p.replace(this.rootPath + "/", ""));
     } catch (err) {
       this.logger.warn(`Search failed or no matches found: ${String(err)}`);
       return [];

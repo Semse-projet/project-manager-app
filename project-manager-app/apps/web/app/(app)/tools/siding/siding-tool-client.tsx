@@ -1,316 +1,179 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Home, Calculator, AlertTriangle } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Home } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
-type SidingMaterial = "vinyl" | "insulated_vinyl" | "fiber_cement" | "wood" | "engineered_wood" | "metal";
-type FlashingCondition = "good" | "poor" | "unknown";
-type Stories = 1 | 2 | 3;
+export type SidingSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
 
 type SidingInput = {
-  wallSqFt: number;
-  stories: Stories;
-  sidingType: SidingMaterial;
+  wallAreaSqft: number;
+  sidingType: "vinyl" | "fiber_cement" | "wood" | "metal" | "brick_veneer" | "stone";
+  colorProfile: "standard" | "premium" | "custom";
   removeOldSiding: boolean;
-  windowCount: number;
-  doorCount: number;
-  corners: number;
-  visibleWaterDamage: boolean;
-  houseWrapIncluded: boolean;
-  flashingCondition: FlashingCondition;
-  soffitFasciaIncluded: boolean;
-  clientProvidesMaterials: boolean;
+  wrapExisting: boolean;
+  insulationUpgrade: boolean;
+  accessibilityLevel: "ground" | "single_story" | "multi_story" | "scaffolding";
   mode: ToolMode;
 };
 
-const INITIAL: SidingInput = {
-  wallSqFt: 1800, stories: 1, sidingType: "vinyl",
-  removeOldSiding: false, windowCount: 8, doorCount: 2,
-  corners: 4, visibleWaterDamage: false, houseWrapIncluded: true,
-  flashingCondition: "good", soffitFasciaIncluded: false,
-  clientProvidesMaterials: false, mode: "professional",
+const INITIAL_INPUT: SidingInput = {
+  wallAreaSqft: 1200,
+  sidingType: "vinyl",
+  colorProfile: "standard",
+  removeOldSiding: false,
+  wrapExisting: false,
+  insulationUpgrade: false,
+  accessibilityLevel: "single_story",
+  mode: "professional",
 };
 
-const MATERIAL_LABELS: Record<SidingMaterial, string> = {
-  vinyl:           "Vinyl siding",
-  insulated_vinyl: "Insulated vinyl",
-  fiber_cement:    "Fiber cement (Hardie)",
-  wood:            "Wood siding",
-  engineered_wood: "Engineered wood",
-  metal:           "Metal / aluminum",
-};
+const SECTIONS: Array<{ id: SidingSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/siding/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/siding/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/siding/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/siding/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/siding/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/siding/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/siding/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/siding/research", icon: Globe2 },
+];
 
-const FLASHING_LABELS: Record<FlashingCondition, string> = {
-  good:    "Good condition",
-  poor:    "Poor / failing",
-  unknown: "Unknown — not inspected",
-};
-
-function Toggle({ label, subtitle, checked, onChange }: { label: string; subtitle?: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition ${checked ? "border-cyan-400/50 bg-cyan-400/8" : "border-white/[0.08] bg-white/[0.02] hover:border-white/[0.14]"}`}>
-      <input type="checkbox" checked={checked} onChange={e => onChange(e.target.checked)} className="mt-0.5 h-4 w-4 accent-cyan-400 flex-shrink-0" />
-      <div>
-        <div className="text-sm text-ink">{label}</div>
-        {subtitle && <div className="text-xs text-muted mt-0.5">{subtitle}</div>}
-      </div>
-    </label>
-  );
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-function NumberField({ label, value, onChange, min = 0 }: { label: string; value: number; onChange: (v: number) => void; min?: number }) {
-  return (
-    <Input label={label} type="number" min={min} value={value}
-      onChange={e => onChange(Math.max(min, Number(e.target.value)))} />
-  );
-}
+type SidingToolClientProps = { section: SidingSection };
 
-// Intelligence badges derived from the result
-function IntelligenceBar({ result }: { result: SemseToolResult }) {
-  const confidence  = (result as any).confidenceScore;
-  const readiness   = (result as any).readinessScore;
-  const disputeRisk = (result as any).disputeRisk;
-  const safeTo      = (result as any).safeToProceed;
-
-  if (!confidence) return null;
-
-  const riskColor = result.risk.level === "critical" ? "text-red-400 border-red-500/40" :
-                    result.risk.level === "high"     ? "text-orange-400 border-orange-500/40" :
-                    result.risk.level === "medium"   ? "text-yellow-400 border-yellow-500/40" :
-                                                       "text-green-400 border-green-500/40";
-
-  const confColor = confidence.level === "high"   ? "text-green-400" :
-                    confidence.level === "medium"  ? "text-yellow-400" : "text-red-400";
-
-  return (
-    <div className="grid gap-3">
-      {/* SEMSE Intelligence Panel */}
-      <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/20 p-4">
-        <div className="text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-3">SEMSE Intelligence</div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className={`rounded-lg border p-3 text-center ${riskColor}`}>
-            <div className="text-lg font-bold">{result.risk.score}</div>
-            <div className="text-xs opacity-70">Risk Score</div>
-            <div className="text-xs font-semibold mt-0.5">{result.risk.level.toUpperCase()}</div>
-          </div>
-          <div className={`rounded-lg border border-white/[0.08] p-3 text-center ${confColor}`}>
-            <div className="text-lg font-bold">{confidence.score}</div>
-            <div className="text-xs opacity-70">Confidence</div>
-            <div className="text-xs font-semibold mt-0.5">{confidence.level.toUpperCase()}</div>
-          </div>
-          <div className="rounded-lg border border-white/[0.08] p-3 text-center text-slate-300">
-            <div className="text-lg font-bold">{readiness?.score ?? "—"}</div>
-            <div className="text-xs opacity-70">Readiness</div>
-            <div className="text-xs font-semibold mt-0.5">{readiness?.level?.toUpperCase() ?? "N/A"}</div>
-          </div>
-          <div className="rounded-lg border border-white/[0.08] p-3 text-center text-slate-300">
-            <div className="text-lg font-bold">{disputeRisk?.score ?? "—"}</div>
-            <div className="text-xs opacity-70">Dispute Risk</div>
-            <div className="text-xs font-semibold mt-0.5">{disputeRisk?.level?.toUpperCase() ?? "N/A"}</div>
-          </div>
-        </div>
-
-        {/* Safe to proceed gates */}
-        {safeTo && (
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {[
-              { label: "Estimate", ok: safeTo.canEstimate },
-              { label: "Publish", ok: safeTo.canPublish },
-              { label: "BuildOps", ok: safeTo.canCreateBuildOpsPlan },
-              { label: "Contract", ok: safeTo.canCreateContract },
-            ].map(({ label, ok }) => (
-              <div key={label} className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs ${ok ? "bg-green-950/40 text-green-400" : "bg-red-950/40 text-red-400"}`}>
-                <span>{ok ? "✓" : "✗"}</span>
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Price bands */}
-      {(result as any).priceBands && (
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Price Bands</div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg bg-white/[0.03] p-2">
-              <div className="text-sm font-bold text-slate-400">${(result as any).priceBands.low.toLocaleString()}</div>
-              <div className="text-xs text-muted">Low</div>
-            </div>
-            <div className="rounded-lg bg-cyan-950/30 border border-cyan-500/20 p-2">
-              <div className="text-sm font-bold text-cyan-300">${(result as any).priceBands.mid.toLocaleString()}</div>
-              <div className="text-xs text-cyan-400/70">Recommended</div>
-            </div>
-            <div className="rounded-lg bg-white/[0.03] p-2">
-              <div className="text-sm font-bold text-slate-400">${(result as any).priceBands.high.toLocaleString()}</div>
-              <div className="text-xs text-muted">High</div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Risk reasons */}
-      {(result.risk.reasons ?? []).length > 0 && (
-        <div className="rounded-xl border border-orange-500/20 bg-orange-950/10 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={14} className="text-orange-400" />
-            <span className="text-xs font-semibold text-orange-400">Risk factors</span>
-          </div>
-          <ul className="space-y-1">
-            {(result.risk.reasons ?? []).map((rn: string, i: number) => (
-              <li key={i} className="text-xs text-orange-200 flex gap-2"><span className="opacity-50">·</span>{rn}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function SidingToolClient() {
-  const [input, setInput] = useState<SidingInput>(INITIAL);
+export function SidingToolClient({ section }: SidingToolClientProps) {
+  const [input, setInput] = useState<SidingInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const costPerSqft = useMemo(() => {
+    const baseCost: Record<typeof input.sidingType, number> = {
+      vinyl: 4.5, fiber_cement: 8.0, wood: 7.0, metal: 5.5, brick_veneer: 12.0, stone: 15.0,
+    };
+    const base = baseCost[input.sidingType] || 5.0;
+    const removalFactor = input.removeOldSiding ? 1.3 : 1.0;
+    const colorFactor = input.colorProfile === "custom" ? 1.2 : 1.0;
+    const accessFactor = { ground: 1.0, single_story: 1.1, multi_story: 1.4, scaffolding: 1.8 }[input.accessibilityLevel];
+    return base * removalFactor * colorFactor * accessFactor;
+  }, [input.sidingType, input.removeOldSiding, input.colorProfile, input.accessibilityLevel]);
+
+  const estimatedCost = useMemo(() => input.wallAreaSqft * costPerSqft * 1.12, [input.wallAreaSqft, costPerSqft]);
+
   async function calculate() {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
-      const res = await calculateSemseTool({ tool: "siding", mode: input.mode, input });
-      setResult(res);
-    } catch (e) { setError(e instanceof Error ? e.message : "Error calculating siding estimate"); }
-    finally { setLoading(false); }
+      const response = await calculateSemseTool({ tool: "siding", mode: input.mode, input });
+      setResult(response);
+    } catch (exception) {
+      setError(exception instanceof Error ? exception.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const set = <K extends keyof SidingInput>(key: K, value: SidingInput[K]) =>
-    setInput(prev => ({ ...prev, [key]: value }));
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Wall Area</div><div className="text-2xl font-bold">{input.wallAreaSqft.toFixed(0)} sqft</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Type</div><div className="text-lg font-bold capitalize">{input.sidingType.replace(/_/g, ' ')}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
 
-  const riskIsHigh = result && (result.risk.level === "high" || result.risk.level === "critical");
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Siding Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Wall Area (sqft)" type="number" value={input.wallAreaSqft} onChange={(e) => setInput({...input, wallAreaSqft: Number(e.target.value)})} />
+                <Select label="Type" value={input.sidingType} onChange={(e) => setInput({...input, sidingType: e.target.value as any})}>
+                  <option value="vinyl">Vinyl</option>
+                  <option value="fiber_cement">Fiber Cement</option>
+                  <option value="wood">Wood</option>
+                  <option value="metal">Metal</option>
+                  <option value="brick_veneer">Brick Veneer</option>
+                  <option value="stone">Stone</option>
+                </Select>
+                <Select label="Access Level" value={input.accessibilityLevel} onChange={(e) => setInput({...input, accessibilityLevel: e.target.value as any})}>
+                  <option value="ground">Ground Level</option>
+                  <option value="single_story">Single Story</option>
+                  <option value="multi_story">Multi Story</option>
+                  <option value="scaffolding">Scaffolding Required</option>
+                </Select>
+                <Select label="Color Profile" value={input.colorProfile} onChange={(e) => setInput({...input, colorProfile: e.target.value as any})}>
+                  <option value="standard">Standard</option>
+                  <option value="premium">Premium</option>
+                  <option value="custom">Custom</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Wall area: {input.wallAreaSqft.toFixed(0)} sqft • Type: {input.sidingType} • Access: {input.accessibilityLevel}</p></Card>;
+
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">{input.sidingType}: {input.wallAreaSqft.toFixed(0)} sqft • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
+
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Siding Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.wallAreaSqft.toFixed(0)} sqft • {input.sidingType}</p></Card>;
+
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Prep & removal, substrate repair, siding install, trim & sealing, final inspection...</p></Card>;
+
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Alignment, fastening, seams, water barrier, trim finish, color match...</p></Card>;
+
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Siding Research</h3><Input placeholder="Search siding materials, durability, maintenance requirements..." /></Card>;
+
+      default:
+        return null;
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} /> Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <div className="flex items-center gap-3">
-            <Home size={28} className="text-cyan-400" />
-            <h1 className="text-3xl font-bold tracking-tight text-ink">Siding Installation Tool</h1>
-          </div>
-          <p className="max-w-3xl text-sm text-muted">
-            Exterior siding estimator with hidden damage detection, inspection gates, flashing risk scoring,
-            change order prediction and evidence-based payment milestones.
-          </p>
+          <div className="flex items-center gap-3"><Home className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Siding Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete siding estimation with materials, labor, and installation options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[440px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-center gap-2 text-sm font-semibold text-muted">
-              <Calculator size={16} /> Inputs
-            </div>
-
-            {/* Area + stories */}
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField label="Wall sq ft" value={input.wallSqFt} onChange={v => set("wallSqFt", v)} min={100} />
-              <Select label="Stories" value={input.stories} onChange={e => set("stories", Number(e.target.value) as Stories)}>
-                <option value={1}>1 story</option>
-                <option value={2}>2 stories</option>
-                <option value={3}>3 stories</option>
-              </Select>
-            </div>
-
-            {/* Material */}
-            <Select label="Siding material" value={input.sidingType} onChange={e => set("sidingType", e.target.value as SidingMaterial)}>
-              {(Object.entries(MATERIAL_LABELS) as [SidingMaterial, string][]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </Select>
-
-            {/* Openings */}
-            <div className="grid grid-cols-3 gap-3">
-              <NumberField label="Windows"  value={input.windowCount} onChange={v => set("windowCount", v)} />
-              <NumberField label="Doors"    value={input.doorCount}   onChange={v => set("doorCount", v)} />
-              <NumberField label="Corners"  value={input.corners}     onChange={v => set("corners", v)} />
-            </div>
-
-            {/* Flashing */}
-            <Select label="Existing flashing condition" value={input.flashingCondition}
-              onChange={e => set("flashingCondition", e.target.value as FlashingCondition)}>
-              {(Object.entries(FLASHING_LABELS) as [FlashingCondition, string][]).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </Select>
-
-            {/* Toggles */}
-            <div className="grid gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted">Scope options</label>
-              <Toggle label="Remove old siding" subtitle="Creates mandatory inspection gate"
-                checked={input.removeOldSiding} onChange={v => set("removeOldSiding", v)} />
-              <Toggle label="House wrap / weather barrier included"
-                checked={input.houseWrapIncluded} onChange={v => set("houseWrapIncluded", v)} />
-              <Toggle label="Soffit & fascia included"
-                checked={input.soffitFasciaIncluded} onChange={v => set("soffitFasciaIncluded", v)} />
-            </div>
-
-            <div className="grid gap-2">
-              <label className="text-xs font-semibold uppercase tracking-wide text-muted">Risk conditions</label>
-              <Toggle label="Visible water damage" subtitle="Raises risk — hidden damage allowance added"
-                checked={input.visibleWaterDamage} onChange={v => set("visibleWaterDamage", v)} />
-              <Toggle label="Client provides materials" subtitle="Reduces estimate confidence"
-                checked={input.clientProvidesMaterials} onChange={v => set("clientProvidesMaterials", v)} />
-            </div>
-
-            {/* Mode */}
-            <Select label="Calculation mode" value={input.mode} onChange={e => set("mode", e.target.value as ToolMode)}>
-              <option value="client">Client</option>
-              <option value="professional">Professional</option>
-              <option value="admin">Admin</option>
-            </Select>
-
-            {/* Contextual warnings */}
-            {input.flashingCondition === "unknown" && (
-              <div className="rounded-xl border border-yellow-500/30 bg-yellow-950/30 px-4 py-3 text-xs text-yellow-200">
-                ⚠️ Unknown flashing condition: verify before installing. May require change order.
-              </div>
-            )}
-            {input.visibleWaterDamage && input.removeOldSiding && (
-              <div className="rounded-xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-xs text-red-200">
-                🔴 High risk: visible water damage + removal required. Inspection gate + change order protection strongly recommended.
-              </div>
-            )}
-            {input.sidingType === "fiber_cement" && (
-              <div className="rounded-xl border border-blue-500/30 bg-blue-950/30 px-4 py-3 text-xs text-blue-200">
-                ℹ️ Fiber cement requires paint finish — budget separately. Schedule within same project window.
-              </div>
-            )}
-
-            <Button onClick={calculate} disabled={loading} className="w-full">
-              {loading ? "Calculating…" : "Calculate siding estimate"}
-            </Button>
-
-            {error && (
-              <div className="rounded-xl border border-red-500/40 bg-red-950/50 px-4 py-3 text-sm text-red-200">{error}</div>
-            )}
-          </Card>
-
-          <div className="grid gap-4 self-start">
-            {result && (
-              <>
-                <IntelligenceBar result={result} />
-                <ToolResultPanel result={result} />
-              </>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

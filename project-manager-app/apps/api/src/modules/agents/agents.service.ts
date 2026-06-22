@@ -123,8 +123,8 @@ function isGovernedRuntimeAgent(agentType: string): agentType is RuntimeAgentRol
   return runtimeAgentRoles.includes(agentType as RuntimeAgentRole);
 }
 
-function isSpecializedWorkerAgentType(agentType: string): agentType is "field-ops" | "project-copilot" {
-  return agentType === "field-ops" || agentType === "project-copilot";
+function isSpecializedWorkerAgentType(agentType: string): agentType is "field-ops" | "project-copilot" | "browser-agent" {
+  return agentType === "field-ops" || agentType === "project-copilot" || agentType === "browser-agent";
 }
 
 @Injectable()
@@ -215,6 +215,20 @@ export class AgentsService {
 
   async detail(input: { tenantId: string; orgId: string; userId: string; runId: string }) {
     return this.agentsRepository.findById(input);
+  }
+
+  async runEvents(input: { tenantId: string; runId: string }) {
+    return this.agentsRepository.getEvents(input);
+  }
+
+  async cancelRun(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+    const cancelled = await this.agentsRepository.cancel(input);
+    await this.auditService.append({
+      tenantId: input.tenantId, orgId: input.orgId, actorUserId: input.userId,
+      action: "agent.run.cancel", entityType: "AgentRun", entityId: cancelled.id,
+      requestId: input.requestId, timestamp: new Date().toISOString(),
+    });
+    return cancelled;
   }
 
   async create(input: {

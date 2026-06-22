@@ -19,6 +19,10 @@ function logFatal(label, err, meta) {
   }));
 }
 
+function maskRedisUrl(value) {
+  return value ? value.replace(/:[^:@]+@/, ":***@") : "MISSING";
+}
+
 process.on("uncaughtException", (err) => {
   logFatal("uncaughtException", err);
   process.exit(1);
@@ -32,6 +36,7 @@ import { config as dotenvConfig } from "dotenv";
 import { setTimeout as sleep } from "node:timers/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { hostname } from "node:os";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import pino from "pino";
@@ -61,6 +66,7 @@ const env = validateWorkerEnv(process.env);
 const START_RUN_RETRY_DELAYS_MS = [150, 400, 900];
 const START_STABILIZATION_DELAY_MS = 250;
 const WORKER_LOCK_TTL_MS = 30_000;
+const WORKER_LOCK_RETRY_MS = 1_500;
 
 const config = {
   apiBaseUrl: env.SEMSE_API_URL,
@@ -107,19 +113,45 @@ process.on("SIGTERM", () => {
 
 async function acquireWorkerLock() {
   const lockKey = `semse:worker-lock:${config.workerId}`;
-  const set = await connection.set(lockKey, process.pid, "PX", WORKER_LOCK_TTL_MS, "NX");
-  if (!set) {
+  const holderId = `${hostname()}:${process.pid}:${Date.now()}`;
+  while (!shouldStop) {
+    const set = await connection.set(lockKey, holderId, "PX", WORKER_LOCK_TTL_MS, "NX");
+    if (set) break;
+
     const holder = await connection.get(lockKey);
-    logger.error({ lockKey, holder }, "another worker with same workerId is already running — refusing to start");
-    process.exit(1);
+    logger.info(
+      { lockKey, holder, retryMs: WORKER_LOCK_RETRY_MS },
+      "another worker with same workerId is running — waiting for lock"
+    );
+    await sleep(WORKER_LOCK_RETRY_MS);
   }
+
+  if (shouldStop) {
+    throw new Error("worker stopped before lock acquisition");
+  }
+
   // Refresh lock on a short interval so it doesn't expire while we're alive
   const lockTimer = setInterval(async () => {
-    await connection.pexpire(lockKey, WORKER_LOCK_TTL_MS);
+    const refreshed = await connection.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('pexpire', KEYS[1], ARGV[2]) else return 0 end",
+      1,
+      lockKey,
+      holderId,
+      String(WORKER_LOCK_TTL_MS)
+    );
+    if (refreshed !== 1 && !shouldStop) {
+      logger.error({ lockKey }, "worker lock lost — stopping worker");
+      shouldStop = true;
+    }
   }, WORKER_LOCK_TTL_MS / 3);
   return async () => {
     clearInterval(lockTimer);
-    await connection.del(lockKey);
+    await connection.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      1,
+      lockKey,
+      holderId
+    );
   };
 }
 
@@ -133,7 +165,7 @@ async function main() {
     pid: process.pid,
     nodeEnv: process.env.NODE_ENV,
     apiBaseUrl: config.apiBaseUrl,
-    redisUrl: config.redisUrl ? config.redisUrl.replace(/:[^:@]+@/, ":***@") : "MISSING",
+    redisUrl: maskRedisUrl(config.redisUrl),
     authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
     bootstrapToken: config.bootstrapToken ? "SET" : "NOT_SET",
     workerId: config.workerId,
@@ -149,7 +181,7 @@ async function main() {
     {
       workerId: config.workerId,
       apiBaseUrl: config.apiBaseUrl,
-      redisUrl: config.redisUrl,
+      redisUrl: maskRedisUrl(config.redisUrl),
       heartbeatIntervalMs: config.heartbeatIntervalMs,
       runDurationMs: config.runDurationMs,
       reclaimIntervalMs: config.reclaimIntervalMs,

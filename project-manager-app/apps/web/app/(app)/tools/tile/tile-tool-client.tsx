@@ -1,81 +1,145 @@
 "use client";
-
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Grid2x2, Calculator } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, ClipboardCheck, ClipboardList, Globe2, LayoutDashboard, Package, ReceiptText, ShieldCheck, Layers } from "lucide-react";
 import { Badge, Button, Card, Input, Select } from "@/components/ui";
 import { calculateSemseTool, type SemseToolResult, type ToolMode } from "@/app/lib/semse-tools-api";
 import { ToolResultPanel } from "../ToolResultPanel";
 
+export type TileSection = "dashboard" | "estimate" | "scope" | "materials" | "summary" | "milestones" | "inspection" | "research";
+
 type TileInput = {
-  lengthFt: number;
-  widthFt: number;
-  tileSizeIn: number;
-  pattern: "straight" | "diagonal" | "herringbone";
-  areaType: "floor" | "wall" | "backsplash" | "shower";
-  waterproofing: boolean;
-  demoExisting: boolean;
-  substratePrep: "none" | "minor" | "major";
-  groutType: "standard" | "sanded" | "epoxy";
+  squareFeet: number;
+  material: "ceramic" | "porcelain" | "natural_stone" | "glass" | "specialty";
+  size: "12x12" | "18x18" | "24x24" | "mixed";
+  finish: "matte" | "glossy" | "textured" | "custom";
+  grout: "standard" | "epoxy" | "specialty";
+  substrate: "existing" | "new_installation" | "removal";
+  pattern: "straight" | "diagonal" | "herringbone" | "custom";
   mode: ToolMode;
 };
 
 const INITIAL_INPUT: TileInput = {
-  lengthFt: 12,
-  widthFt: 10,
-  tileSizeIn: 12,
+  squareFeet: 200,
+  material: "ceramic",
+  size: "12x12",
+  finish: "matte",
+  grout: "standard",
+  substrate: "new_installation",
   pattern: "straight",
-  areaType: "floor",
-  waterproofing: false,
-  demoExisting: false,
-  substratePrep: "minor",
-  groutType: "standard",
   mode: "professional",
 };
 
-function NumberField({
-  label,
-  value,
-  onChange,
-  step = 1,
-}: {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  step?: number;
-}) {
-  return (
-    <Input
-      label={label}
-      type="number"
-      step={step}
-      value={value}
-      onChange={(event) => onChange(Number(event.target.value))}
-    />
-  );
+const SECTIONS: Array<{ id: TileSection; label: string; href: string; icon: LucideIcon }> = [
+  { id: "dashboard", label: "Dashboard", href: "/tools/tile/dashboard", icon: LayoutDashboard },
+  { id: "estimate", label: "Estimacion", href: "/tools/tile/estimate", icon: Calculator },
+  { id: "scope", label: "Alcance", href: "/tools/tile/scope", icon: ClipboardList },
+  { id: "materials", label: "Materiales", href: "/tools/tile/materials", icon: Package },
+  { id: "summary", label: "Resumen", href: "/tools/tile/summary", icon: ReceiptText },
+  { id: "milestones", label: "Milestones", href: "/tools/tile/milestones", icon: ShieldCheck },
+  { id: "inspection", label: "Inspeccion", href: "/tools/tile/inspection", icon: ClipboardCheck },
+  { id: "research", label: "Research", href: "/tools/tile/research", icon: Globe2 },
+];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
 }
 
-export function TileToolClient() {
+type TileToolClientProps = { section: TileSection };
+
+export function TileToolClient({ section }: TileToolClientProps) {
   const [input, setInput] = useState<TileInput>(INITIAL_INPUT);
   const [result, setResult] = useState<SemseToolResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const costPerSqft = useMemo(() => {
+    const materialCost: Record<typeof input.material, number> = {
+      ceramic: 3.5, porcelain: 6.0, natural_stone: 12.0, glass: 8.0, specialty: 15.0,
+    };
+    const base = materialCost[input.material];
+    const finishFactor = { matte: 1.0, glossy: 1.1, textured: 1.2, custom: 1.5 }[input.finish];
+    const groutFactor = { standard: 1.0, epoxy: 1.3, specialty: 1.5 }[input.grout];
+    const subFactor = { existing: 1.2, new_installation: 1.0, removal: 1.4 }[input.substrate];
+    const patternFactor = { straight: 1.0, diagonal: 1.1, herringbone: 1.3, custom: 1.6 }[input.pattern];
+    return base * finishFactor * groutFactor * subFactor * patternFactor;
+  }, [input.material, input.finish, input.grout, input.substrate, input.pattern]);
+
+  const estimatedCost = useMemo(() => input.squareFeet * costPerSqft * 1.12, [input.squareFeet, costPerSqft]);
+
   async function calculate() {
     setLoading(true);
     setError(null);
-
     try {
-      const response = await calculateSemseTool({
-        tool: "tile",
-        mode: input.mode,
-        input,
-      });
+      const response = await calculateSemseTool({ tool: "tile", mode: input.mode, input });
       setResult(response);
     } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Unknown tools error");
+      setError(exception instanceof Error ? exception.message : "Unknown error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function renderSection(): ReactNode {
+    switch (section) {
+      case "dashboard":
+        return (
+          <div className="grid gap-6">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <Card className="p-4"><div className="text-sm text-muted">Area</div><div className="text-2xl font-bold">{input.squareFeet} sqft</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Material</div><div className="text-lg font-bold">{input.material}</div></Card>
+              <Card className="p-4"><div className="text-sm text-muted">Est. Cost</div><div className="text-2xl font-bold">{formatCurrency(estimatedCost)}</div></Card>
+            </div>
+          </div>
+        );
+      case "estimate":
+        return (
+          <div className="grid gap-6">
+            <Card className="p-6">
+              <h3 className="mb-4 font-semibold">Tile Parameters</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input label="Square Feet" type="number" value={input.squareFeet} onChange={(e) => setInput({...input, squareFeet: Number(e.target.value)})} />
+                <Select label="Material" value={input.material} onChange={(e) => setInput({...input, material: e.target.value as any})}>
+                  <option value="ceramic">Ceramic</option>
+                  <option value="porcelain">Porcelain</option>
+                  <option value="natural_stone">Natural Stone</option>
+                  <option value="glass">Glass</option>
+                  <option value="specialty">Specialty</option>
+                </Select>
+                <Select label="Size" value={input.size} onChange={(e) => setInput({...input, size: e.target.value as any})}>
+                  <option value="12x12">12x12</option>
+                  <option value="18x18">18x18</option>
+                  <option value="24x24">24x24</option>
+                  <option value="mixed">Mixed</option>
+                </Select>
+                <Select label="Pattern" value={input.pattern} onChange={(e) => setInput({...input, pattern: e.target.value as any})}>
+                  <option value="straight">Straight</option>
+                  <option value="diagonal">Diagonal</option>
+                  <option value="herringbone">Herringbone</option>
+                  <option value="custom">Custom</option>
+                </Select>
+              </div>
+              <Button className="mt-4 w-full" onClick={calculate} disabled={loading}>{loading ? "Calculating..." : "Calculate"}</Button>
+            </Card>
+            {result && <ToolResultPanel result={result} />}
+            {error && <div className="rounded bg-red-500/10 p-4 text-red-500">{error}</div>}
+          </div>
+        );
+      case "scope":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Area: {input.squareFeet} sqft • Material: {input.material} • Size: {input.size}</p></Card>;
+      case "materials":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">Tiles: {input.squareFeet} sqft • Grout: {input.grout} • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
+      case "summary":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Tile Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.squareFeet} sqft • {input.material}</p></Card>;
+      case "milestones":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Milestones</h3><p className="text-sm text-muted">Substrate prep, waterproofing, layout, tile installation, grouting, sealing...</p></Card>;
+      case "inspection":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Quality Checklist</h3><p className="text-sm text-muted">Straight lines, grout uniformity, no cracks, proper spacing, seal application...</p></Card>;
+      case "research":
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Tile Research</h3><Input placeholder="Search tile types, grout selection, waterproofing, design trends..." /></Card>;
+      default:
+        return null;
     }
   }
 
@@ -83,197 +147,25 @@ export function TileToolClient() {
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6">
       <div className="grid gap-6">
         <div className="flex items-center justify-between gap-3">
-          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink">
-            <ArrowLeft size={16} />
-            Back to tools hub
-          </Link>
+          <Link href="/tools" className="inline-flex items-center gap-2 text-sm text-muted hover:text-ink"><ArrowLeft size={16} /> Back to tools hub</Link>
           <Badge variant="brand">SEMSE Pro Tools</Badge>
         </div>
-
         <section className="grid gap-3">
-          <h1 className="text-3xl font-bold tracking-tight text-ink">Tile calculator</h1>
-          <p className="max-w-3xl text-sm text-muted">
-            Estimate tile layout, waterproofing, grout, thinset, labor, milestones and evidence for walls, floors, backsplashes and showers.
-          </p>
+          <div className="flex items-center gap-3"><Layers className="h-8 w-8" /><h1 className="text-3xl font-bold tracking-tight text-ink">Tile Tool</h1></div>
+          <p className="max-w-3xl text-sm text-muted">Complete tile estimation with materials, labor, and design options.</p>
         </section>
-
-        <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <Card className="grid gap-5 self-start">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-brand">
-                <Calculator size={18} />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Input</h2>
-                <p className="text-sm text-muted">
-                  Wet-area tile work with strong evidence requirements for shower installs.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <NumberField
-                label="Length (ft)"
-                value={input.lengthFt}
-                onChange={(value) => setInput((current) => ({ ...current, lengthFt: value }))}
-              />
-              <NumberField
-                label="Width (ft)"
-                value={input.widthFt}
-                onChange={(value) => setInput((current) => ({ ...current, widthFt: value }))}
-              />
-              <NumberField
-                label="Tile size (in)"
-                value={input.tileSizeIn}
-                onChange={(value) => setInput((current) => ({ ...current, tileSizeIn: value }))}
-              />
-
-              <Select
-                label="Pattern"
-                value={input.pattern}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    pattern: event.target.value as TileInput["pattern"],
-                  }))
-                }
-              >
-                <option value="straight">Straight</option>
-                <option value="diagonal">Diagonal</option>
-                <option value="herringbone">Herringbone</option>
-              </Select>
-
-              <Select
-                label="Area type"
-                value={input.areaType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    areaType: event.target.value as TileInput["areaType"],
-                  }))
-                }
-              >
-                <option value="floor">Floor</option>
-                <option value="wall">Wall</option>
-                <option value="backsplash">Backsplash</option>
-                <option value="shower">Shower</option>
-              </Select>
-
-              <Select
-                label="Substrate prep"
-                value={input.substratePrep}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    substratePrep: event.target.value as TileInput["substratePrep"],
-                  }))
-                }
-              >
-                <option value="none">None</option>
-                <option value="minor">Minor</option>
-                <option value="major">Major</option>
-              </Select>
-
-              <Select
-                label="Grout type"
-                value={input.groutType}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    groutType: event.target.value as TileInput["groutType"],
-                  }))
-                }
-              >
-                <option value="standard">Standard</option>
-                <option value="sanded">Sanded</option>
-                <option value="epoxy">Epoxy</option>
-              </Select>
-
-              <Select
-                label="Mode"
-                value={input.mode}
-                onChange={(event) =>
-                  setInput((current) => ({
-                    ...current,
-                    mode: event.target.value as ToolMode,
-                  }))
-                }
-              >
-                <option value="client">Client</option>
-                <option value="professional">Professional</option>
-                <option value="admin">Admin</option>
-              </Select>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Waterproofing</span>
-                <input
-                  type="checkbox"
-                  checked={input.waterproofing}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      waterproofing: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-
-              <label className="flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3 text-sm text-ink">
-                <span>Demo existing tile</span>
-                <input
-                  type="checkbox"
-                  checked={input.demoExisting}
-                  onChange={(event) =>
-                    setInput((current) => ({
-                      ...current,
-                      demoExisting: event.target.checked,
-                    }))
-                  }
-                />
-              </label>
-            </div>
-
-            <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/30 p-4 text-sm text-cyan-100">
-              <strong>Note:</strong> shower tile and diagonal patterns should elevate risk, evidence and waterproofing checks.
-            </div>
-
-            {error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-                {error}
-              </div>
-            ) : null}
-
-            <Button onClick={() => void calculate()} loading={loading} className="w-full">
-              {loading ? "Calculating..." : "Calculate tile"}
-            </Button>
-          </Card>
-
-          <div className="grid gap-6">
-            {result ? (
-              <ToolResultPanel result={result} />
-            ) : (
-              <Card className="grid min-h-[420px] place-items-center border-dashed border-white/[0.12] bg-white/[0.02] text-center">
-                <div className="grid gap-3 p-8">
-                  <div className="mx-auto rounded-full border border-brand/20 bg-brand/[0.08] p-4 text-brand">
-                    <Grid2x2 size={24} />
-                  </div>
-                  <div className="grid gap-1">
-                    <h2 className="text-xl font-semibold text-ink">Ready to calculate</h2>
-                    <p className="max-w-xl text-sm text-muted">
-                      Fill the fields on the left and run the tile flow through the tools API.
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <Badge variant="brand">Layout</Badge>
-                    <Badge variant="info">Waterproofing</Badge>
-                    <Badge variant="warn">Milestones</Badge>
-                    <Badge variant="success">Evidence</Badge>
-                  </div>
-                </div>
-              </Card>
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {SECTIONS.map((s) => {
+            const Icon = s.icon;
+            const isActive = section === s.id;
+            return (
+              <Link key={s.id} href={s.href} className={`inline-flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition ${isActive ? "bg-blue-600 text-white" : "bg-slate-800 text-muted hover:bg-slate-700"}`}>
+                <Icon size={16} /> {s.label}
+              </Link>
+            );
+          })}
         </div>
+        <div className="grid gap-6">{renderSection()}</div>
       </div>
     </main>
   );

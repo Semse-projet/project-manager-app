@@ -2,6 +2,8 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
+import type { MatchingService } from "../matching/matching.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
 
 export type JobClassification = {
   trade:      string;
@@ -61,6 +63,8 @@ export class MarketplaceAgent {
   constructor(
     private readonly bus: SemseAgentsService,
     @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly matching?: MatchingService,
+    @Optional() private readonly notifications?: NotificationsService,
   ) {
     this.bus.register("marketplace", (msg) => this.handleMessage(msg));
     this.logger.log("[Marketplace] Agent registered");
@@ -79,7 +83,41 @@ export class MarketplaceAgent {
         payload: { classification, projectId: msg.projectId },
         projectId: msg.projectId,
       }));
+
+      // Notify top-matched contractors about the new opportunity
+      void this.notifyMatchedContractors(msg.payload, classification).catch(
+        (err) => this.logger.warn(`[Marketplace] Contractor notification failed: ${String(err?.message ?? err)}`),
+      );
     }
+  }
+
+  private async notifyMatchedContractors(
+    payload: Record<string, unknown>,
+    classification: JobClassification,
+  ): Promise<void> {
+    const jobId = String(payload.jobId ?? "");
+    const tenantId = String(payload.tenantId ?? "tenant_default");
+    if (!jobId || !this.matching || !this.notifications) return;
+
+    const result = await this.matching.matchJob(tenantId, { jobId, limit: 5, minScore: 40 });
+    const topContractors = result.candidates.slice(0, 5);
+    if (topContractors.length === 0) return;
+
+    await this.notifications.handleEvent({
+      tenantId,
+      eventType: "job.matched",
+      payload: {
+        jobId,
+        jobTitle: String(payload.title ?? "Nuevo trabajo"),
+        trade: classification.trade,
+        budgetMin: classification.suggestedBudgetMin,
+        budgetMax: classification.suggestedBudgetMax,
+        location: String(payload.location ?? ""),
+        urgency: classification.urgency,
+        matchedUserIds: topContractors.map((c) => c.userId),
+      },
+    });
+    this.logger.log(`[Marketplace] Notified ${topContractors.length} contractors for job ${jobId}`);
   }
 
   async classifyJob(payload: Record<string, unknown>): Promise<JobClassification> {

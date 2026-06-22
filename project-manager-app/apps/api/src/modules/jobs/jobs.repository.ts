@@ -20,6 +20,7 @@ const jobStatusMap = {
 type StoredJob = {
   id: string;
   tenantId: string;
+  clientOrgId: string;
   title: string;
   category: string | null;
   scope: string;
@@ -330,6 +331,7 @@ export class JobsRepository {
     return {
       id: job.id,
       tenantId: job.tenantId,
+      clientOrgId: job.clientOrgId,
       title: job.title,
       category: job.category ?? undefined,
       scope: job.scope,

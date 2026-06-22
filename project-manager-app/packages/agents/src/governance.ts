@@ -15,6 +15,7 @@ export const runtimeAgentRoles = [
   "legal-agent",
   "financial-agent",
   "qa-agent",
+  "browser-agent",
 ] as const;
 
 export type RuntimeAgentRole = (typeof runtimeAgentRoles)[number];
@@ -610,6 +611,25 @@ export const runtimeAgentManifests: Record<RuntimeAgentRole, RuntimeAgentManifes
       approvalRules: []
     },
     metadata: { owner: "semse-prometeo", tags: ["qa", "evidence", "quality"], defaultModel: "claude-sonnet-4-6" }
+  },
+
+  "browser-agent": {
+    id: "browser-agent", role: "browser-agent",
+    name: "BrowserAgent",
+    version: "1.0.0",
+    status: "active",
+    description: "Inspects web landing pages and applications via Chromium, capturing console logs, screenshots, and extracting text.",
+    capabilities: {
+      allowedTools: ["memory.read.agent", "audit.record.agent", "runtime.complete_run"],
+      allowedActions: ["runtime.execute", "memory.read", "audit.record", "runtime.complete"],
+      allowedContextSources: ["event"],
+      allowedInputKeys: ["url", "includeScreenshot", "includeText", "includeAiSummary", "projectId", "milestoneId", "context"],
+      maxRiskLevel: "medium",
+      networkScopes: ["*"],
+      fileScopes: [],
+      approvalRules: []
+    },
+    metadata: { owner: "semse-prometeo", tags: ["browser", "qa", "observability"], defaultModel: "claude-sonnet-4-6" }
   }
 };
 

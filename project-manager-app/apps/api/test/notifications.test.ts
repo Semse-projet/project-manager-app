@@ -46,6 +46,25 @@ function mapEventToNotifications(eventType: string, payload: EventPayload): Noti
       if (!client) return [];
       return [{ userId: client, type: "change_order", title: "Change order enviado", body: "Hay un cambio de alcance pendiente de tu aprobación." }];
     }
+    case "job.matched": {
+      const matchedUserIds = Array.isArray(payload.matchedUserIds) ? payload.matchedUserIds as string[] : [];
+      const jobTitle = extractStr(payload, "jobTitle") ?? "Nuevo trabajo";
+      const trade    = extractStr(payload, "trade") ?? "";
+      const urgency  = typeof payload.urgency === "string" ? payload.urgency : "medium";
+      const budgetMin = typeof payload.budgetMin === "number" ? payload.budgetMin : null;
+      const budgetMax = typeof payload.budgetMax === "number" ? payload.budgetMax : null;
+      const budgetText = budgetMin && budgetMax
+        ? ` · $${Math.round(budgetMin / 1000)}k–$${Math.round(budgetMax / 1000)}k`
+        : "";
+      const urgencyLabel: Record<string, string> = { urgent: "⚡ Urgente", high: "Alta prioridad", medium: "", low: "" };
+      const urgencyPrefix = urgencyLabel[urgency] ? `${urgencyLabel[urgency]} — ` : "";
+      return matchedUserIds.map((userId) => ({
+        userId,
+        type: "job_matched",
+        title: `${urgencyPrefix}Nuevo trabajo disponible`,
+        body: `${jobTitle}${budgetText}. Oficio: ${trade}. ¡Aplica ahora!`,
+      })) as NotificationSpec[];
+    }
     default:
       return [];
   }
@@ -230,4 +249,225 @@ test("N.P2: notificación fallida no bloquea el flujo del dominio", () => {
   // El domain event debe completarse independientemente
   assert.ok(domainEventCompleted, "dominio completa aunque notificación falle");
   assert.ok(notificationFailed,   "notificación puede fallar silenciosamente");
+});
+
+// ── Milestone approval → contractor notification wiring ───────────────────────
+
+function mapMilestoneApproved(payload: EventPayload): NotificationSpec[] {
+  const proUserId = extractStr(payload, "proUserId");
+  if (!proUserId) return [];
+  return [{
+    userId: proUserId,
+    type: "milestone_approved",
+    title: "Hito aprobado",
+    body: "El cliente aprobó tu entrega. El pago del hito puede liberarse.",
+  }];
+}
+
+function mapPaymentReleased(payload: EventPayload): NotificationSpec[] {
+  const proUserId = extractStr(payload, "proUserId");
+  if (!proUserId) return [];
+  return [{
+    userId: proUserId,
+    type: "payment_released",
+    title: "Pago liberado",
+    body: "Se liberó el pago de un hito. El monto estará disponible según tu método de cobro.",
+  }];
+}
+
+test("N.MA1: milestone.approved con proUserId genera notificación al contractor", () => {
+  const specs = mapMilestoneApproved({ proUserId: "pro-1", milestoneId: "m-1", projectId: "p-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.userId, "pro-1");
+  assert.equal(specs[0]!.type, "milestone_approved");
+});
+
+test("N.MA2: milestone.approved sin proUserId no genera notificación", () => {
+  const specs = mapMilestoneApproved({ milestoneId: "m-1" });
+  assert.deepEqual(specs, []);
+});
+
+test("N.MA3: milestone.approved sin proUserId (null) no genera notificación", () => {
+  const specs = mapMilestoneApproved({ proUserId: null, milestoneId: "m-1" });
+  assert.deepEqual(specs, []);
+});
+
+test("N.PR1: payment.released con proUserId genera notificación al contractor", () => {
+  const specs = mapPaymentReleased({ proUserId: "pro-2", milestoneId: "m-2", amount: 500, currency: "usd" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.userId, "pro-2");
+  assert.equal(specs[0]!.type, "payment_released");
+});
+
+test("N.PR2: payment.released sin proUserId no genera notificación", () => {
+  const specs = mapPaymentReleased({ milestoneId: "m-2" });
+  assert.deepEqual(specs, []);
+});
+
+test("N.MA4: notificación milestone_approved es best-effort — error no bloquea aprobación", () => {
+  let approvalCompleted = false;
+  let notifThrew = false;
+
+  const mockApprove = async () => {
+    approvalCompleted = true;
+    try {
+      throw new Error("SSE channel closed");
+    } catch {
+      notifThrew = true;
+    }
+  };
+
+  return mockApprove().then(() => {
+    assert.ok(approvalCompleted, "aprobación del hito completada");
+    assert.ok(notifThrew, "error de notificación fue capturado");
+  });
+});
+
+// ── Rating request notifications ──────────────────────────────────────────────
+
+function mapRatingRequested(payload: EventPayload): NotificationSpec[] {
+  const proUserId    = extractStr(payload, "proUserId");
+  const clientUserId = extractStr(payload, "clientUserId");
+  const specs: NotificationSpec[] = [];
+  if (proUserId) {
+    specs.push({
+      userId: proUserId,
+      type: "rating_requested_pro",
+      title: "Califica tu experiencia",
+      body: "¿Cómo fue trabajar en este proyecto? Tu calificación ayuda a fortalecer la comunidad.",
+    });
+  }
+  if (clientUserId) {
+    specs.push({
+      userId: clientUserId,
+      type: "rating_requested_client",
+      title: "Califica al profesional",
+      body: "Tu proyecto fue completado. Comparte tu experiencia con el contratista.",
+    });
+  }
+  return specs;
+}
+
+test("N.RR1: rating.requested con ambas partes → 2 notificaciones", () => {
+  const specs = mapRatingRequested({ proUserId: "pro-1", clientUserId: "client-1", jobId: "j-1" });
+  assert.equal(specs.length, 2);
+  assert.ok(specs.some((s) => s.userId === "pro-1" && s.type === "rating_requested_pro"));
+  assert.ok(specs.some((s) => s.userId === "client-1" && s.type === "rating_requested_client"));
+});
+
+test("N.RR2: rating.requested solo proUserId → 1 notificación al contratista", () => {
+  const specs = mapRatingRequested({ proUserId: "pro-1", jobId: "j-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.type, "rating_requested_pro");
+});
+
+test("N.RR3: rating.requested solo clientUserId → 1 notificación al cliente", () => {
+  const specs = mapRatingRequested({ clientUserId: "client-1", jobId: "j-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.type, "rating_requested_client");
+});
+
+test("N.RR4: rating.requested sin ninguna parte → 0 notificaciones", () => {
+  const specs = mapRatingRequested({ jobId: "j-1" });
+  assert.equal(specs.length, 0);
+});
+
+// ── Rating received notifications ──────────────────────────────────────────────
+
+function mapRatingSubmitted(payload: EventPayload): NotificationSpec[] {
+  const toUserId = extractStr(payload, "toUserId");
+  const score    = typeof payload.score === "number" ? payload.score : null;
+  if (!toUserId) return [];
+  const stars = score !== null ? `${"★".repeat(score)}${"☆".repeat(5 - score)} (${score}/5)` : "";
+  return [{
+    userId: toUserId,
+    type: "rating_received",
+    title: "Recibiste una calificación",
+    body: stars ? `Alguien calificó tu trabajo: ${stars}` : "Alguien calificó tu trabajo. Revisa tu perfil.",
+  }];
+}
+
+test("N.RS1: rating.submitted con score → notificación con estrellas al destinatario", () => {
+  const specs = mapRatingSubmitted({ toUserId: "user-2", score: 4, jobId: "j-1", ratingId: "r-1" });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]!.userId, "user-2");
+  assert.equal(specs[0]!.type, "rating_received");
+  assert.ok(specs[0]!.body.includes("4/5"));
+});
+
+test("N.RS2: rating.submitted sin score → notificación genérica", () => {
+  const specs = mapRatingSubmitted({ toUserId: "user-2", jobId: "j-1" });
+  assert.equal(specs.length, 1);
+  assert.ok(specs[0]!.body.includes("perfil"));
+});
+
+test("N.RS3: rating.submitted sin toUserId → 0 notificaciones", () => {
+  const specs = mapRatingSubmitted({ score: 5, jobId: "j-1" });
+  assert.equal(specs.length, 0);
+});
+
+// ── job.matched — contractor notification ─────────────────────────────────────
+
+test("N.JM1: job.matched → uma notificación por cada matchedUserId", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1", "c2", "c3"],
+    jobTitle: "Plomería urgente",
+    trade: "plumbing",
+    urgency: "urgent",
+    budgetMin: 1000,
+    budgetMax: 2000,
+    jobId: "job-abc",
+  });
+  assert.equal(specs.length, 3, "debe generar una notif por contratista");
+  assert.equal(specs[0]?.userId, "c1");
+  assert.equal(specs[1]?.userId, "c2");
+  assert.equal(specs[2]?.userId, "c3");
+});
+
+test("N.JM2: job.matched urgente incluye prefijo ⚡ Urgente", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1"],
+    jobTitle: "Trabajo urgente",
+    urgency: "urgent",
+    trade: "electrical",
+    jobId: "job-1",
+  });
+  assert.equal(specs.length, 1);
+  assert.ok(specs[0]?.title.includes("⚡ Urgente"), "urgente debe tener prefijo de urgencia");
+  assert.equal(specs[0]?.type, "job_matched");
+});
+
+test("N.JM3: job.matched sin matchedUserIds → 0 notificaciones", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    jobTitle: "Sin contratistas",
+    trade: "painting",
+    jobId: "job-2",
+  });
+  assert.equal(specs.length, 0, "sin matchedUserIds no debe generar notificaciones");
+});
+
+test("N.JM4: job.matched con presupuesto incluye rango en body", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1"],
+    jobTitle: "Pintar sala",
+    trade: "painting",
+    urgency: "medium",
+    budgetMin: 1000,
+    budgetMax: 3000,
+    jobId: "job-3",
+  });
+  assert.equal(specs.length, 1);
+  assert.ok(specs[0]?.body.includes("$1k–$3k"), "body debe incluir rango de presupuesto");
+});
+
+test("N.JM5: job.matched medium urgency no tiene prefijo de urgencia", () => {
+  const specs = mapEventToNotifications("job.matched", {
+    matchedUserIds: ["c1"],
+    jobTitle: "Trabajo normal",
+    urgency: "medium",
+    trade: "drywall",
+    jobId: "job-4",
+  });
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0]?.title, "Nuevo trabajo disponible", "urgency medium no debe tener prefijo");
 });

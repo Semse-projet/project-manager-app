@@ -373,6 +373,61 @@ export class AgentsRepository {
     return this.toRecord(updated);
   }
 
+  async getEvents(input: { tenantId: string; runId: string }): Promise<{
+    runId: string;
+    events: Array<{ type: string; at: string; detail: string }>;
+  }> {
+    const run = (await this.prisma.agentRun.findFirst({
+      where: { id: input.runId, tenantId: input.tenantId },
+      select: {
+        id: true, status: true, agentType: true, correlationId: true,
+        error: true, inputSummary: true, outputSummary: true,
+        createdAt: true, startedAt: true, heartbeatAt: true, endedAt: true,
+      },
+    })) as (StoredAgentRun & { inputSummary?: string | null; outputSummary?: string | null }) | null;
+    if (!run) throw new NotFoundException(`Agent run '${input.runId}' not found`);
+
+    const events: Array<{ type: string; at: string; detail: string }> = [];
+    events.push({ type: "queued",  at: run.createdAt.toISOString(), detail: `Agent '${run.agentType}' queued (correlationId: ${run.correlationId})` });
+    if (run.startedAt)    events.push({ type: "started",   at: run.startedAt.toISOString(),   detail: "Execution started" });
+    if (run.heartbeatAt)  events.push({ type: "heartbeat", at: run.heartbeatAt.toISOString(), detail: "Last heartbeat received" });
+    if (run.inputSummary) events.push({ type: "input",     at: (run.startedAt ?? run.createdAt).toISOString(), detail: run.inputSummary });
+    if (run.endedAt) {
+      const isOk = run.status === "COMPLETED";
+      events.push({
+        type: isOk ? "completed" : "failed",
+        at: run.endedAt.toISOString(),
+        detail: isOk
+          ? (run.outputSummary ?? "Run completed successfully")
+          : (run.error ?? "Run failed with unknown error"),
+      });
+    }
+    return { runId: run.id, events };
+  }
+
+  async cancel(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    runId: string;
+  }): Promise<AgentRunRecord> {
+    await this.actorContextService.ensureActorContext(input);
+    const run = await this.requireRun(input);
+
+    if (["COMPLETED", "FAILED"].includes(run.status)) {
+      return this.toRecord(run);
+    }
+
+    const now = new Date();
+    const durationMs = run.startedAt ? now.getTime() - run.startedAt.getTime() : null;
+    const updated = (await this.prisma.agentRun.update({
+      where: { id: run.id },
+      data: { status: "FAILED", error: "cancelled_by_user", endedAt: now, durationMs },
+    })) as StoredAgentRun;
+
+    return this.toRecord(updated);
+  }
+
   private async requireRun(input: { tenantId: string; runId: string }): Promise<StoredAgentRun> {
     const run = (await this.prisma.agentRun.findFirst({
       where: {

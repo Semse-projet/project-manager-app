@@ -1,0 +1,149 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.wrap { padding: 1.5rem 0; font-family: var(--font-sans); }
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 0.75rem; }
+.gap-card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  position: relative;
+}
+.gap-card:hover { border-color: var(--color-border-secondary); }
+.gap-card.open { border-left-width: 3px; }
+.gap-header { display: flex; align-items: center; gap: 10px; }
+.urgency-badge {
+  font-size: 10px; font-weight: 500; padding: 3px 8px;
+  border-radius: 10px; flex-shrink: 0;
+}
+.gap-title { font-size: 14px; font-weight: 500; color: var(--color-text-primary); flex: 1; }
+.chevron { font-size: 12px; color: var(--color-text-secondary); transition: transform 0.2s; }
+.chevron.open { transform: rotate(90deg); }
+.gap-body { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 0.5px solid var(--color-border-tertiary); }
+.gap-body.open { display: block; }
+.gap-why { font-size: 13px; color: var(--color-text-primary); line-height: 1.65; margin-bottom: 0.9rem; }
+.gap-connects { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 0.9rem; }
+.connects-label { font-weight: 500; color: var(--color-text-primary); }
+.action-items { display: flex; flex-direction: column; gap: 6px; }
+.action-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.action-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+.metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.75rem 1rem; }
+.metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.metric-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.radar-wrap { margin-bottom: 1.5rem; }
+.radar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.radar-name { font-size: 12px; color: var(--color-text-secondary); width: 200px; flex-shrink: 0; }
+.radar-bar-bg { flex: 1; height: 6px; background: var(--color-background-tertiary); border-radius: 3px; overflow: hidden; }
+.radar-bar { height: 100%; border-radius: 3px; }
+.radar-pct { font-size: 11px; color: var(--color-text-secondary); width: 30px; text-align: right; }
+.status-present { color: #1D9E75; }
+.status-absent { color: #D85A30; }
+.ask-btn {
+  font-size: 12px; padding: 6px 12px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  background: transparent; color: var(--color-text-primary);
+  cursor: pointer; margin-right: 6px; margin-top: 4px;
+}
+.ask-btn:hover { background: var(--color-background-secondary); }
+</style>
+
+<div class="wrap">
+
+<div class="summary-grid">
+  <div class="metric"><div class="metric-label">Temas presentes</div><div class="metric-val" style="color:#1D9E75;">6</div></div>
+  <div class="metric"><div class="metric-label">Brechas críticas</div><div class="metric-val" style="color:#D85A30;">3</div></div>
+  <div class="metric"><div class="metric-label">Cobertura estimada</div><div class="metric-val">67%</div></div>
+</div>
+
+<div class="section-label">Cobertura actual vs. ecosistema completo</div>
+<div class="radar-wrap">
+  <div class="radar-row"><div class="radar-name status-present">✓ Aprendizaje por fases</div><div class="radar-bar-bg"><div class="radar-bar" style="width:95%;background:#378ADD;"></div></div><div class="radar-pct">95%</div></div>
+  <div class="radar-row"><div class="radar-name status-present">✓ Arquitectura de sistemas</div><div class="radar-bar-bg"><div class="radar-bar" style="width:90%;background:#7F77DD;"></div></div><div class="radar-pct">90%</div></div>
+  <div class="radar-row"><div class="radar-name status-present">✓ Tecnologías convergentes</div><div class="radar-bar-bg"><div class="radar-bar" style="width:88%;background:#1D9E75;"></div></div><div class="radar-pct">88%</div></div>
+  <div class="radar-row"><div class="radar-name status-present">✓ IA aplicada</div><div class="radar-bar-bg"><div class="radar-bar" style="width:85%;background:#D85A30;"></div></div><div class="radar-pct">85%</div></div>
+  <div class="radar-row"><div class="radar-name status-present">✓ Producto comercial</div><div class="radar-bar-bg"><div class="radar-bar" style="width:78%;background:#BA7517;"></div></div><div class="radar-pct">78%</div></div>
+  <div class="radar-row"><div class="radar-name status-present">✓ Identidad del desarrollador</div><div class="radar-bar-bg"><div class="radar-bar" style="width:70%;background:#D4537E;"></div></div><div class="radar-pct">70%</div></div>
+  <div class="radar-row"><div class="radar-name status-absent">✗ Gestión de comunidad y red</div><div class="radar-bar-bg"><div class="radar-bar" style="width:15%;background:#E24B4A;"></div></div><div class="radar-pct">15%</div></div>
+  <div class="radar-row"><div class="radar-name status-absent">✗ Modelo de negocio y sostenibilidad</div><div class="radar-bar-bg"><div class="radar-bar" style="width:20%;background:#E24B4A;"></div></div><div class="radar-pct">20%</div></div>
+  <div class="radar-row"><div class="radar-name status-absent">✗ Resiliencia y gestión de riesgos</div><div class="radar-bar-bg"><div class="radar-bar" style="width:25%;background:#E24B4A;"></div></div><div class="radar-pct">25%</div></div>
+</div>
+
+<div class="section-label">Brechas detectadas — haz clic para expandir</div>
+
+<div class="gap-card" id="gap0" onclick="toggle(0)" style="border-left-color:#E24B4A;">
+  <div class="gap-header">
+    <span class="urgency-badge" style="background:#FCEBEB;color:#A32D2D;">Urgente para lanzamiento</span>
+    <span class="gap-title">Modelo de negocio y sostenibilidad financiera</span>
+    <span class="chevron" id="chev0">▶</span>
+  </div>
+  <div class="gap-body" id="body0">
+    <p class="gap-why">Tienes arquitectura técnica de primer nivel, pero los documentos no muestran un modelo de negocio explícito y documentado. ¿Cómo escala el revenue más allá de SEMSE OS? ¿Qué margen tiene el marketplace? ¿Cómo se financia F2–F5? El Stripe Connect está como "blocker técnico", pero la estrategia de monetización es el blocker de negocio.</p>
+    <p class="gap-connects"><span class="connects-label">Se conecta con:</span> Producto comercial (directamente), Arquitectura (decisiones técnicas dependen del modelo), IA aplicada (freemium vs. enterprise cambia todo).</p>
+    <div class="section-label" style="margin-bottom:6px;">Acciones concretas</div>
+    <div class="action-items">
+      <div class="action-item"><span class="action-dot" style="background:#E24B4A;"></span><span>Documenta el unit economics de SEMSE OS: CAC, LTV, comisión por transacción, precio del SaaS B2B.</span></div>
+      <div class="action-item"><span class="action-dot" style="background:#E24B4A;"></span><span>Define el modelo de cada fase futura: ¿F2 (AI Multimodal) es suscripción? ¿F4 (XR) es licencia?</span></div>
+      <div class="action-item"><span class="action-dot" style="background:#E24B4A;"></span><span>Crea un runway financial document: inversión necesaria vs. revenue proyectado por fase.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="gap-card" id="gap1" onclick="toggle(1)" style="border-left-color:#BA7517;">
+  <div class="gap-header">
+    <span class="urgency-badge" style="background:#FAEEDA;color:#633806;">Importante para escalar</span>
+    <span class="gap-title">Gestión de comunidad, red y ecosistema humano</span>
+    <span class="chevron" id="chev1">▶</span>
+  </div>
+  <div class="gap-body" id="body1">
+    <p class="gap-why">Prometeo es un ecosistema — pero los documentos se enfocan casi exclusivamente en la arquitectura técnica y en ti como arquitecto. Falta la dimensión humana: ¿quiénes son los otros 7 miembros del equipo y cómo se documenta su rol? ¿Cómo se construye la comunidad de constructores y contratistas en SEMSE OS? ¿Cómo se atrae y retiene a desarrolladores externos? Un ecosistema sin comunidad activa es solo software.</p>
+    <p class="gap-connects"><span class="connects-label">Se conecta con:</span> Producto comercial (el marketplace necesita masa crítica de usuarios), Identidad del desarrollador (liderazgo de equipo), Tecnologías (Web3 implica gobernanza descentralizada).</p>
+    <div class="section-label" style="margin-bottom:6px;">Acciones concretas</div>
+    <div class="action-items">
+      <div class="action-item"><span class="action-dot" style="background:#BA7517;"></span><span>Crea un Community Playbook: estrategia de adquisición de constructores y contratistas para SEMSE OS.</span></div>
+      <div class="action-item"><span class="action-dot" style="background:#BA7517;"></span><span>Documenta roles del equipo de 8 personas con ownership explícito por módulo.</span></div>
+      <div class="action-item"><span class="action-dot" style="background:#BA7517;"></span><span>Define el modelo de gobernanza para cuando Prometeo incorpore Web3 / DAOs en fases posteriores.</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="gap-card" id="gap2" onclick="toggle(2)" style="border-left-color:#7F77DD;">
+  <div class="gap-header">
+    <span class="urgency-badge" style="background:#EEEDFE;color:#3C3489;">Estratégico a mediano plazo</span>
+    <span class="gap-title">Resiliencia, gestión de riesgos y continuidad</span>
+    <span class="chevron" id="chev2">▶</span>
+  </div>
+  <div class="gap-body" id="body2">
+    <p class="gap-why">Hay una paradoja interesante: construiste un Business Continuity Plan con War Room y simulación de incidentes para SEMSE OS — pero eso es resiliencia técnica. Lo que falta es resiliencia estratégica: ¿qué pasa si una tecnología clave (Web3, Quantum) no madura a tiempo? ¿Qué pasa si el lanzamiento de SEMSE OS se retrasa más? ¿Cuál es el Plan B para cada fase? Los ecosistemas ambiciosos mueren más por falta de Plan B que por falta de visión.</p>
+    <p class="gap-connects"><span class="connects-label">Se conecta con:</span> Todas las fases F0–F5, Modelo de negocio, Aprendizaje por fases (los pivots deben estar documentados).</p>
+    <div class="section-label" style="margin-bottom:6px;">Acciones concretas</div>
+    <div class="action-items">
+      <div class="action-item"><span class="action-dot" style="background:#7F77DD;"></span><span>Crea una Risk Matrix por fase: probabilidad × impacto de que cada tecnología clave falle o se retrase.</span></div>
+      <div class="action-item"><span class="action-dot" style="background:#7F77DD;"></span><span>Define criterios de pivot: ¿en qué condición se repriorizan fases o se descarta una tecnología?</span></div>
+      <div class="action-item"><span class="action-dot" style="background:#7F77DD;"></span><span>Documenta las dependencias externas críticas (proveedores, APIs, regulaciones) con alternativas.</span></div>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top:1.25rem;">
+  <button class="ask-btn" onclick="sendPrompt('Ayúdame a crear un modelo de negocio documentado para Proyecto Prometeo y SEMSE OS')">Crear modelo de negocio para Prometeo ↗</button>
+  <button class="ask-btn" onclick="sendPrompt('¿Cómo debería estructurar la gestión del equipo de 8 personas en Proyecto Prometeo?')">Estructura del equipo ↗</button>
+  <button class="ask-btn" onclick="sendPrompt('Crea una Risk Matrix para las fases F1 a F5 de Proyecto Prometeo')">Risk Matrix F1–F5 ↗</button>
+</div>
+
+</div>
+
+<script>
+const states = [false, false, false];
+function toggle(i) {
+  states[i] = !states[i];
+  document.getElementById('body' + i).classList.toggle('open', states[i]);
+  document.getElementById('chev' + i).classList.toggle('open', states[i]);
+  document.getElementById('gap' + i).classList.toggle('open', states[i]);
+}
+</script>

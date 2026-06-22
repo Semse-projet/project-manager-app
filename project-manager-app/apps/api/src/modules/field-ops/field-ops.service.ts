@@ -104,6 +104,93 @@ export class FieldOpsService {
     };
   }
 
+  async listTrackerJobs(input: {
+    tenantId: string;
+    orgId: string;
+    createdBy: string;
+  }) {
+    return this.repo.listJobsForTracker({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.createdBy,
+    });
+  }
+
+  async getActiveTrackerSession(input: {
+    tenantId: string;
+    createdBy: string;
+  }): Promise<TrackerSessionView | null> {
+    const activeSession = await this.repo.findActiveTrackerSession({
+      tenantId: input.tenantId,
+      createdBy: input.createdBy,
+    });
+
+    return activeSession ? toTrackerSessionView(activeSession) : null;
+  }
+
+  async listTrackerSessions(input: {
+    tenantId: string;
+    createdBy: string;
+    limit?: number;
+  }): Promise<TrackerSessionView[]> {
+    const sessions = await this.repo.listTrackerSessions({
+      tenantId: input.tenantId,
+      createdBy: input.createdBy,
+      limit: Math.min(Math.max(input.limit ?? 50, 1), 200),
+    });
+
+    return sessions.map(toTrackerSessionView);
+  }
+
+  async getTrackerSummary(input: {
+    tenantId: string;
+    createdBy: string;
+    range?: "week" | "month";
+  }) {
+    const now = Date.now();
+    const days = input.range === "month" ? 30 : 7;
+    const since = now - days * 24 * 3600 * 1000;
+    const sessions = await this.listTrackerSessions({
+      tenantId: input.tenantId,
+      createdBy: input.createdBy,
+      limit: 200,
+    });
+    const scopedSessions = sessions.filter((session) => new Date(session.startedAt).getTime() >= since);
+    const activeSession = sessions.find((session) => session.status === "RUNNING" || session.status === "PAUSED") ?? null;
+    const jobSeconds = new Map<string, { jobId: string; jobTitle: string; seconds: number }>();
+
+    for (const session of scopedSessions) {
+      const current = jobSeconds.get(session.jobId) ?? {
+        jobId: session.jobId,
+        jobTitle: session.job.title,
+        seconds: 0,
+      };
+      current.seconds += session.elapsedSeconds;
+      jobSeconds.set(session.jobId, current);
+    }
+
+    return {
+      range: input.range ?? "week",
+      totalSeconds: scopedSessions.reduce((sum, session) => sum + session.elapsedSeconds, 0),
+      sessionCount: scopedSessions.length,
+      daysWorked: new Set(scopedSessions.map((session) => session.startedAt.slice(0, 10))).size,
+      openSessionCount: activeSession ? 1 : 0,
+      sessionsWithoutNotes: scopedSessions.filter((session) => !session.notes?.trim()).length,
+      activeSession,
+      byJob: Array.from(jobSeconds.values()).sort((a, b) => b.seconds - a.seconds),
+      recentNotes: scopedSessions
+        .filter((session) => session.notes?.trim())
+        .slice(0, 10)
+        .map((session) => ({
+          sessionId: session.id,
+          jobId: session.jobId,
+          jobTitle: session.job.title,
+          note: session.notes,
+          startedAt: session.startedAt,
+        })),
+    };
+  }
+
   async startTrackerSession(input: {
     tenantId: string;
     orgId: string;
@@ -113,7 +200,7 @@ export class FieldOpsService {
     notes?: string;
   }): Promise<TrackerSessionView> {
     const [job, activeSession] = await Promise.all([
-      this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId }),
+      this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId, orgId: input.orgId, userId: input.createdBy }),
       this.repo.findActiveTrackerSession({ tenantId: input.tenantId, createdBy: input.createdBy }),
     ]);
 
@@ -293,6 +380,25 @@ export class FieldOpsService {
     return toTrackerSessionView(updated);
   }
 
+  async updateTrackerSessionNotes(input: {
+    tenantId: string;
+    createdBy: string;
+    sessionId: string;
+    notes?: string;
+  }): Promise<TrackerSessionView> {
+    const current = await this.repo.findTrackerSessionById({
+      tenantId: input.tenantId,
+      createdBy: input.createdBy,
+      sessionId: input.sessionId,
+    });
+    const updated = await this.repo.updateTrackerSession({
+      sessionId: current.id,
+      notes: trimTrackerNotes(input.notes) ?? null,
+    });
+
+    return toTrackerSessionView(updated);
+  }
+
   async createManualTrackerSession(input: {
     tenantId: string;
     orgId: string;
@@ -304,7 +410,7 @@ export class FieldOpsService {
     endTime: string;
     notes?: string;
   }): Promise<TrackerSessionView> {
-    const job = await this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId });
+    const job = await this.repo.findJobForTracker({ tenantId: input.tenantId, jobId: input.jobId, orgId: input.orgId, userId: input.createdBy });
     if (!job) {
       throw new BadRequestException("jobId is invalid for the tracker");
     }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Req, Res } from "@nestjs/common";
 import { CommunicationProvider, CommunicationThreadStatus } from "@prisma/client";
 import {
   communicationChannelAccountCreateSchema,
@@ -15,6 +15,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { CommunicationsService } from "./communications.service.js";
 import type { CommunicationsActor } from "./communications.types.js";
+import { WhatsAppCloudAdapter } from "./providers/whatsapp-cloud.adapter.js";
 
 function actor(req: FastifyRequest): CommunicationsActor {
   const context = resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
@@ -41,7 +42,10 @@ function parseOffset(offset?: string): number {
 
 @Controller("v1/communications")
 export class CommunicationsController {
-  constructor(private readonly communications: CommunicationsService) {}
+  constructor(
+    private readonly communications: CommunicationsService,
+    private readonly whatsapp: WhatsAppCloudAdapter,
+  ) {}
 
   @Post("channel-accounts")
   @RequirePermissions("communications:admin")
@@ -171,13 +175,22 @@ export class CommunicationsController {
     @Res() reply: FastifyReply,
   ) {
     const response = this.communications.verifyWhatsAppWebhook({ mode, token, challenge });
-    return reply.type("text/plain").send(response);
+    // Meta envia hub.challenge numerico; cualquier otro caracter no es eco valido
+    const safeResponse = response.replace(/[^0-9A-Za-z_-]/g, "");
+    return reply.header("X-Content-Type-Options", "nosniff").type("text/plain; charset=utf-8").send(safeResponse);
   }
 
   @Post("webhooks/whatsapp")
   @Public()
   async receiveWhatsAppWebhook(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
+    const signature = req.headers["x-hub-signature-256"];
+    const rawBody = (req as FastifyRequest & { rawBody?: Buffer }).rawBody ?? Buffer.alloc(0);
+
+    if (!this.whatsapp.validateSignature(rawBody, typeof signature === "string" ? signature : undefined)) {
+      throw new ForbiddenException("invalid webhook signature");
+    }
+
     return ok(rid, await this.communications.handleWhatsAppWebhook(body));
   }
 }

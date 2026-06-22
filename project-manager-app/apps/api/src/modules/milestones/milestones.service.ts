@@ -9,6 +9,8 @@ import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import type { EscrowReleaseService } from "../payments/escrow-release.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
+import type { JobsService } from "../jobs/jobs.service.js";
 
 @Injectable()
 export class MilestonesService {
@@ -21,6 +23,8 @@ export class MilestonesService {
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
     @Optional() private readonly escrowRelease?: EscrowReleaseService,
+    @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly jobsService?: JobsService,
   ) {}
 
   private syncContext(tenantId: string, projectId: string, source: string, reason: string): void {
@@ -148,7 +152,8 @@ export class MilestonesService {
         professionalId: input.userId,
         evidenceCount: context.evidenceCount,
         checklistComplete: context.evidenceCount > 0,
-        submittedAt: new Date().toISOString()
+        submittedAt: new Date().toISOString(),
+        clientUserId: context.clientUserId,
       },
       triggers: ["evidence-coach", "notification", "audit"]
     };
@@ -224,6 +229,19 @@ export class MilestonesService {
 
     this.syncContext(input.tenantId, context.projectId, "milestone.approved", "milestone approved");
 
+    if (context.proUserId) {
+      void this.notifications?.handleEvent({
+        tenantId: input.tenantId,
+        eventType: "milestone.approved",
+        payload: {
+          proUserId: context.proUserId,
+          milestoneId: milestone.id,
+          projectId: context.projectId,
+          jobId: context.jobId,
+        },
+      }).catch(() => undefined);
+    }
+
     void this.intelligenceAgent?.evaluateMilestone({
       tenantId: input.tenantId,
       milestoneId: milestone.id,
@@ -232,6 +250,22 @@ export class MilestonesService {
 
     // 1.3.B/C: Try automatic escrow release after approval (non-blocking)
     void this.escrowRelease?.tryAutoRelease(milestone.id, input.tenantId).catch(() => undefined);
+
+    // Auto-complete job when all milestones are approved (non-blocking)
+    if (context.jobId) {
+      void this.milestonesRepository.checkAllMilestonesApproved({
+        tenantId: input.tenantId,
+        projectId: context.projectId,
+      }).then((allApproved) => {
+        if (allApproved) {
+          return this.jobsService?.systemCompleteJob({
+            tenantId: input.tenantId,
+            jobId: context.jobId,
+            requestId: input.requestId,
+          });
+        }
+      }).catch(() => undefined);
+    }
 
     return milestone;
   }

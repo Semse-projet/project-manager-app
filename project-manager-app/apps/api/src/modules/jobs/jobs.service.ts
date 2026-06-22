@@ -12,6 +12,7 @@ import {
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { JobsRepository } from "./jobs.repository.js";
 import type { SemseAgentsService } from "../semse-agents/semse-agents.service.js";
+import type { NotificationsService } from "../notifications/notifications.service.js";
 
 @Injectable()
 export class JobsService {
@@ -26,6 +27,7 @@ export class JobsService {
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
     @Optional() private readonly semseAgents?: SemseAgentsService,
+    @Optional() private readonly notifications?: NotificationsService,
   ) {}
 
   private syncContext(tenantId: string, source: string, reason: string): void {
@@ -157,6 +159,22 @@ export class JobsService {
     return enriched;
   }
 
+  private async enrichJobsWithClientUser(jobs: JobRecord[]): Promise<JobRecord[]> {
+    if (jobs.length === 0) return jobs;
+    const orgIds = [...new Set(jobs.map((j) => j.clientOrgId).filter((id): id is string => Boolean(id)))];
+    if (orgIds.length === 0) return jobs;
+    const memberships = await this.prisma.membership.findMany({
+      where: { orgId: { in: orgIds } },
+      select: { orgId: true, userId: true },
+      distinct: ["orgId"],
+    });
+    const clientUserByOrgId = new Map(memberships.map((m) => [m.orgId, m.userId]));
+    return jobs.map((j) => {
+      const userId = j.clientOrgId ? clientUserByOrgId.get(j.clientOrgId) : undefined;
+      return userId ? { ...j, clientUserId: userId } : j;
+    });
+  }
+
   async update(input: {
     tenantId: string;
     orgId: string;
@@ -236,10 +254,8 @@ export class JobsService {
     status?: JobRecord["status"];
   }): Promise<JobRecord[]> {
     const jobs = await this.jobsRepository.listByTenant(input);
-    return this.enrichJobsWithPreferredProfessional({
-      tenantId: input.tenantId,
-      jobs,
-    });
+    const enriched = await this.enrichJobsWithPreferredProfessional({ tenantId: input.tenantId, jobs });
+    return this.enrichJobsWithClientUser(enriched);
   }
 
   async detail(input: {
@@ -249,9 +265,10 @@ export class JobsService {
     jobId: string;
   }): Promise<JobRecord> {
     const job = await this.jobsRepository.findById(input);
+    const [withClientUser] = await this.enrichJobsWithClientUser([job]);
     return this.enrichJobWithPreferredProfessional({
       tenantId: input.tenantId,
-      job,
+      job: withClientUser ?? job,
     });
   }
 
@@ -627,6 +644,77 @@ export class JobsService {
     });
     return runs;
   }
+
+  /**
+   * Internal system-level job completion triggered when all milestones are approved.
+   * Bypasses FSM role checks — only callable by trusted internal services.
+   */
+  async systemCompleteJob(input: {
+    tenantId: string;
+    jobId: string;
+    requestId: string;
+  }): Promise<void> {
+    const job = await this.prisma.job.findFirst({
+      where: { id: input.jobId, tenantId: input.tenantId, deletedAt: null },
+      select: {
+        id: true,
+        status: true,
+        clientOrgId: true,
+        reservations: {
+          where: { status: "ACCEPTED" },
+          select: { professionalId: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!job) return;
+    if (job.status === "COMPLETED" || job.status === "CANCELLED") return;
+
+    await this.jobsRepository.updateStatus({
+      tenantId: input.tenantId,
+      jobId: input.jobId,
+      status: "completed",
+    });
+
+    const membership = await this.prisma.membership.findFirst({
+      where: { orgId: job.clientOrgId },
+      select: { userId: true },
+    });
+    const clientUserId = membership?.userId ?? null;
+    const proUserId = job.reservations?.[0]?.professionalId ?? null;
+
+    await this.domainEventBus.emit(
+      {
+        type: "job.status_changed",
+        meta: {
+          tenantId: input.tenantId,
+          correlationId: `job:${input.jobId}:auto_complete`,
+          actorId: "SYSTEM",
+          actorType: "system",
+          occurredAt: new Date().toISOString(),
+          version: 1,
+        },
+        payload: { jobId: input.jobId, fromStatus: job.status, toStatus: "completed" },
+        triggers: ["audit"],
+      },
+      { tenantId: input.tenantId, orgId: job.clientOrgId, userId: "SYSTEM", requestId: input.requestId }
+    );
+
+    void this.notifications?.handleEvent({
+      tenantId: input.tenantId,
+      eventType: "job.completed",
+      payload: { jobId: input.jobId, proUserId, clientUserId },
+    }).catch(() => undefined);
+
+    void this.notifications?.handleEvent({
+      tenantId: input.tenantId,
+      eventType: "rating.requested",
+      payload: { jobId: input.jobId, proUserId, clientUserId },
+    }).catch(() => undefined);
+
+    this.logger.log(`[Jobs] systemCompleteJob: job ${input.jobId} auto-completed (all milestones approved)`);
+  }
 }
 
 type JobStatus = JobRecord["status"];
@@ -671,7 +759,8 @@ function assertTransitionAuthorized(
     return;
   }
 
-  if (actorOrgId !== ownership.clientOrgId) {
+  // Default: allow either client or the assigned professional to transition
+  if (actorOrgId !== ownership.clientOrgId && actorOrgId !== (ownership.professionalOrgId ?? "")) {
     throw new UnprocessableEntityException("actor cannot transition this job");
   }
 }

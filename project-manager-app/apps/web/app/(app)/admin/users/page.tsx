@@ -389,6 +389,9 @@ export default function AdminUsersPage() {
                       background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "10px",
                       boxShadow: "0 8px 24px rgba(0,0,0,.15)", minWidth: "140px", overflow: "hidden",
                     }}>
+                      <Link href={`/admin/users/${u.id}`} style={{ display: "block", width: "100%", padding: "9px 14px", color: "#818cf8", fontSize: "12px", fontWeight: 600, textDecoration: "none" }}>
+                        ◈ Ver perfil
+                      </Link>
                       {!u.verified && (
                         <button onClick={() => void applyAction(u.id, "verify")} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ✓ Verificar

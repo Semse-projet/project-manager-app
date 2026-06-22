@@ -174,12 +174,69 @@ export class FieldOpsRepository {
 
   // ── Tracker Sessions ──────────────────────────────────────────────────────
 
-  async findJobForTracker(input: { tenantId: string; jobId: string }) {
+  private trackerJobAssignmentWhere(input: { orgId: string; userId: string }): Prisma.JobWhereInput[] {
+    return [
+      {
+        bids: {
+          some: {
+            professionalUserId: input.userId,
+            status: "ACCEPTED" as const,
+          },
+        },
+      },
+      {
+        reservations: {
+          some: {
+            professionalId: input.userId,
+            status: {
+              in: ["ACTIVE", "ACCEPTED"],
+            },
+          },
+        },
+      },
+      {
+        reservations: {
+          some: {
+            professionalOrgId: input.orgId,
+            status: {
+              in: ["ACTIVE", "ACCEPTED"],
+            },
+          },
+        },
+      },
+      {
+        contract: {
+          is: {
+            professionalUserId: input.userId,
+            deletedAt: null,
+          },
+        },
+      },
+      {
+        contract: {
+          is: {
+            professionalOrgId: input.orgId,
+            deletedAt: null,
+          },
+        },
+      },
+      {
+        project: {
+          is: {
+            assignedProOrgId: input.orgId,
+          },
+        },
+      },
+    ];
+  }
+
+  async findJobForTracker(input: { tenantId: string; jobId: string; orgId: string; userId: string }) {
     return this.client.job.findFirst({
       where: {
         id: input.jobId,
         tenantId: input.tenantId,
         deletedAt: null,
+        OR: this.trackerJobAssignmentWhere(input),
       },
       select: {
         id: true,
@@ -187,6 +244,38 @@ export class FieldOpsRepository {
         status: true,
       },
     });
+  }
+
+  async listJobsForTracker(input: { tenantId: string; orgId: string; userId: string }) {
+    const jobs = await this.client.job.findMany({
+      where: {
+        tenantId: input.tenantId,
+        deletedAt: null,
+        OR: this.trackerJobAssignmentWhere(input),
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        title: true,
+        category: true,
+        scope: true,
+        status: true,
+        budgetType: true,
+        budgetMin: true,
+        budgetMax: true,
+        location: true,
+        urgency: true,
+        deadline: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    return jobs.map((job) => ({
+      ...job,
+      status: job.status.toLowerCase(),
+      budgetMin: job.budgetMin?.toNumber(),
+      budgetMax: job.budgetMax?.toNumber(),
+    }));
   }
 
   async findActiveTrackerSession(input: { tenantId: string; createdBy: string }): Promise<TrackerSessionRecord | null> {
@@ -201,6 +290,16 @@ export class FieldOpsRepository {
   }
 
   async listRecentTrackerSessions(input: { tenantId: string; createdBy: string; limit: number }): Promise<TrackerSessionRecord[]> {
+    return this.queryTrackerSessions(Prisma.sql`
+      ${this.trackerSessionSelect}
+      WHERE ts."tenantId" = ${input.tenantId}
+        AND ts."createdBy" = ${input.createdBy}
+      ORDER BY ts."startedAt" DESC
+      LIMIT ${input.limit}
+    `);
+  }
+
+  async listTrackerSessions(input: { tenantId: string; createdBy: string; limit: number }): Promise<TrackerSessionRecord[]> {
     return this.queryTrackerSessions(Prisma.sql`
       ${this.trackerSessionSelect}
       WHERE ts."tenantId" = ${input.tenantId}

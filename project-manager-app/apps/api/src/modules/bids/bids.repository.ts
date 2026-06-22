@@ -12,6 +12,11 @@ type StoredBid = {
   amount: { toNumber(): number };
   etaDays: number;
   status: string;
+  note?: string | null;
+  professional?: {
+    email: string;
+    ratingsReceived?: Array<{ score: number }>;
+  } | null;
   job: {
     id: string;
     tenantId: string;
@@ -52,12 +57,69 @@ export class BidsRepository {
             status: true,
             clientOrgId: true
           }
-        }
+        },
+        professional: {
+            select: {
+              email: true,
+              ratingsReceived: { select: { score: true }, take: 100 }
+            }
+          }
       },
       orderBy: { createdAt: "desc" }
     })) as StoredBid[];
 
     return bids.map((bid) => this.toRecord(bid));
+  }
+
+  async listByWorker(input: {
+    tenantId: string;
+    userId: string;
+    orgId: string;
+  }): Promise<BidRecord[]> {
+    await this.actorContextService.ensureActorContext(input);
+
+    const bids = await this.prisma.bid.findMany({
+      where: {
+        professionalUserId: input.userId,
+        job: { tenantId: input.tenantId }
+      },
+      include: {
+        job: {
+          select: {
+            id: true,
+            tenantId: true,
+            title: true,
+            category: true,
+            location: true,
+            budgetMin: true,
+            budgetMax: true,
+            status: true,
+            clientOrgId: true
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50
+    });
+
+    return bids.map((bid) => ({
+      id: bid.id,
+      tenantId: bid.job.tenantId,
+      jobId: bid.jobId,
+      proOrgId: bid.proOrgId,
+      professionalUserId: bid.professionalUserId ?? undefined,
+      amount: bid.amount.toNumber(),
+      etaDays: bid.etaDays,
+      note: bid.note ?? undefined,
+      status: bid.status.toLowerCase() as BidRecord["status"],
+      jobTitle: bid.job.title,
+      jobCategory: bid.job.category ?? undefined,
+      jobLocation: bid.job.location ?? undefined,
+      jobBudgetMin: bid.job.budgetMin?.toNumber() ?? undefined,
+      jobBudgetMax: bid.job.budgetMax?.toNumber() ?? undefined,
+      jobStatus: bid.job.status.toLowerCase(),
+      createdAt: bid.createdAt.toISOString(),
+    }));
   }
 
   async create(input: {
@@ -69,6 +131,7 @@ export class BidsRepository {
     roles?: string[];
     amount: number;
     etaDays: number;
+    note?: string;
   }): Promise<BidRecord> {
     await this.actorContextService.ensureActorContext(input);
     await this.ensureProfessionalMembership(input);
@@ -148,6 +211,7 @@ export class BidsRepository {
         professionalUserId: input.userId,
         amount: input.amount,
         etaDays: input.etaDays,
+        note: input.note,
         status: "SUBMITTED"
       },
       include: {
@@ -319,6 +383,12 @@ export class BidsRepository {
   }
 
   private toRecord(bid: StoredBid): BidRecord {
+    const ratings = bid.professional?.ratingsReceived ?? [];
+    const ratingCount = ratings.length;
+    const avgRating = ratingCount > 0
+      ? Math.round((ratings.reduce((s, r) => s + r.score, 0) / ratingCount) * 10) / 10
+      : undefined;
+
     return {
       id: bid.id,
       tenantId: bid.job.tenantId,
@@ -327,7 +397,11 @@ export class BidsRepository {
       professionalUserId: bid.professionalUserId,
       amount: bid.amount.toNumber(),
       etaDays: bid.etaDays,
-      status: bid.status.toLowerCase() as BidRecord["status"]
+      note: bid.note ?? undefined,
+      proEmail: bid.professional?.email ?? undefined,
+      status: bid.status.toLowerCase() as BidRecord["status"],
+      avgRating,
+      ratingCount: ratingCount > 0 ? ratingCount : undefined,
     };
   }
 

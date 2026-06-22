@@ -271,7 +271,6 @@ function mapEventToNotifications(
     }
 
     case "buildops.plan.rerun_completed": {
-      // OPS reran the bridge — notify the plan creator so they know a new version is ready
       const actorUserId = extractStr(payload, "actorUserId");
       if (!actorUserId) return [];
       return [{
@@ -285,6 +284,219 @@ function mapEventToNotifications(
           activeVersionNumber: payload.activeVersionNumber,
           rerunCompletedAt: payload.rerunCompletedAt,
         },
+      }];
+    }
+
+    // ── Bids / Proposals ────────────────────────────────────────────────────
+    case "bid.submitted": {
+      const clientUserId = extractStr(payload, "clientUserId");
+      if (!clientUserId) return [];
+      return [{
+        userId: clientUserId,
+        type: "bid_submitted",
+        title: "Nueva propuesta recibida",
+        body: "Un profesional envió una propuesta para tu proyecto. Revisa los detalles y compara.",
+        payload: { jobId: payload.jobId, bidId: payload.bidId },
+      }];
+    }
+
+    case "bid.accepted": {
+      const proUserId = extractStr(payload, "proUserId");
+      if (!proUserId) return [];
+      return [{
+        userId: proUserId,
+        type: "bid_accepted",
+        title: "¡Tu propuesta fue aceptada!",
+        body: "El cliente aceptó tu propuesta. Coordina el inicio del proyecto.",
+        payload: { jobId: payload.jobId, bidId: payload.bidId },
+      }];
+    }
+
+    case "bid.rejected": {
+      const proUserId = extractStr(payload, "proUserId");
+      if (!proUserId) return [];
+      return [{
+        userId: proUserId,
+        type: "bid_rejected",
+        title: "Propuesta no seleccionada",
+        body: "El cliente eligió otra propuesta. Sigue aplicando a nuevos proyectos.",
+        payload: { jobId: payload.jobId, bidId: payload.bidId },
+      }];
+    }
+
+    // ── Change Orders ────────────────────────────────────────────────────────
+    case "change-order:updated": {
+      const specs: NotificationSpec[] = [];
+      const status = extractStr(payload, "status");
+      const clientUserId = extractStr(payload, "clientUserId");
+      const proUserId = extractStr(payload, "proUserId");
+
+      if (status === "submitted" && clientUserId) {
+        specs.push({
+          userId: clientUserId,
+          type: "change_order_submitted",
+          title: "Orden de cambio enviada",
+          body: "El profesional propone un cambio en el alcance o costo del proyecto. Revisa y decide.",
+          payload: { changeOrderId: payload.changeOrderId, jobId: payload.jobId },
+        });
+      } else if (status === "approved" && proUserId) {
+        specs.push({
+          userId: proUserId,
+          type: "change_order_approved",
+          title: "Orden de cambio aprobada",
+          body: "El cliente aprobó la orden de cambio. Puedes proceder con el alcance actualizado.",
+          payload: { changeOrderId: payload.changeOrderId, jobId: payload.jobId },
+        });
+      } else if (status === "rejected" && proUserId) {
+        specs.push({
+          userId: proUserId,
+          type: "change_order_rejected",
+          title: "Orden de cambio rechazada",
+          body: "El cliente rechazó la orden de cambio. Revisa los comentarios y coordina.",
+          payload: { changeOrderId: payload.changeOrderId, jobId: payload.jobId },
+        });
+      } else if (status === "changes_requested" && proUserId) {
+        specs.push({
+          userId: proUserId,
+          type: "change_order_changes_requested",
+          title: "Se requieren ajustes",
+          body: "El cliente solicitó cambios en tu orden antes de aprobarla.",
+          payload: { changeOrderId: payload.changeOrderId, jobId: payload.jobId },
+        });
+      }
+      return specs;
+    }
+
+    // ── Job lifecycle ────────────────────────────────────────────────────────
+    case "job.published": {
+      // Individual contractor notifications handled by MarketplaceAgent via "job.matched"
+      return [];
+    }
+
+    case "job.matched": {
+      // Sent by MarketplaceAgent after running the matching algorithm on a new job
+      const matchedUserIds = Array.isArray(payload.matchedUserIds) ? payload.matchedUserIds as string[] : [];
+      const jobTitle = extractStr(payload, "jobTitle") ?? "Nuevo trabajo";
+      const trade    = extractStr(payload, "trade") ?? "";
+      const location = extractStr(payload, "location") ?? "";
+      const urgency  = extractStr(payload, "urgency") ?? "medium";
+      const budgetMin = typeof payload.budgetMin === "number" ? payload.budgetMin : null;
+      const budgetMax = typeof payload.budgetMax === "number" ? payload.budgetMax : null;
+      const budgetText = budgetMin && budgetMax
+        ? ` · $${Math.round(budgetMin / 1000)}k–$${Math.round(budgetMax / 1000)}k`
+        : "";
+      const urgencyLabel: Record<string, string> = { urgent: "⚡ Urgente", high: "Alta prioridad", medium: "", low: "" };
+      const urgencyPrefix = urgencyLabel[urgency] ? `${urgencyLabel[urgency]} — ` : "";
+      return matchedUserIds.map((userId) => ({
+        userId,
+        type: "job_matched",
+        title: `${urgencyPrefix}Nuevo trabajo disponible`,
+        body: `${jobTitle}${location ? ` en ${location}` : ""}${budgetText}. Oficio: ${trade}. ¡Aplica ahora!`,
+        payload: { jobId: payload.jobId, trade, urgency },
+      }));
+    }
+
+    case "job.completed": {
+      const proUserId = extractStr(payload, "proUserId");
+      const clientUserId = extractStr(payload, "clientUserId");
+      const specs: NotificationSpec[] = [];
+      if (proUserId) {
+        specs.push({
+          userId: proUserId,
+          type: "job_completed",
+          title: "Trabajo marcado como completado",
+          body: "El trabajo fue cerrado exitosamente. Revisa tu calificación y pago final.",
+          payload: { jobId: payload.jobId },
+        });
+      }
+      if (clientUserId) {
+        specs.push({
+          userId: clientUserId,
+          type: "job_completed_client",
+          title: "Proyecto completado",
+          body: "Tu proyecto fue cerrado. Califica al profesional para fortalecer la plataforma.",
+          payload: { jobId: payload.jobId },
+        });
+      }
+      return specs;
+    }
+
+    // ── Payments ─────────────────────────────────────────────────────────────
+    case "payment.refunded": {
+      const clientUserId = extractStr(payload, "clientUserId");
+      if (!clientUserId) return [];
+      return [{
+        userId: clientUserId,
+        type: "payment_refunded",
+        title: "Reembolso procesado",
+        body: "Se procesó un reembolso a tu cuenta de escrow.",
+        payload: { jobId: payload.jobId, amount: payload.amount },
+      }];
+    }
+
+    // ── Smart Intake ─────────────────────────────────────────────────────────
+    case "intake.converted": {
+      const ownerUserId = extractStr(payload, "ownerUserId");
+      if (!ownerUserId) return [];
+      return [{
+        userId: ownerUserId,
+        type: "intake_converted",
+        title: "Tu solicitud se convirtió en proyecto",
+        body: "Prometeo procesó tu solicitud y creó un proyecto. Revisa los detalles.",
+        payload: { jobId: payload.jobId, intakeId: payload.intakeId },
+      }];
+    }
+
+    // ── Governance ────────────────────────────────────────────────────────────
+    case "governance.proposal.closed": {
+      const authorUserId = extractStr(payload, "authorUserId");
+      if (!authorUserId) return [];
+      return [{
+        userId: authorUserId,
+        type: "governance_proposal_closed",
+        title: "Tu propuesta de gobernanza cerró",
+        body: `La votación de tu propuesta terminó. Resultado: ${payload.result ?? "pendiente"}.`,
+        payload: { proposalId: payload.proposalId },
+      }];
+    }
+
+    // ── Ratings ───────────────────────────────────────────────────────────────
+    case "rating.requested": {
+      const proUserId    = extractStr(payload, "proUserId");
+      const clientUserId = extractStr(payload, "clientUserId");
+      const specs: NotificationSpec[] = [];
+      if (proUserId) {
+        specs.push({
+          userId: proUserId,
+          type: "rating_requested_pro",
+          title: "Califica tu experiencia",
+          body: "¿Cómo fue trabajar en este proyecto? Tu calificación ayuda a fortalecer la comunidad.",
+          payload: { jobId: payload.jobId },
+        });
+      }
+      if (clientUserId) {
+        specs.push({
+          userId: clientUserId,
+          type: "rating_requested_client",
+          title: "Califica al profesional",
+          body: "Tu proyecto fue completado. Comparte tu experiencia con el contratista.",
+          payload: { jobId: payload.jobId },
+        });
+      }
+      return specs;
+    }
+
+    case "rating.submitted": {
+      const toUserId = extractStr(payload, "toUserId");
+      const score    = typeof payload.score === "number" ? payload.score : null;
+      if (!toUserId) return [];
+      const stars = score !== null ? `${"★".repeat(score)}${"☆".repeat(5 - score)} (${score}/5)` : "";
+      return [{
+        userId: toUserId,
+        type: "rating_received",
+        title: "Recibiste una calificación",
+        body: stars ? `Alguien calificó tu trabajo: ${stars}` : "Alguien calificó tu trabajo. Revisa tu perfil.",
+        payload: { jobId: payload.jobId, ratingId: payload.ratingId },
       }];
     }
 
@@ -382,6 +594,23 @@ export class NotificationsService {
           "Failed to create notification — skipping",
         );
       }
+    }
+  }
+
+  async savePushSubscription(input: {
+    tenantId: string;
+    userId: string;
+    endpoint: string;
+    keys: Record<string, string>;
+  }): Promise<{ saved: boolean }> {
+    if (!input.endpoint) return { saved: false };
+    try {
+      await this.repository.upsertPushSubscription(input);
+      this.logger.log({ userId: input.userId }, "Push subscription saved");
+      return { saved: true };
+    } catch (error) {
+      this.logger.warn({ userId: input.userId, error }, "Failed to save push subscription");
+      return { saved: false };
     }
   }
 }

@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const now = new Date();
-const stamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_").replace("Z", "Z");
+const stamp = now.toISOString().replaceAll(":", "").replaceAll(".", "").replace("T", "_");
 const evidenceDir = process.env.SEMSE_BCP_EVIDENCE_DIR ?? join("docs", "bcp", "evidence");
 const manifestPath = process.env.SEMSE_BCP_MANIFEST_PATH ?? join(evidenceDir, "manifest.json");
 const latestPath = process.env.SEMSE_BCP_RISK_REVIEW_PATH ?? join(evidenceDir, "risk-review-latest.json");

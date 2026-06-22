@@ -296,6 +296,18 @@ export class MilestonesController {
     });
   }
 
+  @Get("v1/milestones/:milestoneId/vision-summary")
+  @RequirePermissions("milestones:read")
+  async getVisionSummary(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("milestoneId") milestoneId: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const summary = await this.milestonesRepository.getVisionSummary(milestoneId, actor.tenantId);
+    return ok(requestId, summary);
+  }
+
   // ── P2 — Payment release governance ─────────────────────────────────────────
 
   // ── Evidence CRUD advanced (Fase 1) ─────────────────────────────────────────

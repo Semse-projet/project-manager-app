@@ -1,3 +1,36 @@
+---
+id: semse-agent-architecture
+title: "SEMSE Agent Architecture"
+domain: agents
+status: VERIFIED
+owner: semse-core
+risk: high
+related_files:
+  - packages/agents/src
+  - apps/api/src/modules/agents
+  - apps/api/src/modules/semse-agents
+  - packages/schemas/src/agent.schema.ts
+  - packages/schemas/src/agent-governance.schema.ts
+related_tests:
+  - apps/api/test/agent-governance.test.ts
+  - apps/api/test/agent-policy.service.test.ts
+  - apps/api/test/semse-agents.test.ts
+related_endpoints:
+  - v1/agents
+  - v1/agents/semse
+related_events:
+  - agent.action_logged
+  - agent.human_review_requested
+related_agents:
+  - marketplace
+  - buildops
+  - protools
+  - evidence
+  - crowd
+  - prometeo
+last_verified: 2026-06-09
+---
+
 # SPEC: Arquitectura de Agentes SEMSE OS
 **Dominio:** packages/agents
 **Versión:** 1.0

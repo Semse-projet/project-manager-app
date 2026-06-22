@@ -336,6 +336,29 @@ export class AgentsController {
     return ok(requestId, reclaimed);
   }
 
+  @Get("runs/:runId/events")
+  @RequirePermissions("agents:run:create")
+  async runEvents(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
+    const actor = resolveRequestContext(req);
+    const data = await this.agentsService.runEvents({ tenantId: actor.tenantId, runId });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Post("runs/:runId/cancel")
+  @RequirePermissions("agents:run:create")
+  async cancelRun(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.agentsService.cancelRun({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      runId,
+      requestId,
+    });
+    return ok(requestId, data);
+  }
+
   @Post("runs/:runId/retry")
   @RequirePermissions("agents:run:retry")
   async retry(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {

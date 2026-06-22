@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Calendar, DollarSign, Plus, RefreshCw, Inbox, PlaneTakeoff, ChevronRight } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchTravelAssignments, createTravelAssignment, fetchJobs, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { fetchTravelAssignments, createTravelAssignment, fetchMyJobs, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type TravelStatus = "DRAFT" | "PLANNED" | "ACTIVE" | "PENDING_SETTLEMENT" | "CLOSED" | "CANCELLED";
@@ -127,7 +127,7 @@ export default function WorkerTravelPage() {
     try {
       const [rawTravels, rawJobs] = await Promise.all([
         fetchTravelAssignments().catch(() => [] as Record<string, unknown>[]),
-        fetchJobs().catch(() => []),
+        fetchMyJobs().catch(() => []),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;

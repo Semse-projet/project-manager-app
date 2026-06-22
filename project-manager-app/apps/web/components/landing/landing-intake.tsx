@@ -274,21 +274,70 @@ export function LandingIntake() {
           padding: 24,
           borderRadius: 24,
           border: "1px solid var(--border)",
-          background: "rgba(255,255,255,.82)",
+          background: "var(--surface)",
           boxShadow: "0 20px 60px rgba(15,23,42,.08)",
         }}
       >
         <div style={{ display: "grid", gap: 18 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#2563eb", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--brand)", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 8 }}>
               Brief inicial
             </div>
-            <h2 style={{ fontSize: 28, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 8 }}>
+            <h2 style={{ fontSize: 28, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.02em", marginBottom: 8 }}>
               Describe tu trabajo y entra al wizard real
             </h2>
-            <p style={{ fontSize: 15, color: "#64748b", lineHeight: 1.6 }}>
+            <p style={{ fontSize: 15, color: "var(--muted)", lineHeight: 1.6, marginBottom: 12 }}>
               Selecciona una categoría y describe el trabajo. El wizard inteligente aplica a Pintura, Drywall, Baño, Cocina, Limpieza y Carpintería.
             </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+              {[
+                {
+                  label: "🎨 Pintar sala",
+                  cat: "pintura",
+                  sub: "interior",
+                  title: "Pintura de sala y comedor",
+                  desc: "Necesito pintar las paredes de la sala y el comedor, aproximadamente 45 metros cuadrados. Se requiere resanar un par de grietas menores y aplicar dos manos de pintura látex satinada.",
+                },
+                {
+                  label: "🧱 Hueco en drywall",
+                  cat: "drywall",
+                  sub: "reparacion",
+                  title: "Reparación de agujero en drywall",
+                  desc: "Tengo un hueco en la pared de drywall debido a un golpe, de unos 15x15 cm. Necesito colocar un parche, encintar, aplicar compuesto y dejar listo para pintar.",
+                },
+                {
+                  label: "🚽 Renovar baño",
+                  cat: "bano",
+                  sub: "cosmetico",
+                  title: "Actualización de baño de visitas",
+                  desc: "Necesito cambiar el inodoro, el lavamanos antiguo y el grifo de agua. También colocar espejo nuevo y cambiar 4 azulejos rotos en el área de la ducha.",
+                },
+              ].map((prompt) => (
+                <button
+                  key={prompt.label}
+                  type="button"
+                  onClick={() => {
+                    setCategoryId(prompt.cat);
+                    setSubcategoryId(prompt.sub);
+                    setTitle(prompt.title);
+                    setDescription(prompt.desc);
+                  }}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "6px 12px",
+                    borderRadius: 12,
+                    background: "var(--brand-dim)",
+                    border: "1px solid var(--brand-dim)",
+                    color: "var(--brand)",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {prompt.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -304,8 +353,8 @@ export function LandingIntake() {
                   }}
                   style={optionCard(categoryId === item.id)}
                 >
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{item.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>{item.subcategories.length} especialidades</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{item.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{item.subcategories.length} especialidades</div>
                 </button>
               ))}
             </div>
@@ -323,10 +372,10 @@ export function LandingIntake() {
                     style={{ ...optionCard(subcategoryId === item.id), display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
                   >
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{item.name}</div>
-                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>desde ${item.basePrice.toLocaleString("es-MX")}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{item.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>desde ${item.basePrice.toLocaleString("es-MX")}</div>
                     </div>
-                    {subcategoryId === item.id ? <CheckCircle size={15} color="#2563eb" /> : null}
+                    {subcategoryId === item.id ? <CheckCircle size={15} color="var(--brand)" /> : null}
                   </button>
                 ))}
               </div>
@@ -367,7 +416,7 @@ export function LandingIntake() {
                   resize: "vertical",
                 }}
               />
-              <div style={{ fontSize: 11, color: description.trim().length >= (isSmartIntakeCategory ? 10 : LEGACY_DESCRIPTION_MIN) ? "#64748b" : "#ef4444", marginTop: 6 }}>
+              <div style={{ fontSize: 11, color: description.trim().length >= (isSmartIntakeCategory ? 10 : LEGACY_DESCRIPTION_MIN) ? "var(--muted)" : "var(--error)", marginTop: 6 }}>
                 {description.trim().length}/{isSmartIntakeCategory ? 10 : LEGACY_DESCRIPTION_MIN} caracteres minimo
               </div>
             </div>
@@ -381,7 +430,7 @@ export function LandingIntake() {
                   { value: "hybrid" as const, label: "Hibrido" },
                 ]).map((item) => (
                   <button key={item.value} type="button" onClick={() => setLocationType(item.value)} style={optionCard(locationType === item.value, "#0f766e")}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{item.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>{item.label}</div>
                   </button>
                 ))}
               </div>
@@ -390,7 +439,7 @@ export function LandingIntake() {
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--muted)", marginBottom: 8 }}>Ciudad</label>
               <div style={{ position: "relative" }}>
-                <MapPin size={14} color="#64748b" style={{ position: "absolute", left: 12, top: 13 }} />
+                <MapPin size={14} color="var(--muted)" style={{ position: "absolute", left: 12, top: 13 }} />
                 <input
                   value={city}
                   onChange={(event) => setCity(event.target.value)}
@@ -413,8 +462,8 @@ export function LandingIntake() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 }}>
               {JOB_URGENCY_OPTIONS.map((item) => (
                 <button key={item.value} type="button" onClick={() => setUrgency(item.value)} style={optionCard(urgency === item.value, item.color)}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{item.label}</div>
-                  <div style={{ fontSize: 10, color: "#64748b", marginTop: 4 }}>{item.description}</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>{item.label}</div>
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 4 }}>{item.description}</div>
                 </button>
               ))}
             </div>
@@ -431,9 +480,9 @@ export function LandingIntake() {
                     gap: 8,
                     padding: 14,
                     borderRadius: 12,
-                    border: "1px dashed rgba(37,99,235,.22)",
-                    background: "rgba(37,99,235,.04)",
-                    color: "#2563eb",
+                    border: "1px dashed var(--brand-dim)",
+                    background: "var(--brand-dim)",
+                    color: "var(--brand)",
                     cursor: intakeLoading ? "wait" : "pointer",
                   }}
                 >
@@ -473,8 +522,8 @@ export function LandingIntake() {
               />
             </>
           ) : (
-            <div style={{ padding: 14, borderRadius: 14, background: "rgba(148,163,184,.08)", border: "1px solid rgba(148,163,184,.12)", fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
-              El flujo guiado de Smart Intake esta activo solo para <strong>Pintura interior</strong>. Las demas categorias siguen usando el brief y el preview actuales.
+            <div style={{ padding: 14, borderRadius: 14, background: "var(--raised)", border: "1px solid var(--border)", fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+              Algunas categorías ya cuentan con estimador inteligente avanzado; otras usan un brief inicial mientras expandimos el sistema.
             </div>
           )}
         </div>
@@ -486,19 +535,19 @@ export function LandingIntake() {
             alignContent: "start",
             padding: 20,
             borderRadius: 20,
-            background: "linear-gradient(180deg, rgba(37,99,235,.08), rgba(124,58,237,.06))",
-            border: "1px solid rgba(37,99,235,.12)",
+            background: "linear-gradient(180deg, var(--brand-dim), var(--violet-dim))",
+            border: "1px solid var(--brand-dim)",
           }}
         >
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--violet)", textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 8 }}>
               Budget Intelligence
             </div>
-            <h3 style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", marginBottom: 8 }}>
               Calcula un rango antes de entrar
             </h3>
-            <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.6 }}>
-              En Pintura interior, el estimate se desbloquea con score real. En las demas categorias, se mantiene el preview actual mientras llega la siguiente ronda del intake.
+            <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+              Estimaciones automáticas para pintura interior. Para las demás categorías, se proporciona un rango preliminar mientras expandimos el sistema.
             </p>
           </div>
 
@@ -532,9 +581,9 @@ export function LandingIntake() {
               gap: 8,
               padding: "12px 16px",
               borderRadius: 12,
-              border: "1px solid rgba(79,70,229,.16)",
-              background: "rgba(79,70,229,.08)",
-              color: "#4f46e5",
+              border: "1px solid var(--violet-dim)",
+              background: "var(--violet-dim)",
+              color: "var(--violet)",
               fontWeight: 800,
               cursor: legacyBudgetLoading ? "not-allowed" : "pointer",
               opacity: isSmartIntakeCategory
@@ -548,7 +597,7 @@ export function LandingIntake() {
           </button>
 
           {!isSmartIntakeCategory && !legacyAnalysisIsFresh && lastLegacyAnalysisKey ? (
-            <div style={{ padding: 12, borderRadius: 12, background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.2)", color: "#b45309", fontSize: 12, lineHeight: 1.6 }}>
+            <div style={{ padding: 12, borderRadius: 12, background: "var(--warn-dim)", border: "1px solid var(--warn)", color: "var(--warn)", fontSize: 12, lineHeight: 1.6 }}>
               El brief cambio despues del ultimo analisis. Ejecutalo de nuevo para actualizar presupuesto y candidatos.
             </div>
           ) : null}
@@ -559,23 +608,23 @@ export function LandingIntake() {
               <MilestonePreview milestones={milestones} />
             </>
           ) : visibleLegacyBudget ? (
-            <div style={{ padding: 16, borderRadius: 16, background: "#fff", border: "1px solid rgba(37,99,235,.12)" }}>
+            <div style={{ padding: 16, borderRadius: 16, background: "var(--surface)", border: "1px solid var(--border)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#4f46e5" }}>Rango sugerido</span>
-                <span style={{ fontSize: 10, fontWeight: 800, color: "#0f766e", background: "rgba(16,185,129,.12)", borderRadius: 999, padding: "4px 8px", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--violet)" }}>Rango sugerido</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: "var(--ok)", background: "var(--ok-dim)", borderRadius: 999, padding: "4px 8px", textTransform: "uppercase" }}>
                   {visibleLegacyBudget.confidence}
                 </span>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.02em", marginBottom: 6 }}>
+              <div style={{ fontSize: 24, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.02em", marginBottom: 6 }}>
                 ${visibleLegacyBudget.min.toLocaleString("es-MX")} - ${visibleLegacyBudget.max.toLocaleString("es-MX")} {visibleLegacyBudget.currency}
               </div>
-              <div style={{ fontSize: 12, color: "#64748b", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
                 Mediana ${visibleLegacyBudget.median.toLocaleString("es-MX")} · {visibleLegacyBudget.similarJobsFound} referencias
               </div>
-              <p style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>{visibleLegacyBudget.aiNarrative}</p>
+              <p style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.6 }}>{visibleLegacyBudget.aiNarrative}</p>
             </div>
           ) : (
-            <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.65)", border: "1px dashed rgba(37,99,235,.16)", fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
+            <div style={{ padding: 16, borderRadius: 16, background: "var(--surface)", border: "1px dashed var(--border)", fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
               {isSmartIntakeCategory
                 ? "Responde las preguntas guiadas hasta cruzar el umbral de score para desbloquear el estimate."
                 : "Completa categoria, titulo y descripcion para calcular un rango antes de entrar al wizard."}
@@ -584,8 +633,8 @@ export function LandingIntake() {
 
           {visibleRecommendedPros.length > 0 ? (
             <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#0f172a" }}>
-                <Users size={15} color="#2563eb" />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--ink)" }}>
+                <Users size={15} color="var(--brand)" />
                 <span style={{ fontSize: 12, fontWeight: 800 }}>Profesionales sugeridos para este brief</span>
               </div>
               {visibleRecommendedPros.map((pro) => (
@@ -596,10 +645,10 @@ export function LandingIntake() {
                     gap: 10,
                     padding: 14,
                     borderRadius: 16,
-                    background: "#fff",
+                    background: "var(--surface)",
                     border: selectedProfessional?.userId === pro.userId
-                      ? "1.5px solid rgba(79,70,229,.45)"
-                      : "1px solid rgba(37,99,235,.12)",
+                      ? "1.5px solid var(--brand)"
+                      : "1px solid var(--border)",
                     boxShadow: selectedProfessional?.userId === pro.userId
                       ? "0 8px 24px rgba(79,70,229,.12)"
                       : "none",
@@ -607,14 +656,14 @@ export function LandingIntake() {
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 10 }}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a" }}>{pro.displayName}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4, fontSize: 11, color: "#64748b" }}>
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>{pro.displayName}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4, fontSize: 11, color: "var(--muted)" }}>
                         <span>{Math.round(pro.score * 100)}% match</span>
                         <span>{pro.trustScore} trust</span>
                         <span>{pro.completedProjects || pro.completedJobs} trabajos</span>
                         {pro.avgRating > 0 ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#d97706" }}>
-                            <Star size={11} fill="#d97706" />
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "var(--warn)" }}>
+                            <Star size={11} fill="var(--warn)" />
                             {pro.avgRating.toFixed(1)}
                           </span>
                         ) : null}
@@ -624,12 +673,12 @@ export function LandingIntake() {
                       <Link
                         href={`/pro/${pro.publicSlug}`}
                         target="_blank"
-                        style={{ color: "#4f46e5", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
+                        style={{ color: "var(--violet)", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
                       >
                         Perfil <ExternalLink size={12} />
                       </Link>
                     ) : (
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>Perfil privado</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)" }}>Perfil privado</span>
                     )}
                   </div>
                   {pro.specialties.length > 0 ? (
@@ -640,8 +689,8 @@ export function LandingIntake() {
                           style={{
                             fontSize: 10,
                             fontWeight: 700,
-                            color: "#334155",
-                            background: "#e2e8f0",
+                            color: "var(--ink)",
+                            background: "var(--raised)",
                             borderRadius: 999,
                             padding: "4px 8px",
                           }}
@@ -651,7 +700,7 @@ export function LandingIntake() {
                       ))}
                     </div>
                   ) : null}
-                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                  <div style={{ fontSize: 11, color: "var(--muted)" }}>
                     {pro.matchReason}
                     {" · "}
                     {pro.verifiedAt ? "Credencial publica activa" : "Reputacion detectada por historial operativo"}
@@ -665,12 +714,12 @@ export function LandingIntake() {
                       padding: "8px 10px",
                       borderRadius: 10,
                       border: selectedProfessional?.userId === pro.userId
-                        ? "1px solid rgba(79,70,229,.2)"
+                        ? "1px solid var(--violet-dim)"
                         : "1px solid var(--border)",
                       background: selectedProfessional?.userId === pro.userId
-                        ? "rgba(79,70,229,.08)"
+                        ? "var(--violet-dim)"
                         : "transparent",
-                      color: selectedProfessional?.userId === pro.userId ? "#4f46e5" : "#334155",
+                      color: selectedProfessional?.userId === pro.userId ? "var(--violet)" : "var(--ink)",
                       fontSize: 11,
                       fontWeight: 800,
                       cursor: "pointer",
@@ -682,13 +731,13 @@ export function LandingIntake() {
               ))}
             </div>
           ) : (
-            <div style={{ padding: 16, borderRadius: 16, background: "rgba(255,255,255,.65)", border: "1px dashed rgba(37,99,235,.16)", fontSize: 13, color: "#64748b", lineHeight: 1.6 }}>
+            <div style={{ padding: 16, borderRadius: 16, background: "var(--surface)", border: "1px dashed var(--border)", fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
               Cuando analices el brief, aqui aparecera una vista previa de profesionales compatibles.
             </div>
           )}
 
           {legacyError ? (
-            <div style={{ padding: 12, borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", color: "#b91c1c", fontSize: 13 }}>
+            <div style={{ padding: 12, borderRadius: 12, background: "var(--error-dim)", border: "1px solid var(--error)", color: "var(--error)", fontSize: 13 }}>
               {legacyError}
             </div>
           ) : null}
@@ -707,7 +756,7 @@ export function LandingIntake() {
               gap: 8,
               padding: "14px 18px",
               borderRadius: 12,
-              background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+              background: "linear-gradient(135deg, var(--brand), var(--violet))",
               color: "#fff",
               fontSize: 14,
               fontWeight: 800,
@@ -718,12 +767,12 @@ export function LandingIntake() {
           </Link>
 
           {selectedProfessional ? (
-            <div style={{ padding: 12, borderRadius: 12, background: "rgba(79,70,229,.08)", border: "1px solid rgba(79,70,229,.18)", color: "#4338ca", fontSize: 12, lineHeight: 1.6 }}>
+            <div style={{ padding: 12, borderRadius: 12, background: "var(--brand-dim)", border: "1px solid var(--brand-dim)", color: "var(--brand)", fontSize: 12, lineHeight: 1.6 }}>
               El wizard llevara marcado a <strong>{selectedProfessional.displayName}</strong> como perfil objetivo y, al publicar, te llevara directo al matching del job.
             </div>
           ) : null}
 
-          <div style={{ fontSize: 12, color: "#64748b", lineHeight: 1.6 }}>
+          <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6 }}>
             Si no has iniciado sesion, el sistema te pedira entrar y luego volvera al wizard con el intake recuperado cuando aplique.
           </div>
         </div>

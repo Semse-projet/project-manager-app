@@ -1,7 +1,9 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import crypto from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { SemseToolResult } from "../../../../../packages/tools/dist/index.js";
+import { ToolsService } from "./tools.service.js";
 
 type AlgorithmRunContext = {
   tenantId?: string;
@@ -14,7 +16,10 @@ type AlgorithmRunContext = {
 export class AlgorithmRunService {
   private readonly logger = new Logger(AlgorithmRunService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly toolsService: ToolsService,
+  ) {}
 
   /**
    * Persists a tool calculation run for auditing and future analytics.
@@ -38,7 +43,7 @@ export class AlgorithmRunService {
 
       await this.prisma.algorithmRun.create({
         data: {
-          id:                `arn_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          id:                `arn_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`,
           tenantId:          context?.tenantId ?? null,
           userId:            context?.userId ?? null,
           jobId:             context?.jobId ?? null,
@@ -97,5 +102,54 @@ export class AlgorithmRunService {
       }),
     ]);
     return { total, byTrade };
+  }
+
+  async findById(id: string, tenantId?: string) {
+    const run = await this.prisma.algorithmRun.findFirst({
+      where: { id, ...(tenantId ? { tenantId } : {}) },
+    });
+    if (!run) throw new NotFoundException(`AlgorithmRun '${id}' not found`);
+    return run;
+  }
+
+  async replay(input: { id: string; tenantId?: string; userId?: string }) {
+    const original = await this.findById(input.id, input.tenantId);
+
+    let replayedResult: SemseToolResult;
+    try {
+      replayedResult = this.toolsService.calculate({
+        tool:  original.toolName,
+        input: original.inputJson as Record<string, unknown>,
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Tool replay failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    await this.record(
+      original.toolName,
+      original.inputJson as Record<string, unknown>,
+      replayedResult,
+      {
+        tenantId: input.tenantId ?? (original.tenantId ?? undefined),
+        userId:   input.userId,
+        jobId:    original.jobId ?? undefined,
+        buildOpsProjectId: original.buildOpsProjectId ?? undefined,
+      },
+    );
+
+    return {
+      original: {
+        id: original.id,
+        toolName: original.toolName,
+        algorithmVersion: original.algorithmVersion,
+        riskScore: original.riskScore,
+        confidenceScore: original.confidenceScore,
+        priceBandMid: original.priceBandMid,
+        createdAt: original.createdAt,
+      },
+      replayed: replayedResult,
+    };
   }
 }

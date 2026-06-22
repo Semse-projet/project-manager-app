@@ -54,6 +54,17 @@ type IntelligenceRun = {
   createdAt: string;
 };
 
+type ActivityEvent = {
+  id: string;
+  type: string;
+  title: string;
+  detail: string;
+  severity: "info" | "warning" | "critical";
+  occurredAt: string;
+  entityType: string;
+  entityId: string;
+};
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -87,6 +98,7 @@ export default function IntelligenceRoomPage() {
   const [signals, setSignals] = useState<OperationalSignal[]>([]);
   const [brief, setBrief] = useState<PrometeoBrief | null>(null);
   const [runs, setRuns] = useState<IntelligenceRun[]>([]);
+  const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -94,11 +106,12 @@ export default function IntelligenceRoomPage() {
     if (!projectId) return;
     setLoading(true);
     try {
-      const [projRes, sigRes, briefRes, runRes] = await Promise.all([
+      const [projRes, sigRes, briefRes, runRes, actRes] = await Promise.all([
         fetch(`/api/semse/buildops/projects/${projectId}`, { credentials: "include" }).catch(() => null),
         fetch(`/api/semse/operational-signals?buildOpsProjectId=${projectId}&limit=50`, { credentials: "include" }),
         fetch(`/api/semse/prometeo-brief?buildOpsProjectId=${projectId}`, { credentials: "include" }).catch(() => null),
         fetch(`/api/semse/intelligence-runs?limit=10`, { credentials: "include" }).catch(() => null),
+        fetch(`/api/semse/buildops/projects/${projectId}/activity?limit=30`, { credentials: "include" }).catch(() => null),
       ]);
 
       if (projRes?.ok) {
@@ -116,6 +129,10 @@ export default function IntelligenceRoomPage() {
       if (runRes?.ok) {
         const r = (await runRes.json()) as { data?: IntelligenceRun[] };
         setRuns(r.data ?? []);
+      }
+      if (actRes?.ok) {
+        const a = (await actRes.json()) as { data?: { events?: ActivityEvent[] } };
+        setActivity(a.data?.events ?? []);
       }
     } finally {
       setLoading(false);
@@ -137,6 +154,14 @@ export default function IntelligenceRoomPage() {
     try {
       await fetch(`/api/semse/operational-signals/${id}/resolve`, { method: "PATCH", credentials: "include" });
       setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "resolved" as const } : s));
+    } finally { setActionLoading(null); }
+  }
+
+  async function handleDismiss(id: string) {
+    setActionLoading(id);
+    try {
+      await fetch(`/api/semse/operational-signals/${id}/dismiss`, { method: "PATCH", credentials: "include" });
+      setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "dismissed" as const } : s));
     } finally { setActionLoading(null); }
   }
 
@@ -299,12 +324,61 @@ export default function IntelligenceRoomPage() {
                   <button onClick={() => handleResolve(signal.id)} disabled={isLoading} style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(34,197,94,.3)", background: "rgba(34,197,94,.08)", color: "#86efac", fontSize: "11px", cursor: isLoading ? "not-allowed" : "pointer" }}>
                     {isLoading ? "…" : "Resolve"}
                   </button>
+                  {signal.status !== "dismissed" && (
+                    <button onClick={() => handleDismiss(signal.id)} disabled={isLoading} style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid rgba(100,116,139,.3)", background: "rgba(100,116,139,.08)", color: "#94a3b8", fontSize: "11px", cursor: isLoading ? "not-allowed" : "pointer" }}>
+                      {isLoading ? "…" : "Dismiss"}
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* Activity Feed */}
+      {!loading && activity.length > 0 && (
+        <div style={{ marginBottom: "24px" }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--faint, #4b6280)", textTransform: "uppercase" as const, letterSpacing: "0.08em", marginBottom: "10px" }}>
+            Actividad del proyecto ({activity.length})
+          </p>
+          <div style={{ background: "var(--surface, #0c1017)", border: "1px solid var(--border, #1f2d3d)", borderRadius: "10px", overflow: "hidden" }}>
+            {activity.slice(0, 15).map((ev, i) => {
+              const sevColor = ev.severity === "critical" ? "#ef4444" : ev.severity === "warning" ? "#f97316" : "#3b82f6";
+              const typeEmoji: Record<string, string> = {
+                milestone: "🏁", change_order: "📋", signal: "🔔", algorithm: "🤖", evidence: "🖼️",
+              };
+              return (
+                <div key={ev.id} style={{
+                  padding: "9px 14px",
+                  borderBottom: i < Math.min(activity.length, 15) - 1 ? "1px solid var(--border, #1f2d3d)" : "none",
+                  display: "flex", gap: "10px", alignItems: "flex-start",
+                }}>
+                  <span style={{ fontSize: "14px", marginTop: "1px", flexShrink: 0 }}>
+                    {typeEmoji[ev.entityType] ?? "●"}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                      <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink, #f1f5f9)" }}>{ev.title}</span>
+                      <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)", flexShrink: 0 }}>{timeAgo(ev.occurredAt)}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "2px" }}>
+                      <span style={{
+                        fontSize: "9px", fontWeight: 700, textTransform: "uppercase" as const,
+                        color: sevColor, background: `${sevColor}15`,
+                        border: `1px solid ${sevColor}30`, borderRadius: "3px", padding: "1px 5px",
+                      }}>
+                        {ev.type.replace(/_/g, " ")}
+                      </span>
+                      <span style={{ fontSize: "11px", color: "var(--muted, #94a3b8)" }}>{ev.detail}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Recent Runs */}
       {!loading && runs.length > 0 && (

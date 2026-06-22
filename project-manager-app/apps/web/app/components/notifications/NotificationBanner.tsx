@@ -37,16 +37,43 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
     setLoading(true);
     try {
       const { items: raw } = await fetchNotifications();
-      const mapped: NotificationItem[] = raw.map((n) => ({
-        id: String(n.id ?? ""),
-        title: String(n.title ?? ""),
-        body: String(n.body ?? ""),
-        kind: String(n.type ?? n.kind ?? "system") as NotificationItem["kind"],
-        read: Boolean(n.readAt),
-        createdAt: String(n.createdAt ?? new Date().toISOString()),
-        linkHref: typeof n.linkHref === "string" ? n.linkHref : undefined,
-        targetRole: typeof n.targetRole === "string" ? n.targetRole as NotificationItem["targetRole"] : undefined,
-      }));
+      const mapped: NotificationItem[] = raw.map((n) => {
+        const type = String(n.type ?? n.kind ?? "system");
+        const payload = n.payload as Record<string, unknown> | null | undefined;
+        const jobId = typeof payload?.jobId === "string" ? payload.jobId : undefined;
+        const milestoneId = typeof payload?.milestoneId === "string" ? payload.milestoneId : undefined;
+        const disputeId = typeof payload?.disputeId === "string" ? payload.disputeId : undefined;
+
+        let linkHref: string | undefined = typeof n.linkHref === "string" ? n.linkHref : undefined;
+        if (!linkHref) {
+          if (type === "bid_received"              && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "job_assigned"         && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "bid_rejected"                 ) linkHref = `/worker/opportunities`;
+          else if (type === "milestone_submitted"  && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "milestone_approved"   && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "milestone_rejected"   && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "escrow_released"      && jobId) linkHref = `/worker/jobs/${jobId}`;
+          else if (type === "job_completed"        && jobId) linkHref = `/worker/jobs/${jobId}/rate`;
+          else if (type === "job_completed_client" && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "rating_requested_pro" && jobId) linkHref = `/worker/jobs/${jobId}/rate`;
+          else if (type === "rating_requested_client" && jobId) linkHref = `/client/jobs/${jobId}/rate`;
+          else if (type === "intake_converted"     && jobId) linkHref = `/client/jobs/${jobId}`;
+          else if (type === "dispute_opened"  && disputeId) linkHref = `/client/disputes`;
+          else if (type === "dispute_resolved"&& disputeId) linkHref = `/worker/disputes`;
+          else if (milestoneId && jobId) linkHref = `/client/jobs/${jobId}`;
+        }
+
+        return {
+          id: String(n.id ?? ""),
+          title: String(n.title ?? ""),
+          body: String(n.body ?? ""),
+          kind: type as NotificationItem["kind"],
+          read: Boolean(n.readAt),
+          createdAt: String(n.createdAt ?? new Date().toISOString()),
+          linkHref,
+          targetRole: typeof n.targetRole === "string" ? n.targetRole as NotificationItem["targetRole"] : undefined,
+        };
+      });
       setItems(mapped.filter((n) => !n.targetRole || n.targetRole === audience));
     } catch {
       // silencioso — las notificaciones no bloquean la UI

@@ -85,7 +85,7 @@ Los scripts reales viven en `project-manager-app/package.json`.
 
 ```bash
 cd project-manager-app
-npm install --workspaces
+pnpm install
 ```
 
 ## Cómo correr el proyecto
@@ -93,9 +93,9 @@ npm install --workspaces
 Desde `project-manager-app/`:
 
 ```bash
-npm run dev:web
-npm run dev:api
-npm run dev:worker
+pnpm dev:web
+pnpm dev:api
+pnpm dev:worker
 ```
 
 Para levantar la infraestructura local del MVP:
@@ -107,7 +107,7 @@ docker compose -f infra/docker/compose.semse-mvp.yml up -d
 Para API con LLM local:
 
 ```bash
-npm run dev:api:local-llm
+pnpm dev:api:local-llm
 ```
 
 ## Build y tests
@@ -115,17 +115,17 @@ npm run dev:api:local-llm
 Desde `project-manager-app/`:
 
 ```bash
-npm run build:web
-npm run build:api
-npm run verify:workspace
-npm run test:unit
-npm run test:e2e
+pnpm build:web
+pnpm build:api
+pnpm verify:workspace
+pnpm test:unit
+pnpm test:e2e
 ```
 
 Si necesitas Playwright por primera vez:
 
 ```bash
-npx playwright install chromium
+pnpm exec playwright install chromium
 ```
 
 ## Contribuir sin romper estructura
@@ -148,6 +148,6 @@ npx playwright install chromium
 
 Consulta también:
 
-- [SEMSE_CONTEXT.md](/home/yoni/labsemse/SEMSE_CONTEXT.md)
-- [ROADMAP.md](/home/yoni/labsemse/ROADMAP.md)
-- [project-manager-app/README.md](/home/yoni/labsemse/project-manager-app/README.md)
+- [SEMSE_CONTEXT.md](SEMSE_CONTEXT.md)
+- [ROADMAP.md](ROADMAP.md)
+- [project-manager-app/README.md](project-manager-app/README.md)

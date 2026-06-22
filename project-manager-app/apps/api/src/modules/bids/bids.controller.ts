@@ -6,13 +6,55 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { BidsService } from "./bids.service.js";
 
-const createBidSchema = bidSchema.omit({ jobId: true });
+const createBidSchema = bidSchema.omit({ jobId: true }).extend({ proOrgId: bidSchema.shape.proOrgId.optional() });
 
-@Controller()
+// GET /v1/my-bids — kept on a separate path (not /v1/bids/mine) to avoid a
+// Fastify find-my-way conflict where static+parametric sibling routes under the
+// same @Controller prefix can silently drop the static GET route.
+@Controller("v1/my-bids")
+export class BidsMineController {
+  constructor(private readonly bidsService: BidsService) {}
+
+  @Get()
+  @RequirePermissions("bids:read")
+  async mine(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const data = await this.bidsService.listMine({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      orgId: actor.orgId,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+}
+
+@Controller("v1/bids")
 export class BidsController {
   constructor(private readonly bidsService: BidsService) {}
 
-  @Get("v1/jobs/:jobId/bids")
+  @Post(":bidId/accept")
+  @RequirePermissions("bids:accept")
+  async accept(@Req() req: { headers?: Record<string, unknown> }, @Param("bidId") bidId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const bid = await this.bidsService.accept({
+      tenantId: actor.tenantId,
+      bidId,
+      userId: actor.userId,
+      orgId: actor.orgId,
+      roles: actor.roles,
+      requestId
+    });
+
+    return ok(requestId, bid);
+  }
+}
+
+@Controller("v1/jobs")
+export class JobBidsController {
+  constructor(private readonly bidsService: BidsService) {}
+
+  @Get(":jobId/bids")
   @RequirePermissions("bids:read")
   async list(@Req() req: { headers?: Record<string, unknown> }, @Param("jobId") jobId: string) {
     const actor = resolveRequestContext(req);
@@ -25,7 +67,7 @@ export class BidsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
-  @Post("v1/jobs/:jobId/bids")
+  @Post(":jobId/bids")
   @RequirePermissions("bids:create")
   async create(
     @Req() req: { headers?: Record<string, unknown> },
@@ -42,29 +84,13 @@ export class BidsController {
     const bid = await this.bidsService.create({
       tenantId: actor.tenantId,
       jobId,
-      proOrgId: parsed.data.proOrgId,
+      proOrgId: parsed.data.proOrgId ?? actor.orgId,
       userId: actor.userId,
       orgId: actor.orgId,
       roles: actor.roles,
       amount: parsed.data.amount,
       etaDays: parsed.data.etaDays,
-      requestId
-    });
-
-    return ok(requestId, bid);
-  }
-
-  @Post("v1/bids/:bidId/accept")
-  @RequirePermissions("bids:accept")
-  async accept(@Req() req: { headers?: Record<string, unknown> }, @Param("bidId") bidId: string) {
-    const actor = resolveRequestContext(req);
-    const requestId = resolveRequestId(req.headers ?? {});
-    const bid = await this.bidsService.accept({
-      tenantId: actor.tenantId,
-      bidId,
-      userId: actor.userId,
-      orgId: actor.orgId,
-      roles: actor.roles,
+      note: parsed.data.note,
       requestId
     });
 

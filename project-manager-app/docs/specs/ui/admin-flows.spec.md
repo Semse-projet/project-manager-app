@@ -1,12 +1,34 @@
 ---
+id: ui-admin-flows
+title: "Admin and OPS UI Flows"
 type: spec
 feature: "Admin / OPS UI Flows"
 domain: "ui"
 version: "1.0"
-status: "APPROVED"
+status: "VERIFIED"
+owner: semse-core
+risk: high
 date: "2026-05-20"
 author: "Claude Sonnet — sesión SDD governance"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/web/app/(app)/admin
+  - apps/web/components/semse
+  - apps/web/lib/language-context.tsx
+related_tests:
+  - apps/api/test/ai-mission-control.test.ts
+  - apps/api/test/semse-consciousness.test.ts
+  - scripts/web-sprint15-smoke.mjs
+  - tests/unit/navigation-shell.test.ts
+  - tests/unit/navigation-registry.test.ts
+related_endpoints:
+  - v1/ops
+  - v1/disputes
+related_events:
+  - agents:system
+related_agents:
+  - mission-control
+last_verified: 2026-06-09
 ---
 
 # Spec: Admin / OPS UI Flows

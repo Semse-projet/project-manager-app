@@ -1,0 +1,26 @@
+{
+  "created_at": "2026-05-05T14:41:48.290492",
+  "package": "semse_conversacion_paquete",
+  "files": [
+    "README.md",
+    "documentacion/arquitectura_semse_pro_tools_v2.md",
+    "documentacion/roadmap_endurecimiento.md",
+    "documentacion/sintesis_conversacion.md",
+    "fuentes_texto_pegado/Pasted text(16).txt",
+    "fuentes_texto_pegado/Pasted text(17).txt",
+    "herramientas_html/semse_herramienta_carpinteria.html",
+    "herramientas_html/semse_herramienta_concreto.html",
+    "herramientas_html/semse_herramienta_cotizador_escrow.html",
+    "herramientas_html/semse_herramienta_drywall.html",
+    "herramientas_html/semse_herramienta_electricista.html",
+    "herramientas_html/semse_herramienta_hvac.html",
+    "herramientas_html/semse_herramienta_inspeccion.html",
+    "herramientas_html/semse_herramienta_pintura.html",
+    "herramientas_html/semse_herramienta_pisos.html",
+    "herramientas_html/semse_herramienta_plomeria.html",
+    "herramientas_html/semse_herramienta_roofing.html",
+    "herramientas_html/semse_pro_tools_suite.html",
+    "herramientas_html/semse_suite_contratistas.html",
+    "prompts/prompt_maestro_semse_pro_tools_v2.txt"
+  ]
+}

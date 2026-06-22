@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
+import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
@@ -55,17 +56,13 @@ import {
   Users,
   Wrench,
   X,
+  Scale,
 } from "lucide-react";
 
 type NavRole = "worker" | "client" | "admin";
 type ThemePreference = "dark" | "light";
 
-interface NavItem {
-  labelKey: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  section?: string;
-}
+interface NavItem extends ShellNavItem {}
 
 const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
@@ -74,6 +71,8 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     icon: HardHat,
     items: [
       { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
+      { labelKey: "nav.opportunities", href: "/worker/opportunities", icon: Store },
+      { labelKey: "nav.myBids", href: "/worker/bids", icon: Send },
       { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
       { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
       { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
@@ -84,6 +83,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.payments", href: "/worker/payments", icon: CreditCard },
       { labelKey: "nav.travel", href: "/worker/travel", icon: PlaneTakeoff },
       { labelKey: "nav.fieldOps", href: "/worker/field-ops", icon: Wrench, section: "section.field" },
+      { labelKey: "nav.reviews", href: "/worker/review", icon: Star },
       { labelKey: "nav.myProfile", href: "/worker/profile", icon: User },
       { labelKey: "nav.aiSettings", href: "/worker/settings", icon: Settings },
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
@@ -121,6 +121,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.contractors", href: "/admin/contractors", icon: Building2 },
       { labelKey: "nav.marketplace", href: "/admin/marketplace", icon: Store },
       { labelKey: "nav.trust", href: "/admin/trust", icon: ShieldCheck },
+      { labelKey: "nav.reputation", href: "/admin/reputation", icon: Star },
       { labelKey: "nav.worker", href: "/admin/worker", icon: Cpu },
       { labelKey: "nav.autonomy", href: "/admin/autonomy", icon: GitBranch },
       { labelKey: "nav.developerRuntime", href: "/admin/developer-runtime", icon: Bot },
@@ -128,7 +129,10 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.domainEvents", href: "/admin/domain-events", icon: Bell },
       { labelKey: "nav.users", href: "/admin/users", icon: Users },
       { labelKey: "nav.disputes", href: "/admin/disputes", icon: AlertTriangle },
-      { labelKey: "nav.qaCenter", href: "/admin/qa", icon: ShieldCheck, section: "section.control" },
+      { labelKey: "nav.changeOrders", href: "/admin/change-orders", icon: FileText },
+      { labelKey: "nav.visionAI", href: "/admin/vision", icon: Camera, section: "section.control" },
+      { labelKey: "nav.qaCenter", href: "/admin/qa", icon: ShieldCheck },
+      { labelKey: "nav.browserAgent", href: "/admin/browser-agent", icon: Eye },
       { labelKey: "nav.compliance", href: "/admin/compliance", icon: CheckSquare },
       { labelKey: "nav.finance", href: "/admin/finance", icon: CreditCard },
       { labelKey: "nav.travelOps", href: "/admin/travel", icon: PlaneTakeoff },
@@ -142,6 +146,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.coordinator", href: "/admin/coordinator", icon: GitBranch },
       { labelKey: "nav.missionControl", href: "/admin/mission-control", icon: Activity, section: "section.control" },
       { labelKey: "nav.algorithmEngine", href: "/admin/algorithm-engine", icon: BarChart2 },
+      { labelKey: "nav.toolsCatalog", href: "/admin/tools", icon: Package },
       { labelKey: "nav.aiMissionControl", href: "/admin/ai-mission-control", icon: Brain },
       { labelKey: "nav.agents", href: "/admin/agents", icon: Bot, section: "section.ai" },
       { labelKey: "nav.consciousness", href: "/admin/consciousness", icon: Eye },
@@ -151,6 +156,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.semseX", href: "/admin/semse-x", icon: Infinity },
       { labelKey: "nav.agentMemory", href: "/admin/memory", icon: Brain },
       { labelKey: "nav.prometeo", href: "/admin/prometeo", icon: BookOpen },
+      { labelKey: "nav.governance", href: "/admin/governance", icon: Scale },
     ],
   },
 };
@@ -293,7 +299,7 @@ function Sidebar({
 
       {(!collapsed || mobile) && (
         <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)" }}>
-          <Link
+          <a
             href="/logout"
             style={{
               display: "flex",
@@ -309,7 +315,7 @@ function Sidebar({
           >
             <LogOut size={15} />
             {t("ui.signOut")}
-          </Link>
+          </a>
         </div>
       )}
     </aside>
@@ -418,35 +424,83 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     window.localStorage.setItem("semse-theme", value);
   };
 
+  const shellNavModel = useMemo(
+    () =>
+      buildShellNavItems({
+        role,
+        items: nav.items,
+        collapsed,
+        pathname: pathname ?? "",
+        t,
+      }),
+    [nav.items, pathname, collapsed, role, t],
+  );
+
   const shellNavItems = useMemo(
     () =>
-      nav.items.map((item) => {
-        const Icon = item.icon;
-        const active = (pathname ?? "").startsWith(item.href);
-        const label = t(item.labelKey);
-
-        return {
-          key: item.href,
-          label,
-          active,
-          node: (
-            <Link
-              href={item.href}
-              title={collapsed ? label : undefined}
-              className={[
-                "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
-              ].join(" ")}
-            >
-              <span className="flex h-5 w-5 items-center justify-center">
-                <Icon size={16} />
-              </span>
-              {!collapsed ? <span className="truncate">{label}</span> : null}
-            </Link>
-          ),
-        };
-      }),
-    [nav.items, pathname, collapsed, language, t],
+      role === "admin"
+        ? shellNavModel.map((group) => {
+            const navGroup = group as unknown as { key: string; label: string; items: ShellNavLink[] };
+            return {
+              key: navGroup.key,
+              label: navGroup.label,
+              node: (
+                <div className="space-y-2">
+                  {!collapsed ? (
+                    <div className="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                      {navGroup.label}
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
+                    {navGroup.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.key}
+                          href={item.href}
+                          title={collapsed ? item.label : undefined}
+                          className={[
+                            "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
+                            item.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                          ].join(" ")}
+                        >
+                          <span className="flex h-5 w-5 items-center justify-center">
+                            <Icon size={16} />
+                          </span>
+                          {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ),
+            };
+          })
+        : shellNavModel.map((item) => {
+            const navItem = item as ShellNavLink;
+            const Icon = navItem.icon;
+            return {
+              key: navItem.key,
+              label: navItem.label,
+              active: navItem.active,
+              node: (
+                <Link
+                  href={navItem.href}
+                  title={collapsed ? navItem.label : undefined}
+                  className={[
+                    "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
+                    navItem.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                  ].join(" ")}
+                >
+                  <span className="flex h-5 w-5 items-center justify-center">
+                    <Icon size={16} />
+                  </span>
+                  {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
+                </Link>
+              ),
+            };
+          }),
+    [shellNavModel, role, collapsed],
   );
 
   return (
@@ -483,7 +537,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           onCollapsedChange={setCollapsed}
           sidebarFooter={
             !collapsed ? (
-              <Link
+              <a
                 href="/logout"
                 style={{
                   display: "flex",
@@ -499,7 +553,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
               >
                 <LogOut size={15} />
                 {t("ui.signOut")}
-              </Link>
+              </a>
             ) : null
           }
           className="min-h-screen"
@@ -532,16 +586,74 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           theme={theme}
           onThemeChange={handleThemeChange}
         />
-        <main style={{ flex: 1, padding: "24px", overflow: "auto" }}>{children}</main>
+        <main style={{ flex: 1, padding: "24px", overflow: "auto", paddingBottom: role === "worker" ? "80px" : "24px" }}>{children}</main>
       </div>
+
+      {role === "worker" && <WorkerMobileBottomNav pathname={pathname ?? ""} />}
 
       <style>{`
         @media (max-width: 768px) {
           .desktop-sidebar { display: none; }
           .mobile-menu-btn { display: flex !important; }
         }
+        .worker-bottom-nav { display: none; }
+        @media (max-width: 768px) {
+          .worker-bottom-nav { display: flex !important; }
+        }
       `}</style>
     </div>
+  );
+}
+
+function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
+  const tabs = [
+    { href: "/worker/dashboard",    icon: LayoutDashboard, label: "Inicio" },
+    { href: "/worker/jobs",         icon: Briefcase,        label: "Trabajos" },
+    { href: "/worker/tracker",      icon: Clock,            label: "Tiempo" },
+    { href: "/worker/evidence",     icon: Camera,           label: "Evidencia" },
+    { href: "/worker/opportunities",icon: Store,            label: "Ofertas" },
+  ] as const;
+
+  return (
+    <nav
+      className="worker-bottom-nav"
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 64,
+        background: "var(--surface, #111827)",
+        borderTop: "1px solid rgba(255,255,255,0.08)",
+        zIndex: 99,
+        alignItems: "center",
+        justifyContent: "space-around",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      {tabs.map(({ href, icon: Icon, label }) => {
+        const active = pathname === href || pathname.startsWith(href + "/");
+        return (
+          <Link
+            key={href}
+            href={href}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+              padding: "8px 12px",
+              color: active ? "#10b981" : "var(--muted, #6b7280)",
+              textDecoration: "none",
+              minWidth: 56,
+            }}
+          >
+            <Icon size={20} />
+            <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 
