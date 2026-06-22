@@ -1,0 +1,59 @@
+{
+  "$schema": "https://railway.app/schema.json",
+  "build": {
+    "builder": "dockerfile",
+    "context": ".",
+    "dockerfilePath": "Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": 3,
+    "startCommand": "npm run start:prod",
+    "restartPolicyType": "always",
+    "restartPolicyMaxRetries": 5,
+    "healthchecks": {
+      "liveness": {
+        "path": "/health",
+        "interval": 30,
+        "timeout": 5,
+        "initialDelay": 30
+      },
+      "readiness": {
+        "path": "/ready",
+        "interval": 10,
+        "timeout": 5,
+        "initialDelay": 10
+      }
+    }
+  },
+  "environmentVariables": {
+    "NODE_ENV": "production",
+    "PORT": "3000",
+    "LOG_LEVEL": "info"
+  },
+  "services": [
+    {
+      "name": "api",
+      "type": "web",
+      "port": 3000
+    },
+    {
+      "name": "postgres",
+      "type": "database",
+      "engine": "postgresql@14",
+      "plan": "pro"
+    },
+    {
+      "name": "redis",
+      "type": "cache",
+      "engine": "redis@7",
+      "plan": "standard"
+    }
+  ],
+  "volumes": [
+    {
+      "name": "data",
+      "mountPath": "/data",
+      "size": "10GB"
+    }
+  ]
+}
