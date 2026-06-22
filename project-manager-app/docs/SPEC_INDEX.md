@@ -169,9 +169,9 @@
 | Spec M1.2 Regional Costs | `docs/specs/tools/fase-1/m1.2-regional-costs.spec.md` | MISSING | BLS OEWS + multiplicadores por zip |
 | Spec M1.3 Stripe Escrow | `docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | MISSING | Stripe Connect manual payouts |
 | Spec M1.4 Contracts | `docs/specs/tools/fase-1/m1.4-contracts.spec.md` | MISSING | HelloSign e-signature |
-| Spec M2.1 Lien Rights | `docs/specs/tools/fase-2/m2.1-lien-rights.spec.md` | MISSING | LienGrid API 50 estados |
-| Spec M2.2 Dispute Docs | `docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md` | MISSING | GPS foto + daily logs + change order trail |
-| Spec M2.3 Weather | `docs/specs/tools/fase-2/m2.3-weather.spec.md` | MISSING | Tomorrow.io alerts |
+| Spec M2.1 Lien Rights | `docs/specs/tools/fase-2/m2.1-lien-rights.spec.md` | APPROVED | LienGrid API 50 estados |
+| Spec M2.2 Dispute Docs | `docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md` | APPROVED | GPS foto + daily logs + change order trail |
+| Spec M2.3 Weather | `docs/specs/tools/fase-2/m2.3-weather.spec.md` | APPROVED | Tomorrow.io alerts |
 | Spec M3.1 Proactive Agents | `docs/specs/tools/fase-3/m3.1-proactive-agents.spec.md` | MISSING | 6 agentes de alerta regla-basados |
 | Spec M3.2 Extended Metrics | `docs/specs/tools/fase-3/m3.2-extended-metrics.spec.md` | MISSING | Completar 20 trades |
 | Spec M3.3 Labor Calibration | `docs/specs/tools/fase-3/m3.3-labor-calibration.spec.md` | MISSING | NECA/PHCC/RSMeans |
