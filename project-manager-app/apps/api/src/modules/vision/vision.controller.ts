@@ -129,36 +129,6 @@ export class VisionController {
     return ok(requestId, result);
   }
 
-  @Post("detect-material")
-  async detectMaterial(
-    @Req() req: FastifyRequest,
-    @Body() dto: { imageUrl: string; expectedMaterial?: string }
-  ) {
-    const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.detectMaterial(dto.imageUrl, dto.expectedMaterial);
-    return ok(requestId, result);
-  }
-
-  @Post("classify-space")
-  async classifySpace(
-    @Req() req: FastifyRequest,
-    @Body() dto: { imageUrl: string }
-  ) {
-    const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.classifySpace(dto.imageUrl);
-    return ok(requestId, result);
-  }
-
-  @Post("analyze-portfolio")
-  async analyzePortfolio(
-    @Req() req: FastifyRequest,
-    @Body() dto: { imageUrl: string; imageHash?: string }
-  ) {
-    const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.analyzePortfolio(dto.imageUrl, dto.imageHash);
-    return ok(requestId, result);
-  }
-
   @Post("estimate-area")
   async estimateArea(
     @Req() req: FastifyRequest,
