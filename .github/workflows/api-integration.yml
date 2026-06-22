@@ -68,6 +68,9 @@ jobs:
       - name: Apply database migrations
         run: pnpm db:migrate
 
+      - name: Build workspace packages and API
+        run: pnpm build:api
+
       - name: Run DB-backed API integration tests
         run: pnpm test:integration
 
