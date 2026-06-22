@@ -4,14 +4,17 @@ import { LiensController } from './liens.controller';
 import { ProjectLiensService } from './project-liens.service';
 import { LienAlertsScheduler } from './lien-alerts.scheduler';
 import { LienSchedulerController } from './lien-scheduler.controller';
+import { NoticeGeneratorService } from './notice-generator.service';
+import { NoticeController } from './notice.controller';
 import { LienGridClient } from '../../integrations/liengrid';
 
 @Module({
-  controllers: [LiensController, LienSchedulerController],
+  controllers: [LiensController, LienSchedulerController, NoticeController],
   providers: [
     LiensService,
     ProjectLiensService,
     LienAlertsScheduler,
+    NoticeGeneratorService,
     {
       provide: LienGridClient,
       useFactory: () => {
@@ -25,6 +28,6 @@ import { LienGridClient } from '../../integrations/liengrid';
       },
     },
   ],
-  exports: [LiensService, ProjectLiensService, LienAlertsScheduler],
+  exports: [LiensService, ProjectLiensService, LienAlertsScheduler, NoticeGeneratorService],
 })
 export class LiensModule {}

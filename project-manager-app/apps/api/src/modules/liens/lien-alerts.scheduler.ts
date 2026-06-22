@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@semse/db';
 import { LiensService } from './liens.service';
+import { NoticeGeneratorService } from './notice-generator.service';
 
 /**
  * LienAlertsScheduler — ejecuta jobs periódicos para alertas de lien deadlines.
@@ -9,6 +10,7 @@ import { LiensService } from './liens.service';
  * Búsqueda: LienCalendars donde el deadline está en 30d, 7d, 3d, 1d
  * Transición: CREATED → ALERTED_30D → ALERTED_7D → ALERTED_3D
  * Notificación: push + email al PRO
+ * Generación: notices automáticos cuando ALERTED_3D se alcanza
  */
 @Injectable()
 export class LienAlertsScheduler {
@@ -19,7 +21,8 @@ export class LienAlertsScheduler {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly liensService: LiensService
+    private readonly liensService: LiensService,
+    private readonly noticeGeneratorService: NoticeGeneratorService
   ) {}
 
   /**
@@ -74,6 +77,23 @@ export class LienAlertsScheduler {
               projectName: calendar.project.name,
               daysToDeadline,
             });
+
+            // Generar notices automáticamente cuando se alcanza ALERTED_3D
+            if (newStatus === 'ALERTED_3D') {
+              try {
+                const notices = await this.noticeGeneratorService.generateAllNoticesForCalendar(
+                  calendar.id,
+                  'system' // createdBy: sistema automático
+                );
+                this.logger.log(`Generated ${notices.length} notices for calendar ${calendar.id}`);
+              } catch (noticeError) {
+                this.logger.error(
+                  `Failed to generate notices for ${calendar.id}`,
+                  noticeError
+                );
+                // No bloquear si falla la generación de notices
+              }
+            }
 
             // TODO: Enviar notificación (push + email)
             // await this.notificationService.send({
