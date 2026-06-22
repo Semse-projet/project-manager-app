@@ -532,6 +532,22 @@ export async function triggerVisionEndpoint(endpoint: string, payload: Record<st
   return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint, payload });
 }
 
+export async function detectMaterial(imageUrl: string, expectedMaterial?: string, enrich = true): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "detect-material", payload: { imageUrl, expectedMaterial, enrich } });
+}
+
+export async function classifySpace(imageUrl: string, enrich = true): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "classify-space", payload: { imageUrl, enrich } });
+}
+
+export async function analyzePortfolio(imageUrl: string, imageHash?: string, enrich = true): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "analyze-portfolio", payload: { imageUrl, imageHash, enrich } });
+}
+
+export async function safetyCheckEnriched(imageUrl: string, trade?: string): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "safety-check-enriched", payload: { imageUrl, trade } });
+}
+
 export async function presignEvidence(input: {
   filename: string;
   contentType: string;
