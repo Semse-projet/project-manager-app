@@ -38,9 +38,7 @@ from app.schemas.evidence import (
     DetectMaterialResult,
     ClassifySpaceRequest,
     ClassifySpaceResult,
-    SafetyCheckRequest,
-    SafetyCheckResult,
-    PortfolioForensicsRequest,
+    AnalyzePortfolioRequest,
     PortfolioForensicsResult,
 )
 from app.services.image_loader import load_image_from_url
@@ -64,6 +62,10 @@ from app.analyzers.portfolio_forensics import analyze_portfolio_image
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
+from app.analyzers.material_detector import detect_material
+from app.analyzers.space_classifier import classify_space
+from app.analyzers.portfolio_forensics import analyze_portfolio
+from app.services.ollama_enricher import enrich
 
 router = APIRouter()
 
@@ -288,6 +290,38 @@ def detect_trade_endpoint(request: TradeDetectionRequest):
     image = load_image_from_url(request.imageUrl)
     result = detect_trade(image, request.expectedTrade)
     return TradeDetectionResult(**result)
+
+@router.post("/detect-material", response_model=DetectMaterialResult, tags=["vision"])
+def detect_material_endpoint(request: DetectMaterialRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = detect_material(image, request.expectedMaterial)
+    insight = enrich("material", dict(cv_result)) if request.enrich else None
+    return DetectMaterialResult(**cv_result, insight=insight)
+
+
+@router.post("/classify-space", response_model=ClassifySpaceResult, tags=["vision"])
+def classify_space_endpoint(request: ClassifySpaceRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = classify_space(image)
+    insight = enrich("space", dict(cv_result)) if request.enrich else None
+    return ClassifySpaceResult(**cv_result, insight=insight)
+
+
+@router.post("/safety-check-enriched", response_model=SafetyCheckResult, tags=["vision"])
+def safety_check_enriched_endpoint(request: SafetyCheckRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = detect_safety_equipment(image)
+    insight = enrich("safety", cv_result)
+    return SafetyCheckResult(**cv_result, insight=insight)
+
+
+@router.post("/analyze-portfolio", response_model=PortfolioForensicsResult, tags=["vision"])
+def analyze_portfolio_endpoint(request: AnalyzePortfolioRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = analyze_portfolio(image, request.imageHash)
+    insight = enrich("portfolio", dict(cv_result)) if request.enrich else None
+    return PortfolioForensicsResult(**cv_result, insight=insight)
+
 
 def _analyze_single(item: EvidenceAnalyzeRequest) -> BatchItemResult:
     try:

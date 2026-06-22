@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, Param, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
-import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto, BatchByIdsDto } from "./dto/index.js";
+import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto, BatchByIdsDto, DetectMaterialDto, ClassifySpaceDto, AnalyzePortfolioDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
@@ -129,36 +129,6 @@ export class VisionController {
     return ok(requestId, result);
   }
 
-  @Post("detect-material")
-  async detectMaterial(
-    @Req() req: FastifyRequest,
-    @Body() dto: { imageUrl: string; expectedMaterial?: string }
-  ) {
-    const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.detectMaterial(dto.imageUrl, dto.expectedMaterial);
-    return ok(requestId, result);
-  }
-
-  @Post("classify-space")
-  async classifySpace(
-    @Req() req: FastifyRequest,
-    @Body() dto: { imageUrl: string }
-  ) {
-    const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.classifySpace(dto.imageUrl);
-    return ok(requestId, result);
-  }
-
-  @Post("analyze-portfolio")
-  async analyzePortfolio(
-    @Req() req: FastifyRequest,
-    @Body() dto: { imageUrl: string; imageHash?: string }
-  ) {
-    const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.analyzePortfolio(dto.imageUrl, dto.imageHash);
-    return ok(requestId, result);
-  }
-
   @Post("estimate-area")
   async estimateArea(
     @Req() req: FastifyRequest,
@@ -206,6 +176,46 @@ export class VisionController {
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.visionService.runBatchByIds(dto.evidenceIds, dto.jobId, dto.milestoneId);
+    return ok(requestId, result);
+  }
+
+  @Post("detect-material")
+  async detectMaterial(
+    @Req() req: FastifyRequest,
+    @Body() dto: DetectMaterialDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.detectMaterial(dto.imageUrl, dto.expectedMaterial, dto.enrich ?? true);
+    return ok(requestId, result);
+  }
+
+  @Post("classify-space")
+  async classifySpace(
+    @Req() req: FastifyRequest,
+    @Body() dto: ClassifySpaceDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.classifySpace(dto.imageUrl, dto.enrich ?? true);
+    return ok(requestId, result);
+  }
+
+  @Post("analyze-portfolio")
+  async analyzePortfolio(
+    @Req() req: FastifyRequest,
+    @Body() dto: AnalyzePortfolioDto
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.analyzePortfolio(dto.imageUrl, dto.imageHash, dto.enrich ?? true);
+    return ok(requestId, result);
+  }
+
+  @Post("safety-check-enriched")
+  async safetyCheckEnriched(
+    @Req() req: FastifyRequest,
+    @Body() dto: { imageUrl: string; trade?: string }
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.checkSafetyEnriched(dto.imageUrl, dto.trade);
     return ok(requestId, result);
   }
 
