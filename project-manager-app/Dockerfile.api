@@ -1,5 +1,4 @@
 FROM node:20-alpine AS base
-# build: 2026-05-21T20:30 — cache bust: @semse/tools dep + Prisma runner fix
 RUN apk add --no-cache openssl python3 make g++
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -22,24 +21,14 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 COPY pnpm-lock.yaml ./
-
-# Use pnpm install (not frozen) to handle any lockfile drift from workspace dep changes
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
 
 COPY . .
 
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm --filter @semse/db prisma:generate
-RUN pnpm --filter @semse/schemas build
-RUN pnpm --filter @semse/shared build
-RUN pnpm --filter @semse/auth build
-RUN pnpm --filter @semse/knowledge build
-RUN pnpm --filter @semse/agents build
-RUN pnpm --filter @semse/autonomy build
-RUN pnpm --filter @semse/tools build
-RUN pnpm --filter @semse/api build
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run build:api
 
 FROM base AS runner
 WORKDIR /app

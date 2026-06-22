@@ -189,6 +189,76 @@ Si alguna respuesta es NO → primero se completa el spec, luego se codifica.
 - Si hubo decisión arquitectónica → crear ADR en docs/adrs/
 ```
 
+### Ciclo obligatorio de investigación externa y mejora
+
+SEMSEproject adopta un ciclo de mejora continua basado en investigación externa.
+No basta con que el código compile: cada módulo, PR, bloque SDD o corte de código listo
+debe contrastarse contra prácticas externas antes de considerarse cerrado.
+
+**Regla obligatoria:**
+
+```
+Al terminar cada módulo, PR, bloque SDD o corte de código listo:
+  1. Ejecutar al menos 3 búsquedas externas independientes.
+  2. Registrar las fuentes consultadas.
+  3. Extraer ideas de mejora aplicables.
+  4. Decidir explícitamente qué se aplica ahora, qué se descarta y qué queda en backlog.
+  5. Documentar la decisión en el reporte de sesión/bloque.
+```
+
+Las 3 búsquedas no deben ser copias de la misma consulta. Deben cubrir, según el tipo
+de cambio:
+
+```
+- mejores prácticas técnicas del dominio;
+- seguridad, permisos y riesgos operativos;
+- patrones de testing, CI/CD, observabilidad o deploy;
+- documentación, trazabilidad y experiencia de usuario;
+- alternativas de arquitectura usadas por productos o frameworks maduros.
+```
+
+**Aplicación práctica:**
+
+```
+Módulo terminado      → research loop obligatorio antes de DONE.
+PR listo             → research loop obligatorio antes de pedir merge.
+Endpoint listo       → research loop si introduce contrato nuevo o riesgo.
+Migración lista      → research loop sobre seguridad de migraciones y rollback.
+UI lista             → research loop sobre UX/accesibilidad/patrones equivalentes.
+Infra/deploy listo   → research loop sobre Railway/Docker/CI/health checks.
+```
+
+**No se permite:**
+
+```
+- buscar solo para cumplir y no registrar nada;
+- aplicar ideas externas sin pasar por spec/plan/tasks;
+- cambiar arquitectura por una fuente externa sin ADR;
+- convertir una mejora descubierta en scope creep del PR actual.
+```
+
+**Formato mínimo en el reporte:**
+
+```markdown
+## Investigación externa de mejora
+
+### Búsquedas ejecutadas
+1. `[consulta]` — fuente(s): [link]
+2. `[consulta]` — fuente(s): [link]
+3. `[consulta]` — fuente(s): [link]
+
+### Ideas detectadas
+- [idea] — fuente — impacto esperado
+
+### Decisiones
+- Aplicado ahora: [qué y por qué]
+- Backlog: [qué queda para después]
+- Descartado: [qué no aplica y por qué]
+```
+
+La regla existe para fortalecer el SDD, no para reemplazarlo. Toda mejora externa
+debe aterrizar primero en spec, plan o backlog antes de modificar código.
+
 ---
 
 ## 7. Diferencia entre vibe coding y SDD en la práctica

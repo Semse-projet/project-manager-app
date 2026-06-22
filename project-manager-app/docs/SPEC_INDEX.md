@@ -178,6 +178,32 @@
 
 ---
 
+## NIVEL 9 — SEMSE Agro / FarmOps (Nuevo)
+
+> Vertical agricola propuesta para convertir SEMSEproject en un sistema operativo de finca.
+> Estado actual: documentacion y arquitectura. No implementar sin abrir PRs pequenos en el orden definido.
+
+| Documento | Ruta | Estado | Descripcion |
+|---|---|---|---|
+| Agro execution control | `docs/specs/agro/EXECUTION_CONTROL.md` | APPROVED | Gates, orden de ejecucion y DoD por PR |
+| Agro index | `docs/specs/agro/README.md` | APPROVED | Entrada canonica de la carpeta SEMSE Agro |
+| Master Spec | `docs/specs/agro/SEMSE_AGRO_MASTER_SPEC.md` | APPROVED | Vision, mercado, arquitectura y fases F0-F5 |
+| F1 RanchOps Core | `docs/specs/agro/F1_RANCHOPS_CORE_SPEC.md` | DRAFT | Especificacion ejecutable para MVP ganadero |
+| F2-F5 Roadmap | `docs/specs/agro/F2_TO_F5_ROADMAP.md` | DRAFT | Expansion a FarmOps mixto, confianza, riesgo y marketplace |
+| Prompt Library | `docs/specs/agro/IMPLEMENTATION_PROMPTS.md` | DRAFT | Prompts de implementacion y revision por PR |
+| Railway Recovery Runbook | `docs/specs/agro/RAILWAY_GREEN_RECOVERY_RUNBOOK.md` | DRAFT | Runbook para recuperar build/deploy sin meter features |
+
+Regla:
+
+```txt
+SEMSE Agro no es fork.
+SEMSE Agro no se implementa completo de una vez.
+Railway green recovery precede cualquier feature Agro si el deploy esta roto.
+F1 RanchOps Core debe estabilizarse antes de F2-F5.
+```
+
+---
+
 ## Score SDD actual
 
 ```

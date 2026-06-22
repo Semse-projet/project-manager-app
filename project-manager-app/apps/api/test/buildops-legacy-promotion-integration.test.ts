@@ -9,11 +9,12 @@ import { BuildOpsPlanApprovalService } from "../dist/modules/buildops/buildops-p
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..", "..");
+const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
 loadEnv({ path: path.join(repoRoot, "packages/db/.env") });
 
 const prisma = new PrismaClient();
+const dbTest = process.env.DATABASE_URL ? test : test.skip;
 
 function uniqueId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -408,7 +409,7 @@ async function createFixture(input?: { approvalStatus?: "pending" | "approved" |
   };
 }
 
-test("legacy promotion integration promotes approved plan, is idempotent, and blocks unapprove afterwards", async (t) => {
+dbTest("legacy promotion integration promotes approved plan, is idempotent, and blocks unapprove afterwards", async (t) => {
   const fixture = await createFixture();
   t.after(async () => {
     await cleanupFixture({ tenantId: fixture.tenantId, userIds: fixture.userIds });
@@ -566,7 +567,7 @@ test("legacy promotion integration promotes approved plan, is idempotent, and bl
   );
 });
 
-test("legacy promotion integration blocks plans that are not approved", async (t) => {
+dbTest("legacy promotion integration blocks plans that are not approved", async (t) => {
   const fixture = await createFixture({ approvalStatus: "changes_requested" });
   t.after(async () => {
     await cleanupFixture({ tenantId: fixture.tenantId, userIds: fixture.userIds });
