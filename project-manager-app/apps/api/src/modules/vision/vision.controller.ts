@@ -139,6 +139,16 @@ export class VisionController {
     return ok(requestId, result);
   }
 
+  @Post("classify-space")
+  async classifySpace(
+    @Req() req: FastifyRequest,
+    @Body() dto: { imageUrl: string }
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.classifySpace(dto.imageUrl);
+    return ok(requestId, result);
+  }
+
   @Post("estimate-area")
   async estimateArea(
     @Req() req: FastifyRequest,

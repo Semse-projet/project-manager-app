@@ -184,3 +184,14 @@ class DetectMaterialResult(BaseModel):
     confidence: float
     estimated_stock: Optional[str] = None
     notes: List[str] = []
+
+# --- Space Classification ---
+class ClassifySpaceRequest(BaseModel):
+    imageUrl: str
+
+class ClassifySpaceResult(BaseModel):
+    category: str
+    confidence: float
+    category_scores: Dict[str, float]
+    key_features: List[str]
+    skip_questions_allowed: bool

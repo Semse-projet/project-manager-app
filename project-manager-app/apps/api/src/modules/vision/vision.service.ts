@@ -233,4 +233,8 @@ export class VisionService {
   async detectMaterial(imageUrl: string, expectedMaterial?: string) {
     return this.visionServiceClient.detectMaterial({ imageUrl, expectedMaterial });
   }
+
+  async classifySpace(imageUrl: string) {
+    return this.visionServiceClient.classifySpace({ imageUrl });
+  }
 }

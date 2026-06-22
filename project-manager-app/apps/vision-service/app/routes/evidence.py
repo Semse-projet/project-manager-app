@@ -36,6 +36,8 @@ from app.schemas.evidence import (
     BatchItemResult,
     DetectMaterialRequest,
     DetectMaterialResult,
+    ClassifySpaceRequest,
+    ClassifySpaceResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -53,6 +55,7 @@ from app.analyzers.timeline_builder import build_progress_timeline
 from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
 from app.analyzers.material_detector import detect_material
+from app.analyzers.space_classifier import classify_space
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -326,4 +329,16 @@ def detect_material_endpoint(request: DetectMaterialRequest):
         confidence=result["confidence"],
         estimated_stock=result.get("estimated_stock"),
         notes=result.get("notes", []),
+    )
+
+@router.post("/classify-space", response_model=ClassifySpaceResult, tags=["evidence"])
+def classify_space_endpoint(request: ClassifySpaceRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = classify_space(image)
+    return ClassifySpaceResult(
+        category=result["category"],
+        confidence=result["confidence"],
+        category_scores=result["category_scores"],
+        key_features=result["key_features"],
+        skip_questions_allowed=result["skip_questions_allowed"],
     )
