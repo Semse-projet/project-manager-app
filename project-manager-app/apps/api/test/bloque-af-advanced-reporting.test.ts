@@ -9,7 +9,7 @@ import * as assert from 'node:assert';
 test('BurnRateService — Calculate daily burn rate', () => {
   const totalSpent = 200000;
   const daysElapsed = 30;
-  const dailyBurnRate = totalSpent / daysElapsed;
+  const dailyBurnRate = Math.round(totalSpent / daysElapsed);
 
   assert.strictEqual(dailyBurnRate, 6667); // Rounded
 });

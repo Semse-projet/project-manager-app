@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '@semse/db';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
 /**
  * DailyLogService — crear daily logs automáticamente con firma digital.

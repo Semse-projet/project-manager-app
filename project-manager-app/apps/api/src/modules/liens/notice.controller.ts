@@ -9,8 +9,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { NoticeGeneratorService } from './notice-generator.service';
-import { LiensService } from './liens.service';
+import { NoticeGeneratorService } from './notice-generator.service.js';
+import { LiensService } from './liens.service.js';
 
 /**
  * Notice Controller — endpoints para generar y gestionar notices.

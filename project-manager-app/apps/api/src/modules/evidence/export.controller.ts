@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UseGuards, Logger, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
-import { ExportBundleService } from './export-bundle.service';
+import { ExportBundleService } from './export-bundle.service.js';
 
 /**
  * Export Controller — endpoints para descargar bundles.

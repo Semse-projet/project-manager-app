@@ -9,7 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { DailyLogService } from './daily-log.service';
+import { DailyLogService } from './daily-log.service.js';
 
 /**
  * DailyLogController — endpoints para daily logs.

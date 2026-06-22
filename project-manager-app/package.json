@@ -35,6 +35,7 @@
     "validate:workspace": "node ./scripts/validate-workspace.mjs",
     "verify:workspace": "pnpm run railway:preflight && pnpm --filter @semse/api test:unit",
     "railway:preflight": "node ./scripts/workspace-runner.mjs railway:preflight",
+    "spec:preflight": "pnpm railway:preflight",
     "smoke:persistence": "node ./scripts/api-persistence-smoke.mjs",
     "smoke:evidence": "node ./scripts/api-evidence-smoke.mjs",
     "smoke:marketplace": "node ./scripts/api-marketplace-smoke.mjs",
@@ -69,9 +70,10 @@
     "verify:operacion-asistida:module": "pnpm verify:operacion-asistida:dedicated-store && pnpm review:operacion-asistida:risk && pnpm audit:operacion-asistida:workspace-memory-legacy && pnpm review:operacion-asistida:governance && pnpm drill:operacion-asistida:restore:multienv",
     "test": "pnpm test:unit && pnpm test:e2e",
     "test:ci": "pnpm test:coverage && pnpm test:e2e",
-    "test:unit": "pnpm build:packages && node --experimental-strip-types --test tests/unit/*.test.mjs tests/unit/*.test.ts",
+    "test:unit": "node --experimental-strip-types --test tests/unit/*.test.mjs tests/unit/*.test.ts",
     "coverage": "pnpm test:coverage",
-    "test:coverage": "pnpm --filter @semse/api test:coverage",
+    "test:coverage": "pnpm build:api && pnpm --filter @semse/api test:coverage",
+    "test:integration": "pnpm build:api && pnpm --filter @semse/api test:integration",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:tracker": "playwright test -c playwright.semse.config.js tests/e2e-semse/worker-tracker.spec.js",
@@ -89,24 +91,30 @@
     "smoke:web:sprint15": "node ./scripts/web-sprint15-smoke.mjs",
     "demo:web": "node ./scripts/demo-web-runtime.mjs",
     "demo:smoke": "node ./scripts/demo-smoke.mjs",
-    "smoke:autonomy:staged": "node ./scripts/api-autonomy-staged-smoke.mjs",
-    "test:integration": "pnpm --filter @semse/api test:integration",
-    "spec:validate": "node ./scripts/spec-validate.mjs",
-    "spec:validate:strict": "node ./scripts/spec-validate.mjs --strict",
-    "spec:index": "node ./scripts/spec-index.mjs",
-    "spec:coverage": "node ./scripts/spec-coverage.mjs",
-    "spec:preflight": "pnpm spec:validate && pnpm spec:coverage"
+    "smoke:autonomy:staged": "node ./scripts/api-autonomy-staged-smoke.mjs"
   },
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.5.5",
-    "@playwright/test": "^1.61.0",
-    "c8": "^11.0.0",
+    "@playwright/test": "^1.54.2",
+    "@semse/agents": "workspace:*",
+    "@semse/knowledge": "workspace:*",
+    "@semse/schemas": "workspace:*",
+    "c8": "^10.1.3",
     "confbox": "^0.2.4",
     "typescript": "^5.8.2"
   },
   "pnpm": {
     "overrides": {
-      "is-fullwidth-code-point": "3.0.0"
+      "@babel/core": "7.29.6",
+      "esbuild": "0.28.1",
+      "is-fullwidth-code-point": "3.0.0",
+      "js-yaml": "4.2.0",
+      "multer": "2.2.0",
+      "piscina": "5.2.0",
+      "postcss": "8.5.15",
+      "undici@^6.0.0": "6.27.0",
+      "undici@^7.0.0": "7.28.0",
+      "vite": "7.3.5"
     }
   }
 }

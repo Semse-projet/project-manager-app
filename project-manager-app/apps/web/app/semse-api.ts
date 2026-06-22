@@ -95,7 +95,7 @@ export class SemseApiError extends Error {
   }
 }
 
-function normalizeErrorMessage(value: unknown): string | undefined {
+export function normalizeErrorMessage(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
