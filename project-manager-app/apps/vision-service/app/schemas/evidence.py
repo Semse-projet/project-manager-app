@@ -208,3 +208,16 @@ class SafetyCheckResult(BaseModel):
     compliance_score: float
     violations: List[str]
     worker_safety_level: str
+
+# --- Portfolio Forensics ---
+class PortfolioForensicsRequest(BaseModel):
+    imageUrl: str
+    imageHash: Optional[str] = None
+
+class PortfolioForensicsResult(BaseModel):
+    fraud_risk: float
+    duplicate_risk: float
+    deepfake_risk: float
+    portfolio_quality_score: float
+    red_flags: List[str]
+    recommendation: str

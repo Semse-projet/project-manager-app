@@ -149,6 +149,16 @@ export class VisionController {
     return ok(requestId, result);
   }
 
+  @Post("analyze-portfolio")
+  async analyzePortfolio(
+    @Req() req: FastifyRequest,
+    @Body() dto: { imageUrl: string; imageHash?: string }
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.visionService.analyzePortfolio(dto.imageUrl, dto.imageHash);
+    return ok(requestId, result);
+  }
+
   @Post("estimate-area")
   async estimateArea(
     @Req() req: FastifyRequest,

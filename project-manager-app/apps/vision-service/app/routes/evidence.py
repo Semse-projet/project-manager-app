@@ -40,6 +40,8 @@ from app.schemas.evidence import (
     ClassifySpaceResult,
     SafetyCheckRequest,
     SafetyCheckResult,
+    PortfolioForensicsRequest,
+    PortfolioForensicsResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -58,6 +60,7 @@ from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
 from app.analyzers.material_detector import detect_material
 from app.analyzers.space_classifier import classify_space
+from app.analyzers.portfolio_forensics import analyze_portfolio_image
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
@@ -361,4 +364,17 @@ def safety_check_endpoint(request: SafetyCheckRequest):
         compliance_score=adjusted_compliance,
         violations=result["violations"],
         worker_safety_level=result["worker_safety_level"],
+    )
+
+@router.post("/analyze-portfolio", response_model=PortfolioForensicsResult, tags=["evidence"])
+def analyze_portfolio_endpoint(request: PortfolioForensicsRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = analyze_portfolio_image(image, request.imageHash)
+    return PortfolioForensicsResult(
+        fraud_risk=result["fraud_risk"],
+        duplicate_risk=result["duplicate_risk"],
+        deepfake_risk=result["deepfake_risk"],
+        portfolio_quality_score=result["portfolio_quality_score"],
+        red_flags=result["red_flags"],
+        recommendation=result["recommendation"],
     )
