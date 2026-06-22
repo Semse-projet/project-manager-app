@@ -6,7 +6,24 @@ import { cn } from "../lib/cn";
 export function useHtmlInCanvasSupport(): boolean {
   const [supported, setSupported] = useState(false);
   useEffect(() => {
-    setSupported(supportsHtmlInCanvas());
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId: number | undefined;
+
+    function detect() {
+      if (cancelled) return;
+      const nextSupported = supportsHtmlInCanvas();
+      setSupported(nextSupported);
+      if (nextSupported || attempts >= SUPPORT_DETECTION_RETRIES) return;
+      attempts += 1;
+      timeoutId = window.setTimeout(detect, SUPPORT_DETECTION_RETRY_MS);
+    }
+
+    detect();
+    return () => {
+      cancelled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, []);
   return supported;
 }
@@ -37,6 +54,8 @@ type HtmlInCanvas2DContext = CanvasRenderingContext2D & {
 const FALLBACK_IMAGE_LOAD_TIMEOUT_MS = 5000;
 const MAX_FALLBACK_DPR = 3;
 const MAX_FALLBACK_PIXELS = 16_000_000;
+const SUPPORT_DETECTION_RETRIES = 12;
+const SUPPORT_DETECTION_RETRY_MS = 250;
 
 export interface HtmlInCanvasPanelProps extends HTMLAttributes<HTMLElement> {
   children: ReactNode;
@@ -138,6 +157,10 @@ function resolveFallbackScale(width: number, height: number) {
   return Math.max(1, Math.min(dpr, maxScaleByArea));
 }
 
+function svgToDataUrl(svg: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 async function captureElementFallback(element: HTMLElement, minHeight?: number): Promise<Blob | null> {
   const rect = element.getBoundingClientRect();
   const width = Math.max(1, Math.ceil(rect.width || element.scrollWidth || 1));
@@ -152,7 +175,7 @@ async function captureElementFallback(element: HTMLElement, minHeight?: number):
 
   const html = new XMLSerializer().serializeToString(clone);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
-  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+  const url = svgToDataUrl(svg);
 
   try {
     const image = await loadImage(url);
@@ -170,8 +193,6 @@ async function captureElementFallback(element: HTMLElement, minHeight?: number):
     return canvasToBlob(canvas);
   } catch {
     return null;
-  } finally {
-    URL.revokeObjectURL(url);
   }
 }
 
@@ -232,9 +253,25 @@ export const HtmlInCanvasPanel = forwardRef<HtmlInCanvasPanelHandle, HtmlInCanva
     );
 
     useEffect(() => {
-      const supported = !disabled && supportsHtmlInCanvas();
-      setEnabled(supported);
-      onSupportChange?.(supported);
+      let cancelled = false;
+      let attempts = 0;
+      let timeoutId: number | undefined;
+
+      function detect() {
+        if (cancelled) return;
+        const supported = !disabled && supportsHtmlInCanvas();
+        setEnabled(supported);
+        onSupportChange?.(supported);
+        if (supported || disabled || attempts >= SUPPORT_DETECTION_RETRIES) return;
+        attempts += 1;
+        timeoutId = window.setTimeout(detect, SUPPORT_DETECTION_RETRY_MS);
+      }
+
+      detect();
+      return () => {
+        cancelled = true;
+        if (timeoutId) window.clearTimeout(timeoutId);
+      };
     }, [disabled, onSupportChange]);
 
     useEffect(() => {
