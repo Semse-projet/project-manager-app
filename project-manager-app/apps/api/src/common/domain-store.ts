@@ -81,6 +81,8 @@ export type BidRecord = {
   jobBudgetMax?: number;
   jobStatus?: string;
   createdAt?: string;
+  avgRating?: number;
+  ratingCount?: number;
 };
 
 export type DisputeRecord = {

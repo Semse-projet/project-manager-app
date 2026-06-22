@@ -217,6 +217,20 @@ export class AgentsService {
     return this.agentsRepository.findById(input);
   }
 
+  async runEvents(input: { tenantId: string; runId: string }) {
+    return this.agentsRepository.getEvents(input);
+  }
+
+  async cancelRun(input: { tenantId: string; orgId: string; userId: string; runId: string; requestId: string }) {
+    const cancelled = await this.agentsRepository.cancel(input);
+    await this.auditService.append({
+      tenantId: input.tenantId, orgId: input.orgId, actorUserId: input.userId,
+      action: "agent.run.cancel", entityType: "AgentRun", entityId: cancelled.id,
+      requestId: input.requestId, timestamp: new Date().toISOString(),
+    });
+    return cancelled;
+  }
+
   async create(input: {
     tenantId: string;
     orgId: string;

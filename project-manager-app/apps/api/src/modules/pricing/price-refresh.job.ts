@@ -14,21 +14,31 @@ export class PriceRefreshJob implements OnModuleInit {
 
   constructor(private readonly pricing: MaterialPricingService) {}
 
-  async onModuleInit(): Promise<void> {
-    // Check if prices are stale before first refresh
+  onModuleInit(): void {
+    // Run the startup DB check in the background so API health can start even
+    // when Postgres is slow or temporarily unavailable during Railway boot.
+    void this.runInitialRefresh().catch((error: unknown) => {
+      this.logger.warn(`Initial price refresh skipped: ${(error as Error)?.message ?? String(error)}`);
+    });
+    this.scheduleNext();
+  }
+
+  private async runInitialRefresh(): Promise<void> {
     const status = await this.pricing.getPricingStatus();
     if (status.stale) {
       this.logger.log("Prices stale on startup — running initial fetch");
       await this.run();
-    } else {
-      this.logger.log(`Prices valid until ${status.nextRefreshAt?.toISOString()} — skipping initial fetch`);
+      return;
     }
-    this.scheduleNext();
+
+    this.logger.log(`Prices valid until ${status.nextRefreshAt?.toISOString()} — skipping initial fetch`);
   }
 
   private scheduleNext(): void {
     this.timer = setTimeout(async () => {
-      await this.run();
+      await this.run().catch((error: unknown) => {
+        this.logger.warn(`Scheduled price refresh failed: ${(error as Error)?.message ?? String(error)}`);
+      });
       this.scheduleNext();
     }, REFRESH_INTERVAL_MS);
   }

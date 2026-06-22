@@ -42,6 +42,7 @@ export class BidsService {
     roles: string[];
     amount: number;
     etaDays: number;
+    note?: string;
     requestId: string;
   }): Promise<BidRecord> {
     const bid = await this.bidsRepository.create(input);
@@ -127,8 +128,11 @@ export class BidsService {
     }
 
     // Notify the professional that their bid was accepted → job_assigned notification
+    // Also notify rejected bidders (other workers who bid on same job)
     if (this.prisma && bid.professionalUserId) {
+      const jobId = (bid as Record<string, unknown>).jobId as string | undefined;
       const jobTitle = (bid as Record<string, unknown>).jobTitle as string | undefined;
+
       await this.prisma.notification.create({
         data: {
           tenantId: input.tenantId,
@@ -136,9 +140,29 @@ export class BidsService {
           type:     "job_assigned",
           title:    "¡Tu propuesta fue aceptada!",
           body:     jobTitle ? `El trabajo "${jobTitle}" fue asignado a ti. Revisa los detalles y coordina el inicio.` : "Tu propuesta fue aceptada. Revisa los detalles del trabajo.",
-          payload:  { jobId: (bid as Record<string, unknown>).jobId, bidId: bid.id } as object,
+          payload:  { jobId, bidId: bid.id } as object,
         },
       }).catch((err) => this.logger.warn(`[BidsService] Notification failed: ${(err as Error).message}`));
+
+      if (jobId) {
+        void this.prisma.bid.findMany({
+          where: { jobId, status: "REJECTED", id: { not: bid.id } },
+          select: { id: true, professionalUserId: true },
+        }).then(async (rejected) => {
+          await Promise.all(rejected.map((r) =>
+            this.prisma!.notification.create({
+              data: {
+                tenantId: input.tenantId,
+                userId:   r.professionalUserId,
+                type:     "bid_rejected",
+                title:    "Propuesta no seleccionada",
+                body:     jobTitle ? `El cliente eligió otro profesional para "${jobTitle}". Sigue explorando oportunidades.` : "Tu propuesta no fue seleccionada esta vez.",
+                payload:  { jobId, bidId: r.id } as object,
+              },
+            }).catch((err: Error) => this.logger.warn(`[BidsService] Reject notify failed: ${err.message}`))
+          ));
+        }).catch((err: Error) => this.logger.warn(`[BidsService] Rejected bids lookup failed: ${err.message}`));
+      }
     }
 
     return bid;

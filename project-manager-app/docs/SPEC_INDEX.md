@@ -263,6 +263,17 @@
 | Master Plan ProTools | `docs/PROTOOLS_MASTER_PLAN.md` | ACTIVE | 5 fases, 16 módulos, 64 bloques con tracking de estado |
 | Spec M1.1 Material Pricing | `docs/specs/tools/fase-1/m1.1-material-pricing.spec.md` | APPROVED | BLS PPI + EstimationPro + FRED + caché Prisma |
 | **Arquitectura 6 Agentes** | `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md` | **APPROVED** | Marketplace·BuildOps·ProTools·Evidence·Crowd·Prometeo — fronteras, eventos, tipos, flujo |
+<<<<<<< HEAD
+| Spec M1.2 Regional Costs | `docs/specs/tools/fase-1/m1.2-regional-costs.spec.md` | MISSING | BLS OEWS + multiplicadores por zip |
+| Spec M1.3 Stripe Escrow | `docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | MISSING | Stripe Connect manual payouts |
+| Spec M1.4 Contracts | `docs/specs/tools/fase-1/m1.4-contracts.spec.md` | MISSING | HelloSign e-signature |
+| Spec M2.1 Lien Rights | `docs/specs/tools/fase-2/m2.1-lien-rights.spec.md` | APPROVED | LienGrid API 50 estados |
+| Spec M2.2 Dispute Docs | `docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md` | APPROVED | GPS foto + daily logs + change order trail |
+| Spec M2.3 Weather | `docs/specs/tools/fase-2/m2.3-weather.spec.md` | APPROVED | Tomorrow.io alerts |
+| Spec M3.1 Proactive Agents | `docs/specs/tools/fase-3/m3.1-proactive-agents.spec.md` | MISSING | 6 agentes de alerta regla-basados |
+| Spec M3.2 Extended Metrics | `docs/specs/tools/fase-3/m3.2-extended-metrics.spec.md` | MISSING | Completar 20 trades |
+| Spec M3.3 Labor Calibration | `docs/specs/tools/fase-3/m3.3-labor-calibration.spec.md` | MISSING | NECA/PHCC/RSMeans |
+=======
 | Spec M1.2 Regional Costs | `docs/specs/tools/fase-1/m1.2-regional-costs.spec.md` | APPROVED | BLS OEWS + multiplicadores por zip |
 | Spec M1.3 Stripe Escrow | `docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md` | APPROVED | Stripe Connect manual payouts |
 | Spec M1.4 Contracts | `docs/specs/tools/fase-1/m1.4-contracts.spec.md` | APPROVED | HelloSign e-signature |
@@ -280,6 +291,33 @@
 | Spec M5.3 Monetization | `docs/specs/tools/fase-5/m5.3-monetization.spec.md` | APPROVED | Subscription tiers + escrow transaction fee |
 
 Nota: los specs de Fase 2-5 estan `APPROVED` como contratos implementables. Sus bloques del Master Plan siguen `PENDING` hasta que exista codigo, migraciones, credenciales de proveedor y pruebas suficientes para elevarlos a `IMPLEMENTED` o `VERIFIED`.
+>>>>>>> 7dc857d60e9b52fd83082988114451c77f7bb08a
+
+---
+
+## NIVEL 9 — SEMSE Agro / FarmOps (Nuevo)
+
+> Vertical agricola propuesta para convertir SEMSEproject en un sistema operativo de finca.
+> Estado actual: documentacion y arquitectura. No implementar sin abrir PRs pequenos en el orden definido.
+
+| Documento | Ruta | Estado | Descripcion |
+|---|---|---|---|
+| Agro execution control | `docs/specs/agro/EXECUTION_CONTROL.md` | APPROVED | Gates, orden de ejecucion y DoD por PR |
+| Agro index | `docs/specs/agro/README.md` | APPROVED | Entrada canonica de la carpeta SEMSE Agro |
+| Master Spec | `docs/specs/agro/SEMSE_AGRO_MASTER_SPEC.md` | APPROVED | Vision, mercado, arquitectura y fases F0-F5 |
+| F1 RanchOps Core | `docs/specs/agro/F1_RANCHOPS_CORE_SPEC.md` | DRAFT | Especificacion ejecutable para MVP ganadero |
+| F2-F5 Roadmap | `docs/specs/agro/F2_TO_F5_ROADMAP.md` | DRAFT | Expansion a FarmOps mixto, confianza, riesgo y marketplace |
+| Prompt Library | `docs/specs/agro/IMPLEMENTATION_PROMPTS.md` | DRAFT | Prompts de implementacion y revision por PR |
+| Railway Recovery Runbook | `docs/specs/agro/RAILWAY_GREEN_RECOVERY_RUNBOOK.md` | DRAFT | Runbook para recuperar build/deploy sin meter features |
+
+Regla:
+
+```txt
+SEMSE Agro no es fork.
+SEMSE Agro no se implementa completo de una vez.
+Railway green recovery precede cualquier feature Agro si el deploy esta roto.
+F1 RanchOps Core debe estabilizarse antes de F2-F5.
+```
 
 ---
 

@@ -29,6 +29,7 @@ import {
   fundJobEscrow,
   mutateMilestone,
   releaseMilestoneEscrow,
+  transitionJobStatus,
   type BidView,
   sendNotification,
   type JobAgentSignal
@@ -376,6 +377,20 @@ export default function ClientJobDetailPage() {
     }
   }
 
+  async function handlePublishJob() {
+    if (pendingAction) return;
+    setPendingAction("publish-job");
+    setError(null);
+    try {
+      await transitionJobStatus(jobId, "posted");
+      await loadDetail();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo publicar el trabajo.");
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   async function handleCreateMilestone() {
     if (pendingAction || !newMilestone.title.trim()) return;
     const amount = Number(newMilestone.amount);
@@ -399,9 +414,13 @@ export default function ClientJobDetailPage() {
   const jobStatusMeta = JOB_STATUS_META[normalizedJobStatus] ?? JOB_STATUS_META.posted;
 
   const JOB_NEXT_ACTION: Record<string, { label: string; detail: string; tone: string }> = {
+    draft:       { label: "Publicar para recibir propuestas", detail: "Tu trabajo está en borrador. Publícalo para que los profesionales puedan enviarte propuestas.", tone: "#6366f1" },
     posted:      { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
+    published:   { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
     reserved:    { label: "Acepta o rechaza la reserva", detail: "Un profesional reservó el trabajo. Acepta para avanzar o libera la reserva.", tone: "#fbbf24" },
-    accepted:    { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
+    accepted:    escrowStatus === "FUNDED" || escrowStatus === "ACTIVE"
+      ? { label: "Escrow fondeado — esperando al profesional", detail: "Los fondos ya están protegidos. El profesional puede iniciar el trabajo en cualquier momento.", tone: "#10b981" }
+      : { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
     in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "#06b6d4" },
     review:      { label: "Aprueba o pide cambios", detail: "El profesional envió para revisión. Aprueba el milestone o solicita cambios.", tone: "#8b5cf6" },
     dispute:     { label: "Disputa activa", detail: "Hay una disputa abierta. El equipo de ops está revisando. Puedes aportar evidencia.", tone: "#ef4444" },
@@ -496,6 +515,17 @@ export default function ClientJobDetailPage() {
               <div style={{ flex: 1 }}>
                 <strong style={{ fontSize: "14px", color: nextActionGuide.tone, display: "block", marginBottom: "2px" }}>{nextActionGuide.label}</strong>
                 <span style={{ fontSize: "12px", color: "var(--muted)" }}>{nextActionGuide.detail}</span>
+                {normalizedJobStatus === "draft" ? (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      onClick={() => void handlePublishJob()}
+                      disabled={pendingAction !== null}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "none", background: "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                    >
+                      Publicar trabajo →
+                    </button>
+                  </div>
+                ) : null}
                 {normalizedJobStatus === "dispute" ? (
                   <div style={{ marginTop: 10 }}>
                     <Link
@@ -589,6 +619,14 @@ export default function ClientJobDetailPage() {
                               <span style={{ display: "inline-flex", padding: "4px 9px", borderRadius: "999px", background: meta.bg, color: meta.color, fontSize: "11px", fontWeight: 700 }}>
                                 {meta.label}
                               </span>
+                              {bid.avgRating != null ? (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "11px", color: "#f59e0b", fontWeight: 700 }}>
+                                  &#9733; {bid.avgRating.toFixed(1)}
+                                  <span style={{ color: "var(--muted)", fontWeight: 400 }}>({bid.ratingCount})</span>
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: "11px", color: "var(--faint)" }}>Sin calificaciones</span>
+                              )}
                             </div>
                             <div style={{ fontSize: "11px", color: "var(--muted)" }}>
                               {bid.proEmail ?? bid.proUserId} · enviada {formatDate(bid.createdAt)}

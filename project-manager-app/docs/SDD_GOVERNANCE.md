@@ -1,6 +1,6 @@
 # SDD_GOVERNANCE — SEMSEproject
-**Versión:** 1.1
-**Fecha:** 2026-05-24
+**Versión:** 1.0
+**Fecha:** 2026-05-20
 **Estado:** APROBADO
 **Referencia metodológica:** github/spec-kit + SDD principles
 
@@ -55,7 +55,6 @@ report         (ADR si hay decisiones arquitectónicas, SPEC_INDEX actualizado)
 > **Ningún feature existe si no está en SPEC_INDEX.md.**
 > **Ningún endpoint existe si no tiene spec + test.**
 > **Ningún agente de IA genera código hasta que el spec esté en estado APPROVED.**
-> **Ningún deploy debe salir si `pnpm spec:preflight` o `pnpm railway:preflight` falla.**
 
 ---
 
@@ -129,88 +128,6 @@ z.object({
 
 ---
 
-## 4.1 Metadata canónica verificable
-
-Todo spec nuevo o modificado debe usar metadata YAML al inicio del archivo. Los specs heredados pueden seguir pasando `pnpm spec:validate` en modo baseline, pero deben migrarse a este formato antes de declarar estado `IMPLEMENTED` o `VERIFIED`.
-
-```yaml
----
-id: "domain.feature"
-title: "Feature Name"
-domain: "buildops | evidence | payments | rag | agents | marketplace | auth | worker | tools | ui | api"
-status: "DRAFT | REVIEW | APPROVED | IMPLEMENTED | VERIFIED | DEPRECATED"
-owner: "semse-core"
-risk: "low | medium | high | critical"
-related_files:
-  - "apps/api/src/..."
-related_tests:
-  - "tests/..."
-related_endpoints:
-  - "GET /v1/..."
-related_events:
-  - "domain.event"
-related_agents:
-  - "EvidenceAgent"
-last_verified: "YYYY-MM-DD"
----
-```
-
-La metadata permite construir la matriz `Spec -> Code -> Test` sin depender de lectura manual. `related_files` y `related_tests` deben apuntar a rutas reales del repositorio. `related_endpoints` y `related_events` deben existir en el código cuando se declaran.
-
-Estados permitidos:
-
-| Estado | Uso |
-|---|---|
-| `DRAFT` | Borrador, no implementar. |
-| `REVIEW` | En revisión humana o de arquitectura. |
-| `APPROVED` | Fuente de verdad aprobada; se puede implementar. |
-| `IMPLEMENTED` | Código existe y está enlazado en `related_files`. |
-| `VERIFIED` | Tests y validaciones pasaron; `related_tests` existe. |
-| `DEPRECATED` | No usar para trabajo nuevo. |
-
-Riesgos:
-
-| Riesgo | Regla |
-|---|---|
-| `critical` | Requiere `related_tests`, owner explícito y revisión antes de merge. |
-| `high` | Requiere `related_tests` antes de `VERIFIED`. |
-| `medium` | Requiere mapa de implementación antes de `IMPLEMENTED`. |
-| `low` | Puede ser validado con baseline si no toca dinero, RBAC, agentes ni datos sensibles. |
-
----
-
-## 4.2 Matriz Spec -> Code -> Test
-
-Cada spec implementable debe declarar su mapa de implementación:
-
-```md
-## Implementation Map
-
-### API
-- apps/api/src/modules/[domain]/...
-
-### Web
-- apps/web/...
-- apps/angular/...
-
-### Packages
-- packages/[package]/...
-
-### Tests
-- tests/...
-- apps/api/test/...
-```
-
-Reglas:
-
-- No endpoint nuevo sin spec con `related_endpoints`.
-- No agente sin contrato de input/output y `related_agents`.
-- No evento SSE o evento de dominio sin `related_events` y payload documentado.
-- No UI crítica sin estados definidos.
-- Todo cambio monetizable debe tener trazabilidad `Spec -> Code -> Test`.
-
----
-
 ## 5. Formato canónico de un spec de FSM
 
 Todo spec en `specs/fsm/*.spec.md`:
@@ -272,37 +189,75 @@ Si alguna respuesta es NO → primero se completa el spec, luego se codifica.
 - Si hubo decisión arquitectónica → crear ADR en docs/adrs/
 ```
 
-### Gates ejecutables
+### Ciclo obligatorio de investigación externa y mejora
 
-Antes de merge o deploy:
+SEMSEproject adopta un ciclo de mejora continua basado en investigación externa.
+No basta con que el código compile: cada módulo, PR, bloque SDD o corte de código listo
+debe contrastarse contra prácticas externas antes de considerarse cerrado.
 
-```bash
-pnpm spec:preflight
-pnpm railway:preflight
+**Regla obligatoria:**
+
+```
+Al terminar cada módulo, PR, bloque SDD o corte de código listo:
+  1. Ejecutar al menos 3 búsquedas externas independientes.
+  2. Registrar las fuentes consultadas.
+  3. Extraer ideas de mejora aplicables.
+  4. Decidir explícitamente qué se aplica ahora, qué se descarta y qué queda en backlog.
+  5. Documentar la decisión en el reporte de sesión/bloque.
 ```
 
-`spec:preflight` ejecuta:
+Las 3 búsquedas no deben ser copias de la misma consulta. Deben cubrir, según el tipo
+de cambio:
 
-```bash
-pnpm spec:validate
-pnpm spec:coverage
+```
+- mejores prácticas técnicas del dominio;
+- seguridad, permisos y riesgos operativos;
+- patrones de testing, CI/CD, observabilidad o deploy;
+- documentación, trazabilidad y experiencia de usuario;
+- alternativas de arquitectura usadas por productos o frameworks maduros.
 ```
 
-`railway:preflight` agrega typecheck y builds de apps para evitar que Railway reciba un árbol roto por paquetes internos:
+**Aplicación práctica:**
 
-```bash
-pnpm spec:preflight
-pnpm typecheck
-pnpm build:api
-pnpm build:web
+```
+Módulo terminado      → research loop obligatorio antes de DONE.
+PR listo             → research loop obligatorio antes de pedir merge.
+Endpoint listo       → research loop si introduce contrato nuevo o riesgo.
+Migración lista      → research loop sobre seguridad de migraciones y rollback.
+UI lista             → research loop sobre UX/accesibilidad/patrones equivalentes.
+Infra/deploy listo   → research loop sobre Railway/Docker/CI/health checks.
 ```
 
-Reglas de bloqueo:
+**No se permite:**
 
-- Si `pnpm spec:validate` falla, no hay merge.
-- Si `pnpm railway:preflight` falla, no hay deploy.
-- Si un spec `IMPLEMENTED` o `VERIFIED` no declara tests, debe volver a `APPROVED` o completar `related_tests`.
-- Si un spec high/critical aparece sin tests en `pnpm spec:coverage`, se debe tratar como gap de release.
+```
+- buscar solo para cumplir y no registrar nada;
+- aplicar ideas externas sin pasar por spec/plan/tasks;
+- cambiar arquitectura por una fuente externa sin ADR;
+- convertir una mejora descubierta en scope creep del PR actual.
+```
+
+**Formato mínimo en el reporte:**
+
+```markdown
+## Investigación externa de mejora
+
+### Búsquedas ejecutadas
+1. `[consulta]` — fuente(s): [link]
+2. `[consulta]` — fuente(s): [link]
+3. `[consulta]` — fuente(s): [link]
+
+### Ideas detectadas
+- [idea] — fuente — impacto esperado
+
+### Decisiones
+- Aplicado ahora: [qué y por qué]
+- Backlog: [qué queda para después]
+- Descartado: [qué no aplica y por qué]
+```
+
+La regla existe para fortalecer el SDD, no para reemplazarlo. Toda mejora externa
+debe aterrizar primero en spec, plan o backlog antes de modificar código.
 
 ---
 

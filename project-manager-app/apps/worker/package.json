@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/main.mjs",
-    "start": "node src/main.mjs"
+    "start": "node src/main.mjs",
+    "check": "node --check src/main.mjs"
   },
   "dependencies": {
     "@semse/agents": "workspace:*",

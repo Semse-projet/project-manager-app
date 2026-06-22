@@ -100,6 +100,8 @@ Verificar antes de marcar DONE:
   [ ] RBAC declarado en endpoints nuevos (Artículo VI)
   [ ] tenantId en nuevos modelos Prisma (Artículo VII)
   [ ] privacyCritical marcado si aplica (Artículo VIII)
+  [ ] Research loop externo ejecutado: mínimo 3 búsquedas independientes
+  [ ] Mejoras externas aplicadas, descartadas o enviadas a backlog con justificación
   [ ] SPEC_INDEX.md actualizado
   [ ] PROTOOLS_MASTER_PLAN.md actualizado (PENDING → DONE)
   [ ] Reporte creado en docs/reportes/YYYY-MM-DD-[bloque-id].md
@@ -135,12 +137,66 @@ Crear `docs/reportes/YYYY-MM-DD-[ID].md` al completar cada bloque:
 ## Decisiones tomadas
 - [decisión y justificación]
 
+## Investigación externa de mejora
+
+### Búsquedas ejecutadas
+1. `[consulta exacta]` — fuente(s): [link]
+2. `[consulta exacta]` — fuente(s): [link]
+3. `[consulta exacta]` — fuente(s): [link]
+
+### Ideas detectadas
+- [idea] — [fuente] — [impacto esperado]
+
+### Decisiones
+- Aplicado ahora: [cambio aplicado y motivo]
+- Backlog: [mejora diferida y motivo]
+- Descartado: [idea descartada y motivo]
+
 ## Problemas encontrados
 - [problema y cómo se resolvió]
 
 ## Próximo bloque recomendado
 - [ID]: [nombre]
 ```
+
+## Research Loop Externo Obligatorio
+
+Cada vez que un módulo, PR, bloque SDD o corte de código quede listo, el agente debe
+hacer una pausa de mejora antes de marcarlo como DONE.
+
+El ciclo mínimo es:
+
+```
+1. Buscar en internet al menos 3 veces con consultas distintas.
+2. Revisar fuentes primarias cuando existan: documentación oficial, specs, papers,
+   runbooks de proveedores o guías del framework.
+3. Comparar lo encontrado contra el código/spec actual.
+4. Aplicar mejoras pequeñas si están dentro del alcance.
+5. Crear backlog si la mejora es válida pero excede el PR.
+6. Descartar explícitamente lo que no aplica.
+7. Registrar todo en el reporte de sesión/bloque.
+```
+
+Tipos de búsqueda recomendados:
+
+```
+Consulta 1 — práctica técnica del módulo.
+Consulta 2 — seguridad, permisos, datos o privacidad.
+Consulta 3 — testing, CI/CD, observabilidad, UX o deploy.
+```
+
+Ejemplo:
+
+```
+Módulo: EvidenceOps
+1. "evidence management audit trail best practices software"
+2. "file upload security best practices OWASP"
+3. "API evidence attachment permission model multi tenant"
+```
+
+El agente no debe convertir hallazgos externos en scope creep. Si una mejora supera
+el alcance del bloque, se documenta en backlog y no se implementa hasta que exista
+spec/plan/tasks.
 
 ---
 

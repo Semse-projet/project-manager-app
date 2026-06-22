@@ -428,6 +428,8 @@ export type BidView = {
   note?: string | null;
   status: "submitted" | "accepted" | "rejected" | "withdrawn";
   createdAt: string;
+  avgRating?: number;
+  ratingCount?: number;
 };
 
 export type TimeTrackerSummaryView = {
@@ -490,6 +492,7 @@ export type MyBidView = {
   jobStatus: string;
   amount: number;
   etaDays: number;
+  note?: string | null;
   status: "submitted" | "accepted" | "rejected";
   createdAt: string;
 };
@@ -536,6 +539,16 @@ export async function presignEvidence(input: {
   source?: "local_device" | "camera_capture" | "field_ops" | "project_copilot" | "external_transfer";
 }): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>(`/api/semse/evidence/presign`, input);
+}
+
+export async function transitionJobStatus(
+  jobId: string,
+  targetStatus: string
+): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>(
+    `/api/semse/jobs/${jobId}/transition`,
+    { targetStatus }
+  );
 }
 
 export async function planUpload(input: {

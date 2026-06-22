@@ -759,7 +759,8 @@ function assertTransitionAuthorized(
     return;
   }
 
-  if (actorOrgId !== ownership.clientOrgId) {
+  // Default: allow either client or the assigned professional to transition
+  if (actorOrgId !== ownership.clientOrgId && actorOrgId !== (ownership.professionalOrgId ?? "")) {
     throw new UnprocessableEntityException("actor cannot transition this job");
   }
 }

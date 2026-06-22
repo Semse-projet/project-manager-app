@@ -169,6 +169,44 @@ export class VisionService {
     return batchResult;
   }
 
+  async runBatchByIds(evidenceIds: string[], jobId?: string, milestoneId?: string) {
+    if (evidenceIds.length === 0) {
+      return { total: 0, completed: 0, failed: 0, batchDurationMs: 0, results: [] };
+    }
+    const rows = await this.prisma.evidence.findMany({
+      where: { id: { in: evidenceIds } },
+      select: { id: true, bucketKey: true, milestoneId: true },
+    });
+    const items = rows.map(r => ({
+      evidenceId: r.id,
+      imageUrl: r.bucketKey ? this.storageService.publicUrl(r.bucketKey) : `mock://evidence/${r.id}`,
+      milestoneId: r.milestoneId ?? milestoneId,
+      jobId,
+    }));
+    return this.runBatchAnalysis(items, jobId, milestoneId);
+  }
+
+  async buildJobTimeline(jobId: string, fps = 2) {
+    const project = await this.prisma.project.findUnique({
+      where: { jobId },
+      select: { id: true },
+    });
+    if (!project) return { frameCount: 0, durationMs: 0, base64Gif: null, message: "No project found for this job" };
+
+    const evidence = await this.prisma.evidence.findMany({
+      where: { projectId: project.id, kind: "PHOTO" },
+      orderBy: { createdAt: "asc" },
+      take: 30,
+      select: { id: true, bucketKey: true, createdAt: true },
+    });
+    if (evidence.length < 2) {
+      return { frameCount: evidence.length, durationMs: 0, base64Gif: null, message: "At least 2 photos required for a timeline" };
+    }
+    const imageUrls = evidence.map(e => e.bucketKey ? this.storageService.publicUrl(e.bucketKey) : `mock://evidence/${e.id}`);
+    const labels = evidence.map(e => e.createdAt.toISOString().slice(0, 10));
+    return this.visionServiceClient.buildTimeline({ imageUrls, labels, fps, outputWidth: 640, outputHeight: 480 });
+  }
+
   async analyzeByEvidenceId(evidenceId: string) {
     const existing = await this.visionRepository.findByEvidenceId(evidenceId).catch(() => null);
     if (existing?.status === "completed") return existing;

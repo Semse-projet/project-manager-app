@@ -10,8 +10,12 @@ export async function GET(request: NextRequest) {
     const cfg = await getServerConfig(request);
     const headers = buildSemseRequestHeaders(cfg);
 
+    const timeline = request.nextUrl.searchParams.get("timeline");
+    const fps = request.nextUrl.searchParams.get("fps");
     let path = "/v1/vision/job/all";
-    if (jobId) path = `/v1/vision/job/${encodeURIComponent(jobId)}`;
+    if (jobId && timeline === "1") {
+      path = `/v1/vision/job/${encodeURIComponent(jobId)}/timeline${fps ? `?fps=${encodeURIComponent(fps)}` : ""}`;
+    } else if (jobId) path = `/v1/vision/job/${encodeURIComponent(jobId)}`;
     else if (milestoneId) path = `/v1/vision/milestone/${encodeURIComponent(milestoneId)}`;
 
     const resp = await fetch(`${API}${path}`, { headers });
@@ -26,6 +30,7 @@ export async function GET(request: NextRequest) {
 const ALLOWED_VISION_ENDPOINTS = new Set([
   "analyze",
   "batch",
+  "batch-by-ids",
   "detect-trade",
   "estimate-area",
   "check-consistency",

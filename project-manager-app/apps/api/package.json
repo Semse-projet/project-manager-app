@@ -21,6 +21,8 @@
     "@nestjs/common": "^11.1.27",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.27",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.1.27",
     "@nestjs/platform-fastify": "^11.1.27",
     "@nestjs/swagger": "^11.2.1",
     "@nestjs/throttler": "^6.4.0",
@@ -31,7 +33,12 @@
     "@semse/knowledge": "workspace:*",
     "@semse/schemas": "workspace:*",
     "@semse/shared": "workspace:*",
+    "@semse/tools": "workspace:*",
+    "@sentry/node": "^10.59.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/pdfkit": "^0.17.6",
+    "axios": "^1.18.0",
     "bullmq": "^5.78.1",
     "ioredis": "^5.11.1",
     "mammoth": "^1.12.0",
@@ -40,11 +47,11 @@
     "pdfkit": "^0.19.1",
     "reflect-metadata": "^0.2.2",
     "stripe": "^22.2.1",
-    "zod": "^3.24.2",
-    "@semse/tools": "workspace:*"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.23",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22.19.21",
     "typescript": "^5.8.2"
   }
