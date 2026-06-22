@@ -9,8 +9,8 @@ import { assertProjectFinancialsReadable, type ProjectActor, type ProjectOwnersh
 
 const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
 const EscrowStatus = {
-  ACTIVE: "active",
-  CLOSED: "closed"
+  ACTIVE: "ACTIVE",
+  CLOSED: "CLOSED"
 } as const;
 
 type PaymentTx = PrismaTypes.TransactionClient & Pick<PrismaService, "milestone" | "paymentEscrow" | "paymentTxn">;
