@@ -38,9 +38,13 @@ const ALLOWED_VISION_ENDPOINTS = new Set([
   "progress-timeline",
   "match-reference",
   "safety-check",
+  "safety-check-enriched",
   "blueprint",
   "perspective-correct",
   "document-binarize",
+  "detect-material",
+  "classify-space",
+  "analyze-portfolio",
 ]);
 
 export async function POST(request: NextRequest) {
