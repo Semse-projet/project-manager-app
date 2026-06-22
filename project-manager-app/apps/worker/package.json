@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/main.mjs",
-    "start": "node src/main.mjs"
+    "start": "node src/main.mjs",
+    "check": "node --check src/main.mjs"
   },
   "dependencies": {
     "@semse/agents": "workspace:*",
     "@semse/shared": "workspace:*",
-    "bullmq": "^5.78.1",
+    "bullmq": "^5.79.1",
     "ioredis": "^5.11.1",
     "pino": "^9.6.0"
   }

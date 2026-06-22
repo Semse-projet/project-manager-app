@@ -1,5 +1,4 @@
 FROM node:20-alpine AS base
-# build: 2026-06-18T12:00 — cache bust: bids/mine route + tracker GET jobs handler
 RUN apk add --no-cache openssl python3 make g++
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -22,28 +21,14 @@ COPY packages/shared/package.json ./packages/shared/
 COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 COPY pnpm-lock.yaml ./
-
-# Use pnpm install (not frozen) to handle any lockfile drift from workspace dep changes
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
 
 COPY . .
 
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm --filter @semse/db prisma:generate
-RUN pnpm --filter @semse/schemas build
-RUN pnpm --filter @semse/shared build
-RUN pnpm --filter @semse/auth build
-RUN pnpm --filter @semse/knowledge build
-RUN pnpm --filter @semse/agents build
-RUN pnpm --filter @semse/autonomy build
-RUN pnpm --filter @semse/tools build
-RUN pnpm --filter @semse/api build
-
-# Build knowledge graph from source (AST-only, no LLM needed)
-RUN apk add --no-cache py3-pip && pip3 install graphifyy --quiet --break-system-packages
-RUN graphify update /app --no-cluster
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run build:api
 
 FROM base AS runner
 WORKDIR /app
@@ -51,7 +36,6 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4000
-ENV GRAPHIFY_GRAPH_PATH=/app/graphify-out/graph.json
 
 # Copy workspace config for pnpm install
 COPY --from=builder /app/package.json ./package.json
@@ -95,10 +79,6 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/skills ./apps/api/skills
 COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
 COPY --from=builder /app/scripts ./scripts
-
-# Copy pre-built knowledge graph and install graphify for runtime queries
-COPY --from=builder /app/graphify-out ./graphify-out
-RUN apk add --no-cache py3-pip && pip3 install graphifyy --quiet --break-system-packages
 
 EXPOSE 4000
 

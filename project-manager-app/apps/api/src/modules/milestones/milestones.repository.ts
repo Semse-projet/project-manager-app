@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";

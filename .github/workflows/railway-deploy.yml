@@ -38,3 +38,25 @@ jobs:
               || { echo "Deploy failed for service $svc: $response"; exit 1; }
             echo "Fresh build de $GITHUB_SHA disparado para servicio $svc"
           done
+
+  health-check:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for services to be live
+        run: sleep 120
+
+      - name: Verify semse-API health
+        run: |
+          curl -sf https://project-manager-app-production-977f.up.railway.app/v1/health \
+            | grep -q '"status":"ok"' \
+            && echo "semse-API healthy ✅" \
+            || { echo "semse-API health check failed ❌"; exit 1; }
+
+      - name: Verify semse-web
+        run: |
+          code=$(curl -so /dev/null -w "%{http_code}" \
+            https://semse-web-production.up.railway.app/)
+          [ "$code" = "200" ] \
+            && echo "semse-web healthy ✅ (HTTP $code)" \
+            || { echo "semse-web returned $code ❌"; exit 1; }

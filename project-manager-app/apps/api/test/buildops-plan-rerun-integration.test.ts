@@ -10,11 +10,12 @@ import { BuildOpsPlanRerunService } from "../dist/modules/buildops/buildops-plan
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..", "..");
+const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
 loadEnv({ path: path.join(repoRoot, "packages/db/.env") });
 
 const prisma = new PrismaClient();
+const dbTest = process.env.DATABASE_URL ? test : test.skip;
 
 function uniqueId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -588,7 +589,7 @@ async function createFixture() {
   };
 }
 
-test("buildops rerun integration supports changes_requested -> rerun -> approve -> promote legacy", async () => {
+dbTest("buildops rerun integration supports changes_requested -> rerun -> approve -> promote legacy", async () => {
   const fixture = await createFixture();
   try {
     const rerunService = new BuildOpsPlanRerunService(
@@ -667,7 +668,7 @@ test("buildops rerun integration supports changes_requested -> rerun -> approve 
   }
 });
 
-test("buildops rerun integration blocks plans that already promoted legacy artifacts even if status drifts back to changes_requested", async () => {
+dbTest("buildops rerun integration blocks plans that already promoted legacy artifacts even if status drifts back to changes_requested", async () => {
   const fixture = await createFixture();
   try {
     const legacyPromotionService = new BuildOpsLegacyPromotionService(prisma as never);

@@ -1,0 +1,39 @@
+name: Production Health Gate
+
+on:
+  workflow_run:
+    workflows: ["Railway Deploy"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - name: API health
+        run: |
+          curl -sf https://project-manager-app-production-977f.up.railway.app/v1/health \
+            | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['data']['status']=='ok'"
+          echo "semse-API: ok ✅"
+
+      - name: Auth endpoint
+        run: |
+          code=$(curl -so /dev/null -w "%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"email":"smoke@test.com","password":"x"}' \
+            https://project-manager-app-production-977f.up.railway.app/v1/auth/login)
+          [ "$code" = "401" ] && echo "Auth endpoint: ok ✅ (returns 401 on bad creds)" || { echo "Auth endpoint unexpected $code ❌"; exit 1; }
+
+      - name: Web frontend
+        run: |
+          code=$(curl -so /dev/null -w "%{http_code}" https://semse-web-production.up.railway.app/)
+          [ "$code" = "200" ] && echo "semse-web: ok ✅" || { echo "semse-web returned $code ❌"; exit 1; }
+
+      - name: Protected routes (expect 401)
+        run: |
+          for ep in /v1/projects /v1/users /v1/jobs /v1/milestones; do
+            code=$(curl -so /dev/null -w "%{http_code}" \
+              https://project-manager-app-production-977f.up.railway.app$ep)
+            [ "$code" = "401" ] && echo "  $ep → 401 ✅" || echo "  $ep → $code ⚠️"
+          done

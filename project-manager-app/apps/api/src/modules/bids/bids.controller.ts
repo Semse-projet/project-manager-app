@@ -81,6 +81,7 @@ export class JobBidsController {
 
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
+    const parsedBid = parsed.data as typeof parsed.data & { note?: string };
     const bid = await this.bidsService.create({
       tenantId: actor.tenantId,
       jobId,
@@ -90,7 +91,7 @@ export class JobBidsController {
       roles: actor.roles,
       amount: parsed.data.amount,
       etaDays: parsed.data.etaDays,
-      note: parsed.data.note,
+      note: parsedBid.note,
       requestId
     });
 

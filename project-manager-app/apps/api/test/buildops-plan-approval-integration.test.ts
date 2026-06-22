@@ -8,11 +8,12 @@ import { BuildOpsPlanApprovalService } from "../dist/modules/buildops/buildops-p
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, "..", "..");
+const repoRoot = path.resolve(__dirname, "..", "..", "..");
 
 loadEnv({ path: path.join(repoRoot, "packages/db/.env") });
 
 const prisma = new PrismaClient();
+const dbTest = process.env.DATABASE_URL ? test : test.skip;
 
 function uniqueId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -264,7 +265,7 @@ async function createFixture() {
   };
 }
 
-test("buildops approval integration supports approve idempotency and unapprove before assignment", async (t) => {
+dbTest("buildops approval integration supports approve idempotency and unapprove before assignment", async (t) => {
   const fixture = await createFixture();
   t.after(async () => {
     await cleanupFixture({ tenantId: fixture.tenantId, userIds: fixture.userIds });
@@ -306,7 +307,7 @@ test("buildops approval integration supports approve idempotency and unapprove b
   assert.equal(unapproved.clientPlanApprovedAt, null);
 });
 
-test("buildops approval integration blocks unapprove after accepted reservation", async (t) => {
+dbTest("buildops approval integration blocks unapprove after accepted reservation", async (t) => {
   const fixture = await createFixture();
   t.after(async () => {
     await cleanupFixture({ tenantId: fixture.tenantId, userIds: fixture.userIds });
@@ -359,7 +360,7 @@ test("buildops approval integration blocks unapprove after accepted reservation"
   );
 });
 
-test("buildops approval integration transitions approved plan to changes_requested before assignment", async (t) => {
+dbTest("buildops approval integration transitions approved plan to changes_requested before assignment", async (t) => {
   const fixture = await createFixture();
   t.after(async () => {
     await cleanupFixture({ tenantId: fixture.tenantId, userIds: fixture.userIds });

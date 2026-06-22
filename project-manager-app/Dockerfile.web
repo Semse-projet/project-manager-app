@@ -1,5 +1,4 @@
 FROM node:20-slim AS base
-# build: 2026-05-21T20:45 — cache bust + no-frozen-lockfile
 RUN apt-get update && apt-get install -y openssl python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
@@ -23,7 +22,7 @@ COPY packages/tools/package.json ./packages/tools/
 COPY packages/ui/package.json ./packages/ui/
 COPY pnpm-lock.yaml ./
 
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
 WORKDIR /app
@@ -44,15 +43,7 @@ ENV NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED=$NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED
 # at request time by Next.js API Routes. Set it as a Railway Service Variable
 # (runtime), not a Build Variable. Railway private URL: http://semse-api.railway.internal:4000
 
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm --filter @semse/db prisma:generate
-RUN pnpm --filter @semse/schemas build
-RUN pnpm --filter @semse/shared build
-RUN pnpm --filter @semse/auth build
-RUN pnpm --filter @semse/knowledge build
-RUN pnpm --filter @semse/agents build
-RUN pnpm --filter @semse/autonomy build
-RUN pnpm --filter @semse/tools build
-RUN pnpm --filter @semse/web build
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run build:web
 RUN mkdir -p apps/web/public
 
 FROM node:20-slim AS runner
