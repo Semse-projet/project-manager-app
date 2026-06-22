@@ -80,6 +80,14 @@ enum PaymentTxnStatus {
   REVERSED
 }
 
+enum EscrowStatus {
+  ACTIVE             @map("active")
+  PENDING_SETTLEMENT @map("pending_settlement")
+  CLOSED             @map("closed")
+  CANCELLED          @map("cancelled")
+  RELEASED           @map("released")
+}
+
 enum DisputeStatus {
   OPEN
   ASSIGNED
@@ -552,7 +560,7 @@ model PaymentEscrow {
   currency     String        @default("USD")
   totalAmount  Decimal       @db.Decimal(12, 2)
   holdbackPct  Decimal?      @db.Decimal(5, 2)
-  status       String        @default("active")
+  status       EscrowStatus  @default(ACTIVE)
   transactions PaymentTxn[]
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)

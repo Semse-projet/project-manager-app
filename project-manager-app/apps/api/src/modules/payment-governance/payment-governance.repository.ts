@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
-import type { PaymentTxnType, PaymentTxnStatus } from "@prisma/client";
+import type { EscrowStatus, PaymentTxnStatus, PaymentTxnType } from "@prisma/client";
 
 export interface PaymentReleaseInput {
   escrowId: string;
@@ -85,7 +85,7 @@ export class PaymentGovernanceRepository {
     });
   }
 
-  async updateEscrowStatus(escrowId: string, status: string) {
+  async updateEscrowStatus(escrowId: string, status: EscrowStatus) {
     return this.prisma.paymentEscrow.update({
       where: { id: escrowId },
       data: { status },
