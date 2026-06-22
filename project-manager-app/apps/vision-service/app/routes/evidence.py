@@ -58,13 +58,10 @@ from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
 from app.analyzers.material_detector import detect_material
 from app.analyzers.space_classifier import classify_space
-from app.analyzers.portfolio_forensics import analyze_portfolio_image
+from app.analyzers.portfolio_forensics import analyze_portfolio
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
-from app.analyzers.material_detector import detect_material
-from app.analyzers.space_classifier import classify_space
-from app.analyzers.portfolio_forensics import analyze_portfolio
 from app.services.ollama_enricher import enrich
 
 router = APIRouter()
@@ -312,7 +309,14 @@ def safety_check_enriched_endpoint(request: SafetyCheckRequest):
     image = load_image_from_url(request.imageUrl)
     cv_result = detect_safety_equipment(image)
     insight = enrich("safety", cv_result)
-    return SafetyCheckResult(**cv_result, insight=insight)
+    return SafetyCheckResult(
+        helmetDetected=cv_result["helmet_detected"],
+        vestDetected=cv_result["vest_detected"],
+        harnessDetected=cv_result["harness_detected"],
+        complianceScore=cv_result["compliance_score"],
+        violations=cv_result["violations"],
+        insight=insight,
+    )
 
 
 @router.post("/analyze-portfolio", response_model=PortfolioForensicsResult, tags=["vision"])
@@ -392,23 +396,10 @@ def safety_check_endpoint(request: SafetyCheckRequest):
     adjusted_compliance = calculate_compliance_score(result, height_risk)
 
     return SafetyCheckResult(
-        helmet_detected=result["helmet_detected"],
-        vest_detected=result["vest_detected"],
-        harness_detected=result["harness_detected"],
-        compliance_score=adjusted_compliance,
+        helmetDetected=result["helmet_detected"],
+        vestDetected=result["vest_detected"],
+        harnessDetected=result["harness_detected"],
+        complianceScore=adjusted_compliance,
         violations=result["violations"],
-        worker_safety_level=result["worker_safety_level"],
     )
 
-@router.post("/analyze-portfolio", response_model=PortfolioForensicsResult, tags=["evidence"])
-def analyze_portfolio_endpoint(request: PortfolioForensicsRequest):
-    image = load_image_from_url(request.imageUrl)
-    result = analyze_portfolio_image(image, request.imageHash)
-    return PortfolioForensicsResult(
-        fraud_risk=result["fraud_risk"],
-        duplicate_risk=result["duplicate_risk"],
-        deepfake_risk=result["deepfake_risk"],
-        portfolio_quality_score=result["portfolio_quality_score"],
-        red_flags=result["red_flags"],
-        recommendation=result["recommendation"],
-    )
