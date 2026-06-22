@@ -91,6 +91,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace packages and API
+        run: pnpm build:api
+
       - name: Unit tests with coverage thresholds
         run: pnpm test:coverage
 
