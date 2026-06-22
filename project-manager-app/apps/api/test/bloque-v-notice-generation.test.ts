@@ -36,11 +36,11 @@ test('NoticeGeneratorService — Populate template with project data', () => {
 });
 
 test('NoticeGeneratorService — Handle multiple variables in template', () => {
-  const template = `
-    State: {{stateName}}
-    Contract Amount: ${{contractAmount}}
-    Start Date: {{projectStartDate}}
-  `;
+  const template = [
+    'State: {{stateName}}',
+    'Contract Amount: ${{contractAmount}}',
+    'Start Date: {{projectStartDate}}',
+  ].join('\n');
   const data = {
     stateName: 'California',
     contractAmount: '50000',

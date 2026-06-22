@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BurnRateService } from './burn-rate.service';
+import { BurnRateService } from './burn-rate.service.js';
 
 /**
  * DrawForecastService — proyectar próximos draws basado en burn rate.

@@ -43,7 +43,7 @@ export class LenderClient {
         client_secret: clientSecret,
       });
 
-      this.accessToken = response.data.access_token;
+      this.accessToken = String(response.data.access_token);
       return this.accessToken;
     } catch (error) {
       this.logger.error('Lender authentication failed', error);

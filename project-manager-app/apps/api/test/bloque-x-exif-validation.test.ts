@@ -19,7 +19,7 @@ test('EXIFParser — Validate photo with full EXIF data', () => {
   };
 
   const hasTimestamp = !!exifData.timestamp;
-  const hasGPS = exifData.gpsLatitude && exifData.gpsLongitude;
+  const hasGPS = Boolean(exifData.gpsLatitude && exifData.gpsLongitude);
 
   assert.strictEqual(hasTimestamp, true);
   assert.strictEqual(hasGPS, true);
@@ -43,7 +43,7 @@ test('EXIFParser — Reject photo missing GPS', () => {
     // gpsLongitude missing
   };
 
-  const hasGPS = exifData.gpsLatitude && exifData.gpsLongitude;
+  const hasGPS = Boolean(exifData.gpsLatitude && exifData.gpsLongitude);
   assert.strictEqual(hasGPS, false);
 });
 

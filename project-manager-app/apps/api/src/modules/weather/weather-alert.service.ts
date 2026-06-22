@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '@semse/db';
-import { WeatherMatrixService } from './weather-matrix.service';
-import { TomorrowWeatherClient } from '../../integrations/tomorrow-weather';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
+import { WeatherMatrixService } from './weather-matrix.service.js';
+import { TomorrowWeatherClient } from '../../integrations/tomorrow-weather.js';
 
 /**
  * WeatherAlertService — generar alertas basadas en clima y matriz de trades.

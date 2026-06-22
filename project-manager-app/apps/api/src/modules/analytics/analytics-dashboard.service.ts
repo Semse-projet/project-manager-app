@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BurnRateService } from '../reporting/burn-rate.service';
+import { BurnRateService } from '../reporting/burn-rate.service.js';
 
 @Injectable()
 export class AnalyticsDashboardService {

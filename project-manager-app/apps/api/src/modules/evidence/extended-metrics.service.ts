@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '@semse/db';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
 /**
  * ExtendedMetricsService — track 20 main construction trades.

@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { LiensService } from './liens.service';
+import { LiensService } from './liens.service.js';
 
 /**
  * WaiverPaymentGateService — verifica waivers antes de liberar escrow.

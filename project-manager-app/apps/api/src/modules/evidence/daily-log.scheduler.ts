@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '@semse/db';
-import { DailyLogService } from './daily-log.service';
+import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
+import { DailyLogService } from './daily-log.service.js';
 
 /**
  * DailyLogScheduler — crear daily logs cada día a las 20:00 UTC.

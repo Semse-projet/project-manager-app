@@ -5,6 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { normalizeErrorMessage } from "../../../semse-api";
 
 // ── Types (mirrors API DTOs) ───────────────────────────────────────────────────
 
@@ -93,7 +94,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   const json = await res.json();
   if (!res.ok) {
-    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+    throw new Error(normalizeErrorMessage(json?.error) ?? `HTTP ${res.status}`);
   }
   return (json as { data: T }).data;
 }

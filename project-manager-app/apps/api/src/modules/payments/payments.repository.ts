@@ -7,7 +7,11 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
 import { assertProjectFinancialsReadable, type ProjectActor, type ProjectOwnership } from "../projects/projects.policy.js";
 
-const { EscrowStatus, Prisma } = prismaClientPackage as typeof import("@prisma/client");
+const { Prisma } = prismaClientPackage as typeof import("@prisma/client");
+const EscrowStatus = {
+  ACTIVE: "ACTIVE",
+  CLOSED: "CLOSED"
+} as const;
 
 type PaymentTx = PrismaTypes.TransactionClient & Pick<PrismaService, "milestone" | "paymentEscrow" | "paymentTxn">;
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Briefcase, CheckCircle2, ChevronDown, ChevronUp, DollarSign, Filter, MapPin, RefreshCw, Send, SlidersHorizontal, X } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { normalizeErrorMessage } from "../../../semse-api";
 
 type Job = {
   id: string;
@@ -162,8 +163,8 @@ export default function WorkerOpportunitiesPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const json = await res.json() as { data?: unknown; error?: { message: string } };
-      if (!res.ok) throw new Error(json.error?.message ?? "No se pudo enviar la propuesta");
+      const json = await res.json() as { data?: unknown; error?: unknown };
+      if (!res.ok) throw new Error(normalizeErrorMessage(json.error) ?? "No se pudo enviar la propuesta");
       setBidResult(prev => ({ ...prev, [bidForm.jobId]: { success: true, message: "¡Propuesta enviada!" } }));
       setBidForm(null);
     } catch (e) {
