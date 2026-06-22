@@ -195,3 +195,16 @@ class ClassifySpaceResult(BaseModel):
     category_scores: Dict[str, float]
     key_features: List[str]
     skip_questions_allowed: bool
+
+# --- Safety Detection ---
+class SafetyCheckRequest(BaseModel):
+    imageUrl: str
+    trade: Optional[str] = None
+
+class SafetyCheckResult(BaseModel):
+    helmet_detected: bool
+    vest_detected: bool
+    harness_detected: bool
+    compliance_score: float
+    violations: List[str]
+    worker_safety_level: str

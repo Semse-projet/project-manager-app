@@ -38,6 +38,8 @@ from app.schemas.evidence import (
     DetectMaterialResult,
     ClassifySpaceRequest,
     ClassifySpaceResult,
+    SafetyCheckRequest,
+    SafetyCheckResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -50,7 +52,7 @@ from app.analyzers.binarization import binarize_document
 from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
-from app.analyzers.safety_detector import detect_safety_equipment
+from app.analyzers.safety_detector import detect_safety_equipment, estimate_height_risk, calculate_compliance_score
 from app.analyzers.timeline_builder import build_progress_timeline
 from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
@@ -341,4 +343,22 @@ def classify_space_endpoint(request: ClassifySpaceRequest):
         category_scores=result["category_scores"],
         key_features=result["key_features"],
         skip_questions_allowed=result["skip_questions_allowed"],
+    )
+
+@router.post("/safety-check", response_model=SafetyCheckResult, tags=["evidence"])
+def safety_check_endpoint(request: SafetyCheckRequest):
+    image = load_image_from_url(request.imageUrl)
+    result = detect_safety_equipment(image)
+
+    # Adjust compliance score if at height
+    height_risk = estimate_height_risk(image)
+    adjusted_compliance = calculate_compliance_score(result, height_risk)
+
+    return SafetyCheckResult(
+        helmet_detected=result["helmet_detected"],
+        vest_detected=result["vest_detected"],
+        harness_detected=result["harness_detected"],
+        compliance_score=adjusted_compliance,
+        violations=result["violations"],
+        worker_safety_level=result["worker_safety_level"],
     )
