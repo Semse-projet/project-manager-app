@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Building2, CreditCard, Wallet, Check, ChevronDown, AlertTriangle, Loader2 } from "lucide-react";
+import { normalizeErrorMessage } from "../../semse-api";
 
 type PayoutType = "bank_account" | "debit_card" | "paypal" | "zelle" | "cashapp";
 
@@ -92,9 +93,10 @@ export function PayoutMethodForm({ currentMethod, onSave }: PayoutMethodFormProp
       if (!response.ok) {
         throw new Error("No se pudo guardar el método de cobro");
       }
-      const payload = await response.json() as { error?: { message?: string } };
-      if (payload.error?.message) {
-        throw new Error(payload.error.message);
+      const payload = await response.json() as { error?: unknown };
+      const errorMessage = normalizeErrorMessage(payload.error);
+      if (errorMessage) {
+        throw new Error(errorMessage);
       }
       setSaving(false);
       setSaved(true);

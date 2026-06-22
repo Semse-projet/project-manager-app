@@ -22,7 +22,7 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
 import { useLanguage } from "../../../../lib/language-context";
-import { fetchRatings, fetchMyBids, type RatingListItem, type MyBidView } from "../../../semse-api";
+import { fetchRatings, fetchMyBids, normalizeErrorMessage, type RatingListItem, type MyBidView } from "../../../semse-api";
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat("es-US", {
@@ -129,8 +129,11 @@ export default function WorkerDashboardPage() {
     void Promise.all([
       fetch("/api/semse/jobs")
         .then((r) => r.json())
-        .then((payload: { data?: JobRecordView[]; error?: { message: string } }) => {
-          if (payload.error) { setApiError(payload.error.message); return; }
+        .then((payload: { data?: JobRecordView[]; error?: unknown }) => {
+          if (payload.error) {
+            setApiError(normalizeErrorMessage(payload.error) ?? "No se pudieron cargar los trabajos.");
+            return;
+          }
           setJobs(payload.data ?? []);
         })
         .catch(() => setApiError("No se pudo conectar con el servidor")),

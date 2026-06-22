@@ -12,6 +12,7 @@ import { HtmlInCanvasPanel, StatCard, StatusBadge, useHtmlInCanvasSupport } from
 import type { JobRecordView } from "@semse/schemas";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { useLanguage } from "../../../../lib/language-context";
+import { normalizeErrorMessage } from "../../../semse-api";
 
 type AlertSeverity = "error" | "warning" | "info";
 
@@ -59,12 +60,12 @@ export default function AdminDashboardPage() {
 
     void fetch("/api/semse/jobs")
       .then((response) => response.json())
-      .then((payload: { data?: JobRecordView[]; error?: { message: string } }) => {
+      .then((payload: { data?: JobRecordView[]; error?: unknown }) => {
         if (cancelled) {
           return;
         }
         if (payload.error) {
-          setApiError(payload.error.message);
+          setApiError(normalizeErrorMessage(payload.error) ?? "No se pudieron cargar los trabajos.");
           return;
         }
         setJobs(payload.data ?? []);
