@@ -100,7 +100,8 @@
   },
   "pnpm": {
     "overrides": {
-      "is-fullwidth-code-point": "3.0.0"
+      "is-fullwidth-code-point": "3.0.0",
+      "postcss": "8.5.15"
     }
   }
 }
