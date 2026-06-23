@@ -13,6 +13,7 @@ const links = [
   { href: "/", label: "Jobs" },
   { href: "/jobs/new", label: "Publicar" },
   { href: "/field-ops", label: "Field Ops" },
+  { href: "/agro", label: "Agro" },
   { href: "/communications", label: "Inbox" },
   { href: "/cortex", label: "Cortex" },
 ];
