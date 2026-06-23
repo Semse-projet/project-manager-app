@@ -23,6 +23,7 @@ import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { ReservationsModule } from "./modules/reservations/reservations.module.js";
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
+import { AgroModule } from "./modules/agro/agro.module.js";
 import { DomainEventsModule } from "./modules/domain-events/domain-events.module.js";
 import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
 import { RatingsModule } from "./modules/ratings/ratings.module.js";
@@ -105,6 +106,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     ReservationsModule,
     TrustModule,
     FieldOpsModule,
+    AgroModule,
     OrganizationsModule,
     RatingsModule,
     UsersModule,
