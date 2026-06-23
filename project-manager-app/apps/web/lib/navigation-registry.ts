@@ -693,6 +693,16 @@ export const navigationRegistry: NavigationNode[] = [
     status: "active",
   },
   {
+    id: "agro-farms",
+    labelKey: "nav.agro",
+    canonicalHref: "/agro",
+    layer: "workspace",
+    os: "system",
+    roles: ["admin", "client", "worker"],
+    owner: "platform",
+    status: "active",
+  },
+  {
     id: "admin-semse-tools",
     labelKey: "nav.semseTools",
     canonicalHref: "/tools",
