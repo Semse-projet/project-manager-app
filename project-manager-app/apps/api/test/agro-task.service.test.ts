@@ -28,7 +28,12 @@ function makeTaskRepo(tasks = [STUB_TASK]) {
   const list = tasks.map(t => ({ ...t }));
   return {
     listTasks:  async (farmId: string, filters?: any) =>
-      list.filter(t => t.farmId === farmId && (!filters?.status || t.status === filters.status)),
+      list.filter(t =>
+        t.farmId === farmId &&
+        (!filters?.status     || t.status     === filters.status) &&
+        (!filters?.targetType || t.targetType === filters.targetType) &&
+        (!filters?.targetId   || t.targetId   === filters.targetId)
+      ),
     findTask:   async (id: string) => list.find(t => t.id === id) ?? null,
     createTask: async (input: any) => ({ ...STUB_TASK, id: "task_new", ...input }),
     updateTask: async (id: string, patch: any) => {
