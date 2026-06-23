@@ -47,6 +47,7 @@ import {
   Package,
   DollarSign,
   Infinity,
+  Leaf,
   PlaneTakeoff,
   Plus,
   Settings,
@@ -67,7 +68,7 @@ interface NavItem extends ShellNavItem {}
 const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
     labelKey: "role.worker",
-    color: "#10b981",
+    color: "#81c995",
     icon: HardHat,
     items: [
       { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
@@ -91,7 +92,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
   },
   client: {
     labelKey: "role.client",
-    color: "#3b82f6",
+    color: "#8ab4f8",
     icon: Building,
     items: [
       { labelKey: "nav.dashboard", href: "/client/dashboard", icon: LayoutDashboard, section: "section.main" },
@@ -113,7 +114,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
   },
   admin: {
     labelKey: "role.admin",
-    color: "#8b5cf6",
+    color: "#c58af9",
     icon: ShieldCheck,
     items: [
       { labelKey: "nav.dashboard", href: "/admin/dashboard", icon: LayoutDashboard, section: "section.main" },
@@ -141,6 +142,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.settings", href: "/admin/settings", icon: Settings },
       { labelKey: "nav.htmlCanvas", href: "/admin/html-in-canvas", icon: Layers, section: "section.lab" },
       { labelKey: "nav.buildOps", href: "/buildops", icon: FolderKanban, section: "section.lab" },
+      { labelKey: "nav.agro", href: "/agro", icon: Leaf, section: "section.lab" },
       { labelKey: "nav.semseTools", href: "/tools", icon: Wrench, section: "section.lab" },
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
       { labelKey: "nav.coordinator", href: "/admin/coordinator", icon: GitBranch },
@@ -220,7 +222,7 @@ function Sidebar({
                 flexShrink: 0,
               }}
             >
-              <RoleIcon size={15} color="#fff" />
+              <RoleIcon size={15} color="#ecfffb" />
             </div>
             <div>
               <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
@@ -240,7 +242,7 @@ function Sidebar({
               justifyContent: "center",
             }}
           >
-            <RoleIcon size={15} color="#fff" />
+            <RoleIcon size={15} color="#ecfffb" />
           </div>
         )}
         <button
@@ -461,7 +463,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                           title={collapsed ? item.label : undefined}
                           className={[
                             "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                            item.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                            item.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
                           ].join(" ")}
                         >
                           <span className="flex h-5 w-5 items-center justify-center">
@@ -489,7 +491,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                   title={collapsed ? navItem.label : undefined}
                   className={[
                     "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                    navItem.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                    navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
                   ].join(" ")}
                 >
                   <span className="flex h-5 w-5 items-center justify-center">
@@ -521,7 +523,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                   flexShrink: 0,
                 }}
               >
-                <RoleIcon size={15} color="#fff" />
+                <RoleIcon size={15} color="#ecfffb" />
               </div>
               {!collapsed ? (
                 <div>
@@ -623,8 +625,8 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
         left: 0,
         right: 0,
         height: 64,
-        background: "var(--surface, #111827)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        background: "var(--surface, #1b1c1d)",
+        borderTop: "1px solid rgba(220,231,227,0.08)",
         zIndex: 99,
         alignItems: "center",
         justifyContent: "space-around",
@@ -643,7 +645,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
               alignItems: "center",
               gap: 2,
               padding: "8px 12px",
-              color: active ? "#10b981" : "var(--muted, #6b7280)",
+              color: active ? "var(--brand, #8ab4f8)" : "var(--muted, #6b7280)",
               textDecoration: "none",
               minWidth: 56,
             }}

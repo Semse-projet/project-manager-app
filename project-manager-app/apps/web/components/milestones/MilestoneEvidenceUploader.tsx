@@ -18,8 +18,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle, ChevronDown, ChevronUp, Clock, FileText, RefreshCw, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, Camera, CheckCircle, ChevronDown, ChevronUp, Clock, FileText, HardHat, RefreshCw, ShieldCheck, Upload, XCircle } from "lucide-react";
 import { EvidenceItemDetailPanel } from "./EvidenceItemDetailPanel";
+import { safetyCheckEnriched } from "../../app/semse-api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,15 @@ type EvidenceItem = {
 };
 
 type UploadState = "idle" | "presigning" | "uploading" | "registering" | "linking" | "reviewing" | "done" | "error";
+
+type SafetyResult = {
+  helmetDetected: boolean;
+  vestDetected: boolean;
+  harnessDetected: boolean;
+  complianceScore: number;
+  violations: string[];
+  insight?: string | null;
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,7 +85,7 @@ async function uploadEvidenceForItem(
   milestoneId: string,
   itemId: string,
   runReview: boolean,
-): Promise<{ ok: boolean; error?: string; reviewFindings?: string }> {
+): Promise<{ ok: boolean; error?: string; reviewFindings?: string; uploadedKey?: string }> {
   try {
     // 1. Presign
     const presignRes = await fetch("/api/semse/evidence/presign", {
@@ -126,13 +136,13 @@ async function uploadEvidenceForItem(
         });
         const reviewJson = await reviewRes.json() as { data?: { reviewStatus?: string; confidence?: number } };
         const findings = reviewJson.data?.reviewStatus;
-        return { ok: true, reviewFindings: findings };
+        return { ok: true, reviewFindings: findings, uploadedKey: key };
       } catch {
-        return { ok: true }; // review failed silently, upload still OK
+        return { ok: true, uploadedKey: key }; // review failed silently, upload still OK
       }
     }
 
-    return { ok: true };
+    return { ok: true, uploadedKey: key };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Error desconocido" };
   }
@@ -155,6 +165,7 @@ export function MilestoneEvidenceUploader({ milestoneId, onUploaded, showAll = f
   const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
   const [reviewFindings, setReviewFindings] = useState<Record<string, string>>({});
   const [expandedDetail, setExpandedDetail] = useState<Record<string, boolean>>({});
+  const [safetyResults, setSafetyResults] = useState<Record<string, SafetyResult | "scanning" | "error">>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = useCallback(async () => {
@@ -184,6 +195,17 @@ export function MilestoneEvidenceUploader({ milestoneId, onUploaded, showAll = f
       setUploadStates((s) => ({ ...s, [item.id]: "done" }));
       if (result.reviewFindings) {
         setReviewFindings((r) => ({ ...r, [item.id]: result.reviewFindings! }));
+      }
+      // Auto safety check for photos
+      if (item.kind === "PHOTO" && result.uploadedKey) {
+        const imageUrl = (typeof window !== "undefined" ? window.location.origin : "") +
+          `/api/semse/uploads/files/${encodeURIComponent(result.uploadedKey)}`;
+        setSafetyResults((s) => ({ ...s, [item.id]: "scanning" }));
+        safetyCheckEnriched(imageUrl).then((r) => {
+          setSafetyResults((s) => ({ ...s, [item.id]: r as SafetyResult }));
+        }).catch(() => {
+          setSafetyResults((s) => ({ ...s, [item.id]: "error" as const }));
+        });
       }
       // Reload items + notify parent
       await load();
@@ -353,6 +375,48 @@ export function MilestoneEvidenceUploader({ milestoneId, onUploaded, showAll = f
                 Revisión IA: {finding.replace(/_/g, " ")}
               </div>
             )}
+
+            {/* Safety auto-check result */}
+            {(() => {
+              const safety = safetyResults[item.id];
+              if (!safety) return null;
+              if (safety === "scanning") {
+                return (
+                  <div style={{ paddingLeft: 21, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--muted)" }}>
+                    <HardHat size={12} style={{ animation: "pulse 1.5s ease-in-out infinite" }} />
+                    Verificando EPP...
+                  </div>
+                );
+              }
+              if (safety === "error") return null;
+              const score = Math.round(safety.complianceScore * 100);
+              const ok = score >= 70;
+              return (
+                <div style={{
+                  marginLeft: 21,
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  background: ok ? "rgba(134,239,172,.06)" : "rgba(251,191,36,.06)",
+                  border: `1px solid ${ok ? "rgba(134,239,172,.2)" : "rgba(251,191,36,.2)"}`,
+                  fontSize: 11,
+                  display: "grid",
+                  gap: 4,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: ok ? "#86efac" : "#fbbf24" }}>
+                    {ok ? <ShieldCheck size={12} /> : <AlertTriangle size={12} />}
+                    EPP {score}% — {ok ? "Conforme" : "Revisar"}
+                  </div>
+                  {safety.violations.length > 0 && (
+                    <div style={{ color: "#fca5a5", fontSize: 10 }}>
+                      {safety.violations.join(" · ")}
+                    </div>
+                  )}
+                  {safety.insight && (
+                    <div style={{ color: "var(--muted)", fontSize: 10, fontStyle: "italic" }}>{safety.insight}</div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Ver detalle / historial */}
             <div style={{ paddingLeft: 21 }}>

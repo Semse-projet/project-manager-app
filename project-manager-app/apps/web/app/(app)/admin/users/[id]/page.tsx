@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, ChevronLeft, Clock, ExternalLink, Fingerprint, Globe, RefreshCw, Shield, User,
+  ArrowLeft, ChevronLeft, Clock, ExternalLink, Fingerprint, Globe, Image, RefreshCw, Shield, User,
 } from "lucide-react";
 import { TrustPassportCard } from "../../../../../components/semse/TrustPassportCard";
 import { GovernanceTierBadge, type GovernanceTier } from "../../../../../components/semse/GovernanceTierBadge";
+import { analyzePortfolio } from "../../../../semse-api";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,81 @@ type CreditsData = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TENANT_ID = process.env.NEXT_PUBLIC_SEMSE_TENANT_ID ?? "default";
+
+type PortfolioResult = {
+  quality: string; originality: number; aiDetected: boolean;
+  blurScore: number; lightnessScore: number; insight?: string | null;
+};
+
+function PortfolioAnalyzerWidget() {
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<PortfolioResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run() {
+    if (!url.trim()) return;
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const data = await analyzePortfolio(url.trim(), undefined, true);
+      setResult(data as unknown as PortfolioResult);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al analizar");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const qualityColor = result?.quality === "high" ? "#86efac" : result?.quality === "medium" ? "#fbbf24" : "#f87171";
+
+  return (
+    <div style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <Image size={14} color="#a78bfa" />
+        <span style={{ fontSize: 13, fontWeight: 800 }}>Análisis de Portafolio</span>
+        <span style={{ fontSize: 9, color: "var(--muted)", background: "rgba(167,139,250,.1)", padding: "1px 8px", borderRadius: 99, marginLeft: "auto" }}>Vision AI</span>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <input
+          className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none"
+          style={{ flex: 1, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", color: "var(--ink)", fontSize: 12 }}
+          placeholder="URL de foto de portafolio..."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") void run(); }}
+        />
+        <button
+          onClick={() => void run()}
+          disabled={loading || !url.trim()}
+          style={{ padding: "6px 14px", borderRadius: 8, background: "#a78bfa", color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
+        >
+          {loading ? "..." : "Analizar"}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 11, color: "#fca5a5" }}>{error}</div>}
+      {result && (
+        <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: qualityColor, background: `${qualityColor}15`, padding: "2px 10px", borderRadius: 99, border: `1px solid ${qualityColor}40` }}>
+              Calidad: {result.quality}
+            </span>
+            <span style={{ fontSize: 11, color: result.aiDetected ? "#f87171" : "#86efac", background: result.aiDetected ? "rgba(248,113,113,.1)" : "rgba(134,239,172,.1)", padding: "2px 10px", borderRadius: 99, border: `1px solid ${result.aiDetected ? "rgba(248,113,113,.3)" : "rgba(134,239,172,.3)"}` }}>
+              {result.aiDetected ? "⚠ IA Detectada" : "✓ Humano"}
+            </span>
+            <span style={{ fontSize: 11, color: "var(--muted)", background: "rgba(255,255,255,.04)", padding: "2px 10px", borderRadius: 99, border: "1px solid var(--border)" }}>
+              Originalidad: {Math.round(result.originality * 100)}%
+            </span>
+          </div>
+          {result.insight && (
+            <div style={{ fontSize: 11, color: "var(--muted)", fontStyle: "italic", borderLeft: "2px solid #a78bfa40", paddingLeft: 8 }}>
+              {result.insight}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
@@ -181,6 +257,9 @@ export default function CitizenProfilePage() {
             </div>
           )}
         </div>
+
+        {/* Portfolio Analyzer */}
+        <PortfolioAnalyzerWidget />
 
         {/* Trust Passport Card */}
         <div style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>

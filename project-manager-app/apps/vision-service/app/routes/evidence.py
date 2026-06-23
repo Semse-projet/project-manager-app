@@ -362,44 +362,4 @@ def batch_analyze_endpoint(request: BatchAnalyzeRequest):
         results=results,
     )
 
-@router.post("/detect-material", response_model=DetectMaterialResult, tags=["evidence"])
-def detect_material_endpoint(request: DetectMaterialRequest):
-    image = load_image_from_url(request.imageUrl)
-    result = detect_material(image, request.expectedMaterial)
-    return DetectMaterialResult(
-        material=result["material"],
-        condition=result["condition"],
-        confidence=result["confidence"],
-        estimated_stock=result.get("estimated_stock"),
-        notes=result.get("notes", []),
-    )
-
-@router.post("/classify-space", response_model=ClassifySpaceResult, tags=["evidence"])
-def classify_space_endpoint(request: ClassifySpaceRequest):
-    image = load_image_from_url(request.imageUrl)
-    result = classify_space(image)
-    return ClassifySpaceResult(
-        category=result["category"],
-        confidence=result["confidence"],
-        category_scores=result["category_scores"],
-        key_features=result["key_features"],
-        skip_questions_allowed=result["skip_questions_allowed"],
-    )
-
-@router.post("/safety-check", response_model=SafetyCheckResult, tags=["evidence"])
-def safety_check_endpoint(request: SafetyCheckRequest):
-    image = load_image_from_url(request.imageUrl)
-    result = detect_safety_equipment(image)
-
-    # Adjust compliance score if at height
-    height_risk = estimate_height_risk(image)
-    adjusted_compliance = calculate_compliance_score(result, height_risk)
-
-    return SafetyCheckResult(
-        helmetDetected=result["helmet_detected"],
-        vestDetected=result["vest_detected"],
-        harnessDetected=result["harness_detected"],
-        complianceScore=adjusted_compliance,
-        violations=result["violations"],
-    )
 
