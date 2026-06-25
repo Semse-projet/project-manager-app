@@ -25,6 +25,7 @@ const COST_CATS = ["FEED","VETERINARY","LABOR","EQUIPMENT","TRANSPORT","INFRASTR
 export default function CostsPage() {
   const { farmId } = useParams<{ farmId: string }>();
   const [costs, setCosts]     = useState<CostEntry[]>([]);
+  const [catSummary, setCatSummary] = useState<{ category: string; total: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -41,10 +42,17 @@ export default function CostsPage() {
   async function load() {
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`/api/semse/agro/farms/${farmId}/costs`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Error");
-      setCosts((json.data as any)?.costs ?? []);
+      const [cr, sr] = await Promise.all([
+        fetch(`/api/semse/agro/farms/${farmId}/costs`),
+        fetch(`/api/semse/agro/farms/${farmId}/costs/summary`),
+      ]);
+      const cj = await cr.json();
+      if (!cr.ok) throw new Error(cj?.error?.message ?? "Error");
+      setCosts((cj.data as any)?.costs ?? []);
+      try {
+        const sj = await sr.json();
+        setCatSummary((sj.data as any)?.summary ?? []);
+      } catch { /* best-effort */ }
     } catch (err: any) {
       setError(err?.message ?? "Error cargando costos");
     } finally {
@@ -77,12 +85,15 @@ export default function CostsPage() {
     } catch (err: any) { setFormError(err?.message); } finally { setBusy(false); }
   }
 
-  // group by category for summary
-  const summary = costs.reduce<Record<string, number>>((acc, c) => {
-    acc[c.category] = (acc[c.category] ?? 0) + Number(c.amount);
-    return acc;
-  }, {});
   const total = costs.reduce((s, c) => s + Number(c.amount), 0);
+  const topCats = catSummary.length > 0
+    ? catSummary.sort((a, b) => b.total - a.total).slice(0, 2)
+    : costs.reduce<{ category: string; total: number }[]>((acc, c) => {
+        const ex = acc.find((x) => x.category === c.category);
+        if (ex) ex.total += Number(c.amount);
+        else acc.push({ category: c.category, total: Number(c.amount) });
+        return acc;
+      }, []).sort((a, b) => b.total - a.total).slice(0, 2);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -103,21 +114,18 @@ export default function CostsPage() {
       </div>
 
       {/* Summary cards */}
-      {Object.keys(summary).length > 0 && (
+      {costs.length > 0 && (
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
             <p className="text-xs text-[var(--muted)]">Total registrado</p>
             <p className="mt-1 text-2xl font-bold text-[var(--ink)]">${total.toFixed(2)}</p>
           </div>
-          {Object.entries(summary)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 2)
-            .map(([cat, amt]) => (
-              <div key={cat} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                <p className="text-xs text-[var(--muted)]">{CAT_ICON[cat]} {cat}</p>
-                <p className="mt-1 text-xl font-semibold text-[var(--ink)]">${Number(amt).toFixed(2)}</p>
-              </div>
-            ))}
+          {topCats.map(({ category, total: amt }) => (
+            <div key={category} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+              <p className="text-xs text-[var(--muted)]">{CAT_ICON[category]} {category}</p>
+              <p className="mt-1 text-xl font-semibold text-[var(--ink)]">${Number(amt).toFixed(2)}</p>
+            </div>
+          ))}
         </div>
       )}
 

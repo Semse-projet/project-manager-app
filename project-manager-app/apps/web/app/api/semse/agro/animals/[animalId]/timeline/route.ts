@@ -3,15 +3,11 @@ import { fetchSemseDataForRequest, handleServerError, isSemseRuntimeEnabled, run
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ animalId: string }> }) {
   if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
   try {
-    const { taskId } = await params;
-    const data = await fetchSemseDataForRequest<unknown>(`/v1/agro/tasks/${taskId}/complete`, req, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-    });
+    const { animalId } = await params;
+    const data = await fetchSemseDataForRequest<unknown>(`/v1/agro/animals/${animalId}/timeline`, req);
     return NextResponse.json({ data });
   } catch (err) {
     return handleServerError(err);

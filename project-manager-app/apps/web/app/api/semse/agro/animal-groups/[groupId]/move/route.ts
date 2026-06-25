@@ -3,14 +3,15 @@ import { fetchSemseDataForRequest, handleServerError, isSemseRuntimeEnabled, run
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ groupId: string }> }) {
   if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
   try {
-    const { taskId } = await params;
-    const data = await fetchSemseDataForRequest<unknown>(`/v1/agro/tasks/${taskId}/complete`, req, {
+    const { groupId } = await params;
+    const body = await req.json();
+    const data = await fetchSemseDataForRequest<unknown>(`/v1/agro/animal-groups/${groupId}/move`, req, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(body),
     });
     return NextResponse.json({ data });
   } catch (err) {

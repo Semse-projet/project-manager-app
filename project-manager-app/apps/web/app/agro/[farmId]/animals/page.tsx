@@ -278,7 +278,11 @@ export default function AnimalsPage() {
               <tbody className="divide-y divide-[var(--border)]">
                 {animals.map((a) => (
                   <tr key={a.id} className="hover:bg-[var(--surface)]">
-                    <td className="px-4 py-2 font-mono text-xs">{a.tagCode ?? "—"}</td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      <Link href={`/agro/${farmId}/animals/${a.id}`} className="hover:text-[var(--accent)] hover:underline">
+                        {a.tagCode ?? "—"}
+                      </Link>
+                    </td>
                     <td className="px-4 py-2">{a.species}</td>
                     <td className="px-4 py-2 text-[var(--muted)]">{a.breed ?? "—"}</td>
                     <td className="px-4 py-2">{a.sex}</td>
