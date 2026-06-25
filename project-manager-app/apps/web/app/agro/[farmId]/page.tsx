@@ -89,6 +89,7 @@ export default function FarmDashboardPage() {
           { href: `/agro/${farmId}/tasks`, label: "Tareas" },
           { href: `/agro/${farmId}/inventory`, label: "Inventario" },
           { href: `/agro/${farmId}/evidence`, label: "Evidencia" },
+          { href: `/agro/${farmId}/costs`, label: "Costos" },
           { href: `/agro/${farmId}/audit`, label: "Auditoría" },
         ].map((tab) => (
           <Link
