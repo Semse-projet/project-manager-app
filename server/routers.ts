@@ -76,11 +76,11 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({
       projectId: z.number(),
       parentId: z.number().nullable().optional(),
-    })).query(async ({ input }) => {
-      return db.getProjectFiles(input.projectId, input.parentId ?? null);
+    })).query(async ({ ctx, input }) => {
+      return db.getProjectFiles(input.projectId, input.parentId ?? null, ctx.user.id);
     }),
-    get: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ input }) => {
-      return db.getFileById(input.id);
+    get: protectedProcedure.input(z.object({ id: z.number() })).query(async ({ ctx, input }) => {
+      return db.getFileById(input.id, ctx.user.id);
     }),
     create: protectedProcedure.input(z.object({
       projectId: z.number(),
@@ -90,6 +90,9 @@ export const appRouter = router({
       content: z.string().optional(),
       language: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
+      // Verify the project belongs to the user
+      const project = await db.getProject(input.projectId, ctx.user.id);
+      if (!project) return null;
       const file = await db.createFile(input);
       await db.logActivity({ userId: ctx.user.id, projectId: input.projectId, action: "created", entityType: input.type, entityId: file?.id, details: `Created ${input.type} "${input.name}"` });
       return file;
@@ -100,16 +103,16 @@ export const appRouter = router({
       content: z.string().optional(),
     })).mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
-      const file = await db.updateFile(id, data);
+      const file = await db.updateFile(id, data, ctx.user.id);
       if (file) {
         await db.logActivity({ userId: ctx.user.id, projectId: file.projectId, action: "updated", entityType: "file", entityId: id, details: `Updated file "${file.name}"` });
       }
       return file;
     }),
     delete: protectedProcedure.input(z.object({ id: z.number() })).mutation(async ({ ctx, input }) => {
-      const file = await db.getFileById(input.id);
+      const file = await db.getFileById(input.id, ctx.user.id);
       if (file) {
-        await db.deleteFile(input.id);
+        await db.deleteFile(input.id, ctx.user.id);
         await db.logActivity({ userId: ctx.user.id, projectId: file.projectId, action: "deleted", entityType: "file", entityId: input.id, details: `Deleted "${file.name}"` });
       }
       return { success: true };
@@ -117,11 +120,11 @@ export const appRouter = router({
     uploadToS3: protectedProcedure.input(z.object({
       id: z.number(),
     })).mutation(async ({ ctx, input }) => {
-      const file = await db.getFileById(input.id);
+      const file = await db.getFileById(input.id, ctx.user.id);
       if (!file || !file.content) return null;
       const key = `projects/${file.projectId}/files/${file.id}-${nanoid(6)}/${file.name}`;
       const { url } = await storagePut(key, file.content, "text/plain");
-      await db.updateFile(input.id, { s3Url: url, s3Key: key });
+      await db.updateFile(input.id, { s3Url: url, s3Key: key }, ctx.user.id);
       return { url, key };
     }),
   }),
@@ -165,7 +168,10 @@ export const appRouter = router({
       await db.deleteDocument(input.id, ctx.user.id);
       return { success: true };
     }),
-    versions: protectedProcedure.input(z.object({ documentId: z.number() })).query(async ({ input }) => {
+    versions: protectedProcedure.input(z.object({ documentId: z.number() })).query(async ({ ctx, input }) => {
+      // Verify the document belongs to the user before returning versions
+      const doc = await db.getDocument(input.documentId, ctx.user.id);
+      if (!doc) return [];
       return db.getDocumentVersions(input.documentId);
     }),
   }),

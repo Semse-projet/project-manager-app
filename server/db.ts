@@ -546,8 +546,13 @@ export async function updateProject(
   return getProject(id, userId);
 }
 
-export async function getProjectFiles(projectId: number, parentId: number | null) {
+export async function getProjectFiles(projectId: number, parentId: number | null, userId?: number) {
   const db = await getDb();
+  // Verify project ownership if userId is provided
+  if (userId) {
+    const project = await getProject(projectId, userId);
+    if (!project) return [];
+  }
   if (!db) {
     return [...memory.files]
       .filter(file => file.projectId === projectId && file.parentId === parentId)
@@ -563,11 +568,23 @@ export async function getProjectFiles(projectId: number, parentId: number | null
   return db.select().from(projectFiles).where(condition).orderBy(desc(projectFiles.type), asc(projectFiles.name));
 }
 
-export async function getFileById(id: number) {
+export async function getFileById(id: number, userId?: number) {
   const db = await getDb();
-  if (!db) return memory.files.find(file => file.id === id) ?? null;
+  if (!db) {
+    const file = memory.files.find(file => file.id === id) ?? null;
+    if (file && userId) {
+      const project = memory.projects.find(p => p.id === file.projectId && p.userId === userId);
+      if (!project) return null;
+    }
+    return file;
+  }
   const result = await db.select().from(projectFiles).where(eq(projectFiles.id, id)).limit(1);
-  return result[0] ?? null;
+  const file = result[0] ?? null;
+  if (file && userId) {
+    const project = await db.select().from(projects).where(and(eq(projects.id, file.projectId), eq(projects.userId, userId))).limit(1);
+    if (project.length === 0) return null;
+  }
+  return file;
 }
 
 export async function createFile(data: {
@@ -605,12 +622,17 @@ export async function createFile(data: {
 
 export async function updateFile(
   id: number,
-  data: Partial<{ name: string; content: string; s3Url: string; s3Key: string }>
+  data: Partial<{ name: string; content: string; s3Url: string; s3Key: string }>,
+  userId?: number
 ) {
   const db = await getDb();
   if (!db) {
     const file = memory.files.find(item => item.id === id);
     if (!file) return null;
+    if (userId) {
+      const project = memory.projects.find(p => p.id === file.projectId && p.userId === userId);
+      if (!project) return null;
+    }
     Object.assign(file, data, {
       size: data.content !== undefined ? data.content.length : file.size,
       updatedAt: now(),
@@ -618,18 +640,32 @@ export async function updateFile(
     touchProject(file.projectId);
     return file;
   }
+  // Verify ownership before update
+  if (userId) {
+    const file = await getFileById(id, userId);
+    if (!file) return null;
+  }
   await db.update(projectFiles).set(data).where(eq(projectFiles.id, id));
   return getFileById(id);
 }
 
-export async function deleteFile(id: number) {
+export async function deleteFile(id: number, userId?: number) {
   const db = await getDb();
   if (!db) {
     const file = memory.files.find(item => item.id === id);
     if (!file) return;
+    if (userId) {
+      const project = memory.projects.find(p => p.id === file.projectId && p.userId === userId);
+      if (!project) return;
+    }
     deleteFileTree(id);
     touchProject(file.projectId);
     return;
+  }
+  // Verify ownership before delete
+  if (userId) {
+    const file = await getFileById(id, userId);
+    if (!file) return;
   }
   await db.delete(projectFiles).where(eq(projectFiles.id, id));
 }

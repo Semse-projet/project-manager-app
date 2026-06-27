@@ -22,14 +22,15 @@ export async function createContext(
   }
 
   // Local fallback so the app remains navigable without a configured OAuth server.
-  if (!user && !ENV.oAuthServerUrl) {
+  // SECURITY: Only enabled in development mode to prevent accidental production bypass.
+  if (!user && !ENV.oAuthServerUrl && !ENV.isProduction) {
     user = {
       id: 1,
       openId: "local-dev-user",
       name: "Local Dev User",
       email: "local@example.com",
       loginMethod: "local-dev",
-      role: "admin",
+      role: "user", // Use 'user' role by default, not 'admin'
       createdAt: new Date(),
       updatedAt: new Date(),
       lastSignedIn: new Date(),
