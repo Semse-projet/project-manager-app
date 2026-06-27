@@ -12,6 +12,7 @@ import { AnimatedCounter } from "../../components/landing/animated-counter";
 import { PricingEstimator } from "../../components/landing/pricing-estimator";
 import { EcosystemModules } from "../../components/landing/ecosystem-modules";
 import { OperationalRoutesGrid } from "../../components/landing/operational-routes-grid";
+import { UsageGuideContent } from "../como-funciona/page";
 import {
   Sparkles,
   ArrowRight,
@@ -207,7 +208,16 @@ function jobStatusLabel(status: string) {
   return map[status] ?? status;
 }
 
-export default async function LandingPage() {
+type LandingPageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function LandingPage({ searchParams }: LandingPageProps) {
+  const params = await searchParams;
+  if (params?.semse_usage_guide === "1") {
+    return <UsageGuideContent />;
+  }
+
   const overview = await fetchPublicLandingOverviewServer();
   const stats: {
     numValue: number;

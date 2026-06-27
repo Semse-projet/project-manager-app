@@ -161,11 +161,9 @@ const checkpoints = [
   "El cierre genera historial, reputación y datos para futuros proyectos.",
 ];
 
-export default function HowItWorksPage() {
+export function UsageGuideContent() {
   return (
-    <div className="public-theme" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
-      <LandingNav />
-      <main className="bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+    <main className="bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
       <section className="relative overflow-hidden border-b border-slate-200 bg-white px-4 py-16 dark:border-slate-800 dark:bg-slate-950 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-4xl">
@@ -324,7 +322,15 @@ export default function HowItWorksPage() {
           </aside>
         </div>
       </section>
-      </main>
+    </main>
+  );
+}
+
+export default function HowItWorksPage() {
+  return (
+    <div className="public-theme" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+      <LandingNav />
+      <UsageGuideContent />
       <LandingFooter />
     </div>
   );
