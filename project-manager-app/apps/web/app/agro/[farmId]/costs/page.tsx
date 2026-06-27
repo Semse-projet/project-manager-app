@@ -47,6 +47,7 @@ function farmTabs(farmId: string) {
     { href: `/agro/${farmId}/animals`,        label: "Animales"        },
     { href: `/agro/${farmId}/tasks`,          label: "Tareas"          },
     { href: `/agro/${farmId}/calendar`,       label: "Calendario"      },
+    { href: `/agro/${farmId}/feeding`,         label: "Alimentación"    },
     { href: `/agro/${farmId}/inventory`,      label: "Inventario"      },
     { href: `/agro/${farmId}/costs`,          label: "Costos"          },
     { href: `/agro/${farmId}/reproduction`,   label: "Reproducción"    },
