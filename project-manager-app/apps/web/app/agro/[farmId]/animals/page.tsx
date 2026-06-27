@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Plus, X, Scale, MapPin, RefreshCw, ChevronRight, Beef, Users, Download } from "lucide-react";
+import { Plus, X, Scale, MapPin, RefreshCw, ChevronRight, Beef, Users, Download, Search } from "lucide-react";
 
 interface Animal {
   id: string; tagCode?: string; species: string; breed?: string;
@@ -32,9 +32,11 @@ function farmTabs(farmId: string) {
     { href: `/agro/${farmId}/animals`,        label: "Animales"        },
     { href: `/agro/${farmId}/tasks`,          label: "Tareas"          },
     { href: `/agro/${farmId}/calendar`,       label: "Calendario"      },
-    { href: `/agro/${farmId}/feeding`,         label: "Alimentación"    },
+    { href: `/agro/${farmId}/feeding`,        label: "Alimentación"    },
+    { href: `/agro/${farmId}/health`,         label: "Salud"           },
     { href: `/agro/${farmId}/inventory`,      label: "Inventario"      },
     { href: `/agro/${farmId}/costs`,          label: "Costos"          },
+    { href: `/agro/${farmId}/analytics`,      label: "Analítica"       },
     { href: `/agro/${farmId}/reproduction`,   label: "Reproducción"    },
     { href: `/agro/${farmId}/infrastructure`, label: "Infraestructura" },
     { href: `/agro/${farmId}/evidence`,       label: "Evidencia"       },
@@ -89,6 +91,9 @@ export default function AnimalsPage() {
   const [newStatus, setNewStatus]   = useState("");
   const [adjustDelta, setAdjustDelta]   = useState("");
   const [adjustReason, setAdjustReason] = useState("");
+  const [search, setSearch]       = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [speciesFilter, setSpeciesFilter] = useState("ALL");
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
 
@@ -198,6 +203,17 @@ export default function AnimalsPage() {
 
   const tabs = farmId ? farmTabs(farmId) : [];
 
+  const filteredAnimals = animals.filter(a => {
+    const q = search.toLowerCase();
+    if (q && !((a.tagCode ?? "").toLowerCase().includes(q) || a.species.toLowerCase().includes(q) || (a.breed ?? "").toLowerCase().includes(q))) return false;
+    if (statusFilter !== "ALL" && a.status !== statusFilter) return false;
+    if (speciesFilter !== "ALL" && a.species !== speciesFilter) return false;
+    return true;
+  });
+
+  const activeSpecies = [...new Set(animals.map(a => a.species))];
+  const activeStatuses = [...new Set(animals.map(a => a.status))];
+
   return (
     <div className="agro-shell">
       {/* Breadcrumb */}
@@ -237,8 +253,8 @@ export default function AnimalsPage() {
         ))}
       </nav>
 
-      {/* View toggle */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+      {/* View toggle + Search + Filters */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
         {(["animals", "groups"] as const).map(v => (
           <button
             key={v}
@@ -250,6 +266,69 @@ export default function AnimalsPage() {
           </button>
         ))}
       </div>
+
+      {view === "animals" && animals.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          {/* Search */}
+          <div style={{ position: "relative" }}>
+            <Search size={13} color="var(--muted)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <input
+              className="fi"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar por código, especie o raza…"
+              style={{ paddingLeft: 34, margin: 0 }}
+            />
+          </div>
+          {/* Status filter chips */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center", fontWeight: 600 }}>Estado:</span>
+            {["ALL", ...activeStatuses].map(s => (
+              <button key={s}
+                onClick={() => setStatusFilter(s)}
+                style={{
+                  padding: "3px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                  border: `1px solid ${statusFilter === s ? "var(--brand)" : "var(--border)"}`,
+                  background: statusFilter === s ? "var(--brand)" : "transparent",
+                  color: statusFilter === s ? "#fff" : "var(--muted)",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}>
+                {s === "ALL" ? "Todos" : s}
+              </button>
+            ))}
+          </div>
+          {/* Species filter chips */}
+          {activeSpecies.length > 1 && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 11, color: "var(--muted)", alignSelf: "center", fontWeight: 600 }}>Especie:</span>
+              {["ALL", ...activeSpecies].map(sp => (
+                <button key={sp}
+                  onClick={() => setSpeciesFilter(sp)}
+                  style={{
+                    padding: "3px 10px", borderRadius: 100, fontSize: 11, fontWeight: 600,
+                    border: `1px solid ${speciesFilter === sp ? "var(--brand)" : "var(--border)"}`,
+                    background: speciesFilter === sp ? "var(--brand)" : "transparent",
+                    color: speciesFilter === sp ? "#fff" : "var(--muted)",
+                    cursor: "pointer", fontFamily: "inherit",
+                  }}>
+                  {sp === "ALL" ? "Todas" : sp}
+                </button>
+              ))}
+            </div>
+          )}
+          {filteredAnimals.length !== animals.length && (
+            <p style={{ fontSize: 11, color: "var(--muted)" }}>
+              Mostrando {filteredAnimals.length} de {animals.length} animales
+              {(search || statusFilter !== "ALL" || speciesFilter !== "ALL") && (
+                <button onClick={() => { setSearch(""); setStatusFilter("ALL"); setSpeciesFilter("ALL"); }}
+                  style={{ marginLeft: 8, fontSize: 11, color: "var(--brand)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                  Limpiar filtros ×
+                </button>
+              )}
+            </p>
+          )}
+        </div>
+      )}
 
       {error && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -273,8 +352,13 @@ export default function AnimalsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px 80px 90px 88px", gap: 0, padding: "8px 16px", borderBottom: "1px solid var(--line)", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               <span>Tag / Especie</span><span>Raza</span><span>Sexo</span><span>Peso</span><span>Ubicación</span><span>Estado</span><span style={{ textAlign: "right" }}>Acciones</span>
             </div>
-            {animals.map(a => (
-              <div key={a.id} className="data-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px 80px 90px 88px", alignItems: "center" }}>
+            {filteredAnimals.length === 0 ? (
+              <div style={{ padding: "24px 16px", textAlign: "center" }}>
+                <p style={{ fontSize: 13, color: "var(--muted)" }}>Sin resultados para la búsqueda actual</p>
+              </div>
+            ) : null}
+            {filteredAnimals.map(a => (
+              <div key={a.id} className="data-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px 80px 90px 88px", alignItems: "center", opacity: a.status !== "ACTIVE" ? 0.7 : 1 }}>
                 <div>
                   <Link href={`/agro/${farmId}/animals/${a.id}`}
                     style={{ fontSize: 13, fontWeight: 600, color: "var(--brand)", textDecoration: "none", fontFamily: "var(--font-mono)" }}>
