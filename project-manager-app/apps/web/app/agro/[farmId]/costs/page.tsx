@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Plus, X, DollarSign, ChevronRight, TrendingDown } from "lucide-react";
+import { Plus, X, DollarSign, ChevronRight, TrendingDown, Download, Printer } from "lucide-react";
 
 interface CostEntry {
   id: string; category: string; amount: number; currency: string;
@@ -23,15 +23,37 @@ const CAT_BADGE: Record<string, string> = {
 };
 const COST_CATS = ["FEED","VETERINARY","LABOR","EQUIPMENT","TRANSPORT","INFRASTRUCTURE","SEED","FERTILIZER","FUEL","OTHER"];
 
+function exportCostCSV(costs: CostEntry[]) {
+  if (!costs.length) return;
+  const headers = ["Fecha","Categoría","Descripción","Monto","Moneda"];
+  const rows = costs.map(c => [
+    new Date(c.occurredAt).toLocaleDateString("es-CO"),
+    CAT_LABEL[c.category] ?? c.category,
+    c.description ?? "",
+    Number(c.amount).toFixed(2),
+    c.currency,
+  ].map(v => `"${v}"`).join(","));
+  const csv  = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = `costos-${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
 function farmTabs(farmId: string) {
   return [
-    { href: `/agro/${farmId}`,           label: "Dashboard"  },
-    { href: `/agro/${farmId}/animals`,   label: "Animales"   },
-    { href: `/agro/${farmId}/tasks`,     label: "Tareas"     },
-    { href: `/agro/${farmId}/inventory`, label: "Inventario" },
-    { href: `/agro/${farmId}/costs`,     label: "Costos"     },
-    { href: `/agro/${farmId}/evidence`,  label: "Evidencia"  },
-    { href: `/agro/${farmId}/audit`,     label: "Auditoría"  },
+    { href: `/agro/${farmId}`,               label: "Dashboard"       },
+    { href: `/agro/${farmId}/animals`,        label: "Animales"        },
+    { href: `/agro/${farmId}/tasks`,          label: "Tareas"          },
+    { href: `/agro/${farmId}/calendar`,       label: "Calendario"      },
+    { href: `/agro/${farmId}/feeding`,         label: "Alimentación"    },
+    { href: `/agro/${farmId}/inventory`,      label: "Inventario"      },
+    { href: `/agro/${farmId}/costs`,          label: "Costos"          },
+    { href: `/agro/${farmId}/reproduction`,   label: "Reproducción"    },
+    { href: `/agro/${farmId}/infrastructure`, label: "Infraestructura" },
+    { href: `/agro/${farmId}/evidence`,       label: "Evidencia"       },
+    { href: `/agro/${farmId}/audit`,          label: "Auditoría"       },
   ];
 }
 
@@ -108,9 +130,21 @@ export default function CostsPage() {
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>Registro de costos</h1>
-        <button className="btn-accent" onClick={() => setShowModal(true)}>
-          <Plus size={13} /> Registrar costo
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {costs.length > 0 && (
+            <>
+              <button className="btn-ghost" onClick={() => exportCostCSV(costs)}>
+                <Download size={13} /> CSV
+              </button>
+              <button className="btn-ghost" onClick={() => window.print()}>
+                <Printer size={13} /> PDF
+              </button>
+            </>
+          )}
+          <button className="btn-accent" onClick={() => setShowModal(true)}>
+            <Plus size={13} /> Registrar costo
+          </button>
+        </div>
       </div>
 
       <nav className="tab-bar">

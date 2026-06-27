@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Plus, X, Scale, MapPin, RefreshCw, ChevronRight, Beef, Users } from "lucide-react";
+import { Plus, X, Scale, MapPin, RefreshCw, ChevronRight, Beef, Users, Download } from "lucide-react";
 
 interface Animal {
   id: string; tagCode?: string; species: string; breed?: string;
@@ -28,14 +28,33 @@ const SEXES   = ["MALE","FEMALE","UNKNOWN"];
 
 function farmTabs(farmId: string) {
   return [
-    { href: `/agro/${farmId}`,           label: "Dashboard"  },
-    { href: `/agro/${farmId}/animals`,   label: "Animales"   },
-    { href: `/agro/${farmId}/tasks`,     label: "Tareas"     },
-    { href: `/agro/${farmId}/inventory`, label: "Inventario" },
-    { href: `/agro/${farmId}/costs`,     label: "Costos"     },
-    { href: `/agro/${farmId}/evidence`,  label: "Evidencia"  },
-    { href: `/agro/${farmId}/audit`,     label: "Auditoría"  },
+    { href: `/agro/${farmId}`,               label: "Dashboard"       },
+    { href: `/agro/${farmId}/animals`,        label: "Animales"        },
+    { href: `/agro/${farmId}/tasks`,          label: "Tareas"          },
+    { href: `/agro/${farmId}/calendar`,       label: "Calendario"      },
+    { href: `/agro/${farmId}/feeding`,         label: "Alimentación"    },
+    { href: `/agro/${farmId}/inventory`,      label: "Inventario"      },
+    { href: `/agro/${farmId}/costs`,          label: "Costos"          },
+    { href: `/agro/${farmId}/reproduction`,   label: "Reproducción"    },
+    { href: `/agro/${farmId}/infrastructure`, label: "Infraestructura" },
+    { href: `/agro/${farmId}/evidence`,       label: "Evidencia"       },
+    { href: `/agro/${farmId}/audit`,          label: "Auditoría"       },
   ];
+}
+
+function downloadCSV(animals: Animal[]) {
+  if (!animals.length) return;
+  const headers = ["ID","Código","Especie","Raza","Sexo","Estado","Peso (kg)","Edad (meses)"];
+  const rows = animals.map(a => [
+    a.id, a.tagCode ?? "", a.species, a.breed ?? "", a.sex, a.status,
+    a.currentWeight ?? "", a.estimatedAgeMonths ?? "",
+  ].map(v => `"${v}"`).join(","));
+  const csv  = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = `animales-${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 export default function AnimalsPage() {
@@ -193,12 +212,19 @@ export default function AnimalsPage() {
       {/* Title row */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>Animales</h1>
-        <button
-          className="btn-accent"
-          onClick={() => setModal(view === "animals" ? { type: "create-animal" } : { type: "create-group" })}
-        >
-          <Plus size={13} /> {view === "animals" ? "Nuevo animal" : "Nuevo grupo"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {view === "animals" && animals.length > 0 && (
+            <button className="btn-ghost" onClick={() => downloadCSV(animals)}>
+              <Download size={13} /> Exportar CSV
+            </button>
+          )}
+          <button
+            className="btn-accent"
+            onClick={() => setModal(view === "animals" ? { type: "create-animal" } : { type: "create-group" })}
+          >
+            <Plus size={13} /> {view === "animals" ? "Nuevo animal" : "Nuevo grupo"}
+          </button>
+        </div>
       </div>
 
       {/* Farm tabs */}

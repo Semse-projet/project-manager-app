@@ -47,6 +47,7 @@ export default function AnimalDetailPage() {
   const [weighVal, setWeighVal]   = useState("");
   const [moveUnit, setMoveUnit]   = useState("");
   const [newStatus, setNewStatus] = useState("");
+  const [salePrice, setSalePrice] = useState("");
 
   useEffect(() => { if (animalId && farmId) void load(); }, [animalId, farmId]);
 
@@ -100,13 +101,15 @@ export default function AnimalDetailPage() {
     e.preventDefault(); if (!newStatus) return;
     setBusy(true); setFormError(null);
     try {
+      const body: Record<string, unknown> = { status: newStatus };
+      if (newStatus === "SOLD" && salePrice) body.salePrice = parseFloat(salePrice);
       const res = await fetch(`/api/semse/agro/animals/${animalId}/status`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
-      setNewStatus(""); closeModal(); void load();
+      setNewStatus(""); setSalePrice(""); closeModal(); void load();
     } catch (err: any) { setFormError(err?.message); } finally { setBusy(false); }
   }
 
@@ -332,13 +335,25 @@ export default function AnimalDetailPage() {
                 <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -8 }}>Estado actual: <strong>{animal.status}</strong></p>
                 <div>
                   <label className="fl">Nuevo estado *</label>
-                  <select className="fi" value={newStatus} onChange={e => setNewStatus(e.target.value)} required>
+                  <select className="fi" value={newStatus} onChange={e => { setNewStatus(e.target.value); if (e.target.value !== "SOLD") setSalePrice(""); }} required>
                     <option value="">Seleccionar…</option>
                     {["SOLD","DEAD","LOST","INACTIVE"].map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
+                {newStatus === "SOLD" && (
+                  <div>
+                    <label className="fl">Precio de venta (opcional)</label>
+                    <div style={{ position: "relative" }}>
+                      <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 13, color: "var(--muted)" }}>$</span>
+                      <input className="fi" type="number" step="0.01" min="0" value={salePrice}
+                        onChange={e => setSalePrice(e.target.value)} placeholder="0.00"
+                        style={{ paddingLeft: 24 }} />
+                    </div>
+                    <p style={{ fontSize: 11, color: "var(--faint)", marginTop: 4 }}>Registra el valor de la venta para el seguimiento de costos.</p>
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button type="submit" className="btn-danger" disabled={busy || !newStatus} style={{ flex: 1 }}>{busy ? "Guardando…" : "Confirmar"}</button>
+                  <button type="submit" className="btn-danger" disabled={busy || !newStatus} style={{ flex: 1 }}>{busy ? "Guardando…" : newStatus === "SOLD" ? "Registrar venta" : "Confirmar"}</button>
                   <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
                 </div>
               </form>
