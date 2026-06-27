@@ -19,6 +19,8 @@ import {
   UploadCloud,
   Users,
 } from "lucide-react";
+import { LandingFooter } from "../../components/landing/landing-footer";
+import { LandingNav } from "../../components/landing/landing-nav";
 
 export const metadata: Metadata = {
   title: "Cómo se usa SEMSE Project",
@@ -161,7 +163,9 @@ const checkpoints = [
 
 export default function HowItWorksPage() {
   return (
-    <main className="bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+    <div className="public-theme" style={{ minHeight: "100vh", background: "var(--bg)", color: "var(--ink)" }}>
+      <LandingNav />
+      <main className="bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
       <section className="relative overflow-hidden border-b border-slate-200 bg-white px-4 py-16 dark:border-slate-800 dark:bg-slate-950 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-4xl">
@@ -320,6 +324,8 @@ export default function HowItWorksPage() {
           </aside>
         </div>
       </section>
-    </main>
+      </main>
+      <LandingFooter />
+    </div>
   );
 }
