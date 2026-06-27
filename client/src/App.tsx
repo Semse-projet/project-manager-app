@@ -20,6 +20,7 @@ import RAGToolsPage from "./pages/RAGToolsPage";
 import SEMSEPage from "./pages/SEMSEPage";
 import PrometeoPage from "./pages/PrometeoPage";
 import ProfilePage from "./pages/ProfilePage";
+import BillingPage from "./pages/BillingPage";
 
 function Router() {
   return (
@@ -38,6 +39,7 @@ function Router() {
         <Route path="/rag-tools" component={RAGToolsPage} />
         <Route path="/semse" component={SEMSEPage} />
         <Route path="/prometeo" component={PrometeoPage} />
+        <Route path="/billing" component={BillingPage} />
         <Route path="/profile" component={ProfilePage} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />

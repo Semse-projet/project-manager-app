@@ -17,6 +17,7 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: any[] } {
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
+    stripeCustomerId: null,
   };
   const ctx: TrpcContext = {
     user,

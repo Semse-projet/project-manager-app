@@ -34,6 +34,7 @@ export async function createContext(
       createdAt: new Date(),
       updatedAt: new Date(),
       lastSignedIn: new Date(),
+      stripeCustomerId: null,
     };
   }
 

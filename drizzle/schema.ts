@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, bigint } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -10,6 +10,7 @@ export const users = mysqlTable("users", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
+  stripeCustomerId: varchar("stripe_customer_id", { length: 255 }),
 });
 
 export const userPreferences = mysqlTable("user_preferences", {
@@ -113,6 +114,40 @@ export const notifications = mysqlTable("notifications", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+export const subscriptions = mysqlTable("subscriptions", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 255 }).notNull(),
+  stripePriceId: varchar("stripe_price_id", { length: 255 }).notNull(),
+  status: varchar("status", { length: 50 }).notNull().default("active"),
+  currentPeriodEnd: bigint("current_period_end", { mode: "number" }),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
+export const payments = mysqlTable("payments", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }).notNull(),
+  amount: int("amount").notNull(),
+  currency: varchar("currency", { length: 10 }).notNull().default("usd"),
+  status: varchar("status", { length: 50 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const encryptedVault = mysqlTable("encrypted_vault", {
+  id: int("id").primaryKey().autoincrement(),
+  userId: int("user_id").notNull(),
+  label: varchar("label", { length: 255 }).notNull(),
+  category: varchar("category", { length: 100 }).default("general"),
+  encryptedData: text("encrypted_data").notNull(),
+  checksum: varchar("checksum", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 export type UserPreference = typeof userPreferences.$inferSelect;
@@ -123,3 +158,6 @@ export type Task = typeof tasks.$inferSelect;
 export type ActivityLogEntry = typeof activityLog.$inferSelect;
 export type DocumentVersion = typeof documentVersions.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
+export type Payment = typeof payments.$inferSelect;
+export type EncryptedVaultEntry = typeof encryptedVault.$inferSelect;

@@ -3,11 +3,15 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { disconnectGoogle, getGoogleStatus } from "./_core/google";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
+import { stripe, PLANS, type PlanKey } from "./stripe";
+import { encrypt, decrypt, encryptObject, decryptObject, validateCryptoSystem } from "./crypto";
+import { createHash } from "crypto";
 
 export const appRouter = router({
   system: systemRouter,
@@ -119,13 +123,20 @@ export const appRouter = router({
     }),
     uploadToS3: protectedProcedure.input(z.object({
       id: z.number(),
+      encrypted: z.boolean().optional().default(true),
     })).mutation(async ({ ctx, input }) => {
       const file = await db.getFileById(input.id, ctx.user.id);
       if (!file || !file.content) return null;
       const key = `projects/${file.projectId}/files/${file.id}-${nanoid(6)}/${file.name}`;
-      const { url } = await storagePut(key, file.content, "text/plain");
+
+      // Encrypt content before uploading to remote storage
+      const contentToUpload = input.encrypted
+        ? encrypt(file.content)
+        : file.content;
+
+      const { url } = await storagePut(key, contentToUpload, "text/plain");
       await db.updateFile(input.id, { s3Url: url, s3Key: key }, ctx.user.id);
-      return { url, key };
+      return { url, key, encrypted: input.encrypted };
     }),
   }),
 
@@ -317,6 +328,247 @@ export const appRouter = router({
       return db.getActivityLog(ctx.user.id, input?.limit ?? 50);
     }),
   }),
+
+  // ---- Billing / Stripe ----
+  billing: router({
+    plans: publicProcedure.query(() => {
+      return Object.entries(PLANS).map(([key, plan]) => ({
+        key,
+        ...plan,
+      }));
+    }),
+
+    subscription: protectedProcedure.query(async ({ ctx }) => {
+      const sub = await db.getActiveSubscription(ctx.user.id);
+      if (!sub) return null;
+      return {
+        ...sub,
+        planKey: determinePlanKey(sub.stripePriceId),
+      };
+    }),
+
+    createCheckout: protectedProcedure
+      .input(z.object({
+        planKey: z.enum(["pro", "team"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const plan = PLANS[input.planKey as PlanKey];
+        if (!plan || plan.price === 0) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid plan" });
+        }
+        if (!stripe) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
+        }
+
+        const origin = ctx.req.headers.origin || ctx.req.headers.referer || "";
+
+        const session = await stripe.checkout.sessions.create({
+          mode: "subscription",
+          customer_email: ctx.user.email || undefined,
+          client_reference_id: ctx.user.id.toString(),
+          metadata: {
+            user_id: ctx.user.id.toString(),
+            customer_email: ctx.user.email || "",
+            customer_name: ctx.user.name || "",
+            plan_key: input.planKey,
+          },
+          line_items: [{
+            price_data: {
+              currency: "usd",
+              product_data: { name: plan.name, description: plan.description },
+              unit_amount: plan.price,
+              recurring: { interval: plan.interval || "month" },
+            },
+            quantity: 1,
+          }],
+          allow_promotion_codes: true,
+          success_url: `${origin}/billing?success=true`,
+          cancel_url: `${origin}/billing?canceled=true`,
+        });
+
+        if (!session.url) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create checkout" });
+        }
+
+        return { url: session.url };
+      }),
+
+    createPortalSession: protectedProcedure.mutation(async ({ ctx }) => {
+      if (!ctx.user.stripeCustomerId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No Stripe customer found" });
+      }
+      if (!stripe) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Stripe not configured" });
+      }
+
+      const origin = ctx.req.headers.origin || ctx.req.headers.referer || "";
+
+      const session = await stripe.billingPortal.sessions.create({
+        customer: ctx.user.stripeCustomerId,
+        return_url: `${origin}/billing`,
+      });
+
+      return { url: session.url };
+    }),
+
+    payments: protectedProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.stripeCustomerId || !stripe) return [];
+
+      try {
+        const charges = await stripe.charges.list({
+          customer: ctx.user.stripeCustomerId,
+          limit: 20,
+        });
+
+        return charges.data.map((charge) => ({
+          id: charge.id,
+          amount: charge.amount,
+          currency: charge.currency,
+          status: charge.status,
+          description: charge.description,
+          created: charge.created * 1000,
+          receiptUrl: charge.receipt_url,
+        }));
+      } catch (error) {
+        console.error("[Billing] Error fetching payments:", error);
+        return [];
+      }
+    }),
+  }),
+
+  // ---- Encrypted Vault (Cifrado / Descifrado) ----
+  vault: router({
+    /**
+     * RUTA 1: CIFRAR — Recibe datos en texto plano, los cifra con AES-256-GCM
+     * y los almacena en la bóveda cifrada del usuario.
+     */
+    encrypt: protectedProcedure
+      .input(z.object({
+        label: z.string().min(1).max(255),
+        category: z.string().max(100).optional(),
+        data: z.string().min(1),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const encryptedData = encrypt(input.data);
+        const checksum = createHash("sha256").update(input.data).digest("hex").slice(0, 16);
+
+        const entry = await db.createVaultEntry({
+          userId: ctx.user.id,
+          label: input.label,
+          category: input.category || "general",
+          encryptedData,
+          checksum,
+        });
+
+        return {
+          id: entry.id,
+          label: input.label,
+          category: input.category || "general",
+          checksum,
+          message: "Datos cifrados y almacenados correctamente",
+        };
+      }),
+
+    /**
+     * RUTA 2: DESCIFRAR — Recupera un registro cifrado de la bóveda,
+     * lo descifra y devuelve los datos originales al usuario.
+     */
+    decrypt: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const entry = await db.getVaultEntry(input.id, ctx.user.id);
+        if (!entry) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Registro no encontrado o no autorizado" });
+        }
+
+        try {
+          const decryptedData = decrypt(entry.encryptedData);
+
+          // Verify integrity with stored checksum
+          const currentChecksum = createHash("sha256").update(decryptedData).digest("hex").slice(0, 16);
+          const integrityOk = currentChecksum === entry.checksum;
+
+          return {
+            id: entry.id,
+            label: entry.label,
+            category: entry.category,
+            data: decryptedData,
+            integrityVerified: integrityOk,
+          };
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Error al descifrar: " + error.message,
+          });
+        }
+      }),
+
+    /**
+     * Lista todos los registros cifrados del usuario (sin revelar datos).
+     */
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return db.getVaultEntries(ctx.user.id);
+    }),
+
+    /**
+     * Elimina un registro cifrado de la bóveda.
+     */
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const entry = await db.getVaultEntry(input.id, ctx.user.id);
+        if (!entry) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Registro no encontrado o no autorizado" });
+        }
+        await db.deleteVaultEntry(input.id, ctx.user.id);
+        return { success: true, message: "Registro eliminado permanentemente" };
+      }),
+
+    /**
+     * Cifrado directo sin almacenamiento — cifra y devuelve el payload.
+     * Útil para cifrar datos que el cliente quiere gestionar por su cuenta.
+     */
+    encryptInline: protectedProcedure
+      .input(z.object({ data: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const encrypted = encrypt(input.data);
+        const checksum = createHash("sha256").update(input.data).digest("hex").slice(0, 16);
+        return { encrypted, checksum };
+      }),
+
+    /**
+     * Descifrado directo — recibe un payload cifrado y devuelve el texto plano.
+     */
+    decryptInline: protectedProcedure
+      .input(z.object({ encrypted: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        try {
+          const decrypted = decrypt(input.encrypted);
+          return { data: decrypted };
+        } catch (error: any) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Error al descifrar: " + error.message,
+          });
+        }
+      }),
+
+    /**
+     * Verifica que el sistema de cifrado esté operativo.
+     */
+    status: protectedProcedure.query(() => {
+      return validateCryptoSystem();
+    }),
+  }),
 });
+
+// Helper to determine plan key from price ID
+function determinePlanKey(stripePriceId: string): string {
+  // For dynamic prices (price_data), we store plan_key in subscription metadata
+  // For static prices, map price IDs to plan keys here
+  return "pro"; // Default fallback
+}
 
 export type AppRouter = typeof appRouter;

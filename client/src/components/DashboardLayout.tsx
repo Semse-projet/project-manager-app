@@ -25,7 +25,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import {
   LayoutDashboard, FolderKanban, Code2, FileText, ListTodo,
   Sparkles, Settings, History, Bell, LogOut, PanelLeft, Moon, Sun,
-  Database, Hammer, Atom, Search, User
+  Database, Hammer, Atom, Search, User, CreditCard
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -47,6 +47,7 @@ const menuItems = [
   { icon: Database, label: "RAG Tools", path: "/rag-tools", group: "avanzado" },
   { icon: Hammer, label: "SEMSE OS", path: "/semse", group: "avanzado" },
   { icon: Atom, label: "Ecosistema Prometeo", path: "/prometeo", group: "avanzado" },
+  { icon: CreditCard, label: "Facturación", path: "/billing", group: "config" },
   { icon: Settings, label: "Configuración", path: "/settings", group: "config" },
 ];
 

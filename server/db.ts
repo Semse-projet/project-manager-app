@@ -4,19 +4,25 @@ import {
   activityLog,
   documents,
   documentVersions,
+  encryptedVault,
   notifications,
+  payments,
   projectFiles,
   projects,
+  subscriptions,
   tasks,
   userPreferences,
   users,
   type ActivityLogEntry,
   type Document,
   type DocumentVersion,
+  type EncryptedVaultEntry,
   type InsertUser,
   type Notification,
+  type Payment,
   type Project,
   type ProjectFile,
+  type Subscription,
   type Task,
   type User,
   type UserPreference,
@@ -318,6 +324,7 @@ function ensureMemoryUser(openId: string, partial?: Omit<InsertUser, "openId">):
       createdAt: timestamp,
       updatedAt: timestamp,
       lastSignedIn: details.lastSignedIn ?? timestamp,
+      stripeCustomerId: null,
     };
     memory.users.push(user);
   } else {
@@ -1051,4 +1058,141 @@ export async function getDashboardStats(userId: number) {
     documentCount: docRows?.count ?? 0,
     pendingTasks: pendingRows?.count ?? 0,
   };
+}
+
+// ─── Billing / Stripe Helpers ───────────────────────────────────────────────
+
+export async function getActiveSubscription(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [sub] = await db
+    .select()
+    .from(subscriptions)
+    .where(and(eq(subscriptions.userId, userId), eq(subscriptions.status, "active")))
+    .limit(1);
+  return sub || null;
+}
+
+export async function upsertSubscription(data: {
+  userId: number;
+  stripeSubscriptionId: string;
+  stripePriceId: string;
+  status: string;
+  currentPeriodEnd?: number;
+  cancelAtPeriodEnd?: boolean;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db
+    .select()
+    .from(subscriptions)
+    .where(eq(subscriptions.stripeSubscriptionId, data.stripeSubscriptionId))
+    .limit(1);
+  if (existing.length > 0) {
+    await db
+      .update(subscriptions)
+      .set({
+        status: data.status,
+        stripePriceId: data.stripePriceId,
+        currentPeriodEnd: data.currentPeriodEnd,
+        cancelAtPeriodEnd: data.cancelAtPeriodEnd,
+      })
+      .where(eq(subscriptions.stripeSubscriptionId, data.stripeSubscriptionId));
+  } else {
+    await db.insert(subscriptions).values(data);
+  }
+}
+
+export async function createPayment(data: {
+  userId: number;
+  stripePaymentIntentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  description?: string;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(payments).values(data);
+}
+
+export async function updateStripeCustomerId(userId: number, stripeCustomerId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ stripeCustomerId }).where(eq(users.id, userId));
+}
+
+export async function getUserByStripeCustomerId(stripeCustomerId: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.stripeCustomerId, stripeCustomerId))
+    .limit(1);
+  return user || null;
+}
+
+// ─── Encrypted Vault Helpers ────────────────────────────────────────────────
+
+export async function createVaultEntry(data: {
+  userId: number;
+  label: string;
+  category?: string;
+  encryptedData: string;
+  checksum: string;
+}) {
+  const db = await getDb();
+  if (!db) {
+    // Memory fallback for dev
+    const entry = {
+      id: Date.now(),
+      userId: data.userId,
+      label: data.label,
+      category: data.category || "general",
+      encryptedData: data.encryptedData,
+      checksum: data.checksum,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return entry;
+  }
+  const [result] = await db.insert(encryptedVault).values(data).$returningId();
+  return { id: result.id, ...data };
+}
+
+export async function getVaultEntries(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: encryptedVault.id,
+      label: encryptedVault.label,
+      category: encryptedVault.category,
+      checksum: encryptedVault.checksum,
+      createdAt: encryptedVault.createdAt,
+      updatedAt: encryptedVault.updatedAt,
+    })
+    .from(encryptedVault)
+    .where(eq(encryptedVault.userId, userId))
+    .orderBy(desc(encryptedVault.createdAt));
+}
+
+export async function getVaultEntry(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [entry] = await db
+    .select()
+    .from(encryptedVault)
+    .where(and(eq(encryptedVault.id, id), eq(encryptedVault.userId, userId)))
+    .limit(1);
+  return entry || null;
+}
+
+export async function deleteVaultEntry(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .delete(encryptedVault)
+    .where(and(eq(encryptedVault.id, id), eq(encryptedVault.userId, userId)));
 }
