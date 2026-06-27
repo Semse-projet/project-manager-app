@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ExternalLink, GitBranch } from "lucide-react";
 
 const DEFAULT_PROMPT = [
   "Project: SEMSEproject",
@@ -17,68 +17,171 @@ export function ContextBridgePanel({
   deploy = "Production",
   goal = "Modular Admin ecosystem restructure",
   prompt = DEFAULT_PROMPT,
+  bridgeCopied,
+  onCopy,
 }: {
   project?: string;
   branch?: string;
   deploy?: string;
   goal?: string;
   prompt?: string;
+  bridgeCopied?: boolean;
+  onCopy?: () => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [internalCopied, setInternalCopied] = useState(false);
+
+  const copied = bridgeCopied ?? internalCopied;
+
   const context = useMemo(
-    () => [
-      `Project: ${project}`,
-      `Active branch: ${branch}`,
-      `Latest deploy: ${deploy}`,
-      `Current goal: ${goal}`,
-      "",
-      "Suggested prompt:",
-      prompt,
-    ].join("\n"),
-    [branch, deploy, goal, project, prompt]
+    () =>
+      [
+        `Project: ${project}`,
+        `Active branch: ${branch}`,
+        `Latest deploy: ${deploy}`,
+        `Current goal: ${goal}`,
+        "",
+        "Suggested prompt:",
+        prompt,
+      ].join("\n"),
+    [branch, deploy, goal, project, prompt],
   );
 
   async function copyContext() {
-    await navigator.clipboard.writeText(context);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1600);
+    if (onCopy) {
+      onCopy();
+      return;
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(context);
+    }
+    setInternalCopied(true);
+    window.setTimeout(() => setInternalCopied(false), 1600);
   }
 
   return (
-    <aside className="rounded-lg border border-white/[0.08] bg-[#101527] p-5">
-      <div className="flex items-start justify-between gap-4">
+    <aside
+      style={{
+        borderRadius: 12,
+        border: "1px solid var(--border)",
+        background: "#0d1222",
+        padding: 20,
+        height: "fit-content",
+        position: "sticky",
+        top: 24,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 16 }}>
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">Context Bridge</h2>
-          <p className="mt-2 text-sm leading-6 text-muted">Portable context for external tools and operator handoff.</p>
+          <h2 style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--brand, #8ab4f8)" }}>
+            Context Bridge
+          </h2>
+          <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 4, lineHeight: 1.5 }}>
+            Portable context for AI tools and operator handoff.
+          </p>
         </div>
         <button
           type="button"
           onClick={() => void copyContext()}
-          className="inline-flex min-h-9 items-center gap-2 rounded-md border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-semibold text-ink transition hover:border-brand/40"
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "7px 12px",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: copied ? "rgba(110,231,183,.08)" : "var(--surface)",
+            color: copied ? "#6ee7b7" : "var(--ink)",
+            fontSize: 13, fontWeight: 600,
+            cursor: "pointer",
+            flexShrink: 0,
+            transition: "all 0.15s",
+          }}
         >
-          {copied ? <Check size={16} /> : <Copy size={16} />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? "Copied!" : "Copy"}
         </button>
       </div>
 
-      <dl className="mt-5 grid gap-3 text-sm">
-        <div className="rounded-md border border-white/[0.07] bg-white/[0.03] p-3">
-          <dt className="text-[0.68rem] font-semibold uppercase tracking-widest text-muted">Project</dt>
-          <dd className="mt-1 font-medium text-ink">{project}</dd>
-        </div>
-        <div className="rounded-md border border-white/[0.07] bg-white/[0.03] p-3">
-          <dt className="text-[0.68rem] font-semibold uppercase tracking-widest text-muted">Branch</dt>
-          <dd className="mt-1 font-medium text-ink">{branch}</dd>
-        </div>
-        <div className="rounded-md border border-white/[0.07] bg-white/[0.03] p-3">
-          <dt className="text-[0.68rem] font-semibold uppercase tracking-widest text-muted">Deploy</dt>
-          <dd className="mt-1 font-medium text-ink">{deploy}</dd>
-        </div>
-        <div className="rounded-md border border-white/[0.07] bg-white/[0.03] p-3">
-          <dt className="text-[0.68rem] font-semibold uppercase tracking-widest text-muted">Goal</dt>
-          <dd className="mt-1 font-medium text-ink">{goal}</dd>
-        </div>
+      <dl style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+        {[
+          { key: "Project", value: project },
+          { key: "Branch", value: branch },
+          { key: "Deploy", value: deploy },
+          { key: "Goal", value: goal },
+          { key: "Guardrail", value: "No backend · No Prisma · No Railway" },
+        ].map(({ key, value }) => (
+          <div
+            key={key}
+            style={{
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,.07)",
+              background: "rgba(255,255,255,.03)",
+              padding: "8px 12px",
+            }}
+          >
+            <dt style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--faint)" }}>
+              {key}
+            </dt>
+            <dd style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginTop: 2 }}>{value}</dd>
+          </div>
+        ))}
       </dl>
+
+      <div
+        style={{
+          borderRadius: 8,
+          border: "1px solid rgba(255,255,255,.07)",
+          background: "rgba(255,255,255,.02)",
+          padding: "10px 12px",
+          marginBottom: 16,
+        }}
+      >
+        <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--faint)", marginBottom: 6 }}>
+          Suggested Prompt
+        </p>
+        <pre style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
+          {prompt}
+        </pre>
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <a
+          href="https://github.com/Semse-projet/project-manager-app"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            flex: 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--muted)",
+            fontSize: 12, fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          <GitBranch size={13} />
+          GitHub
+        </a>
+        <a
+          href="https://railway.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            flex: 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            padding: "8px 10px",
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
+            color: "var(--muted)",
+            fontSize: 12, fontWeight: 600,
+            textDecoration: "none",
+          }}
+        >
+          <ExternalLink size={13} />
+          Railway
+        </a>
+      </div>
     </aside>
   );
 }
