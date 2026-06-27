@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { cn } from "../../lib/cn";
+import { Plus, Leaf, MapPin, ChevronRight, X, Tractor, Wheat, Blend } from "lucide-react";
 
 interface AgroFarm {
   id: string;
@@ -19,162 +19,193 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return (json as { data: T }).data;
 }
 
-const OP_TYPE_LABEL: Record<string, string> = {
-  LIVESTOCK: "Ganadería",
-  MIXED: "Mixta",
-  CROP: "Cultivos",
+const OP_TYPE: Record<string, { label: string; color: string; bg: string; Icon: typeof Leaf }> = {
+  LIVESTOCK: { label: "Ganadería",  color: "#6ee7b7", bg: "rgba(16,185,129,.12)",  Icon: Tractor },
+  MIXED:     { label: "Mixta",      color: "#93c5fd", bg: "rgba(59,130,246,.12)",   Icon: Blend   },
+  CROP:      { label: "Cultivos",   color: "#fcd34d", bg: "rgba(245,158,11,.12)",   Icon: Wheat   },
 };
 
-export default function AgroPage() {
-  const [farms, setFarms] = useState<AgroFarm[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const [operationType, setOperationType] = useState<"LIVESTOCK" | "MIXED" | "CROP">("LIVESTOCK");
-  const [locationLabel, setLocationLabel] = useState("");
+function FarmCardSkeleton() {
+  return (
+    <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)", padding: 20 }}>
+      <div className="skel" style={{ height: 14, width: "60%", marginBottom: 10 }} />
+      <div className="skel" style={{ height: 10, width: "35%" }} />
+    </div>
+  );
+}
 
-  useEffect(() => {
-    void load();
-  }, []);
+export default function AgroPage() {
+  const [farms, setFarms]           = useState<AgroFarm[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [showModal, setShowModal]   = useState(false);
+  const [creating, setCreating]     = useState(false);
+  const [formError, setFormError]   = useState<string | null>(null);
+  const [name, setName]             = useState("");
+  const [operationType, setType]    = useState<"LIVESTOCK" | "MIXED" | "CROP">("LIVESTOCK");
+  const [locationLabel, setLocation] = useState("");
+
+  useEffect(() => { void load(); }, []);
 
   async function load() {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const { farms: list } = await apiFetch<{ farms: AgroFarm[] }>("/api/semse/agro/farms");
       setFarms(list);
-    } catch (err: any) {
-      setError(err?.message ?? "Error cargando fincas");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err?.message ?? "Error cargando fincas"); }
+    finally { setLoading(false); }
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    setCreating(true);
+    setCreating(true); setFormError(null);
     try {
       await apiFetch("/api/semse/agro/farms", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: name.trim(), operationType, locationLabel: locationLabel.trim() || undefined }),
       });
-      setShowCreate(false);
-      setName("");
-      setLocationLabel("");
+      setShowModal(false); setName(""); setLocation("");
       await load();
-    } catch (err: any) {
-      setError(err?.message ?? "Error creando finca");
-    } finally {
-      setCreating(false);
-    }
+    } catch (err: any) { setFormError(err?.message ?? "Error creando finca"); }
+    finally { setCreating(false); }
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="agro-shell">
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 32 }}>
         <div>
-          <h1 className="text-xl font-semibold text-[var(--ink)]">SEMSE Agro</h1>
-          <p className="mt-0.5 text-sm text-[var(--muted)]">Gestión de fincas y operaciones ganaderas</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(16,185,129,.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Leaf size={18} color="#6ee7b7" />
+            </div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>SEMSE Agro</h1>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--muted)" }}>Gestión de fincas y operaciones ganaderas</p>
         </div>
-        <button
-          onClick={() => setShowCreate((v) => !v)}
-          className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          + Nueva finca
+        <button className="btn-accent" onClick={() => setShowModal(true)}>
+          <Plus size={14} /> Nueva finca
         </button>
       </div>
 
-      {showCreate && (
-        <form onSubmit={(e) => void handleCreate(e)} className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-[var(--ink)]">Crear finca</h2>
-          <div>
-            <label className="block text-xs text-[var(--muted)] mb-1">Nombre *</label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
-              placeholder="Mi finca"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--muted)] mb-1">Tipo de operación</label>
-            <select
-              value={operationType}
-              onChange={(e) => setOperationType(e.target.value as any)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
-            >
-              <option value="LIVESTOCK">Ganadería</option>
-              <option value="MIXED">Mixta</option>
-              <option value="CROP">Cultivos</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-[var(--muted)] mb-1">Ubicación</label>
-            <input
-              value={locationLabel}
-              onChange={(e) => setLocationLabel(e.target.value)}
-              className="w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
-              placeholder="Departamento, País"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={creating}
-              className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {creating ? "Creando..." : "Crear"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCreate(false)}
-              className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-[var(--muted)]"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      )}
-
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        <div className="alert-banner alert-critical" style={{ marginBottom: 20 }}>
+          {error}
+        </div>
       )}
 
+      {/* Farm grid */}
       {loading ? (
-        <div className="text-sm text-[var(--muted)]">Cargando...</div>
+        <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+          {[1, 2, 3].map(i => <FarmCardSkeleton key={i} />)}
+        </div>
       ) : farms.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[var(--border)] py-16 text-center">
-          <p className="text-sm text-[var(--muted)]">No tienes fincas registradas.</p>
-          <button onClick={() => setShowCreate(true)} className="mt-3 text-sm text-[var(--accent)] underline">
-            Crear tu primera finca
+        <div className="empty-state">
+          <Leaf size={40} className="empty-icon" />
+          <p className="empty-title">Sin fincas registradas</p>
+          <p className="empty-desc">Crea tu primera finca para empezar a gestionar animales, tareas e inventario.</p>
+          <button className="btn-accent" onClick={() => setShowModal(true)}>
+            <Plus size={14} /> Crear primera finca
           </button>
         </div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {farms.map((farm) => (
-            <Link
-              key={farm.id}
-              href={`/agro/${farm.id}`}
-              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 hover:border-[var(--accent)] hover:shadow-sm transition-all"
-            >
-              <div className="mb-2 flex items-start justify-between">
-                <h3 className="text-sm font-semibold text-[var(--ink)]">{farm.name}</h3>
-                <span className="rounded-full bg-[var(--accent)]/10 px-2 py-0.5 text-xs text-[var(--accent)]">
-                  {OP_TYPE_LABEL[farm.operationType] ?? farm.operationType}
-                </span>
-              </div>
-              {farm.locationLabel && (
-                <p className="text-xs text-[var(--muted)]">{farm.locationLabel}</p>
-              )}
-            </Link>
-          ))}
+        <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+          {farms.map(farm => {
+            const op = OP_TYPE[farm.operationType] ?? OP_TYPE.LIVESTOCK;
+            const OpIcon = op.Icon;
+            return (
+              <Link
+                key={farm.id}
+                href={`/agro/${farm.id}`}
+                style={{ textDecoration: "none" }}
+              >
+                <div
+                  className="card-lift"
+                  style={{
+                    borderRadius: 14,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    padding: "18px 20px",
+                    borderLeft: `3px solid ${op.color}`,
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: op.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <OpIcon size={16} color={op.color} />
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.3 }}>{farm.name}</span>
+                    </div>
+                    <ChevronRight size={15} color="var(--faint)" style={{ flexShrink: 0 }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className="badge" style={{ background: op.bg, color: op.color }}>
+                      {op.label}
+                    </span>
+                    {farm.locationLabel && (
+                      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--muted)" }}>
+                        <MapPin size={10} /> {farm.locationLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
-    </main>
+
+      {/* Create modal */}
+      {showModal && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setShowModal(false)}>
+          <div className="modal-panel">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Crear nueva finca</h2>
+              <button
+                onClick={() => setShowModal(false)}
+                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {formError && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{formError}</div>}
+
+            <form onSubmit={(e) => void handleCreate(e)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label className="fl">Nombre *</label>
+                <input className="fi" value={name} onChange={e => setName(e.target.value)} placeholder="Finca Las Palmas" required />
+              </div>
+              <div>
+                <label className="fl">Tipo de operación</label>
+                <select className="fi" value={operationType} onChange={e => setType(e.target.value as any)}>
+                  <option value="LIVESTOCK">Ganadería</option>
+                  <option value="MIXED">Mixta</option>
+                  <option value="CROP">Cultivos</option>
+                </select>
+              </div>
+              <div>
+                <label className="fl">Ubicación</label>
+                <input className="fi" value={locationLabel} onChange={e => setLocation(e.target.value)} placeholder="Ej. Antioquia, Colombia" />
+              </div>
+              <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
+                <button type="submit" className="btn-accent" disabled={creating} style={{ flex: 1 }}>
+                  {creating ? "Creando…" : "Crear finca"}
+                </button>
+                <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

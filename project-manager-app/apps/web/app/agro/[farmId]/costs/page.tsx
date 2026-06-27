@@ -2,40 +2,54 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
+import { Plus, X, DollarSign, ChevronRight, TrendingDown } from "lucide-react";
 
 interface CostEntry {
-  id: string;
-  category: string;
-  amount: number;
-  currency: string;
-  description?: string;
-  occurredAt: string;
-  targetType: string;
+  id: string; category: string; amount: number; currency: string;
+  description?: string; occurredAt: string; targetType: string;
 }
 
-const CAT_ICON: Record<string, string> = {
-  FEED: "🌾", VETERINARY: "🩺", LABOR: "👷", EQUIPMENT: "⚙️",
-  TRANSPORT: "🚛", INFRASTRUCTURE: "🏗️", SEED: "🫘", FERTILIZER: "🌱",
-  FUEL: "⛽", OTHER: "📋",
+const CAT_LABEL: Record<string, string> = {
+  FEED: "Alimentación", VETERINARY: "Veterinaria", LABOR: "Mano de obra",
+  EQUIPMENT: "Equipo", TRANSPORT: "Transporte", INFRASTRUCTURE: "Infraestructura",
+  SEED: "Semillas", FERTILIZER: "Fertilizante", FUEL: "Combustible", OTHER: "Otro",
 };
-
+const CAT_BADGE: Record<string, string> = {
+  FEED: "badge badge-green", VETERINARY: "badge badge-blue", LABOR: "badge badge-violet",
+  EQUIPMENT: "badge badge-slate", TRANSPORT: "badge badge-teal",
+  INFRASTRUCTURE: "badge badge-amber", SEED: "badge badge-green",
+  FERTILIZER: "badge badge-green", FUEL: "badge badge-amber", OTHER: "badge badge-slate",
+};
 const COST_CATS = ["FEED","VETERINARY","LABOR","EQUIPMENT","TRANSPORT","INFRASTRUCTURE","SEED","FERTILIZER","FUEL","OTHER"];
 
-export default function CostsPage() {
-  const { farmId } = useParams<{ farmId: string }>();
-  const [costs, setCosts]     = useState<CostEntry[]>([]);
-  const [catSummary, setCatSummary] = useState<{ category: string; total: number }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [busy, setBusy]           = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+function farmTabs(farmId: string) {
+  return [
+    { href: `/agro/${farmId}`,           label: "Dashboard"  },
+    { href: `/agro/${farmId}/animals`,   label: "Animales"   },
+    { href: `/agro/${farmId}/tasks`,     label: "Tareas"     },
+    { href: `/agro/${farmId}/inventory`, label: "Inventario" },
+    { href: `/agro/${farmId}/costs`,     label: "Costos"     },
+    { href: `/agro/${farmId}/evidence`,  label: "Evidencia"  },
+    { href: `/agro/${farmId}/audit`,     label: "Auditoría"  },
+  ];
+}
 
-  const [newCat, setNewCat]     = useState("FEED");
-  const [newAmt, setNewAmt]     = useState("");
-  const [newDesc, setNewDesc]   = useState("");
-  const [newDate, setNewDate]   = useState(new Date().toISOString().split("T")[0]);
+export default function CostsPage() {
+  const { farmId }  = useParams<{ farmId: string }>();
+  const pathname    = usePathname();
+  const [costs, setCosts]           = useState<CostEntry[]>([]);
+  const [catSummary, setCatSummary] = useState<{ category: string; total: number }[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [showModal, setShowModal]   = useState(false);
+  const [busy, setBusy]             = useState(false);
+  const [formError, setFormError]   = useState<string | null>(null);
+
+  const [newCat, setNewCat]   = useState("FEED");
+  const [newAmt, setNewAmt]   = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newDate, setNewDate] = useState(new Date().toISOString().split("T")[0]);
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
 
@@ -49,34 +63,20 @@ export default function CostsPage() {
       const cj = await cr.json();
       if (!cr.ok) throw new Error(cj?.error?.message ?? "Error");
       setCosts((cj.data as any)?.costs ?? []);
-      try {
-        const sj = await sr.json();
-        setCatSummary((sj.data as any)?.summary ?? []);
-      } catch { /* best-effort */ }
-    } catch (err: any) {
-      setError(err?.message ?? "Error cargando costos");
-    } finally {
-      setLoading(false);
-    }
+      try { const sj = await sr.json(); setCatSummary((sj.data as any)?.summary ?? []); } catch { /* best-effort */ }
+    } catch (err: any) { setError(err?.message ?? "Error cargando costos"); }
+    finally { setLoading(false); }
   }
 
   function closeModal() { setShowModal(false); setFormError(null); setBusy(false); }
 
   async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newAmt) return;
+    e.preventDefault(); if (!newAmt) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/farms/${farmId}/costs`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          targetType: "FARM",
-          category: newCat,
-          amount: parseFloat(newAmt),
-          description: newDesc || undefined,
-          occurredAt: newDate ? new Date(newDate).toISOString() : undefined,
-        }),
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetType: "FARM", category: newCat, amount: parseFloat(newAmt), description: newDesc || undefined, occurredAt: newDate ? new Date(newDate).toISOString() : undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
@@ -86,125 +86,141 @@ export default function CostsPage() {
   }
 
   const total = costs.reduce((s, c) => s + Number(c.amount), 0);
-  const topCats = catSummary.length > 0
-    ? catSummary.sort((a, b) => b.total - a.total).slice(0, 2)
+  const summaryData = catSummary.length > 0
+    ? catSummary.sort((a, b) => b.total - a.total)
     : costs.reduce<{ category: string; total: number }[]>((acc, c) => {
-        const ex = acc.find((x) => x.category === c.category);
-        if (ex) ex.total += Number(c.amount);
-        else acc.push({ category: c.category, total: Number(c.amount) });
+        const ex = acc.find(x => x.category === c.category);
+        if (ex) ex.total += Number(c.amount); else acc.push({ category: c.category, total: Number(c.amount) });
         return acc;
-      }, []).sort((a, b) => b.total - a.total).slice(0, 2);
+      }, []).sort((a, b) => b.total - a.total);
+
+  const tabs = farmId ? farmTabs(farmId) : [];
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <nav className="mb-6 flex items-center gap-2 text-xs text-[var(--muted)]">
-        <Link href="/agro" className="hover:text-[var(--accent)]">Agro</Link>
-        <span>/</span>
-        <Link href={`/agro/${farmId}`} className="hover:text-[var(--accent)]">Finca</Link>
-        <span>/</span>
-        <span className="text-[var(--ink)]">Costos</span>
+    <div className="agro-shell">
+      <nav className="bread">
+        <Link href="/agro">Agro</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <Link href={`/agro/${farmId}`}>Finca</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <span style={{ color: "var(--ink)" }}>Costos</span>
       </nav>
 
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[var(--ink)]">Registro de costos</h1>
-        <button onClick={() => setShowModal(true)}
-          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
-          + Registrar costo
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>Registro de costos</h1>
+        <button className="btn-accent" onClick={() => setShowModal(true)}>
+          <Plus size={13} /> Registrar costo
         </button>
       </div>
 
-      {/* Summary cards */}
-      {costs.length > 0 && (
-        <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-            <p className="text-xs text-[var(--muted)]">Total registrado</p>
-            <p className="mt-1 text-2xl font-bold text-[var(--ink)]">${total.toFixed(2)}</p>
+      <nav className="tab-bar">
+        {tabs.map(tab => (
+          <Link key={tab.href} href={tab.href} className="tab-item"
+            data-active={pathname === tab.href ? "true" : "false"}>
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
+      {error && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{error}</div>}
+
+      {/* Summary strip */}
+      {!loading && costs.length > 0 && (
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", marginBottom: 24 }}>
+          <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "14px 16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <DollarSign size={13} color="var(--muted)" />
+              <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Total</span>
+            </div>
+            <p style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>
+              ${total.toLocaleString("es-CO", { minimumFractionDigits: 2 })}
+            </p>
           </div>
-          {topCats.map(({ category, total: amt }) => (
-            <div key={category} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-              <p className="text-xs text-[var(--muted)]">{CAT_ICON[category]} {category}</p>
-              <p className="mt-1 text-xl font-semibold text-[var(--ink)]">${Number(amt).toFixed(2)}</p>
+          {summaryData.slice(0, 3).map(({ category, total: amt }) => (
+            <div key={category} style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <TrendingDown size={13} color="var(--muted)" />
+                <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {CAT_LABEL[category] ?? category}
+                </span>
+              </div>
+              <p style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>
+                ${Number(amt).toLocaleString("es-CO", { minimumFractionDigits: 0 })}
+              </p>
+              <p style={{ fontSize: 11, color: "var(--faint)", marginTop: 2 }}>
+                {total > 0 ? `${((Number(amt) / total) * 100).toFixed(1)}%` : ""}
+              </p>
             </div>
           ))}
         </div>
       )}
 
-      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-
       {loading ? (
-        <div className="text-sm text-[var(--muted)]">Cargando...</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[1,2,3].map(i => <div key={i} className="skel" style={{ height: 48 }} />)}
+        </div>
       ) : costs.length === 0 ? (
-        <p className="text-sm text-[var(--muted)]">Sin costos registrados.</p>
+        <div className="empty-state">
+          <DollarSign size={36} className="empty-icon" />
+          <p className="empty-title">Sin costos registrados</p>
+          <p className="empty-desc">Registra gastos de alimentación, veterinaria, mano de obra y más.</p>
+          <button className="btn-accent" onClick={() => setShowModal(true)}>
+            <Plus size={13} /> Registrar primer costo
+          </button>
+        </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--surface)] text-xs text-[var(--muted)]">
-              <tr>
-                {["Fecha","Categoría","Descripción","Monto"].map((h) => (
-                  <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border)]">
-              {costs.map((c) => (
-                <tr key={c.id} className="hover:bg-[var(--surface)]">
-                  <td className="px-4 py-2 text-xs text-[var(--muted)]">
-                    {new Date(c.occurredAt).toLocaleDateString("es-MX")}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span>{CAT_ICON[c.category] ?? "📋"} {c.category}</span>
-                  </td>
-                  <td className="px-4 py-2 text-[var(--muted)]">{c.description ?? "—"}</td>
-                  <td className="px-4 py-2 font-medium text-[var(--ink)]">
-                    ${Number(c.amount).toFixed(2)} {c.currency}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "90px 130px 1fr 110px", gap: 0, padding: "8px 16px", borderBottom: "1px solid var(--line)", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <span>Fecha</span><span>Categoría</span><span>Descripción</span><span style={{ textAlign: "right" }}>Monto</span>
+          </div>
+          {costs.map(c => (
+            <div key={c.id} className="data-row" style={{ display: "grid", gridTemplateColumns: "90px 130px 1fr 110px", alignItems: "center" }}>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                {new Date(c.occurredAt).toLocaleDateString("es-CO")}
+              </span>
+              <span className={CAT_BADGE[c.category] ?? "badge badge-slate"} style={{ justifySelf: "start" }}>
+                {CAT_LABEL[c.category] ?? c.category}
+              </span>
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>{c.description ?? "—"}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", textAlign: "right" }}>
+                ${Number(c.amount).toLocaleString("es-CO", { minimumFractionDigits: 2 })}
+                <span style={{ fontSize: 10, color: "var(--faint)", marginLeft: 3 }}>{c.currency}</span>
+              </span>
+            </div>
+          ))}
         </div>
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-base font-semibold">Registrar costo</h2>
-            <form onSubmit={handleCreate} className="space-y-3">
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.01em" }}>Registrar costo</h2>
+              <button onClick={closeModal} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {formError && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{formError}</div>}
+
+            <form onSubmit={e => void handleCreate(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Categoría *</label>
-                <select value={newCat} onChange={(e) => setNewCat(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                  {COST_CATS.map((c) => <option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}
+                <label className="fl">Categoría *</label>
+                <select className="fi" value={newCat} onChange={e => setNewCat(e.target.value)}>
+                  {COST_CATS.map(c => <option key={c} value={c}>{CAT_LABEL[c] ?? c}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Monto *</label>
-                <input type="number" step="0.01" min="0" value={newAmt} onChange={(e) => setNewAmt(e.target.value)} required autoFocus
-                  placeholder="0.00"
-                  className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Descripción</label>
-                <input value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="Ej. Compra de vacuna aftosa"
-                  className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Fecha</label>
-                <input type="date" value={newDate} onChange={(e) => setNewDate(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-              </div>
-              {formError && <p className="text-xs text-red-600">{formError}</p>}
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                <button type="submit" disabled={busy} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                  {busy ? "Guardando..." : "Registrar"}
-                </button>
+              <div><label className="fl">Monto *</label><input className="fi" type="number" step="0.01" min="0" value={newAmt} onChange={e => setNewAmt(e.target.value)} required autoFocus placeholder="0.00" /></div>
+              <div><label className="fl">Descripción</label><input className="fi" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Ej. Compra de vacuna aftosa" /></div>
+              <div><label className="fl">Fecha</label><input className="fi" type="date" value={newDate} onChange={e => setNewDate(e.target.value)} /></div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="submit" className="btn-accent" disabled={busy} style={{ flex: 1 }}>{busy ? "Guardando…" : "Registrar costo"}</button>
+                <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

@@ -3,53 +3,33 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { Scale, MapPin, RefreshCw, X, TrendingUp, TrendingDown, ChevronRight, Activity, Beef } from "lucide-react";
 
 interface Animal {
-  id: string;
-  tagCode?: string;
-  species: string;
-  breed?: string;
-  sex: string;
-  status: string;
-  currentWeight?: number;
-  initialWeight?: number;
-  estimatedAgeMonths?: number;
-  birthDate?: string;
-  acquisitionDate?: string;
-  acquisitionCost?: number;
-  notes?: string;
-  currentUnitId?: string;
+  id: string; tagCode?: string; species: string; breed?: string;
+  sex: string; status: string; currentWeight?: number; initialWeight?: number;
+  estimatedAgeMonths?: number; birthDate?: string; acquisitionDate?: string;
+  acquisitionCost?: number; notes?: string; currentUnitId?: string;
 }
-
 interface TimelineEvent {
-  id: string;
-  action: string;
-  before?: Record<string, unknown>;
-  after?: Record<string, unknown>;
-  createdAt: string;
-  actorId?: string;
+  id: string; action: string; before?: Record<string, unknown>;
+  after?: Record<string, unknown>; createdAt: string; actorId?: string;
 }
+interface FarmUnit { id: string; name: string; type: string; }
 
-interface FarmUnit {
-  id: string;
-  name: string;
-  type: string;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  ACTIVE:   "bg-green-100 text-green-700",
-  SOLD:     "bg-gray-100 text-gray-600",
-  DEAD:     "bg-red-100 text-red-700",
-  LOST:     "bg-amber-100 text-amber-700",
-  INACTIVE: "bg-gray-100 text-gray-500",
+const STATUS_BADGE: Record<string, string> = {
+  ACTIVE:   "badge badge-green",
+  SOLD:     "badge badge-slate",
+  DEAD:     "badge badge-red",
+  LOST:     "badge badge-amber",
+  INACTIVE: "badge badge-slate",
 };
-
-const ACTION_LABELS: Record<string, string> = {
-  "animal.created":       "Registro creado",
-  "animal.updated":       "Datos actualizados",
-  "animal.weighed":       "Pesaje registrado",
-  "animal.moved":         "Movimiento de unidad",
-  "animal.status_changed":"Cambio de estado",
+const ACTION_LABELS: Record<string, { label: string; color: string }> = {
+  "animal.created":        { label: "Registro creado",      color: "var(--brand)"  },
+  "animal.updated":        { label: "Datos actualizados",   color: "var(--muted)"  },
+  "animal.weighed":        { label: "Pesaje registrado",    color: "#6ee7b7"       },
+  "animal.moved":          { label: "Movimiento de unidad", color: "#93c5fd"       },
+  "animal.status_changed": { label: "Cambio de estado",     color: "#fca5a5"       },
 };
 
 export default function AnimalDetailPage() {
@@ -60,10 +40,7 @@ export default function AnimalDetailPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
-  type ModalType =
-    | { type: "weigh" }
-    | { type: "move" }
-    | { type: "status" };
+  type ModalType = { type: "weigh" } | { type: "move" } | { type: "status" };
   const [modal, setModal]         = useState<ModalType | null>(null);
   const [busy, setBusy]           = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -71,9 +48,7 @@ export default function AnimalDetailPage() {
   const [moveUnit, setMoveUnit]   = useState("");
   const [newStatus, setNewStatus] = useState("");
 
-  useEffect(() => {
-    if (animalId && farmId) void load();
-  }, [animalId, farmId]);
+  useEffect(() => { if (animalId && farmId) void load(); }, [animalId, farmId]);
 
   async function load() {
     setLoading(true); setError(null);
@@ -88,23 +63,18 @@ export default function AnimalDetailPage() {
       setAnimal((aj.data as any)?.animal ?? aj.data);
       try { const tj = await tr.json(); setTimeline((tj.data as any)?.events ?? tj.data ?? []); } catch { /* best-effort */ }
       try { const uj = await ur.json(); setUnits((uj.data as any)?.units ?? []); } catch { /* best-effort */ }
-    } catch (err: any) {
-      setError(err?.message ?? "Error");
-    } finally {
-      setLoading(false);
-    }
+    } catch (err: any) { setError(err?.message ?? "Error"); }
+    finally { setLoading(false); }
   }
 
   function closeModal() { setModal(null); setFormError(null); setBusy(false); }
 
   async function handleWeigh(e: React.FormEvent) {
-    e.preventDefault();
-    if (!weighVal) return;
+    e.preventDefault(); if (!weighVal) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animals/${animalId}/weigh`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ weight: parseFloat(weighVal) }),
       });
       const json = await res.json();
@@ -114,12 +84,10 @@ export default function AnimalDetailPage() {
   }
 
   async function handleMove(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true); setFormError(null);
+    e.preventDefault(); setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animals/${animalId}/move`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ targetUnitId: moveUnit || null }),
       });
       const json = await res.json();
@@ -129,13 +97,11 @@ export default function AnimalDetailPage() {
   }
 
   async function handleStatus(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newStatus) return;
+    e.preventDefault(); if (!newStatus) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animals/${animalId}/status`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
       const json = await res.json();
@@ -144,235 +110,242 @@ export default function AnimalDetailPage() {
     } catch (err: any) { setFormError(err?.message); } finally { setBusy(false); }
   }
 
-  if (loading) return <main className="mx-auto max-w-3xl px-4 py-8 text-sm text-[var(--muted)]">Cargando...</main>;
-  if (error || !animal) return <main className="mx-auto max-w-3xl px-4 py-8 text-sm text-red-600">{error ?? "Animal no encontrado"}</main>;
+  if (loading) return (
+    <div className="agro-shell">
+      <div className="skel" style={{ height: 14, width: 240, marginBottom: 24 }} />
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(4, 1fr)", marginBottom: 24 }}>
+        {[1,2,3,4].map(i => <div key={i} className="skel" style={{ height: 80 }} />)}
+      </div>
+      <div className="skel" style={{ height: 160 }} />
+    </div>
+  );
+
+  if (error || !animal) return (
+    <div className="agro-shell">
+      <div className="alert-banner alert-critical">{error ?? "Animal no encontrado"}</div>
+    </div>
+  );
 
   const weightDelta = animal.currentWeight != null && animal.initialWeight != null
     ? Number(animal.currentWeight) - Number(animal.initialWeight)
     : null;
-
-  const currentUnit = units.find((u) => u.id === animal.currentUnitId);
+  const currentUnit = units.find(u => u.id === animal.currentUnitId);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
-      <nav className="mb-6 flex items-center gap-2 text-xs text-[var(--muted)]">
-        <Link href="/agro" className="hover:text-[var(--accent)]">Agro</Link>
-        <span>/</span>
-        <Link href={`/agro/${farmId}`} className="hover:text-[var(--accent)]">Finca</Link>
-        <span>/</span>
-        <Link href={`/agro/${farmId}/animals`} className="hover:text-[var(--accent)]">Animales</Link>
-        <span>/</span>
-        <span className="text-[var(--ink)]">{animal.tagCode ?? animal.species}</span>
+    <div className="agro-shell" style={{ maxWidth: 780 }}>
+      {/* Breadcrumb */}
+      <nav className="bread">
+        <Link href="/agro">Agro</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <Link href={`/agro/${farmId}`}>Finca</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <Link href={`/agro/${farmId}/animals`}>Animales</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <span style={{ color: "var(--ink)" }}>{animal.tagCode ?? animal.species}</span>
       </nav>
 
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[var(--ink)]">
-            {animal.tagCode ? `#${animal.tagCode}` : animal.species}
-          </h1>
-          <p className="mt-0.5 text-sm text-[var(--muted)]">
-            {animal.species}{animal.breed ? ` · ${animal.breed}` : ""} · {animal.sex}
-          </p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(16,185,129,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Beef size={22} color="#6ee7b7" />
+          </div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em", lineHeight: 1.1 }}>
+              {animal.tagCode ? `#${animal.tagCode}` : animal.species}
+            </h1>
+            <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>
+              {animal.species}{animal.breed ? ` · ${animal.breed}` : ""} · {animal.sex}
+            </p>
+          </div>
         </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[animal.status] ?? ""}`}>
+        <span className={STATUS_BADGE[animal.status] ?? "badge badge-slate"} style={{ fontSize: 12, padding: "4px 12px" }}>
           {animal.status}
         </span>
       </div>
 
       {/* Action buttons */}
       {animal.status === "ACTIVE" && (
-        <div className="mb-6 flex flex-wrap gap-2">
-          <button onClick={() => { setWeighVal(""); setModal({ type: "weigh" }); }}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)]">
-            ⚖️ Pesar
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+          <button onClick={() => { setWeighVal(""); setModal({ type: "weigh" }); }} className="btn-ghost">
+            <Scale size={13} /> Pesar
           </button>
-          <button onClick={() => { setMoveUnit(animal.currentUnitId ?? ""); setModal({ type: "move" }); }}
-            className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--ink)] hover:bg-[var(--surface)]">
-            📍 Mover
+          <button onClick={() => { setMoveUnit(animal.currentUnitId ?? ""); setModal({ type: "move" }); }} className="btn-ghost">
+            <MapPin size={13} /> Mover
           </button>
-          <button onClick={() => { setNewStatus(""); setModal({ type: "status" }); }}
-            className="flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
-            🔄 Cambiar estado
+          <button onClick={() => { setNewStatus(""); setModal({ type: "status" }); }} className="btn-danger">
+            <RefreshCw size={13} /> Cambiar estado
           </button>
         </div>
       )}
 
-      {/* Stats grid */}
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-xs text-[var(--muted)]">Peso actual</p>
-          <p className="mt-1 text-xl font-bold text-[var(--ink)]">
-            {animal.currentWeight != null ? `${Number(animal.currentWeight).toFixed(1)} kg` : "—"}
+      {/* Stat grid */}
+      <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", marginBottom: 24 }}>
+        {/* Peso actual */}
+        <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "14px 16px" }}>
+          <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Peso actual</p>
+          <p style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+            {animal.currentWeight != null ? `${Number(animal.currentWeight).toFixed(1)}` : "—"}
+            {animal.currentWeight != null && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", marginLeft: 3 }}>kg</span>}
           </p>
           {weightDelta != null && (
-            <p className={`text-xs mt-1 ${weightDelta >= 0 ? "text-green-600" : "text-red-600"}`}>
+            <p style={{ fontSize: 11, color: weightDelta >= 0 ? "#6ee7b7" : "#fca5a5", display: "flex", alignItems: "center", gap: 3, marginTop: 4 }}>
+              {weightDelta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
               {weightDelta >= 0 ? "+" : ""}{weightDelta.toFixed(1)} kg vs inicial
             </p>
           )}
         </div>
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-xs text-[var(--muted)]">Peso inicial</p>
-          <p className="mt-1 text-xl font-bold text-[var(--ink)]">
-            {animal.initialWeight != null ? `${Number(animal.initialWeight).toFixed(1)} kg` : "—"}
+        {/* Peso inicial */}
+        <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "14px 16px" }}>
+          <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Peso inicial</p>
+          <p style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+            {animal.initialWeight != null ? `${Number(animal.initialWeight).toFixed(1)}` : "—"}
+            {animal.initialWeight != null && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", marginLeft: 3 }}>kg</span>}
           </p>
         </div>
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-xs text-[var(--muted)]">Edad (meses)</p>
-          <p className="mt-1 text-xl font-bold text-[var(--ink)]">
+        {/* Edad */}
+        <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "14px 16px" }}>
+          <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Edad</p>
+          <p style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em", lineHeight: 1 }}>
             {animal.estimatedAgeMonths ?? "—"}
+            {animal.estimatedAgeMonths != null && <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", marginLeft: 3 }}>m</span>}
           </p>
         </div>
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-          <p className="text-xs text-[var(--muted)]">Ubicación</p>
-          <p className="mt-1 text-sm font-semibold text-[var(--ink)] truncate">
-            {currentUnit ? currentUnit.name : "Sin asignar"}
+        {/* Ubicación */}
+        <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "14px 16px" }}>
+          <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Ubicación</p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.2 }}>
+            {currentUnit ? currentUnit.name : <span style={{ color: "var(--faint)" }}>Sin asignar</span>}
           </p>
-          {currentUnit && <p className="text-xs text-[var(--muted)]">{currentUnit.type}</p>}
+          {currentUnit && <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>{currentUnit.type}</p>}
         </div>
       </div>
 
-      {/* Details */}
-      <div className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-        <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">Detalles</h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-          {[
-            ["Especie", animal.species],
-            ["Raza", animal.breed ?? "—"],
-            ["Sexo", animal.sex],
-            ["Estado", animal.status],
-            ["Nacimiento", animal.birthDate ? new Date(animal.birthDate).toLocaleDateString("es-MX") : "—"],
-            ["Adquisición", animal.acquisitionDate ? new Date(animal.acquisitionDate).toLocaleDateString("es-MX") : "—"],
-            ["Costo adquisición", animal.acquisitionCost != null ? `$${Number(animal.acquisitionCost).toFixed(2)}` : "—"],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-[var(--muted)]">{label}</dt>
-              <dd className="font-medium text-[var(--ink)]">{value}</dd>
+      {/* Details + Timeline grid */}
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "1fr 1fr" }}>
+        {/* Details */}
+        <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)", padding: "18px 20px" }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 14, letterSpacing: "-0.01em" }}>Detalles</h2>
+          <dl style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              ["Especie",       animal.species],
+              ["Raza",          animal.breed ?? "—"],
+              ["Sexo",          animal.sex],
+              ["Estado",        animal.status],
+              ["Nacimiento",    animal.birthDate ? new Date(animal.birthDate).toLocaleDateString("es-CO") : "—"],
+              ["Adquisición",   animal.acquisitionDate ? new Date(animal.acquisitionDate).toLocaleDateString("es-CO") : "—"],
+              ["Costo adq.",    animal.acquisitionCost != null ? `$${Number(animal.acquisitionCost).toFixed(2)}` : "—"],
+            ].map(([label, value]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 12 }}>
+                <dt style={{ color: "var(--muted)" }}>{label}</dt>
+                <dd style={{ fontWeight: 600, color: "var(--ink)", textAlign: "right" }}>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {animal.notes && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line)" }}>
+              <p style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Notas</p>
+              <p style={{ fontSize: 12, color: "var(--ink)", lineHeight: 1.5 }}>{animal.notes}</p>
             </div>
-          ))}
-        </dl>
-        {animal.notes && (
-          <div className="mt-3 border-t border-[var(--border)] pt-3">
-            <p className="text-xs text-[var(--muted)]">Notas</p>
-            <p className="mt-1 text-xs text-[var(--ink)]">{animal.notes}</p>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
 
-      {/* Timeline */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-        <h2 className="mb-3 text-sm font-semibold text-[var(--ink)]">Historial de actividad</h2>
-        {timeline.length === 0 ? (
-          <p className="text-xs text-[var(--muted)]">Sin actividad registrada.</p>
-        ) : (
-          <ol className="relative ml-2 border-l border-[var(--border)]">
-            {timeline.map((ev) => {
-              const after = ev.after as any;
-              return (
-                <li key={ev.id} className="mb-4 ml-4">
-                  <div className="absolute -left-1.5 h-3 w-3 rounded-full border border-white bg-[var(--accent)]" />
-                  <p className="text-xs font-medium text-[var(--ink)]">
-                    {ACTION_LABELS[ev.action] ?? ev.action}
-                  </p>
-                  {ev.action === "animal.weighed" && after?.currentWeight != null && (
-                    <p className="text-xs text-[var(--muted)]">Nuevo peso: {Number(after.currentWeight).toFixed(1)} kg</p>
-                  )}
-                  {ev.action === "animal.moved" && (
-                    <p className="text-xs text-[var(--muted)]">
-                      Unidad destino: {after?.currentUnitId ?? "Sin asignar"}
+        {/* Timeline */}
+        <div style={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)", padding: "18px 20px" }}>
+          <h2 style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 14, letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 6 }}>
+            <Activity size={13} color="var(--muted)" /> Historial
+          </h2>
+          {timeline.length === 0 ? (
+            <p style={{ fontSize: 12, color: "var(--muted)" }}>Sin actividad registrada.</p>
+          ) : (
+            <ol style={{ position: "relative", paddingLeft: 18, margin: 0, borderLeft: "1px solid var(--line)" }}>
+              {timeline.map(ev => {
+                const cfg = ACTION_LABELS[ev.action] ?? { label: ev.action, color: "var(--muted)" };
+                const after = ev.after as any;
+                return (
+                  <li key={ev.id} style={{ marginBottom: 14, position: "relative" }}>
+                    <div style={{ position: "absolute", left: -22, top: 3, width: 8, height: 8, borderRadius: "50%", background: cfg.color }} />
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 2 }}>{cfg.label}</p>
+                    {ev.action === "animal.weighed" && after?.currentWeight != null && (
+                      <p style={{ fontSize: 11, color: "var(--muted)" }}>Peso: {Number(after.currentWeight).toFixed(1)} kg</p>
+                    )}
+                    {ev.action === "animal.moved" && (
+                      <p style={{ fontSize: 11, color: "var(--muted)" }}>→ {after?.currentUnitId ?? "Sin unidad"}</p>
+                    )}
+                    {ev.action === "animal.status_changed" && (
+                      <p style={{ fontSize: 11, color: "var(--muted)" }}>Estado → {after?.status}</p>
+                    )}
+                    <p style={{ fontSize: 10, color: "var(--faint)", marginTop: 2 }}>
+                      {new Date(ev.createdAt).toLocaleString("es-CO")}
                     </p>
-                  )}
-                  {ev.action === "animal.status_changed" && (
-                    <p className="text-xs text-[var(--muted)]">Estado → {after?.status}</p>
-                  )}
-                  <p className="mt-0.5 text-xs text-[var(--muted)]">
-                    {new Date(ev.createdAt).toLocaleString("es-MX")}
-                  </p>
-                </li>
-              );
-            })}
-          </ol>
-        )}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
       </div>
 
-      {/* Modals */}
+      {/* Modal */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                {modal.type === "weigh" ? "Registrar pesaje" : modal.type === "move" ? "Mover animal" : "Cambiar estado"}
+              </h2>
+              <button onClick={closeModal} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {formError && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{formError}</div>}
 
             {modal.type === "weigh" && (
-              <>
-                <h2 className="mb-4 text-base font-semibold">Registrar pesaje</h2>
-                <form onSubmit={handleWeigh} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Peso (kg) *</label>
-                    <input type="number" step="0.1" min="0" value={weighVal}
-                      onChange={(e) => setWeighVal(e.target.value)} required autoFocus
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy || !weighVal}
-                      className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Guardar"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleWeigh(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div><label className="fl">Peso (kg) *</label><input className="fi" type="number" step="0.1" min="0" value={weighVal} onChange={e => setWeighVal(e.target.value)} required autoFocus /></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy || !weighVal} style={{ flex: 1 }}>{busy ? "Guardando…" : "Guardar"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
             {modal.type === "move" && (
-              <>
-                <h2 className="mb-4 text-base font-semibold">Mover animal</h2>
-                <form onSubmit={handleMove} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Destino</label>
-                    <select value={moveUnit} onChange={(e) => setMoveUnit(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      <option value="">Sin unidad asignada</option>
-                      {units.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.type})</option>)}
-                    </select>
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy}
-                      className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Moviendo..." : "Mover"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleMove(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div>
+                  <label className="fl">Destino</label>
+                  <select className="fi" value={moveUnit} onChange={e => setMoveUnit(e.target.value)}>
+                    <option value="">Sin unidad asignada</option>
+                    {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.type})</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy} style={{ flex: 1 }}>{busy ? "Moviendo…" : "Mover"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
             {modal.type === "status" && (
-              <>
-                <h2 className="mb-1 text-base font-semibold">Cambiar estado</h2>
-                <p className="mb-4 text-xs text-[var(--muted)]">Estado actual: {animal.status}</p>
-                <form onSubmit={handleStatus} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Nuevo estado *</label>
-                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} required
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      <option value="">Seleccionar...</option>
-                      {["SOLD","DEAD","LOST","INACTIVE"].map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy || !newStatus}
-                      className="flex-1 rounded-lg bg-red-500 py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Confirmar"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleStatus(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -8 }}>Estado actual: <strong>{animal.status}</strong></p>
+                <div>
+                  <label className="fl">Nuevo estado *</label>
+                  <select className="fi" value={newStatus} onChange={e => setNewStatus(e.target.value)} required>
+                    <option value="">Seleccionar…</option>
+                    {["SOLD","DEAD","LOST","INACTIVE"].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-danger" disabled={busy || !newStatus} style={{ flex: 1 }}>{busy ? "Guardando…" : "Confirmar"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

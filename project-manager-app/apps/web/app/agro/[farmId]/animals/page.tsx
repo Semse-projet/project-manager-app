@@ -2,100 +2,79 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
+import { Plus, X, Scale, MapPin, RefreshCw, ChevronRight, Beef, Users } from "lucide-react";
 
 interface Animal {
-  id: string;
-  tagCode?: string;
-  species: string;
-  breed?: string;
-  sex: string;
-  status: string;
-  currentWeight?: number;
-  estimatedAgeMonths?: number;
-  currentUnitId?: string;
+  id: string; tagCode?: string; species: string; breed?: string;
+  sex: string; status: string; currentWeight?: number;
+  estimatedAgeMonths?: number; currentUnitId?: string;
 }
-
 interface Group {
-  id: string;
-  name: string;
-  species: string;
-  count: number;
-  status: string;
-  averageWeight?: number;
+  id: string; name: string; species: string; count: number;
+  status: string; averageWeight?: number;
 }
+interface FarmUnit { id: string; name: string; type: string; }
 
-interface FarmUnit {
-  id: string;
-  name: string;
-  type: string;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  ACTIVE:   "bg-green-100 text-green-700",
-  SOLD:     "bg-gray-100 text-gray-600",
-  DEAD:     "bg-red-100 text-red-700",
-  LOST:     "bg-amber-100 text-amber-700",
-  INACTIVE: "bg-gray-100 text-gray-500",
+const STATUS_BADGE: Record<string, string> = {
+  ACTIVE:   "badge badge-green",
+  SOLD:     "badge badge-slate",
+  DEAD:     "badge badge-red",
+  LOST:     "badge badge-amber",
+  INACTIVE: "badge badge-slate",
 };
-
 const SPECIES = ["CATTLE","PIG","GOAT","SHEEP","HORSE","CHICKEN","OTHER"];
 const SEXES   = ["MALE","FEMALE","UNKNOWN"];
 
+function farmTabs(farmId: string) {
+  return [
+    { href: `/agro/${farmId}`,           label: "Dashboard"  },
+    { href: `/agro/${farmId}/animals`,   label: "Animales"   },
+    { href: `/agro/${farmId}/tasks`,     label: "Tareas"     },
+    { href: `/agro/${farmId}/inventory`, label: "Inventario" },
+    { href: `/agro/${farmId}/costs`,     label: "Costos"     },
+    { href: `/agro/${farmId}/evidence`,  label: "Evidencia"  },
+    { href: `/agro/${farmId}/audit`,     label: "Auditoría"  },
+  ];
+}
+
 export default function AnimalsPage() {
-  const { farmId } = useParams<{ farmId: string }>();
-  const [animals, setAnimals]   = useState<Animal[]>([]);
-  const [groups, setGroups]     = useState<Group[]>([]);
-  const [units, setUnits]       = useState<FarmUnit[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [tab, setTab]           = useState<"animals" | "groups">("animals");
+  const { farmId }  = useParams<{ farmId: string }>();
+  const pathname    = usePathname();
+  const [animals, setAnimals] = useState<Animal[]>([]);
+  const [groups, setGroups]   = useState<Group[]>([]);
+  const [units, setUnits]     = useState<FarmUnit[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [view, setView]       = useState<"animals" | "groups">("animals");
 
-  // modal state
-  const [modal, setModal] = useState<
-    | { type: "create-animal" }
-    | { type: "create-group" }
-    | { type: "weigh";  animal: Animal }
-    | { type: "move";   animal: Animal }
-    | { type: "status"; animal: Animal }
-    | { type: "adjust"; group: Group }
-    | null
-  >(null);
-
-  const [busy, setBusy]       = useState(false);
+  type ModalType =
+    | { type: "create-animal" } | { type: "create-group" }
+    | { type: "weigh";  animal: Animal } | { type: "move";  animal: Animal }
+    | { type: "status"; animal: Animal } | { type: "adjust"; group: Group };
+  const [modal, setModal]         = useState<ModalType | null>(null);
+  const [busy, setBusy]           = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // create animal form
-  const [newSpecies, setNewSpecies]   = useState("CATTLE");
-  const [newSex, setNewSex]           = useState("UNKNOWN");
-  const [newTag, setNewTag]           = useState("");
-  const [newBreed, setNewBreed]       = useState("");
-  const [newWeight, setNewWeight]     = useState("");
-
-  // create group form
-  const [grpName, setGrpName]         = useState("");
-  const [grpSpecies, setGrpSpecies]   = useState("CATTLE");
-  const [grpCount, setGrpCount]       = useState("");
-  const [grpWeight, setGrpWeight]     = useState("");
-
-  // weigh form
-  const [weighVal, setWeighVal] = useState("");
-
-  // move form
-  const [moveUnit, setMoveUnit] = useState("");
-
-  // status form
-  const [newStatus, setNewStatus] = useState("");
-
-  // adjust count form
-  const [adjustDelta, setAdjustDelta] = useState("");
+  const [newSpecies, setNewSpecies] = useState("CATTLE");
+  const [newSex, setNewSex]         = useState("UNKNOWN");
+  const [newTag, setNewTag]         = useState("");
+  const [newBreed, setNewBreed]     = useState("");
+  const [newWeight, setNewWeight]   = useState("");
+  const [grpName, setGrpName]       = useState("");
+  const [grpSpecies, setGrpSpecies] = useState("CATTLE");
+  const [grpCount, setGrpCount]     = useState("");
+  const [grpWeight, setGrpWeight]   = useState("");
+  const [weighVal, setWeighVal]     = useState("");
+  const [moveUnit, setMoveUnit]     = useState("");
+  const [newStatus, setNewStatus]   = useState("");
+  const [adjustDelta, setAdjustDelta]   = useState("");
   const [adjustReason, setAdjustReason] = useState("");
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
 
   async function load() {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const [ar, gr, ur] = await Promise.all([
         fetch(`/api/semse/agro/farms/${farmId}/animals`),
@@ -105,36 +84,20 @@ export default function AnimalsPage() {
       const aj = await ar.json();
       if (!ar.ok) throw new Error(aj?.error?.message ?? "Error animales");
       setAnimals((aj.data as any)?.animals ?? []);
-      try {
-        const gj = await gr.json();
-        setGroups((gj.data as any)?.groups ?? []);
-      } catch { /* grupos secundario */ }
-      try {
-        const uj = await ur.json();
-        setUnits((uj.data as any)?.units ?? []);
-      } catch { /* units secundario */ }
-    } catch (err: any) {
-      setError(err?.message ?? "Error cargando animales");
-    } finally {
-      setLoading(false);
-    }
+      try { const gj = await gr.json(); setGroups((gj.data as any)?.groups ?? []); } catch { /* secundario */ }
+      try { const uj = await ur.json(); setUnits((uj.data as any)?.units ?? []); } catch { /* secundario */ }
+    } catch (err: any) { setError(err?.message ?? "Error cargando animales"); }
+    finally { setLoading(false); }
   }
 
   function closeModal() { setModal(null); setFormError(null); setBusy(false); }
 
   async function handleCreateAnimal(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true); setFormError(null);
+    e.preventDefault(); setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/farms/${farmId}/animals`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          species: newSpecies, sex: newSex,
-          tagCode: newTag || undefined,
-          breed: newBreed || undefined,
-          initialWeight: newWeight ? parseFloat(newWeight) : undefined,
-        }),
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ species: newSpecies, sex: newSex, tagCode: newTag || undefined, breed: newBreed || undefined, initialWeight: newWeight ? parseFloat(newWeight) : undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
@@ -144,19 +107,12 @@ export default function AnimalsPage() {
   }
 
   async function handleCreateGroup(e: React.FormEvent) {
-    e.preventDefault();
-    if (!grpName.trim() || !grpCount) return;
+    e.preventDefault(); if (!grpName.trim() || !grpCount) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/farms/${farmId}/animals`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          _isGroup: true,
-          name: grpName, species: grpSpecies,
-          count: parseInt(grpCount, 10),
-          averageWeight: grpWeight ? parseFloat(grpWeight) : undefined,
-        }),
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ _isGroup: true, name: grpName, species: grpSpecies, count: parseInt(grpCount, 10), averageWeight: grpWeight ? parseFloat(grpWeight) : undefined }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
@@ -166,13 +122,11 @@ export default function AnimalsPage() {
   }
 
   async function handleWeigh(e: React.FormEvent) {
-    e.preventDefault();
-    if (modal?.type !== "weigh" || !weighVal) return;
+    e.preventDefault(); if (modal?.type !== "weigh" || !weighVal) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animals/${modal.animal.id}/weigh`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ weight: parseFloat(weighVal) }),
       });
       const json = await res.json();
@@ -182,13 +136,11 @@ export default function AnimalsPage() {
   }
 
   async function handleMove(e: React.FormEvent) {
-    e.preventDefault();
-    if (modal?.type !== "move") return;
+    e.preventDefault(); if (modal?.type !== "move") return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animals/${modal.animal.id}/move`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ targetUnitId: moveUnit || null }),
       });
       const json = await res.json();
@@ -198,13 +150,11 @@ export default function AnimalsPage() {
   }
 
   async function handleStatusChange(e: React.FormEvent) {
-    e.preventDefault();
-    if (modal?.type !== "status" || !newStatus) return;
+    e.preventDefault(); if (modal?.type !== "status" || !newStatus) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animals/${modal.animal.id}/status`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
       const json = await res.json();
@@ -214,13 +164,11 @@ export default function AnimalsPage() {
   }
 
   async function handleAdjustCount(e: React.FormEvent) {
-    e.preventDefault();
-    if (modal?.type !== "adjust" || !adjustDelta) return;
+    e.preventDefault(); if (modal?.type !== "adjust" || !adjustDelta) return;
     setBusy(true); setFormError(null);
     try {
       const res = await fetch(`/api/semse/agro/animal-groups/${modal.group.id}/adjust-count`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ delta: parseInt(adjustDelta, 10), reason: adjustReason || undefined }),
       });
       const json = await res.json();
@@ -229,300 +177,273 @@ export default function AnimalsPage() {
     } catch (err: any) { setFormError(err?.message); } finally { setBusy(false); }
   }
 
+  const tabs = farmId ? farmTabs(farmId) : [];
+
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <nav className="mb-6 flex items-center gap-2 text-xs text-[var(--muted)]">
-        <Link href="/agro" className="hover:text-[var(--accent)]">Agro</Link>
-        <span>/</span>
-        <Link href={`/agro/${farmId}`} className="hover:text-[var(--accent)]">Finca</Link>
-        <span>/</span>
-        <span className="text-[var(--ink)]">Animales</span>
+    <div className="agro-shell">
+      {/* Breadcrumb */}
+      <nav className="bread">
+        <Link href="/agro">Agro</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <Link href={`/agro/${farmId}`}>Finca</Link>
+        <ChevronRight size={12} color="var(--faint)" />
+        <span style={{ color: "var(--ink)" }}>Animales</span>
       </nav>
 
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[var(--ink)]">Animales</h1>
+      {/* Title row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>Animales</h1>
         <button
-          onClick={() => setModal(tab === "animals" ? { type: "create-animal" } : { type: "create-group" })}
-          className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+          className="btn-accent"
+          onClick={() => setModal(view === "animals" ? { type: "create-animal" } : { type: "create-group" })}
         >
-          + {tab === "animals" ? "Nuevo animal" : "Nuevo grupo"}
+          <Plus size={13} /> {view === "animals" ? "Nuevo animal" : "Nuevo grupo"}
         </button>
       </div>
 
-      <div className="mb-4 flex gap-1">
-        {(["animals", "groups"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium ${tab === t ? "bg-[var(--accent)] text-white" : "text-[var(--muted)] hover:bg-[var(--surface)]"}`}>
-            {t === "animals" ? "Individuales" : "Grupos"}
+      {/* Farm tabs */}
+      <nav className="tab-bar">
+        {tabs.map(tab => (
+          <Link key={tab.href} href={tab.href} className="tab-item"
+            data-active={pathname === tab.href || (tab.href.includes("/animals") && (pathname ?? "").includes("/animals")) ? "true" : "false"}>
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/* View toggle */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+        {(["animals", "groups"] as const).map(v => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className={view === v ? "btn-primary" : "btn-ghost"}
+            style={{ fontSize: 12, padding: "5px 14px" }}
+          >
+            {v === "animals" ? (<><Beef size={12} /> Individuales</>) : (<><Users size={12} /> Grupos</>)}
           </button>
         ))}
       </div>
 
-      {error && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{error}</div>}
 
       {loading ? (
-        <div className="text-sm text-[var(--muted)]">Cargando...</div>
-      ) : tab === "animals" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[1,2,3,4].map(i => <div key={i} className="skel" style={{ height: 48 }} />)}
+        </div>
+      ) : view === "animals" ? (
         animals.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">Sin animales registrados.</p>
+          <div className="empty-state">
+            <Beef size={36} className="empty-icon" />
+            <p className="empty-title">Sin animales registrados</p>
+            <p className="empty-desc">Registra el primer animal para comenzar el seguimiento individual.</p>
+            <button className="btn-accent" onClick={() => setModal({ type: "create-animal" })}>
+              <Plus size={13} /> Nuevo animal
+            </button>
+          </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--surface)] text-xs text-[var(--muted)]">
-                <tr>
-                  {["Tag","Especie","Raza","Sexo","Peso (kg)","Estado",""].map((h) => (
-                    <th key={h} className="px-4 py-2 text-left font-medium">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border)]">
-                {animals.map((a) => (
-                  <tr key={a.id} className="hover:bg-[var(--surface)]">
-                    <td className="px-4 py-2 font-mono text-xs">
-                      <Link href={`/agro/${farmId}/animals/${a.id}`} className="hover:text-[var(--accent)] hover:underline">
-                        {a.tagCode ?? "—"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2">{a.species}</td>
-                    <td className="px-4 py-2 text-[var(--muted)]">{a.breed ?? "—"}</td>
-                    <td className="px-4 py-2">{a.sex}</td>
-                    <td className="px-4 py-2">{a.currentWeight != null ? Number(a.currentWeight).toFixed(1) : "—"}</td>
-                    <td className="px-4 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[a.status] ?? ""}`}>{a.status}</span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex gap-1">
-                        <button onClick={() => { setWeighVal(""); setModal({ type: "weigh", animal: a }); }}
-                          className="rounded px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]" title="Pesar">⚖️</button>
-                        <button onClick={() => { setMoveUnit(a.currentUnitId ?? ""); setModal({ type: "move", animal: a }); }}
-                          className="rounded px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]" title="Mover">📍</button>
-                        {a.status === "ACTIVE" && (
-                          <button onClick={() => { setNewStatus(""); setModal({ type: "status", animal: a }); }}
-                            className="rounded px-2 py-1 text-xs text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]" title="Cambiar estado">🔄</button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", overflow: "hidden" }}>
+            {/* Table header */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px 80px 90px 88px", gap: 0, padding: "8px 16px", borderBottom: "1px solid var(--line)", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <span>Tag / Especie</span><span>Raza</span><span>Sexo</span><span>Peso</span><span>Ubicación</span><span>Estado</span><span style={{ textAlign: "right" }}>Acciones</span>
+            </div>
+            {animals.map(a => (
+              <div key={a.id} className="data-row" style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 60px 80px 90px 88px", alignItems: "center" }}>
+                <div>
+                  <Link href={`/agro/${farmId}/animals/${a.id}`}
+                    style={{ fontSize: 13, fontWeight: 600, color: "var(--brand)", textDecoration: "none", fontFamily: "var(--font-mono)" }}>
+                    {a.tagCode ?? "—"}
+                  </Link>
+                  <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>{a.species}</p>
+                </div>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>{a.breed ?? "—"}</span>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>{a.sex}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                  {a.currentWeight != null ? `${Number(a.currentWeight).toFixed(1)} kg` : "—"}
+                </span>
+                <span style={{ fontSize: 11, color: "var(--faint)" }}>
+                  {a.currentUnitId ? units.find(u => u.id === a.currentUnitId)?.name ?? "—" : "—"}
+                </span>
+                <span className={STATUS_BADGE[a.status] ?? "badge badge-slate"}>{a.status}</span>
+                <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => { setWeighVal(""); setModal({ type: "weigh", animal: a }); }}
+                    title="Pesar"
+                    style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex" }}
+                  ><Scale size={13} /></button>
+                  <button
+                    onClick={() => { setMoveUnit(a.currentUnitId ?? ""); setModal({ type: "move", animal: a }); }}
+                    title="Mover"
+                    style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex" }}
+                  ><MapPin size={13} /></button>
+                  {a.status === "ACTIVE" && (
+                    <button
+                      onClick={() => { setNewStatus(""); setModal({ type: "status", animal: a }); }}
+                      title="Cambiar estado"
+                      style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex" }}
+                    ><RefreshCw size={13} /></button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )
       ) : (
         groups.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">Sin grupos registrados.</p>
+          <div className="empty-state">
+            <Users size={36} className="empty-icon" />
+            <p className="empty-title">Sin grupos registrados</p>
+            <p className="empty-desc">Crea grupos para gestionar lotes de animales con seguimiento colectivo.</p>
+            <button className="btn-accent" onClick={() => setModal({ type: "create-group" })}>
+              <Plus size={13} /> Nuevo grupo
+            </button>
+          </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {groups.map((g) => (
-              <div key={g.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                <div className="mb-1 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-[var(--ink)]">{g.name}</h3>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[g.status] ?? ""}`}>{g.status}</span>
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
+            {groups.map(g => (
+              <div key={g.id} style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", padding: "16px 18px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{g.name}</span>
+                  <span className={STATUS_BADGE[g.status] ?? "badge badge-slate"}>{g.status}</span>
                 </div>
-                <p className="text-xs text-[var(--muted)]">{g.species} · {g.count} animales</p>
-                {g.averageWeight != null && <p className="text-xs text-[var(--muted)]">Peso prom: {Number(g.averageWeight).toFixed(1)} kg</p>}
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => { setAdjustDelta(""); setAdjustReason(""); setModal({ type: "adjust", group: g }); }}
-                    className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--muted)] hover:text-[var(--ink)]">
-                    Ajustar conteo
-                  </button>
+                <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{g.species}</p>
+                <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 11, color: "var(--faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Cantidad</p>
+                    <p style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>{g.count}</p>
+                  </div>
+                  {g.averageWeight != null && (
+                    <div>
+                      <p style={{ fontSize: 11, color: "var(--faint)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Peso prom.</p>
+                      <p style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.03em" }}>{Number(g.averageWeight).toFixed(0)} kg</p>
+                    </div>
+                  )}
                 </div>
+                <button
+                  onClick={() => { setAdjustDelta(""); setAdjustReason(""); setModal({ type: "adjust", group: g }); }}
+                  className="btn-ghost"
+                  style={{ fontSize: 12, padding: "5px 12px", width: "100%" }}
+                >
+                  Ajustar conteo
+                </button>
               </div>
             ))}
           </div>
         )
       )}
 
-      {/* ── Modales ─────────────────────────────────────────── */}
+      {/* Modal */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={closeModal}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && closeModal()}>
+          <div className="modal-panel" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.01em" }}>
+                {modal.type === "create-animal" ? "Nuevo animal"
+                  : modal.type === "create-group" ? "Nuevo grupo"
+                  : modal.type === "weigh" ? "Registrar pesaje"
+                  : modal.type === "move" ? "Mover animal"
+                  : modal.type === "status" ? "Cambiar estado"
+                  : "Ajustar conteo"}
+              </h2>
+              <button onClick={closeModal} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {formError && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{formError}</div>}
 
             {/* Create animal */}
             {modal.type === "create-animal" && (
-              <>
-                <h2 className="mb-4 text-base font-semibold">Nuevo animal</h2>
-                <form onSubmit={handleCreateAnimal} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Especie *</label>
-                    <select value={newSpecies} onChange={(e) => setNewSpecies(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      {SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Sexo *</label>
-                    <select value={newSex} onChange={(e) => setNewSex(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      {SEXES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Código de tag</label>
-                    <input value={newTag} onChange={(e) => setNewTag(e.target.value)} placeholder="Ej. MX-001"
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Raza</label>
-                    <input value={newBreed} onChange={(e) => setNewBreed(e.target.value)} placeholder="Ej. Angus"
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Peso inicial (kg)</label>
-                    <input type="number" step="0.1" min="0" value={newWeight} onChange={(e) => setNewWeight(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Crear"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleCreateAnimal(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div><label className="fl">Especie *</label><select className="fi" value={newSpecies} onChange={e => setNewSpecies(e.target.value)}>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
+                <div><label className="fl">Sexo *</label><select className="fi" value={newSex} onChange={e => setNewSex(e.target.value)}>{SEXES.map(s => <option key={s}>{s}</option>)}</select></div>
+                <div><label className="fl">Código tag</label><input className="fi" value={newTag} onChange={e => setNewTag(e.target.value)} placeholder="Ej. MX-001" /></div>
+                <div><label className="fl">Raza</label><input className="fi" value={newBreed} onChange={e => setNewBreed(e.target.value)} placeholder="Ej. Angus" /></div>
+                <div><label className="fl">Peso inicial (kg)</label><input className="fi" type="number" step="0.1" min="0" value={newWeight} onChange={e => setNewWeight(e.target.value)} /></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy} style={{ flex: 1 }}>{busy ? "Guardando…" : "Crear animal"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
             {/* Create group */}
             {modal.type === "create-group" && (
-              <>
-                <h2 className="mb-4 text-base font-semibold">Nuevo grupo</h2>
-                <form onSubmit={handleCreateGroup} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Nombre del grupo *</label>
-                    <input value={grpName} onChange={(e) => setGrpName(e.target.value)} required placeholder="Ej. Lote Norte"
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Especie *</label>
-                    <select value={grpSpecies} onChange={(e) => setGrpSpecies(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      {SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Cantidad *</label>
-                    <input type="number" min="1" value={grpCount} onChange={(e) => setGrpCount(e.target.value)} required
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Peso promedio (kg)</label>
-                    <input type="number" step="0.1" min="0" value={grpWeight} onChange={(e) => setGrpWeight(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Crear"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleCreateGroup(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div><label className="fl">Nombre *</label><input className="fi" value={grpName} onChange={e => setGrpName(e.target.value)} required placeholder="Ej. Lote Norte" /></div>
+                <div><label className="fl">Especie *</label><select className="fi" value={grpSpecies} onChange={e => setGrpSpecies(e.target.value)}>{SPECIES.map(s => <option key={s}>{s}</option>)}</select></div>
+                <div><label className="fl">Cantidad *</label><input className="fi" type="number" min="1" value={grpCount} onChange={e => setGrpCount(e.target.value)} required /></div>
+                <div><label className="fl">Peso promedio (kg)</label><input className="fi" type="number" step="0.1" min="0" value={grpWeight} onChange={e => setGrpWeight(e.target.value)} /></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy} style={{ flex: 1 }}>{busy ? "Guardando…" : "Crear grupo"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
             {/* Weigh */}
             {modal.type === "weigh" && (
-              <>
-                <h2 className="mb-1 text-base font-semibold">Registrar pesaje</h2>
-                <p className="mb-4 text-xs text-[var(--muted)]">{modal.animal.tagCode ?? modal.animal.species}</p>
-                <form onSubmit={handleWeigh} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Peso (kg) *</label>
-                    <input type="number" step="0.1" min="0" value={weighVal} onChange={(e) => setWeighVal(e.target.value)} required autoFocus
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy || !weighVal} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Guardar"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleWeigh(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -8 }}>{modal.animal.tagCode ?? modal.animal.species}</p>
+                <div><label className="fl">Peso (kg) *</label><input className="fi" type="number" step="0.1" min="0" value={weighVal} onChange={e => setWeighVal(e.target.value)} required autoFocus /></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy || !weighVal} style={{ flex: 1 }}>{busy ? "Guardando…" : "Guardar peso"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
             {/* Move */}
             {modal.type === "move" && (
-              <>
-                <h2 className="mb-1 text-base font-semibold">Mover animal</h2>
-                <p className="mb-4 text-xs text-[var(--muted)]">{modal.animal.tagCode ?? modal.animal.species}</p>
-                <form onSubmit={handleMove} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Destino</label>
-                    <select value={moveUnit} onChange={(e) => setMoveUnit(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      <option value="">Sin unidad asignada</option>
-                      {units.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.type})</option>)}
-                    </select>
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Moviendo..." : "Mover"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleMove(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -8 }}>{modal.animal.tagCode ?? modal.animal.species}</p>
+                <div>
+                  <label className="fl">Destino</label>
+                  <select className="fi" value={moveUnit} onChange={e => setMoveUnit(e.target.value)}>
+                    <option value="">Sin unidad asignada</option>
+                    {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.type})</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy} style={{ flex: 1 }}>{busy ? "Moviendo…" : "Mover"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
-            {/* Status change */}
+            {/* Status */}
             {modal.type === "status" && (
-              <>
-                <h2 className="mb-1 text-base font-semibold">Cambiar estado</h2>
-                <p className="mb-4 text-xs text-[var(--muted)]">{modal.animal.tagCode ?? modal.animal.species} — actual: {modal.animal.status}</p>
-                <form onSubmit={handleStatusChange} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Nuevo estado *</label>
-                    <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} required
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm">
-                      <option value="">Seleccionar...</option>
-                      {["SOLD","DEAD","LOST","INACTIVE"].map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy || !newStatus} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Confirmar"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleStatusChange(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -8 }}>{modal.animal.tagCode ?? modal.animal.species} — actual: <strong>{modal.animal.status}</strong></p>
+                <div>
+                  <label className="fl">Nuevo estado *</label>
+                  <select className="fi" value={newStatus} onChange={e => setNewStatus(e.target.value)} required>
+                    <option value="">Seleccionar…</option>
+                    {["SOLD","DEAD","LOST","INACTIVE"].map(s => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy || !newStatus} style={{ flex: 1 }}>{busy ? "Guardando…" : "Confirmar"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
 
-            {/* Adjust group count */}
+            {/* Adjust count */}
             {modal.type === "adjust" && (
-              <>
-                <h2 className="mb-1 text-base font-semibold">Ajustar conteo</h2>
-                <p className="mb-4 text-xs text-[var(--muted)]">{modal.group.name} — actual: {modal.group.count}</p>
-                <form onSubmit={handleAdjustCount} className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Delta (positivo o negativo) *</label>
-                    <input type="number" value={adjustDelta} onChange={(e) => setAdjustDelta(e.target.value)} required autoFocus
-                      placeholder="Ej. -3 o +5"
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-[var(--muted)]">Razón</label>
-                    <input value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} placeholder="Venta, muerte, nacimiento..."
-                      className="w-full rounded-lg border border-[var(--border)] px-3 py-2 text-sm" />
-                  </div>
-                  {formError && <p className="text-xs text-red-600">{formError}</p>}
-                  <div className="flex gap-2 pt-1">
-                    <button type="button" onClick={closeModal} className="flex-1 rounded-lg border border-[var(--border)] py-2 text-sm">Cancelar</button>
-                    <button type="submit" disabled={busy || !adjustDelta} className="flex-1 rounded-lg bg-[var(--accent)] py-2 text-sm text-white disabled:opacity-50">
-                      {busy ? "Guardando..." : "Ajustar"}
-                    </button>
-                  </div>
-                </form>
-              </>
+              <form onSubmit={e => void handleAdjustCount(e)} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -8 }}>{modal.group.name} — actual: <strong>{modal.group.count}</strong></p>
+                <div><label className="fl">Delta (± número) *</label><input className="fi" type="number" value={adjustDelta} onChange={e => setAdjustDelta(e.target.value)} required autoFocus placeholder="Ej. -3 o 5" /></div>
+                <div><label className="fl">Razón</label><input className="fi" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} placeholder="Venta, muerte, nacimiento…" /></div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="submit" className="btn-accent" disabled={busy || !adjustDelta} style={{ flex: 1 }}>{busy ? "Guardando…" : "Ajustar"}</button>
+                  <button type="button" className="btn-ghost" onClick={closeModal}>Cancelar</button>
+                </div>
+              </form>
             )}
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
