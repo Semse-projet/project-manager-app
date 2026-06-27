@@ -60,6 +60,14 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: "/como-funciona",
+        destination: "/?semse_usage_guide=1",
+      },
+    ];
+  },
 };
 
 export default nextConfig;
