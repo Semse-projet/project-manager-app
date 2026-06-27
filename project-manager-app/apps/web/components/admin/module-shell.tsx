@@ -35,7 +35,7 @@ export function ModuleShell({
 
       <section className="mt-6">
         <div className="mb-3 flex items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">Legacy routes</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">Sub-modules</h2>
           <Link href="/admin/mission-control" className="text-sm font-medium text-brand hover:text-brand-dim">
             Mission Control
           </Link>
