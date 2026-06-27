@@ -56,6 +56,13 @@ function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
+  if (pathname === "/como-funciona") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    url.searchParams.set("semse_usage_guide", "1");
+    return NextResponse.rewrite(url);
+  }
+
   // ── 1. Skip static + public routes ─────────────────────────────────────────
   if (isPublic(pathname)) {
     const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;
