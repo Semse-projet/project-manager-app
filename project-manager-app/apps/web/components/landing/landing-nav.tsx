@@ -5,11 +5,11 @@ import { useState, useEffect } from "react";
 import { Menu, X, Sparkles, LogIn, PlusCircle, Sun, Moon } from "lucide-react";
 
 const NAV_LINKS = [
-  { label: "Servicios", href: "#servicios" },
-  { label: "Cómo funciona", href: "#como-funciona" },
-  { label: "Pagos seguros", href: "#pagos" },
-  { label: "Prometeo IA", href: "#prometeo" },
-  { label: "Profesionales", href: "#profesionales" },
+  { label: "Servicios", href: "/#servicios" },
+  { label: "Cómo funciona", href: "/como-funciona" },
+  { label: "Pagos seguros", href: "/#pagos" },
+  { label: "Prometeo IA", href: "/#prometeo" },
+  { label: "Profesionales", href: "/#profesionales" },
 ];
 
 export function LandingNav() {
@@ -158,4 +158,3 @@ export function LandingNav() {
     </nav>
   );
 }
-
