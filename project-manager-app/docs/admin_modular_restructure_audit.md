@@ -58,14 +58,16 @@ Existing Admin pages:
 - `/admin/vision`
 - `/admin/worker`
 
-## Missing Modular Hubs
+## Modular Hub Status
 
-The SDD kit expects the following module hub routes. They are not present yet:
+The SDD kit expects the following module hub routes. These are now implemented and deployed:
 
-- `/admin/workops`
-- `/admin/intelligence`
-- `/admin/tool-hub`
-- `/admin/verticals`
+| Route | Status | Notes |
+|---|---|---|
+| `/admin/workops` | Implemented | Links field ops, workers, contractors, change orders, PMO, and QA. |
+| `/admin/intelligence` | Implemented | Links AI mission control, agents, autonomy, Prometeo, memory, and rooms. |
+| `/admin/tool-hub` | Implemented | Includes external-tool grid and Context Bridge MVP. |
+| `/admin/verticals` | Implemented | Links active vertical surfaces and future vertical shells. |
 
 ## Navigation Sources
 
@@ -81,9 +83,9 @@ Current navigation is split across several files:
 - `apps/web/app/nav.tsx`
   - Top-level public/app navigation, not Admin-specific.
 
-There is no dedicated modular Admin navigation contract yet:
+Dedicated modular Admin navigation contract:
 
-- Missing: `apps/web/lib/admin/admin-navigation.ts`
+- Implemented: `apps/web/lib/admin/admin-navigation.ts`
 
 ## Suggested Module Mapping
 
@@ -158,9 +160,9 @@ There is no dedicated modular Admin navigation contract yet:
 
 ## Components
 
-There is no Admin component directory yet:
+Admin component directory:
 
-- Missing: `apps/web/components/admin`
+- Implemented: `apps/web/components/admin`
 
 Reusable UI primitives exist in:
 
@@ -187,20 +189,25 @@ The following existing pages can be linked from module hubs without moving or de
 - Avoid touching Prisma, NestJS API modules, Railway configuration, or database migrations in this phase.
 - The repository currently has unrelated uncommitted changes in payment specs, escrow specs, and API tests. This Admin work should not modify those files.
 
-## Recommended First Implementation
+## Implemented First Pass
 
-1. Add `.semse-sdd/` from the plus kit.
-2. Add `apps/web/lib/admin/admin-navigation.ts`.
-3. Add small shared Admin components:
+1. Added `apps/web/lib/admin/admin-navigation.ts`.
+2. Added small shared Admin components:
    - `apps/web/components/admin/module-card.tsx`
    - `apps/web/components/admin/module-shell.tsx`
    - `apps/web/components/admin/context-bridge-panel.tsx`
-4. Add hub routes:
+3. Added hub routes:
    - `apps/web/app/(app)/admin/workops/page.tsx`
    - `apps/web/app/(app)/admin/intelligence/page.tsx`
    - `apps/web/app/(app)/admin/tool-hub/page.tsx`
    - `apps/web/app/(app)/admin/verticals/page.tsx`
-5. Keep all legacy routes available.
-6. Validate with:
-   - `pnpm exec tsc --noEmit --project apps/web/tsconfig.json`
-   - `pnpm --filter @semse/web build`
+4. Kept all legacy routes available.
+5. Wired Admin sidebar navigation.
+6. Added Mission Control module cards.
+7. Validated and deployed through GitHub Actions and Railway.
+
+## Remaining Follow-Up
+
+- Decide whether to version the full `.semse-sdd/` kit. It is currently kept out of `main` because the extracted kit includes about 22 MB of visual PNG references.
+- Add a lightweight UI smoke script for the new authenticated admin route redirects.
+- Expand Verticals beyond linked surfaces when each vertical has a dedicated route spec.
