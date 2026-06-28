@@ -28,6 +28,7 @@
 |---|---|---|---|---|---|---|---|---|
 | [semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | high | yes | no | yes | 5 | 2026-06-09 |
 | [api-agents-runtime](docs/specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-bff-auth-boundary](docs/specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | high | yes | yes | yes | 3 | 2026-06-28 |
 | [api-buildops](docs/specs/api/buildops.spec.md) | buildops | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
 | [api-change-orders](docs/specs/api/change-orders.spec.md) | change-orders | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-communications](docs/specs/api/communications.spec.md) | communications | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
@@ -71,8 +72,8 @@
 | [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
-
 <!-- SPEC_INDEX:END -->
+
 
 
 
