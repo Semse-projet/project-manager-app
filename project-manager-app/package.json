@@ -100,6 +100,10 @@
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.5.5",
     "@playwright/test": "^1.61.0",
+    "@semse/agents": "workspace:*",
+    "@semse/knowledge": "workspace:*",
+    "@semse/schemas": "workspace:*",
+    "@semse/shared": "workspace:*",
     "c8": "^11.0.0",
     "confbox": "^0.2.4",
     "typescript": "^5.8.2"
