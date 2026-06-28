@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import {
@@ -28,6 +28,13 @@ import {
   fetchFieldWorklogs
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, init);
+  const json = await res.json() as { data?: T; error?: { message?: string } };
+  if (!res.ok) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+  return json.data as T;
+}
 
 type UnitStatus = "PENDING" | "IN_PROGRESS" | "COMPLETE" | "ON_HOLD" | "CANCELLED";
 type FactVisibility = "TEAM" | "ORG" | "PUBLIC";
@@ -114,6 +121,12 @@ const COMPLIANCE_META: Record<ComplianceStatus, { label: string; color: string; 
   MISSING: { label: "Faltante", color: "#6b7280", Icon: ShieldAlert }
 };
 
+const inputStyle: React.CSSProperties = {
+  width: "100%", padding: "7px 10px",
+  border: "1px solid var(--border)", borderRadius: 8,
+  background: "var(--bg, #0a0a0a)", color: "var(--ink)", fontSize: 13,
+};
+
 function confidenceBar(confidence: number) {
   const pct = Math.max(0, Math.min(100, Math.round(confidence * 100)));
   return (
@@ -152,14 +165,42 @@ function ErrorState({ error }: { error: string }) {
   );
 }
 
-function UnitsTab({
-  state
-}: {
-  state: RemoteState<FieldUnit[]>;
-}) {
+// ── Units Tab ─────────────────────────────────────────────────────────────────
+
+function UnitsTab({ state, onRefresh }: { state: RemoteState<FieldUnit[]>; onRefresh: () => void }) {
   const [filterStatus, setFilterStatus] = useState<UnitStatus | "ALL">("ALL");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [fCode, setFCode] = useState("");
+  const [fName, setFName] = useState("");
+  const [fAddress, setFAddress] = useState("");
+  const [fProjectId, setFProjectId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true); setSaveErr(null);
+    try {
+      await apiFetch("/api/semse/field-ops/units", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          code: fCode.trim(),
+          name: fName.trim() || undefined,
+          address: fAddress.trim() || undefined,
+          projectId: fProjectId.trim() || undefined,
+        }),
+      });
+      setShowCreate(false); setFCode(""); setFName(""); setFAddress(""); setFProjectId("");
+      onRefresh();
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : "Error al crear");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const filtered = useMemo(
     () =>
@@ -184,7 +225,7 @@ function UnitsTab({
             <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar unidad..."
               style={{ width: "100%", padding: "8px 12px 8px 32px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
             />
@@ -194,10 +235,7 @@ function UnitsTab({
               key={status}
               onClick={() => setFilterStatus(status)}
               style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                fontSize: 12,
-                cursor: "pointer",
+                padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
                 border: "1px solid var(--border)",
                 background: filterStatus === status ? "var(--brand)" : "var(--surface)",
                 color: filterStatus === status ? "#fff" : "var(--ink)"
@@ -206,10 +244,42 @@ function UnitsTab({
               {status === "ALL" ? "Todas" : UNIT_STATUS_META[status].label}
             </button>
           ))}
-          <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}>
-            <Plus size={14} /> Nueva unidad
+          <button
+            onClick={() => setShowCreate(s => !s)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}
+          >
+            <Plus size={14} /> {showCreate ? "Cancelar" : "Nueva unidad"}
           </button>
         </div>
+
+        {showCreate && (
+          <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nueva unidad de campo</div>
+            {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Código *</label>
+                <input required value={fCode} onChange={e => setFCode(e.target.value)} placeholder="Ej. FU-001" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Nombre</label>
+                <input value={fName} onChange={e => setFName(e.target.value)} placeholder="Nombre de la unidad" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Dirección</label>
+                <input value={fAddress} onChange={e => setFAddress(e.target.value)} placeholder="Dirección física" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>ID de proyecto</label>
+                <input value={fProjectId} onChange={e => setFProjectId(e.target.value)} placeholder="UUID del proyecto" style={inputStyle} />
+              </div>
+            </div>
+            <button type="submit" disabled={saving || !fCode.trim()}
+              style={{ padding: "7px 18px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, opacity: saving ? 0.5 : 1 }}>
+              {saving ? "Guardando…" : "Crear unidad"}
+            </button>
+          </form>
+        )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
           {(["PENDING", "IN_PROGRESS", "COMPLETE", "ON_HOLD"] as UnitStatus[]).map((status) => {
@@ -294,7 +364,6 @@ function UnitsTab({
               );
             })()}
           </div>
-
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
               <MapPin size={14} style={{ color: "var(--muted)", marginTop: 2 }} />
@@ -324,8 +393,48 @@ function UnitsTab({
   );
 }
 
-function WorklogsTab({ state }: { state: RemoteState<WorklogEntry[]> }) {
+// ── Worklogs Tab ──────────────────────────────────────────────────────────────
+
+function WorklogsTab({ state, unitOptions, onRefresh }: {
+  state: RemoteState<WorklogEntry[]>;
+  unitOptions: { id: string; code: string; name: string | null }[];
+  onRefresh: () => void;
+}) {
   const [search, setSearch] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [fUnitId, setFUnitId] = useState("");
+  const [fDate, setFDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fDone, setFDone] = useState("");
+  const [fPending, setFPending] = useState("");
+  const [fBlockers, setFBlockers] = useState("");
+  const [fNotes, setFNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true); setSaveErr(null);
+    try {
+      await apiFetch("/api/semse/field-ops/worklogs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          fieldUnitId: fUnitId,
+          date: fDate,
+          doneToday: fDone.trim(),
+          pendingNext: fPending.trim(),
+          blockers: fBlockers.trim() || undefined,
+          notes: fNotes.trim() || undefined,
+        }),
+      });
+      setShowCreate(false); setFUnitId(""); setFDone(""); setFPending(""); setFBlockers(""); setFNotes("");
+      onRefresh();
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : "Error al crear");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const filtered = useMemo(
     () =>
@@ -347,15 +456,62 @@ function WorklogsTab({ state }: { state: RemoteState<WorklogEntry[]> }) {
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar en registros..."
             style={{ width: "100%", padding: "8px 12px 8px 32px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
           />
         </div>
-        <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}>
-          <Plus size={14} /> Nuevo registro
+        <button
+          onClick={() => setShowCreate(s => !s)}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}
+        >
+          <Plus size={14} /> {showCreate ? "Cancelar" : "Nuevo registro"}
         </button>
       </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nuevo registro de campo</div>
+          {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Unidad *</label>
+              <select required value={fUnitId} onChange={e => setFUnitId(e.target.value)} style={inputStyle}>
+                <option value="">Seleccionar unidad…</option>
+                {unitOptions.map(u => (
+                  <option key={u.id} value={u.id}>{u.code}{u.name ? ` — ${u.name}` : ""}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Fecha *</label>
+              <input required type="date" value={fDate} onChange={e => setFDate(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Hoy se hizo *</label>
+              <textarea required value={fDone} onChange={e => setFDone(e.target.value)} rows={2}
+                style={{ ...inputStyle, resize: "vertical" }} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Próximo paso *</label>
+              <textarea required value={fPending} onChange={e => setFPending(e.target.value)} rows={2}
+                style={{ ...inputStyle, resize: "vertical" }} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Bloqueadores</label>
+              <input value={fBlockers} onChange={e => setFBlockers(e.target.value)} placeholder="Opcional" style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Notas</label>
+              <input value={fNotes} onChange={e => setFNotes(e.target.value)} placeholder="Opcional" style={inputStyle} />
+            </div>
+          </div>
+          <button type="submit" disabled={saving || !fUnitId || !fDone.trim() || !fPending.trim()}
+            style={{ padding: "7px 18px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, opacity: saving ? 0.5 : 1 }}>
+            {saving ? "Guardando…" : "Crear registro"}
+          </button>
+        </form>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState text="No hay worklogs para mostrar." />
@@ -378,7 +534,6 @@ function WorklogsTab({ state }: { state: RemoteState<WorklogEntry[]> }) {
                   {new Date(entry.date).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
                 </div>
               </div>
-
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div style={{ background: "var(--faint)", borderRadius: 8, padding: "10px 14px" }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#10b981", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Hoy se hizo</div>
@@ -389,14 +544,12 @@ function WorklogsTab({ state }: { state: RemoteState<WorklogEntry[]> }) {
                   <div style={{ fontSize: 13, color: "var(--ink)" }}>{entry.pendingNext}</div>
                 </div>
               </div>
-
               {entry.blockers ? (
                 <div style={{ marginTop: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 14px" }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>Bloqueadores</div>
                   <div style={{ fontSize: 13, color: "#b91c1c" }}>{entry.blockers}</div>
                 </div>
               ) : null}
-
               {entry.notes ? (
                 <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 8 }}>
                   {entry.notes}
@@ -409,6 +562,8 @@ function WorklogsTab({ state }: { state: RemoteState<WorklogEntry[]> }) {
     </div>
   );
 }
+
+// ── Knowledge Tab ─────────────────────────────────────────────────────────────
 
 function KnowledgeTab({ state }: { state: RemoteState<ContextMemoryEntry[]> }) {
   const [search, setSearch] = useState("");
@@ -437,7 +592,7 @@ function KnowledgeTab({ state }: { state: RemoteState<ContextMemoryEntry[]> }) {
           <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar memoria contextual..."
             style={{ width: "100%", padding: "8px 12px 8px 32px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
           />
@@ -447,10 +602,7 @@ function KnowledgeTab({ state }: { state: RemoteState<ContextMemoryEntry[]> }) {
             key={visibility}
             onClick={() => setFilterVis(visibility)}
             style={{
-              padding: "6px 12px",
-              borderRadius: 8,
-              fontSize: 12,
-              cursor: "pointer",
+              padding: "6px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
               border: "1px solid var(--border)",
               background: filterVis === visibility ? "var(--brand)" : "var(--surface)",
               color: filterVis === visibility ? "#fff" : "var(--ink)"
@@ -516,9 +668,41 @@ function KnowledgeTab({ state }: { state: RemoteState<ContextMemoryEntry[]> }) {
   );
 }
 
-function VendorsTab({ state }: { state: RemoteState<Vendor[]> }) {
+// ── Vendors Tab ───────────────────────────────────────────────────────────────
+
+function VendorsTab({ state, onRefresh }: { state: RemoteState<Vendor[]>; onRefresh: () => void }) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [fName, setFName] = useState("");
+  const [fPhone, setFPhone] = useState("");
+  const [fEmail, setFEmail] = useState("");
+  const [fNotes, setFNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true); setSaveErr(null);
+    try {
+      await apiFetch("/api/semse/field-ops/vendors", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: fName.trim(),
+          phone: fPhone.trim() || undefined,
+          email: fEmail.trim() || undefined,
+          notes: fNotes.trim() || undefined,
+        }),
+      });
+      setShowCreate(false); setFName(""); setFPhone(""); setFEmail(""); setFNotes("");
+      onRefresh();
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : "Error al crear");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const filtered = useMemo(
     () =>
@@ -529,7 +713,7 @@ function VendorsTab({ state }: { state: RemoteState<Vendor[]> }) {
     [search, state.data]
   );
 
-  const selected = filtered.find((vendor) => vendor.id === selectedId) ?? state.data.find((vendor) => vendor.id === selectedId) ?? null;
+  const selected = filtered.find((v) => v.id === selectedId) ?? state.data.find((v) => v.id === selectedId) ?? null;
 
   function complianceScore(vendor: Vendor) {
     const total = vendor.compliance.length;
@@ -550,15 +734,47 @@ function VendorsTab({ state }: { state: RemoteState<Vendor[]> }) {
             <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar proveedor..."
               style={{ width: "100%", padding: "8px 12px 8px 32px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
             />
           </div>
-          <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}>
-            <Plus size={14} /> Nuevo proveedor
+          <button
+            onClick={() => setShowCreate(s => !s)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}
+          >
+            <Plus size={14} /> {showCreate ? "Cancelar" : "Nuevo proveedor"}
           </button>
         </div>
+
+        {showCreate && (
+          <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nuevo proveedor</div>
+            {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Nombre *</label>
+                <input required value={fName} onChange={e => setFName(e.target.value)} placeholder="Nombre del proveedor" style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Teléfono</label>
+                <input value={fPhone} onChange={e => setFPhone(e.target.value)} placeholder="+52 555..." style={inputStyle} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Email</label>
+                <input type="email" value={fEmail} onChange={e => setFEmail(e.target.value)} placeholder="correo@empresa.com" style={inputStyle} />
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Notas</label>
+                <input value={fNotes} onChange={e => setFNotes(e.target.value)} placeholder="Notas adicionales" style={inputStyle} />
+              </div>
+            </div>
+            <button type="submit" disabled={saving || !fName.trim()}
+              style={{ padding: "7px 18px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, opacity: saving ? 0.5 : 1 }}>
+              {saving ? "Guardando…" : "Crear proveedor"}
+            </button>
+          </form>
+        )}
 
         {filtered.length === 0 ? (
           <EmptyState text="No hay proveedores registrados." />
@@ -597,7 +813,6 @@ function VendorsTab({ state }: { state: RemoteState<Vendor[]> }) {
                       </div>
                     </div>
                   </div>
-
                   <div style={{ display: "flex", gap: 6, marginTop: 12, flexWrap: "wrap" }}>
                     {vendor.compliance.map((doc) => {
                       const meta = COMPLIANCE_META[doc.status];
@@ -621,7 +836,6 @@ function VendorsTab({ state }: { state: RemoteState<Vendor[]> }) {
           {selected.email ? <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 2 }}>✉️ {selected.email}</div> : null}
           {selected.phone ? <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 2 }}>📞 {selected.phone}</div> : null}
           {selected.notes ? <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 6, padding: "8px 12px", background: "var(--faint)", borderRadius: 8 }}>{selected.notes}</div> : null}
-
           <div style={{ marginTop: 20 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Documentos de cumplimiento</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -648,6 +862,8 @@ function VendorsTab({ state }: { state: RemoteState<Vendor[]> }) {
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 const TAB_CONFIG = [
   { id: "units", label: "Unidades de Campo", Icon: Wrench },
   { id: "worklogs", label: "Registros Diarios", Icon: ClipboardList },
@@ -665,126 +881,129 @@ export default function FieldOpsPage() {
   const [factsState, setFactsState] = useState<RemoteState<ContextMemoryEntry[]>>({ data: [], loading: true, error: null });
   const [vendorsState, setVendorsState] = useState<RemoteState<Vendor[]>>({ data: [], loading: true, error: null });
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const rows = await fetchFieldUnits();
-        setUnitsState({
-          data: rows.map((row) => {
-            const unit = row as Record<string, unknown>;
-            return {
-              id: String(unit.id),
-              code: String(unit.code),
-              name: typeof unit.name === "string" ? unit.name : null,
-              address: typeof unit.address === "string" ? unit.address : null,
-              status: String(unit.status) as UnitStatus,
-              projectId: String(unit.projectId),
-              metadataJson: (unit.metadataJson as Record<string, unknown> | null | undefined) ?? null,
-              createdAt: String(unit.createdAt),
-              updatedAt: String(unit.updatedAt)
-            };
-          }),
-          loading: false,
-          error: null
-        });
-      } catch (caught) {
-        setUnitsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar las unidades." });
-      }
-    })();
+  const loadUnits = useCallback(async () => {
+    setUnitsState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const rows = await fetchFieldUnits();
+      setUnitsState({
+        data: rows.map((row) => {
+          const unit = row as Record<string, unknown>;
+          return {
+            id: String(unit.id),
+            code: String(unit.code),
+            name: typeof unit.name === "string" ? unit.name : null,
+            address: typeof unit.address === "string" ? unit.address : null,
+            status: String(unit.status) as UnitStatus,
+            projectId: String(unit.projectId),
+            metadataJson: (unit.metadataJson as Record<string, unknown> | null | undefined) ?? null,
+            createdAt: String(unit.createdAt),
+            updatedAt: String(unit.updatedAt)
+          };
+        }),
+        loading: false,
+        error: null
+      });
+    } catch (caught) {
+      setUnitsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar las unidades." });
+    }
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const rows = await fetchFieldWorklogs();
-        setWorklogsState({
-          data: rows.map((row) => {
-            const entry = row as Record<string, unknown>;
-            const fieldUnit = (entry.fieldUnit as Record<string, unknown> | undefined) ?? {};
-            return {
-              id: String(entry.id),
-              date: String(entry.date),
-              fieldUnitId: String(entry.fieldUnitId),
-              unitCode: typeof fieldUnit.code === "string" ? fieldUnit.code : String(entry.fieldUnitId),
-              unitName: typeof fieldUnit.name === "string" ? fieldUnit.name : null,
-              createdBy: String(entry.createdBy ?? "Sistema"),
-              doneToday: String(entry.doneToday ?? ""),
-              pendingNext: String(entry.pendingNext ?? ""),
-              blockers: typeof entry.blockers === "string" ? entry.blockers : null,
-              notes: typeof entry.notes === "string" ? entry.notes : null
-            };
-          }),
-          loading: false,
-          error: null
-        });
-      } catch (caught) {
-        setWorklogsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar los worklogs." });
-      }
-    })();
+  const loadWorklogs = useCallback(async () => {
+    setWorklogsState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const rows = await fetchFieldWorklogs();
+      setWorklogsState({
+        data: rows.map((row) => {
+          const entry = row as Record<string, unknown>;
+          const fieldUnit = (entry.fieldUnit as Record<string, unknown> | undefined) ?? {};
+          return {
+            id: String(entry.id),
+            date: String(entry.date),
+            fieldUnitId: String(entry.fieldUnitId),
+            unitCode: typeof fieldUnit.code === "string" ? fieldUnit.code : String(entry.fieldUnitId),
+            unitName: typeof fieldUnit.name === "string" ? fieldUnit.name : null,
+            createdBy: String(entry.createdBy ?? "Sistema"),
+            doneToday: String(entry.doneToday ?? ""),
+            pendingNext: String(entry.pendingNext ?? ""),
+            blockers: typeof entry.blockers === "string" ? entry.blockers : null,
+            notes: typeof entry.notes === "string" ? entry.notes : null
+          };
+        }),
+        loading: false,
+        error: null
+      });
+    } catch (caught) {
+      setWorklogsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar los worklogs." });
+    }
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const rows = await fetchFieldFacts();
-        setFactsState({
-          data: rows.map((row) => {
-            const fact = row as Record<string, unknown>;
-            return {
-              id: String(fact.id),
-              subject: String(fact.subject),
-              predicate: String(fact.predicate),
-              object: String(fact.object),
-              confidence: typeof fact.confidence === "number" ? fact.confidence : Number(fact.confidence ?? 0),
-              visibility: String(fact.visibility) as FactVisibility,
-              createdAt: String(fact.createdAt),
-              createdBy: String(fact.createdBy ?? "Sistema"),
-              worklogId: typeof fact.worklogId === "string" ? fact.worklogId : null
-            };
-          }),
-          loading: false,
-          error: null
-        });
-      } catch (caught) {
-        setFactsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar los facts." });
-      }
-    })();
+  const loadFacts = useCallback(async () => {
+    setFactsState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const rows = await fetchFieldFacts();
+      setFactsState({
+        data: rows.map((row) => {
+          const fact = row as Record<string, unknown>;
+          return {
+            id: String(fact.id),
+            subject: String(fact.subject),
+            predicate: String(fact.predicate),
+            object: String(fact.object),
+            confidence: typeof fact.confidence === "number" ? fact.confidence : Number(fact.confidence ?? 0),
+            visibility: String(fact.visibility) as FactVisibility,
+            createdAt: String(fact.createdAt),
+            createdBy: String(fact.createdBy ?? "Sistema"),
+            worklogId: typeof fact.worklogId === "string" ? fact.worklogId : null
+          };
+        }),
+        loading: false,
+        error: null
+      });
+    } catch (caught) {
+      setFactsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar los facts." });
+    }
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const rows = await fetchFieldVendors();
-        setVendorsState({
-          data: rows.map((row) => {
-            const vendor = row as Record<string, unknown>;
-            const compliance = Array.isArray(vendor.compliance) ? vendor.compliance : [];
-            return {
-              id: String(vendor.id),
-              name: String(vendor.name),
-              phone: typeof vendor.phone === "string" ? vendor.phone : null,
-              email: typeof vendor.email === "string" ? vendor.email : null,
-              notes: typeof vendor.notes === "string" ? vendor.notes : null,
-              compliance: compliance.map((doc) => {
-                const complianceDoc = doc as Record<string, unknown>;
-                return {
-                  id: String(complianceDoc.id),
-                  type: String(complianceDoc.type),
-                  status: String(complianceDoc.status) as ComplianceStatus,
-                  expiresAt: typeof complianceDoc.expiresAt === "string" ? complianceDoc.expiresAt : null,
-                  notes: typeof complianceDoc.notes === "string" ? complianceDoc.notes : null
-                };
-              })
-            };
-          }),
-          loading: false,
-          error: null
-        });
-      } catch (caught) {
-        setVendorsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar los proveedores." });
-      }
-    })();
+  const loadVendors = useCallback(async () => {
+    setVendorsState(s => ({ ...s, loading: true, error: null }));
+    try {
+      const rows = await fetchFieldVendors();
+      setVendorsState({
+        data: rows.map((row) => {
+          const vendor = row as Record<string, unknown>;
+          const compliance = Array.isArray(vendor.compliance) ? vendor.compliance : [];
+          return {
+            id: String(vendor.id),
+            name: String(vendor.name),
+            phone: typeof vendor.phone === "string" ? vendor.phone : null,
+            email: typeof vendor.email === "string" ? vendor.email : null,
+            notes: typeof vendor.notes === "string" ? vendor.notes : null,
+            compliance: compliance.map((doc) => {
+              const d = doc as Record<string, unknown>;
+              return {
+                id: String(d.id),
+                type: String(d.type),
+                status: String(d.status) as ComplianceStatus,
+                expiresAt: typeof d.expiresAt === "string" ? d.expiresAt : null,
+                notes: typeof d.notes === "string" ? d.notes : null
+              };
+            })
+          };
+        }),
+        loading: false,
+        error: null
+      });
+    } catch (caught) {
+      setVendorsState({ data: [], loading: false, error: caught instanceof Error ? caught.message : "No se pudieron cargar los proveedores." });
+    }
   }, []);
+
+  useEffect(() => { void loadUnits(); }, [loadUnits]);
+  useEffect(() => { void loadWorklogs(); }, [loadWorklogs]);
+  useEffect(() => { void loadFacts(); }, [loadFacts]);
+  useEffect(() => { void loadVendors(); }, [loadVendors]);
+
+  const unitOptions = unitsState.data.map(u => ({ id: u.id, code: u.code, name: u.name }));
 
   const tabCounts: Record<TabId, number> = {
     units: unitsState.data.length,
@@ -819,13 +1038,8 @@ export default function FieldOpsPage() {
             key={id}
             onClick={() => setActiveTab(id)}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "10px 18px",
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "10px 18px", border: "none", background: "transparent", cursor: "pointer",
               fontWeight: activeTab === id ? 700 : 500,
               fontSize: 14,
               color: activeTab === id ? "var(--brand)" : "var(--muted)",
@@ -842,10 +1056,10 @@ export default function FieldOpsPage() {
         ))}
       </div>
 
-      {activeTab === "units" ? <UnitsTab state={unitsState} /> : null}
-      {activeTab === "worklogs" ? <WorklogsTab state={worklogsState} /> : null}
+      {activeTab === "units" ? <UnitsTab state={unitsState} onRefresh={loadUnits} /> : null}
+      {activeTab === "worklogs" ? <WorklogsTab state={worklogsState} unitOptions={unitOptions} onRefresh={loadWorklogs} /> : null}
       {activeTab === "knowledge" ? <KnowledgeTab state={factsState} /> : null}
-      {activeTab === "vendors" ? <VendorsTab state={vendorsState} /> : null}
+      {activeTab === "vendors" ? <VendorsTab state={vendorsState} onRefresh={loadVendors} /> : null}
     </div>
   );
 }
