@@ -145,6 +145,10 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
       { labelKey: "nav.coordinator", href: "/admin/coordinator", icon: GitBranch },
       { labelKey: "nav.missionControl", href: "/admin/mission-control", icon: Activity, section: "section.control" },
+      { labelKey: "nav.workops", href: "/admin/workops", icon: Wrench, section: "section.control" },
+      { labelKey: "nav.intelligence", href: "/admin/intelligence", icon: Brain, section: "section.control" },
+      { labelKey: "nav.toolHub", href: "/admin/tool-hub", icon: Package, section: "section.control" },
+      { labelKey: "nav.verticals", href: "/admin/verticals", icon: Layers, section: "section.control" },
       { labelKey: "nav.algorithmEngine", href: "/admin/algorithm-engine", icon: BarChart2 },
       { labelKey: "nav.toolsCatalog", href: "/admin/tools", icon: Package },
       { labelKey: "nav.aiMissionControl", href: "/admin/ai-mission-control", icon: Brain },
@@ -456,7 +460,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                       const Icon = item.icon;
                       return (
                         <Link
-                          key={item.key}
+                          key={`${item.href}-${item.labelKey}`}
                           href={item.href}
                           title={collapsed ? item.label : undefined}
                           className={[

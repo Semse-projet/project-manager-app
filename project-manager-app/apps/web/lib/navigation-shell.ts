@@ -35,9 +35,10 @@ const ADMIN_GROUP_ORDER: Array<{ key: AdminNavGroup["key"]; labelKey: AdminNavGr
 
 function adminGroupForHref(href: string): AdminNavGroup["key"] {
   if (href === "/admin/dashboard" || href === "/admin/mission-control") return "mission-control";
-  if (href === "/admin/ai-mission-control") return "ai";
+  if (href === "/admin/ai-mission-control" || href === "/admin/intelligence") return "ai";
   if (
     href.startsWith("/admin/ops") ||
+    href === "/admin/workops" ||
     href === "/admin/field-ops" ||
     href === "/admin/communications" ||
     href === "/admin/domain-events" ||
@@ -72,6 +73,7 @@ function adminGroupForHref(href: string): AdminNavGroup["key"] {
     href === "/admin/algorithm-engine" ||
     href === "/admin/consciousness" ||
     href === "/admin/ecosystem" ||
+    href === "/admin/tool-hub" ||
     href === "/admin/llm-metrics" ||
     href === "/admin/pmo" ||
     href === "/admin/semse-x" ||
@@ -80,6 +82,7 @@ function adminGroupForHref(href: string): AdminNavGroup["key"] {
   ) {
     return "ai";
   }
+  if (href === "/admin/verticals") return "system";
   return "system";
 }
 
