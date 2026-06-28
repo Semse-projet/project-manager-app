@@ -385,7 +385,10 @@ function useAppRole(): NavRole {
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = useAppRole();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("semse-sidebar-collapsed") === "true";
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
@@ -397,6 +400,13 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     const savedTheme = window.localStorage.getItem("semse-theme");
     if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
   });
+
+  const handleCollapsedChange = (next: boolean) => {
+    setCollapsed(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("semse-sidebar-collapsed", String(next));
+    }
+  };
 
   const handleThemeChange = (value: ThemePreference) => {
     setTheme(value);
@@ -514,7 +524,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           navItems={shellNavItems}
           hideHeader
           collapsed={collapsed}
-          onCollapsedChange={setCollapsed}
+          onCollapsedChange={handleCollapsedChange}
           sidebarFooter={
             !collapsed ? (
               <a
