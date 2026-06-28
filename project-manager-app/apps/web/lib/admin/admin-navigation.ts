@@ -51,6 +51,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     status: "operational",
     metric: { label: "Execution", value: "Live", tone: "success" },
     children: [
+      { id: "jobs", label: "Jobs", href: "/admin/jobs" },
       { id: "field-ops", label: "Field Ops", href: "/admin/field-ops" },
       { id: "worker", label: "Workers", href: "/admin/worker" },
       { id: "contractors", label: "Contractors", href: "/admin/contractors" },
