@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
+import { farmTabs } from "../farm-tabs";
 import {
   Plus, X, Heart, ChevronRight, Syringe, Stethoscope, ShieldCheck,
   AlertTriangle, CheckCircle2, Clock, Calendar,
@@ -55,23 +56,6 @@ const PRIORITY_BADGE: Record<string, string> = {
 };
 const MONTHS_ES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-function farmTabs(farmId: string) {
-  return [
-    { href: `/agro/${farmId}`,               label: "Dashboard"       },
-    { href: `/agro/${farmId}/animals`,        label: "Animales"        },
-    { href: `/agro/${farmId}/tasks`,          label: "Tareas"          },
-    { href: `/agro/${farmId}/calendar`,       label: "Calendario"      },
-    { href: `/agro/${farmId}/feeding`,        label: "Alimentación"    },
-    { href: `/agro/${farmId}/health`,         label: "Salud"           },
-    { href: `/agro/${farmId}/inventory`,      label: "Inventario"      },
-    { href: `/agro/${farmId}/costs`,          label: "Costos"          },
-    { href: `/agro/${farmId}/analytics`,      label: "Analítica"       },
-    { href: `/agro/${farmId}/reproduction`,   label: "Reproducción"    },
-    { href: `/agro/${farmId}/infrastructure`, label: "Infraestructura" },
-    { href: `/agro/${farmId}/evidence`,       label: "Evidencia"       },
-    { href: `/agro/${farmId}/audit`,          label: "Auditoría"       },
-  ];
-}
 
 export default function HealthPage() {
   const { farmId } = useParams<{ farmId: string }>();
