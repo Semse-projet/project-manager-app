@@ -41,6 +41,11 @@ export class HealthService implements OnModuleInit, OnModuleDestroy {
     return this.cached;
   }
 
+  async refreshNow(): Promise<SystemHealthStatus> {
+    await this.refresh();
+    return this.cached;
+  }
+
   private async ensureRedis(): Promise<void> {
     if (this.redis) return;
 

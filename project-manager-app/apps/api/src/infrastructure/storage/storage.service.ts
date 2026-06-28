@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { createReadStream, createWriteStream } from "node:fs";
-import { mkdir, stat, unlink } from "node:fs/promises";
+import { constants, createReadStream, createWriteStream } from "node:fs";
+import { access, mkdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
@@ -17,6 +17,14 @@ export type StoredFile = {
   contentType: string;
   sizeBytes: number;
   createdAt: string;
+};
+
+export type StorageHealthStatus = {
+  provider: "local" | "s3" | "r2";
+  effectiveProvider: "local";
+  root: string;
+  writable: boolean;
+  detail: string;
 };
 
 /**
@@ -120,5 +128,32 @@ export class StorageService {
     if (!exists) {
       throw new NotFoundException(`File '${key}' not found in storage`);
     }
+  }
+
+  async healthCheck(): Promise<StorageHealthStatus> {
+    if (this.provider !== "local") {
+      return {
+        provider: this.provider,
+        effectiveProvider: "local",
+        root: this.localRoot,
+        writable: false,
+        detail: `Configured storage provider '${this.provider}' is not implemented`
+      };
+    }
+
+    await this.ensureLocalRoot();
+    const rootStat = await stat(this.localRoot);
+    if (!rootStat.isDirectory()) {
+      throw new Error(`Storage root '${this.localRoot}' is not a directory`);
+    }
+    await access(this.localRoot, constants.W_OK);
+
+    return {
+      provider: this.provider,
+      effectiveProvider: "local",
+      root: this.localRoot,
+      writable: true,
+      detail: "Local storage root is writable"
+    };
   }
 }
