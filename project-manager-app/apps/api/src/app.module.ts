@@ -8,6 +8,7 @@ import { HealthController } from "./modules/health/health.controller.js";
 import { AuthGuard } from "./common/auth.guard.js";
 import { RbacGuard } from "./common/rbac.guard.js";
 import { validateApiEnv } from "./config/env.schema.js";
+import { ReadinessService } from "./modules/health/readiness.service.js";
 import { AuthModule } from "./modules/auth/auth.module.js";
 import { AgentsModule } from "./modules/agents/agents.module.js";
 import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
@@ -152,8 +153,8 @@ const repoRoot = path.resolve(apiDir, "..", "..");
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
-    { provide: APP_GUARD, useClass: RbacGuard }
+    { provide: APP_GUARD, useClass: RbacGuard },
+    ReadinessService
   ]
 })
 export class AppModule {}
-
