@@ -46,6 +46,7 @@ Estas piezas forman el canon conceptual del subsistema:
 
 ### Arneses e implementación
 
+- `harnesses/SEMSE_ECOSYSTEM_WORK_AGENT_HARNESS_2026-06-28.md`
 - `harnesses/arneses-de-agentes-semse_2026-04-05.md`
 - `harnesses/diseno_formal_agent_harness_semse_2026-04-05.md`
 - `harnesses/contrato_tecnico_project_copilot_harness_semse_2026-04-05.md`

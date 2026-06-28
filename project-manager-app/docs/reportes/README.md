@@ -14,6 +14,10 @@ Aquí viven:
 - reportes de implementación;
 - auditorías de estructura o consistencia.
 
+Reporte activo reciente:
+
+- `2026-06-28_ecosystem_improvement_audit_and_plan.md` — auditoría multiagente y plan de mejora del ecosistema SEMSE.
+
 Si el documento responde "qué se hizo, qué se verificó y cuál fue el resultado", debe quedarse en la raíz o en una subcarpeta de evidencia equivalente.
 
 ### `prompts/`

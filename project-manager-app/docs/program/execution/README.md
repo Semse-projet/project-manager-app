@@ -4,6 +4,7 @@ Esta carpeta agrupa material ejecutable del programa.
 
 ## Activo
 
+- `SEMSE_ECOSYSTEM_IMPROVEMENT_MASTER_PLAN_2026-06-28.md`
 - `SEMSE_INTEGRATION_BACKLOG.md`
 - `SEMSE_SPRINT_1_PLAN.md`
 - `SEMSE_SPRINT_1_TICKETS.md`
