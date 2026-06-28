@@ -140,13 +140,13 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: "/admin/verticals",
     description: "Construction, property turnovers, cleaning, agro, maintenance, and future verticals.",
     status: "operational",
-    metric: { label: "Active", value: "3", tone: "success" },
+    metric: { label: "Active", value: "5", tone: "success" },
     children: [
       { id: "agro", label: "Agro / FarmOps", href: "/admin/verticals/agro", description: "Full farm management: animals, groups, tasks, inventory, health, feeding, costs, analytics, and reproduction.", status: "operational" },
       { id: "construction", label: "Construction", href: "/admin/verticals/construction", description: "Field operations, crews, evidence, milestones, and change orders.", status: "operational" },
       { id: "vision-ai", label: "Vision AI", href: "/admin/verticals/vision", description: "Material and safety analysis powered by OpenCV and Ollama — 6 analyzers.", status: "operational" },
-      { id: "travel", label: "Travel Ops", href: "/admin/travel", description: "Travel management and logistics for field crews.", status: "planned" },
-      { id: "cleaning", label: "Cleaning", href: "/admin/verticals", description: "Property turnover and cleaning vertical — coming soon.", status: "planned" },
+      { id: "cleaning", label: "Cleaning & Turnovers", href: "/admin/verticals/cleaning", description: "Residential and commercial cleaning, move-in/out workflows, and quality checklists.", status: "planned" },
+      { id: "maintenance", label: "Maintenance", href: "/admin/verticals/maintenance", description: "Preventive and corrective property maintenance — electrical, plumbing, HVAC, roofing.", status: "planned" },
     ],
   },
   {
