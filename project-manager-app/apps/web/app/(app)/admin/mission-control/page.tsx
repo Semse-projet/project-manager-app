@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { ModuleCard } from "../../../../components/admin/module-card";
+import { ADMIN_MODULES } from "../../../../lib/admin/admin-navigation";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -412,7 +414,7 @@ export default function MissionControlPage() {
   const systemHealthLabel = criticalOpen.length > 0 ? "CRITICAL" : highOpen.length > 0 ? "HIGH RISK" : openSignals.length > 0 ? "ATTENTION" : "HEALTHY";
 
   return (
-    <div style={{ padding: "24px", maxWidth: "960px", margin: "0 auto" }}>
+    <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
 
       {/* Header */}
       <div style={{ marginBottom: "24px" }}>
@@ -444,6 +446,20 @@ export default function MissionControlPage() {
           Monitorea proyectos, evidencia, pagos, bloqueos y riesgos operativos en tiempo real.
         </p>
       </div>
+
+      <section className="mb-6">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-muted">Modular ecosystem</h2>
+            <p className="mt-1 text-sm text-muted">Entry points for the new Admin structure while legacy routes stay available.</p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {ADMIN_MODULES.map((module) => (
+            <ModuleCard key={module.id} module={module} compact />
+          ))}
+        </div>
+      </section>
 
       {/* Live alert toast */}
       {liveAlert && (
