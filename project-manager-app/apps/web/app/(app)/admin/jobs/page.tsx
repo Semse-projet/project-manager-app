@@ -256,7 +256,7 @@ export default function AdminJobsPage() {
                       </span>
                     </td>
                     <td style={{ padding: "12px 14px" }}>
-                      <Link href={`/client/jobs/${job.id}`}
+                      <Link href={`/admin/jobs/${job.id}`}
                         style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--brand)", fontWeight: 600, textDecoration: "none" }}>
                         Ver <ArrowUpRight size={11} />
                       </Link>
