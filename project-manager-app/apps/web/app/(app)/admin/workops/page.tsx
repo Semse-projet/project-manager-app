@@ -12,6 +12,7 @@ interface WorkOpsMetrics {
 }
 
 const QUICK_LINKS = [
+  { href: "/admin/jobs",          icon: Briefcase,   label: "Jobs",          desc: "Browse y filtrado de todos los jobs del sistema" },
   { href: "/admin/field-ops",     icon: Wrench,      label: "Field Ops",     desc: "Unidades, worklogs y operaciones de campo" },
   { href: "/admin/worker",        icon: Users,       label: "Workers",        desc: "Perfiles, asignaciones y disponibilidad" },
   { href: "/admin/contractors",   icon: Briefcase,   label: "Contractors",    desc: "Empresas contratistas y su historial" },
