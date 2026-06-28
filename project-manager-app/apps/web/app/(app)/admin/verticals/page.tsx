@@ -35,10 +35,10 @@ const VERTICALS = [
     id: "vision",
     name: "Vision AI",
     description: "Computer vision pipeline: material analysis, safety detection, space classification, portfolio scoring.",
-    href: "/admin/vision",
+    href: "/admin/verticals/vision",
     status: "operational" as const,
     stats: [
-      { label: "Analyzers", value: "4" },
+      { label: "Analyzers", value: "6" },
       { label: "Estado", value: "Live" },
     ],
     color: "#c4b5fd",
