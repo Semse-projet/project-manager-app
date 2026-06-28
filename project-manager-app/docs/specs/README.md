@@ -5,6 +5,7 @@ Son la fuente de verdad que gobierna el código.
 
 **Template para nuevos specs:** `docs/specs/templates/semse-spec-template.md`
 **Template Spec Kit:** `.specify/templates/overrides/semse-spec.md`
+**Kit ecosistema SDD/SSD:** `docs/specs/SEMSE_ECOSYSTEM_SDD_KIT_2026-06-28.md`
 **Índice completo:** `docs/SPEC_INDEX.md`
 **Protocolo SDD:** `docs/SDD_GOVERNANCE.md`
 **Validación:** `pnpm spec:preflight`
