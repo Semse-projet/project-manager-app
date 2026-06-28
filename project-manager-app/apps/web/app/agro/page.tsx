@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Leaf, MapPin, ChevronRight, X, Tractor, Wheat, Blend } from "lucide-react";
+import { Plus, Leaf, MapPin, ChevronRight, X, Tractor, Wheat, Blend, Users, ClipboardList, AlertTriangle } from "lucide-react";
 
 interface AgroFarm {
   id: string;
@@ -10,6 +10,14 @@ interface AgroFarm {
   operationType: "LIVESTOCK" | "MIXED" | "CROP";
   locationLabel?: string;
   createdAt: string;
+}
+
+interface FarmDash {
+  totalAnimals?: number;
+  animalGroups?: number;
+  pendingTasks?: number;
+  overdueTasks?: number;
+  lowStockItems?: number;
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -35,14 +43,15 @@ function FarmCardSkeleton() {
 }
 
 export default function AgroPage() {
-  const [farms, setFarms]           = useState<AgroFarm[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [showModal, setShowModal]   = useState(false);
-  const [creating, setCreating]     = useState(false);
-  const [formError, setFormError]   = useState<string | null>(null);
-  const [name, setName]             = useState("");
-  const [operationType, setType]    = useState<"LIVESTOCK" | "MIXED" | "CROP">("LIVESTOCK");
+  const [farms, setFarms]         = useState<AgroFarm[]>([]);
+  const [dashes, setDashes]       = useState<Record<string, FarmDash>>({});
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [creating, setCreating]   = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [name, setName]           = useState("");
+  const [operationType, setType]  = useState<"LIVESTOCK" | "MIXED" | "CROP">("LIVESTOCK");
   const [locationLabel, setLocation] = useState("");
 
   useEffect(() => { void load(); }, []);
@@ -52,8 +61,17 @@ export default function AgroPage() {
     try {
       const { farms: list } = await apiFetch<{ farms: AgroFarm[] }>("/api/semse/agro/farms");
       setFarms(list);
-    } catch (err: any) { setError(err?.message ?? "Error cargando fincas"); }
-    finally { setLoading(false); }
+      setLoading(false);
+      // Load dashboards in background
+      await Promise.all(list.map(async (farm) => {
+        try {
+          const res  = await fetch(`/api/semse/agro/farms/${farm.id}/dashboard`);
+          const json = await res.json();
+          const stats: FarmDash = res.ok ? ((json.data as any)?.stats ?? json.data ?? {}) : {};
+          setDashes(prev => ({ ...prev, [farm.id]: stats }));
+        } catch { /* silent */ }
+      }));
+    } catch (err: any) { setError(err?.message ?? "Error cargando fincas"); setLoading(false); }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -72,10 +90,18 @@ export default function AgroPage() {
     finally { setCreating(false); }
   }
 
+  // Aggregate KPIs
+  const dashValues = Object.values(dashes);
+  const hasAnyDash = dashValues.length > 0;
+  const totalAnimals  = dashValues.reduce((s, d) => s + (d.totalAnimals  ?? 0), 0);
+  const totalTasks    = dashValues.reduce((s, d) => s + (d.pendingTasks  ?? 0), 0);
+  const totalOverdue  = dashValues.reduce((s, d) => s + (d.overdueTasks  ?? 0), 0);
+  const totalGroups   = dashValues.reduce((s, d) => s + (d.animalGroups  ?? 0), 0);
+
   return (
     <div className="agro-shell">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 32 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 20 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(16,185,129,.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -90,10 +116,29 @@ export default function AgroPage() {
         </button>
       </div>
 
-      {error && (
-        <div className="alert-banner alert-critical" style={{ marginBottom: 20 }}>
-          {error}
+      {/* Aggregate KPIs */}
+      {!loading && hasAnyDash && (
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", marginBottom: 24 }}>
+          {[
+            { label: "Fincas",         value: farms.length,  color: "#6ee7b7",  Icon: Leaf },
+            { label: "Animales",       value: totalAnimals,  color: "#93c5fd",  Icon: Users },
+            { label: "Grupos",         value: totalGroups,   color: "#c4b5fd",  Icon: Leaf },
+            { label: "Tareas pend.",   value: totalTasks,    color: "#fcd34d",  Icon: ClipboardList },
+            { label: "Vencidas",       value: totalOverdue,  color: totalOverdue > 0 ? "#fca5a5" : "#6ee7b7", Icon: AlertTriangle },
+          ].map(s => (
+            <div key={s.label} style={{
+              borderRadius: 10, border: "1px solid var(--border)", borderTop: `3px solid ${s.color}`,
+              background: "var(--surface)", padding: "12px 14px",
+            }}>
+              <p style={{ fontSize: 10, color: "var(--muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{s.label}</p>
+              <p style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</p>
+            </div>
+          ))}
         </div>
+      )}
+
+      {error && (
+        <div className="alert-banner alert-critical" style={{ marginBottom: 20 }}>{error}</div>
       )}
 
       {/* Farm grid */}
@@ -115,26 +160,14 @@ export default function AgroPage() {
           {farms.map(farm => {
             const op = OP_TYPE[farm.operationType] ?? OP_TYPE.LIVESTOCK;
             const OpIcon = op.Icon;
+            const dash = dashes[farm.id];
             return (
-              <Link
-                key={farm.id}
-                href={`/agro/${farm.id}`}
-                style={{ textDecoration: "none" }}
-              >
-                <div
-                  className="card-lift"
-                  style={{
-                    borderRadius: 14,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    padding: "18px 20px",
-                    borderLeft: `3px solid ${op.color}`,
-                    cursor: "pointer",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}
-                >
+              <Link key={farm.id} href={`/agro/${farm.id}`} style={{ textDecoration: "none" }}>
+                <div className="card-lift" style={{
+                  borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)",
+                  padding: "18px 20px", borderLeft: `3px solid ${op.color}`, cursor: "pointer",
+                  display: "flex", flexDirection: "column", gap: 10,
+                }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ width: 32, height: 32, borderRadius: 8, background: op.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -144,16 +177,32 @@ export default function AgroPage() {
                     </div>
                     <ChevronRight size={15} color="var(--faint)" style={{ flexShrink: 0 }} />
                   </div>
+
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="badge" style={{ background: op.bg, color: op.color }}>
-                      {op.label}
-                    </span>
+                    <span className="badge" style={{ background: op.bg, color: op.color }}>{op.label}</span>
                     {farm.locationLabel && (
                       <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--muted)" }}>
                         <MapPin size={10} /> {farm.locationLabel}
                       </span>
                     )}
                   </div>
+
+                  {/* Mini stats row from dashboard */}
+                  {dash && (
+                    <div style={{ display: "flex", gap: 14, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+                      {[
+                        { label: "Animales",  value: dash.totalAnimals ?? 0,  color: "#93c5fd" },
+                        { label: "Grupos",    value: dash.animalGroups ?? 0,  color: "#c4b5fd" },
+                        { label: "Tareas",    value: dash.pendingTasks ?? 0,  color: "#fcd34d" },
+                        ...(dash.overdueTasks ? [{ label: "Vencidas", value: dash.overdueTasks, color: "#fca5a5" }] : []),
+                      ].map(s => (
+                        <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: s.color }}>{s.value}</span>
+                          <span style={{ fontSize: 9, color: "var(--faint)", textTransform: "uppercase" }}>{s.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Link>
             );
@@ -167,16 +216,11 @@ export default function AgroPage() {
           <div className="modal-panel">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>Crear nueva finca</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}
-              >
+              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: 4, borderRadius: 6, display: "flex" }}>
                 <X size={16} />
               </button>
             </div>
-
             {formError && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{formError}</div>}
-
             <form onSubmit={(e) => void handleCreate(e)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label className="fl">Nombre *</label>
@@ -184,7 +228,7 @@ export default function AgroPage() {
               </div>
               <div>
                 <label className="fl">Tipo de operación</label>
-                <select className="fi" value={operationType} onChange={e => setType(e.target.value as any)}>
+                <select className="fi" value={operationType} onChange={e => setType(e.target.value as "LIVESTOCK" | "MIXED" | "CROP")}>
                   <option value="LIVESTOCK">Ganadería</option>
                   <option value="MIXED">Mixta</option>
                   <option value="CROP">Cultivos</option>
@@ -198,9 +242,7 @@ export default function AgroPage() {
                 <button type="submit" className="btn-accent" disabled={creating} style={{ flex: 1 }}>
                   {creating ? "Creando…" : "Crear finca"}
                 </button>
-                <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
+                <button type="button" className="btn-ghost" onClick={() => setShowModal(false)}>Cancelar</button>
               </div>
             </form>
           </div>
