@@ -101,6 +101,10 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     // ── Sections ──────────────────────────────────────────────────────────────
     "section.main": "Principal",
+    "section.core": "Principal",
+    "section.modules": "Módulos",
+    "section.verticals": "Verticales",
+    "section.quick": "Acceso rápido",
     "section.control": "Control",
     "section.operations": "Operaciones",
     "section.field": "Campo",
@@ -755,6 +759,10 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     // ── Sections ──────────────────────────────────────────────────────────────
     "section.main": "Main",
+    "section.core": "Main",
+    "section.modules": "Modules",
+    "section.verticals": "Verticals",
+    "section.quick": "Quick access",
     "section.control": "Control",
     "section.operations": "Operations",
     "section.field": "Field",
