@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UseGuards, Logger, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Response } from 'express';
-import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
+import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { ExportBundleService } from './export-bundle.service.js';
 
 /**
@@ -9,7 +9,7 @@ import { ExportBundleService } from './export-bundle.service.js';
  */
 @Controller('v1/projects/:projectId/evidence')
 @UseGuards(AuthGuard('jwt'))
-@AuthenticatedAccess('Legacy evidence export endpoints are JWT-protected and pending granular evidence permissions.')
+@RequirePermissions('evidence:read')
 export class ExportController {
   private readonly logger = new Logger(ExportController.name);
 

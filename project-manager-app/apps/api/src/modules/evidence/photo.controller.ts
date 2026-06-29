@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
+import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { EXIFParser, ValidationResult } from '../../integrations/exif-parser.js';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
@@ -22,7 +22,7 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
  */
 @Controller('v1/projects/:projectId/evidence')
 @UseGuards(AuthGuard('jwt'))
-@AuthenticatedAccess('Legacy photo evidence endpoints are JWT-protected and pending granular evidence permissions.')
+@RequirePermissions('evidence:read')
 export class PhotoController {
   private readonly logger = new Logger(PhotoController.name);
   private readonly exifParser = new EXIFParser();
@@ -36,6 +36,7 @@ export class PhotoController {
    * Requiere: DateTimeOriginal + GPS coordinates
    */
   @Post('photos')
+  @RequirePermissions('evidence:write')
   @UseInterceptors(FileInterceptor('photo'))
   async uploadPhoto(
     @Param('projectId') projectId: string,
