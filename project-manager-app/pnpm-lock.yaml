@@ -35,6 +35,9 @@ importers:
       '@semse/schemas':
         specifier: workspace:*
         version: link:packages/schemas
+      '@semse/shared':
+        specifier: workspace:*
+        version: link:packages/shared
       c8:
         specifier: ^10.1.3
         version: 10.1.3
