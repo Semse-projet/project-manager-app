@@ -9,6 +9,15 @@ const DEMO_LOGIN_ENABLED =
   process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED?.trim() === "true" ||
   process.env.NODE_ENV !== "production";
 
+function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 // ── Demo account presets ─────────────────────────────────────────────────────
 
 const PRESETS = [
@@ -61,10 +70,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password, redirectTo }),
       });
 
-      const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: string };
+      const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: unknown };
 
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "Error al iniciar sesión");
+        setError(errorMessage(data.error, "Error al iniciar sesión"));
         return;
       }
 
