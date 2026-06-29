@@ -1,58 +1,5 @@
-<<<<<<< HEAD:project-manager-app/.github/workflows/railway-deploy.yml
-name: Deploy to Railway
-
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests
-        run: npm test
-
-      - name: Build application
-        run: npm run build
-
-      - name: Deploy to Railway
-        uses: railwayapp/deploy-action@v1
-        with:
-          token: ${{ secrets.RAILWAY_TOKEN }}
-          service: api
-          environment: production
-
-      - name: Verify deployment
-        run: |
-          echo "✅ Deployment completed successfully!"
-          echo "🌐 Check your app at: https://railway.app/dashboard"
-          echo "📊 View logs: railway logs --service api"
-
-      - name: Notify deployment
-        if: success()
-        run: |
-          echo "🎉 Deployment successful!"
-          echo "Your app is live on Railway"
-=======
 name: Railway Deploy
 
-# serviceInstanceDeploy(latestCommit: true, commitSha: SHA) triggers a REAL
-# fresh build from source — unlike serviceInstanceDeployV2 which redeploys
-# the same cached image. Always use this form when pushing code changes.
 on:
   push:
     branches: [main]
@@ -68,13 +15,12 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy exact commit to Railway (fresh build)
+      - name: Deploy exact commit to Railway fresh build
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
         run: |
           set -euo pipefail
-          # semse-worker, semse-API, semse-web, semse-vision (proyecto SEMSEproject)
           for svc in \
             26cd1c52-1a07-4f05-8b21-9a225e601d7a \
             2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 \
@@ -88,4 +34,25 @@ jobs:
               || { echo "Deploy failed for service $svc: $response"; exit 1; }
             echo "Fresh build de $GITHUB_SHA disparado para servicio $svc"
           done
->>>>>>> 7dc857d60e9b52fd83082988114451c77f7bb08a:.github/workflows/railway-deploy.yml
+
+  health-check:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Wait for services to be live
+        run: sleep 120
+
+      - name: Verify semse-API health
+        run: |
+          curl -sf https://project-manager-app-production-977f.up.railway.app/v1/health \
+            | grep -q '"status":"ok"' \
+            && echo "semse-API healthy" \
+            || { echo "semse-API health check failed"; exit 1; }
+
+      - name: Verify semse-web
+        run: |
+          code=$(curl -so /dev/null -w "%{http_code}" \
+            https://semse-web-production.up.railway.app/)
+          [ "$code" = "200" ] \
+            && echo "semse-web healthy HTTP $code" \
+            || { echo "semse-web returned $code"; exit 1; }

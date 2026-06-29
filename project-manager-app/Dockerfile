@@ -1,50 +1,78 @@
-# Multi-stage build for optimization
+FROM node:20-alpine AS base
+RUN apk add --no-cache openssl python3 make g++
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 
-FROM node:18-alpine AS builder
-
+FROM base AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY nx.json tsconfig.json ./
+COPY package.json pnpm-workspace.yaml .npmrc ./
+COPY apps/angular/package.json ./apps/angular/
+COPY apps/api/package.json ./apps/api/
+COPY apps/autonomy-server/package.json ./apps/autonomy-server/
+COPY apps/web/package.json ./apps/web/
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/agents/package.json ./packages/agents/
+COPY packages/auth/package.json ./packages/auth/
+COPY packages/autonomy/package.json ./packages/autonomy/
+COPY packages/db/package.json ./packages/db/
+COPY packages/knowledge/package.json ./packages/knowledge/
+COPY packages/schemas/package.json ./packages/schemas/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/tools/package.json ./packages/tools/
+COPY packages/ui/package.json ./packages/ui/
+COPY pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+FROM deps AS builder
+WORKDIR /app
 
-# Copy source
 COPY . .
 
-# Build
-RUN npm run build
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" pnpm run build:api
 
----
-
-# Production image
-FROM node:18-alpine
-
+FROM base AS runner
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=4000
 
-# Copy from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/.npmrc ./.npmrc
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/angular/package.json ./apps/angular/package.json
+COPY --from=builder /app/apps/autonomy-server/package.json ./apps/autonomy-server/package.json
+COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
+COPY --from=builder /app/apps/worker/package.json ./apps/worker/package.json
+COPY --from=builder /app/packages/agents/package.json ./packages/agents/package.json
+COPY --from=builder /app/packages/auth/package.json ./packages/auth/package.json
+COPY --from=builder /app/packages/autonomy/package.json ./packages/autonomy/package.json
+COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
+COPY --from=builder /app/packages/knowledge/package.json ./packages/knowledge/package.json
+COPY --from=builder /app/packages/schemas/package.json ./packages/schemas/package.json
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=builder /app/packages/tools/package.json ./packages/tools/package.json
+COPY --from=builder /app/packages/ui/package.json ./packages/ui/package.json
 
-USER nodejs
+COPY --from=builder /app/packages/schemas/dist ./packages/schemas/dist
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/knowledge/dist ./packages/knowledge/dist
+COPY --from=builder /app/packages/agents/dist ./packages/agents/dist
+COPY --from=builder /app/packages/autonomy/dist ./packages/autonomy/dist
+COPY --from=builder /app/packages/tools/dist ./packages/tools/dist
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+RUN pnpm install --frozen-lockfile --prod
 
-EXPOSE 3000
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/apps/api/skills ./apps/api/skills
+COPY --from=builder /app/packages/db/prisma ./packages/db/prisma
+COPY --from=builder /app/scripts ./scripts
 
-# Use dumb-init to handle signals properly
-ENTRYPOINT ["dumb-init", "--"]
+EXPOSE 4000
 
-CMD ["node", "dist/apps/api/main.js"]
+CMD ["sh", "-c", "node scripts/pre-migrate.mjs && echo '[CMD] starting node main.js now' && node apps/api/dist/main.js"]
