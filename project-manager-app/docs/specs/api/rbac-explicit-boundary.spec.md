@@ -37,6 +37,9 @@ Permisos granulares aplicados:
 
 - Upload plan y upload PUT: `evidence:write`.
 - Evidence validation stream: `evidence:read`.
+- Evidence legacy:
+  - export bundle, preview, photo list/detail and daily log reads: `evidence:read`;
+  - photo upload and daily log signature: `evidence:write`.
 - Smart intake publish: `jobs:create`.
 - Knowledge/anatomy/repo/runtime knowledge:
   - read/query/status: `knowledge:read`;
@@ -50,6 +53,10 @@ Permisos granulares aplicados:
 - Weather:
   - alerts/history/matrix: `weather:read`;
   - manual check-now trigger: `weather:write`.
+- Legacy project change orders:
+  - list and timeline: `change-orders:read`;
+  - create and submit: `change-orders:create`;
+  - approve and reject: `change-orders:approve`.
 - Developer runtime:
   - catalog, list, detail: `autonomy:runs:read`;
   - create/mission/approval/execute: `autonomy:runs:create`;
@@ -62,12 +69,13 @@ Acceso autenticado explicito:
 - Auth/session self endpoints.
 - User/profile self endpoints.
 - Smart intake claim con session token.
-- Controladores legacy JWT-protected de draw requests, change orders, daily logs, photo evidence, exports, liens y lender webhook.
+- Controladores legacy JWT-protected de draw requests, liens y lender webhook.
 
 ## Validacion ejecutable
 
 - `apps/api/test/rbac-explicit-boundary.test.ts` audita todos los `*.controller.ts` y falla si un handler HTTP no publico no declara `@RequirePermissions`, `@AuthenticatedAccess` o `@Public`.
 - `apps/api/test/domain-rbac-permissions.test.ts` valida que knowledge/tools/vision/weather usen permisos de dominio y no `@AuthenticatedAccess`.
+- `apps/api/test/legacy-evidence-rbac-permissions.test.ts` valida que evidence legacy y project change-orders legacy usen permisos granulares y no `@AuthenticatedAccess`.
 - El mismo test cubre que `RbacGuard` niega rutas autenticadas sin metadata explicita.
 - Tests existentes refuerzan metadata concreta de uploads y evidence-gateway.
 
