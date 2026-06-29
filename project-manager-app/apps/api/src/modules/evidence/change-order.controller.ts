@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { ChangeOrderService } from './change-order.service.js';
 
 /**
@@ -7,6 +8,7 @@ import { ChangeOrderService } from './change-order.service.js';
  */
 @Controller('v1/projects/:projectId/change-orders')
 @UseGuards(AuthGuard('jwt'))
+@AuthenticatedAccess('Legacy change order endpoints are JWT-protected and pending granular change-order permissions.')
 export class ChangeOrderController {
   private readonly logger = new Logger(ChangeOrderController.name);
 

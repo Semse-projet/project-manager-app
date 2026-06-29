@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req } from "@nestjs/c
 import type { FastifyRequest } from "fastify";
 import { workspaceMemoryQuerySchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
+import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
@@ -10,6 +11,7 @@ import { KnowledgeCuratorService } from "./knowledge-curator.service.js";
 import { KnowledgeService } from "./knowledge.service.js";
 
 @Controller("v1/knowledge")
+@AuthenticatedAccess("Authenticated knowledge management surface pending granular knowledge permissions.")
 export class KnowledgeController {
   constructor(
     private readonly knowledgeService: KnowledgeService,

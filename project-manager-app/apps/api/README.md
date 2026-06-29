@@ -19,6 +19,13 @@ Módulos iniciales sugeridos:
 - ops
 - agents
 
+## RBAC boundary
+
+Toda ruta HTTP no publica debe declarar `@RequirePermissions(...)` o `@AuthenticatedAccess("reason")`.
+`RbacGuard` responde `403` con `policy: "deny_by_default"` cuando falta metadata RBAC.
+
+La auditoria ejecutable vive en `test/rbac-explicit-boundary.test.ts`.
+
 ## Test scopes
 
 - `pnpm --filter @semse/api test:unit` runs API tests that do not require external services.

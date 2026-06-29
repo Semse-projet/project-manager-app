@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Post, Req } from "@nestjs/common";
 import { userIdParamSchema, userProfileUpdateBodySchema, userStatusUpdateBodySchema, userVerificationBodySchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
-import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { AuthenticatedAccess, RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
@@ -25,6 +25,7 @@ export class UsersController {
   }
 
   @Get("me")
+  @AuthenticatedAccess("Authenticated users may read their own user record.")
   async getMe(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const data = await this.usersService.getUser(
@@ -35,6 +36,7 @@ export class UsersController {
   }
 
   @Get("me/profile")
+  @AuthenticatedAccess("Authenticated users may read their own profile.")
   async getMyProfile(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const data = await this.usersService.getMyProfile({
@@ -47,6 +49,7 @@ export class UsersController {
   }
 
   @Patch("me/profile")
+  @AuthenticatedAccess("Authenticated users may update their own profile.")
   async updateMyProfile(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
     const parsedBody = parseWithSchema(userProfileUpdateBodySchema, body);
     const actor = resolveRequestContext(req);

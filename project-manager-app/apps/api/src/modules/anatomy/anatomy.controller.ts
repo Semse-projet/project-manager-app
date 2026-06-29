@@ -6,11 +6,13 @@ import {
   anatomyValidationSchema
 } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
+import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { AnatomyService } from "./anatomy.service.js";
 
 @Controller("v1/anatomy")
+@AuthenticatedAccess("Authenticated knowledge graph surface pending granular knowledge permissions.")
 export class AnatomyController {
   constructor(private readonly anatomyService: AnatomyService) {}
 
