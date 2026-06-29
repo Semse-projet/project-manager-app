@@ -19,6 +19,7 @@ Reporte activo reciente:
 - `2026-06-28_ecosystem_improvement_audit_and_plan.md` — auditoría multiagente y plan de mejora del ecosistema SEMSE.
 - `2026-06-28_api_readiness_gate.md` — implementación de `/v1/ready` con DB, migraciones, Redis y storage.
 - `2026-06-28_rbac_explicit_auth_boundary.md` — cierre L2 de RBAC deny-by-default para handlers sin metadata explicita.
+- `2026-06-29_domain_rbac_permissions.md` — migración L2 de knowledge/tools/vision/weather a permisos de dominio.
 
 Si el documento responde "qué se hizo, qué se verificó y cuál fue el resultado", debe quedarse en la raíz o en una subcarpeta de evidencia equivalente.
 
