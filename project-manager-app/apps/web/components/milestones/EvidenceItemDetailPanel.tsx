@@ -14,7 +14,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, CheckCircle, Clock, FileText, History, RefreshCw, Upload, XCircle } from "lucide-react";
+import { Camera, CheckCircle, Clock, FileText, History, RefreshCw, Upload, XCircle, HardHat, ShieldCheck, AlertTriangle, Brain } from "lucide-react";
+import { safetyCheckEnriched } from "../../app/semse-api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,6 +77,106 @@ function parseReviewNote(note: string | null | undefined): { agent?: Record<stri
     const p = JSON.parse(note);
     return { agent: p.__agentReview, admin: p.adminReview };
   } catch { return {}; }
+}
+
+// ── Safety widget ──────────────────────────────────────────────────────────────
+
+type SafetyResult = {
+  helmetDetected: boolean;
+  vestDetected: boolean;
+  harnessDetected: boolean;
+  complianceScore: number;
+  violations: string[];
+  insight?: string;
+};
+
+function SafetyWidget({ imageUrl, trade }: { imageUrl: string; trade?: string }) {
+  const [result, setResult] = useState<SafetyResult | null>(null);
+  const [running, setRunning] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function run() {
+    setRunning(true); setErr(null);
+    try {
+      const res = await safetyCheckEnriched(imageUrl, trade) as unknown as SafetyResult;
+      setResult(res);
+    } catch (e) {
+      setErr("No se pudo ejecutar el análisis de seguridad.");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  if (!result && !err) {
+    return (
+      <button
+        type="button"
+        onClick={run}
+        disabled={running}
+        style={{
+          display: "flex", alignItems: "center", gap: 6, padding: "7px 12px",
+          borderRadius: 7, border: "1px solid rgba(251,191,36,.3)", background: "rgba(251,191,36,.06)",
+          color: "#fbbf24", fontSize: 11, fontWeight: 700, cursor: running ? "not-allowed" : "pointer",
+        }}
+      >
+        <HardHat size={12} />
+        {running ? "Verificando seguridad…" : "Verificar seguridad PPE (IA)"}
+      </button>
+    );
+  }
+
+  if (err) return (
+    <div style={{ fontSize: 11, color: "#f87171", display: "flex", alignItems: "center", gap: 4 }}>
+      <AlertTriangle size={11} /> {err}
+    </div>
+  );
+
+  if (!result) return null;
+  const pct = Math.round(result.complianceScore * 100);
+  const color = pct >= 80 ? "#10b981" : pct >= 50 ? "#fbbf24" : "#ef4444";
+
+  return (
+    <div style={{ background: "rgba(251,191,36,.04)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10, padding: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 11, fontWeight: 800, color: "#fbbf24" }}>
+        <HardHat size={13} /> Seguridad PPE
+        <button
+          type="button"
+          onClick={run}
+          disabled={running}
+          style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "#6b7280", fontSize: 10 }}
+        >
+          <RefreshCw size={10} />
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 6 }}>
+        {[
+          { label: "Casco", icon: <HardHat size={12} />, ok: result.helmetDetected },
+          { label: "Chaleco", icon: <ShieldCheck size={12} />, ok: result.vestDetected },
+          { label: "Arnés", icon: <CheckCircle size={12} />, ok: result.harnessDetected },
+        ].map(({ label, icon, ok }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: ok ? "#10b981" : "#6b7280" }}>
+            {icon} {label} {ok ? "✓" : "✗"}
+          </div>
+        ))}
+        <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 800, color }}>
+          {pct}%
+        </span>
+      </div>
+      {result.violations.length > 0 && result.violations.map((v, i) => (
+        <div key={i} style={{ fontSize: 10, color: "#f87171", display: "flex", alignItems: "center", gap: 3, marginBottom: 2 }}>
+          <AlertTriangle size={9} /> {v}
+        </div>
+      ))}
+      {result.insight && (
+        <div style={{ marginTop: 8, borderTop: "1px solid rgba(255,255,255,.06)", paddingTop: 8 }}>
+          <div style={{ fontSize: 10, color: "#60a5fa", display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
+            <Brain size={10} /> Insight Ollama
+          </div>
+          <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>{result.insight}</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -224,6 +325,11 @@ export function EvidenceItemDetailPanel({ milestoneId, itemId, onReplaced }: Pro
             </a>
           )}
         </div>
+      )}
+
+      {/* Safety check (photos only) */}
+      {isImage && fileUrl && (
+        <SafetyWidget imageUrl={typeof window !== "undefined" ? window.location.origin + fileUrl : fileUrl} trade={undefined} />
       )}
 
       {/* File metadata */}

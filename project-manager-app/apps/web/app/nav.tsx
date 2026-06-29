@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "../lib/cn";
+import { Bell } from "lucide-react";
 import { fetchNotifications, markNotificationRead } from "./semse-api";
 import { PushEnableButton } from "../components/notifications/PushEnableButton";
 import { useCurrentUser } from "../hooks/useCurrentUser";
@@ -13,6 +14,7 @@ const links = [
   { href: "/", label: "Jobs" },
   { href: "/jobs/new", label: "Publicar" },
   { href: "/field-ops", label: "Field Ops" },
+  { href: "/agro", label: "Agro" },
   { href: "/communications", label: "Inbox" },
   { href: "/cortex", label: "Cortex" },
 ];
@@ -102,9 +104,11 @@ function NotificationBell() {
           fontSize: "14px",
           cursor: "pointer",
           lineHeight: 1,
+          display: "flex",
+          alignItems: "center",
         }}
       >
-        🔔
+        <Bell size={16} />
         {unread > 0 && (
           <span style={{
             position: "absolute",

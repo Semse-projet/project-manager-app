@@ -593,6 +593,28 @@ export default function MissionControlPage() {
         )}
       </div>
 
+      {/* SEMSE OS Modules */}
+      <section style={{ marginBottom: "24px" }}>
+        <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: "16px", marginBottom: "12px" }}>
+          <div>
+            <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--faint, #4b6280)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>
+              SEMSE OS
+            </p>
+            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "var(--ink, #f1f5f9)" }}>
+              Ecosistema modular
+            </h2>
+          </div>
+          <a href="/admin/tool-hub" style={{ color: "#93c5fd", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+            Tool Hub →
+          </a>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          {ADMIN_MODULES.filter((module) => module.id !== "settings").map((module) => (
+            <ModuleCard key={module.id} module={module} compact />
+          ))}
+        </div>
+      </section>
+
       {/* Filters */}
       <div style={{ display: "flex", gap: "6px", marginBottom: "14px", flexWrap: "wrap" }}>
         {(["open", "high", "critical", "all"] as const).map((f) => (

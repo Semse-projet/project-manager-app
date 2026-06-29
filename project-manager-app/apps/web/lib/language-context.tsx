@@ -38,6 +38,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.settings": "Configuración",
     "nav.htmlCanvas": "HTML Canvas",
     "nav.buildOps": "BuildOps",
+    "nav.agro": "Agro",
     "nav.semseTools": "SEMSE Tools",
     "nav.agents": "Agentes",
     "nav.coordinator": "Coordinador",
@@ -100,6 +101,10 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     // ── Sections ──────────────────────────────────────────────────────────────
     "section.main": "Principal",
+    "section.core": "Principal",
+    "section.modules": "Módulos",
+    "section.verticals": "Verticales",
+    "section.quick": "Acceso rápido",
     "section.control": "Control",
     "section.operations": "Operaciones",
     "section.field": "Campo",
@@ -691,6 +696,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.settings": "Settings",
     "nav.htmlCanvas": "HTML Canvas",
     "nav.buildOps": "BuildOps",
+    "nav.agro": "Agro",
     "nav.semseTools": "SEMSE Tools",
     "nav.agents": "Agents",
     "nav.coordinator": "Coordinator",
@@ -753,6 +759,10 @@ const T: Record<LanguagePreference, Record<string, string>> = {
 
     // ── Sections ──────────────────────────────────────────────────────────────
     "section.main": "Main",
+    "section.core": "Main",
+    "section.modules": "Modules",
+    "section.verticals": "Verticals",
+    "section.quick": "Quick access",
     "section.control": "Control",
     "section.operations": "Operations",
     "section.field": "Field",

@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ChangeOrderService } from './change-order.service';
+import { ChangeOrderService } from './change-order.service.js';
 
 /**
  * Change Order Controller — endpoints para change orders.

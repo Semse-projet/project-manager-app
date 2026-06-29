@@ -80,6 +80,14 @@ enum PaymentTxnStatus {
   REVERSED
 }
 
+enum EscrowStatus {
+  ACTIVE             @map("active")
+  PENDING_SETTLEMENT @map("pending_settlement")
+  CLOSED             @map("closed")
+  CANCELLED          @map("cancelled")
+  RELEASED           @map("released")
+}
+
 enum DisputeStatus {
   OPEN
   ASSIGNED
@@ -482,7 +490,7 @@ model Project {
   assignedProOrg  Org             @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
   // Field Ops
   fieldUnits      FieldUnit[]
-  // Lien Tracking
+  // Lien management
   lienCalendars   LienCalendar[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -553,7 +561,7 @@ model PaymentEscrow {
   currency     String        @default("USD")
   totalAmount  Decimal       @db.Decimal(12, 2)
   holdbackPct  Decimal?      @db.Decimal(5, 2)
-  status       String        @default("active")
+  status       EscrowStatus  @default(ACTIVE)
   transactions PaymentTxn[]
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   job          Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
@@ -2670,3 +2678,225 @@ model LienWaiver {
   @@index([requiredBefore])
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SEMSE AGRO — F1 RanchOps Core
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AgroFarm {
+  id            String   @id @default(cuid())
+  ownerId       String?
+  name          String
+  operationType String   @default("LIVESTOCK") // LIVESTOCK | MIXED | CROP
+  locationLabel String?
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  units         AgroFarmUnit[]
+  animals       AgroAnimal[]
+  animalGroups  AgroAnimalGroup[]
+  tasks         AgroFarmTask[]
+  inventoryItems AgroInventoryItem[]
+  movements     AgroInventoryMovement[]
+  costEntries   AgroCostEntry[]
+  evidence      AgroEvidenceItem[]
+  auditEvents   AgroAuditEvent[]
+
+  @@index([ownerId])
+}
+
+model AgroFarmUnit {
+  id        String  @id @default(cuid())
+  farmId    String
+  farm      AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name      String
+  type      String  @default("OTHER") // PASTURE | CORRAL | BARN | STORAGE | WATER_SOURCE | WORK_AREA | FIELD | GREENHOUSE | OTHER
+  areaValue Decimal? @db.Decimal(12, 4)
+  areaUnit  String?  // SQFT | ACRE | HECTARE | MANZANA | OTHER
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  animals      AgroAnimal[]
+  animalGroups AgroAnimalGroup[]
+
+  @@index([farmId])
+}
+
+model AgroAnimal {
+  id                  String    @id @default(cuid())
+  farmId              String
+  farm                AgroFarm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  currentUnitId       String?
+  currentUnit         AgroFarmUnit? @relation(fields: [currentUnitId], references: [id])
+  tagCode             String?
+  species             String    // CATTLE | PIG | GOAT | SHEEP | HORSE | CHICKEN | OTHER
+  breed               String?
+  sex                 String    @default("UNKNOWN") // MALE | FEMALE | UNKNOWN
+  birthDate           DateTime?
+  estimatedAgeMonths  Int?
+  initialWeight       Decimal?  @db.Decimal(10, 2)
+  currentWeight       Decimal?  @db.Decimal(10, 2)
+  status              String    @default("ACTIVE") // ACTIVE | SOLD | DEAD | LOST | INACTIVE
+  acquisitionDate     DateTime?
+  acquisitionCost     Decimal?  @db.Decimal(12, 2)
+  notes               String?   @db.Text
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([farmId])
+  @@index([currentUnitId])
+  @@index([status])
+  @@index([species])
+}
+
+model AgroAnimalGroup {
+  id               String    @id @default(cuid())
+  farmId           String
+  farm             AgroFarm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  currentUnitId    String?
+  currentUnit      AgroFarmUnit? @relation(fields: [currentUnitId], references: [id])
+  name             String
+  species          String    // CATTLE | PIG | GOAT | SHEEP | HORSE | CHICKEN | OTHER
+  count            Int
+  averageWeight    Decimal?  @db.Decimal(10, 2)
+  status           String    @default("ACTIVE") // ACTIVE | SOLD | DEAD | LOST | INACTIVE
+  acquisitionDate  DateTime?
+  acquisitionCost  Decimal?  @db.Decimal(12, 2)
+  notes            String?   @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([farmId])
+  @@index([currentUnitId])
+  @@index([status])
+}
+
+model AgroFarmTask {
+  id           String    @id @default(cuid())
+  farmId       String
+  farm         AgroFarm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  targetType   String?   // ANIMAL | ANIMAL_GROUP | FARM_UNIT | INVENTORY | GENERAL
+  targetId     String?
+  assignedToId String?
+  title        String
+  type         String    // FEEDING | VACCINATION | TREATMENT | WEIGHING | MOVEMENT | CLEANING | INSPECTION | INVENTORY | SALE | WATER_CHECK | OTHER
+  status       String    @default("PENDING") // PENDING | IN_PROGRESS | COMPLETED | BLOCKED | CANCELLED
+  priority     String    @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  dueAt        DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  blockedAt    DateTime?
+  cancelledAt  DateTime?
+  blockReason  String?
+  cancelReason String?
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([farmId])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([dueAt])
+}
+
+model AgroInventoryItem {
+  id           String    @id @default(cuid())
+  farmId       String
+  farm         AgroFarm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name         String
+  category     String    // FEED | MEDICINE | VACCINE | FERTILIZER | SEED | FUEL | TOOL | MATERIAL | EQUIPMENT | OTHER
+  unit         String    // UNIT | LB | KG | TON | LITER | GALLON | BAG | BOX | DOSE | BOTTLE | OTHER
+  minimumStock Decimal?  @db.Decimal(12, 4)
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  movements    AgroInventoryMovement[]
+
+  @@index([farmId])
+  @@index([category])
+}
+
+model AgroInventoryMovement {
+  id              String    @id @default(cuid())
+  farmId          String
+  farm            AgroFarm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  itemId          String
+  item            AgroInventoryItem @relation(fields: [itemId], references: [id])
+  movementType    String    // IN | OUT | ADJUSTMENT
+  quantity        Decimal?  @db.Decimal(12, 4)
+  adjustmentDelta Decimal?  @db.Decimal(12, 4)
+  unitCost        Decimal?  @db.Decimal(12, 4)
+  totalCost       Decimal?  @db.Decimal(12, 4)
+  relatedTaskId   String?   // polymorphic ref to AgroFarmTask.id
+  targetType      String?
+  targetId        String?
+  occurredAt      DateTime
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([occurredAt])
+}
+
+model AgroCostEntry {
+  id           String    @id @default(cuid())
+  farmId       String
+  farm         AgroFarm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  sourceType   String    // INVENTORY_MOVEMENT | TASK | MANUAL | SERVICE | EQUIPMENT | OTHER
+  sourceId     String?   // polymorphic — ID of source entity (movement, task, etc.)
+  targetType   String    // FARM | FARM_UNIT | ANIMAL | ANIMAL_GROUP | FARM_TASK | INVENTORY_ITEM | GENERAL
+  targetId     String?
+  category     String    // FEED | VETERINARY | LABOR | EQUIPMENT | TRANSPORT | INFRASTRUCTURE | SEED | FERTILIZER | FUEL | OTHER
+  amount       Decimal   @db.Decimal(14, 2)
+  currency     String    @default("USD")
+  description  String?
+  occurredAt   DateTime
+  createdAt    DateTime  @default(now())
+
+  @@index([farmId])
+  @@index([occurredAt])
+  @@index([targetType, targetId])
+}
+
+model AgroEvidenceItem {
+  id            String    @id @default(cuid())
+  farmId        String
+  farm          AgroFarm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  entityType    String    // FARM | FARM_UNIT | ANIMAL | ANIMAL_GROUP | FARM_TASK | INVENTORY_ITEM | INVENTORY_MOVEMENT | COST_ENTRY | GENERAL
+  entityId      String?
+  mediaType     String    // NOTE | PHOTO | VIDEO | DOCUMENT | EXTERNAL_URL | OTHER
+  title         String?
+  note          String?   @db.Text
+  fileUrl       String?
+  capturedAt    DateTime
+  capturedById  String?
+  latitude      Decimal?  @db.Decimal(10, 7)
+  longitude     Decimal?  @db.Decimal(10, 7)
+  createdAt     DateTime  @default(now())
+
+  @@index([farmId])
+  @@index([entityType, entityId])
+  @@index([capturedAt])
+}
+
+model AgroAuditEvent {
+  id         String   @id @default(cuid())
+  farmId     String
+  farm       AgroFarm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  actorId    String?
+  entityType String
+  entityId   String
+  action     String
+  before     Json?
+  after      Json?
+  source     String   @default("SYSTEM") // WEB | MOBILE | SYNC | SYSTEM | IMPORT
+  createdAt  DateTime @default(now())
+
+  @@index([farmId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([actorId])
+}

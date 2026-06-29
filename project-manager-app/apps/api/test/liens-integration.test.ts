@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert';
-import { MockLienGridClient } from '../src/integrations/liengrid';
+import { MockLienGridClient } from '../src/integrations/liengrid.ts';
 
 /**
  * Integration tests para Liens Module (2.1.A).
@@ -169,8 +169,8 @@ test('Lien Calendar — Deadline calculations', () => {
 
   const preliminaryDeadline = addDays(startDate, 25);
 
-  assert.strictEqual(preliminaryDeadline.getDate(), 25);
-  assert.strictEqual(preliminaryDeadline.getMonth(), 7); // August
+  assert.strictEqual(preliminaryDeadline.getUTCDate(), 26);
+  assert.strictEqual(preliminaryDeadline.getUTCMonth(), 6); // July
 });
 
 test('Lien Calendar — Multiple states for same project', () => {

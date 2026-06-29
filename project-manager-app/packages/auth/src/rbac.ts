@@ -43,7 +43,9 @@ export const rolePermissions: Record<string, string[]> = {
     "finance:write",
     "governance:read",
     "governance:vote",
-    "governance:propose"
+    "governance:propose",
+    "agro:read",
+    "agro:write"
   ],
   PRO: [
     "jobs:read",
@@ -80,7 +82,9 @@ export const rolePermissions: Record<string, string[]> = {
     "matching:read",
     "governance:read",
     "governance:vote",
-    "governance:propose"
+    "governance:propose",
+    "agro:read",
+    "agro:write"
   ],
   WORKER: [
     "agents:run:worker",
@@ -158,7 +162,9 @@ export const rolePermissions: Record<string, string[]> = {
     "agents:run:worker",
     "notifications:read",
     "finance:read",
-    "finance:write"
+    "finance:write",
+    "agro:read",
+    "agro:write"
   ]
 };
 

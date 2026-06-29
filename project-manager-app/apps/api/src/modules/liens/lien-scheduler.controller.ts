@@ -1,6 +1,6 @@
 import { Controller, Post, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { LienAlertsScheduler } from './lien-alerts.scheduler';
+import { LienAlertsScheduler } from './lien-alerts.scheduler.js';
 
 /**
  * Controlador para ejecutar scheduler manualmente.

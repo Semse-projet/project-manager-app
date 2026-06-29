@@ -382,8 +382,9 @@ test("field-ops: getTrackerSnapshot returns active session + recent history", as
 });
 
 test("field-ops: getTrackerSummary aggregates by job and calculates totals for week/month", async () => {
-  const now = new Date("2026-06-22T10:00:00Z");
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+  const now = new Date();
+  // Use 6 days ago so all sessions fall safely inside the 7-day window regardless of wall-clock time
+  const weekAgo = new Date(now.getTime() - 6 * 24 * 3600 * 1000);
 
   const sessions = [
     makeSession("STOPPED", {

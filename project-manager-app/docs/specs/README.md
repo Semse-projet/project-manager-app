@@ -5,6 +5,7 @@ Son la fuente de verdad que gobierna el código.
 
 **Template para nuevos specs:** `docs/specs/templates/semse-spec-template.md`
 **Template Spec Kit:** `.specify/templates/overrides/semse-spec.md`
+**Kit ecosistema SDD/SSD:** `docs/specs/SEMSE_ECOSYSTEM_SDD_KIT_2026-06-28.md`
 **Índice completo:** `docs/SPEC_INDEX.md`
 **Protocolo SDD:** `docs/SDD_GOVERNANCE.md`
 **Validación:** `pnpm spec:preflight`
@@ -46,6 +47,7 @@ Estado al 2026-06-09:
 | `api/field-ops.spec.md` | VERIFIED | Alto — tracker, worklogs y campo |
 | `api/matching.spec.md` | VERIFIED | Alto — matching explicable |
 | `api/reservations.spec.md` | VERIFIED | Alto — hold/accept/release/expire |
+| `api/readiness.spec.md` | VERIFIED | Critico — readiness real para Railway y dependencias |
 | `ui/work-os-navigation-decision-intelligence.spec.md` | APPROVED | Alto — navegacion Work OS y decision intelligence |
 
 La matriz generada en `docs/SPEC_INDEX.md` es la fuente de verdad para el estado completo. Esta tabla solo resume specs prioritarios para trabajo activo.

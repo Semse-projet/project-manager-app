@@ -47,6 +47,7 @@ import {
   Package,
   DollarSign,
   Infinity,
+  Leaf,
   PlaneTakeoff,
   Plus,
   Settings,
@@ -67,7 +68,7 @@ interface NavItem extends ShellNavItem {}
 const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
     labelKey: "role.worker",
-    color: "#10b981",
+    color: "#81c995",
     icon: HardHat,
     items: [
       { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
@@ -91,7 +92,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
   },
   client: {
     labelKey: "role.client",
-    color: "#3b82f6",
+    color: "#8ab4f8",
     icon: Building,
     items: [
       { labelKey: "nav.dashboard", href: "/client/dashboard", icon: LayoutDashboard, section: "section.main" },
@@ -113,54 +114,29 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
   },
   admin: {
     labelKey: "role.admin",
-    color: "#8b5cf6",
+    color: "#c58af9",
     icon: ShieldCheck,
     items: [
-      { labelKey: "nav.dashboard", href: "/admin/dashboard", icon: LayoutDashboard, section: "section.main" },
-      { labelKey: "nav.operations", href: "/admin/ops", icon: Activity },
-      { labelKey: "nav.contractors", href: "/admin/contractors", icon: Building2 },
-      { labelKey: "nav.marketplace", href: "/admin/marketplace", icon: Store },
-      { labelKey: "nav.trust", href: "/admin/trust", icon: ShieldCheck },
-      { labelKey: "nav.reputation", href: "/admin/reputation", icon: Star },
-      { labelKey: "nav.worker", href: "/admin/worker", icon: Cpu },
-      { labelKey: "nav.autonomy", href: "/admin/autonomy", icon: GitBranch },
-      { labelKey: "nav.developerRuntime", href: "/admin/developer-runtime", icon: Bot },
-      { labelKey: "nav.communications", href: "/admin/communications", icon: MessageSquare },
-      { labelKey: "nav.domainEvents", href: "/admin/domain-events", icon: Bell },
-      { labelKey: "nav.users", href: "/admin/users", icon: Users },
-      { labelKey: "nav.disputes", href: "/admin/disputes", icon: AlertTriangle },
-      { labelKey: "nav.changeOrders", href: "/admin/change-orders", icon: FileText },
-      { labelKey: "nav.visionAI", href: "/admin/vision", icon: Camera, section: "section.control" },
-      { labelKey: "nav.qaCenter", href: "/admin/qa", icon: ShieldCheck },
-      { labelKey: "nav.browserAgent", href: "/admin/browser-agent", icon: Eye },
-      { labelKey: "nav.compliance", href: "/admin/compliance", icon: CheckSquare },
-      { labelKey: "nav.finance", href: "/admin/finance", icon: CreditCard },
-      { labelKey: "nav.travelOps", href: "/admin/travel", icon: PlaneTakeoff },
-      { labelKey: "nav.reports", href: "/admin/reports", icon: BarChart2 },
-      { labelKey: "nav.fieldOps", href: "/admin/field-ops", icon: Wrench, section: "section.operations" },
-      { labelKey: "nav.settings", href: "/admin/settings", icon: Settings },
-      { labelKey: "nav.htmlCanvas", href: "/admin/html-in-canvas", icon: Layers, section: "section.lab" },
-      { labelKey: "nav.buildOps", href: "/buildops", icon: FolderKanban, section: "section.lab" },
-      { labelKey: "nav.semseTools", href: "/tools", icon: Wrench, section: "section.lab" },
-      { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
-      { labelKey: "nav.coordinator", href: "/admin/coordinator", icon: GitBranch },
-      { labelKey: "nav.missionControl", href: "/admin/mission-control", icon: Activity, section: "section.control" },
-      { labelKey: "nav.workops", href: "/admin/workops", icon: Wrench, section: "section.control" },
-      { labelKey: "nav.intelligence", href: "/admin/intelligence", icon: Brain, section: "section.control" },
-      { labelKey: "nav.toolHub", href: "/admin/tool-hub", icon: Package, section: "section.control" },
-      { labelKey: "nav.verticals", href: "/admin/verticals", icon: Layers, section: "section.control" },
-      { labelKey: "nav.algorithmEngine", href: "/admin/algorithm-engine", icon: BarChart2 },
-      { labelKey: "nav.toolsCatalog", href: "/admin/tools", icon: Package },
-      { labelKey: "nav.aiMissionControl", href: "/admin/ai-mission-control", icon: Brain },
-      { labelKey: "nav.agents", href: "/admin/agents", icon: Bot, section: "section.ai" },
-      { labelKey: "nav.consciousness", href: "/admin/consciousness", icon: Eye },
-      { labelKey: "nav.ecosystem", href: "/admin/ecosystem", icon: Zap },
-      { labelKey: "nav.llmMetrics", href: "/admin/llm-metrics", icon: BarChart2 },
-      { labelKey: "nav.pmo", href: "/admin/pmo", icon: BarChart2 },
-      { labelKey: "nav.semseX", href: "/admin/semse-x", icon: Infinity },
-      { labelKey: "nav.agentMemory", href: "/admin/memory", icon: Brain },
-      { labelKey: "nav.prometeo", href: "/admin/prometeo", icon: BookOpen },
-      { labelKey: "nav.governance", href: "/admin/governance", icon: Scale },
+      // ── Core ──────────────────────────────────────────────────────────────
+      { labelKey: "nav.dashboard",      href: "/admin/dashboard",        icon: LayoutDashboard, section: "section.core" },
+      // ── Modules ───────────────────────────────────────────────────────────
+      { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity,        section: "section.modules" },
+      { labelKey: "nav.workops",        href: "/admin/workops",          icon: Wrench },
+      { labelKey: "nav.marketplace",    href: "/admin/marketplace",      icon: Store },
+      { labelKey: "nav.finance",        href: "/admin/finance",          icon: DollarSign },
+      { labelKey: "nav.trust",          href: "/admin/trust",            icon: ShieldCheck },
+      { labelKey: "nav.intelligence",   href: "/admin/intelligence",     icon: Brain },
+      { labelKey: "nav.toolHub",        href: "/admin/tool-hub",         icon: Package },
+      { labelKey: "nav.verticals",      href: "/admin/verticals",        icon: Layers },
+      { labelKey: "nav.settings",       href: "/admin/settings",         icon: Settings },
+      // ── Verticals ─────────────────────────────────────────────────────────
+      { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf,            section: "section.verticals" },
+      { labelKey: "nav.buildOps",       href: "/buildops",               icon: FolderKanban },
+      { labelKey: "nav.semseTools",     href: "/tools",                  icon: Wrench },
+      // ── Quick access ──────────────────────────────────────────────────────
+      { labelKey: "nav.users",          href: "/admin/users",            icon: Users,           section: "section.quick" },
+      { labelKey: "nav.communications", href: "/admin/communications",   icon: MessageSquare },
+      { labelKey: "nav.agents",         href: "/agents",                 icon: Bot },
     ],
   },
 };
@@ -224,7 +200,7 @@ function Sidebar({
                 flexShrink: 0,
               }}
             >
-              <RoleIcon size={15} color="#fff" />
+              <RoleIcon size={15} color="#ecfffb" />
             </div>
             <div>
               <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
@@ -244,7 +220,7 @@ function Sidebar({
               justifyContent: "center",
             }}
           >
-            <RoleIcon size={15} color="#fff" />
+            <RoleIcon size={15} color="#ecfffb" />
           </div>
         )}
         <button
@@ -409,7 +385,10 @@ function useAppRole(): NavRole {
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = useAppRole();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("semse-sidebar-collapsed") === "true";
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
@@ -421,6 +400,13 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     const savedTheme = window.localStorage.getItem("semse-theme");
     if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
   });
+
+  const handleCollapsedChange = (next: boolean) => {
+    setCollapsed(next);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("semse-sidebar-collapsed", String(next));
+    }
+  };
 
   const handleThemeChange = (value: ThemePreference) => {
     setTheme(value);
@@ -465,7 +451,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                           title={collapsed ? item.label : undefined}
                           className={[
                             "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                            item.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                            item.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
                           ].join(" ")}
                         >
                           <span className="flex h-5 w-5 items-center justify-center">
@@ -493,7 +479,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                   title={collapsed ? navItem.label : undefined}
                   className={[
                     "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                    navItem.active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white",
+                    navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
                   ].join(" ")}
                 >
                   <span className="flex h-5 w-5 items-center justify-center">
@@ -525,7 +511,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
                   flexShrink: 0,
                 }}
               >
-                <RoleIcon size={15} color="#fff" />
+                <RoleIcon size={15} color="#ecfffb" />
               </div>
               {!collapsed ? (
                 <div>
@@ -538,7 +524,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           navItems={shellNavItems}
           hideHeader
           collapsed={collapsed}
-          onCollapsedChange={setCollapsed}
+          onCollapsedChange={handleCollapsedChange}
           sidebarFooter={
             !collapsed ? (
               <a
@@ -627,8 +613,8 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
         left: 0,
         right: 0,
         height: 64,
-        background: "var(--surface, #111827)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        background: "var(--surface, #1b1c1d)",
+        borderTop: "1px solid rgba(220,231,227,0.08)",
         zIndex: 99,
         alignItems: "center",
         justifyContent: "space-around",
@@ -647,7 +633,7 @@ function WorkerMobileBottomNav({ pathname }: { pathname: string }) {
               alignItems: "center",
               gap: 2,
               padding: "8px 12px",
-              color: active ? "#10b981" : "var(--muted, #6b7280)",
+              color: active ? "var(--brand, #8ab4f8)" : "var(--muted, #6b7280)",
               textDecoration: "none",
               minWidth: 56,
             }}

@@ -9,7 +9,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { LiensService } from './liens.service';
+import { LiensService } from './liens.service.js';
 
 /**
  * REST Controller para Liens — calendarios de preliminary notices.

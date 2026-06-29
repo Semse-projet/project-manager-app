@@ -54,8 +54,12 @@ export class EXIFParser {
         valid: true,
         data: {
           ...exif,
+          timestamp: exif.timestamp!,
+          gpsLatitude: exif.gpsLatitude!,
+          gpsLongitude: exif.gpsLongitude!,
           isValidated: true,
         },
+        errors: [],
       };
     } catch (error) {
       this.logger.error('EXIF validation failed', error);

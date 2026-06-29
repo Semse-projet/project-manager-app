@@ -95,7 +95,7 @@ export class SemseApiError extends Error {
   }
 }
 
-function normalizeErrorMessage(value: unknown): string | undefined {
+export function normalizeErrorMessage(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : undefined;
@@ -530,6 +530,22 @@ export async function fetchVisionByJob(jobId: string): Promise<Record<string, un
 
 export async function triggerVisionEndpoint(endpoint: string, payload: Record<string, unknown>): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint, payload });
+}
+
+export async function detectMaterial(imageUrl: string, expectedMaterial?: string, enrich = true): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "detect-material", payload: { imageUrl, expectedMaterial, enrich } });
+}
+
+export async function classifySpace(imageUrl: string, enrich = true): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "classify-space", payload: { imageUrl, enrich } });
+}
+
+export async function analyzePortfolio(imageUrl: string, imageHash?: string, enrich = true): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "analyze-portfolio", payload: { imageUrl, imageHash, enrich } });
+}
+
+export async function safetyCheckEnriched(imageUrl: string, trade?: string): Promise<Record<string, unknown>> {
+  return mutateSemse<Record<string, unknown>>("/api/semse/vision", { endpoint: "safety-check-enriched", payload: { imageUrl, trade } });
 }
 
 export async function presignEvidence(input: {
@@ -2633,4 +2649,91 @@ export async function fetchProjectActivity(buildOpsProjectId: string, limit = 40
   return Array.isArray(envelope)
     ? (envelope as ActivityEvent[])
     : ((envelope as { data: ActivityEvent[] }).data ?? []);
+}
+
+// ── Agro ─────────────────────────────────────────────────────────────────────
+
+export type AgroFarm = {
+  id: string;
+  name: string;
+  operationType: "LIVESTOCK" | "MIXED" | "CROP";
+  locationLabel: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AgroFarmUnit = {
+  id: string;
+  farmId: string;
+  name: string;
+  type: string;
+  areaValue: string | null;
+  areaUnit: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listFarms(): Promise<AgroFarm[]> {
+  const data = await fetchSemse<AgroFarm[]>("/api/semse/agro");
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createFarm(input: {
+  name: string;
+  operationType?: string;
+  locationLabel?: string;
+  notes?: string;
+}): Promise<AgroFarm> {
+  return fetchSemse<AgroFarm>("/api/semse/agro", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function getFarm(farmId: string): Promise<AgroFarm> {
+  return fetchSemse<AgroFarm>(`/api/semse/agro/${encodeURIComponent(farmId)}`);
+}
+
+export async function updateFarm(farmId: string, input: Partial<Pick<AgroFarm, "name" | "operationType" | "locationLabel" | "notes">>): Promise<AgroFarm> {
+  return fetchSemse<AgroFarm>(`/api/semse/agro/${encodeURIComponent(farmId)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function listFarmUnits(farmId: string): Promise<AgroFarmUnit[]> {
+  const data = await fetchSemse<AgroFarmUnit[]>(`/api/semse/agro/${encodeURIComponent(farmId)}/units`);
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createFarmUnit(farmId: string, input: {
+  name: string;
+  type?: string;
+  areaValue?: number;
+  areaUnit?: string;
+  notes?: string;
+}): Promise<AgroFarmUnit> {
+  return fetchSemse<AgroFarmUnit>(`/api/semse/agro/${encodeURIComponent(farmId)}/units`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateFarmUnit(unitId: string, input: {
+  name?: string;
+  type?: string;
+  areaValue?: number;
+  areaUnit?: string;
+  notes?: string;
+}): Promise<AgroFarmUnit> {
+  return fetchSemse<AgroFarmUnit>(`/api/semse/agro/farm-units/${encodeURIComponent(unitId)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
 }

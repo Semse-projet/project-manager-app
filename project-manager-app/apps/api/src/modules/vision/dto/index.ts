@@ -135,6 +135,7 @@ export interface SafetyCheckResultDto {
   harnessDetected: boolean;
   complianceScore: number;
   violations: string[];
+  insight?: string;
 }
 
 // --- Reference Match ---
@@ -164,6 +165,57 @@ export interface TradeDetectionResultDto {
   tradeScores: Record<string, number>;
   expectedTrade?: string;
   match?: boolean;
+}
+
+// --- Material Detector ---
+export class DetectMaterialDto {
+  imageUrl!: string;
+  expectedMaterial?: string;
+  enrich?: boolean;
+}
+
+export interface DetectMaterialResultDto {
+  material: string;
+  condition: string;
+  stockLevel: string;
+  confidence: number;
+  allScores: Record<string, number>;
+  notes: string[];
+  insight?: string;
+}
+
+// --- Space Classifier ---
+export class ClassifySpaceDto {
+  imageUrl!: string;
+  enrich?: boolean;
+}
+
+export interface ClassifySpaceResultDto {
+  category: string;
+  confidence: number;
+  skipQuestionsAllowed: boolean;
+  categoryScores: Record<string, number>;
+  suggestedQuestions: string[];
+  keyFeatures: string[];
+  insight?: string;
+}
+
+// --- Portfolio Forensics ---
+export class AnalyzePortfolioDto {
+  imageUrl!: string;
+  imageHash?: string;
+  enrich?: boolean;
+}
+
+export interface PortfolioForensicsResultDto {
+  duplicateScore: number;
+  deepfakeScore: number;
+  qualityScore: number;
+  fraudRisk: number;
+  recommendation: string;
+  redFlags: string[];
+  details: Record<string, any>;
+  insight?: string;
 }
 
 // --- Consistency by Evidence IDs ---

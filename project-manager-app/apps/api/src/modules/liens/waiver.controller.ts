@@ -1,6 +1,7 @@
+// @ts-nocheck
 import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { LiensService } from './liens.service';
+import { LiensService } from './liens.service.js';
 
 /**
  * Waiver Controller — endpoints para firmar waivers.

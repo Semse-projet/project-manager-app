@@ -128,6 +128,7 @@ class SafetyCheckResult(BaseModel):
     harnessDetected: bool
     complianceScore: float
     violations: List[str]
+    insight: Optional[str] = None
 
 # --- Reference Match ---
 class ReferenceMatchRequest(BaseModel):
@@ -153,6 +154,51 @@ class TradeDetectionResult(BaseModel):
     tradeScores: Dict[str, float]
     expectedTrade: Optional[str] = None
     match: Optional[bool] = None
+
+# --- Material Detector ---
+class DetectMaterialRequest(BaseModel):
+    imageUrl: str
+    expectedMaterial: Optional[str] = None
+    enrich: bool = True
+
+class DetectMaterialResult(BaseModel):
+    material: str
+    condition: str
+    stockLevel: str
+    confidence: float
+    allScores: Dict[str, float]
+    notes: List[str]
+    insight: Optional[str] = None
+
+# --- Space Classifier ---
+class ClassifySpaceRequest(BaseModel):
+    imageUrl: str
+    enrich: bool = True
+
+class ClassifySpaceResult(BaseModel):
+    category: str
+    confidence: float
+    skipQuestionsAllowed: bool
+    categoryScores: Dict[str, float]
+    suggestedQuestions: List[str]
+    keyFeatures: List[str]
+    insight: Optional[str] = None
+
+# --- Portfolio Forensics ---
+class AnalyzePortfolioRequest(BaseModel):
+    imageUrl: str
+    imageHash: Optional[str] = None
+    enrich: bool = True
+
+class PortfolioForensicsResult(BaseModel):
+    duplicateScore: float
+    deepfakeScore: float
+    qualityScore: float
+    fraudRisk: float
+    recommendation: str
+    redFlags: List[str]
+    details: Dict[str, Any]
+    insight: Optional[str] = None
 
 # --- Batch Analyze (depends on EvidenceAnalyzeResponse) ---
 class BatchAnalyzeRequest(BaseModel):

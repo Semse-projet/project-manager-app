@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { LiensService } from './liens.service';
+import { LiensService } from './liens.service.js';
 
 /**
  * ProjectLiensService — crea calendarios de liens cuando se crea un proyecto.

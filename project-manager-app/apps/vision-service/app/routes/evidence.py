@@ -34,6 +34,12 @@ from app.schemas.evidence import (
     BatchAnalyzeRequest,
     BatchAnalyzeResponse,
     BatchItemResult,
+    DetectMaterialRequest,
+    DetectMaterialResult,
+    ClassifySpaceRequest,
+    ClassifySpaceResult,
+    AnalyzePortfolioRequest,
+    PortfolioForensicsResult,
 )
 from app.services.image_loader import load_image_from_url
 from app.analyzers.blur import detect_blur
@@ -46,13 +52,17 @@ from app.analyzers.binarization import binarize_document
 from app.analyzers.blueprint_contours import extract_blueprint_lines
 from app.analyzers.trade_detector import detect_trade
 from app.analyzers.reference_match import match_reference
-from app.analyzers.safety_detector import detect_safety_equipment
+from app.analyzers.safety_detector import detect_safety_equipment, estimate_height_risk, calculate_compliance_score
 from app.analyzers.timeline_builder import build_progress_timeline
 from app.analyzers.area_estimator import estimate_area
 from app.analyzers.location_consistency import check_location_consistency
+from app.analyzers.material_detector import detect_material
+from app.analyzers.space_classifier import classify_space
+from app.analyzers.portfolio_forensics import analyze_portfolio
 from app.services.scoring import evaluate_quality
 from app.services.governance import map_governance_rules
 from app.utils.exif import extract_exif
+from app.services.ollama_enricher import enrich
 
 router = APIRouter()
 
@@ -278,6 +288,45 @@ def detect_trade_endpoint(request: TradeDetectionRequest):
     result = detect_trade(image, request.expectedTrade)
     return TradeDetectionResult(**result)
 
+@router.post("/detect-material", response_model=DetectMaterialResult, tags=["vision"])
+def detect_material_endpoint(request: DetectMaterialRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = detect_material(image, request.expectedMaterial)
+    insight = enrich("material", dict(cv_result)) if request.enrich else None
+    return DetectMaterialResult(**cv_result, insight=insight)
+
+
+@router.post("/classify-space", response_model=ClassifySpaceResult, tags=["vision"])
+def classify_space_endpoint(request: ClassifySpaceRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = classify_space(image)
+    insight = enrich("space", dict(cv_result)) if request.enrich else None
+    return ClassifySpaceResult(**cv_result, insight=insight)
+
+
+@router.post("/safety-check-enriched", response_model=SafetyCheckResult, tags=["vision"])
+def safety_check_enriched_endpoint(request: SafetyCheckRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = detect_safety_equipment(image)
+    insight = enrich("safety", cv_result)
+    return SafetyCheckResult(
+        helmetDetected=cv_result["helmet_detected"],
+        vestDetected=cv_result["vest_detected"],
+        harnessDetected=cv_result["harness_detected"],
+        complianceScore=cv_result["compliance_score"],
+        violations=cv_result["violations"],
+        insight=insight,
+    )
+
+
+@router.post("/analyze-portfolio", response_model=PortfolioForensicsResult, tags=["vision"])
+def analyze_portfolio_endpoint(request: AnalyzePortfolioRequest):
+    image = load_image_from_url(request.imageUrl)
+    cv_result = analyze_portfolio(image, request.imageHash)
+    insight = enrich("portfolio", dict(cv_result)) if request.enrich else None
+    return PortfolioForensicsResult(**cv_result, insight=insight)
+
+
 def _analyze_single(item: EvidenceAnalyzeRequest) -> BatchItemResult:
     try:
         from fastapi.testclient import TestClient
@@ -312,3 +361,5 @@ def batch_analyze_endpoint(request: BatchAnalyzeRequest):
         batchDurationMs=round(elapsed_ms, 2),
         results=results,
     )
+
+

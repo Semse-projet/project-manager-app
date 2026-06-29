@@ -24,7 +24,7 @@ const WEATHER_TRADE_MATRIX: Record<string, TradeWeatherRule> = {
     maxPrecipitation: 10,
     restrictions: ['Heavy rain', 'Extreme heat'],
   },
-  Roofing: {
+  Framing: {
     trade: 'Roofing',
     maxTemp: 35,
     minTemp: 5,
@@ -64,7 +64,7 @@ const WEATHER_TRADE_MATRIX: Record<string, TradeWeatherRule> = {
     maxPrecipitation: 5,
     restrictions: ['Muddy conditions slow work', 'Extreme heat hazard'],
   },
-  Demolition: {
+  SelectiveDemolition: {
     trade: 'Demolition',
     maxTemp: 45,
     minTemp: -10,
