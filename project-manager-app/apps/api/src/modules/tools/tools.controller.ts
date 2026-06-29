@@ -1,6 +1,7 @@
 import { Body, Controller, Get, NotFoundException, Param, Post, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ok } from "../../common/api-response.js";
+import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ToolsService, type ToolCalculateInput } from "./tools.service.js";
@@ -104,6 +105,7 @@ function buildSystemPrompt(trade: string): string {
 }
 
 @Controller("v1/tools")
+@AuthenticatedAccess("Authenticated pro tools surface pending granular tools permissions.")
 export class ToolsController {
   constructor(
     private readonly toolsService: ToolsService,

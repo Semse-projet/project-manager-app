@@ -3,9 +3,11 @@ import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
 import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto, BatchByIdsDto, DetectMaterialDto, ClassifySpaceDto, AnalyzePortfolioDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
+import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
 @Controller("v1/vision")
+@AuthenticatedAccess("Authenticated vision analysis surface pending granular evidence and vision permissions.")
 export class VisionController {
   constructor(private readonly visionService: VisionService) {}
 

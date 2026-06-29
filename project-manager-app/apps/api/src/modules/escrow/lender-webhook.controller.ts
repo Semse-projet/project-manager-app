@@ -1,4 +1,5 @@
 import { Controller, Post, Body, Headers, Logger, BadRequestException } from '@nestjs/common';
+import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { LenderClient } from '../../integrations/lender-api.js';
 import { DrawRequestService } from './draw-request.service.js';
 
@@ -6,6 +7,7 @@ import { DrawRequestService } from './draw-request.service.js';
  * Lender Webhook Controller — recibir eventos del lender.
  */
 @Controller('v1/webhooks/lender')
+@AuthenticatedAccess('Lender webhook currently requires platform auth in addition to lender signature verification.')
 export class LenderWebhookController {
   private readonly logger = new Logger(LenderWebhookController.name);
 

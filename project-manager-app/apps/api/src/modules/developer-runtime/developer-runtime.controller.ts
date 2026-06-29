@@ -13,6 +13,7 @@ import {
   developerRuntimeWorkerStartInputSchema,
 } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
@@ -23,6 +24,7 @@ export class DeveloperRuntimeController {
   constructor(private readonly developerRuntimeService: DeveloperRuntimeService) {}
 
   @Get("catalog")
+  @RequirePermissions("autonomy:runs:read")
   async catalog(@Req() req: { headers?: Record<string, unknown> }) {
     return ok(
       resolveRequestId(req.headers ?? {}),
@@ -31,6 +33,7 @@ export class DeveloperRuntimeController {
   }
 
   @Get("sessions")
+  @RequirePermissions("autonomy:runs:read")
   async listSessions(
     @Req() req: {
       headers?: Record<string, unknown>;
@@ -58,6 +61,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions")
+  @RequirePermissions("autonomy:runs:create")
   async createSession(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: unknown,
@@ -84,6 +88,7 @@ export class DeveloperRuntimeController {
   }
 
   @Get("sessions/:sessionId")
+  @RequirePermissions("autonomy:runs:read")
   async getSession(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -104,6 +109,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/missions")
+  @RequirePermissions("autonomy:runs:create")
   async createMission(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -132,6 +138,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/approvals/:approvalId/respond")
+  @RequirePermissions("autonomy:runs:create")
   async respondApproval(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -161,6 +168,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/execute")
+  @RequirePermissions("autonomy:runs:create")
   async executeSession(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -187,6 +195,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/worker/progress")
+  @RequirePermissions("agents:run:worker")
   async workerProgress(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -211,6 +220,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/worker/start")
+  @RequirePermissions("agents:run:worker")
   async workerStart(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -237,6 +247,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/worker/complete")
+  @RequirePermissions("agents:run:manage")
   async workerComplete(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,
@@ -276,6 +287,7 @@ export class DeveloperRuntimeController {
   }
 
   @Post("sessions/:sessionId/worker/fail")
+  @RequirePermissions("agents:run:manage")
   async workerFail(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("sessionId") sessionId: string,

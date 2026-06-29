@@ -10,6 +10,7 @@ import {
 } from "@semse/schemas";
 import { SEMSE_BOOTSTRAP_HEADER_NAME } from "@semse/shared";
 import { ok } from "../../common/api-response.js";
+import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
@@ -53,6 +54,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Get("me")
+  @AuthenticatedAccess("Authenticated users may read their own auth session context.")
   me(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
 
@@ -139,6 +141,7 @@ export class AuthController {
   }
 
   @Post("logout")
+  @AuthenticatedAccess("Authenticated users may terminate their own session.")
   async logout(@Req() req: AuthenticatedRequest) {
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});

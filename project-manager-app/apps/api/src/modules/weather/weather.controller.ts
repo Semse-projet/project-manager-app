@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { WeatherAlertService } from './weather-alert.service.js';
 import { WeatherMatrixService } from './weather-matrix.service.js';
 
@@ -8,6 +9,7 @@ import { WeatherMatrixService } from './weather-matrix.service.js';
  */
 @Controller('v1/projects/:projectId/weather')
 @UseGuards(AuthGuard('jwt'))
+@AuthenticatedAccess('Legacy weather endpoints are JWT-protected and pending granular project permissions.')
 export class WeatherController {
   private readonly logger = new Logger(WeatherController.name);
 

@@ -13,7 +13,7 @@ import {
 import type { FastifyRequest } from "fastify";
 import { z } from "zod";
 import { ok } from "../../common/api-response.js";
-import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { AuthenticatedAccess, RequirePermissions } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
@@ -244,6 +244,7 @@ export class SmartIntakeController {
   }
 
   @Post(":id/claim")
+  @AuthenticatedAccess("Authenticated users may claim an intake when they also prove the intake session token.")
   async claim(
     @Req() req: FastifyRequest,
     @Param("id") intakeId: string,
@@ -265,6 +266,7 @@ export class SmartIntakeController {
   }
 
   @Post(":id/publish")
+  @RequirePermissions("jobs:create")
   async publish(
     @Req() req: FastifyRequest,
     @Param("id") intakeId: string,
