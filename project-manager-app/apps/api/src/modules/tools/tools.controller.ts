@@ -1,7 +1,7 @@
 import { Body, Controller, Get, NotFoundException, Param, Post, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ok } from "../../common/api-response.js";
-import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ToolsService, type ToolCalculateInput } from "./tools.service.js";
@@ -105,7 +105,7 @@ function buildSystemPrompt(trade: string): string {
 }
 
 @Controller("v1/tools")
-@AuthenticatedAccess("Authenticated pro tools surface pending granular tools permissions.")
+@RequirePermissions("tools:read")
 export class ToolsController {
   constructor(
     private readonly toolsService: ToolsService,
@@ -128,6 +128,7 @@ export class ToolsController {
   }
 
   @Post("calculate")
+  @RequirePermissions("tools:run")
   calculate(@Req() req: FastifyRequest, @Body() body: ToolCalculateInput) {
     const rid    = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.calculate(body);
@@ -147,6 +148,7 @@ export class ToolsController {
   }
 
   @Post("quote")
+  @RequirePermissions("tools:run")
   quote(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.quote(body.result as never);
@@ -154,6 +156,7 @@ export class ToolsController {
   }
 
   @Post("milestones")
+  @RequirePermissions("tools:run")
   milestones(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.milestones(body.result as never);
@@ -161,6 +164,7 @@ export class ToolsController {
   }
 
   @Post("evidence")
+  @RequirePermissions("tools:run")
   evidence(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.evidence(body.result as never);
@@ -168,6 +172,7 @@ export class ToolsController {
   }
 
   @Post("export")
+  @RequirePermissions("tools:run")
   export(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.export(body.result as never);
@@ -175,6 +180,7 @@ export class ToolsController {
   }
 
   @Post("escrow")
+  @RequirePermissions("tools:run")
   escrow(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.escrow(body.result as never);
@@ -182,6 +188,7 @@ export class ToolsController {
   }
 
   @Post("change-order")
+  @RequirePermissions("tools:run")
   changeOrder(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown>; deltaPercent: number }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.changeOrder(body.result as never, body.deltaPercent ?? 0);
@@ -189,6 +196,7 @@ export class ToolsController {
   }
 
   @Post("dispute-risk")
+  @RequirePermissions("tools:run")
   disputeRisk(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const result = this.toolsService.disputeRisk(body.result as never);
@@ -196,6 +204,7 @@ export class ToolsController {
   }
 
   @Post("ai-assist")
+  @RequirePermissions("tools:run")
   async aiAssist(
     @Req() req: FastifyRequest,
     @Body() body: { trade: string; question: string; context?: Record<string, unknown> },

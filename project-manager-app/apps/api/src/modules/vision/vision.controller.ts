@@ -3,15 +3,16 @@ import type { FastifyRequest } from "fastify";
 import { VisionService } from "./vision.service.js";
 import { AnalyzeEvidenceDto, BlueprintDto, PerspectiveCorrectionDto, BinarizeDto, AreaEstimateDto, ConsistencyCheckDto, ConsistencyByIdsDto, TimelineDto, SafetyCheckDto, ReferenceMatchDto, TradeDetectionDto, BatchAnalyzeDto, BatchByIdsDto, DetectMaterialDto, ClassifySpaceDto, AnalyzePortfolioDto } from "./dto/index.js";
 import { ok } from "../../common/api-response.js";
-import { AuthenticatedAccess } from "../../common/permissions.decorator.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 
 @Controller("v1/vision")
-@AuthenticatedAccess("Authenticated vision analysis surface pending granular evidence and vision permissions.")
+@RequirePermissions("vision:read")
 export class VisionController {
   constructor(private readonly visionService: VisionService) {}
 
   @Post("analyze")
+  @RequirePermissions("vision:run")
   async analyze(
     @Req() req: FastifyRequest,
     @Body() dto: AnalyzeEvidenceDto
@@ -52,6 +53,7 @@ export class VisionController {
   }
 
   @Post("analyze-by-evidence/:evidenceId")
+  @RequirePermissions("vision:run")
   async analyzeByEvidenceId(
     @Req() req: FastifyRequest,
     @Param("evidenceId") evidenceId: string
@@ -62,6 +64,7 @@ export class VisionController {
   }
 
   @Post("blueprint")
+  @RequirePermissions("vision:run")
   async blueprint(
     @Req() req: FastifyRequest,
     @Body() dto: BlueprintDto
@@ -72,6 +75,7 @@ export class VisionController {
   }
 
   @Post("perspective-correct")
+  @RequirePermissions("vision:run")
   async perspectiveCorrect(
     @Req() req: FastifyRequest,
     @Body() dto: PerspectiveCorrectionDto
@@ -82,6 +86,7 @@ export class VisionController {
   }
 
   @Post("document-binarize")
+  @RequirePermissions("vision:run")
   async documentBinarize(
     @Req() req: FastifyRequest,
     @Body() dto: BinarizeDto
@@ -92,6 +97,7 @@ export class VisionController {
   }
 
   @Post("progress-timeline")
+  @RequirePermissions("vision:run")
   async progressTimeline(
     @Req() req: FastifyRequest,
     @Body() dto: TimelineDto
@@ -102,6 +108,7 @@ export class VisionController {
   }
 
   @Post("safety-check")
+  @RequirePermissions("vision:run")
   async safetyCheck(
     @Req() req: FastifyRequest,
     @Body() dto: SafetyCheckDto
@@ -112,6 +119,7 @@ export class VisionController {
   }
 
   @Post("match-reference")
+  @RequirePermissions("vision:run")
   async matchReference(
     @Req() req: FastifyRequest,
     @Body() dto: ReferenceMatchDto
@@ -122,6 +130,7 @@ export class VisionController {
   }
 
   @Post("detect-trade")
+  @RequirePermissions("vision:run")
   async detectTrade(
     @Req() req: FastifyRequest,
     @Body() dto: TradeDetectionDto
@@ -132,6 +141,7 @@ export class VisionController {
   }
 
   @Post("estimate-area")
+  @RequirePermissions("vision:run")
   async estimateArea(
     @Req() req: FastifyRequest,
     @Body() dto: AreaEstimateDto
@@ -142,6 +152,7 @@ export class VisionController {
   }
 
   @Post("check-consistency")
+  @RequirePermissions("vision:run")
   async checkConsistency(
     @Req() req: FastifyRequest,
     @Body() dto: ConsistencyCheckDto
@@ -152,6 +163,7 @@ export class VisionController {
   }
 
   @Post("consistency-by-ids")
+  @RequirePermissions("vision:run")
   async consistencyByIds(
     @Req() req: FastifyRequest,
     @Body() dto: ConsistencyByIdsDto
@@ -162,6 +174,7 @@ export class VisionController {
   }
 
   @Post("batch")
+  @RequirePermissions("vision:run")
   async batch(
     @Req() req: FastifyRequest,
     @Body() dto: BatchAnalyzeDto
@@ -172,6 +185,7 @@ export class VisionController {
   }
 
   @Post("batch-by-ids")
+  @RequirePermissions("vision:run")
   async batchByIds(
     @Req() req: FastifyRequest,
     @Body() dto: BatchByIdsDto
@@ -182,6 +196,7 @@ export class VisionController {
   }
 
   @Post("detect-material")
+  @RequirePermissions("vision:run")
   async detectMaterial(
     @Req() req: FastifyRequest,
     @Body() dto: DetectMaterialDto
@@ -192,6 +207,7 @@ export class VisionController {
   }
 
   @Post("classify-space")
+  @RequirePermissions("vision:run")
   async classifySpace(
     @Req() req: FastifyRequest,
     @Body() dto: ClassifySpaceDto
@@ -202,6 +218,7 @@ export class VisionController {
   }
 
   @Post("analyze-portfolio")
+  @RequirePermissions("vision:run")
   async analyzePortfolio(
     @Req() req: FastifyRequest,
     @Body() dto: AnalyzePortfolioDto
@@ -212,6 +229,7 @@ export class VisionController {
   }
 
   @Post("safety-check-enriched")
+  @RequirePermissions("vision:run")
   async safetyCheckEnriched(
     @Req() req: FastifyRequest,
     @Body() dto: { imageUrl: string; trade?: string }

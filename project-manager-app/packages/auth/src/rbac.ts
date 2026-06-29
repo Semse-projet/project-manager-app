@@ -44,6 +44,14 @@ export const rolePermissions: Record<string, string[]> = {
     "governance:read",
     "governance:vote",
     "governance:propose",
+    "knowledge:read",
+    "knowledge:write",
+    "tools:read",
+    "tools:run",
+    "vision:read",
+    "vision:run",
+    "weather:read",
+    "weather:write",
     "agro:read",
     "agro:write"
   ],
@@ -83,6 +91,13 @@ export const rolePermissions: Record<string, string[]> = {
     "governance:read",
     "governance:vote",
     "governance:propose",
+    "knowledge:read",
+    "tools:read",
+    "tools:run",
+    "vision:read",
+    "vision:run",
+    "weather:read",
+    "weather:write",
     "agro:read",
     "agro:write"
   ],
@@ -91,7 +106,13 @@ export const rolePermissions: Record<string, string[]> = {
     "agents:run:manage",
     "bids:read",
     "field-ops:read",
-    "field-ops:write"
+    "field-ops:write",
+    "knowledge:read",
+    "tools:read",
+    "tools:run",
+    "vision:read",
+    "vision:run",
+    "weather:read"
   ],
   OPS_ADMIN: [
     "jobs:read",
@@ -163,6 +184,14 @@ export const rolePermissions: Record<string, string[]> = {
     "notifications:read",
     "finance:read",
     "finance:write",
+    "knowledge:read",
+    "knowledge:write",
+    "tools:read",
+    "tools:run",
+    "vision:read",
+    "vision:run",
+    "weather:read",
+    "weather:write",
     "agro:read",
     "agro:write"
   ]
