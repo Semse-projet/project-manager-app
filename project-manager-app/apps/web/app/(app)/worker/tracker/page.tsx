@@ -211,6 +211,7 @@ export default function WorkerTrackerPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [manualJobId, setManualJobId] = useState("");
   const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
   const [manualStart, setManualStart] = useState("09:00");
   const [manualEnd, setManualEnd] = useState("13:00");
@@ -247,6 +248,7 @@ export default function WorkerTrackerPage() {
     setSessions(snapshot.recentSessions);
     setActiveSession(snapshot.activeSession);
     setSelectedJob(snapshot.activeSession?.jobId ?? preferredJobId);
+    setManualJobId((prev) => prev || assignedJobs[0]?.id || "");
     setNotes(snapshot.activeSession?.notes ?? "");
     setElapsed(elapsedFromSession(snapshot.activeSession));
     setWeekSummary(weekResult);
@@ -654,7 +656,7 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleManualSave() {
-    if (!selectedJob || saving) return;
+    if (!manualJobId || saving) return;
     if (manualPreviewSeconds === null) {
       setError("La entrada manual necesita una hora final posterior a la hora inicial.");
       return;
@@ -665,7 +667,7 @@ export default function WorkerTrackerPage() {
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "manual_session",
-      jobId: selectedJob,
+      jobId: manualJobId,
       date: manualDate,
       startTime: manualStart,
       endTime: manualEnd,
@@ -674,7 +676,7 @@ export default function WorkerTrackerPage() {
     };
     try {
       await createManualTrackerSession({
-        jobId: selectedJob,
+        jobId: manualJobId,
         date: manualDate,
         startTime: manualStart,
         endTime: manualEnd,
@@ -1003,6 +1005,24 @@ export default function WorkerTrackerPage() {
 
           {showForm ? (
             <div style={{ display: "grid", gap: "10px" }}>
+              {jobs.length === 0 ? (
+                <p style={{ fontSize: "12px", color: "#ef4444", margin: 0 }}>
+                  Sin trabajos aceptados. Acepta un trabajo antes de registrar horas.
+                </p>
+              ) : (
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={manualJobId}
+                    onChange={(event) => setManualJobId(event.target.value)}
+                    style={{ ...inputStyle(), paddingRight: "32px", appearance: "none", cursor: "pointer" }}
+                  >
+                    {jobs.map((job) => (
+                      <option key={job.id} value={job.id}>{job.title}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={13} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                </div>
+              )}
               <input value={manualDate} onChange={(event) => setManualDate(event.target.value)} type="date" style={inputStyle()} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <input value={manualStart} onChange={(event) => setManualStart(event.target.value)} type="time" style={inputStyle()} />
@@ -1013,7 +1033,7 @@ export default function WorkerTrackerPage() {
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
               <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => void handleManualSave()} disabled={!selectedJob || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !selectedJob || manualPreviewSeconds === null || saving)}>
+                <button onClick={() => void handleManualSave()} disabled={!manualJobId || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !manualJobId || manualPreviewSeconds === null || saving)}>
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
                 <button onClick={() => setShowForm(false)} style={secondaryButton()}>
