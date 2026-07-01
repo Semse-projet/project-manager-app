@@ -2684,6 +2684,7 @@ model LienWaiver {
 
 model AgroFarm {
   id            String   @id @default(cuid())
+  tenantId      String   @default("")
   ownerId       String?
   name          String
   operationType String   @default("LIVESTOCK") // LIVESTOCK | MIXED | CROP
@@ -2702,7 +2703,8 @@ model AgroFarm {
   evidence      AgroEvidenceItem[]
   auditEvents   AgroAuditEvent[]
 
-  @@index([ownerId])
+  @@index([tenantId])
+  @@index([tenantId, ownerId])
 }
 
 model AgroFarmUnit {

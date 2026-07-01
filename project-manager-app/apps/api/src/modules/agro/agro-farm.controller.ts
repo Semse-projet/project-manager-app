@@ -43,7 +43,7 @@ export class AgroFarmController {
   @RequirePermissions("agro:read")
   async listFarms(@Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const farms = await this.service.listFarms(ctx.userId);
+    const farms = await this.service.listFarms(ctx.tenantId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { farms });
   }
 
@@ -52,7 +52,7 @@ export class AgroFarmController {
   async createFarm(@Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = createFarmSchema.parse(body);
-    const farm = await this.service.createFarm({ ownerId: ctx.userId, ...input });
+    const farm = await this.service.createFarm({ tenantId: ctx.tenantId, ownerId: ctx.userId, ...input });
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
 
@@ -60,7 +60,7 @@ export class AgroFarmController {
   @RequirePermissions("agro:read")
   async getFarm(@Param("farmId") farmId: string, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const farm = await this.service.getFarm(farmId, ctx.userId);
+    const farm = await this.service.getFarm(farmId, ctx.tenantId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
 
@@ -73,7 +73,7 @@ export class AgroFarmController {
   ) {
     const ctx = resolveRequestContext(req);
     const input = updateFarmSchema.parse(body);
-    const farm = await this.service.updateFarm(farmId, ctx.userId, input);
+    const farm = await this.service.updateFarm(farmId, ctx.tenantId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { farm });
   }
 
@@ -83,7 +83,7 @@ export class AgroFarmController {
   @RequirePermissions("agro:read")
   async listUnits(@Param("farmId") farmId: string, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const units = await this.service.listUnits(farmId, ctx.userId);
+    const units = await this.service.listUnits(farmId, ctx.tenantId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { units });
   }
 
@@ -96,7 +96,7 @@ export class AgroFarmController {
   ) {
     const ctx = resolveRequestContext(req);
     const input = createUnitSchema.parse(body);
-    const unit = await this.service.createUnit(farmId, ctx.userId, input);
+    const unit = await this.service.createUnit(farmId, ctx.tenantId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { unit });
   }
 
@@ -116,7 +116,7 @@ export class AgroFarmController {
   ) {
     const ctx = resolveRequestContext(req);
     const input = updateUnitSchema.parse(body);
-    const unit = await this.service.updateUnit(unitId, ctx.userId, input);
+    const unit = await this.service.updateUnit(unitId, ctx.tenantId, ctx.userId, input);
     return ok(resolveRequestId(req.headers ?? {}), { unit });
   }
 
@@ -132,6 +132,7 @@ export class AgroFarmController {
     const ctx = resolveRequestContext(req);
     const events = await this.service.getAuditEvents(
       farmId,
+      ctx.tenantId,
       ctx.userId,
       limit ? Math.min(parseInt(limit, 10), 200) : 50,
     );

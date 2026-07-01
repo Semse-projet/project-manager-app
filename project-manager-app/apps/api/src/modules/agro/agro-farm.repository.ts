@@ -5,9 +5,9 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 export class AgroFarmRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listFarms(ownerId: string) {
+  async listFarms(tenantId: string, ownerId: string) {
     return this.prisma.agroFarm.findMany({
-      where: { ownerId },
+      where: { tenantId, ownerId },
       orderBy: { createdAt: "desc" },
     });
   }
@@ -17,6 +17,7 @@ export class AgroFarmRepository {
   }
 
   async createFarm(input: {
+    tenantId: string;
     ownerId: string;
     name: string;
     operationType?: string;
@@ -25,6 +26,7 @@ export class AgroFarmRepository {
   }) {
     return this.prisma.agroFarm.create({
       data: {
+        tenantId: input.tenantId,
         ownerId: input.ownerId,
         name: input.name,
         operationType: input.operationType ?? "LIVESTOCK",

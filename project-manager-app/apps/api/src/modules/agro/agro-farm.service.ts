@@ -15,18 +15,20 @@ export class AgroFarmService {
     private readonly audit: AgroAuditRepository,
   ) {}
 
-  async listFarms(ownerId: string) {
-    return this.repo.listFarms(ownerId);
+  async listFarms(tenantId: string, ownerId: string) {
+    return this.repo.listFarms(tenantId, ownerId);
   }
 
-  async getFarm(farmId: string, ownerId: string) {
+  async getFarm(farmId: string, tenantId: string, ownerId: string) {
     const farm = await this.repo.findFarm(farmId);
-    if (!farm) throw new NotFoundException(`Farm not found: ${farmId}`);
-    if (farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
+    if (!farm || farm.tenantId !== tenantId || farm.ownerId !== ownerId) {
+      throw new NotFoundException(`Farm not found: ${farmId}`);
+    }
     return farm;
   }
 
   async createFarm(input: {
+    tenantId: string;
     ownerId: string;
     name: string;
     operationType?: string;
@@ -51,13 +53,13 @@ export class AgroFarmService {
     return farm;
   }
 
-  async updateFarm(farmId: string, ownerId: string, input: {
+  async updateFarm(farmId: string, tenantId: string, ownerId: string, input: {
     name?: string;
     operationType?: string;
     locationLabel?: string;
     notes?: string;
   }) {
-    const existing = await this.getFarm(farmId, ownerId);
+    const existing = await this.getFarm(farmId, tenantId, ownerId);
     if (input.operationType && !VALID_OPERATION_TYPES.includes(input.operationType as any)) {
       throw new BadRequestException(`Invalid operationType: ${input.operationType}`);
     }
@@ -76,8 +78,8 @@ export class AgroFarmService {
     return updated;
   }
 
-  async listUnits(farmId: string, ownerId: string) {
-    await this.getFarm(farmId, ownerId);
+  async listUnits(farmId: string, tenantId: string, ownerId: string) {
+    await this.getFarm(farmId, tenantId, ownerId);
     return this.repo.listUnits(farmId);
   }
 
@@ -87,14 +89,14 @@ export class AgroFarmService {
     return unit;
   }
 
-  async createUnit(farmId: string, ownerId: string, input: {
+  async createUnit(farmId: string, tenantId: string, ownerId: string, input: {
     name: string;
     type?: string;
     areaValue?: number;
     areaUnit?: string;
     notes?: string;
   }) {
-    await this.getFarm(farmId, ownerId);
+    await this.getFarm(farmId, tenantId, ownerId);
     if (!input.name?.trim()) throw new BadRequestException("Unit name is required");
     if (input.type && !VALID_UNIT_TYPES.includes(input.type as any)) {
       throw new BadRequestException(`Invalid unit type: ${input.type}. Must be one of: ${VALID_UNIT_TYPES.join(", ")}`);
@@ -113,7 +115,7 @@ export class AgroFarmService {
     return unit;
   }
 
-  async updateUnit(unitId: string, ownerId: string, input: {
+  async updateUnit(unitId: string, tenantId: string, ownerId: string, input: {
     name?: string;
     type?: string;
     areaValue?: number;
@@ -122,7 +124,9 @@ export class AgroFarmService {
   }) {
     const unit = await this.getUnit(unitId);
     const farm = await this.repo.findFarm(unit.farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm unit not found: ${unitId}`);
+    if (!farm || farm.tenantId !== tenantId || farm.ownerId !== ownerId) {
+      throw new NotFoundException(`Farm unit not found: ${unitId}`);
+    }
     if (input.type && !VALID_UNIT_TYPES.includes(input.type as any)) {
       throw new BadRequestException(`Invalid unit type: ${input.type}`);
     }
@@ -141,8 +145,8 @@ export class AgroFarmService {
     return updated;
   }
 
-  async getAuditEvents(farmId: string, ownerId: string, limit?: number) {
-    await this.getFarm(farmId, ownerId);
+  async getAuditEvents(farmId: string, tenantId: string, ownerId: string, limit?: number) {
+    await this.getFarm(farmId, tenantId, ownerId);
     return this.audit.list({ farmId, limit });
   }
 }
