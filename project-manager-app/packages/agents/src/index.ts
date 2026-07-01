@@ -483,3 +483,16 @@ export {
   getAllAgents,
   canAgentDo,
 } from "./agent-registry.js";
+
+// ─────────────────────────────────────────────────────────────
+// AGENT HARNESS — F4 CANONICAL TYPES
+// ─────────────────────────────────────────────────────────────
+export {
+  type WorkItem,
+  type AgentManifest,
+  type DecisionPackage,
+  type AgentFindingReport,
+  type HarnessRiskLevel,
+  type HarnessOutputSchema,
+  type HarnessRecommendation,
+} from "./harness-types.js";
