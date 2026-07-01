@@ -2143,6 +2143,7 @@ input[type="range"]::-moz-range-thumb {
   [style*="grid-template-columns: repeat(2"] {
     grid-template-columns: 1fr !important;
   }
+}
 
 /* ── SEMSE Design System — shared primitives ──────────────────────────────── */
 
@@ -2424,5 +2425,4 @@ input[type="range"]::-moz-range-thumb {
   max-width: 280px;
   margin: 0 auto 16px;
   line-height: 1.5;
-}
 }

@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
-import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
+import { buildShellNavItems, NAV_REGISTRY, type NavRole, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
@@ -13,133 +13,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@semse/ui";
 import {
-  Activity,
-  AlertTriangle,
-  BarChart2,
-  Bell,
-  BookOpen,
-  Bot,
-  Brain,
   Briefcase,
-  Send,
-  Building2,
-  Cpu,
-  Eye,
-  Store,
-  Zap,
-  Building,
-  Calendar,
   Camera,
-  CheckSquare,
   ChevronLeft,
   ChevronRight,
   Clock,
-  CreditCard,
-  FileText,
-  FolderKanban,
-  GitBranch,
-  HardHat,
-  Layers,
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageSquare,
-  Package,
-  DollarSign,
-  Infinity,
-  Leaf,
-  PlaneTakeoff,
-  Plus,
-  Settings,
-  ShieldCheck,
-  Star,
-  User,
-  Users,
-  Wrench,
+  Store,
   X,
-  Scale,
 } from "lucide-react";
 
-type NavRole = "worker" | "client" | "admin";
 type ThemePreference = "dark" | "light";
-
-interface NavItem extends ShellNavItem {}
-
-const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
-  worker: {
-    labelKey: "role.worker",
-    color: "#81c995",
-    icon: HardHat,
-    items: [
-      { labelKey: "nav.workerDashboard", href: "/worker/dashboard", icon: LayoutDashboard, section: "section.main" },
-      { labelKey: "nav.opportunities", href: "/worker/opportunities", icon: Store },
-      { labelKey: "nav.myBids", href: "/worker/bids", icon: Send },
-      { labelKey: "nav.agenda", href: "/worker/agenda", icon: Calendar },
-      { labelKey: "nav.myJobs", href: "/worker/jobs", icon: Briefcase },
-      { labelKey: "nav.tasks", href: "/worker/tasks", icon: CheckSquare },
-      { labelKey: "nav.timeTracker", href: "/worker/tracker", icon: Clock },
-      { labelKey: "nav.evidence", href: "/worker/evidence", icon: Camera },
-      { labelKey: "nav.materials", href: "/worker/materials", icon: Package },
-      { labelKey: "nav.incidents", href: "/worker/incidents", icon: AlertTriangle },
-      { labelKey: "nav.payments", href: "/worker/payments", icon: CreditCard },
-      { labelKey: "nav.travel", href: "/worker/travel", icon: PlaneTakeoff },
-      { labelKey: "nav.fieldOps", href: "/worker/field-ops", icon: Wrench, section: "section.field" },
-      { labelKey: "nav.reviews", href: "/worker/review", icon: Star },
-      { labelKey: "nav.myProfile", href: "/worker/profile", icon: User },
-      { labelKey: "nav.aiSettings", href: "/worker/settings", icon: Settings },
-      { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
-    ],
-  },
-  client: {
-    labelKey: "role.client",
-    color: "#8ab4f8",
-    icon: Building,
-    items: [
-      { labelKey: "nav.dashboard", href: "/client/dashboard", icon: LayoutDashboard, section: "section.main" },
-      { labelKey: "nav.leads", href: "/client/leads", icon: Users },
-      { labelKey: "nav.postJob", href: "/client/jobs/new", icon: Plus },
-      { labelKey: "nav.myProjects", href: "/client/jobs", icon: FolderKanban },
-      { labelKey: "nav.aiCopilot", href: "/client/projects", icon: Bot },
-      { labelKey: "nav.milestones", href: "/client/milestones", icon: CheckSquare },
-      { labelKey: "nav.professionals", href: "/client/professionals", icon: Users },
-      { labelKey: "nav.clientMarketplace", href: "/client/marketplace", icon: Store },
-      { labelKey: "nav.myBids", href: "/client/bids", icon: Send },
-      { labelKey: "nav.protools", href: "/client/protools", icon: Wrench },
-      { labelKey: "nav.documents", href: "/client/documents", icon: FileText },
-      { labelKey: "nav.reviews", href: "/client/reviews", icon: Star },
-      { labelKey: "nav.payments", href: "/client/payments", icon: CreditCard },
-      { labelKey: "nav.financeHub", href: "/client/finance", icon: DollarSign },
-      { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
-    ],
-  },
-  admin: {
-    labelKey: "role.admin",
-    color: "#c58af9",
-    icon: ShieldCheck,
-    items: [
-      // ── Core ──────────────────────────────────────────────────────────────
-      { labelKey: "nav.dashboard",      href: "/admin/dashboard",        icon: LayoutDashboard, section: "section.core" },
-      // ── Modules ───────────────────────────────────────────────────────────
-      { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity,        section: "section.modules" },
-      { labelKey: "nav.workops",        href: "/admin/workops",          icon: Wrench },
-      { labelKey: "nav.marketplace",    href: "/admin/marketplace",      icon: Store },
-      { labelKey: "nav.finance",        href: "/admin/finance",          icon: DollarSign },
-      { labelKey: "nav.trust",          href: "/admin/trust",            icon: ShieldCheck },
-      { labelKey: "nav.intelligence",   href: "/admin/intelligence",     icon: Brain },
-      { labelKey: "nav.toolHub",        href: "/admin/tool-hub",         icon: Package },
-      { labelKey: "nav.verticals",      href: "/admin/verticals",        icon: Layers },
-      { labelKey: "nav.settings",       href: "/admin/settings",         icon: Settings },
-      // ── Verticals ─────────────────────────────────────────────────────────
-      { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf,            section: "section.verticals" },
-      { labelKey: "nav.buildOps",       href: "/buildops",               icon: FolderKanban },
-      { labelKey: "nav.semseTools",     href: "/tools",                  icon: Wrench },
-      // ── Quick access ──────────────────────────────────────────────────────
-      { labelKey: "nav.users",          href: "/admin/users",            icon: Users,           section: "section.quick" },
-      { labelKey: "nav.communications", href: "/admin/communications",   icon: MessageSquare },
-      { labelKey: "nav.agents",         href: "/agents",                 icon: Bot },
-    ],
-  },
-};
 
 function Sidebar({
   role,
@@ -156,7 +42,7 @@ function Sidebar({
 }) {
   const pathname = usePathname();
   const { t } = useLanguage();
-  const nav = NAV[role];
+  const nav = NAV_REGISTRY[role];
   const RoleIcon = nav.icon;
 
   return (
@@ -392,7 +278,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
-  const nav = NAV[role];
+  const nav = NAV_REGISTRY[role];
   const RoleIcon = nav.icon;
 
   useState(() => {
