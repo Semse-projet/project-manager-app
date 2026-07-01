@@ -2166,8 +2166,8 @@ model ProjectDraft {
   description   String?
   city          String?
   locationType  String?
-  budgetMin            Float?
-  budgetMax            Float?
+  budgetMin            Decimal? @db.Decimal(12, 2)
+  budgetMax            Decimal? @db.Decimal(12, 2)
   urgency              String?
   attachmentsExpected  Boolean  @default(false)
 

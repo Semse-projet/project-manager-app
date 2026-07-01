@@ -82,13 +82,15 @@ export class ProjectDraftService {
     description?: string | null;
     city?: string | null;
     locationType?: string | null;
-    budgetMin?: number | null;
-    budgetMax?: number | null;
+    budgetMin?: { toNumber(): number } | number | null;
+    budgetMax?: { toNumber(): number } | number | null;
     urgency?: string | null;
     attachmentsExpected?: boolean | null;
     publishedJobId?: string | null;
     completion: number;
   }): ProjectDraftSnapshot {
+    const toNum = (v: { toNumber(): number } | number | null | undefined): number | null =>
+      v == null ? null : typeof v === "number" ? v : v.toNumber();
     return {
       id: draft.id,
       status: draft.status,
@@ -98,8 +100,8 @@ export class ProjectDraftService {
       description: draft.description,
       city: draft.city,
       locationType: draft.locationType,
-      budgetMin: draft.budgetMin,
-      budgetMax: draft.budgetMax,
+      budgetMin: toNum(draft.budgetMin),
+      budgetMax: toNum(draft.budgetMax),
       urgency: draft.urgency,
       attachmentsExpected: draft.attachmentsExpected ?? false,
       publishedJobId: draft.publishedJobId,
