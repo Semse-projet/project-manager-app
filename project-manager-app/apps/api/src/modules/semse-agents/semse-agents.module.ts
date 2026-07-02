@@ -14,8 +14,9 @@ import { BuildOpsAgent } from "./buildops.agent.js";
 import { EvidenceAgent } from "./evidence.agent.js";
 import { CrowdAgent } from "./crowd.agent.js";
 import { PrometeoAgent } from "./prometeo.agent.js";
+import { WorkItemCoordinatorService } from "./work-item-coordinator.service.js";
 
-const ALL_AGENTS = [SemseAgentsService, ProToolsAgent, MarketplaceAgent, BuildOpsAgent, EvidenceAgent, CrowdAgent, PrometeoAgent];
+const ALL_AGENTS = [SemseAgentsService, ProToolsAgent, MarketplaceAgent, BuildOpsAgent, EvidenceAgent, CrowdAgent, PrometeoAgent, WorkItemCoordinatorService];
 
 @Module({
   imports:     [PrismaModule, ToolsModule, PricingModule, SseInfraModule, forwardRef(() => PrometeoModule), MatchingModule, NotificationsModule],

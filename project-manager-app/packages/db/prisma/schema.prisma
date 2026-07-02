@@ -166,6 +166,7 @@ model Tenant {
   buildOpsProjects   BuildOpsProject[]
   buildOpsPlanVersions BuildOpsPlanVersion[]
   buildOpsTasks      BuildOpsTask[]
+  harnessWorkItems   HarnessWorkItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 }
@@ -1401,6 +1402,38 @@ model AgentWorkPlan {
 
   @@index([tenantId, projectId, status])
   @@index([tenantId, createdAt])
+}
+
+/// Canonical harness work item (F4). A unit of work opened by a human,
+/// dispatched to one or more agents, and consolidated into a DecisionPackage.
+/// L2+ items require human approval before any mutation is enacted.
+model HarnessWorkItem {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  humanOwner         String
+  objective          String
+  riskLevel          String   @default("L0")   // L0 | L1 | L2 | L3 | L4
+  status             String   @default("open")  // open | in_progress | awaiting_approval | approved | rejected | closed
+  suggestedAgents    String[] @default([])
+  allowedTools       String[] @default([])
+  forbiddenTools     String[] @default([])
+  acceptanceCriteria String[] @default([])
+  rollbackRequired   Boolean  @default(false)
+  contextRefsJson    Json?                       // string[] of context references
+  servicesJson       Json?                       // string[] of affected services
+  decisionPackageJson Json?                      // DecisionPackage emitted on completion
+  approvedAt         DateTime?
+  approvedBy         String?
+  rejectedAt         DateTime?
+  rejectedBy         String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, humanOwner])
+  @@index([tenantId, riskLevel, status])
 }
 
 /// Represents a sub-task delegated from a coordinator agent to a specialized agent.

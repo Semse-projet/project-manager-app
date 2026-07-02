@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
@@ -9,6 +9,8 @@ import { MarketplaceAgent } from "./marketplace.agent.js";
 import { BuildOpsAgent } from "./buildops.agent.js";
 import { CrowdAgent } from "./crowd.agent.js";
 import { EvidenceAgent } from "./evidence.agent.js";
+import { WorkItemCoordinatorService, type CreateWorkItemInput } from "./work-item-coordinator.service.js";
+import type { DecisionPackage } from "@semse/agents";
 
 @Controller("v1/agents/semse")
 export class SemseAgentsController {
@@ -19,6 +21,7 @@ export class SemseAgentsController {
     private readonly crowdAgent: CrowdAgent,
     private readonly evidenceAgent: EvidenceAgent,
     private readonly protools: ProToolsAgent,
+    private readonly coordinator: WorkItemCoordinatorService,
   ) {}
 
   /** Estado del message bus — qué agentes están activos y cuántos mensajes han procesado. */
@@ -137,5 +140,78 @@ export class SemseAgentsController {
       milestoneStatus:     String(body.milestoneStatus ?? "draft"),
     });
     return ok(rid, { agentName: "crowd", ...decision });
+  }
+
+  // ── Agent Harness WorkItem Coordinator (F4) ────────────────────────────────
+
+  /** Crear un WorkItem. El riskLevel determina si se requiere DecisionPackage. */
+  @Post("work-items")
+  @RequirePermissions("ops:dashboard:write")
+  async createWorkItem(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const input: CreateWorkItemInput = {
+      tenantId:           ctx.tenantId,
+      humanOwner:         ctx.userId,
+      objective:          String(body.objective ?? ""),
+      riskLevel:          (body.riskLevel as "L0" | "L1" | "L2" | "L3" | "L4") ?? "L0",
+      suggestedAgents:    Array.isArray(body.suggestedAgents) ? (body.suggestedAgents as string[]) : [],
+      allowedTools:       Array.isArray(body.allowedTools) ? (body.allowedTools as string[]) : [],
+      forbiddenTools:     Array.isArray(body.forbiddenTools) ? (body.forbiddenTools as string[]) : [],
+      acceptanceCriteria: Array.isArray(body.acceptanceCriteria) ? (body.acceptanceCriteria as string[]) : [],
+      rollbackRequired:   Boolean(body.rollbackRequired ?? false),
+      contextRefs:        Array.isArray(body.contextRefs) ? (body.contextRefs as string[]) : [],
+      services:           Array.isArray(body.services) ? (body.services as string[]) : [],
+    };
+
+    if (!input.objective.trim()) {
+      return ok(rid, { error: "objective is required" });
+    }
+
+    const record = await this.coordinator.createWorkItem(input);
+    return ok(rid, { workItem: record });
+  }
+
+  /** Listar WorkItems del tenant */
+  @Get("work-items")
+  @RequirePermissions("ops:dashboard:read")
+  async listWorkItems(@Req() req: { headers?: Record<string, unknown> }) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const items = await this.coordinator.listWorkItems(ctx.tenantId);
+    return ok(rid, { workItems: items });
+  }
+
+  /** Obtener un WorkItem por id */
+  @Get("work-items/:id")
+  @RequirePermissions("ops:dashboard:read")
+  async getWorkItem(@Param("id") id: string, @Req() req: { headers?: Record<string, unknown> }) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const item = await this.coordinator.getWorkItem(id, ctx.tenantId);
+    if (!item) return ok(rid, { error: "WorkItem not found", id });
+    return ok(rid, { workItem: item });
+  }
+
+  /** Emitir un DecisionPackage para resolver un WorkItem L2+ */
+  @Post("work-items/:id/resolve")
+  @RequirePermissions("ops:dashboard:write")
+  async resolveWorkItem(
+    @Param("id") id: string,
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
+  ) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const item = await this.coordinator.getWorkItem(id, ctx.tenantId);
+    if (!item) return ok(rid, { error: "WorkItem not found", id });
+
+    const dp = body.decisionPackage as DecisionPackage | undefined;
+    if (!dp?.recommendation || !dp?.summary) {
+      return ok(rid, { error: "decisionPackage.recommendation and .summary are required" });
+    }
+
+    const resolved = await this.coordinator.resolveWorkItem(id, ctx.tenantId, dp, ctx.userId);
+    return ok(rid, { workItem: resolved });
   }
 }

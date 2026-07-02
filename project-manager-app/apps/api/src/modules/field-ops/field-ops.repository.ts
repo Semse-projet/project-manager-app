@@ -227,6 +227,11 @@ export class FieldOpsRepository {
           },
         },
       },
+      {
+        // Own-org jobs: allows tracking on in-house / bootstrap-seeded jobs
+        // where the same org is both client and executing party.
+        clientOrgId: input.orgId,
+      },
     ];
   }
 

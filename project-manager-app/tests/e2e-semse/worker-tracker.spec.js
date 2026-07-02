@@ -18,15 +18,17 @@ test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion
     console.log(`BROWSER ERROR: ${err.message}`);
   });
 
+  // Log in as Worker/Profesional — the tracker is a field-ops tool for professionals
   await page.goto("/login");
   await page.waitForLoadState("networkidle");
   await page.waitForTimeout(2000);
-  await page.getByRole("button", { name: /Admin/i }).click();
-  await expect(page.locator("input[type='email']")).toHaveValue("admin@demo.semse");
+  await page.getByRole("button", { name: /Profesional/i }).click();
+  await expect(page.locator("input[type='email']")).toHaveValue("worker@demo.semse");
   await page.getByRole("button", { name: /Ingresar/i }).click();
-  await page.waitForURL(/\/admin\/dashboard$/);
+  await page.waitForURL(/\/worker\/dashboard$/);
 
   await page.goto("/worker/tracker");
+  await page.waitForLoadState("networkidle");
 
   const seeded = await page.evaluate(async () => {
     const response = await fetch("/api/semse/tracker/bootstrap", {
@@ -46,8 +48,9 @@ test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion
   await page.reload();
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByTestId("tracker-current-job")).toContainText(job.title);
-  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo");
+  // React data fetches run after hydration — wait explicitly for tracker to show job
+  await expect(page.getByTestId("tracker-current-job")).toContainText(job.title, { timeout: 15000 });
+  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo", { timeout: 10000 });
 
   const firstElapsed = parseClock(await page.getByTestId("tracker-elapsed").innerText());
   await page.waitForTimeout(1500);
@@ -57,30 +60,32 @@ test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion
   await page.reload();
   await page.waitForLoadState("networkidle");
 
-  await expect(page.getByTestId("tracker-current-job")).toContainText(job.title);
-  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo");
+  // Second reload — session must still be RUNNING
+  await expect(page.getByTestId("tracker-current-job")).toContainText(job.title, { timeout: 15000 });
+  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo", { timeout: 10000 });
   const thirdElapsed = parseClock(await page.getByTestId("tracker-elapsed").innerText());
   expect(thirdElapsed).toBeGreaterThanOrEqual(secondElapsed);
 
   await page.getByTestId("tracker-pause-button").click();
-  await expect(page.getByTestId("tracker-status-chip")).toContainText("En pausa");
+  await expect(page.getByTestId("tracker-status-chip")).toContainText("En pausa", { timeout: 5000 });
 
   const pausedElapsed = parseClock(await page.getByTestId("tracker-elapsed").innerText());
   await page.waitForTimeout(1200);
   const pausedElapsedAfterWait = parseClock(await page.getByTestId("tracker-elapsed").innerText());
   expect(pausedElapsedAfterWait).toBe(pausedElapsed);
 
+  // Third reload — session must still be PAUSED
   await page.reload();
   await page.waitForLoadState("networkidle");
-  await expect(page.getByTestId("tracker-status-chip")).toContainText("En pausa");
-  await expect(page.getByTestId("tracker-resume-button")).toBeVisible();
+  await expect(page.getByTestId("tracker-status-chip")).toContainText("En pausa", { timeout: 15000 });
+  await expect(page.getByTestId("tracker-resume-button")).toBeVisible({ timeout: 5000 });
 
   await page.getByTestId("tracker-resume-button").click();
-  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo");
+  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo", { timeout: 5000 });
 
   await page.waitForTimeout(1200);
   await page.getByTestId("tracker-stop-button").click();
 
-  await expect(page.getByText("Selecciona un trabajo y presiona Iniciar")).toBeVisible();
-  await expect(page.getByTestId("tracker-session-card").first()).toContainText(job.title);
+  await expect(page.getByText("Selecciona un trabajo y presiona Iniciar")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId("tracker-session-card").first()).toContainText(job.title, { timeout: 10000 });
 });

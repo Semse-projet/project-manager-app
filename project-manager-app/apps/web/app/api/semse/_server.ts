@@ -221,7 +221,9 @@ async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestIni
   const now = Date.now();
   const cachedToken = accessTokenCache.get(cacheKey);
   const shouldBootstrapAccessToken =
-    process.env.NODE_ENV === "production" || process.env.SEMSE_ENABLE_ACCESS_TOKEN_BOOTSTRAP === "true";
+    process.env.NODE_ENV === "production" ||
+    process.env.SEMSE_ENABLE_ACCESS_TOKEN_BOOTSTRAP === "true" ||
+    Boolean(trimToUndefined(process.env.SEMSE_BOOTSTRAP_TOKEN));
 
   let authorizationHeader: string | undefined;
   if (cachedToken && cachedToken.expiresAt > now + 30_000) {
