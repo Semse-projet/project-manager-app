@@ -426,10 +426,11 @@ test("field-ops: getTrackerSummary aggregates by job and calculates totals for w
 });
 
 test("field-ops: getTrackerSummary highlights sessionsWithoutNotes", async () => {
+  const recentStart = new Date(Date.now() - 2 * 24 * 3600 * 1000);
   const sessions = [
-    makeSession("STOPPED", { id: "sess_1", createdBy: "usr_1", notes: null }),
-    makeSession("STOPPED", { id: "sess_2", createdBy: "usr_1", notes: "Some work" }),
-    makeSession("STOPPED", { id: "sess_3", createdBy: "usr_1", notes: null }),
+    makeSession("STOPPED", { id: "sess_1", createdBy: "usr_1", startedAt: recentStart, notes: null }),
+    makeSession("STOPPED", { id: "sess_2", createdBy: "usr_1", startedAt: recentStart, notes: "Some work" }),
+    makeSession("STOPPED", { id: "sess_3", createdBy: "usr_1", startedAt: recentStart, notes: null }),
   ];
 
   const service = createMockFieldOpsService({ sessions });
