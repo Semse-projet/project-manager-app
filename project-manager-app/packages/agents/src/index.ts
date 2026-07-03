@@ -453,6 +453,28 @@ export {
   executeSpecializedAgent,
   type RuntimeAgentResult
 } from "./runtime.js";
+export {
+  type VerifierName,
+  type VerificationBudget,
+  type VerificationAttempt,
+  type VerificationAttemptStatus,
+  type VerificationFinalStatus,
+  type VerificationReport,
+  type DelegateProfile,
+  verifierNames,
+  delegateProfiles,
+  DEFAULT_MAX_ITERATIONS,
+  HARD_MAX_ITERATIONS,
+  DEFAULT_VERIFICATION_TIMEOUT_MS,
+  EVIDENCE_MAX_BYTES,
+  MAX_CONCURRENT_DELEGATES,
+  DELEGATE_BUDGET_RATIO,
+  MISSING_VERIFICATION_BUDGET_REASON,
+  WRITE_ACTION_TYPES,
+  createDefaultVerificationBudget,
+  clampVerificationBudget,
+  isWriteActionType
+} from "./verification.js";
 export { getActionPolicy, resolveApprovalMode } from "./action-policy.js";
 export { AgentRegistry, type AgentRegistration } from "./registry.js";
 export { AgentRegistry as AgentRegistrations } from "./registrations.js";

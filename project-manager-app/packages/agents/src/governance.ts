@@ -1,4 +1,5 @@
 import type { OperatorContext } from "@semse/shared";
+import type { VerificationReport } from "./verification.js";
 
 export const runtimeAgentRoles = [
   "pricing",
@@ -190,6 +191,8 @@ export type GovernedAgentExecutionResult = RuntimeAgentResult & {
     allowedSources: AgentContextSource[];
     data: Record<string, unknown>;
   };
+  /** SPEC-AGT-001: reporte del verification loop (solo runs de escritura). */
+  verification?: VerificationReport;
 };
 
 export const agentToolRegistry: Record<AgentToolName, AgentToolDefinition> = {
