@@ -36,8 +36,19 @@ function formatBudget(min?: number, max?: number): string {
   return fmt(min ?? max ?? 0);
 }
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 function preferredProfessionalLabel(job: JobRecordView): string | null {
-  return job.preferredProfessional?.displayName?.trim() || null;
+  const displayName = displayText(job.preferredProfessional?.displayName).trim();
+  return displayName || null;
 }
 
 const FILTERS = [
@@ -87,8 +98,8 @@ export default function ClientJobsPage() {
   useEffect(() => {
     fetch("/api/semse/jobs")
       .then(r => r.json())
-      .then((d: { data?: JobRecordView[]; error?: { message: string } }) => {
-        if (d.error) { setApiError(d.error.message); return; }
+      .then((d: { data?: JobRecordView[]; error?: unknown }) => {
+        if (d.error) { setApiError(displayText(d.error, "No se pudieron cargar los trabajos.")); return; }
         setJobs(d.data ?? []);
       })
       .catch(() => setApiError("No se pudo conectar con el servidor"))
@@ -103,7 +114,8 @@ export default function ClientJobsPage() {
       filter === "pending"   ? ["posted", "published"].includes(j.status) :
       filter === "review"    ? j.status === "review" :
       filter === "completed" ? j.status === "completed" : true;
-    const matchQ = !query || j.title.toLowerCase().includes(query.toLowerCase());
+    const title = displayText((j as Record<string, unknown>).title, "Trabajo");
+    const matchQ = !query || title.toLowerCase().includes(query.toLowerCase());
     return matchFilter && matchQ;
   });
 
@@ -217,6 +229,9 @@ export default function ClientJobsPage() {
       ) : (
         <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "6px" }} canvasClassName="rounded-2xl" minHeight={380}>
           {filtered.map(job => {
+            const row = job as Record<string, unknown>;
+            const title = displayText(row.title, "Trabajo");
+            const scope = displayText(row.scope);
             const sc = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.posted;
             return (
               <Link
@@ -234,10 +249,10 @@ export default function ClientJobsPage() {
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {job.title}
+                    {title}
                   </p>
                   <p style={{ fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "2px" }}>
-                    {job.scope}
+                    {scope}
                   </p>
                   {preferredProfessionalLabel(job) ? (
                     <div style={{ marginTop: "7px", display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 8px", borderRadius: "999px", background: "rgba(129,140,248,.12)", border: "1px solid rgba(129,140,248,.22)", fontSize: "11px", fontWeight: 700, color: "#a5b4fc", maxWidth: "100%" }}>

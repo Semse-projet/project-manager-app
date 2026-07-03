@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req } from "@nestjs/c
 import type { FastifyRequest } from "fastify";
 import { workspaceMemoryQuerySchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
@@ -10,6 +11,7 @@ import { KnowledgeCuratorService } from "./knowledge-curator.service.js";
 import { KnowledgeService } from "./knowledge.service.js";
 
 @Controller("v1/knowledge")
+@RequirePermissions("knowledge:read")
 export class KnowledgeController {
   constructor(
     private readonly knowledgeService: KnowledgeService,
@@ -69,6 +71,7 @@ export class KnowledgeController {
   // ── Agent Skills ─────────────────────────────────────────────────────────────
 
   @Post("skills")
+  @RequirePermissions("knowledge:write")
   async createSkill(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Omit<CreateAgentSkillInput, "tenantId" | "orgId">) {
     const actor = resolveRequestContext(req);
     const skill = await this.skillRepo.create({ ...body, tenantId: actor.tenantId, orgId: actor.orgId });
@@ -87,6 +90,7 @@ export class KnowledgeController {
   }
 
   @Patch("skills/:id/procedure")
+  @RequirePermissions("knowledge:write")
   async updateSkillProcedure(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("id") id: string,
@@ -97,6 +101,7 @@ export class KnowledgeController {
   }
 
   @Post("skills/:agentId/:name/use")
+  @RequirePermissions("knowledge:write")
   async recordSkillUse(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("agentId") agentId: string,
@@ -111,6 +116,7 @@ export class KnowledgeController {
   // ── Curator ───────────────────────────────────────────────────────────────────
 
   @Post("curate")
+  @RequirePermissions("knowledge:write")
   async runCuration(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const summary = await this.curator.runCuration(actor.tenantId);

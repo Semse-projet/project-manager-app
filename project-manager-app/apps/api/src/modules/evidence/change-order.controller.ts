@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { ChangeOrderService } from './change-order.service.js';
 
 /**
@@ -7,6 +8,7 @@ import { ChangeOrderService } from './change-order.service.js';
  */
 @Controller('v1/projects/:projectId/change-orders')
 @UseGuards(AuthGuard('jwt'))
+@RequirePermissions('change-orders:read')
 export class ChangeOrderController {
   private readonly logger = new Logger(ChangeOrderController.name);
 
@@ -17,6 +19,7 @@ export class ChangeOrderController {
    * Crear nuevo change order (DRAFT).
    */
   @Post()
+  @RequirePermissions('change-orders:create')
   async createChangeOrder(
     @Param('projectId') projectId: string,
     @Body() body: { description: string; amount: number }
@@ -58,6 +61,7 @@ export class ChangeOrderController {
    * Enviar para aprobación (DRAFT → PENDING_APPROVAL).
    */
   @Post(':id/submit')
+  @RequirePermissions('change-orders:create')
   async submitForApproval(
     @Param('projectId') projectId: string,
     @Param('id') changeOrderId: string
@@ -82,6 +86,7 @@ export class ChangeOrderController {
    * Requiere firma PRO.
    */
   @Post(':id/approve')
+  @RequirePermissions('change-orders:approve')
   async approveChangeOrder(
     @Param('projectId') projectId: string,
     @Param('id') changeOrderId: string,
@@ -107,6 +112,7 @@ export class ChangeOrderController {
    * Rechazar (PENDING_APPROVAL → REJECTED).
    */
   @Post(':id/reject')
+  @RequirePermissions('change-orders:approve')
   async rejectChangeOrder(
     @Param('projectId') projectId: string,
     @Param('id') changeOrderId: string,

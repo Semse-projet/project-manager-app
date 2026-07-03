@@ -79,6 +79,16 @@ function getPanelAgent(id: AgentId): PanelAgent {
   };
 }
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 const QUICK_AGENTS: PanelAgent[] = PANEL_AGENT_IDS.map((id) => getPanelAgent(id));
 
 // ── Constantes ────────────────────────────────────────────────
@@ -450,7 +460,7 @@ export function AgentChatPanel() {
                       borderTopLeftRadius: message.role === "assistant" ? 4 : 18,
                     }}
                   >
-                    {message.content}
+                    {displayText(message.content)}
                   </div>
                 </div>
                 {message.role === "assistant" && index === messages.length - 1 && publishJobDraft && (

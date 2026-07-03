@@ -9,6 +9,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { NoticeGeneratorService } from './notice-generator.service.js';
 import { LiensService } from './liens.service.js';
 
@@ -22,6 +23,7 @@ import { LiensService } from './liens.service.js';
  */
 @Controller('v1/projects/:projectId/liens')
 @UseGuards(AuthGuard('jwt'))
+@AuthenticatedAccess('Legacy lien notice endpoints are JWT-protected and pending granular lien permissions.')
 export class NoticeController {
   private readonly logger = new Logger(NoticeController.name);
 

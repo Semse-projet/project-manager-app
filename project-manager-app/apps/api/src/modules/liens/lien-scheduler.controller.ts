@@ -1,5 +1,6 @@
 import { Controller, Post, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { LienAlertsScheduler } from './lien-alerts.scheduler.js';
 
 /**
@@ -12,6 +13,7 @@ import { LienAlertsScheduler } from './lien-alerts.scheduler.js';
  */
 @Controller('v1/admin/liens')
 @UseGuards(AuthGuard('jwt'))
+@RequirePermissions('ops:dashboard:write')
 export class LienSchedulerController {
   private readonly logger = new Logger(LienSchedulerController.name);
 

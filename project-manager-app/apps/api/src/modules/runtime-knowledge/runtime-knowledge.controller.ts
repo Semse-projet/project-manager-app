@@ -2,11 +2,13 @@ import { Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { runtimeIdSchema, runtimeQuerySchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { RuntimeKnowledgeService } from "./runtime-knowledge.service.js";
 
 @Controller("v1/runtime-knowledge")
+@RequirePermissions("knowledge:read")
 export class RuntimeKnowledgeController {
   constructor(private readonly runtimeKnowledgeService: RuntimeKnowledgeService) {}
 

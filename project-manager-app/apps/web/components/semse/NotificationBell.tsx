@@ -8,8 +8,8 @@ import { Bell, CheckCheck, ExternalLink, X } from "lucide-react";
 type Notification = {
   id:        string;
   type:      string;
-  title:     string;
-  body:      string;
+  title:     unknown;
+  body:      unknown;
   readAt:    string | null;
   createdAt: string;
   payload?:  Record<string, unknown>;
@@ -59,6 +59,16 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 function notifColor(type: string): string { return TYPE_COLORS[type] ?? "#94a3b8"; }
+
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -193,10 +203,10 @@ export function NotificationBell() {
                   <div style={{ width: 8, height: 8, borderRadius: "50%", background: notifColor(n.type), flexShrink: 0, marginTop: 5 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: n.readAt ? 600 : 800, color: "var(--ink)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                      {n.title}
+                      {displayText(n.title, "Notificación")}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                      {n.body}
+                      {displayText(n.body)}
                     </div>
                     {hasRoute && !n.readAt && (
                       <div style={{ fontSize: 10, color: "#818cf8", marginTop: 3, display: "flex", alignItems: "center", gap: 3 }}>

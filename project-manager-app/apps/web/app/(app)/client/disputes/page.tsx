@@ -45,6 +45,16 @@ function normalizeDisputeStatus(value: unknown): DisputeRow["status"] {
   return "open";
 }
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 export default function ClientDisputesPage() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -288,7 +298,7 @@ export default function ClientDisputesPage() {
               <option value="">Selecciona un trabajo</option>
               {eligibleJobs.map((job) => (
                 <option key={job.id} value={job.id}>
-                  {job.title}
+                  {displayText((job as Record<string, unknown>).title, "Trabajo")}
                 </option>
               ))}
             </select>

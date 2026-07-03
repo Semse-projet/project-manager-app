@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { WeatherAlertService } from './weather-alert.service.js';
 import { WeatherMatrixService } from './weather-matrix.service.js';
 
@@ -8,6 +9,7 @@ import { WeatherMatrixService } from './weather-matrix.service.js';
  */
 @Controller('v1/projects/:projectId/weather')
 @UseGuards(AuthGuard('jwt'))
+@RequirePermissions('weather:read')
 export class WeatherController {
   private readonly logger = new Logger(WeatherController.name);
 
@@ -55,6 +57,7 @@ export class WeatherController {
    * Verificar clima ahora (sin esperar scheduler).
    */
   @Post('check-now')
+  @RequirePermissions('weather:write')
   async checkNow(@Param('projectId') projectId: string) {
     this.logger.log(`POST /weather/check-now: ${projectId}`);
 

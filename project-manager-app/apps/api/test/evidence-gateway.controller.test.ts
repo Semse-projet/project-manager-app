@@ -48,6 +48,7 @@ const STUB_EVIDENCE_ITEMS = [
 test("evidence-gateway controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
     ["uploadEvidence",                "evidence:write"],
+    ["getValidationStream",           "evidence:read"],
     ["getMilestoneValidationStatus",  "evidence:read"],
     ["getPassedEvidence",             "evidence:read"],
     ["getFailedEvidence",             "evidence:read"],

@@ -4,6 +4,15 @@ import { useState, type FormEvent, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const score = [
@@ -129,10 +138,10 @@ function ResetPasswordForm() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ token, newPassword: password }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as { ok?: boolean; error?: unknown };
 
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "No se pudo restablecer la contraseña");
+        setError(errorMessage(data.error, "No se pudo restablecer la contraseña"));
         return;
       }
 

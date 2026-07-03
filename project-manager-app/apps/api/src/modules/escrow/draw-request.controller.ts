@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { DrawRequestService } from './draw-request.service.js';
 
 /**
@@ -7,6 +8,7 @@ import { DrawRequestService } from './draw-request.service.js';
  */
 @Controller('v1/projects/:projectId/draws')
 @UseGuards(AuthGuard('jwt'))
+@AuthenticatedAccess('Legacy draw request endpoints are JWT-protected and pending granular escrow permissions.')
 export class DrawRequestController {
   private readonly logger = new Logger(DrawRequestController.name);
 

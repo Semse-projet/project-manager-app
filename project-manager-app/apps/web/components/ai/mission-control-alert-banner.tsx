@@ -12,6 +12,16 @@ function severityColor(severity: MissionIncidentSeverity): string {
   return "#38bdf8";
 }
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 export function MissionControlAlertBanner() {
   const [active, setActive] = useState<MissionIncident | null>(null);
 
@@ -51,9 +61,9 @@ export function MissionControlAlertBanner() {
     >
       <ShieldAlert size={18} color={color} style={{ flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, color }}>{active.title}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color }}>{displayText(active.title, "Incidente activo")}</div>
         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {active.detail}
+          {displayText(active.detail)}
         </div>
       </div>
       <Link

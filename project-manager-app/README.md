@@ -8,7 +8,7 @@ Plataforma ConTech para gestion de proyectos, marketplace operativo, evidencia, 
 - Web en Next.js.
 - API en NestJS con Prisma.
 - Railway usa builds Docker por servicio.
-- La API productiva expone health en `/v1/health`.
+- La API productiva expone liveness en `/v1/health` y readiness en `/v1/ready`.
 
 ## Quick Start
 
@@ -23,6 +23,7 @@ URLs locales comunes:
 
 - Web: `http://localhost:3000`
 - API: `http://localhost:4000/v1/health`
+  - Readiness: `http://localhost:4000/v1/ready`
 
 ## Contexto SEMSEproject
 
@@ -76,6 +77,8 @@ Mientras se integra auth real completa, algunos flujos de API aceptan contexto p
 - `x-org-id`
 - `x-roles`
 - `x-idempotency-key`
+
+Las rutas HTTP no publicas deben declarar `@RequirePermissions(...)` o `@AuthenticatedAccess("reason")`; la ausencia de metadata RBAC falla cerrado.
 
 ## Comandos utiles
 
