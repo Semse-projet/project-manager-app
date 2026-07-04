@@ -21,7 +21,9 @@ import type {
   OpsMutationResult,
   CreateRuntimeJobInput,
   JobRecordView,
+  TrackerBootstrapView,
   TrackerSessionView,
+  TrackerSummaryView,
   TrackerSnapshotView,
   AutonomyLlmStatusView,
   AutonomyRunListView,
@@ -49,7 +51,9 @@ export type {
   OpsMutationResult,
   CreateRuntimeJobInput,
   JobRecordView,
+  TrackerBootstrapView,
   TrackerSessionView,
+  TrackerSummaryView,
   TrackerSnapshotView,
   AutonomyLlmStatusView,
   AutonomyRunListView,
@@ -432,27 +436,7 @@ export type BidView = {
   ratingCount?: number;
 };
 
-export type TimeTrackerSummaryView = {
-  range: "week" | "month";
-  totalSeconds: number;
-  sessionCount: number;
-  daysWorked: number;
-  openSessionCount: number;
-  sessionsWithoutNotes: number;
-  activeSession: TrackerSessionView | null;
-  byJob: Array<{
-    jobId: string;
-    jobTitle: string;
-    seconds: number;
-  }>;
-  recentNotes: Array<{
-    sessionId: string;
-    jobId: string;
-    jobTitle: string;
-    note: string | null;
-    startedAt: string;
-  }>;
-};
+export type TimeTrackerSummaryView = TrackerSummaryView;
 
 export async function fetchJobBids(jobId: string): Promise<BidView[]> {
   return fetchSemse<BidView[]>(`/api/semse/jobs/${jobId}/bids`);
@@ -751,6 +735,10 @@ export async function markNotificationRead(
 
 export async function fetchTrackerSnapshot(): Promise<TrackerSnapshotView> {
   return fetchSemse<TrackerSnapshotView>("/api/semse/time-tracker");
+}
+
+export async function fetchTrackerBootstrap(): Promise<TrackerBootstrapView> {
+  return fetchSemse<TrackerBootstrapView>("/api/semse/time-tracker");
 }
 
 // ── Communications ─────────────────────────────────────────────────────────────

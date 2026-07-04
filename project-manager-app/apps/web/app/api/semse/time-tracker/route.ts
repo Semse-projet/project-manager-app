@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import type { TrackerSnapshotView } from "@semse/schemas";
+import type { TrackerBootstrapView } from "@semse/schemas";
 import { fetchSemseDataForRequest, handleServerError, isApiBaseConfigured, runtimeDisabledResponse } from "../_server";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await fetchSemseDataForRequest<TrackerSnapshotView>("/v1/time-tracker", req);
+    const data = await fetchSemseDataForRequest<TrackerBootstrapView>("/v1/time-tracker", req);
     return NextResponse.json({ requestId: "web-time-tracker-snapshot", data });
   } catch (error) {
     return handleServerError(error);

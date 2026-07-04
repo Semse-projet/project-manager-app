@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { JobRecordView } from "./job.schema.js";
 
 export const trackerSessionStatusSchema = z.enum(["RUNNING", "PAUSED", "STOPPED"]);
 
@@ -50,4 +51,34 @@ export type TrackerSessionView = {
 export type TrackerSnapshotView = {
   activeSession: TrackerSessionView | null;
   recentSessions: TrackerSessionView[];
+};
+
+export type TrackerSummaryView = {
+  range: "week" | "month";
+  totalSeconds: number;
+  sessionCount: number;
+  daysWorked: number;
+  openSessionCount: number;
+  sessionsWithoutNotes: number;
+  activeSession: TrackerSessionView | null;
+  byJob: Array<{
+    jobId: string;
+    jobTitle: string;
+    seconds: number;
+  }>;
+  recentNotes: Array<{
+    sessionId: string;
+    jobId: string;
+    jobTitle: string;
+    note: string | null;
+    startedAt: string;
+  }>;
+};
+
+export type TrackerBootstrapView = TrackerSnapshotView & {
+  jobs: JobRecordView[];
+  summaries: {
+    week: TrackerSummaryView;
+    month: TrackerSummaryView;
+  };
 };

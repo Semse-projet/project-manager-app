@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { FieldOpsRepository } from "./field-ops.repository.js";
-import type { TrackerSessionView, TrackerSnapshotView } from "@semse/schemas";
+import type { JobRecordView, TrackerBootstrapView, TrackerSessionView, TrackerSnapshotView } from "@semse/schemas";
 import {
   computeTrackerElapsedSeconds,
   mergeTrackerNotes,
@@ -104,11 +104,33 @@ export class FieldOpsService {
     };
   }
 
+  async getTrackerBootstrap(input: {
+    tenantId: string;
+    orgId: string;
+    createdBy: string;
+  }): Promise<TrackerBootstrapView> {
+    const [jobs, snapshot, weekSummary, monthSummary] = await Promise.all([
+      this.listTrackerJobs(input),
+      this.getTrackerSnapshot(input),
+      this.getTrackerSummary({ ...input, range: "week" }),
+      this.getTrackerSummary({ ...input, range: "month" }),
+    ]);
+
+    return {
+      ...snapshot,
+      jobs,
+      summaries: {
+        week: weekSummary,
+        month: monthSummary,
+      },
+    };
+  }
+
   async listTrackerJobs(input: {
     tenantId: string;
     orgId: string;
     createdBy: string;
-  }) {
+  }): Promise<JobRecordView[]> {
     return this.repo.listJobsForTracker({
       tenantId: input.tenantId,
       orgId: input.orgId,
