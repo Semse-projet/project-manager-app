@@ -19,6 +19,10 @@ import { AgroDashboardService } from "./agro-dashboard.service.js";
 import { AgroAuditReportService } from "./agro-audit-report.service.js";
 import { AgroSyncService } from "./agro-sync.service.js";
 import { AgroDashboardController } from "./agro-dashboard.controller.js";
+import { AgroProductionCycleService } from "./agro-production-cycle.service.js";
+import { AgroProductionCycleController } from "./agro-production-cycle.controller.js";
+import { AgroTraceabilityService } from "./agro-traceability.service.js";
+import { AgroTraceabilityController } from "./agro-traceability.controller.js";
 
 @Module({
   controllers: [
@@ -28,6 +32,8 @@ import { AgroDashboardController } from "./agro-dashboard.controller.js";
     AgroInventoryController,
     AgroEvidenceController,
     AgroDashboardController,
+    AgroProductionCycleController,
+    AgroTraceabilityController,
   ],
   providers: [
     AgroFarmRepository,
@@ -44,6 +50,8 @@ import { AgroDashboardController } from "./agro-dashboard.controller.js";
     AgroDashboardService,
     AgroAuditReportService,
     AgroSyncService,
+    AgroProductionCycleService,
+    AgroTraceabilityService,
   ],
   exports: [
     AgroFarmService,
@@ -53,6 +61,8 @@ import { AgroDashboardController } from "./agro-dashboard.controller.js";
     AgroEvidenceService,
     AgroDashboardService,
     AgroAuditRepository,
+    AgroProductionCycleService,
+    AgroTraceabilityService,
   ],
 })
 export class AgroModule {}

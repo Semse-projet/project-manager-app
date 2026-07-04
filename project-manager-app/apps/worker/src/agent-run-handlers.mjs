@@ -21,6 +21,18 @@ function asNumber(value) {
   return null;
 }
 
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function roundScore(value) {
+  return Math.round(value * 100) / 100;
+}
+
 function normalizeStatus(value) {
   return asString(value).toLowerCase();
 }
@@ -39,7 +51,37 @@ function summarizeText(value, limit = 220) {
 }
 
 function extractContext(run) {
-  return asObject(run?.input?.context);
+  const input = asObject(run?.input);
+  return { ...input, ...asObject(input.context) };
+}
+
+async function safeRequestJson(requestJson, path, init, options, logger, label) {
+  try {
+    return await requestJson(path, init, options);
+  } catch (error) {
+    logger?.warn({
+      path,
+      error: error instanceof Error ? error.message : String(error),
+    }, label ?? "optional worker context request failed");
+    return null;
+  }
+}
+
+function countEvidenceKinds(evidence) {
+  const counts = { total: evidence.length, photo: 0, video: 0, document: 0, other: 0 };
+  for (const item of evidence) {
+    const kind = normalizeStatus(item.kind ?? item.type ?? item.mimeType ?? item.contentType);
+    if (kind.includes("photo") || kind.includes("image") || kind.includes("jpg") || kind.includes("png")) {
+      counts.photo += 1;
+    } else if (kind.includes("video") || kind.includes("mp4") || kind.includes("mov")) {
+      counts.video += 1;
+    } else if (kind.includes("document") || kind.includes("pdf") || kind.includes("doc")) {
+      counts.document += 1;
+    } else {
+      counts.other += 1;
+    }
+  }
+  return counts;
 }
 
 async function resolveProjectAndJob(context, requestJson, tenantId) {
@@ -69,6 +111,88 @@ async function resolveProjectAndJob(context, requestJson, tenantId) {
   }
 
   return { projectId, jobId };
+}
+
+async function loadOperationalContext({ context, requestJson, tenantId, logger }) {
+  const { projectId, jobId } = await resolveProjectAndJob(context, requestJson, tenantId);
+
+  const jobPromise = jobId
+    ? safeRequestJson(
+        requestJson,
+        `/v1/jobs/${encodeURIComponent(jobId)}`,
+        { method: "GET" },
+        { tenantId },
+        logger,
+        "job context unavailable"
+      )
+    : Promise.resolve(null);
+
+  const projectPromise = projectId
+    ? safeRequestJson(
+        requestJson,
+        `/v1/projects/${encodeURIComponent(projectId)}`,
+        { method: "GET" },
+        { tenantId },
+        logger,
+        "project context unavailable"
+      )
+    : Promise.resolve(null);
+
+  const milestonesPromise = projectId
+    ? safeRequestJson(
+        requestJson,
+        `/v1/projects/${encodeURIComponent(projectId)}/milestones`,
+        { method: "GET" },
+        { tenantId },
+        logger,
+        "project milestones unavailable"
+      )
+    : jobId
+      ? safeRequestJson(
+          requestJson,
+          `/v1/jobs/${encodeURIComponent(jobId)}/milestones`,
+          { method: "GET" },
+          { tenantId },
+          logger,
+          "job milestones unavailable"
+        )
+      : Promise.resolve(null);
+
+  const evidencePromise = projectId
+    ? safeRequestJson(
+        requestJson,
+        `/v1/projects/${encodeURIComponent(projectId)}/evidence`,
+        { method: "GET" },
+        { tenantId },
+        logger,
+        "project evidence unavailable"
+      )
+    : jobId
+      ? safeRequestJson(
+          requestJson,
+          `/v1/jobs/${encodeURIComponent(jobId)}/evidence`,
+          { method: "GET" },
+          { tenantId },
+          logger,
+          "job evidence unavailable"
+        )
+      : Promise.resolve(null);
+
+  const [jobRes, projectRes, milestonesRes, evidenceRes] = await Promise.all([
+    jobPromise,
+    projectPromise,
+    milestonesPromise,
+    evidencePromise,
+  ]);
+
+  return {
+    projectId,
+    jobId,
+    job: asObject(jobRes?.data),
+    project: asObject(projectRes?.data),
+    milestones: asArray(milestonesRes?.data).map((item) => asObject(item)),
+    evidence: asArray(evidenceRes?.data).map((item) => asObject(item)),
+  };
 }
 
 async function handleFieldOps({ run, requestJson, tenantId, logger }) {
@@ -273,6 +397,380 @@ async function handlePricing({ run, requestJson, tenantId, logger }) {
 
   logger.info({ runId: run.id, projectId, jobId, estimate }, "pricing handler completed");
   return { summary, result };
+}
+
+function derivePlannerMilestones(job, existingMilestones) {
+  if (existingMilestones.length > 0) {
+    return existingMilestones.slice(0, 8).map((item, index) => ({
+      sequence: asNumber(item.sequence) ?? index + 1,
+      title: asString(item.title) || `Milestone ${index + 1}`,
+      description: summarizeText(item.description ?? item.scope ?? item.notes, 180),
+      status: asString(item.statusRaw ?? item.status) || "planned",
+      amount: asNumber(item.amount),
+    }));
+  }
+
+  const scopeText = `${asString(job.title)} ${asString(job.scope)} ${asString(job.category)}`.toLowerCase();
+  const isPermitHeavy = /(permit|inspection|code|codigo|electrical|plumbing|structural|roof|roofing|hvac)/i.test(scopeText);
+  const isFinishWork = /(paint|painting|drywall|floor|tile|finish|cleanup|cleaning)/i.test(scopeText);
+
+  const milestones = [
+    {
+      sequence: 1,
+      title: "Scope confirmation",
+      description: "Confirm site conditions, access constraints, exclusions and acceptance criteria.",
+    },
+    {
+      sequence: 2,
+      title: isPermitHeavy ? "Permits and safety setup" : "Materials and work prep",
+      description: isPermitHeavy
+        ? "Validate permit, inspection and safety requirements before field execution."
+        : "Prepare materials, crew plan and work area before starting execution.",
+    },
+    {
+      sequence: 3,
+      title: isFinishWork ? "Finish execution" : "Core execution",
+      description: "Complete the primary scope and capture progress evidence as work advances.",
+    },
+    {
+      sequence: 4,
+      title: "Evidence review",
+      description: "Upload before/after evidence, documents and completion notes for review.",
+    },
+    {
+      sequence: 5,
+      title: "Closeout and payment readiness",
+      description: "Resolve punch-list items, confirm approval state and prepare payment release.",
+    },
+  ];
+
+  return milestones;
+}
+
+function estimatePlannerDays(job, milestones) {
+  const scope = asString(job.scope);
+  const urgency = normalizeStatus(job.urgency);
+  const scopeWords = scope.split(/\s+/).filter(Boolean).length;
+  const budgetAnchor = asNumber(job.budgetMax) ?? asNumber(job.budgetMin) ?? 0;
+  const milestoneFactor = Math.max(1, milestones.length);
+  let days = Math.ceil(scopeWords / 55) + Math.ceil(milestoneFactor * 0.8);
+  if (budgetAnchor >= 10_000) days += 3;
+  if (budgetAnchor >= 50_000) days += 5;
+  if (urgency === "urgent" || urgency === "asap") days = Math.max(1, days - 1);
+  return clampNumber(days, 2, 30);
+}
+
+async function handleJobPlanner({ run, requestJson, tenantId, logger }) {
+  const context = extractContext(run);
+  const loaded = await loadOperationalContext({ context, requestJson, tenantId, logger });
+
+  if (!loaded.jobId) {
+    throw new Error("Job-planner requires a jobId or a project linked to a job.");
+  }
+
+  const job = loaded.job;
+  const title = asString(job.title) || asString(loaded.project.title) || loaded.jobId;
+  const scope = asString(job.scope) || asString(loaded.project.scope);
+  const milestones = derivePlannerMilestones(job, loaded.milestones);
+  const estimatedDays = estimatePlannerDays(job, milestones);
+  const budgetMin = asNumber(job.budgetMin);
+  const budgetMax = asNumber(job.budgetMax);
+  const scopeGaps = [];
+  const risks = [];
+
+  if (scope.length < 80) {
+    scopeGaps.push("Scope is shorter than the minimum planning baseline.");
+    risks.push("thin_scope_definition");
+  }
+  if (budgetMin === null && budgetMax === null) {
+    scopeGaps.push("Budget anchor is missing.");
+    risks.push("missing_budget_anchor");
+  }
+  if (loaded.milestones.length === 0) {
+    scopeGaps.push("No persisted milestones exist yet; worker generated a planning draft.");
+  }
+  if (loaded.evidence.length === 0 && loaded.projectId) {
+    risks.push("no_project_evidence_indexed");
+  }
+
+  const confidence = roundScore(clampNumber(0.88 - (scopeGaps.length * 0.08) - (risks.length * 0.03), 0.52, 0.91));
+  const result = {
+    projectId: loaded.projectId || undefined,
+    jobId: loaded.jobId,
+    title,
+    category: asString(job.category) || undefined,
+    scopeSummary: summarizeText(scope, 360),
+    milestones,
+    estimatedDays,
+    scopeGaps,
+    risks,
+    confidence,
+  };
+
+  const summary = `Job-planner generó plan para '${loaded.jobId}': ${milestones.length} hito(s), ${estimatedDays} día(s) estimados, ${scopeGaps.length} gap(s) de alcance.`;
+
+  logger.info({ runId: run.id, projectId: loaded.projectId, jobId: loaded.jobId, estimatedDays, confidence }, "job-planner handler completed");
+  return {
+    actionType: "plan",
+    summary,
+    confidence,
+    requiresHumanReview: scopeGaps.length > 0 || risks.includes("missing_budget_anchor"),
+    result,
+  };
+}
+
+function hasBeforeAfterEvidence(evidence) {
+  const labels = evidence.map((item) => `${asString(item.title)} ${asString(item.description)} ${asString(item.filename)} ${asString(item.url)}`.toLowerCase());
+  const hasBefore = labels.some((entry) => /\bbefore\b|antes/.test(entry));
+  const hasAfter = labels.some((entry) => /\bafter\b|despues|después|final|complete/.test(entry));
+  return hasBefore && hasAfter;
+}
+
+async function loadMilestoneEvidenceContext({ context, requestJson, tenantId, logger }) {
+  const milestoneId = asString(context.milestoneId);
+  if (!milestoneId) {
+    return { milestoneId: "", evidenceItems: [], visionSummary: null };
+  }
+
+  const [itemsRes, visionRes] = await Promise.all([
+    safeRequestJson(
+      requestJson,
+      `/v1/milestones/${encodeURIComponent(milestoneId)}/evidence-items`,
+      { method: "GET" },
+      { tenantId },
+      logger,
+      "milestone evidence items unavailable"
+    ),
+    safeRequestJson(
+      requestJson,
+      `/v1/milestones/${encodeURIComponent(milestoneId)}/vision-summary`,
+      { method: "GET" },
+      { tenantId },
+      logger,
+      "milestone vision summary unavailable"
+    ),
+  ]);
+
+  return {
+    milestoneId,
+    evidenceItems: asArray(itemsRes?.data).map((item) => asObject(item)),
+    visionSummary: asObject(visionRes?.data),
+  };
+}
+
+async function handleEvidenceCoach({ run, requestJson, tenantId, logger }) {
+  const context = extractContext(run);
+  let loaded = {
+    projectId: "",
+    jobId: "",
+    job: {},
+    project: {},
+    milestones: [],
+    evidence: [],
+  };
+  try {
+    loaded = await loadOperationalContext({ context, requestJson, tenantId, logger });
+  } catch (error) {
+    if (!asString(context.milestoneId)) {
+      throw error;
+    }
+    logger.warn({
+      runId: run.id,
+      error: error instanceof Error ? error.message : String(error),
+    }, "evidence-coach continuing with milestone-only context");
+  }
+  const milestoneContext = await loadMilestoneEvidenceContext({ context, requestJson, tenantId, logger });
+  const evidence = milestoneContext.evidenceItems.length > 0 ? milestoneContext.evidenceItems : loaded.evidence;
+  const counts = countEvidenceKinds(evidence);
+  const submittedMilestones = loaded.milestones.filter((item) => {
+    const status = normalizeStatus(item.statusRaw ?? item.status);
+    return status === "submitted" || status === "awaiting_review";
+  });
+
+  const hasBeforeAfterPair = hasBeforeAfterEvidence(evidence) || Boolean(milestoneContext.visionSummary?.hasBeforeAfterPair);
+  const visionReady = milestoneContext.visionSummary?.overallVisionReady === true;
+  const missingItems = [];
+
+  if (counts.photo === 0) {
+    missingItems.push("Add at least one field photo.");
+  }
+  if (!hasBeforeAfterPair && counts.total > 0) {
+    missingItems.push("Add before/after evidence for approval confidence.");
+  }
+  if (submittedMilestones.length > 0 && counts.total < submittedMilestones.length) {
+    missingItems.push("Evidence count is below submitted milestone count.");
+  }
+  if (counts.document === 0 && loaded.milestones.length > 0) {
+    missingItems.push("Attach a closeout note, invoice, permit or supporting document when applicable.");
+  }
+
+  let qualityScore = 0.12;
+  if (counts.photo > 0) qualityScore += 0.24;
+  if (counts.video > 0) qualityScore += 0.18;
+  if (counts.document > 0) qualityScore += 0.14;
+  if (hasBeforeAfterPair) qualityScore += 0.18;
+  if (counts.total >= Math.max(1, submittedMilestones.length)) qualityScore += 0.10;
+  if (visionReady) qualityScore += 0.12;
+  qualityScore = roundScore(clampNumber(qualityScore, 0, 0.98));
+
+  const approveRecommendation = qualityScore >= 0.72 && missingItems.length === 0;
+  const result = {
+    projectId: loaded.projectId || undefined,
+    jobId: loaded.jobId || undefined,
+    milestoneId: milestoneContext.milestoneId || undefined,
+    qualityScore,
+    evidenceCount: counts.total,
+    photoCount: counts.photo,
+    videoCount: counts.video,
+    documentCount: counts.document,
+    submittedMilestones: submittedMilestones.length,
+    hasBeforeAfterPair,
+    visionReady,
+    missingItems,
+    approveRecommendation,
+    feedback: approveRecommendation
+      ? "Evidence package is ready for normal review flow."
+      : `Complete before approval: ${missingItems.join("; ") || "manual review required"}.`,
+  };
+
+  const summary = approveRecommendation
+    ? `Evidence-coach aprobó paquete de evidencia (${counts.total} item(s), score ${qualityScore.toFixed(2)}).`
+    : `Evidence-coach detectó ${missingItems.length} pendiente(s) en ${counts.total} evidencia(s), score ${qualityScore.toFixed(2)}.`;
+
+  logger.info({ runId: run.id, projectId: loaded.projectId, jobId: loaded.jobId, qualityScore, approveRecommendation }, "evidence-coach handler completed");
+  return {
+    actionType: "validate",
+    summary,
+    confidence: qualityScore,
+    requiresHumanReview: !approveRecommendation,
+    result,
+  };
+}
+
+function classifyRisk(score) {
+  if (score >= 0.75) return "high";
+  if (score >= 0.45) return "medium";
+  return "low";
+}
+
+async function handleRisk({ run, requestJson, tenantId, logger }) {
+  const context = extractContext(run);
+  const loaded = await loadOperationalContext({ context, requestJson, tenantId, logger });
+  const eventType = asString(context.eventType) || asString(run.input?.eventType) || "manual";
+
+  const [jobTrustRes, projectTrustRes, disputesRes] = await Promise.all([
+    loaded.jobId
+      ? safeRequestJson(
+          requestJson,
+          `/v1/jobs/${encodeURIComponent(loaded.jobId)}/trust`,
+          { method: "GET" },
+          { tenantId },
+          logger,
+          "job trust context unavailable"
+        )
+      : Promise.resolve(null),
+    loaded.projectId
+      ? safeRequestJson(
+          requestJson,
+          `/v1/projects/${encodeURIComponent(loaded.projectId)}/trust`,
+          { method: "GET" },
+          { tenantId },
+          logger,
+          "project trust context unavailable"
+        )
+      : Promise.resolve(null),
+    loaded.projectId
+      ? safeRequestJson(
+          requestJson,
+          `/v1/disputes?projectId=${encodeURIComponent(loaded.projectId)}`,
+          { method: "GET" },
+          { tenantId },
+          logger,
+          "project disputes unavailable"
+        )
+      : Promise.resolve(null),
+  ]);
+
+  const job = loaded.job;
+  const trust = asObject(jobTrustRes?.data ?? projectTrustRes?.data);
+  const disputes = asArray(disputesRes?.data).map((item) => asObject(item));
+  const activeDisputes = disputes.filter((item) => {
+    const status = normalizeStatus(item.status);
+    return status === "open" || status === "assigned" || status === "under_review";
+  });
+  const submittedMilestones = loaded.milestones.filter((item) => {
+    const status = normalizeStatus(item.statusRaw ?? item.status);
+    return status === "submitted" || status === "awaiting_review";
+  });
+
+  let riskScore = 0.18;
+  const flags = [];
+  const scope = asString(job.scope) || asString(loaded.project.scope);
+  const budgetMin = asNumber(job.budgetMin);
+  const budgetMax = asNumber(job.budgetMax);
+  const trustScore = asNumber(trust.score);
+
+  if (eventType === "dispute.opened" || activeDisputes.length > 0) {
+    riskScore += 0.30;
+    flags.push("active_dispute");
+  }
+  if (budgetMin === null && budgetMax === null) {
+    riskScore += 0.16;
+    flags.push("missing_budget_anchor");
+  }
+  if (scope.length < 80) {
+    riskScore += 0.14;
+    flags.push("thin_scope_definition");
+  }
+  if (submittedMilestones.length > 0 && loaded.evidence.length === 0) {
+    riskScore += 0.18;
+    flags.push("submitted_milestones_without_evidence");
+  }
+  if (loaded.milestones.length === 0 && loaded.projectId) {
+    riskScore += 0.10;
+    flags.push("project_without_milestones");
+  }
+  if (trustScore !== null && trustScore < 60) {
+    riskScore += 0.14;
+    flags.push("low_trust_score");
+  }
+  if (normalizeStatus(job.urgency) === "urgent" || normalizeStatus(job.urgency) === "asap") {
+    riskScore += 0.08;
+    flags.push("urgent_workflow");
+  }
+
+  riskScore = roundScore(clampNumber(riskScore, 0, 0.98));
+  const riskLevel = classifyRisk(riskScore);
+  const confidence = roundScore(clampNumber(0.68 + flags.length * 0.045, 0.68, 0.93));
+  const result = {
+    projectId: loaded.projectId || undefined,
+    jobId: loaded.jobId || undefined,
+    eventType,
+    riskScore,
+    riskLevel,
+    flags,
+    activeDisputes: activeDisputes.length,
+    submittedMilestones: submittedMilestones.length,
+    evidenceCount: loaded.evidence.length,
+    trustScore,
+    recommendation:
+      riskLevel === "high"
+        ? "Escalate to ops review before advancing workflow or releasing funds."
+        : riskLevel === "medium"
+          ? "Continue with controls: require evidence, milestone review and tighter monitoring."
+          : "Proceed in normal automated flow with standard audit logging.",
+  };
+
+  const summary = `Risk clasificó '${loaded.jobId || loaded.projectId}' como ${riskLevel} (score ${riskScore.toFixed(2)}, ${flags.length} flag(s)).`;
+
+  logger.info({ runId: run.id, projectId: loaded.projectId, jobId: loaded.jobId, riskScore, riskLevel }, "risk handler completed");
+  return {
+    actionType: "classify",
+    summary,
+    confidence,
+    requiresHumanReview: riskLevel === "high",
+    result,
+  };
 }
 
 async function handleProjectCopilot({ run, requestJson, tenantId, logger }) {
@@ -669,6 +1167,9 @@ const SPECIALIZED_HANDLERS = {
   "field-ops":       handleFieldOps,
   "trust-match":     handleTrustMatch,
   pricing:           handlePricing,
+  "job-planner":     handleJobPlanner,
+  "evidence-coach":  handleEvidenceCoach,
+  risk:              handleRisk,
   "project-copilot": handleProjectCopilot,
   "technical-agent": handleTechnicalAgent,
   "legal-agent":     handleLegalAgent,
