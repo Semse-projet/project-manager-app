@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { ChevronDown, Clock, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
+import { ChevronDown, Clock, Download, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
 import {
   createManualTrackerSession,
   fetchJobContract,
@@ -190,6 +190,17 @@ function manualDurationSeconds(date: string, startTime: string, endTime: string)
     return null;
   }
   return Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
+}
+
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function trackerHistoryFileLabel(range: TrackerHistoryRange, jobId: string) {
+  const rangeLabel = range === "week" ? "7d" : range === "month" ? "30d" : "all";
+  const jobLabel = jobId === "all" ? "all-jobs" : jobId.replaceAll(/[^A-Za-z0-9_-]/g, "-").slice(0, 40);
+  return `${rangeLabel}-${jobLabel}`;
 }
 
 const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: string; bg: string }> = {
@@ -746,6 +757,35 @@ export default function WorkerTrackerPage() {
     }
   }
 
+  function handleExportHistoryCsv() {
+    if (filteredSessions.length === 0) return;
+
+    const rows = [
+      ["session_id", "job_id", "job_title", "status", "started_at", "ended_at", "duration_seconds", "duration_hhmmss", "notes"],
+      ...filteredSessions.map((session) => [
+        session.id,
+        session.jobId,
+        session.job.title,
+        session.status,
+        session.startedAt,
+        session.stoppedAt ?? session.pausedAt ?? session.updatedAt,
+        String(sessionElapsed(session)),
+        fmtSeconds(sessionElapsed(session)),
+        session.notes ?? "",
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `semse-time-tracker-${trackerHistoryFileLabel(historyRange, historyJobId)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
   const card: CSSProperties = {
     background: "var(--surface)",
     border: "1px solid var(--border)",
@@ -1112,6 +1152,14 @@ export default function WorkerTrackerPage() {
           </div>
 
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={handleExportHistoryCsv}
+              disabled={filteredSessions.length === 0 || loading || historyLoading}
+              style={historyActionButton(filteredSessions.length === 0 || loading || historyLoading)}
+            >
+              <Download size={13} /> CSV
+            </button>
             <div style={{ position: "relative" }}>
               <select
                 aria-label="Filtrar historial por rango"
@@ -1316,6 +1364,24 @@ function compactSelect(): CSSProperties {
     appearance: "none",
     cursor: "pointer",
     outline: "none",
+  };
+}
+
+function historyActionButton(disabled: boolean): CSSProperties {
+  return {
+    height: "34px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "0 11px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--ink)",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.55 : 1,
   };
 }
 
