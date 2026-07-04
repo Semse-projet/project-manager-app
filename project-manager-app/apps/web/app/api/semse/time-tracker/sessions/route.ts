@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const search = new URLSearchParams();
-    for (const key of ["limit", "range", "jobId"]) {
+    for (const key of ["limit", "range", "jobId", "status"]) {
       const value = req.nextUrl.searchParams.get(key);
       if (value) search.set(key, value);
     }

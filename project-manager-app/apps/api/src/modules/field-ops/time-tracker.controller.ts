@@ -56,6 +56,7 @@ export class TimeTrackerController {
     @Query("limit") limit?: string,
     @Query("range") range?: string,
     @Query("jobId") jobId?: string,
+    @Query("status") status?: string,
   ) {
     const actor = resolveRequestContext(req);
     const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
@@ -65,6 +66,7 @@ export class TimeTrackerController {
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       range: range === "week" || range === "month" || range === "all" ? range : undefined,
       jobId,
+      status: status === "RUNNING" || status === "PAUSED" || status === "STOPPED" ? status : undefined,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

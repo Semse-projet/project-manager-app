@@ -313,6 +313,7 @@ export class FieldOpsRepository {
     createdBy: string;
     limit: number;
     jobId?: string;
+    status?: TrackerSessionRecord["status"];
     startedAfter?: Date;
   }): Promise<TrackerSessionRecord[]> {
     return this.queryTrackerSessions(Prisma.sql`
@@ -320,6 +321,7 @@ export class FieldOpsRepository {
       WHERE ts."tenantId" = ${input.tenantId}
         AND ts."createdBy" = ${input.createdBy}
         ${input.jobId ? Prisma.sql`AND ts."jobId" = ${input.jobId}` : Prisma.empty}
+        ${input.status ? Prisma.sql`AND ts.status = ${input.status}` : Prisma.empty}
         ${input.startedAfter ? Prisma.sql`AND ts."startedAt" >= ${input.startedAfter}` : Prisma.empty}
       ORDER BY ts."startedAt" DESC
       LIMIT ${input.limit}
