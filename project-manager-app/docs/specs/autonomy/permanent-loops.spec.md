@@ -65,7 +65,7 @@ export interface PermanentLoopDefinition {
 }
 ```
 
-**Reglas duras del scheduler** (en `apps/worker`, cola BullMQ dedicada `autonomy:loops`):
+**Reglas duras del scheduler** (en `apps/worker`, cola BullMQ dedicada `autonomy-loops` (sin `:` — BullMQ lo prohíbe en nombres de cola)):
 
 1. **Backpressure humano:** si `openProposals ≥ maxOpenProposals`, el ciclo se salta y se audita como `loop.skipped.backpressure`. Un loop que nadie revisa no acumula PRs — se apaga solo.
 2. **Memoria de rechazos:** todo hallazgo propuesto y rechazado se persiste (tabla `agent_decisions`, ADR §4.4); el loop consulta antes de proponer y no re-propone lo rechazado. Sin esto, el loop molesta en bucle.

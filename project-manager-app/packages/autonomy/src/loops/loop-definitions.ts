@@ -4,7 +4,9 @@
  */
 import type { PermanentLoopDefinition } from "./loop-types.js";
 
-export const AUTONOMY_LOOPS_QUEUE = "autonomy:loops";
+// Sin ":" — BullMQ lo reserva como separador de keys de Redis y rechaza
+// nombres de cola que lo contengan ("Queue name cannot contain :").
+export const AUTONOMY_LOOPS_QUEUE = "autonomy-loops";
 
 export const dedupAbstractionsLoop: PermanentLoopDefinition = {
   id: "loop.dedup-abstractions",

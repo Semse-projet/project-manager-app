@@ -1,7 +1,7 @@
 /**
  * SPEC-AUT-001 (bloque AUT-001-A) — scheduler de Permanent Loops.
  *
- * Cola BullMQ dedicada `autonomy:loops` con repeatable jobs (cron por loop).
+ * Cola BullMQ dedicada `autonomy-loops` con repeatable jobs (cron por loop).
  * Reglas duras:
  *   - Kill switch global: AUTONOMY_LOOPS_ENABLED !== "true" → no se programa nada.
  *   - Pausa por loop: se consulta a la API al inicio Y entre etapas del ciclo
@@ -97,7 +97,7 @@ export async function setupPermanentLoops({ connection, logger, requestJson, pos
       { loopId: definition.id },
       {
         repeat: { pattern: definition.schedule },
-        jobId: `loop:${definition.id}`,
+        jobId: `loop-${definition.id}`,
         removeOnComplete: 20,
         removeOnFail: 20
       }

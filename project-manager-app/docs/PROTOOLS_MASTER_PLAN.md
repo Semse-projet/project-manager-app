@@ -296,7 +296,7 @@ Deriva de ADR-021. Objetivo: cerrar el loop actuar→verificar→corregir en `ex
 
 | ID | Bloque | Estado | Archivo | Notas |
 |---|---|---|---|---|
-| AUT-001-A | `PermanentLoopDefinition` + scheduler BullMQ + kill switch + backpressure | DONE | `packages/autonomy/src/loops/` + `apps/worker/src/modules/autonomy-loops/` | 2026-07-04 — cola `autonomy:loops`, kill switch `AUTONOMY_LOOPS_ENABLED`, pausa re-consultada entre etapas (<30s), fail-closed si la API no responde |
+| AUT-001-A | `PermanentLoopDefinition` + scheduler BullMQ + kill switch + backpressure | DONE | `packages/autonomy/src/loops/` + `apps/worker/src/modules/autonomy-loops/` | 2026-07-04 — cola `autonomy-loops`, kill switch `AUTONOMY_LOOPS_ENABLED`, pausa re-consultada entre etapas (<30s), fail-closed si la API no responde |
 | AUT-001-B | Tabla `AgentDecision` + `PermanentLoopState` (Prisma) + consulta de rechazos previos | DONE | `packages/db/prisma/schema.prisma` + `apps/api/src/modules/ops/loops.service.ts` | 2026-07-04 — memoria de rechazos con cooldown 30d, endpoints `/v1/ops/loops/*` |
 | AUT-001-C | Loop 1 `dedup-abstractions` (fase mecánica) | DONE | `packages/autonomy/src/loops/dedup-loop.ts` | 2026-07-04 — inventario de exports + similitud de firma (nombre normalizado + aridad), cero tokens. Capa embeddings = fase posterior |
 | AUT-001-D | Loop 2 `spec-drift` (fase mecánica — cero tokens) | DONE | `packages/autonomy/src/loops/spec-drift-loop.ts` | 2026-07-04 — related_files/tests existentes, DONE-sin-tests, comandos fantasma, spec.health_score. Capa semántica = fase posterior |
