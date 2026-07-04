@@ -10,9 +10,7 @@ import {
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
-  fetchTimeTrackerJobs,
-  fetchTimeTrackerSummary,
-  fetchTrackerSnapshot,
+  fetchTrackerBootstrap,
   pauseTrackerSession,
   resumeTrackerSession,
   startTrackerSession,
@@ -235,24 +233,19 @@ export default function WorkerTrackerPage() {
   }, []);
 
   const loadTracker = useCallback(async () => {
-    const [assignedJobs, snapshot, weekResult, monthResult] = await Promise.all([
-      fetchTimeTrackerJobs(),
-      fetchTrackerSnapshot(),
-      fetchTimeTrackerSummary("week"),
-      fetchTimeTrackerSummary("month"),
-    ]);
+    const tracker = await fetchTrackerBootstrap();
 
-    const preferredJobId = snapshot.activeSession?.jobId ?? assignedJobs[0]?.id ?? "";
+    const preferredJobId = tracker.activeSession?.jobId ?? tracker.jobs[0]?.id ?? "";
 
-    setJobs(assignedJobs);
-    setSessions(snapshot.recentSessions);
-    setActiveSession(snapshot.activeSession);
-    setSelectedJob(snapshot.activeSession?.jobId ?? preferredJobId);
-    setManualJobId((prev) => prev || assignedJobs[0]?.id || "");
-    setNotes(snapshot.activeSession?.notes ?? "");
-    setElapsed(elapsedFromSession(snapshot.activeSession));
-    setWeekSummary(weekResult);
-    setMonthSummary(monthResult);
+    setJobs(tracker.jobs);
+    setSessions(tracker.recentSessions);
+    setActiveSession(tracker.activeSession);
+    setSelectedJob(tracker.activeSession?.jobId ?? preferredJobId);
+    setManualJobId((prev) => prev || tracker.jobs[0]?.id || "");
+    setNotes(tracker.activeSession?.notes ?? "");
+    setElapsed(elapsedFromSession(tracker.activeSession));
+    setWeekSummary(tracker.summaries.week);
+    setMonthSummary(tracker.summaries.month);
   }, []);
 
   const syncPendingEvents = useCallback(async (state: TrackerLocalState = trackerLocalState) => {

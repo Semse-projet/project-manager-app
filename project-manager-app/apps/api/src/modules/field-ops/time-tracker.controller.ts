@@ -18,8 +18,9 @@ export class TimeTrackerController {
   @RequirePermissions("field-ops:read")
   async snapshot(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
-    const data = await this.service.getTrackerSnapshot({
+    const data = await this.service.getTrackerBootstrap({
       tenantId: actor.tenantId,
+      orgId: actor.orgId,
       createdBy: actor.userId,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
