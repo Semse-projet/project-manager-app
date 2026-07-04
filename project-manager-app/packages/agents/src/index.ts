@@ -481,10 +481,16 @@ export { AgentRegistry as AgentRegistrations } from "./registrations.js";
 export {
   delegateTo,
   delegateAll,
+  deriveDelegateBudget,
   DELEGATE_BLOCKED_ROLES,
   type DelegateOptions,
   type DelegateResult,
 } from "./delegate.js";
+// NOTA: verifiers.ts (spawnSync) NO se re-exporta aquí a propósito — apps/web
+// importa @semse/agents en componentes de cliente y node:child_process rompería
+// el bundle webpack. Entrypoints server-side importan "@semse/agents/verifiers".
+export type { VerifierContext, VerifierImpl, VerifierOutcome } from "./verifiers.js";
+export { setVerifierRunner, type VerifierRunnerFn } from "./runtime.js";
 
 // ─────────────────────────────────────────────────────────────
 // SEMSE 6-AGENT ARCHITECTURE

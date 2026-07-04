@@ -17,6 +17,10 @@
     "./master-domains": {
       "types": "./dist/master-domains.d.ts",
       "default": "./dist/master-domains.js"
+    },
+    "./verifiers": {
+      "types": "./dist/verifiers.d.ts",
+      "default": "./dist/verifiers.js"
     }
   },
   "scripts": {
