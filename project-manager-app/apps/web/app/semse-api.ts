@@ -750,7 +750,7 @@ export async function markNotificationRead(
 }
 
 export async function fetchTrackerSnapshot(): Promise<TrackerSnapshotView> {
-  return fetchSemse<TrackerSnapshotView>("/api/semse/tracker");
+  return fetchSemse<TrackerSnapshotView>("/api/semse/time-tracker");
 }
 
 // ── Communications ─────────────────────────────────────────────────────────────
@@ -833,25 +833,25 @@ export async function startTrackerSession(input: {
   jobId: string;
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>("/api/semse/tracker/start", input);
+  return mutateSemse<TrackerSessionView>("/api/semse/time-tracker/sessions/start", input);
 }
 
 export async function pauseTrackerSession(sessionId: string, input?: {
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>(`/api/semse/tracker/${sessionId}/pause`, input);
+  return mutateSemse<TrackerSessionView>(`/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/pause`, input);
 }
 
 export async function resumeTrackerSession(sessionId: string, input?: {
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>(`/api/semse/tracker/${sessionId}/resume`, input);
+  return mutateSemse<TrackerSessionView>(`/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/resume`, input);
 }
 
 export async function stopTrackerSession(sessionId: string, input?: {
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>(`/api/semse/tracker/${sessionId}/stop`, input);
+  return mutateSemse<TrackerSessionView>(`/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/stop`, input);
 }
 
 export async function createManualTrackerSession(input: {
@@ -861,7 +861,7 @@ export async function createManualTrackerSession(input: {
   endTime: string;
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>("/api/semse/tracker/manual", input);
+  return mutateSemse<TrackerSessionView>("/api/semse/time-tracker/sessions/manual", input);
 }
 
 export async function fetchFieldUnits(query?: { projectId?: string; status?: string }): Promise<Record<string, unknown>[]> {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { ChevronDown, Clock, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
 import {
@@ -316,13 +316,19 @@ export default function WorkerTrackerPage() {
     }
   }, [loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
 
+  const syncPendingEventsRef = useRef(syncPendingEvents);
+
+  useEffect(() => {
+    syncPendingEventsRef.current = syncPendingEvents;
+  }, [syncPendingEvents]);
+
   useEffect(() => {
     const storedState = readTrackerLocalState(window.localStorage);
     setTrackerLocalState(storedState);
     setIsOnline(navigator.onLine);
 
     if (storedState.activeSession && storedState.activeSession.status !== "STOPPED") {
-      setActiveSession(localSessionToView(storedState.activeSession, jobs));
+      setActiveSession(localSessionToView(storedState.activeSession, []));
       setSelectedJob(storedState.activeSession.jobId);
       setNotes(storedState.activeSession.notes ?? "");
       setElapsed(elapsedFromLocalSession(storedState.activeSession));
@@ -334,7 +340,7 @@ export default function WorkerTrackerPage() {
     const handleOnline = () => {
       setIsOnline(true);
       setSyncNotice("Conexión restaurada. Sincronizando cambios pendientes...");
-      void syncPendingEvents(readTrackerLocalState(window.localStorage));
+      void syncPendingEventsRef.current(readTrackerLocalState(window.localStorage));
     };
     const handleOffline = () => {
       setIsOnline(false);
