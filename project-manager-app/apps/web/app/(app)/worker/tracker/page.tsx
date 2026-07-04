@@ -210,6 +210,16 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
 };
 
 type TrackerHistoryRange = "week" | "month" | "all";
+type TrackerHistoryStatus = TrackerSessionView["status"] | "all";
+
+function trackerHistoryStatusLabel(status: TrackerHistoryStatus) {
+  return status === "all" ? "Todos los estados" : STATUS_META[status].label;
+}
+
+function trackerHistoryExportLabel(range: TrackerHistoryRange, jobId: string, status: TrackerHistoryStatus) {
+  const statusLabel = status === "all" ? "all-statuses" : status.toLowerCase();
+  return `${trackerHistoryFileLabel(range, jobId)}-${statusLabel}`;
+}
 
 function isSessionInHistoryRange(session: TrackerSessionView, range: TrackerHistoryRange) {
   if (range === "all") return true;
@@ -240,6 +250,7 @@ export default function WorkerTrackerPage() {
   const [manualNotes, setManualNotes] = useState("");
   const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
   const [historyJobId, setHistoryJobId] = useState("all");
+  const [historyStatus, setHistoryStatus] = useState<TrackerHistoryStatus>("all");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
@@ -480,9 +491,14 @@ export default function WorkerTrackerPage() {
   const displayedMonthSeconds = Math.max(monthSummary?.totalSeconds ?? 0, monthSeconds);
   const filteredSessions = useMemo(() => sessions.filter((session) => {
     if (!isSessionInHistoryRange(session, historyRange)) return false;
+    if (historyStatus !== "all" && session.status !== historyStatus) return false;
     return historyJobId === "all" || session.jobId === historyJobId;
-  }), [historyJobId, historyRange, sessions]);
+  }), [historyJobId, historyRange, historyStatus, sessions]);
   const filteredSessionSeconds = filteredSessions.reduce((sum, session) => sum + sessionElapsed(session), 0);
+  const filteredSessionStatusCounts = filteredSessions.reduce<Record<TrackerSessionView["status"], number>>((counts, session) => {
+    counts[session.status] += 1;
+    return counts;
+  }, { RUNNING: 0, PAUSED: 0, STOPPED: 0 });
   const filteredSessionLabel = historyRange === "week"
     ? "Últimos 7 días"
     : historyRange === "month"
@@ -779,7 +795,7 @@ export default function WorkerTrackerPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `semse-time-tracker-${trackerHistoryFileLabel(historyRange, historyJobId)}.csv`;
+    anchor.download = `semse-time-tracker-${trackerHistoryExportLabel(historyRange, historyJobId, historyStatus)}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -1147,7 +1163,7 @@ export default function WorkerTrackerPage() {
           <div>
             <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Sesiones recientes</h2>
             <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
-              {filteredSessions.length} sesiones · {fmtSeconds(filteredSessionSeconds)} · {filteredSessionLabel}
+              {filteredSessions.length} sesiones · {fmtSeconds(filteredSessionSeconds)} · {filteredSessionLabel} · {trackerHistoryStatusLabel(historyStatus)}
             </p>
           </div>
 
@@ -1175,6 +1191,20 @@ export default function WorkerTrackerPage() {
             </div>
             <div style={{ position: "relative" }}>
               <select
+                aria-label="Filtrar historial por estado"
+                value={historyStatus}
+                onChange={(event) => setHistoryStatus(event.target.value as TrackerHistoryStatus)}
+                style={{ ...compactSelect(), minWidth: "154px" }}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="RUNNING">Corriendo</option>
+                <option value="PAUSED">En pausa</option>
+                <option value="STOPPED">Detenidas</option>
+              </select>
+              <ChevronDown size={13} style={selectChevron()} />
+            </div>
+            <div style={{ position: "relative" }}>
+              <select
                 aria-label="Filtrar historial por trabajo"
                 value={historyJobId}
                 onChange={(event) => setHistoryJobId(event.target.value)}
@@ -1189,6 +1219,29 @@ export default function WorkerTrackerPage() {
             </div>
           </div>
         </div>
+
+        {filteredSessions.length > 0 ? (
+          <div data-testid="tracker-history-status-summary" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+            {(Object.keys(STATUS_META) as TrackerSessionView["status"][]).map((status) => (
+              <span
+                key={status}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 9px",
+                  borderRadius: "8px",
+                  background: STATUS_META[status].bg,
+                  color: STATUS_META[status].color,
+                  fontSize: "11px",
+                  fontWeight: 800,
+                }}
+              >
+                {STATUS_META[status].label}: {filteredSessionStatusCounts[status]}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {loading || historyLoading ? (

@@ -82,5 +82,7 @@ test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion
   await page.getByTestId("tracker-stop-button").click();
 
   await expect(page.getByText("Selecciona un trabajo y presiona Iniciar")).toBeVisible();
+  await page.getByLabel("Filtrar historial por estado").selectOption("STOPPED");
+  await expect(page.getByTestId("tracker-history-status-summary")).toContainText("Detenida: 1");
   await expect(page.getByTestId("tracker-session-card").first()).toContainText(job.title);
 });
