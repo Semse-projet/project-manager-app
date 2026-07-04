@@ -48,6 +48,13 @@ const reservationSelect = {
 
 type ReservationTx = Prisma.TransactionClient & Pick<PrismaService, "job" | "jobReservation" | "project">;
 
+function isActiveReservationUniqueConflict(error: unknown): boolean {
+  return (
+    (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2002") ||
+    (error instanceof Error && /unique|constraint|active.*reservation/i.test(error.message))
+  );
+}
+
 @Injectable()
 export class ReservationsRepository {
   constructor(
@@ -130,28 +137,58 @@ export class ReservationsRepository {
     }
 
     const expiresAt = new Date(Date.now() + input.expiresInMinutes * 60_000);
-    const reservation = (await this.prisma.$transaction(async (tx) => {
-      const db = tx as ReservationTx;
-      const created = await db.jobReservation.create({
-        data: {
+    let reservation: StoredReservation;
+    try {
+      reservation = (await this.prisma.$transaction(async (tx) => {
+        const db = tx as ReservationTx;
+        const created = await db.jobReservation.create({
+          data: {
+            jobId: input.jobId,
+            professionalOrgId: input.orgId,
+            professionalId: input.userId,
+            status: "ACTIVE",
+            expiresAt
+          },
+          select: reservationSelect
+        });
+
+        if (job.status !== "RESERVED") {
+          await db.job.update({
+            where: { id: job.id },
+            data: { status: "RESERVED" }
+          });
+        }
+
+        return created;
+      })) as StoredReservation;
+    } catch (error) {
+      if (!isActiveReservationUniqueConflict(error)) {
+        throw error;
+      }
+
+      const currentActive = (await this.prisma.jobReservation.findFirst({
+        where: {
           jobId: input.jobId,
-          professionalOrgId: input.orgId,
-          professionalId: input.userId,
           status: "ACTIVE",
-          expiresAt
+          job: {
+            tenantId: input.tenantId,
+            deletedAt: null
+          }
         },
         select: reservationSelect
-      });
-
-      if (job.status !== "RESERVED") {
-        await db.job.update({
-          where: { id: job.id },
-          data: { status: "RESERVED" }
+      })) as StoredReservation | null;
+      const currentActiveOrgId = currentActive
+        ? await this.resolveProfessionalOrgId(input.tenantId, currentActive.professionalId)
+        : null;
+      if (currentActive && currentActiveOrgId === input.orgId) {
+        return this.toRecord({
+          ...currentActive,
+          professionalOrgId: currentActiveOrgId
         });
       }
 
-      return created;
-    })) as StoredReservation;
+      throw new ConflictException("job already has an active reservation");
+    }
 
     return this.toRecord({
       ...reservation,
