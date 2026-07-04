@@ -81,7 +81,7 @@
 | Spec ID | Domain | Estado | Ruta | Deriva de |
 |---|---|---|---|---|
 | SPEC-AGT-001 verification-loop | agents | IMPLEMENTED (AGT-001-A..E, 2026-07-04) | docs/specs/agents/verification-loop.spec.md | ADR-021 |
-| SPEC-AUT-001 permanent-loops | autonomy | DRAFT | docs/specs/autonomy/permanent-loops.spec.md | ADR-021, SPEC-AGT-001 |
+| SPEC-AUT-001 permanent-loops | autonomy | IMPLEMENTED (fase mecánica, 2026-07-04) | docs/specs/autonomy/permanent-loops.spec.md | ADR-021, SPEC-AGT-001 |
 | ADR-021 anatomía del agente | architecture | PROPOSED | docs/architecture/ADR-021-anatomia-agente-semse.md | — |
 
 

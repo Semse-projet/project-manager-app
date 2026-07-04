@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Query, Req } from "@nestjs/common";
 import {
   alertIdParamSchema,
   agentApprovalDecisionSchema,
   approvalIdParamSchema,
   correlationIdParamSchema,
+  loopCycleReportSchema,
   opsAgentRuntimeQuerySchema,
   opsIncidentSchema,
   runbookIdParamSchema,
@@ -28,6 +29,7 @@ import { ApplyEngineService } from "./apply-engine.service.js";
 import { EvolutionEngineService } from "./evolution-engine.service.js";
 import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
 import { EcosystemMetricsService } from "./ecosystem-metrics.service.js";
+import { LoopsService } from "./loops.service.js";
 
 @Controller("v1/ops")
 export class OpsController {
@@ -44,6 +46,7 @@ export class OpsController {
     private readonly evolutionFeedback: EvolutionFeedbackService,
     private readonly ecosystemMetrics: EcosystemMetricsService,
     private readonly behavioralObserver: BehavioralObserverService,
+    private readonly loopsService: LoopsService,
     @Optional() private readonly prometeoService?: PrometeoService,
   ) {}
 
@@ -686,5 +689,107 @@ export class OpsController {
     const actor = resolveRequestContext(req);
     const data = await this.behavioralObserver.observe(actor.tenantId);
     return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  // ── SPEC-AUT-001 — Permanent Loops (panel OMEGA + control) ─────────────────
+
+  /** Estado y métricas de los permanent loops (definición + ciclo + backpressure). */
+  @Get("loops")
+  @RequirePermissions("ops:dashboard:read")
+  async listLoops(@Req() req: { headers?: Record<string, unknown> }) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    return ok(requestId, {
+      enabled: process.env.AUTONOMY_LOOPS_ENABLED === "true",
+      loops: await this.loopsService.listLoops()
+    });
+  }
+
+  /** Kill switch por loop — un ciclo en curso se detiene en <30s (spec §2.3). */
+  @Post("loops/:loopId/pause")
+  @RequirePermissions("ops:dashboard:write")
+  async pauseLoop(@Req() req: { headers?: Record<string, unknown> }, @Param("loopId") loopId: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    this.assertKnownLoop(loopId);
+    const state = await this.loopsService.setPaused(loopId, true, ctx.userId);
+    return ok(requestId, state);
+  }
+
+  @Post("loops/:loopId/resume")
+  @RequirePermissions("ops:dashboard:write")
+  async resumeLoop(@Req() req: { headers?: Record<string, unknown> }, @Param("loopId") loopId: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    this.assertKnownLoop(loopId);
+    const state = await this.loopsService.setPaused(loopId, false, ctx.userId);
+    return ok(requestId, state);
+  }
+
+  /** Memoria de rechazos — el worker la consulta al inicio de cada ciclo. */
+  @Get("loops/:loopId/rejected-targets")
+  @RequirePermissions("agents:run:worker")
+  async loopRejectedTargets(@Req() req: { headers?: Record<string, unknown> }, @Param("loopId") loopId: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const definition = this.assertKnownLoop(loopId);
+    const targets = await this.loopsService.rejectedTargets(loopId, definition.stopCriteria.cooldownDays);
+    return ok(requestId, { loopId, targets, paused: await this.loopsService.isPaused(loopId) });
+  }
+
+  /** Backpressure humano — propuestas abiertas sin revisar del loop. */
+  @Get("loops/:loopId/open-proposals")
+  @RequirePermissions("agents:run:worker")
+  async loopOpenProposals(@Req() req: { headers?: Record<string, unknown> }, @Param("loopId") loopId: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    this.assertKnownLoop(loopId);
+    return ok(requestId, { loopId, openProposals: await this.loopsService.openProposalCount(loopId) });
+  }
+
+  /** El worker reporta el resultado de un ciclo (hallazgos + métricas). */
+  @Post("loops/:loopId/cycle-report")
+  @RequirePermissions("agents:run:worker")
+  async loopCycleReport(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("loopId") loopId: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    this.assertKnownLoop(loopId);
+    const report = parseWithSchema(loopCycleReportSchema, { ...body, loopId });
+    const result = await this.loopsService.recordCycleReport(report);
+    return ok(requestId, result);
+  }
+
+  /** Hallazgos y propuestas recientes de un loop. */
+  @Get("loops/:loopId/decisions")
+  @RequirePermissions("ops:dashboard:read")
+  async loopDecisions(@Req() req: { headers?: Record<string, unknown> }, @Param("loopId") loopId: string) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    this.assertKnownLoop(loopId);
+    return ok(requestId, await this.loopsService.recentDecisions(loopId));
+  }
+
+  /** Decisión humana sobre una propuesta — alimenta la memoria de rechazos. */
+  @Post("loops/decisions/:decisionId/resolve")
+  @RequirePermissions("ops:dashboard:write")
+  async resolveLoopDecision(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("decisionId") decisionId: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const requestId = resolveRequestId(req.headers ?? {});
+    const ctx = resolveRequestContext(req);
+    const outcome = body.outcome === "accepted" ? "accepted" : body.outcome === "rejected" ? "rejected" : null;
+    if (!outcome) {
+      throw new BadRequestException("outcome must be \"accepted\" or \"rejected\"");
+    }
+    return ok(requestId, await this.loopsService.resolveDecision(decisionId, outcome, ctx.userId));
+  }
+
+  private assertKnownLoop(loopId: string) {
+    const definition = this.loopsService.getDefinition(loopId);
+    if (!definition) {
+      throw new NotFoundException(`Unknown permanent loop: ${loopId}`);
+    }
+    return definition;
   }
 }
