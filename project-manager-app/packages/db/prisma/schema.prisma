@@ -129,6 +129,10 @@ model Tenant {
   worklogs      WorklogEntry[]
   trackerSessions TrackerSession[]
   knowledgeFacts KnowledgeFact[]
+  // Labor Engine
+  freeProjects  FreeProject[]
+  timeEntries   TimeEntry[]
+  laborSheets   LaborSheet[]
   workspaceMemoryEntries WorkspaceMemoryEntry[]
   fieldMilestones FieldMilestone[]
   vendors       Vendor[]
@@ -382,6 +386,7 @@ model Job {
   messages        MessageThread[]
   conversationThreads ConversationThread[]
   trackerSessions TrackerSession[]
+  timeEntries   TimeEntry[]
   travelAssignments TravelAssignment[]
   buildOpsProject BuildOpsProject?
   tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1270,6 +1275,111 @@ model TrackerSession {
   @@index([tenantId, jobId, status])
   @@index([tenantId, startedAt])
 }
+
+// ─── Labor Engine ─────────────────────────────────────────────────────────────
+
+/// A lightweight project created without a formal SEMSE job/contract.
+/// Used for personal tracking, obra libre, or pre-formal work.
+model FreeProject {
+  id            String      @id @default(cuid())
+  tenantId      String
+  createdBy     String
+  name          String
+  color         String      @default("#3B82F6")
+  location      String?
+  description   String?
+  status        String      @default("active") // active | archived | converted
+  convertedJobId String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  timeEntries   TimeEntry[]
+
+  @@index([tenantId, createdBy, status])
+  @@index([tenantId, status])
+}
+
+/// Central time record for the Labor Engine.
+/// Supports realtime (timer) and manual (past entry) modes.
+/// Linked to a formal Job OR a FreeProject, never both.
+model TimeEntry {
+  id                 String        @id @default(cuid())
+  tenantId           String
+  orgId              String
+  createdBy          String
+  mode               String        @default("manual")    // realtime | manual
+  purpose            String        @default("personal")  // personal | payable | job_linked
+  jobId              String?
+  freeProjectId      String?
+  status             String        @default("completed") // running | paused | completed | pending_review | approved | deleted
+  startedAt          DateTime
+  endedAt            DateTime?
+  resumedAt          DateTime?
+  pausedAt           DateTime?
+  breakMinutes       Int           @default(0)
+  durationMinutes    Int?
+  accumulatedSeconds Int           @default(0)
+  hourlyRate         Decimal?      @db.Decimal(10, 2)
+  currency           String        @default("MXN")
+  location           String?
+  notes              String?
+  editedBy           String?
+  editReason         String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  tenant             Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job                Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  freeProject        FreeProject?  @relation(fields: [freeProjectId], references: [id], onDelete: SetNull)
+  evidence           TimeEvidence[]
+
+  @@index([tenantId, createdBy, status])
+  @@index([tenantId, jobId])
+  @@index([tenantId, freeProjectId])
+  @@index([tenantId, startedAt])
+  @@index([tenantId, createdBy, startedAt])
+}
+
+/// Evidence attached to a TimeEntry (photo, receipt, note, location, etc.)
+model TimeEvidence {
+  id          String    @id @default(cuid())
+  timeEntryId String
+  type        String    // photo | message | call | receipt | document | note | location | uber
+  fileUrl     String?
+  description String?
+  timestamp   DateTime?
+  createdAt   DateTime  @default(now())
+
+  timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+
+  @@index([timeEntryId])
+}
+
+/// Aggregated labor summary for a worker over a period (week/biweek/month).
+/// Computed and cached; rebuilt on-demand from TimeEntry rows.
+model LaborSheet {
+  id           String   @id @default(cuid())
+  tenantId     String
+  workerId     String
+  periodStart  DateTime @db.Date
+  periodEnd    DateTime @db.Date
+  totalMinutes Int      @default(0)
+  totalCost    Decimal  @default(0) @db.Decimal(12, 2)
+  currency     String   @default("MXN")
+  entryCount   Int      @default(0)
+  status       String   @default("open") // open | submitted | approved | paid
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, workerId, periodStart, periodEnd])
+  @@index([tenantId, workerId, status])
+  @@index([tenantId, periodStart])
+}
+
+// ─── End Labor Engine ──────────────────────────────────────────────────────────
 
 /// Structured knowledge fact extracted from worklogs or AI agents.
 /// Models a subject–predicate–object triple with confidence scoring.
@@ -2692,15 +2802,21 @@ model AgroFarm {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  units         AgroFarmUnit[]
-  animals       AgroAnimal[]
-  animalGroups  AgroAnimalGroup[]
-  tasks         AgroFarmTask[]
-  inventoryItems AgroInventoryItem[]
-  movements     AgroInventoryMovement[]
-  costEntries   AgroCostEntry[]
-  evidence      AgroEvidenceItem[]
-  auditEvents   AgroAuditEvent[]
+  units            AgroFarmUnit[]
+  animals          AgroAnimal[]
+  animalGroups     AgroAnimalGroup[]
+  tasks            AgroFarmTask[]
+  inventoryItems   AgroInventoryItem[]
+  movements        AgroInventoryMovement[]
+  costEntries      AgroCostEntry[]
+  evidence         AgroEvidenceItem[]
+  auditEvents      AgroAuditEvent[]
+  productionCycles AgroProductionCycle[]
+  cropCycles       AgroCropCycle[]
+  inputApplications AgroInputApplication[]
+  harvestRecords   AgroHarvestRecord[]
+  traceability     AgroTraceabilityEvent[]
+  complianceChecks AgroComplianceCheck[]
 
   @@index([ownerId])
 }
@@ -2719,6 +2835,7 @@ model AgroFarmUnit {
 
   animals      AgroAnimal[]
   animalGroups AgroAnimalGroup[]
+  cropCycles   AgroCropCycle[]
 
   @@index([farmId])
 }
@@ -2899,6 +3016,135 @@ model AgroAuditEvent {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@index([actorId])
+}
+
+// ── Agro F2: Mixed FarmOps ────────────────────────────────────────────────────
+
+model AgroProductionCycle {
+  id            String    @id @default(cuid())
+  farmId        String
+  farm          AgroFarm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  name          String
+  cycleType     String    // CATTLE_ROUND | CROP_SEASON | MIXED
+  status        String    @default("ACTIVE") // ACTIVE | CLOSED | ARCHIVED
+  startDate     DateTime
+  endDate       DateTime?
+  notes         String?
+  metadataJson  Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  cropCycles    AgroCropCycle[]
+  traceability  AgroTraceabilityEvent[]
+
+  @@index([farmId, status])
+}
+
+model AgroCropCycle {
+  id              String              @id @default(cuid())
+  farmId          String
+  farm            AgroFarm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  productionCycleId String?
+  productionCycle AgroProductionCycle? @relation(fields: [productionCycleId], references: [id], onDelete: SetNull)
+  cropName        String              // maíz | yuca | papa | pasto | etc.
+  cropVariety     String?
+  fieldUnitId     String?
+  farmUnit        AgroFarmUnit?       @relation(fields: [fieldUnitId], references: [id], onDelete: SetNull)
+  status          String              @default("PLANNED") // PLANNED | ACTIVE | HARVESTED | FAILED
+  sowingDate      DateTime?
+  expectedHarvestDate DateTime?
+  actualHarvestDate   DateTime?
+  areaHectares    Decimal?
+  seedQuantityKg  Decimal?
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  inputApplications AgroInputApplication[]
+  harvestRecords    AgroHarvestRecord[]
+
+  @@index([farmId, status])
+}
+
+model AgroInputApplication {
+  id            String         @id @default(cuid())
+  farmId        String
+  farm          AgroFarm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropCycleId   String?
+  cropCycle     AgroCropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  inventoryItemId String?
+  inputType     String         // FERTILIZER | PESTICIDE | HERBICIDE | WATER | SEED | OTHER
+  productName   String
+  quantity      Decimal
+  unit          String         // KG | L | GRAM | ML | DOSE
+  appliedAt     DateTime
+  appliedByUserId String?
+  fieldUnitId   String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+
+  @@index([farmId])
+  @@index([cropCycleId])
+}
+
+model AgroHarvestRecord {
+  id              String         @id @default(cuid())
+  farmId          String
+  farm            AgroFarm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropCycleId     String?
+  cropCycle       AgroCropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  harvestedAt     DateTime
+  quantityKg      Decimal
+  qualityGrade    String?        // A | B | C | REJECT
+  storageLocation String?
+  destinationType String?        // SALE | SELF_CONSUMPTION | SEED | LOSS
+  notes           String?
+  createdAt       DateTime       @default(now())
+
+  @@index([farmId])
+  @@index([cropCycleId])
+}
+
+model AgroTraceabilityEvent {
+  id                String              @id @default(cuid())
+  farmId            String
+  farm              AgroFarm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  productionCycleId String?
+  productionCycle   AgroProductionCycle? @relation(fields: [productionCycleId], references: [id], onDelete: SetNull)
+  entityType        String              // AgroAnimal | AgroCropCycle | AgroInventoryItem
+  entityId          String
+  eventType         String              // ORIGIN | TRANSFER | TREATMENT | HARVEST | PROCESSING | SALE
+  description       String
+  occurredAt        DateTime
+  latitude          Decimal?
+  longitude         Decimal?
+  evidenceUrls      Json?               // string[]
+  verifiedBy        String?
+  createdAt         DateTime            @default(now())
+
+  @@index([farmId])
+  @@index([entityType, entityId])
+  @@index([productionCycleId])
+}
+
+model AgroComplianceCheck {
+  id            String    @id @default(cuid())
+  farmId        String
+  farm          AgroFarm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  checkType     String    // VACCINATION_RECORD | PESTICIDE_WITHDRAWAL | WATER_QUALITY | SANITARY_CERT | CUSTOM
+  entityType    String?
+  entityId      String?
+  status        String    @default("PENDING") // PENDING | COMPLIANT | NON_COMPLIANT | WAIVED
+  dueDate       DateTime?
+  completedAt   DateTime?
+  notes         String?
+  evidenceUrls  Json?
+  reviewedBy    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([farmId, status])
+  @@index([farmId, checkType])
 }
 
 // ── SPEC-AUT-001 — Permanent Loops v1 (ADR-021 §4.4) ─────────────────────────
