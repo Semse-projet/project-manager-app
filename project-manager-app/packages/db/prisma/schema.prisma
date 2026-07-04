@@ -2900,3 +2900,42 @@ model AgroAuditEvent {
   @@index([createdAt])
   @@index([actorId])
 }
+
+// ── SPEC-AUT-001 — Permanent Loops v1 (ADR-021 §4.4) ─────────────────────────
+// Memoria episódica de decisiones de agentes: qué decidió el loop X sobre el
+// target Y y por qué. Los loops consultan rechazos previos antes de proponer.
+
+model AgentDecision {
+  id         String   @id @default(cuid())
+  loopId     String?
+  runId      String?
+  agentType  String
+  target     String
+  kind       String   @default("finding") // finding | proposal | rejection
+  decision   String   // recorded | proposed | accepted | rejected | suppressed
+  rationale  String   @db.Text
+  outcome    String?  // pending_review | merged | dismissed | expired
+  confidence Float?
+  evidence   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([loopId, target])
+  @@index([agentType, createdAt])
+  @@index([decision, createdAt])
+}
+
+model PermanentLoopState {
+  id               String    @id // loop id, ej. "loop.spec-drift"
+  paused           Boolean   @default(false)
+  pausedAt         DateTime?
+  pausedBy         String?
+  lastCycleAt      DateTime?
+  lastCycleStatus  String?
+  cyclesCompleted  Int       @default(0)
+  cyclesSkipped    Int       @default(0)
+  findingsRecorded Int       @default(0)
+  proposalsOpened  Int       @default(0)
+  tokensConsumed   Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}

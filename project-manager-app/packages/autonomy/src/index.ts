@@ -276,3 +276,30 @@ export async function runAutonomyTask(task: string, options: AutonomyRunOptions)
 }
 
 export type { AutonomyRunLogEntry, AutonomyRunOptions, AutonomyRunResult, AutonomyTargetStage, AutonomyTaskPlan } from "./types.js";
+
+// ── SPEC-AUT-001 — Permanent Loops v1 ────────────────────────────────────────
+export type {
+  PermanentLoopDefinition,
+  PermanentLoopBudget,
+  PermanentLoopStopCriteria,
+  LoopFinding,
+  LoopFindingKind,
+  LoopCycleReport,
+  LoopCycleStatus,
+  LoopAuditEvent,
+  LoopSuppressedFinding,
+  LoopControlPort,
+  LoopDecisionMemoryPort,
+  LoopAnalyzer,
+  LoopAnalyzerContext
+} from "./loops/loop-types.js";
+export {
+  AUTONOMY_LOOPS_QUEUE,
+  permanentLoops,
+  dedupAbstractionsLoop,
+  specDriftLoop,
+  getLoopDefinition
+} from "./loops/loop-definitions.js";
+export { runPermanentLoopCycle, type LoopRunnerDeps } from "./loops/loop-runner.js";
+export { buildExportInventory, findDuplicateCandidates, analyzeDedupAbstractions, type ExportRecord } from "./loops/dedup-loop.js";
+export { analyzeSpecDrift, buildSpecHealthReport, parseSpecMetadata } from "./loops/spec-drift-loop.js";

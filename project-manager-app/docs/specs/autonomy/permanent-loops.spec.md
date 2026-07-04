@@ -1,19 +1,34 @@
 ---
 id: aut-001-permanent-loops
-title: "SPEC-AUT-001 — Permanent Loops v1 en apps/autonomy-server"
+title: "SPEC-AUT-001 — Permanent Loops v1"
 type: spec
 domain: autonomy
-status: "DRAFT"
+status: "IMPLEMENTED"
 owner: semse-core
 risk: medium
 related_files:
-  - apps/autonomy-server/src/server.mjs
-  - packages/autonomy
-related_tests: []
+  - packages/autonomy/src/loops/loop-types.ts
+  - packages/autonomy/src/loops/loop-runner.ts
+  - packages/autonomy/src/loops/dedup-loop.ts
+  - packages/autonomy/src/loops/spec-drift-loop.ts
+  - apps/worker/src/modules/autonomy-loops/loops.scheduler.mjs
+  - apps/api/src/modules/ops/loops.service.ts
+related_tests:
+  - tests/unit/permanent-loops.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
+last_verified: "2026-07-04"
 ---
+
+> **Nota de implementación (2026-07-04):** fase mecánica v1 implementada. El
+> runner vive en `packages/autonomy/src/loops/` (puertos inyectables, sin
+> DB/Redis), el scheduler BullMQ en `apps/worker`, y el estado + endpoints
+> admin en `apps/api` (`/v1/ops/loops/*`) — no en `apps/autonomy-server` como
+> decía este borrador, porque autonomy-server no se despliega en Railway.
+> Las capas semánticas (embeddings para dedup, drift semántico LLM) y la
+> apertura automática de PRs quedan para una fase posterior; hoy las
+> propuestas se registran como `AgentDecision` pendientes de revisión humana.
 
 # SPEC-AUT-001 — Permanent Loops v1 en `apps/autonomy-server`
 

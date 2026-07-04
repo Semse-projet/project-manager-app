@@ -55,6 +55,7 @@ import {
 import { executeSpecializedWorkerRun, shouldUseSpecializedWorkerHandler } from "./agent-run-handlers.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
 import { runCurator } from "./modules/curator/curator.service.mjs";
+import { setupPermanentLoops } from "./modules/autonomy-loops/loops.scheduler.mjs";
 
 const workerDir = dirname(fileURLToPath(import.meta.url));
 dotenvConfig({ path: resolve(workerDir, "..", ".env"), override: false });
@@ -250,6 +251,21 @@ async function main() {
   void runCuratorSafe();
   curatorTimer = setInterval(() => { void runCuratorSafe(); }, CURATOR_CHECK_INTERVAL_MS);
 
+  // SPEC-AUT-001 — permanent loops (kill switch: AUTONOMY_LOOPS_ENABLED)
+  let permanentLoopsHandle = null;
+  try {
+    permanentLoopsHandle = await setupPermanentLoops({
+      connection,
+      logger,
+      requestJson,
+      postJson,
+      repoRoot: process.env.SEMSE_REPO_ROOT ?? resolve(workerDir, "..", "..", "..")
+    });
+  } catch (error) {
+    logger.warn({ error: error instanceof Error ? error.message : String(error) },
+      "permanent loops scheduler failed to start (non-fatal)");
+  }
+
   while (!shouldStop) {
     await sleep(250);
   }
@@ -260,6 +276,7 @@ async function main() {
 
   await worker.close();
   await developerRuntimeWorker.close();
+  if (permanentLoopsHandle) await permanentLoopsHandle.close();
   await releaseLock();
   await connection.quit();
   logger.info("worker stopped");
