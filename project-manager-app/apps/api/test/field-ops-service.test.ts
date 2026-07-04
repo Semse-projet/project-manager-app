@@ -165,7 +165,13 @@ function createMockFieldOpsService(overrides?: {
     listTrackerSessions: async (input: any) => {
       if (shouldThrow["listTrackerSessions"]) throw shouldThrow["listTrackerSessions"];
       return sessions
-        .filter((s) => s.tenantId === input.tenantId && s.createdBy === input.createdBy)
+        .filter((s) =>
+          s.tenantId === input.tenantId &&
+          s.createdBy === input.createdBy &&
+          (!input.jobId || s.jobId === input.jobId) &&
+          (!input.status || s.status === input.status) &&
+          (!input.startedAfter || s.startedAt >= input.startedAfter)
+        )
         .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())
         .slice(0, input.limit ?? 50);
     },
@@ -379,6 +385,25 @@ test("field-ops: getTrackerSnapshot returns active session + recent history", as
   assert.ok(result.activeSession);
   assert.equal(result.activeSession.id, "active_1");
   assert.equal(result.recentSessions.length, 2);
+});
+
+test("field-ops: listTrackerSessions filters by status on the server side", async () => {
+  const sessions = [
+    makeSession("RUNNING", { id: "sess_running", createdBy: "usr_1" }),
+    makeSession("PAUSED", { id: "sess_paused", createdBy: "usr_1" }),
+    makeSession("STOPPED", { id: "sess_stopped", createdBy: "usr_1" }),
+  ];
+  const service = createMockFieldOpsService({ sessions });
+
+  const result = await service.listTrackerSessions({
+    tenantId: "tenant_1",
+    createdBy: "usr_1",
+    status: "STOPPED",
+    range: "all",
+  });
+
+  assert.deepEqual(result.map((session) => session.id), ["sess_stopped"]);
+  assert.equal(result[0]?.status, "STOPPED");
 });
 
 test("field-ops: getTrackerSummary aggregates by job and calculates totals for week/month", async () => {

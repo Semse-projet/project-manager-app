@@ -416,6 +416,7 @@ export default function WorkerTrackerPage() {
       const nextSessions = await fetchTimeTrackerSessions({
         range: historyRange,
         jobId: historyJobId,
+        status: historyStatus,
         limit: 200,
       });
       setSessions(nextSessions);
@@ -424,7 +425,7 @@ export default function WorkerTrackerPage() {
     } finally {
       setHistoryLoading(false);
     }
-  }, [historyJobId, historyRange]);
+  }, [historyJobId, historyRange, historyStatus]);
 
   useEffect(() => {
     if (loading) return;

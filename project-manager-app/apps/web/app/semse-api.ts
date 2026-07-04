@@ -453,11 +453,13 @@ export async function fetchTimeTrackerSummary(range: "week" | "month"): Promise<
 export async function fetchTimeTrackerSessions(input?: {
   range?: "week" | "month" | "all";
   jobId?: string;
+  status?: TrackerSessionView["status"] | "all";
   limit?: number;
 }): Promise<TrackerSessionView[]> {
   const search = new URLSearchParams();
   if (input?.range) search.set("range", input.range);
   if (input?.jobId && input.jobId !== "all") search.set("jobId", input.jobId);
+  if (input?.status && input.status !== "all") search.set("status", input.status);
   if (input?.limit) search.set("limit", String(input.limit));
   const suffix = search.size > 0 ? `?${search.toString()}` : "";
   return fetchSemse<TrackerSessionView[]>(`/api/semse/time-tracker/sessions${suffix}`);

@@ -156,6 +156,7 @@ export class FieldOpsService {
     limit?: number;
     jobId?: string;
     range?: "week" | "month" | "all";
+    status?: TrackerSessionView["status"];
   }): Promise<TrackerSessionView[]> {
     const range = input.range ?? "all";
     const days = range === "month" ? 30 : range === "week" ? 7 : undefined;
@@ -163,6 +164,7 @@ export class FieldOpsService {
       tenantId: input.tenantId,
       createdBy: input.createdBy,
       jobId: input.jobId?.trim() || undefined,
+      status: input.status,
       startedAfter: days ? new Date(Date.now() - days * 24 * 3600 * 1000) : undefined,
       limit: Math.min(Math.max(input.limit ?? 50, 1), 200),
     });
