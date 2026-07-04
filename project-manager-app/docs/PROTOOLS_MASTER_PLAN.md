@@ -276,6 +276,34 @@ Cuando hay un bloqueo:
 
 ---
 
+## FASE AGT — Verification Loop y Delegación Tipada (SPEC-AGT-001)
+
+Deriva de ADR-021. Objetivo: cerrar el loop actuar→verificar→corregir en `executeGovernedAgentRun` con presupuesto explícito.
+
+### Módulo AGT.1 — Verification Loop
+
+| ID | Bloque | Estado | Archivo | Notas |
+|---|---|---|---|---|
+| AGT-001-A | Tipos + schema Zod (`VerificationBudget`, `VerificationReport`, `VerifierName`, `DelegateProfile`) | DONE | `packages/agents/src/verification.ts` + `packages/schemas/src/agent-verification.schema.ts` | 2026-07-02 — aditivo puro, cero impacto runtime. Campo opcional `verification` en `GovernedAgentExecutionResult` |
+| AGT-001-B | Registry de verificadores sobre `spawnSync` (reusar patrón `packages/autonomy/src/validator.ts`) | PENDING | `packages/agents/src/verifiers.ts` | Verificadores = comandos de CI, nunca checks ad-hoc |
+| AGT-001-C | Loop en `executeGovernedAgentRun` + eventos `agent.verify`/`agent.fix.attempt` + `deny` por budget faltante | PENDING | `packages/agents/src/runtime.ts` | Depende de A, B. `exhausted` siempre abre approval |
+| AGT-001-D | Perfiles de delegación `explore`/`general` + `MAX_CONCURRENT_DELEGATES=4` | PENDING | `packages/agents/src/delegate.ts` | Depende de A |
+| AGT-001-E | Tests: unit del loop (pass/fail/exhausted) + integración vía `@semse/api` | PENDING | `apps/api/test/` | Depende de C, D |
+
+---
+
+## FASE AUT — Permanent Loops v1 (SPEC-AUT-001)
+
+| ID | Bloque | Estado | Archivo | Notas |
+|---|---|---|---|---|
+| AUT-001-A | `PermanentLoopDefinition` + scheduler BullMQ + kill switch + backpressure | PENDING | `packages/autonomy` + `apps/worker` | Depende de SPEC-AGT-001 completo |
+| AUT-001-B | Tabla `agent_decisions` (Prisma) + consulta de rechazos previos | PENDING | `packages/db/prisma/schema.prisma` | Depende de AUT-001-A |
+| AUT-001-C | Loop 1 `dedup-abstractions` (fase mecánica primero) | PENDING | `apps/autonomy-server` | Depende de A, B |
+| AUT-001-D | Loop 2 `spec-drift` (fase mecánica primero — cero tokens) | PENDING | `apps/autonomy-server` | Depende de A, B. Salida a prod recomendada antes que C |
+| AUT-001-E | Panel OMEGA: métricas de loops + presupuesto + pause/resume | PENDING | `apps/web` | Depende de C o D |
+
+---
+
 ## Dependencias Críticas Entre Bloques
 
 ```
@@ -290,4 +318,7 @@ Cuando hay un bloqueo:
 3.1.D → 2.3    (agente clima requiere módulo 2.3 completo)
 3.3.A → 3.3.B,C (decisión de licencia antes de calibrar motores)
 5.1.A → 5.1.B,C,D (datos históricos antes de cualquier ML)
+AGT-001-A → AGT-001-B,C,D (contratos antes del loop)
+AGT-001-C,D → AGT-001-E (loop y delegación antes de tests)
+SPEC-AGT-001 → AUT-001-* (verification loop antes de loops permanentes)
 ```

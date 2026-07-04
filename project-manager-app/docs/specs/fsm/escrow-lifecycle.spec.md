@@ -18,7 +18,6 @@ related_files:
 related_tests:
   - apps/api/test/payments.spec-contract.test.ts
   - apps/api/test/payment-governance.service.test.ts
-  - tests/unit/payment-escrow-status-prisma.test.ts
 related_endpoints:
   - v1/escrow
   - v1/payments

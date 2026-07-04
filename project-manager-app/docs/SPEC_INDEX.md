@@ -74,6 +74,18 @@
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
 <!-- SPEC_INDEX:END -->
 
+## Specs en DRAFT — Agentic Loop (ADR-021)
+
+> Añadidos 2026-07-02. Pendientes de metadata SDD para entrar a la matriz generada (`pnpm spec:index`).
+> No implementar más allá del bloque AGT-001-A hasta aprobar.
+
+| Spec ID | Domain | Estado | Ruta | Deriva de |
+|---|---|---|---|---|
+| SPEC-AGT-001 verification-loop | agents | DRAFT (AGT-001-A implementado) | docs/specs/agents/verification-loop.spec.md | ADR-021 |
+| SPEC-AUT-001 permanent-loops | autonomy | DRAFT | docs/specs/autonomy/permanent-loops.spec.md | ADR-021, SPEC-AGT-001 |
+| ADR-021 anatomía del agente | architecture | PROPOSED | docs/architecture/ADR-021-anatomia-agente-semse.md | — |
+
+
 
 
 
