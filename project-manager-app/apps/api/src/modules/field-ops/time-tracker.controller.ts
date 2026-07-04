@@ -54,6 +54,8 @@ export class TimeTrackerController {
   async sessions(
     @Req() req: { headers?: Record<string, unknown> },
     @Query("limit") limit?: string,
+    @Query("range") range?: string,
+    @Query("jobId") jobId?: string,
   ) {
     const actor = resolveRequestContext(req);
     const parsedLimit = limit ? Number.parseInt(limit, 10) : undefined;
@@ -61,6 +63,8 @@ export class TimeTrackerController {
       tenantId: actor.tenantId,
       createdBy: actor.userId,
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+      range: range === "week" || range === "month" || range === "all" ? range : undefined,
+      jobId,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

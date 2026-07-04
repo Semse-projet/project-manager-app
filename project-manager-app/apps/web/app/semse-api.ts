@@ -450,6 +450,19 @@ export async function fetchTimeTrackerSummary(range: "week" | "month"): Promise<
   return fetchSemse<TimeTrackerSummaryView>(`/api/semse/time-tracker/summary?range=${range}`);
 }
 
+export async function fetchTimeTrackerSessions(input?: {
+  range?: "week" | "month" | "all";
+  jobId?: string;
+  limit?: number;
+}): Promise<TrackerSessionView[]> {
+  const search = new URLSearchParams();
+  if (input?.range) search.set("range", input.range);
+  if (input?.jobId && input.jobId !== "all") search.set("jobId", input.jobId);
+  if (input?.limit) search.set("limit", String(input.limit));
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return fetchSemse<TrackerSessionView[]>(`/api/semse/time-tracker/sessions${suffix}`);
+}
+
 export async function updateTimeTrackerSessionNotes(sessionId: string, input: {
   notes?: string;
 }): Promise<TrackerSessionView> {

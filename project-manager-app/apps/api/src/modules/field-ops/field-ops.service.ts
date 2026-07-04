@@ -154,10 +154,16 @@ export class FieldOpsService {
     tenantId: string;
     createdBy: string;
     limit?: number;
+    jobId?: string;
+    range?: "week" | "month" | "all";
   }): Promise<TrackerSessionView[]> {
+    const range = input.range ?? "all";
+    const days = range === "month" ? 30 : range === "week" ? 7 : undefined;
     const sessions = await this.repo.listTrackerSessions({
       tenantId: input.tenantId,
       createdBy: input.createdBy,
+      jobId: input.jobId?.trim() || undefined,
+      startedAfter: days ? new Date(Date.now() - days * 24 * 3600 * 1000) : undefined,
       limit: Math.min(Math.max(input.limit ?? 50, 1), 200),
     });
 
