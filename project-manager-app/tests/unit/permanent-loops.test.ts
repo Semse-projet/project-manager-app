@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  AUTONOMY_LOOPS_QUEUE,
   dedupAbstractionsLoop,
   specDriftLoop,
   getLoopDefinition,
@@ -275,6 +276,12 @@ test("runner report validates against the zod cycle-report mirror", async () => 
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
+});
+
+test("queue name is BullMQ-safe — no colon allowed", () => {
+  // BullMQ rechaza ":" en nombres de cola ("Queue name cannot contain :");
+  // en Railway esto tumbó el scheduler silenciosamente (non-fatal warn).
+  assert.ok(!AUTONOMY_LOOPS_QUEUE.includes(":"), `queue name contains ':': ${AUTONOMY_LOOPS_QUEUE}`);
 });
 
 test("loop definitions match the spec's initial configuration", () => {
