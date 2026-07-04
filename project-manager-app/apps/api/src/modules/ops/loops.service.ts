@@ -15,15 +15,17 @@ export class LoopsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listLoops() {
-    const states = await this.prisma.permanentLoopState.findMany();
+    const states = await this.prisma.permanentLoopState.findMany() as Array<{ id: string }>;
     const stateById = new Map(states.map((state) => [state.id, state]));
 
-    const openProposalCounts = await this.prisma.agentDecision.groupBy({
-      by: ["loopId"],
+    const openProposals = await this.prisma.agentDecision.findMany({
       where: { decision: "proposed", outcome: "pending_review" },
-      _count: { _all: true }
-    });
-    const openByLoop = new Map(openProposalCounts.map((row) => [row.loopId, row._count._all]));
+      select: { loopId: true }
+    }) as Array<{ loopId: string }>;
+    const openByLoop = new Map<string, number>();
+    for (const row of openProposals) {
+      openByLoop.set(row.loopId, (openByLoop.get(row.loopId) ?? 0) + 1);
+    }
 
     return permanentLoops.map((definition) => {
       const state = stateById.get(definition.id);
@@ -68,7 +70,7 @@ export class LoopsService {
       where: { loopId, decision: "rejected", createdAt: { gte: since } },
       select: { target: true },
       distinct: ["target"]
-    });
+    }) as Array<{ target: string }>;
     return rows.map((row) => row.target);
   }
 
@@ -102,7 +104,7 @@ export class LoopsService {
         outcome: "pending_review"
       },
       select: { target: true }
-    });
+    }) as Array<{ target: string }>;
     const alreadyOpen = new Set(existingOpen.map((row) => row.target));
     const toInsert = decisions.filter((decision) => !alreadyOpen.has(decision.target) || decision.decision === "recorded");
 

@@ -111,9 +111,16 @@ export class ReservationsController {
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: Record<string, unknown>
   ) {
+    const actor = resolveRequestContext(req);
     const maxItems = typeof body.maxItems === "number" ? Math.min(body.maxItems, 200) : 50;
     const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.reservationsService.sweepExpired({ maxItems });
+    const result = await this.reservationsService.sweepExpired({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      maxItems,
+      requestId
+    });
     return ok(requestId, result);
   }
 }
