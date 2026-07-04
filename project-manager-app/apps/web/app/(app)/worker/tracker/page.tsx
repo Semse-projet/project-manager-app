@@ -197,6 +197,18 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
   STOPPED: { label: "Detenida", color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
 
+type TrackerHistoryRange = "week" | "month" | "all";
+
+function isSessionInHistoryRange(session: TrackerSessionView, range: TrackerHistoryRange) {
+  if (range === "all") return true;
+
+  const startedAt = new Date(session.startedAt).getTime();
+  if (Number.isNaN(startedAt)) return false;
+
+  const days = range === "month" ? 30 : 7;
+  return Date.now() - startedAt <= days * 24 * 3600 * 1000;
+}
+
 export default function WorkerTrackerPage() {
   const { t } = useLanguage();
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
@@ -214,6 +226,8 @@ export default function WorkerTrackerPage() {
   const [manualStart, setManualStart] = useState("09:00");
   const [manualEnd, setManualEnd] = useState("13:00");
   const [manualNotes, setManualNotes] = useState("");
+  const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
+  const [historyJobId, setHistoryJobId] = useState("all");
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
   const [contract, setContract] = useState<Record<string, unknown> | null>(null);
@@ -429,6 +443,16 @@ export default function WorkerTrackerPage() {
     .reduce((sum, item) => sum + sessionElapsed(item), 0);
   const displayedWeekSeconds = Math.max(weekSummary?.totalSeconds ?? 0, weekSeconds);
   const displayedMonthSeconds = Math.max(monthSummary?.totalSeconds ?? 0, monthSeconds);
+  const filteredSessions = useMemo(() => sessions.filter((session) => {
+    if (!isSessionInHistoryRange(session, historyRange)) return false;
+    return historyJobId === "all" || session.jobId === historyJobId;
+  }), [historyJobId, historyRange, sessions]);
+  const filteredSessionSeconds = filteredSessions.reduce((sum, session) => sum + sessionElapsed(session), 0);
+  const filteredSessionLabel = historyRange === "week"
+    ? "Últimos 7 días"
+    : historyRange === "month"
+      ? "Últimos 30 días"
+      : "Todo el historial cargado";
   const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd);
   const pendingEventCount = trackerLocalState.pendingEvents.length;
   const syncBanner = useMemo(() => {
@@ -1054,8 +1078,43 @@ export default function WorkerTrackerPage() {
       </div>
 
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Sesiones recientes</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Sesiones recientes</h2>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+              {filteredSessions.length} sesiones · {fmtSeconds(filteredSessionSeconds)} · {filteredSessionLabel}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div style={{ position: "relative" }}>
+              <select
+                aria-label="Filtrar historial por rango"
+                value={historyRange}
+                onChange={(event) => setHistoryRange(event.target.value as TrackerHistoryRange)}
+                style={{ ...compactSelect(), minWidth: "132px" }}
+              >
+                <option value="week">7 días</option>
+                <option value="month">30 días</option>
+                <option value="all">Todo</option>
+              </select>
+              <ChevronDown size={13} style={selectChevron()} />
+            </div>
+            <div style={{ position: "relative" }}>
+              <select
+                aria-label="Filtrar historial por trabajo"
+                value={historyJobId}
+                onChange={(event) => setHistoryJobId(event.target.value)}
+                style={{ ...compactSelect(), minWidth: "190px", maxWidth: "260px" }}
+              >
+                <option value="all">Todos los trabajos</option>
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>{job.title}</option>
+                ))}
+              </select>
+              <ChevronDown size={13} style={selectChevron()} />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -1067,8 +1126,12 @@ export default function WorkerTrackerPage() {
             </div>
           ) : sessions.length === 0 ? (
             <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Todavía no hay sesiones registradas.</div>
+          ) : filteredSessions.length === 0 ? (
+            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>
+              No hay sesiones que coincidan con estos filtros.
+            </div>
           ) : (
-            sessions.map((session) => (
+            filteredSessions.map((session) => (
               <div data-testid="tracker-session-card" key={session.id} style={{ ...card, display: "flex", alignItems: "center", gap: "16px", padding: "14px 16px" }}>
                 <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: `${STATUS_META[session.status].color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Clock size={16} color={STATUS_META[session.status].color} />
@@ -1210,5 +1273,32 @@ function inputStyle(): CSSProperties {
     fontSize: "13px",
     outline: "none",
     boxSizing: "border-box",
+  };
+}
+
+function compactSelect(): CSSProperties {
+  return {
+    height: "34px",
+    padding: "0 30px 0 10px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--ink)",
+    fontSize: "12px",
+    fontWeight: 600,
+    appearance: "none",
+    cursor: "pointer",
+    outline: "none",
+  };
+}
+
+function selectChevron(): CSSProperties {
+  return {
+    position: "absolute",
+    right: "10px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "var(--muted)",
+    pointerEvents: "none",
   };
 }
