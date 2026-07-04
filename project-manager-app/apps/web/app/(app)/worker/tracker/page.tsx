@@ -10,6 +10,7 @@ import {
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
+  fetchTimeTrackerSessions,
   fetchTrackerBootstrap,
   pauseTrackerSession,
   resumeTrackerSession,
@@ -228,6 +229,7 @@ export default function WorkerTrackerPage() {
   const [manualNotes, setManualNotes] = useState("");
   const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
   const [historyJobId, setHistoryJobId] = useState("all");
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
   const [contract, setContract] = useState<Record<string, unknown> | null>(null);
@@ -385,6 +387,28 @@ export default function WorkerTrackerPage() {
     void run();
   }, [loadTracker]);
 
+  const loadFilteredHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const nextSessions = await fetchTimeTrackerSessions({
+        range: historyRange,
+        jobId: historyJobId,
+        limit: 200,
+      });
+      setSessions(nextSessions);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyJobId, historyRange]);
+
+  useEffect(() => {
+    if (loading) return;
+    void loadFilteredHistory();
+  }, [loadFilteredHistory, loading]);
+
   useEffect(() => {
     setElapsed(elapsedFromSession(activeSession));
     if (activeSession?.status !== "RUNNING") return;
@@ -498,6 +522,7 @@ export default function WorkerTrackerPage() {
 
   async function refreshAfterMutation() {
     await loadTracker();
+    await loadFilteredHistory();
     setShowForm(false);
     setManualNotes("");
   }
@@ -1118,8 +1143,10 @@ export default function WorkerTrackerPage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {loading ? (
-            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Cargando tracker...</div>
+          {loading || historyLoading ? (
+            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>
+              {loading ? "Cargando tracker..." : "Cargando historial..."}
+            </div>
           ) : error ? (
             <div style={{ ...card, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
               {error}

@@ -308,11 +308,19 @@ export class FieldOpsRepository {
     `);
   }
 
-  async listTrackerSessions(input: { tenantId: string; createdBy: string; limit: number }): Promise<TrackerSessionRecord[]> {
+  async listTrackerSessions(input: {
+    tenantId: string;
+    createdBy: string;
+    limit: number;
+    jobId?: string;
+    startedAfter?: Date;
+  }): Promise<TrackerSessionRecord[]> {
     return this.queryTrackerSessions(Prisma.sql`
       ${this.trackerSessionSelect}
       WHERE ts."tenantId" = ${input.tenantId}
         AND ts."createdBy" = ${input.createdBy}
+        ${input.jobId ? Prisma.sql`AND ts."jobId" = ${input.jobId}` : Prisma.empty}
+        ${input.startedAfter ? Prisma.sql`AND ts."startedAt" >= ${input.startedAfter}` : Prisma.empty}
       ORDER BY ts."startedAt" DESC
       LIMIT ${input.limit}
     `);
