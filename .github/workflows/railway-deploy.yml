@@ -34,8 +34,13 @@ jobs:
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
               -d "{\"query\":\"mutation { serviceInstanceDeploy(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", latestCommit: true, commitSha: \\\"$GITHUB_SHA\\\") }\"}")
-            echo "$response" | grep -q '"serviceInstanceDeploy"' \
+            # Un error GraphQL también contiene "serviceInstanceDeploy" en su
+            # "path" — hay que exigir data:true y rechazar cualquier "errors".
+            echo "$response" | grep -q '"serviceInstanceDeploy":true' \
               || { echo "Deploy failed for service $svc: $response"; exit 1; }
+            if echo "$response" | grep -q '"errors"'; then
+              echo "Deploy returned GraphQL errors for $svc: $response"; exit 1
+            fi
             echo "Fresh build de $GITHUB_SHA disparado para servicio $svc"
           done
 
@@ -43,8 +48,39 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for services to be live
-        run: sleep 120
+      # La URL pública responde con el deployment ANTERIOR mientras el nuevo
+      # compila — verificar que el deployment del commit exacto existe y llega
+      # a SUCCESS es el gate real; el curl de abajo solo confirma que sirve.
+      - name: Verify fresh deployments reached SUCCESS
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
+        run: |
+          set -euo pipefail
+          for svc in \
+            26cd1c52-1a07-4f05-8b21-9a225e601d7a \
+            2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770 \
+            40ab1cd0-b0a6-4760-a43f-8742c1962ef7 \
+            63a901e8-189e-4748-97f7-b7e60e628ee2; do
+            ok=""
+            for attempt in $(seq 1 40); do
+              response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
+                -H "Authorization: Bearer $RAILWAY_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{\"query\":\"{ deployments(first: 1, input: { serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { status meta } } } }\"}") || { sleep 15; continue; }
+              status=$(echo "$response" | grep -o '"status":"[A-Z_]*"' | head -1 | cut -d'"' -f4)
+              commit=$(echo "$response" | grep -o '"commitHash":"[a-f0-9]*"' | head -1 | cut -d'"' -f4)
+              if [ "$commit" = "$GITHUB_SHA" ] && [ "$status" = "SUCCESS" ]; then
+                echo "servicio $svc: deployment de $GITHUB_SHA en SUCCESS ✅"; ok=1; break
+              fi
+              if [ "$commit" = "$GITHUB_SHA" ] && { [ "$status" = "FAILED" ] || [ "$status" = "CRASHED" ]; }; then
+                echo "servicio $svc: deployment de $GITHUB_SHA terminó en $status ❌"; exit 1
+              fi
+              echo "servicio $svc: esperando (commit=$commit status=$status, intento $attempt/40)"
+              sleep 15
+            done
+            [ -n "$ok" ] || { echo "servicio $svc: el deployment de $GITHUB_SHA no llegó a SUCCESS a tiempo ❌"; exit 1; }
+          done
 
       - name: Verify semse-API health
         run: |
