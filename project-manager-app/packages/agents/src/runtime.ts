@@ -22,9 +22,13 @@ import {
   isWriteActionType,
   type VerificationAttempt,
   type VerificationBudget,
+  type VerifierName,
   type VerificationReport
 } from "./verification.js";
-import { runVerifiers, type VerifierContext } from "./verifiers.js";
+// Type-only: se borra en compilación — verifiers.ts (spawnSync) nunca entra
+// al grafo de imports de index/runtime, así el bundle de cliente de apps/web
+// no arrastra node:child_process.
+import type { VerifierContext } from "./verifiers.js";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -322,6 +326,30 @@ let _delegateFn: DelegateFn | null = null;
 
 export function setDelegateImpl(fn: DelegateFn): void {
   _delegateFn = fn;
+}
+
+// Late-binding verifier runner — instalado por "./verifiers.js" al cargarse
+// (solo entrypoints server-side). Mismo patrón que setDelegateImpl: mantiene
+// node:child_process fuera del grafo de imports del bundle de cliente.
+export type VerifierRunnerFn = (criteria: VerifierName[], iteration: number, ctx: VerifierContext) => VerificationAttempt[];
+let _verifierRunner: VerifierRunnerFn | null = null;
+
+export function setVerifierRunner(fn: VerifierRunnerFn): void {
+  _verifierRunner = fn;
+}
+
+/** Fail-closed: sin runner instalado, cada criterio reporta error → el loop agota y abre approval. */
+function runVerifiersOrFailClosed(criteria: VerifierName[], iteration: number, ctx: VerifierContext): VerificationAttempt[] {
+  if (_verifierRunner) {
+    return _verifierRunner(criteria, iteration, ctx);
+  }
+  return criteria.map((verifier) => ({
+    iteration,
+    verifier,
+    status: "error" as const,
+    durationMs: 0,
+    evidence: "verifier runner not installed — import @semse/agents/verifiers in the server entrypoint"
+  }));
 }
 
 function buildOrchestrator(input: RuntimeAgentInput): RuntimeAgentResult {
@@ -645,7 +673,7 @@ export function executeGovernedAgentRun(input: {
 
     for (let iteration = 1; iteration <= budget.maxIterations; iteration += 1) {
       iterationsUsed = iteration;
-      const iterationAttempts = runVerifiers(budget.successCriteria, iteration, verifierContext);
+      const iterationAttempts = runVerifiersOrFailClosed(budget.successCriteria, iteration, verifierContext);
       attempts.push(...iterationAttempts);
 
       for (const attempt of iterationAttempts) {

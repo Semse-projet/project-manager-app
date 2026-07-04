@@ -41,6 +41,9 @@ import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import pino from "pino";
 import { executeGovernedAgentRun } from "@semse/agents";
+// Instala los verificadores spawnSync del verification loop (SPEC-AGT-001) —
+// solo entrypoints server-side; el bundle web no debe cargar node:child_process.
+import "@semse/agents/verifiers";
 import {
   buildIdentityHeaders,
   parseRoleList,

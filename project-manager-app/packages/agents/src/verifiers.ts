@@ -18,6 +18,7 @@ import {
   type VerifierName,
   verifierNames
 } from "./verification.js";
+import { setVerifierRunner } from "./runtime.js";
 
 export type VerifierContext = {
   /** Raíz del repo/workspace sobre el que corre el comando. */
@@ -129,3 +130,7 @@ export function runVerifiers(criteria: VerifierName[], iteration: number, ctx: V
 export function isKnownVerifier(name: string): name is VerifierName {
   return (verifierNames as readonly string[]).includes(name);
 }
+
+// Auto-instalación: cargar este módulo (entrypoint server-side) conecta el
+// verification loop del runtime con los verificadores spawnSync reales.
+setVerifierRunner(runVerifiers);

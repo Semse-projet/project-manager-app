@@ -486,17 +486,11 @@ export {
   type DelegateOptions,
   type DelegateResult,
 } from "./delegate.js";
-export {
-  registerVerifierImpl,
-  resetVerifierImpls,
-  hasVerifierImpl,
-  runVerifier,
-  runVerifiers,
-  isKnownVerifier,
-  type VerifierContext,
-  type VerifierImpl,
-  type VerifierOutcome
-} from "./verifiers.js";
+// NOTA: verifiers.ts (spawnSync) NO se re-exporta aquí a propósito — apps/web
+// importa @semse/agents en componentes de cliente y node:child_process rompería
+// el bundle webpack. Entrypoints server-side importan "@semse/agents/verifiers".
+export type { VerifierContext, VerifierImpl, VerifierOutcome } from "./verifiers.js";
+export { setVerifierRunner, type VerifierRunnerFn } from "./runtime.js";
 
 // ─────────────────────────────────────────────────────────────
 // SEMSE 6-AGENT ARCHITECTURE
