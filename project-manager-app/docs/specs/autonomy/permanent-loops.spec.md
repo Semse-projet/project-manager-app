@@ -1,3 +1,20 @@
+---
+id: aut-001-permanent-loops
+title: "SPEC-AUT-001 — Permanent Loops v1 en apps/autonomy-server"
+type: spec
+domain: autonomy
+status: "DRAFT"
+owner: semse-core
+risk: medium
+related_files:
+  - apps/autonomy-server/src/server.mjs
+  - packages/autonomy
+related_tests: []
+related_endpoints: []
+related_events: []
+related_agents: []
+---
+
 # SPEC-AUT-001 — Permanent Loops v1 en `apps/autonomy-server`
 
 **Estado:** DRAFT

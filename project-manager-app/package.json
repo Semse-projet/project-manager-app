@@ -92,12 +92,10 @@
     "demo:web": "node ./scripts/demo-web-runtime.mjs",
     "demo:smoke": "node ./scripts/demo-smoke.mjs",
     "smoke:autonomy:staged": "node ./scripts/api-autonomy-staged-smoke.mjs",
-    "test:integration": "pnpm --filter @semse/api test:integration",
     "spec:validate": "node ./scripts/spec-validate.mjs",
     "spec:validate:strict": "node ./scripts/spec-validate.mjs --strict",
     "spec:index": "node ./scripts/spec-index.mjs",
-    "spec:coverage": "node ./scripts/spec-coverage.mjs",
-    "spec:preflight": "pnpm spec:validate && pnpm spec:coverage"
+    "spec:coverage": "node ./scripts/spec-coverage.mjs"
   },
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.5.5",
