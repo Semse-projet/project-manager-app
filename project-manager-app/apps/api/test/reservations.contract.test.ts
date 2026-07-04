@@ -343,3 +343,47 @@ test("reservations repository enforces tenant isolation and terminal reservation
   assert.equal(acceptedAgain.status, "accepted");
 });
 
+test("reservations repository converts concurrent active reservation insert into conflict", async () => {
+  const { repository, prisma, state } = createRepositoryHarness();
+  const job = state.jobs.get("job_1");
+  assert.ok(job);
+  state.reservations.push({
+    id: "res_existing",
+    jobId: "job_1",
+    professionalOrgId: "org_pro_1",
+    professionalId: "usr_pro_1",
+    status: "ACTIVE",
+    reservedAt: new Date("2026-06-09T10:00:00.000Z"),
+    expiresAt: new Date(Date.now() + 30 * 60_000),
+    releasedAt: null,
+    acceptedAt: null,
+    job: { id: job.id, tenantId: job.tenantId, clientOrgId: job.clientOrgId }
+  });
+
+  const originalFindFirst = prisma.jobReservation.findFirst;
+  let activeLookupCount = 0;
+  prisma.jobReservation.findFirst = async (args: Parameters<typeof originalFindFirst>[0]) => {
+    if (args.where.jobId === "job_1" && args.where.status === "ACTIVE" && activeLookupCount++ === 0) {
+      return null;
+    }
+    return originalFindFirst(args);
+  };
+  prisma.jobReservation.create = async () => {
+    throw Object.assign(new Error("Unique constraint failed on active reservation"), { code: "P2002" });
+  };
+
+  await assert.rejects(
+    () =>
+      repository.create({
+        tenantId: "tenant_1",
+        orgId: "org_pro_2",
+        userId: "usr_pro_2",
+        roles: ["PRO"],
+        jobId: "job_1",
+        expiresInMinutes: 30
+      }),
+    ConflictException
+  );
+
+  assert.equal(state.reservations.filter((reservation) => reservation.status === "ACTIVE").length, 1);
+});
