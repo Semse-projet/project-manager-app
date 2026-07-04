@@ -3,17 +3,22 @@ id: agt-001-verification-loop
 title: "SPEC-AGT-001 — Verification Loop en packages/agents"
 type: spec
 domain: agents
-status: "DRAFT"
+status: "IMPLEMENTED"
 owner: semse-core
 risk: medium
 related_files:
   - packages/agents/src/verification.ts
+  - packages/agents/src/verifiers.ts
+  - packages/agents/src/runtime.ts
+  - packages/agents/src/delegate.ts
   - packages/agents/src/governance.ts
   - packages/schemas/src/agent-verification.schema.ts
-related_tests: []
+related_tests:
+  - tests/unit/verification-loop.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
+last_verified: "2026-07-04"
 ---
 
 # SPEC-AGT-001 — Verification Loop en `packages/agents`

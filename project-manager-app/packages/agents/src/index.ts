@@ -481,10 +481,22 @@ export { AgentRegistry as AgentRegistrations } from "./registrations.js";
 export {
   delegateTo,
   delegateAll,
+  deriveDelegateBudget,
   DELEGATE_BLOCKED_ROLES,
   type DelegateOptions,
   type DelegateResult,
 } from "./delegate.js";
+export {
+  registerVerifierImpl,
+  resetVerifierImpls,
+  hasVerifierImpl,
+  runVerifier,
+  runVerifiers,
+  isKnownVerifier,
+  type VerifierContext,
+  type VerifierImpl,
+  type VerifierOutcome
+} from "./verifiers.js";
 
 // ─────────────────────────────────────────────────────────────
 // SEMSE 6-AGENT ARCHITECTURE

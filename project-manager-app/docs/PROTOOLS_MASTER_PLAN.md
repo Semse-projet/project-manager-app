@@ -285,10 +285,10 @@ Deriva de ADR-021. Objetivo: cerrar el loop actuar→verificar→corregir en `ex
 | ID | Bloque | Estado | Archivo | Notas |
 |---|---|---|---|---|
 | AGT-001-A | Tipos + schema Zod (`VerificationBudget`, `VerificationReport`, `VerifierName`, `DelegateProfile`) | DONE | `packages/agents/src/verification.ts` + `packages/schemas/src/agent-verification.schema.ts` | 2026-07-02 — aditivo puro, cero impacto runtime. Campo opcional `verification` en `GovernedAgentExecutionResult` |
-| AGT-001-B | Registry de verificadores sobre `spawnSync` (reusar patrón `packages/autonomy/src/validator.ts`) | PENDING | `packages/agents/src/verifiers.ts` | Verificadores = comandos de CI, nunca checks ad-hoc |
-| AGT-001-C | Loop en `executeGovernedAgentRun` + eventos `agent.verify`/`agent.fix.attempt` + `deny` por budget faltante | PENDING | `packages/agents/src/runtime.ts` | Depende de A, B. `exhausted` siempre abre approval |
-| AGT-001-D | Perfiles de delegación `explore`/`general` + `MAX_CONCURRENT_DELEGATES=4` | PENDING | `packages/agents/src/delegate.ts` | Depende de A |
-| AGT-001-E | Tests: unit del loop (pass/fail/exhausted) + integración vía `@semse/api` | PENDING | `apps/api/test/` | Depende de C, D |
+| AGT-001-B | Registry de verificadores sobre `spawnSync` (reusar patrón `packages/autonomy/src/validator.ts`) | DONE | `packages/agents/src/verifiers.ts` | 2026-07-04 — verificadores = comandos de CI; `registerVerifierImpl` inyectable (patrón `setDelegateImpl`) |
+| AGT-001-C | Loop en `executeGovernedAgentRun` + eventos `agent.verify`/`agent.fix.attempt` + `deny` por budget faltante | DONE | `packages/agents/src/runtime.ts` | 2026-07-04 — `exhausted` abre approval + riesgo +1 nivel (piso medium). Fix = mismo handler en `mode: "fix"` |
+| AGT-001-D | Perfiles de delegación `explore`/`general` + `MAX_CONCURRENT_DELEGATES=4` | DONE | `packages/agents/src/delegate.ts` | 2026-07-04 — explore = tools context/memory/verification; general recibe ≤50% del budget del padre |
+| AGT-001-E | Tests: unit del loop (pass/fail/exhausted) + delegación | DONE | `tests/unit/verification-loop.test.ts` | 2026-07-04 — 15 tests: criterios de aceptación 1-4 del spec + Zod + clamps |
 
 ---
 
