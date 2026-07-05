@@ -1,0 +1,54 @@
+# Project TODO
+
+- [x] Design system: dark theme IDE-style, Inter font, custom color palette
+- [x] Database schema: projects, files, documents, tasks, activity_log, user_preferences
+- [x] tRPC routers: projects, files, documents, tasks, ai, preferences, activity
+- [x] Dashboard page with project overview, stats, and quick actions
+- [x] DashboardLayout sidebar with navigation for all modules
+- [x] Project manager: CRUD projects with metadata
+- [x] File manager: create/edit/delete files and folders within projects
+- [x] Code editor with syntax highlighting (CodeMirror integration)
+- [x] AI code comments: analyze code and generate descriptive comments
+- [x] AI documentation generator: Live Docs from code comments to Markdown
+- [x] AI advanced analysis: refactoring suggestions, bug detection, test generation
+- [x] Rich text editor for notes (TipTap-based)
+- [x] Kanban task manager with drag-and-drop
+- [x] Document viewer for Markdown files
+- [x] Theme customization: light/dark toggle with custom color palettes
+- [x] Keyboard shortcuts configuration
+- [x] User settings panel: editor preferences, AI config, theme settings
+- [x] Activity history and document versioning
+- [x] S3 file storage integration for project backups
+- [x] Notification system for project changes and task reminders
+- [x] Vitest tests for core procedures
+- [x] Review and fix UI/visual issues across all pages
+- [x] Add project templates (React, Python, Node.js, Rust, HTML/CSS) for quick start
+- [x] Add export documentation to PDF/Markdown download
+- [x] Improve landing page design with feature showcase
+- [x] Add micro-interactions and animations (framer-motion)
+- [x] Polish empty states and loading skeletons across all pages
+- [x] Add AI chat standalone page improvements (copy/download results)
+- [x] Improve Kanban board with HTML5 drag-and-drop, visual feedback, progress bar
+- [x] Add breadcrumb navigation in project detail with folder icons
+- [x] Improve mobile responsiveness
+- [x] Integrate RAG Visualizer component from OKComputer
+- [x] Integrate Cache Simulator component from OKComputer
+- [x] Integrate SEMSE OS dashboard as a separate module
+- [x] Add RAG Tools section in sidebar navigation
+- [x] Add SEMSE OS section in sidebar navigation
+- [x] Adapt OKComputer components to use WebAssistant dark theme
+- [x] Create Prometeo Ecosystem Dashboard page with Knowledge Matrix (83 modules, 6 phases)
+- [x] Create ADR Registry viewer page with architecture decision records (integrated in Prometeo page)
+- [x] Create Execution Plan Tracker page (12-week MusicGenius roadmap, integrated in Prometeo page)
+- [x] Enrich SEMSE OS page with real evolution data (v10.1→v10.3, RAG architecture, in Prometeo page)
+- [x] Add Integration Systems visualizer (IntegradorCuantico, FusionadorDeConsciencia, SintetizadorDeRealidad, ConectorUniversal)
+- [x] Update sidebar navigation with new Prometeo ecosystem pages
+- [x] Add micro-interactions with Framer Motion (page transitions, card hover, modal animations)
+- [x] Implement global search (Ctrl+K) command palette for projects, files, documents, tasks
+- [x] Improve mobile responsiveness (sidebar collapse, responsive grids, touch-friendly Kanban)
+- [x] Code editor: multiple file tabs, auto-save, functional keyboard shortcuts
+- [x] AI Assistant: streaming responses, conversation history persistence, analysis presets
+- [x] Rich text editor: toolbar improvements, image support, export to multiple formats
+- [x] Real-time notification badges in sidebar and header
+- [x] User profile page with avatar, bio, and account settings
+- [x] Comprehensive vitest tests for all new features (30 tests passing)
