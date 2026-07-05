@@ -565,9 +565,41 @@ function WorklogsTab({ state, unitOptions, onRefresh }: {
 
 // ── Knowledge Tab ─────────────────────────────────────────────────────────────
 
-function KnowledgeTab({ state }: { state: RemoteState<ContextMemoryEntry[]> }) {
+function KnowledgeTab({ state, onRefresh }: { state: RemoteState<ContextMemoryEntry[]>; onRefresh: () => void }) {
   const [search, setSearch] = useState("");
   const [filterVis, setFilterVis] = useState<FactVisibility | "ALL">("ALL");
+  const [showCreate, setShowCreate] = useState(false);
+  const [fSubject, setFSubject] = useState("");
+  const [fPredicate, setFPredicate] = useState("");
+  const [fObject, setFObject] = useState("");
+  const [fVisibility, setFVisibility] = useState<FactVisibility>("TEAM");
+  const [fConfidence, setFConfidence] = useState("0.8");
+  const [saving, setSaving] = useState(false);
+  const [saveErr, setSaveErr] = useState<string | null>(null);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true); setSaveErr(null);
+    try {
+      await apiFetch("/api/semse/field-ops/facts", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subject: fSubject.trim(),
+          predicate: fPredicate.trim(),
+          object: fObject.trim(),
+          visibility: fVisibility,
+          confidence: parseFloat(fConfidence),
+        }),
+      });
+      setShowCreate(false); setFSubject(""); setFPredicate(""); setFObject(""); setFConfidence("0.8");
+      onRefresh();
+    } catch (err) {
+      setSaveErr(err instanceof Error ? err.message : "Error al crear");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const filtered = useMemo(
     () =>
@@ -611,7 +643,50 @@ function KnowledgeTab({ state }: { state: RemoteState<ContextMemoryEntry[]> }) {
             {visibility === "ALL" ? "Todos" : visibility}
           </button>
         ))}
+        <button
+          onClick={() => setShowCreate(s => !s)}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13 }}
+        >
+          <Plus size={14} /> {showCreate ? "Cancelar" : "Nuevo hecho"}
+        </button>
       </div>
+
+      {showCreate && (
+        <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nuevo hecho de conocimiento</div>
+          {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Sujeto *</label>
+              <input required value={fSubject} onChange={e => setFSubject(e.target.value)} placeholder="Ej. unidad FU-001" style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Predicado *</label>
+              <input required value={fPredicate} onChange={e => setFPredicate(e.target.value)} placeholder="Ej. tiene_bloqueador" style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Objeto *</label>
+              <input required value={fObject} onChange={e => setFObject(e.target.value)} placeholder="Ej. falta de materiales" style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Visibilidad</label>
+              <select value={fVisibility} onChange={e => setFVisibility(e.target.value as FactVisibility)} style={inputStyle}>
+                <option value="TEAM">TEAM</option>
+                <option value="ORG">ORG</option>
+                <option value="PUBLIC">PUBLIC</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Confianza (0–1)</label>
+              <input type="number" min="0" max="1" step="0.05" value={fConfidence} onChange={e => setFConfidence(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <button type="submit" disabled={saving || !fSubject.trim() || !fPredicate.trim() || !fObject.trim()}
+            style={{ padding: "7px 18px", borderRadius: 8, background: "var(--brand)", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, opacity: saving ? 0.5 : 1 }}>
+            {saving ? "Guardando…" : "Crear hecho"}
+          </button>
+        </form>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
         {(["TEAM", "ORG", "PUBLIC"] as FactVisibility[]).map((visibility) => {
@@ -1058,7 +1133,7 @@ export default function FieldOpsPage() {
 
       {activeTab === "units" ? <UnitsTab state={unitsState} onRefresh={loadUnits} /> : null}
       {activeTab === "worklogs" ? <WorklogsTab state={worklogsState} unitOptions={unitOptions} onRefresh={loadWorklogs} /> : null}
-      {activeTab === "knowledge" ? <KnowledgeTab state={factsState} /> : null}
+      {activeTab === "knowledge" ? <KnowledgeTab state={factsState} onRefresh={loadFacts} /> : null}
       {activeTab === "vendors" ? <VendorsTab state={vendorsState} onRefresh={loadVendors} /> : null}
     </div>
   );

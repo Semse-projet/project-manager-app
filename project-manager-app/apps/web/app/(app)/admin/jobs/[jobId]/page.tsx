@@ -342,13 +342,13 @@ export default function AdminJobDetailPage() {
                   </div>
                 : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {signals.map((sig, i) => {
-                      const urgentColor = sig.type?.includes("CRITICAL") ? "#f87171" : "#fbbf24";
+                      const urgentColor = sig.agentType?.includes("CRITICAL") ? "#f87171" : "#fbbf24";
                       return (
                         <div key={sig.id ?? i} style={{ borderRadius: 10, border: `1px solid var(--border)`, borderLeft: `3px solid ${urgentColor}`, padding: "12px 14px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <AlertTriangle size={13} color={urgentColor} />
-                              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{sig.type ?? "Signal"}</p>
+                              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{sig.agentType ?? "Signal"}</p>
                             </div>
                             {sig.confidence != null && (
                               <span style={{ fontSize: 10, color: "var(--muted)", background: "var(--faint)", padding: "2px 8px", borderRadius: 10 }}>
@@ -356,7 +356,7 @@ export default function AdminJobDetailPage() {
                               </span>
                             )}
                           </div>
-                          <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{sig.description}</p>
+                          <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{sig.outputSummary}</p>
                         </div>
                       );
                     })}
