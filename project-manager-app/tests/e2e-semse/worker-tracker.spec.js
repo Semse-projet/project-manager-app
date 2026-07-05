@@ -7,6 +7,13 @@ function parseClock(text) {
   return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
 }
 
+function waitForTrackerProxy(page, suffix) {
+  return page.waitForResponse((response) => {
+    const url = response.url();
+    return url.includes("/api/semse/tracker/") && url.endsWith(suffix) && response.status() < 500;
+  });
+}
+
 test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion", async ({ page, context }) => {
   test.setTimeout(120000);
   void context;
@@ -62,7 +69,19 @@ test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion
   const thirdElapsed = parseClock(await page.getByTestId("tracker-elapsed").innerText());
   expect(thirdElapsed).toBeGreaterThanOrEqual(secondElapsed);
 
+  await page.goto("/admin/dashboard");
+  await page.waitForLoadState("networkidle");
+  await page.goto("/worker/tracker");
+  await page.waitForLoadState("networkidle");
+
+  await expect(page.getByTestId("tracker-current-job")).toContainText(job.title);
+  await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo");
+  const afterNavigationElapsed = parseClock(await page.getByTestId("tracker-elapsed").innerText());
+  expect(afterNavigationElapsed).toBeGreaterThanOrEqual(thirdElapsed);
+
+  const pauseResponse = waitForTrackerProxy(page, "/pause");
   await page.getByTestId("tracker-pause-button").click();
+  await pauseResponse;
   await expect(page.getByTestId("tracker-status-chip")).toContainText("En pausa");
 
   const pausedElapsed = parseClock(await page.getByTestId("tracker-elapsed").innerText());
@@ -75,11 +94,15 @@ test("tracker persiste tras reload y solo cambia con pausa/reanudacion/detencion
   await expect(page.getByTestId("tracker-status-chip")).toContainText("En pausa");
   await expect(page.getByTestId("tracker-resume-button")).toBeVisible();
 
+  const resumeResponse = waitForTrackerProxy(page, "/resume");
   await page.getByTestId("tracker-resume-button").click();
+  await resumeResponse;
   await expect(page.getByTestId("tracker-status-chip")).toContainText("Corriendo");
 
   await page.waitForTimeout(1200);
+  const stopResponse = waitForTrackerProxy(page, "/stop");
   await page.getByTestId("tracker-stop-button").click();
+  await stopResponse;
 
   await expect(page.getByText("Selecciona un trabajo y presiona Iniciar")).toBeVisible();
   await page.getByLabel("Filtrar historial por estado").selectOption("STOPPED");
