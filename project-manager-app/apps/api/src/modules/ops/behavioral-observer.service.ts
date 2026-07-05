@@ -106,7 +106,7 @@ export class BehavioralObserverService {
         where: { tenantId, status: { in: ["ACCEPTED", "IN_PROGRESS", "RESERVED"] }, deletedAt: null },
       }),
       this.prisma.job.count({
-        where: { tenantId, status: "PUBLISHED", createdAt: { lt: day30 }, deletedAt: null },
+        where: { tenantId, status: { in: ["POSTED", "PUBLISHED"] }, createdAt: { lt: day30 }, deletedAt: null },
       }),
       this.prisma.dispute.count({
         where: { tenantId, status: "OPEN", deletedAt: null },
