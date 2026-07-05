@@ -15,6 +15,7 @@ type ActorInput = {
 type StoredContract = {
   id: string;
   jobId: string;
+  professionalOrgId: string | null;
   clientUserId: string;
   professionalUserId: string;
   termsJson: Record<string, unknown>;
@@ -31,6 +32,7 @@ type StoredContract = {
 const contractSelect = {
   id: true,
   jobId: true,
+  professionalOrgId: true,
   clientUserId: true,
   professionalUserId: true,
   termsJson: true,
@@ -120,7 +122,7 @@ export class ContractsRepository {
     if (!row) {
       return null;
     }
-    const professionalOrgId = await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
+    const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
     if (!this.canReadContract(input, row, professionalOrgId)) {
       throw new ForbiddenException("actor cannot read this contract");
     }
@@ -139,7 +141,7 @@ export class ContractsRepository {
       throw new NotFoundException(`Contract '${input.contractId}' not found`);
     }
 
-    const professionalOrgId = await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
+    const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
     const canSignAsClient = row.job.clientOrgId === input.orgId && row.clientUserId === input.userId;
     const canSignAsProfessional = professionalOrgId === input.orgId && row.professionalUserId === input.userId;
     const isOps = input.roles.includes("OPS_ADMIN");
@@ -151,12 +153,14 @@ export class ContractsRepository {
     if (isOps && !input.signAs) {
       throw new ConflictException("ops signature requires explicit signAs target");
     }
+    if (!isOps && input.signAs === "client" && !canSignAsClient) {
+      throw new ForbiddenException("actor cannot sign as client");
+    }
+    if (!isOps && input.signAs === "professional" && !canSignAsProfessional) {
+      throw new ForbiddenException("actor cannot sign as professional");
+    }
 
-    const targetRole = canSignAsClient
-      ? "client"
-      : canSignAsProfessional
-        ? "professional"
-        : input.signAs;
+    const targetRole = input.signAs ?? (canSignAsClient ? "client" : canSignAsProfessional ? "professional" : undefined);
     if (!targetRole) {
       throw new ForbiddenException("actor cannot sign this contract");
     }
@@ -195,7 +199,7 @@ export class ContractsRepository {
     if (!row) {
       throw new NotFoundException(`Contract '${input.contractId}' not found`);
     }
-    const professionalOrgId = await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
+    const professionalOrgId = row.professionalOrgId ?? await this.resolveProfessionalOrgId(input.tenantId, row.professionalUserId);
     if (!this.canReadContract(input, row, professionalOrgId)) {
       throw new ForbiddenException("actor cannot read this contract");
     }
@@ -235,7 +239,7 @@ export class ContractsRepository {
       tenantId: row.job.tenantId,
       jobId: row.jobId,
       clientOrgId: row.job.clientOrgId,
-      professionalOrgId: professionalOrgId ?? undefined,
+      professionalOrgId: professionalOrgId ?? row.professionalOrgId ?? undefined,
       clientUserId: row.clientUserId,
       professionalUserId: row.professionalUserId,
       termsJson: row.termsJson,
