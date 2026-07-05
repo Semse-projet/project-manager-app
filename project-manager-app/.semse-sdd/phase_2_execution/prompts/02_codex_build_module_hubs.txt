@@ -1,0 +1,22 @@
+Construye los hubs visuales del Admin modular.
+
+Rutas:
+- /admin/workops
+- /admin/intelligence
+- /admin/tool-hub
+- /admin/verticals
+
+Requisitos:
+- Usar ADMIN_MODULES como fuente de verdad.
+- Cada hub debe mostrar título, descripción, estado, métrica y submódulos.
+- Cada submódulo debe enlazar a su ruta legacy.
+- Debe funcionar sin backend nuevo.
+- Diseño dark enterprise con Tailwind.
+- Evitar dependencias nuevas salvo que ya existan en el repo.
+
+No rompas:
+- /admin/mission-control
+- /admin/finance
+- /admin/trust
+- /admin/marketplace
+- rutas existentes.

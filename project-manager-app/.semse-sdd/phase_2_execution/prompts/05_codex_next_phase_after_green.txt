@@ -1,0 +1,18 @@
+Cuando Phase 2 esté verde, prepara Phase 3.
+
+Objetivo Phase 3:
+Mover gradualmente lógica visual a `features/` sin romper rutas.
+
+No implementar todavía. Solo auditar y proponer.
+
+Entregables Phase 3 plan:
+- features/workops
+- features/finance
+- features/trust
+- features/intelligence
+- features/tool-hub
+- features/verticals
+- componentes candidatos a mover
+- imports riesgosos
+- plan por commits pequeños
+- pruebas requeridas
