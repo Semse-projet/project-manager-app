@@ -1,0 +1,34 @@
+Audita el repo SEMSEproject.
+
+Raíz canónica:
+project-manager-app/
+
+Frontend principal:
+project-manager-app/apps/web/
+
+Admin actual:
+project-manager-app/apps/web/app/(app)/admin/
+
+Tareas:
+
+1. Lista todas las rutas dentro de apps/web/app/(app)/admin.
+2. Identifica layouts existentes del Admin.
+3. Identifica el componente de sidebar o navegación actual.
+4. Detecta rutas duplicadas o rutas con responsabilidad mezclada.
+5. Detecta imports frágiles o relativos excesivos.
+6. Detecta páginas que pueden actuar como hubs.
+7. Detecta riesgos de typecheck/build.
+8. Entrega un mapa de rutas legacy → nuevos módulos.
+9. Entrega un plan de implementación sin tocar backend, Prisma ni Railway.
+
+Salida esperada:
+
+- Audit summary
+- Route inventory
+- Navigation inventory
+- Risks
+- Phase 1 implementation plan
+- Files likely to modify
+- Validation commands
+
+No modifiques código en esta fase.

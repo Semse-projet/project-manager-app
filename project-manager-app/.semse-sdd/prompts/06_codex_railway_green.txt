@@ -1,0 +1,31 @@
+Objetivo: dejar Railway verde sin cambios destructivos.
+
+Primero audita:
+
+- railway.json
+- Dockerfile(s)
+- package.json scripts
+- pnpm workspace
+- apps/web build
+- apps/api build
+- variables requeridas
+- healthchecks
+
+No cambies infraestructura hasta identificar el error exacto.
+
+Entrega:
+
+1. Servicio afectado: web / api / worker / db / redis.
+2. Error dominante.
+3. Archivo causante.
+4. Fix mínimo.
+5. Comando local equivalente.
+6. Validación post-fix.
+7. Riesgo.
+
+Reglas:
+
+- No cambiar Prisma sin spec.
+- No cambiar variables secretas.
+- No desactivar tests para pasar.
+- No ocultar errores de TypeScript.

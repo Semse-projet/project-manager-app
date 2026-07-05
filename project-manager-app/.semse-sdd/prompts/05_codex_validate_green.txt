@@ -1,0 +1,21 @@
+Valida el repo SEMSEproject antes de PR/deploy.
+
+Ejecuta desde project-manager-app:
+
+1. pnpm install
+2. pnpm exec tsc --noEmit --project apps/web/tsconfig.json
+3. pnpm build:web
+4. pnpm --filter @semse/web lint, si existe y si la configuración lo permite
+5. Revisa rutas nuevas
+6. Revisa rutas legacy preservadas
+7. Revisa que no haya cambios Prisma accidentales
+8. Revisa que no haya cambios backend accidentales en Fase 1
+9. Revisa git diff
+
+Entrega:
+
+- Resultado de cada comando
+- Errores exactos si hay
+- Archivos afectados
+- Si está listo para PR
+- Si NO está listo, plan mínimo para dejarlo verde
