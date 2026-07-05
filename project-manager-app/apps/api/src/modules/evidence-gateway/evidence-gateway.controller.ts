@@ -50,6 +50,7 @@ export class EvidenceGatewayController {
   }
 
   @Get(":projectId/stream")
+  @RequirePermissions("evidence:read")
   async getValidationStream(
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,

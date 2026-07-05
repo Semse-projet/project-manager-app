@@ -10,15 +10,16 @@ export const runtime = "nodejs";
  *   /worker/*, /client/*, /admin/*, /agents
  *
  * Public routes (no session required):
- *   /, /login, /logout, /api/*, /_next/*, /favicon*
+ *   /, /login, /logout, public SEMSE API allowlist, /_next/*, /favicon*
  */
 
 import { type NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole } from "@/lib/auth";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
+import { buildSemseApiUnauthorizedBody, isPublicSemseApiPath, isSemseApiPath } from "@/lib/semse-api-auth";
 
 // Paths that are always public
-const PUBLIC_PREFIXES = ["/login", "/register", "/forgot-password", "/reset-password", "/logout", "/api/", "/_next/", "/favicon"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/forgot-password", "/reset-password", "/logout", "/_next/", "/favicon"];
 
 // Auth pages that logged-in users should be redirected away from
 const AUTH_PAGES = ["/login", "/register", "/forgot-password", "/reset-password"];
@@ -53,6 +54,19 @@ function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
+function unauthorizedApiResponse(req: NextRequest, clearSessionCookie: boolean): NextResponse {
+  const res = NextResponse.json(buildSemseApiUnauthorizedBody(), {
+    status: 401,
+    headers: { "cache-control": "no-store" },
+  });
+
+  if (clearSessionCookie) {
+    res.cookies.delete(SESSION_COOKIE);
+  }
+
+  return res;
+}
+
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
 
@@ -61,6 +75,21 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     url.pathname = "/";
     url.searchParams.set("semse_usage_guide", "1");
     return NextResponse.rewrite(url);
+  }
+
+  if (pathname.startsWith("/api/")) {
+    const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;
+    const session = sessionCookie ? await decodeSession(sessionCookie) : null;
+
+    if (!isSemseApiPath(pathname) || isPublicSemseApiPath(pathname)) {
+      return withSessionHeaders(req, session);
+    }
+
+    if (!session) {
+      return unauthorizedApiResponse(req, Boolean(sessionCookie));
+    }
+
+    return withSessionHeaders(req, session);
   }
 
   // ── 1. Skip static + public routes ─────────────────────────────────────────
@@ -73,10 +102,6 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
       const role = roleFromRoles(session.roles);
       const redirectTarget = resolveSafeRedirectPath(req.nextUrl.searchParams.get("from"), defaultDashboardForRole(role));
       return NextResponse.redirect(new URL(redirectTarget, req.url));
-    }
-
-    if (pathname.startsWith("/api/")) {
-      return withSessionHeaders(req, session);
     }
 
     return NextResponse.next();

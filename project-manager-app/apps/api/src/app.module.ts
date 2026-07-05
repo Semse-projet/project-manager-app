@@ -8,6 +8,7 @@ import { HealthController } from "./modules/health/health.controller.js";
 import { AuthGuard } from "./common/auth.guard.js";
 import { RbacGuard } from "./common/rbac.guard.js";
 import { validateApiEnv } from "./config/env.schema.js";
+import { ReadinessService } from "./modules/health/readiness.service.js";
 import { AuthModule } from "./modules/auth/auth.module.js";
 import { AgentsModule } from "./modules/agents/agents.module.js";
 import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
@@ -23,6 +24,7 @@ import { ProjectsModule } from "./modules/projects/projects.module.js";
 import { ReservationsModule } from "./modules/reservations/reservations.module.js";
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
+import { LaborEngineModule } from "./modules/labor-engine/labor-engine.module.js";
 import { AgroModule } from "./modules/agro/agro.module.js";
 import { DomainEventsModule } from "./modules/domain-events/domain-events.module.js";
 import { OrganizationsModule } from "./modules/organizations/organizations.module.js";
@@ -106,6 +108,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     ReservationsModule,
     TrustModule,
     FieldOpsModule,
+    LaborEngineModule,
     AgroModule,
     OrganizationsModule,
     RatingsModule,
@@ -152,8 +155,8 @@ const repoRoot = path.resolve(apiDir, "..", "..");
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: AuthGuard },
-    { provide: APP_GUARD, useClass: RbacGuard }
+    { provide: APP_GUARD, useClass: RbacGuard },
+    ReadinessService
   ]
 })
 export class AppModule {}
-

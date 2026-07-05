@@ -1,6 +1,8 @@
 import {
   type AgentAuditEvent,
   type AgentContextSource,
+  type AgentRiskAssessment,
+  type AgentRiskLevel,
   type AgentToolName,
   type GovernedAgentExecutionResult,
   type RuntimeAgentInput,
@@ -13,6 +15,20 @@ import {
   getRuntimeAgentManifest,
   resolveAllowedContextEnvelope
 } from "./governance.js";
+import {
+  DEFAULT_VERIFICATION_TIMEOUT_MS,
+  MISSING_VERIFICATION_BUDGET_REASON,
+  clampVerificationBudget,
+  isWriteActionType,
+  type VerificationAttempt,
+  type VerificationBudget,
+  type VerifierName,
+  type VerificationReport
+} from "./verification.js";
+// Type-only: se borra en compilación — verifiers.ts (spawnSync) nunca entra
+// al grafo de imports de index/runtime, así el bundle de cliente de apps/web
+// no arrastra node:child_process.
+import type { VerifierContext } from "./verifiers.js";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -312,6 +328,30 @@ export function setDelegateImpl(fn: DelegateFn): void {
   _delegateFn = fn;
 }
 
+// Late-binding verifier runner — instalado por "./verifiers.js" al cargarse
+// (solo entrypoints server-side). Mismo patrón que setDelegateImpl: mantiene
+// node:child_process fuera del grafo de imports del bundle de cliente.
+export type VerifierRunnerFn = (criteria: VerifierName[], iteration: number, ctx: VerifierContext) => VerificationAttempt[];
+let _verifierRunner: VerifierRunnerFn | null = null;
+
+export function setVerifierRunner(fn: VerifierRunnerFn): void {
+  _verifierRunner = fn;
+}
+
+/** Fail-closed: sin runner instalado, cada criterio reporta error → el loop agota y abre approval. */
+function runVerifiersOrFailClosed(criteria: VerifierName[], iteration: number, ctx: VerifierContext): VerificationAttempt[] {
+  if (_verifierRunner) {
+    return _verifierRunner(criteria, iteration, ctx);
+  }
+  return criteria.map((verifier) => ({
+    iteration,
+    verifier,
+    status: "error" as const,
+    durationMs: 0,
+    evidence: "verifier runner not installed — import @semse/agents/verifiers in the server entrypoint"
+  }));
+}
+
 function buildOrchestrator(input: RuntimeAgentInput): RuntimeAgentResult {
   const payload = resolvePayload(input);
   const task = asString(payload.task) ?? input.eventType ?? "runtime task";
@@ -410,12 +450,50 @@ export function executeSpecializedAgent(agentType: RuntimeAgentRole, input: Runt
 
 export type { RuntimeAgentResult };
 
+const RISK_LEVEL_ORDER: AgentRiskLevel[] = ["low", "medium", "high", "critical"];
+const RISK_LEVEL_FLOOR_SCORE: Record<AgentRiskLevel, number> = {
+  low: 0,
+  medium: 0.35,
+  high: 0.6,
+  critical: 0.85
+};
+
+/** SPEC-AGT-001 §3 paso 7: "exhausted" sube +1 nivel de riesgo, piso "medium". */
+function escalateRiskForExhaustion(risk: AgentRiskAssessment): AgentRiskAssessment {
+  const currentIndex = RISK_LEVEL_ORDER.indexOf(risk.riskLevel);
+  const escalatedLevel = RISK_LEVEL_ORDER[Math.min(currentIndex + 1, RISK_LEVEL_ORDER.length - 1)];
+  const flooredLevel = RISK_LEVEL_ORDER.indexOf(escalatedLevel) < 1 ? "medium" : escalatedLevel;
+
+  return {
+    ...risk,
+    riskLevel: flooredLevel,
+    riskScore: Math.max(risk.riskScore, RISK_LEVEL_FLOOR_SCORE[flooredLevel]),
+    reasons: [...risk.reasons, "verification loop exhausted its budget without passing"],
+    tags: [...risk.tags, "verification:exhausted"]
+  };
+}
+
+function summarizeLastFailure(attempts: VerificationAttempt[]): string {
+  const lastFailure = [...attempts].reverse().find((attempt) => attempt.status === "fail" || attempt.status === "error");
+  if (!lastFailure) {
+    return "no failing attempt recorded";
+  }
+  const evidence = lastFailure.evidence ? `: ${lastFailure.evidence.slice(0, 200)}` : "";
+  return `${lastFailure.verifier} (${lastFailure.status})${evidence}`;
+}
+
 export function executeGovernedAgentRun(input: {
   agentType: RuntimeAgentRole;
   runId: string;
   correlationId: string;
   payload: RuntimeAgentInput;
   environment?: "api" | "worker" | "web" | "test";
+  /** SPEC-AGT-001: actionType declarado del run. Default "runtime.execute" (lectura/análisis). */
+  actionType?: string;
+  /** SPEC-AGT-001 (P2): presupuesto de verificación — obligatorio si el actionType es de escritura. */
+  verification?: VerificationBudget;
+  /** Contexto de ejecución de los verificadores (raíz del repo, workspace). */
+  verifierContext?: Partial<VerifierContext>;
 }): GovernedAgentExecutionResult {
   const manifest = getRuntimeAgentManifest(input.agentType);
   const contextEnvelope = resolveAllowedContextEnvelope(input.agentType, input.payload);
@@ -482,6 +560,50 @@ export function executeGovernedAgentRun(input: {
     };
   }
 
+  // SPEC-AGT-001 regla P2: un run de escritura sin successCriteria no vacío se deniega.
+  const declaredActionType = input.actionType ?? "runtime.execute";
+  const isWriteRun = isWriteActionType(declaredActionType);
+  if (isWriteRun && (!input.verification || input.verification.successCriteria.length === 0)) {
+    const risk = classifyAgentRisk({
+      actionType: declaredActionType,
+      target: input.agentType,
+      targetKind: "agent",
+      environment: input.environment ?? "worker"
+    });
+
+    auditTrail.push(
+      auditEvent("agent.policy.deny", {
+        reason: MISSING_VERIFICATION_BUDGET_REASON,
+        actionType: declaredActionType
+      }, "warn")
+    );
+
+    return {
+      actionType: "alert",
+      summary: "Write run denied: verification budget with success criteria is required",
+      confidence: 1,
+      requiresHumanReview: true,
+      payload: {
+        policyDecision: "deny",
+        denied: true,
+        violatedPolicies: ["verification.budget_missing"],
+        policyReason: MISSING_VERIFICATION_BUDGET_REASON
+      },
+      policy: {
+        ...policy,
+        decision: "deny",
+        reason: MISSING_VERIFICATION_BUDGET_REASON,
+        violatedPolicies: ["verification.budget_missing"]
+      },
+      toolDecisions: [],
+      risk,
+      approvalRequests: [],
+      auditTrail,
+      manifest,
+      contextEnvelope
+    };
+  }
+
   const toolDecisions = derivePlannedTools(input.agentType).map((toolName: AgentToolName) => {
     const toolPolicy = evaluateAgentPolicy({
       agentType: input.agentType,
@@ -533,13 +655,89 @@ export function executeGovernedAgentRun(input: {
     };
   }
 
-  const result = executeSpecializedHandler(input.agentType, contextEnvelope.data);
-  const risk = classifyAgentRisk({
+  let result = executeSpecializedHandler(input.agentType, contextEnvelope.data);
+
+  // SPEC-AGT-001 §3: loop actuar→verificar→corregir para runs de escritura.
+  let verification: VerificationReport | undefined;
+  if (isWriteRun && input.verification) {
+    const budget = clampVerificationBudget(input.verification);
+    const verifierContext: VerifierContext = {
+      repoPath: input.verifierContext?.repoPath ?? process.cwd(),
+      workspace: input.verifierContext?.workspace,
+      payload: input.verifierContext?.payload
+    };
+    const deadline = Date.now() + (budget.timeoutMs ?? DEFAULT_VERIFICATION_TIMEOUT_MS);
+    const attempts: VerificationAttempt[] = [];
+    let verified = false;
+    let iterationsUsed = 0;
+
+    for (let iteration = 1; iteration <= budget.maxIterations; iteration += 1) {
+      iterationsUsed = iteration;
+      const iterationAttempts = runVerifiersOrFailClosed(budget.successCriteria, iteration, verifierContext);
+      attempts.push(...iterationAttempts);
+
+      for (const attempt of iterationAttempts) {
+        auditTrail.push(
+          auditEvent("agent.verify", {
+            iteration: attempt.iteration,
+            verifier: attempt.verifier,
+            status: attempt.status,
+            durationMs: attempt.durationMs
+          }, attempt.status === "pass" || attempt.status === "skipped" ? "ok" : "warn")
+        );
+      }
+
+      if (iterationAttempts.every((attempt) => attempt.status === "pass" || attempt.status === "skipped")) {
+        verified = true;
+        break;
+      }
+
+      if (Date.now() >= deadline) {
+        auditTrail.push(auditEvent("agent.verify.timeout", { iteration, timeoutMs: budget.timeoutMs ?? DEFAULT_VERIFICATION_TIMEOUT_MS }, "warn"));
+        break;
+      }
+
+      if (iteration < budget.maxIterations) {
+        const failedVerifiers = iterationAttempts
+          .filter((attempt) => attempt.status === "fail" || attempt.status === "error")
+          .map((attempt) => attempt.verifier);
+
+        auditTrail.push(
+          auditEvent("agent.fix.attempt", { iteration, failedVerifiers }, "warn")
+        );
+
+        // El fix es el MISMO handler en modo "fix" — no un agente nuevo (§3).
+        result = executeSpecializedHandler(input.agentType, {
+          ...contextEnvelope.data,
+          mode: "fix",
+          fixInput: {
+            iteration,
+            failedVerifiers,
+            evidence: summarizeLastFailure(iterationAttempts)
+          }
+        });
+      }
+    }
+
+    verification = {
+      budget,
+      attempts,
+      finalStatus: verified ? "verified" : "exhausted",
+      iterationsUsed
+    };
+  }
+
+  const verificationExhausted = verification?.finalStatus === "exhausted";
+  const baseRisk = classifyAgentRisk({
     actionType: result.actionType,
     target: input.agentType,
     targetKind: input.agentType === "dispute" || input.agentType === "ecv" ? "policy" : "runtime",
     environment: input.environment ?? "worker"
   });
+  const risk = verificationExhausted ? escalateRiskForExhaustion(baseRisk) : baseRisk;
+
+  // "exhausted" nunca falla silenciosamente: siempre abre approval humano (§3 paso 6).
+  const requiresHumanReview = result.requiresHumanReview || verificationExhausted;
   const approvalRequests = createApprovalRequests({
     runId: input.runId,
     correlationId: input.correlationId,
@@ -547,21 +745,24 @@ export function executeGovernedAgentRun(input: {
     policy,
     summary: result.summary,
     risk,
-    contextSummary: `${input.agentType}:${result.summary}`,
-    requiresHumanReview: result.requiresHumanReview
+    contextSummary: verificationExhausted && verification
+      ? `${input.agentType}: verification exhausted after ${verification.iterationsUsed} iterations — last failure: ${summarizeLastFailure(verification.attempts)}`
+      : `${input.agentType}:${result.summary}`,
+    requiresHumanReview
   });
 
   auditTrail.push(
     auditEvent("agent.runtime.complete", {
       actionType: result.actionType,
       riskScore: risk.riskScore,
-      approvalsOpened: approvalRequests.length
-    })
+      approvalsOpened: approvalRequests.length,
+      ...(verification ? { verificationStatus: verification.finalStatus, verificationIterations: verification.iterationsUsed } : {})
+    }, verificationExhausted ? "warn" : "ok")
   );
 
   return {
     ...result,
-    requiresHumanReview: result.requiresHumanReview || approvalRequests.length > 0,
+    requiresHumanReview: requiresHumanReview || approvalRequests.length > 0,
     payload: {
       ...result.payload,
       policyDecision: policy.decision,
@@ -574,7 +775,8 @@ export function executeGovernedAgentRun(input: {
         decision: entry.decision,
         riskScore: entry.riskScore
       })),
-      auditTrail
+      auditTrail,
+      ...(verification ? { verification } : {})
     },
     policy,
     toolDecisions,
@@ -582,7 +784,8 @@ export function executeGovernedAgentRun(input: {
     approvalRequests,
     auditTrail,
     manifest,
-    contextEnvelope
+    contextEnvelope,
+    ...(verification ? { verification } : {})
   };
 }
 

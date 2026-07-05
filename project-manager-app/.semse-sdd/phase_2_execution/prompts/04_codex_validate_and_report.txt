@@ -1,0 +1,22 @@
+Valida la implementación y entrega reporte final.
+
+Ejecuta desde project-manager-app:
+
+```bash
+pnpm exec tsc --noEmit --project apps/web/tsconfig.json
+pnpm --filter @semse/web build
+```
+
+Si el paquete no se llama @semse/web, lee package.json y usa el filtro correcto.
+
+Reporte requerido:
+1. Archivos creados.
+2. Archivos modificados.
+3. Rutas nuevas.
+4. Rutas legacy preservadas.
+5. Comandos ejecutados.
+6. Resultado exacto de typecheck.
+7. Resultado exacto de build.
+8. Errores o warnings.
+9. Riesgos.
+10. Próxima fase recomendada.

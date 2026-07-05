@@ -24,7 +24,14 @@ export const governedAgentToolSchema = z.enum([
   "audit.record.agent",
   "event.emit.domain",
   "approval.request.human",
-  "runtime.complete_run"
+  "runtime.complete_run",
+  // SPEC-AGT-001 — verificadores del verification loop
+  "verify.typecheck",
+  "verify.lint",
+  "verify.unit_tests",
+  "verify.build",
+  "verify.schema",
+  "verify.custom"
 ]);
 
 export const governedAgentRiskLevelSchema = z.enum(["low", "medium", "high", "critical"]);

@@ -40,8 +40,19 @@ function formatBudget(min?: number, max?: number): string {
   return fmt(min ?? max ?? 0);
 }
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 function preferredProfessionalLabel(job: JobRecordView): string | null {
-  return job.preferredProfessional?.displayName?.trim() || null;
+  const displayName = displayText(job.preferredProfessional?.displayName).trim();
+  return displayName || null;
 }
 
 const CLIENT_TIER: Record<string, { label: string; color: string }> = {
@@ -69,7 +80,7 @@ export default function ClientDashboardPage() {
   const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
-    const jobsPromise = fetch("/api/semse/jobs").then(r => r.json() as Promise<{ data?: JobRecordView[]; error?: { message: string } }>);
+    const jobsPromise = fetch("/api/semse/jobs").then(r => r.json() as Promise<{ data?: JobRecordView[]; error?: unknown }>);
     const ratingsPromise = fetchRatings().catch(() => ({ actorUserId: null, items: [] as RatingListItem[] }));
 
     Promise.all([jobsPromise, ratingsPromise])
@@ -83,7 +94,7 @@ export default function ClientDashboardPage() {
         setReceivedRatings(received);
 
         // Jobs
-        if (d.error) { setApiError(d.error.message); return; }
+        if (d.error) { setApiError(displayText(d.error, "No se pudieron cargar los trabajos.")); return; }
         const jobList = d.data ?? [];
         setJobs(jobList);
         const published = jobList.filter((j: JobRecordView) => j.status === "published" || j.status === "posted");
@@ -228,7 +239,7 @@ export default function ClientDashboardPage() {
               <div key={job.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10 }}>
                 <Star size={15} color="#fbbf24" fill="none" style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayText((job as Record<string, unknown>).title, "Trabajo")}</p>
                   <p style={{ fontSize: 11, color: "var(--muted)" }}>Trabajo completado · Sin calificación</p>
                 </div>
                 <Link href={`/client/jobs/${job.id}/rate`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 8, background: "rgba(251,191,36,.12)", border: "1px solid rgba(251,191,36,.3)", color: "#fbbf24", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -291,6 +302,9 @@ export default function ClientDashboardPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             {jobs.slice(0, 6).map(job => {
+              const row = job as Record<string, unknown>;
+              const title = displayText(row.title, "Trabajo");
+              const scope = displayText(row.scope);
               const sc = STATUS_CONFIG[job.status] ?? STATUS_CONFIG.posted;
               const preferredLabel = preferredProfessionalLabel(job);
               return (
@@ -302,8 +316,8 @@ export default function ClientDashboardPage() {
                   onMouseOut={e => (e.currentTarget.style.borderColor = "var(--border)")}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.title}</p>
-                    <p style={{ fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.scope}</p>
+                    <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</p>
+                    <p style={{ fontSize: "12px", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{scope}</p>
                     {preferredLabel ? (
                       <div style={{ marginTop: 7, display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 999, background: "rgba(129,140,248,.12)", border: "1px solid rgba(129,140,248,.22)", fontSize: 11, fontWeight: 700, color: "#a5b4fc" }}>
                         Objetivo: {preferredLabel}

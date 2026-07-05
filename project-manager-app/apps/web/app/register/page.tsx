@@ -22,6 +22,15 @@ const ROLE_OPTIONS: { role: AccountRole; label: string; icon: string; desc: stri
   },
 ];
 
+function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const score = [
@@ -90,13 +99,13 @@ export default function RegisterPage() {
         body: JSON.stringify({ email, password, name, role }),
       });
 
-      const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: string };
+      const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: unknown };
 
       if (!res.ok || !data.ok) {
         if (res.status === 409) {
           setError("Ya existe una cuenta con ese email. ¿Quieres iniciar sesión?");
         } else {
-          setError(data.error ?? "No se pudo crear la cuenta");
+          setError(errorMessage(data.error, "No se pudo crear la cuenta"));
         }
         return;
       }

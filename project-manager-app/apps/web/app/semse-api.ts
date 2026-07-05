@@ -21,7 +21,9 @@ import type {
   OpsMutationResult,
   CreateRuntimeJobInput,
   JobRecordView,
+  TrackerBootstrapView,
   TrackerSessionView,
+  TrackerSummaryView,
   TrackerSnapshotView,
   AutonomyLlmStatusView,
   AutonomyRunListView,
@@ -49,7 +51,9 @@ export type {
   OpsMutationResult,
   CreateRuntimeJobInput,
   JobRecordView,
+  TrackerBootstrapView,
   TrackerSessionView,
+  TrackerSummaryView,
   TrackerSnapshotView,
   AutonomyLlmStatusView,
   AutonomyRunListView,
@@ -432,27 +436,7 @@ export type BidView = {
   ratingCount?: number;
 };
 
-export type TimeTrackerSummaryView = {
-  range: "week" | "month";
-  totalSeconds: number;
-  sessionCount: number;
-  daysWorked: number;
-  openSessionCount: number;
-  sessionsWithoutNotes: number;
-  activeSession: TrackerSessionView | null;
-  byJob: Array<{
-    jobId: string;
-    jobTitle: string;
-    seconds: number;
-  }>;
-  recentNotes: Array<{
-    sessionId: string;
-    jobId: string;
-    jobTitle: string;
-    note: string | null;
-    startedAt: string;
-  }>;
-};
+export type TimeTrackerSummaryView = TrackerSummaryView;
 
 export async function fetchJobBids(jobId: string): Promise<BidView[]> {
   return fetchSemse<BidView[]>(`/api/semse/jobs/${jobId}/bids`);
@@ -464,6 +448,21 @@ export async function fetchTimeTrackerJobs(): Promise<JobRecordView[]> {
 
 export async function fetchTimeTrackerSummary(range: "week" | "month"): Promise<TimeTrackerSummaryView> {
   return fetchSemse<TimeTrackerSummaryView>(`/api/semse/time-tracker/summary?range=${range}`);
+}
+
+export async function fetchTimeTrackerSessions(input?: {
+  range?: "week" | "month" | "all";
+  jobId?: string;
+  status?: TrackerSessionView["status"] | "all";
+  limit?: number;
+}): Promise<TrackerSessionView[]> {
+  const search = new URLSearchParams();
+  if (input?.range) search.set("range", input.range);
+  if (input?.jobId && input.jobId !== "all") search.set("jobId", input.jobId);
+  if (input?.status && input.status !== "all") search.set("status", input.status);
+  if (input?.limit) search.set("limit", String(input.limit));
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return fetchSemse<TrackerSessionView[]>(`/api/semse/time-tracker/sessions${suffix}`);
 }
 
 export async function updateTimeTrackerSessionNotes(sessionId: string, input: {
@@ -750,7 +749,11 @@ export async function markNotificationRead(
 }
 
 export async function fetchTrackerSnapshot(): Promise<TrackerSnapshotView> {
-  return fetchSemse<TrackerSnapshotView>("/api/semse/tracker");
+  return fetchSemse<TrackerSnapshotView>("/api/semse/time-tracker");
+}
+
+export async function fetchTrackerBootstrap(): Promise<TrackerBootstrapView> {
+  return fetchSemse<TrackerBootstrapView>("/api/semse/time-tracker");
 }
 
 // ── Communications ─────────────────────────────────────────────────────────────
@@ -833,25 +836,25 @@ export async function startTrackerSession(input: {
   jobId: string;
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>("/api/semse/tracker/start", input);
+  return mutateSemse<TrackerSessionView>("/api/semse/time-tracker/sessions/start", input);
 }
 
 export async function pauseTrackerSession(sessionId: string, input?: {
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>(`/api/semse/tracker/${sessionId}/pause`, input);
+  return mutateSemse<TrackerSessionView>(`/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/pause`, input);
 }
 
 export async function resumeTrackerSession(sessionId: string, input?: {
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>(`/api/semse/tracker/${sessionId}/resume`, input);
+  return mutateSemse<TrackerSessionView>(`/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/resume`, input);
 }
 
 export async function stopTrackerSession(sessionId: string, input?: {
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>(`/api/semse/tracker/${sessionId}/stop`, input);
+  return mutateSemse<TrackerSessionView>(`/api/semse/time-tracker/sessions/${encodeURIComponent(sessionId)}/stop`, input);
 }
 
 export async function createManualTrackerSession(input: {
@@ -861,7 +864,7 @@ export async function createManualTrackerSession(input: {
   endTime: string;
   notes?: string;
 }): Promise<TrackerSessionView> {
-  return mutateSemse<TrackerSessionView>("/api/semse/tracker/manual", input);
+  return mutateSemse<TrackerSessionView>("/api/semse/time-tracker/sessions/manual", input);
 }
 
 export async function fetchFieldUnits(query?: { projectId?: string; status?: string }): Promise<Record<string, unknown>[]> {

@@ -28,6 +28,7 @@
 |---|---|---|---|---|---|---|---|---|
 | [semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | high | yes | no | yes | 5 | 2026-06-09 |
 | [api-agents-runtime](docs/specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-bff-auth-boundary](docs/specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | high | yes | yes | yes | 3 | 2026-06-28 |
 | [api-buildops](docs/specs/api/buildops.spec.md) | buildops | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
 | [api-change-orders](docs/specs/api/change-orders.spec.md) | change-orders | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-communications](docs/specs/api/communications.spec.md) | communications | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
@@ -71,8 +72,19 @@
 | [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
-
 <!-- SPEC_INDEX:END -->
+
+## Specs — Agentic Loop (ADR-021)
+
+> Añadidos 2026-07-02. Aprobación de alcance completo 2026-07-04.
+
+| Spec ID | Domain | Estado | Ruta | Deriva de |
+|---|---|---|---|---|
+| SPEC-AGT-001 verification-loop | agents | IMPLEMENTED (AGT-001-A..E, 2026-07-04) | docs/specs/agents/verification-loop.spec.md | ADR-021 |
+| SPEC-AUT-001 permanent-loops | autonomy | IMPLEMENTED (fase mecánica, 2026-07-04) | docs/specs/autonomy/permanent-loops.spec.md | ADR-021, SPEC-AGT-001 |
+| ADR-021 anatomía del agente | architecture | PROPOSED | docs/architecture/ADR-021-anatomia-agente-semse.md | — |
+
+
 
 
 

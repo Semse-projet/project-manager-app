@@ -23,12 +23,14 @@ import { EvolutionEngineService } from "./evolution-engine.service.js";
 import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
 import { EcosystemMetricsService } from "./ecosystem-metrics.service.js";
 import { SemseAgentsModule } from "../semse-agents/semse-agents.module.js";
+import { LoopsService } from "./loops.service.js";
 
 const providers = [
   OpsRepository, OpsService, TrustRepository, TrustService,
   ConsciousnessIndexService, SystemObserverService, BehavioralObserverService,
   RecommendationEngineService, SimulationEngineService, ApplyEngineService,
   EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService,
+  LoopsService,
 ];
 
 @Module({

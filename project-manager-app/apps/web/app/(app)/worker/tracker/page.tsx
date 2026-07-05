@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { ChevronDown, Clock, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
+import { ChevronDown, Clock, Download, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
 import {
   createManualTrackerSession,
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
-  fetchTimeTrackerJobs,
-  fetchTimeTrackerSummary,
-  fetchTrackerSnapshot,
+  fetchTimeTrackerSessions,
+  fetchTrackerBootstrap,
   pauseTrackerSession,
   resumeTrackerSession,
   startTrackerSession,
@@ -193,11 +192,44 @@ function manualDurationSeconds(date: string, startTime: string, endTime: string)
   return Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
 }
 
+function csvCell(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replaceAll('"', '""')}"`;
+}
+
+function trackerHistoryFileLabel(range: TrackerHistoryRange, jobId: string) {
+  const rangeLabel = range === "week" ? "7d" : range === "month" ? "30d" : "all";
+  const jobLabel = jobId === "all" ? "all-jobs" : jobId.replaceAll(/[^A-Za-z0-9_-]/g, "-").slice(0, 40);
+  return `${rangeLabel}-${jobLabel}`;
+}
+
 const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: string; bg: string }> = {
   RUNNING: { label: "Corriendo", color: "#10b981", bg: "rgba(16,185,129,.12)" },
   PAUSED: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   STOPPED: { label: "Detenida", color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
+
+type TrackerHistoryRange = "week" | "month" | "all";
+type TrackerHistoryStatus = TrackerSessionView["status"] | "all";
+
+function trackerHistoryStatusLabel(status: TrackerHistoryStatus) {
+  return status === "all" ? "Todos los estados" : STATUS_META[status].label;
+}
+
+function trackerHistoryExportLabel(range: TrackerHistoryRange, jobId: string, status: TrackerHistoryStatus) {
+  const statusLabel = status === "all" ? "all-statuses" : status.toLowerCase();
+  return `${trackerHistoryFileLabel(range, jobId)}-${statusLabel}`;
+}
+
+function isSessionInHistoryRange(session: TrackerSessionView, range: TrackerHistoryRange) {
+  if (range === "all") return true;
+
+  const startedAt = new Date(session.startedAt).getTime();
+  if (Number.isNaN(startedAt)) return false;
+
+  const days = range === "month" ? 30 : 7;
+  return Date.now() - startedAt <= days * 24 * 3600 * 1000;
+}
 
 export default function WorkerTrackerPage() {
   const { t } = useLanguage();
@@ -211,10 +243,15 @@ export default function WorkerTrackerPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [manualJobId, setManualJobId] = useState("");
   const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
   const [manualStart, setManualStart] = useState("09:00");
   const [manualEnd, setManualEnd] = useState("13:00");
   const [manualNotes, setManualNotes] = useState("");
+  const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
+  const [historyJobId, setHistoryJobId] = useState("all");
+  const [historyStatus, setHistoryStatus] = useState<TrackerHistoryStatus>("all");
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
   const [contract, setContract] = useState<Record<string, unknown> | null>(null);
@@ -234,23 +271,19 @@ export default function WorkerTrackerPage() {
   }, []);
 
   const loadTracker = useCallback(async () => {
-    const [assignedJobs, snapshot, weekResult, monthResult] = await Promise.all([
-      fetchTimeTrackerJobs(),
-      fetchTrackerSnapshot(),
-      fetchTimeTrackerSummary("week"),
-      fetchTimeTrackerSummary("month"),
-    ]);
+    const tracker = await fetchTrackerBootstrap();
 
-    const preferredJobId = snapshot.activeSession?.jobId ?? assignedJobs[0]?.id ?? "";
+    const preferredJobId = tracker.activeSession?.jobId ?? tracker.jobs[0]?.id ?? "";
 
-    setJobs(assignedJobs);
-    setSessions(snapshot.recentSessions);
-    setActiveSession(snapshot.activeSession);
-    setSelectedJob(snapshot.activeSession?.jobId ?? preferredJobId);
-    setNotes(snapshot.activeSession?.notes ?? "");
-    setElapsed(elapsedFromSession(snapshot.activeSession));
-    setWeekSummary(weekResult);
-    setMonthSummary(monthResult);
+    setJobs(tracker.jobs);
+    setSessions(tracker.recentSessions);
+    setActiveSession(tracker.activeSession);
+    setSelectedJob(tracker.activeSession?.jobId ?? preferredJobId);
+    setManualJobId((prev) => prev || tracker.jobs[0]?.id || "");
+    setNotes(tracker.activeSession?.notes ?? "");
+    setElapsed(elapsedFromSession(tracker.activeSession));
+    setWeekSummary(tracker.summaries.week);
+    setMonthSummary(tracker.summaries.month);
   }, []);
 
   const syncPendingEvents = useCallback(async (state: TrackerLocalState = trackerLocalState) => {
@@ -314,13 +347,19 @@ export default function WorkerTrackerPage() {
     }
   }, [loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
 
+  const syncPendingEventsRef = useRef(syncPendingEvents);
+
+  useEffect(() => {
+    syncPendingEventsRef.current = syncPendingEvents;
+  }, [syncPendingEvents]);
+
   useEffect(() => {
     const storedState = readTrackerLocalState(window.localStorage);
     setTrackerLocalState(storedState);
     setIsOnline(navigator.onLine);
 
     if (storedState.activeSession && storedState.activeSession.status !== "STOPPED") {
-      setActiveSession(localSessionToView(storedState.activeSession, jobs));
+      setActiveSession(localSessionToView(storedState.activeSession, []));
       setSelectedJob(storedState.activeSession.jobId);
       setNotes(storedState.activeSession.notes ?? "");
       setElapsed(elapsedFromLocalSession(storedState.activeSession));
@@ -332,7 +371,7 @@ export default function WorkerTrackerPage() {
     const handleOnline = () => {
       setIsOnline(true);
       setSyncNotice("Conexión restaurada. Sincronizando cambios pendientes...");
-      void syncPendingEvents(readTrackerLocalState(window.localStorage));
+      void syncPendingEventsRef.current(readTrackerLocalState(window.localStorage));
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -369,6 +408,29 @@ export default function WorkerTrackerPage() {
 
     void run();
   }, [loadTracker]);
+
+  const loadFilteredHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const nextSessions = await fetchTimeTrackerSessions({
+        range: historyRange,
+        jobId: historyJobId,
+        status: historyStatus,
+        limit: 200,
+      });
+      setSessions(nextSessions);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyJobId, historyRange, historyStatus]);
+
+  useEffect(() => {
+    if (loading) return;
+    void loadFilteredHistory();
+  }, [loadFilteredHistory, loading]);
 
   useEffect(() => {
     setElapsed(elapsedFromSession(activeSession));
@@ -428,6 +490,21 @@ export default function WorkerTrackerPage() {
     .reduce((sum, item) => sum + sessionElapsed(item), 0);
   const displayedWeekSeconds = Math.max(weekSummary?.totalSeconds ?? 0, weekSeconds);
   const displayedMonthSeconds = Math.max(monthSummary?.totalSeconds ?? 0, monthSeconds);
+  const filteredSessions = useMemo(() => sessions.filter((session) => {
+    if (!isSessionInHistoryRange(session, historyRange)) return false;
+    if (historyStatus !== "all" && session.status !== historyStatus) return false;
+    return historyJobId === "all" || session.jobId === historyJobId;
+  }), [historyJobId, historyRange, historyStatus, sessions]);
+  const filteredSessionSeconds = filteredSessions.reduce((sum, session) => sum + sessionElapsed(session), 0);
+  const filteredSessionStatusCounts = filteredSessions.reduce<Record<TrackerSessionView["status"], number>>((counts, session) => {
+    counts[session.status] += 1;
+    return counts;
+  }, { RUNNING: 0, PAUSED: 0, STOPPED: 0 });
+  const filteredSessionLabel = historyRange === "week"
+    ? "Últimos 7 días"
+    : historyRange === "month"
+      ? "Últimos 30 días"
+      : "Todo el historial cargado";
   const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd);
   const pendingEventCount = trackerLocalState.pendingEvents.length;
   const syncBanner = useMemo(() => {
@@ -473,6 +550,7 @@ export default function WorkerTrackerPage() {
 
   async function refreshAfterMutation() {
     await loadTracker();
+    await loadFilteredHistory();
     setShowForm(false);
     setManualNotes("");
   }
@@ -654,7 +732,7 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleManualSave() {
-    if (!selectedJob || saving) return;
+    if (!manualJobId || saving) return;
     if (manualPreviewSeconds === null) {
       setError("La entrada manual necesita una hora final posterior a la hora inicial.");
       return;
@@ -665,7 +743,7 @@ export default function WorkerTrackerPage() {
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "manual_session",
-      jobId: selectedJob,
+      jobId: manualJobId,
       date: manualDate,
       startTime: manualStart,
       endTime: manualEnd,
@@ -674,7 +752,7 @@ export default function WorkerTrackerPage() {
     };
     try {
       await createManualTrackerSession({
-        jobId: selectedJob,
+        jobId: manualJobId,
         date: manualDate,
         startTime: manualStart,
         endTime: manualEnd,
@@ -694,6 +772,35 @@ export default function WorkerTrackerPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleExportHistoryCsv() {
+    if (filteredSessions.length === 0) return;
+
+    const rows = [
+      ["session_id", "job_id", "job_title", "status", "started_at", "ended_at", "duration_seconds", "duration_hhmmss", "notes"],
+      ...filteredSessions.map((session) => [
+        session.id,
+        session.jobId,
+        session.job.title,
+        session.status,
+        session.startedAt,
+        session.stoppedAt ?? session.pausedAt ?? session.updatedAt,
+        String(sessionElapsed(session)),
+        fmtSeconds(sessionElapsed(session)),
+        session.notes ?? "",
+      ]),
+    ];
+    const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `semse-time-tracker-${trackerHistoryExportLabel(historyRange, historyJobId, historyStatus)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   }
 
   const card: CSSProperties = {
@@ -1003,6 +1110,24 @@ export default function WorkerTrackerPage() {
 
           {showForm ? (
             <div style={{ display: "grid", gap: "10px" }}>
+              {jobs.length === 0 ? (
+                <p style={{ fontSize: "12px", color: "#ef4444", margin: 0 }}>
+                  Sin trabajos aceptados. Acepta un trabajo antes de registrar horas.
+                </p>
+              ) : (
+                <div style={{ position: "relative" }}>
+                  <select
+                    value={manualJobId}
+                    onChange={(event) => setManualJobId(event.target.value)}
+                    style={{ ...inputStyle(), paddingRight: "32px", appearance: "none", cursor: "pointer" }}
+                  >
+                    {jobs.map((job) => (
+                      <option key={job.id} value={job.id}>{job.title}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={13} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+                </div>
+              )}
               <input value={manualDate} onChange={(event) => setManualDate(event.target.value)} type="date" style={inputStyle()} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <input value={manualStart} onChange={(event) => setManualStart(event.target.value)} type="time" style={inputStyle()} />
@@ -1013,7 +1138,7 @@ export default function WorkerTrackerPage() {
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
               <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => void handleManualSave()} disabled={!selectedJob || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !selectedJob || manualPreviewSeconds === null || saving)}>
+                <button onClick={() => void handleManualSave()} disabled={!manualJobId || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !manualJobId || manualPreviewSeconds === null || saving)}>
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
                 <button onClick={() => setShowForm(false)} style={secondaryButton()}>
@@ -1035,21 +1160,107 @@ export default function WorkerTrackerPage() {
       </div>
 
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>Sesiones recientes</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Sesiones recientes</h2>
+            <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
+              {filteredSessions.length} sesiones · {fmtSeconds(filteredSessionSeconds)} · {filteredSessionLabel} · {trackerHistoryStatusLabel(historyStatus)}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={handleExportHistoryCsv}
+              disabled={filteredSessions.length === 0 || loading || historyLoading}
+              style={historyActionButton(filteredSessions.length === 0 || loading || historyLoading)}
+            >
+              <Download size={13} /> CSV
+            </button>
+            <div style={{ position: "relative" }}>
+              <select
+                aria-label="Filtrar historial por rango"
+                value={historyRange}
+                onChange={(event) => setHistoryRange(event.target.value as TrackerHistoryRange)}
+                style={{ ...compactSelect(), minWidth: "132px" }}
+              >
+                <option value="week">7 días</option>
+                <option value="month">30 días</option>
+                <option value="all">Todo</option>
+              </select>
+              <ChevronDown size={13} style={selectChevron()} />
+            </div>
+            <div style={{ position: "relative" }}>
+              <select
+                aria-label="Filtrar historial por estado"
+                value={historyStatus}
+                onChange={(event) => setHistoryStatus(event.target.value as TrackerHistoryStatus)}
+                style={{ ...compactSelect(), minWidth: "154px" }}
+              >
+                <option value="all">Todos los estados</option>
+                <option value="RUNNING">Corriendo</option>
+                <option value="PAUSED">En pausa</option>
+                <option value="STOPPED">Detenidas</option>
+              </select>
+              <ChevronDown size={13} style={selectChevron()} />
+            </div>
+            <div style={{ position: "relative" }}>
+              <select
+                aria-label="Filtrar historial por trabajo"
+                value={historyJobId}
+                onChange={(event) => setHistoryJobId(event.target.value)}
+                style={{ ...compactSelect(), minWidth: "190px", maxWidth: "260px" }}
+              >
+                <option value="all">Todos los trabajos</option>
+                {jobs.map((job) => (
+                  <option key={job.id} value={job.id}>{job.title}</option>
+                ))}
+              </select>
+              <ChevronDown size={13} style={selectChevron()} />
+            </div>
+          </div>
         </div>
 
+        {filteredSessions.length > 0 ? (
+          <div data-testid="tracker-history-status-summary" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+            {(Object.keys(STATUS_META) as TrackerSessionView["status"][]).map((status) => (
+              <span
+                key={status}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "5px 9px",
+                  borderRadius: "8px",
+                  background: STATUS_META[status].bg,
+                  color: STATUS_META[status].color,
+                  fontSize: "11px",
+                  fontWeight: 800,
+                }}
+              >
+                {STATUS_META[status].label}: {filteredSessionStatusCounts[status]}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
         <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-          {loading ? (
-            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Cargando tracker...</div>
+          {loading || historyLoading ? (
+            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>
+              {loading ? "Cargando tracker..." : "Cargando historial..."}
+            </div>
           ) : error ? (
             <div style={{ ...card, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
               {error}
             </div>
           ) : sessions.length === 0 ? (
             <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Todavía no hay sesiones registradas.</div>
+          ) : filteredSessions.length === 0 ? (
+            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>
+              No hay sesiones que coincidan con estos filtros.
+            </div>
           ) : (
-            sessions.map((session) => (
+            filteredSessions.map((session) => (
               <div data-testid="tracker-session-card" key={session.id} style={{ ...card, display: "flex", alignItems: "center", gap: "16px", padding: "14px 16px" }}>
                 <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: `${STATUS_META[session.status].color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Clock size={16} color={STATUS_META[session.status].color} />
@@ -1191,5 +1402,50 @@ function inputStyle(): CSSProperties {
     fontSize: "13px",
     outline: "none",
     boxSizing: "border-box",
+  };
+}
+
+function compactSelect(): CSSProperties {
+  return {
+    height: "34px",
+    padding: "0 30px 0 10px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--ink)",
+    fontSize: "12px",
+    fontWeight: 600,
+    appearance: "none",
+    cursor: "pointer",
+    outline: "none",
+  };
+}
+
+function historyActionButton(disabled: boolean): CSSProperties {
+  return {
+    height: "34px",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "6px",
+    padding: "0 11px",
+    borderRadius: "8px",
+    border: "1px solid var(--border)",
+    background: "var(--surface)",
+    color: "var(--ink)",
+    fontSize: "12px",
+    fontWeight: 700,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.55 : 1,
+  };
+}
+
+function selectChevron(): CSSProperties {
+  return {
+    position: "absolute",
+    right: "10px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    color: "var(--muted)",
+    pointerEvents: "none",
   };
 }

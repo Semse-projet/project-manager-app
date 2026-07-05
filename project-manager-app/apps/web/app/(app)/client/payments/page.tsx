@@ -55,6 +55,16 @@ const TYPE_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "n
   REFUND:   { variant: "warning", label: "Reembolso",  color: "#f59e0b" },
 };
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 export default function ClientPaymentsPage() {
   const { t } = useLanguage();
   const router = useRouter();
@@ -128,6 +138,7 @@ export default function ClientPaymentsPage() {
       // Load job payment data sequentially to avoid rate-limit bursts when the
       // account accumulates many historical jobs.
       for (const job of jobsToLoad) {
+        const jobTitle = displayText((job as Record<string, unknown>).title, "Trabajo");
         try {
           const payments = await fetchJobPayments(job.id);
           for (const payment of payments) {
@@ -135,7 +146,7 @@ export default function ClientPaymentsPage() {
             const type = typeof row.type === "string" ? row.type : "DEPOSIT";
             transactions.push({
               id: String(row.id),
-              description: `${type === "DEPOSIT" ? "Escrow depositado" : type === "RELEASE" ? "Liberación" : type === "REFUND" ? "Reembolso" : type} – ${job.title}`,
+              description: `${type === "DEPOSIT" ? "Escrow depositado" : type === "RELEASE" ? "Liberación" : type === "REFUND" ? "Reembolso" : type} – ${jobTitle}`,
               amount: typeof row.amount === "number" ? row.amount : Number(row.amount ?? 0),
               type,
               status: typeof row.status === "string" ? row.status : "PENDING",

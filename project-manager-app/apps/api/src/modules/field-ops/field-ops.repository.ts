@@ -3,6 +3,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
+import type { JobRecordStatus, JobRecordView } from "@semse/schemas";
 import type { TrackerSessionRecord } from "./tracker-session.js";
 
 @Injectable()
@@ -246,7 +247,7 @@ export class FieldOpsRepository {
     });
   }
 
-  async listJobsForTracker(input: { tenantId: string; orgId: string; userId: string }) {
+  async listJobsForTracker(input: { tenantId: string; orgId: string; userId: string }): Promise<JobRecordView[]> {
     const jobs = await this.client.job.findMany({
       where: {
         tenantId: input.tenantId,
@@ -271,10 +272,18 @@ export class FieldOpsRepository {
     });
 
     return jobs.map((job) => ({
-      ...job,
-      status: job.status.toLowerCase(),
+      id: job.id,
+      tenantId: job.tenantId,
+      title: job.title,
+      category: job.category ?? undefined,
+      scope: job.scope,
+      status: job.status.toLowerCase() as JobRecordStatus,
+      budgetType: job.budgetType ?? undefined,
       budgetMin: job.budgetMin?.toNumber(),
       budgetMax: job.budgetMax?.toNumber(),
+      location: job.location ?? undefined,
+      urgency: job.urgency ?? undefined,
+      deadline: job.deadline?.toISOString(),
     }));
   }
 
@@ -299,11 +308,21 @@ export class FieldOpsRepository {
     `);
   }
 
-  async listTrackerSessions(input: { tenantId: string; createdBy: string; limit: number }): Promise<TrackerSessionRecord[]> {
+  async listTrackerSessions(input: {
+    tenantId: string;
+    createdBy: string;
+    limit: number;
+    jobId?: string;
+    status?: TrackerSessionRecord["status"];
+    startedAfter?: Date;
+  }): Promise<TrackerSessionRecord[]> {
     return this.queryTrackerSessions(Prisma.sql`
       ${this.trackerSessionSelect}
       WHERE ts."tenantId" = ${input.tenantId}
         AND ts."createdBy" = ${input.createdBy}
+        ${input.jobId ? Prisma.sql`AND ts."jobId" = ${input.jobId}` : Prisma.empty}
+        ${input.status ? Prisma.sql`AND ts.status = ${input.status}` : Prisma.empty}
+        ${input.startedAfter ? Prisma.sql`AND ts."startedAt" >= ${input.startedAfter}` : Prisma.empty}
       ORDER BY ts."startedAt" DESC
       LIMIT ${input.limit}
     `);

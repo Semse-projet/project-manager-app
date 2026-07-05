@@ -276,6 +276,36 @@ Cuando hay un bloqueo:
 
 ---
 
+## FASE AGT — Verification Loop y Delegación Tipada (SPEC-AGT-001)
+
+Deriva de ADR-021. Objetivo: cerrar el loop actuar→verificar→corregir en `executeGovernedAgentRun` con presupuesto explícito.
+
+### Módulo AGT.1 — Verification Loop
+
+| ID | Bloque | Estado | Archivo | Notas |
+|---|---|---|---|---|
+| AGT-001-A | Tipos + schema Zod (`VerificationBudget`, `VerificationReport`, `VerifierName`, `DelegateProfile`) | DONE | `packages/agents/src/verification.ts` + `packages/schemas/src/agent-verification.schema.ts` | 2026-07-02 — aditivo puro, cero impacto runtime. Campo opcional `verification` en `GovernedAgentExecutionResult` |
+| AGT-001-B | Registry de verificadores sobre `spawnSync` (reusar patrón `packages/autonomy/src/validator.ts`) | DONE | `packages/agents/src/verifiers.ts` | 2026-07-04 — verificadores = comandos de CI; `registerVerifierImpl` inyectable (patrón `setDelegateImpl`) |
+| AGT-001-C | Loop en `executeGovernedAgentRun` + eventos `agent.verify`/`agent.fix.attempt` + `deny` por budget faltante | DONE | `packages/agents/src/runtime.ts` | 2026-07-04 — `exhausted` abre approval + riesgo +1 nivel (piso medium). Fix = mismo handler en `mode: "fix"` |
+| AGT-001-D | Perfiles de delegación `explore`/`general` + `MAX_CONCURRENT_DELEGATES=4` | DONE | `packages/agents/src/delegate.ts` | 2026-07-04 — explore = tools context/memory/verification; general recibe ≤50% del budget del padre |
+| AGT-001-E | Tests: unit del loop (pass/fail/exhausted) + delegación | DONE | `tests/unit/verification-loop.test.ts` | 2026-07-04 — 15 tests: criterios de aceptación 1-4 del spec + Zod + clamps |
+
+---
+
+## FASE AUT — Permanent Loops v1 (SPEC-AUT-001)
+
+| ID | Bloque | Estado | Archivo | Notas |
+|---|---|---|---|---|
+| AUT-001-A | `PermanentLoopDefinition` + scheduler BullMQ + kill switch + backpressure | DONE | `packages/autonomy/src/loops/` + `apps/worker/src/modules/autonomy-loops/` | 2026-07-04 — cola `autonomy-loops`, kill switch `AUTONOMY_LOOPS_ENABLED`, pausa re-consultada entre etapas (<30s), fail-closed si la API no responde |
+| AUT-001-B | Tabla `AgentDecision` + `PermanentLoopState` (Prisma) + consulta de rechazos previos | DONE | `packages/db/prisma/schema.prisma` + `apps/api/src/modules/ops/loops.service.ts` | 2026-07-04 — memoria de rechazos con cooldown 30d, endpoints `/v1/ops/loops/*` |
+| AUT-001-C | Loop 1 `dedup-abstractions` (fase mecánica) | DONE | `packages/autonomy/src/loops/dedup-loop.ts` | 2026-07-04 — inventario de exports + similitud de firma (nombre normalizado + aridad), cero tokens. Capa embeddings = fase posterior |
+| AUT-001-D | Loop 2 `spec-drift` (fase mecánica — cero tokens) | DONE | `packages/autonomy/src/loops/spec-drift-loop.ts` | 2026-07-04 — related_files/tests existentes, DONE-sin-tests, comandos fantasma, spec.health_score. Capa semántica = fase posterior |
+| AUT-001-E | Panel OMEGA: métricas de loops + presupuesto + pause/resume | DONE | `apps/web/app/(app)/admin/ops/loops/page.tsx` | 2026-07-04 — pause/resume + revisión humana de propuestas (aceptar/rechazar alimenta memoria de rechazos) |
+
+> Nota de implementación (2026-07-04): el runtime de loops vive en `packages/autonomy` (runner puro con puertos inyectables), el scheduler en `apps/worker` (BullMQ) y el estado/endpoints en `apps/api` (`/v1/ops/loops/*`) — no en `apps/autonomy-server` como decía el borrador del spec, porque autonomy-server no se despliega en Railway. La fase mecánica de ambos loops corre sin LLM; las capas semánticas (embeddings dedup, drift semántico) quedan para una fase posterior con presupuesto de tokens.
+
+---
+
 ## Dependencias Críticas Entre Bloques
 
 ```
@@ -290,4 +320,7 @@ Cuando hay un bloqueo:
 3.1.D → 2.3    (agente clima requiere módulo 2.3 completo)
 3.3.A → 3.3.B,C (decisión de licencia antes de calibrar motores)
 5.1.A → 5.1.B,C,D (datos históricos antes de cualquier ML)
+AGT-001-A → AGT-001-B,C,D (contratos antes del loop)
+AGT-001-C,D → AGT-001-E (loop y delegación antes de tests)
+SPEC-AGT-001 → AUT-001-* (verification loop antes de loops permanentes)
 ```

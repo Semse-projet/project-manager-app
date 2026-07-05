@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { FieldOpsRepository } from "./field-ops.repository.js";
-import type { TrackerSessionView, TrackerSnapshotView } from "@semse/schemas";
+import type { JobRecordView, TrackerBootstrapView, TrackerSessionView, TrackerSnapshotView } from "@semse/schemas";
 import {
   computeTrackerElapsedSeconds,
   mergeTrackerNotes,
@@ -104,11 +104,33 @@ export class FieldOpsService {
     };
   }
 
+  async getTrackerBootstrap(input: {
+    tenantId: string;
+    orgId: string;
+    createdBy: string;
+  }): Promise<TrackerBootstrapView> {
+    const [jobs, snapshot, weekSummary, monthSummary] = await Promise.all([
+      this.listTrackerJobs(input),
+      this.getTrackerSnapshot(input),
+      this.getTrackerSummary({ ...input, range: "week" }),
+      this.getTrackerSummary({ ...input, range: "month" }),
+    ]);
+
+    return {
+      ...snapshot,
+      jobs,
+      summaries: {
+        week: weekSummary,
+        month: monthSummary,
+      },
+    };
+  }
+
   async listTrackerJobs(input: {
     tenantId: string;
     orgId: string;
     createdBy: string;
-  }) {
+  }): Promise<JobRecordView[]> {
     return this.repo.listJobsForTracker({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -132,10 +154,18 @@ export class FieldOpsService {
     tenantId: string;
     createdBy: string;
     limit?: number;
+    jobId?: string;
+    range?: "week" | "month" | "all";
+    status?: TrackerSessionView["status"];
   }): Promise<TrackerSessionView[]> {
+    const range = input.range ?? "all";
+    const days = range === "month" ? 30 : range === "week" ? 7 : undefined;
     const sessions = await this.repo.listTrackerSessions({
       tenantId: input.tenantId,
       createdBy: input.createdBy,
+      jobId: input.jobId?.trim() || undefined,
+      status: input.status,
+      startedAfter: days ? new Date(Date.now() - days * 24 * 3600 * 1000) : undefined,
       limit: Math.min(Math.max(input.limit ?? 50, 1), 200),
     });
 

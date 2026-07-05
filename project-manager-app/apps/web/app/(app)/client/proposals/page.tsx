@@ -23,6 +23,16 @@ function budgetLabel(bid: BidView) {
   return money(bid.amount) ?? "—";
 }
 
+function displayText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object" && "message" in value) {
+    const message = (value as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return fallback;
+}
+
 export default function ClientProposalsPage() {
   const [jobsWithBids, setJobsWithBids] = useState<JobWithBids[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +143,7 @@ export default function ClientProposalsPage() {
                 {/* Job header */}
                 <div className="flex items-center justify-between gap-4 px-5 py-4 border-b border-white/[0.06]">
                   <div>
-                    <h2 className="font-bold text-ink text-base">{job.title}</h2>
+                    <h2 className="font-bold text-ink text-base">{displayText((job as Record<string, unknown>).title, "Trabajo")}</h2>
                     <p className="text-xs text-muted mt-0.5">
                       {submitted.length} pendiente{submitted.length !== 1 ? "s" : ""}
                       {accepted.length > 0 ? ` · ${accepted.length} aceptada${accepted.length !== 1 ? "s" : ""}` : ""}

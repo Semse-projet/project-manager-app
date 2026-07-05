@@ -8,8 +8,12 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const limit = req.nextUrl.searchParams.get("limit");
-    const suffix = limit ? `?limit=${encodeURIComponent(limit)}` : "";
+    const search = new URLSearchParams();
+    for (const key of ["limit", "range", "jobId", "status"]) {
+      const value = req.nextUrl.searchParams.get(key);
+      if (value) search.set(key, value);
+    }
+    const suffix = search.size > 0 ? `?${search.toString()}` : "";
     const data = await fetchSemseDataForRequest<TrackerSessionView[]>(`/v1/time-tracker/sessions${suffix}`, req);
     return NextResponse.json({ requestId: "web-time-tracker-sessions", data });
   } catch (error) {

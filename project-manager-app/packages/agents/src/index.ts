@@ -453,16 +453,44 @@ export {
   executeSpecializedAgent,
   type RuntimeAgentResult
 } from "./runtime.js";
+export {
+  type VerifierName,
+  type VerificationBudget,
+  type VerificationAttempt,
+  type VerificationAttemptStatus,
+  type VerificationFinalStatus,
+  type VerificationReport,
+  type DelegateProfile,
+  verifierNames,
+  delegateProfiles,
+  DEFAULT_MAX_ITERATIONS,
+  HARD_MAX_ITERATIONS,
+  DEFAULT_VERIFICATION_TIMEOUT_MS,
+  EVIDENCE_MAX_BYTES,
+  MAX_CONCURRENT_DELEGATES,
+  DELEGATE_BUDGET_RATIO,
+  MISSING_VERIFICATION_BUDGET_REASON,
+  WRITE_ACTION_TYPES,
+  createDefaultVerificationBudget,
+  clampVerificationBudget,
+  isWriteActionType
+} from "./verification.js";
 export { getActionPolicy, resolveApprovalMode } from "./action-policy.js";
 export { AgentRegistry, type AgentRegistration } from "./registry.js";
 export { AgentRegistry as AgentRegistrations } from "./registrations.js";
 export {
   delegateTo,
   delegateAll,
+  deriveDelegateBudget,
   DELEGATE_BLOCKED_ROLES,
   type DelegateOptions,
   type DelegateResult,
 } from "./delegate.js";
+// NOTA: verifiers.ts (spawnSync) NO se re-exporta aquí a propósito — apps/web
+// importa @semse/agents en componentes de cliente y node:child_process rompería
+// el bundle webpack. Entrypoints server-side importan "@semse/agents/verifiers".
+export type { VerifierContext, VerifierImpl, VerifierOutcome } from "./verifiers.js";
+export { setVerifierRunner, type VerifierRunnerFn } from "./runtime.js";
 
 // ─────────────────────────────────────────────────────────────
 // SEMSE 6-AGENT ARCHITECTURE

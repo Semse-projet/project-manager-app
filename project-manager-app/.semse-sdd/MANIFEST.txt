@@ -1,0 +1,17 @@
+SEMSEproject Spec-Driven Development Kit
+
+Incluye:
+- README.md
+- QUICKSTART.md
+- docs/
+- templates/
+- prompts/
+- checklists/
+- scripts/
+- examples/
+- github/
+- railway/
+- visuals/
+
+Uso:
+Copiar como .semse-sdd dentro de project-manager-app y seguir prompts en orden.

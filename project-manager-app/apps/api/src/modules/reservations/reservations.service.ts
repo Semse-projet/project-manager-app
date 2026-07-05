@@ -104,8 +104,33 @@ export class ReservationsService {
     return reservation;
   }
 
-  async sweepExpired(input: { maxItems?: number }): Promise<{ expiredCount: number; jobsReopened: number }> {
-    return this.reservationsRepository.sweepExpired(input);
+  async sweepExpired(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    maxItems?: number;
+    requestId: string;
+  }): Promise<{ expiredCount: number; jobsReopened: number }> {
+    const result = await this.reservationsRepository.sweepExpired({ maxItems: input.maxItems });
+
+    await this.auditService.append({
+      id: `aud_${Date.now()}`,
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.userId,
+      action: "reservation.sweep_expired",
+      entityType: "JobReservation",
+      entityId: "expired-sweep",
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: {
+        maxItems: input.maxItems,
+        expiredCount: result.expiredCount,
+        jobsReopened: result.jobsReopened
+      }
+    });
+
+    return result;
   }
 
   async expire(input: {

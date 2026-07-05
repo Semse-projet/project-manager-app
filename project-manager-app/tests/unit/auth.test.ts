@@ -55,6 +55,26 @@ test("OPS_ADMIN includes ops-specific and dashboard:write permissions", () => {
   assert.ok(rolePermissions["OPS_ADMIN"].includes("disputes:resolve"));
 });
 
+test("domain permissions are explicit for knowledge, tools, vision, and weather", () => {
+  for (const role of ["CLIENT", "PRO", "WORKER", "OPS_ADMIN"]) {
+    assert.ok(rolePermissions[role].includes("knowledge:read"), `${role} should read knowledge domains`);
+    assert.ok(rolePermissions[role].includes("tools:read"), `${role} should read tools catalog`);
+    assert.ok(rolePermissions[role].includes("tools:run"), `${role} should run tools`);
+    assert.ok(rolePermissions[role].includes("vision:read"), `${role} should read vision results`);
+    assert.ok(rolePermissions[role].includes("vision:run"), `${role} should run vision analysis`);
+    assert.ok(rolePermissions[role].includes("weather:read"), `${role} should read weather alerts`);
+  }
+
+  assert.ok(rolePermissions["CLIENT"].includes("knowledge:write"));
+  assert.ok(rolePermissions["OPS_ADMIN"].includes("knowledge:write"));
+  assert.ok(!rolePermissions["PRO"].includes("knowledge:write"));
+  assert.ok(!rolePermissions["WORKER"].includes("knowledge:write"));
+  assert.ok(rolePermissions["CLIENT"].includes("weather:write"));
+  assert.ok(rolePermissions["PRO"].includes("weather:write"));
+  assert.ok(rolePermissions["OPS_ADMIN"].includes("weather:write"));
+  assert.ok(!rolePermissions["WORKER"].includes("weather:write"));
+});
+
 // ── normalizeRoles ────────────────────────────────────────────────────────────
 
 test("normalizeRoles strips whitespace and deduplicates", () => {

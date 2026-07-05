@@ -1,4 +1,5 @@
 import type { OperatorContext } from "@semse/shared";
+import type { VerificationReport } from "./verification.js";
 
 export const runtimeAgentRoles = [
   "pricing",
@@ -38,7 +39,8 @@ export type AgentToolCategory =
   | "audit"
   | "event"
   | "approval"
-  | "runtime";
+  | "runtime"
+  | "verification";
 
 export type AgentToolName =
   | "context.read.job"
@@ -53,7 +55,13 @@ export type AgentToolName =
   | "audit.record.agent"
   | "event.emit.domain"
   | "approval.request.human"
-  | "runtime.complete_run";
+  | "runtime.complete_run"
+  | "verify.typecheck"
+  | "verify.lint"
+  | "verify.unit_tests"
+  | "verify.build"
+  | "verify.schema"
+  | "verify.custom";
 
 export type AgentContextSource =
   | "event"
@@ -190,6 +198,8 @@ export type GovernedAgentExecutionResult = RuntimeAgentResult & {
     allowedSources: AgentContextSource[];
     data: Record<string, unknown>;
   };
+  /** SPEC-AGT-001: reporte del verification loop (solo runs de escritura). */
+  verification?: VerificationReport;
 };
 
 export const agentToolRegistry: Record<AgentToolName, AgentToolDefinition> = {
@@ -296,6 +306,56 @@ export const agentToolRegistry: Record<AgentToolName, AgentToolDefinition> = {
     actionType: "runtime.complete",
     targetKind: "runtime",
     inherentRisk: "medium"
+  },
+  // SPEC-AGT-001 §2.2 — verificadores del verification loop. Riesgo low,
+  // sin approval: son los mismos comandos de CI ejecutados vía spawnSync.
+  "verify.typecheck": {
+    name: "verify.typecheck",
+    category: "verification",
+    description: "Run tsc --noEmit over the affected workspace.",
+    actionType: "verify.run",
+    targetKind: "runtime",
+    inherentRisk: "low"
+  },
+  "verify.lint": {
+    name: "verify.lint",
+    category: "verification",
+    description: "Run the workspace lint command.",
+    actionType: "verify.run",
+    targetKind: "runtime",
+    inherentRisk: "low"
+  },
+  "verify.unit_tests": {
+    name: "verify.unit_tests",
+    category: "verification",
+    description: "Run the workspace unit test suite.",
+    actionType: "verify.run",
+    targetKind: "runtime",
+    inherentRisk: "low"
+  },
+  "verify.build": {
+    name: "verify.build",
+    category: "verification",
+    description: "Run the workspace build command.",
+    actionType: "verify.run",
+    targetKind: "runtime",
+    inherentRisk: "low"
+  },
+  "verify.schema": {
+    name: "verify.schema",
+    category: "verification",
+    description: "Validate output contracts against packages/schemas.",
+    actionType: "verify.run",
+    targetKind: "runtime",
+    inherentRisk: "low"
+  },
+  "verify.custom": {
+    name: "verify.custom",
+    category: "verification",
+    description: "Injectable verification hook (same pattern as setDelegateImpl).",
+    actionType: "verify.run",
+    targetKind: "runtime",
+    inherentRisk: "low"
   }
 };
 

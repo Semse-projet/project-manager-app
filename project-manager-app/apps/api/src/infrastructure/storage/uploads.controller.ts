@@ -16,6 +16,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { StorageService } from "./storage.service.js";
 import { buildTenantStorageKey, normalizeStorageDomain, normalizeStorageKey } from "./storage-key.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
 
 const ALLOWED_CONTENT_TYPES = new Set([
@@ -157,6 +158,7 @@ export class UploadsController {
    * The client then PUTs the file body to that URL.
    */
   @Get("plan")
+  @RequirePermissions("evidence:write")
   presignUploadPlan(
     @Req() req: { query?: Record<string, unknown>; headers?: Record<string, string | string[] | undefined> },
   ) {
@@ -187,6 +189,7 @@ export class UploadsController {
    * This is called by the client using the URL from the upload plan.
    */
   @Put("files/*")
+  @RequirePermissions("evidence:write")
   async putFile(
     @Param("*") key: string,
     @Req() req: IncomingMessage & { headers: Record<string, string | string[] | undefined> },

@@ -1,0 +1,75 @@
+Implementa Fase 1: Admin Modular Navigation para SEMSEproject.
+
+Contexto:
+Queremos convertir el Admin en un ecosistema modular sin romper rutas existentes.
+
+Crear:
+
+apps/web/lib/admin/admin-navigation.ts
+
+Debe exportar ADMIN_MODULES con estos módulos:
+
+1. mission-control
+2. workops
+3. marketplace
+4. finance
+5. trust
+6. intelligence
+7. tool-hub
+8. verticals
+9. settings
+
+Cada módulo debe tener:
+
+- id
+- label
+- href
+- description
+- status
+- metricLabel
+- metricValue
+- children[]
+
+Crear rutas shell si no existen:
+
+apps/web/app/(app)/admin/workops/page.tsx
+apps/web/app/(app)/admin/intelligence/page.tsx
+apps/web/app/(app)/admin/tool-hub/page.tsx
+apps/web/app/(app)/admin/verticals/page.tsx
+
+Cada página debe mostrar:
+
+- título del módulo
+- descripción
+- tarjetas de submódulos
+- estado
+- métricas compactas
+- botones hacia rutas legacy existentes
+
+Actualizar con cuidado:
+
+apps/web/app/(app)/admin/mission-control/page.tsx
+
+Debe mostrar tarjetas de los módulos principales.
+
+Reglas:
+
+- No borrar rutas legacy.
+- No tocar Prisma.
+- No tocar backend.
+- No cambiar Railway.
+- No instalar librerías nuevas salvo que ya exista lucide-react.
+- Mantener TypeScript estricto.
+
+Validar:
+
+pnpm exec tsc --noEmit --project apps/web/tsconfig.json
+pnpm build:web
+
+Entrega:
+
+- Archivos creados/modificados
+- Rutas nuevas
+- Rutas preservadas
+- Resultado de validación
+- Riesgos restantes

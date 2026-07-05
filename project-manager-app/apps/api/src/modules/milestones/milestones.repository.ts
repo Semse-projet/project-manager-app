@@ -60,6 +60,25 @@ type MilestoneEventContext = {
   clientUserId: string | null;
 };
 
+type VisionAnalysisSummaryRow = {
+  qualityScore: number | null;
+  blurScore: number | null;
+  brightnessScore: number | null;
+  riskLevel: string | null;
+  requiresHumanReview: boolean;
+  canAutoApprove: boolean;
+  riskReasons: unknown;
+};
+
+type OptionalVisionPrisma = {
+  visionAnalysis?: {
+    findMany(input: {
+      where: { milestoneId: string; status: string };
+      select: Record<string, boolean>;
+    }): Promise<VisionAnalysisSummaryRow[]>;
+  };
+};
+
 function toMilestoneRecord(milestone: StoredMilestone, tenantId: string): MilestoneRecord {
   return {
     id: milestone.id,
@@ -843,21 +862,24 @@ export class MilestonesRepository {
     blockers: string[];
     generatedAt: string;
   }> {
-    const analyses = await this.prisma.visionAnalysis.findMany({
-      where: {
-        milestoneId,
-        status: "completed",
-      },
-      select: {
-        qualityScore: true,
-        blurScore: true,
-        brightnessScore: true,
-        riskLevel: true,
-        requiresHumanReview: true,
-        canAutoApprove: true,
-        riskReasons: true,
-      },
-    });
+    const visionDelegate = (this.prisma as unknown as OptionalVisionPrisma).visionAnalysis;
+    const analyses = visionDelegate
+      ? await visionDelegate.findMany({
+          where: {
+            milestoneId,
+            status: "completed",
+          },
+          select: {
+            qualityScore: true,
+            blurScore: true,
+            brightnessScore: true,
+            riskLevel: true,
+            requiresHumanReview: true,
+            canAutoApprove: true,
+            riskReasons: true,
+          },
+        })
+      : [];
 
     if (analyses.length === 0) {
       return {

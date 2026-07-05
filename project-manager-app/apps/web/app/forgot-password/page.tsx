@@ -3,6 +3,15 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
+function errorMessage(error: unknown, fallback: string): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+}
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,9 +29,9 @@ export default function ForgotPasswordPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as { ok?: boolean; error?: unknown };
       if (!res.ok && !data.ok) {
-        setError(data.error ?? "Error al enviar el correo");
+        setError(errorMessage(data.error, "Error al enviar el correo"));
         return;
       }
       setSent(true);

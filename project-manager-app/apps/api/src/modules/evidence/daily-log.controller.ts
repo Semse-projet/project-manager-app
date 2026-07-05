@@ -9,6 +9,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RequirePermissions } from '../../common/permissions.decorator.js';
 import { DailyLogService } from './daily-log.service.js';
 
 /**
@@ -16,6 +17,7 @@ import { DailyLogService } from './daily-log.service.js';
  */
 @Controller('v1/projects/:projectId/evidence/daily-logs')
 @UseGuards(AuthGuard('jwt'))
+@RequirePermissions('evidence:read')
 export class DailyLogController {
   private readonly logger = new Logger(DailyLogController.name);
 
@@ -80,6 +82,7 @@ export class DailyLogController {
    * Firmar daily log (capturar firma digital).
    */
   @Post(':logId/sign')
+  @RequirePermissions('evidence:write')
   async signDailyLog(
     @Param('projectId') projectId: string,
     @Param('logId') logId: string,

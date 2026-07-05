@@ -5,12 +5,14 @@ import {
   repoQuerySchema
 } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
+import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
 import { GraphifyService } from "../graphify/graphify.service.js";
 import { RepoKnowledgeService } from "./repo-knowledge.service.js";
 
 @Controller("v1/repo-knowledge")
+@RequirePermissions("knowledge:read")
 export class RepoKnowledgeController {
   constructor(
     private readonly repoKnowledgeService: RepoKnowledgeService,

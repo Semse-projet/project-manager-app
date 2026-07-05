@@ -2,6 +2,8 @@ export * from "./agent-action.schema.js";
 export * from "./job.schema.js";
 export * from "./agent.schema.js";
 export * from "./agent-governance.schema.js";
+export * from "./agent-verification.schema.js";
+export * from "./autonomy-loops.schema.js";
 export * from "./marketplace.schema.js";
 export * from "./project.schema.js";
 export * from "./ops.schema.js";
