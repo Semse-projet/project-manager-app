@@ -1,5 +1,5 @@
 {
-  "name": "web-assistant-portal",
+  "name": "@semse/assistant-portal",
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
