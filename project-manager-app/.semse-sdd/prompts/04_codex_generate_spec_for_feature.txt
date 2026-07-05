@@ -1,0 +1,22 @@
+Genera una spec SDD para la siguiente feature:
+
+<PEGAR FEATURE AQUÍ>
+
+Usa esta estructura:
+
+- Context
+- Problem
+- Goal
+- Non-goals
+- Users
+- User flow
+- Functional requirements
+- Non-functional requirements
+- Acceptance criteria
+- Risks
+- Validation commands
+
+Usa como plantilla:
+.semse-sdd/templates/feature_spec_template.md
+
+No implementes código todavía. Solo genera la spec y el plan técnico.

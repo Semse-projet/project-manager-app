@@ -1,0 +1,48 @@
+Actúa como arquitecto senior full-stack para SEMSEproject.
+
+Repo objetivo:
+https://github.com/Semse-projet/project-manager-app/tree/main
+
+Raíz canónica:
+project-manager-app/
+
+Objetivo de esta fase:
+Implementar Phase 2 del SDD Kit Plus: Admin Module Shells + Tool Hub MVP + Context Bridge MVP.
+
+Restricciones obligatorias:
+- No tocar backend.
+- No tocar Prisma.
+- No crear migraciones.
+- No cambiar Railway.
+- No borrar rutas legacy.
+- No hacer refactor masivo.
+- No usar logos oficiales de herramientas externas.
+- Mantener TypeScript verde.
+
+Archivos de referencia dentro de este kit:
+- phase_2_execution/runbooks/00_operator_sequence.md
+- phase_2_execution/specs/01_admin_module_shells.md
+- phase_2_execution/specs/02_context_bridge_mvp.md
+- phase_2_execution/contracts/admin_navigation_contract.ts
+- phase_2_execution/tests/validation_matrix.md
+
+Implementación esperada:
+1. Crear `apps/web/lib/admin/admin-navigation.ts` usando el contrato incluido.
+2. Crear componentes compartidos mínimos para cards/shell/context bridge si no existen.
+3. Crear o actualizar estas rutas:
+   - apps/web/app/(app)/admin/workops/page.tsx
+   - apps/web/app/(app)/admin/intelligence/page.tsx
+   - apps/web/app/(app)/admin/tool-hub/page.tsx
+   - apps/web/app/(app)/admin/verticals/page.tsx
+   - apps/web/app/(app)/admin/mission-control/page.tsx
+4. En cada hub, mostrar tarjetas de submódulos y enlaces a rutas existentes.
+5. En Tool Hub, mostrar herramientas externas y Context Bridge.
+6. Ejecutar validaciones.
+
+Entrega:
+- Resumen de cambios.
+- Lista de archivos modificados.
+- Lista de rutas nuevas.
+- Resultado de typecheck/build.
+- Riesgos encontrados.
+- Siguiente PR sugerido.

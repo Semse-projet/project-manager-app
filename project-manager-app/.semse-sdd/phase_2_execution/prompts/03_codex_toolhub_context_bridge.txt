@@ -1,0 +1,41 @@
+Implementa Tool Hub MVP con Context Bridge.
+
+Ruta:
+apps/web/app/(app)/admin/tool-hub/page.tsx
+
+Debe mostrar tiles para:
+- ChatGPT
+- Claude
+- Codex
+- Gemini
+- Notion
+- Figma
+- GitHub
+- Railway
+- n8n
+
+Cada tile:
+- nombre
+- tipo
+- estado
+- botón Open
+- botón Copy Context
+
+Panel Context Bridge:
+- Project: SEMSEproject
+- Repository: Semse-projet/project-manager-app
+- Root: project-manager-app
+- Frontend: apps/web
+- Target: apps/web/app/(app)/admin
+- Active branch: main
+- Latest deploy: Production
+- Current goal: Modular ecosystem restructure
+- Guardrails
+- Suggested prompt
+- botón Copy Prompt
+
+Reglas:
+- No usar secretos.
+- No usar logos oficiales.
+- Clipboard debe tener fallback seguro.
+- No acceder a `window` sin guard.

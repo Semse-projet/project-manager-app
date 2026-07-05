@@ -1,0 +1,16 @@
+Crea el contrato de navegación modular del Admin.
+
+Ubicación sugerida:
+apps/web/lib/admin/admin-navigation.ts
+
+Usa como base el archivo del kit:
+phase_2_execution/contracts/admin_navigation_contract.ts
+
+Requisitos:
+- Debe compilar en TypeScript.
+- No debe importar componentes React.
+- Debe ser usable por server/client components.
+- Debe preservar rutas legacy.
+- Debe exportar ADMIN_MODULES, ADMIN_PRIMARY_NAV, getAdminModuleById y getAdminModuleForPath.
+
+Después de crear el archivo, busca si hay navegación existente y reporta cómo se integraría sin reemplazo destructivo.

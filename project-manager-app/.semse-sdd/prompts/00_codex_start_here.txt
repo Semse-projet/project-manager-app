@@ -1,0 +1,39 @@
+Actúa como arquitecto senior full-stack para SEMSEproject.
+
+Vas a trabajar con un kit de Spec-Driven Development ubicado en:
+
+.semse-sdd/
+
+Antes de tocar código:
+
+1. Lee .semse-sdd/README.md
+2. Lee .semse-sdd/docs/00_ecosystem_architecture.md
+3. Lee .semse-sdd/docs/01_route_map.md
+4. Lee .semse-sdd/checklists/00_guardrails.md
+5. Lee .semse-sdd/templates/feature_spec_template.md
+
+Objetivo del kit:
+Convertir SEMSEproject en un ecosistema modular organizado alrededor de:
+
+- Mission Control
+- WorkOps
+- Marketplace
+- Finance
+- Trust
+- Intelligence
+- Tool Hub
+- Verticals
+- Settings
+
+Reglas obligatorias:
+
+- No borrar rutas legacy.
+- No tocar Prisma en Fase 1.
+- No tocar backend en Fase 1.
+- No cambiar Railway en Fase 1.
+- No hacer refactor masivo.
+- No mover archivos sin necesidad.
+- Entregar cambios pequeños, testeables y reversibles.
+
+Primera acción:
+Entrega una auditoría del estado actual del frontend Admin y un plan de Fase 1. No modifiques código todavía.

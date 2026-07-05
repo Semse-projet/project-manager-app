@@ -1,0 +1,44 @@
+Implementa Tool Hub MVP en SEMSEproject.
+
+Ruta objetivo:
+apps/web/app/(app)/admin/tool-hub/page.tsx
+
+Debe mostrar tiles para:
+
+- ChatGPT
+- Claude
+- Codex
+- Gemini
+- Notion
+- Figma
+- GitHub
+- Railway
+- n8n
+
+No usar logos oficiales. Usar iconos genéricos o lucide-react si ya está disponible.
+
+Cada tile debe tener:
+
+- name
+- type
+- status
+- description
+- Open button
+- Copy Context button
+
+Agregar panel lateral Context Bridge con:
+
+- Project: SEMSEproject
+- Active branch: main
+- Environment: Production
+- Latest deploy: Production
+- Current goal: Modular ecosystem restructure
+- Suggested prompt
+- Copy prompt button
+
+No conectar APIs reales todavía. Esta fase es UI shell + contexto copyable.
+
+Validar:
+
+pnpm exec tsc --noEmit --project apps/web/tsconfig.json
+pnpm build:web
