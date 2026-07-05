@@ -112,14 +112,17 @@ export class AgroTraceabilityService {
 
   async getComplianceSummary(farmId: string, ownerId: string) {
     await this.assertFarm(farmId, ownerId);
-    const checks = await this.prisma.agroComplianceCheck.findMany({ where: { farmId } });
+    const checks = await this.prisma.agroComplianceCheck.findMany({ where: { farmId } }) as Array<{
+      status: string;
+      dueDate: Date | null;
+    }>;
     const now = new Date();
     return {
       total:       checks.length,
-      pending:     checks.filter(c => c.status === "PENDING").length,
-      compliant:   checks.filter(c => c.status === "COMPLIANT").length,
-      nonCompliant: checks.filter(c => c.status === "NON_COMPLIANT").length,
-      overdue:     checks.filter(c => c.status === "PENDING" && c.dueDate && c.dueDate < now).length,
+      pending:     checks.filter((check) => check.status === "PENDING").length,
+      compliant:   checks.filter((check) => check.status === "COMPLIANT").length,
+      nonCompliant: checks.filter((check) => check.status === "NON_COMPLIANT").length,
+      overdue:     checks.filter((check) => check.status === "PENDING" && check.dueDate && check.dueDate < now).length,
     };
   }
 }

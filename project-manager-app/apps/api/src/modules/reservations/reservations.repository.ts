@@ -371,7 +371,10 @@ export class ReservationsRepository {
       return updated;
     })) as StoredReservation;
 
-    return this.toRecord(expired);
+    return this.toRecord({
+      ...expired,
+      professionalOrgId: expired.professionalOrgId ?? (await this.resolveProfessionalOrgId(input.tenantId, expired.professionalId))
+    });
   }
 
   async sweepExpired(input: { maxItems?: number }): Promise<{ expiredCount: number; jobsReopened: number }> {

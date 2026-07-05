@@ -62,9 +62,9 @@ function createPrismaHarness() {
 
   const prisma = {
     job: {
-      async findFirst({ where }: { where: { id: string; tenantId: string; deletedAt: null } }) {
+      async findFirst({ where }: { where: { id: string; tenantId?: string; deletedAt: null } }) {
         const job = state.jobs.get(where.id);
-        if (!job || job.tenantId !== where.tenantId || job.deletedAt !== null) return null;
+        if (!job || (where.tenantId && job.tenantId !== where.tenantId) || job.deletedAt !== null) return null;
         return { id: job.id, tenantId: job.tenantId, clientOrgId: job.clientOrgId, status: job.status };
       },
       async update({ where, data }: { where: { id: string }; data: { status: string } }) {
@@ -75,8 +75,13 @@ function createPrismaHarness() {
       },
     },
     jobReservation: {
-      async findMany({ where }: { where: { jobId: string; job: { tenantId: string; deletedAt: null } } }) {
-        return state.reservations.filter((row) => row.jobId === where.jobId && row.job.tenantId === where.job.tenantId);
+      async findMany({ where }: { where: { jobId?: string; status?: string; expiresAt?: { lte: Date }; job?: { tenantId: string; deletedAt: null } } }) {
+        return state.reservations.filter((row) =>
+          (where.jobId ? row.jobId === where.jobId : true) &&
+          (where.status ? row.status === where.status : true) &&
+          (where.expiresAt?.lte ? row.expiresAt <= where.expiresAt.lte : true) &&
+          (where.job ? row.job.tenantId === where.job.tenantId : true)
+        );
       },
       async findFirst({ where }: { where: { jobId?: string; id?: string; status?: string; job?: { tenantId: string; deletedAt?: null } } }) {
         return state.reservations.find((row) =>
@@ -225,7 +230,15 @@ test("reservations controller declares permissions and caps sweep maxItems", asy
   }
 
   const result = await controller.sweepExpired(
-    { headers: { "x-request-id": "req_res_1" } } as never,
+    {
+      headers: {
+        "x-request-id": "req_res_1",
+        "x-tenant-id": "tenant_1",
+        "x-org-id": "org_ops",
+        "x-user-id": "usr_ops_1",
+        "x-roles": "OPS_ADMIN"
+      }
+    } as never,
     { maxItems: 999 }
   );
 
@@ -262,6 +275,54 @@ test("reservations service rejects TTL outside the allowed range and uses the de
   assert.equal(created.status, "active");
   assert.equal(created.professionalOrgId, "org_pro_1");
   assert.equal(auditEvents.length, 1);
+});
+
+test("reservations service audits expired reservation sweep", async () => {
+  const { service, state, auditEvents } = createRepositoryHarness();
+  const job = state.jobs.get("job_1");
+  assert.ok(job);
+  job.status = "RESERVED";
+  state.reservations.push({
+    id: "res_stale",
+    jobId: "job_1",
+    professionalOrgId: "org_pro_1",
+    professionalId: "usr_pro_1",
+    status: "ACTIVE",
+    reservedAt: new Date("2026-06-09T10:00:00.000Z"),
+    expiresAt: new Date(Date.now() - 60_000),
+    releasedAt: null,
+    acceptedAt: null,
+    job: { id: job.id, tenantId: job.tenantId, clientOrgId: job.clientOrgId }
+  });
+
+  const result = await service.sweepExpired({
+    tenantId: "tenant_1",
+    orgId: "org_ops",
+    userId: "usr_ops_1",
+    maxItems: 10,
+    requestId: "req_sweep"
+  });
+
+  assert.deepEqual(result, { expiredCount: 1, jobsReopened: 1 });
+  assert.equal(state.reservations[0]?.status, "EXPIRED");
+  assert.equal(state.jobs.get("job_1")?.status, "POSTED");
+  assert.equal(auditEvents.length, 1);
+  assert.deepEqual(auditEvents[0], {
+    id: auditEvents[0].id,
+    tenantId: "tenant_1",
+    orgId: "org_ops",
+    actorUserId: "usr_ops_1",
+    action: "reservation.sweep_expired",
+    entityType: "JobReservation",
+    entityId: "expired-sweep",
+    requestId: "req_sweep",
+    timestamp: auditEvents[0].timestamp,
+    afterJson: {
+      maxItems: 10,
+      expiredCount: 1,
+      jobsReopened: 1
+    }
+  });
 });
 
 test("reservations repository enforces tenant isolation and terminal reservation conflicts", async () => {
