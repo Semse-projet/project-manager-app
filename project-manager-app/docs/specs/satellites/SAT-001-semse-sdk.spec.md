@@ -11,15 +11,20 @@ date: "2026-07-05"
 author: "Claude — sesión planificación satélites"
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
-  - packages/shared
-  - packages/auth
-  - packages/schemas
-related_tests: []
+  - apps/api/src/modules/satellites
+  - packages/sdk
+  - packages/auth/src/rbac.ts
+  - packages/db/prisma/migrations/20260705000000_satellite_tokens
+related_tests:
+  - apps/api/test/satellites-service.test.ts
+  - apps/api/test/satellite-scope-guard.test.ts
+  - tests/unit/sdk-client.test.ts
 related_endpoints:
   - v1/satellites/tokens
+  - v1/satellites/me
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-05"
 ---
 
 # Spec: `@semse/sdk` + `semse_py` + satellite tokens

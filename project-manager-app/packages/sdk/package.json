@@ -1,0 +1,22 @@
+{
+  "name": "@semse/sdk",
+  "version": "0.1.0",
+  "description": "SEMSE satellite SDK — cliente TypeScript del API /v1 para satélites (SAT-001)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}
