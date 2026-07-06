@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { ChevronDown, Clock, Download, Pause, Play, Plus, Receipt, ShieldCheck, Square } from "lucide-react";
+import { BarChart3, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
 import {
   createManualTrackerSession,
   fetchJobContract,
@@ -40,6 +40,10 @@ import {
   type TrackerLocalState,
   type TrackerPendingEvent,
 } from "./trackerLocalStore";
+import { ResumenTab } from "./sections/ResumenTab";
+import { RegistrosTab } from "./sections/RegistrosTab";
+import { ProyectosTab } from "./sections/ProyectosTab";
+import { ReportesTab } from "./sections/ReportesTab";
 
 function pad(n: number) {
   return String(Math.floor(n)).padStart(2, "0");
@@ -212,6 +216,16 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
 type TrackerHistoryRange = "week" | "month" | "all";
 type TrackerHistoryStatus = TrackerSessionView["status"] | "all";
 
+type TrackerTab = "timer" | "resumen" | "registros" | "proyectos" | "reportes";
+
+const TRACKER_TABS: { value: TrackerTab; label: string; icon: typeof Timer }[] = [
+  { value: "timer", label: "Timer", icon: Timer },
+  { value: "resumen", label: "Resumen", icon: LayoutDashboard },
+  { value: "registros", label: "Registros", icon: ListChecks },
+  { value: "proyectos", label: "Proyectos", icon: FolderOpen },
+  { value: "reportes", label: "Reportes", icon: BarChart3 },
+];
+
 function trackerHistoryStatusLabel(status: TrackerHistoryStatus) {
   return status === "all" ? "Todos los estados" : STATUS_META[status].label;
 }
@@ -233,6 +247,7 @@ function isSessionInHistoryRange(session: TrackerSessionView, range: TrackerHist
 
 export default function WorkerTrackerPage() {
   const { t } = useLanguage();
+  const [tab, setTab] = useState<TrackerTab>("timer");
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
   const [sessions, setSessions] = useState<TrackerSessionView[]>([]);
   const [activeSession, setActiveSession] = useState<TrackerSessionView | null>(null);
@@ -823,6 +838,60 @@ export default function WorkerTrackerPage() {
         <NotificationBanner audience="worker" />
       </HtmlInCanvasPanel>
 
+      <div
+        data-testid="tracker-tabs"
+        style={{
+          display: "flex",
+          gap: "6px",
+          flexWrap: "wrap",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "12px",
+          padding: "6px",
+        }}
+      >
+        {TRACKER_TABS.map((item) => {
+          const active = tab === item.value;
+          return (
+            <button
+              key={item.value}
+              type="button"
+              data-testid={`tracker-tab-${item.value}`}
+              onClick={() => setTab(item.value)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "7px",
+                flex: "1 1 auto",
+                justifyContent: "center",
+                padding: "9px 14px",
+                borderRadius: "9px",
+                border: "none",
+                background: active ? "var(--brand)" : "transparent",
+                color: active ? "#fff" : "var(--muted)",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              <item.icon size={14} />
+              {item.label}
+              {item.value === "timer" && activeSession ? (
+                <span
+                  style={{
+                    width: "7px",
+                    height: "7px",
+                    borderRadius: "999px",
+                    background: activeSession.status === "RUNNING" ? "#10b981" : "#f59e0b",
+                    boxShadow: activeSession.status === "RUNNING" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
+                  }}
+                />
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
       {syncBanner ? (
         <div data-testid="tracker-sync-banner" style={syncBannerStyle(syncBanner.tone)}>
           <strong style={{ color: "var(--ink)", fontSize: "13px" }}>{syncBanner.title}</strong>
@@ -847,6 +916,12 @@ export default function WorkerTrackerPage() {
         </div>
       ) : null}
 
+      {tab === "resumen" ? <ResumenTab jobs={jobs} /> : null}
+      {tab === "registros" ? <RegistrosTab jobs={jobs} /> : null}
+      {tab === "proyectos" ? <ProyectosTab jobs={jobs} /> : null}
+      {tab === "reportes" ? <ReportesTab jobs={jobs} /> : null}
+
+      <div style={{ display: tab === "timer" ? "grid" : "none", gap: "18px" }}>
       <HtmlInCanvasPanel as="section" style={{ ...card, textAlign: "center" }} canvasClassName="rounded-2xl" minHeight={340}>
         <div
           data-testid="tracker-elapsed"
@@ -1280,6 +1355,7 @@ export default function WorkerTrackerPage() {
             ))
           )}
         </div>
+      </div>
       </div>
     </div>
   );
