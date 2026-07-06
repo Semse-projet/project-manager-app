@@ -322,6 +322,21 @@ model PasswordResetToken {
   @@index([userId, status, expiresAt])
 }
 
+model SatelliteToken {
+  id         String    @id @default(cuid())
+  name       String    @unique
+  tokenHash  String    @unique
+  scopes     String[]
+  status     String    @default("ACTIVE")
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status])
+}
+
 model Role {
   id           String           @id @default(cuid())
   key          String           @unique

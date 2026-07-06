@@ -860,6 +860,265 @@ function VendorsTab() {
   );
 }
 
+// ── Tracker Tab ───────────────────────────────────────────────────────────────
+
+interface TrackerSessionView {
+  id: string;
+  jobId: string;
+  status: "RUNNING" | "PAUSED" | "STOPPED";
+  startedAt: string;
+  resumedAt: string | null;
+  stoppedAt: string | null;
+  accumulatedSeconds: number;
+  elapsedSeconds: number;
+  notes: string | null;
+  job: { id: string; title: string; status: string };
+}
+
+interface TrackerJob { id: string; title: string; status: string }
+
+interface TrackerSummary {
+  totalSeconds: number;
+  activeSession: TrackerSessionView | null;
+  byJob: Array<{ jobId: string; jobTitle: string; seconds: number }>;
+}
+
+function fmtDuration(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return h > 0
+    ? `${h}h ${String(m).padStart(2, "0")}m`
+    : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function TrackerTab() {
+  const [summary, setSummary] = useState<TrackerSummary | null>(null);
+  const [todaySessions, setTodaySessions] = useState<TrackerSessionView[]>([]);
+  const [jobs, setJobs] = useState<TrackerJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
+  const [showStart, setShowStart] = useState(false);
+  const [fJobId, setFJobId] = useState("");
+  const [fNotes, setFNotes] = useState("");
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const [sum, sessions, jbs] = await Promise.all([
+        apiFetch<TrackerSummary>("/api/semse/time-tracker/summary"),
+        apiFetch<TrackerSessionView[]>("/api/semse/time-tracker/sessions?limit=30"),
+        apiFetch<TrackerJob[]>("/api/semse/time-tracker/jobs"),
+      ]);
+      setSummary(sum);
+      const today = new Date().toISOString().slice(0, 10);
+      setTodaySessions(sessions.filter(s => s.startedAt.slice(0, 10) === today));
+      setJobs(jbs);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error cargando tracker");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  async function startSession(e: React.FormEvent) {
+    e.preventDefault();
+    if (!fJobId) return;
+    setActing(true);
+    try {
+      await apiFetch("/api/semse/time-tracker/sessions/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jobId: fJobId, notes: fNotes.trim() || undefined }),
+      });
+      setShowStart(false); setFJobId(""); setFNotes("");
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error al iniciar");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function act(route: string) {
+    setActing(true);
+    try {
+      await apiFetch(route, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  const active = summary?.activeSession;
+  const liveElapsed = active?.status === "RUNNING"
+    ? active.accumulatedSeconds + Math.floor((now - new Date(active.resumedAt ?? active.startedAt).getTime()) / 1000)
+    : (active?.accumulatedSeconds ?? 0);
+  const todayTotal = todaySessions.reduce((acc, s) => {
+    if (s.status === "RUNNING") return acc + s.accumulatedSeconds + Math.floor((now - new Date(s.resumedAt ?? s.startedAt).getTime()) / 1000);
+    return acc + s.accumulatedSeconds;
+  }, 0);
+
+  if (loading) return (
+    <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-20 animate-pulse rounded-xl bg-white/[0.03]" />)}</div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
+          {error} <button onClick={() => setError(null)} className="ml-2 underline">Cerrar</button>
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+          <p className="text-[0.65rem] text-[var(--muted)]">Total hoy</p>
+          <p className="mt-1 text-2xl font-bold text-[var(--ink)]">{fmtDuration(todayTotal)}</p>
+        </div>
+        <div className={cn("rounded-xl border p-4", active ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/[0.06] bg-white/[0.03]")}>
+          <p className="text-[0.65rem] text-[var(--muted)]">Estado</p>
+          <p className={cn("mt-1 text-sm font-semibold",
+            active?.status === "RUNNING" ? "text-emerald-400" : active?.status === "PAUSED" ? "text-yellow-400" : "text-zinc-400")}>
+            {active?.status === "RUNNING" ? "⏱ En curso" : active?.status === "PAUSED" ? "⏸ Pausado" : "⏹ Sin sesión"}
+          </p>
+          {active && <p className="mt-0.5 text-xl font-bold text-[var(--ink)]">{fmtDuration(liveElapsed)}</p>}
+        </div>
+      </div>
+
+      {/* Active session controls */}
+      {active ? (
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-[var(--ink)]">Sesión activa</p>
+              <p className="text-[0.65rem] text-[var(--muted)]">{active.job.title}</p>
+            </div>
+            <span className={cn("rounded-full px-2.5 py-0.5 text-[0.6rem] font-semibold",
+              active.status === "RUNNING" ? "bg-emerald-500/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-400")}>
+              {active.status}
+            </span>
+          </div>
+          {active.notes && <p className="mb-3 text-[0.65rem] italic text-[var(--muted)]">"{active.notes}"</p>}
+          <div className="flex flex-wrap gap-2">
+            {active.status === "RUNNING" ? (
+              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/pause`)}
+                className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-400 disabled:opacity-40">
+                {acting ? "…" : "⏸ Pausar"}
+              </button>
+            ) : (
+              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/resume`)}
+                className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 disabled:opacity-40">
+                {acting ? "…" : "▶ Reanudar"}
+              </button>
+            )}
+            <button disabled={acting} onClick={() => void act(`/api/semse/time-tracker/sessions/${active.id}/stop`)}
+              className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40">
+              {acting ? "…" : "⏹ Detener"}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {!showStart ? (
+            <button onClick={() => setShowStart(true)}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500">
+              ▶ Iniciar nueva sesión
+            </button>
+          ) : (
+            <form onSubmit={startSession} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+              <p className="mb-3 text-xs font-semibold text-[var(--ink)]">Nueva sesión</p>
+              <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Trabajo *</label>
+                  <select required value={fJobId} onChange={e => setFJobId(e.target.value)}
+                    className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)]">
+                    <option value="">Seleccionar trabajo…</option>
+                    {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Notas</label>
+                  <input value={fNotes} onChange={e => setFNotes(e.target.value)} placeholder="Qué vas a trabajar…"
+                    className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)]" />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={acting || !fJobId}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
+                  {acting ? "Iniciando…" : "▶ Iniciar"}
+                </button>
+                <button type="button" onClick={() => setShowStart(false)}
+                  className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs text-[var(--muted)]">
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* Today's sessions */}
+      <div>
+        <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--muted)]">
+          Sesiones de hoy ({todaySessions.length})
+        </p>
+        {todaySessions.length === 0 ? (
+          <p className="text-xs text-[var(--muted)]">Sin sesiones hoy. Inicia una para registrar tu tiempo.</p>
+        ) : (
+          <div className="space-y-2">
+            {todaySessions.map(s => (
+              <div key={s.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className={cn("text-sm",
+                    s.status === "RUNNING" ? "text-emerald-400" : s.status === "PAUSED" ? "text-yellow-400" : "text-zinc-500")}>
+                    {s.status === "RUNNING" ? "⏱" : s.status === "PAUSED" ? "⏸" : "⏹"}
+                  </span>
+                  <div>
+                    <p className="text-xs font-medium text-[var(--ink)]">{s.job.title}</p>
+                    <p className="text-[0.65rem] text-[var(--muted)]">
+                      {new Date(s.startedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                      {s.stoppedAt ? ` → ${new Date(s.stoppedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                    </p>
+                  </div>
+                </div>
+                <span className="font-mono text-xs font-semibold text-[var(--ink)]">{fmtDuration(s.elapsedSeconds)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Weekly by-job */}
+      {(summary?.byJob?.length ?? 0) > 0 && (
+        <div>
+          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--muted)]">Esta semana</p>
+          <div className="space-y-2">
+            {summary!.byJob.map(j => (
+              <div key={j.jobId} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
+                <p className="text-xs text-[var(--ink)]">{j.jobTitle}</p>
+                <span className="font-mono text-xs font-semibold text-[var(--brand,#3b82f6)]">{fmtDuration(j.seconds)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -867,6 +1126,7 @@ const TABS = [
   { id: "worklogs",  label: "Worklogs",         icon: "📋" },
   { id: "knowledge", label: "Base de conocimiento", icon: "🧠" },
   { id: "vendors",   label: "Proveedores",      icon: "🏢" },
+  { id: "tracker",   label: "Tracker",          icon: "⏱" },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -933,6 +1193,7 @@ export default function FieldOpsPage() {
           {activeTab === "worklogs"  && <WorklogsTab />}
           {activeTab === "knowledge" && <KnowledgeTab />}
           {activeTab === "vendors"   && <VendorsTab />}
+          {activeTab === "tracker"   && <TrackerTab />}
         </div>
       </div>
     </div>
