@@ -14,7 +14,7 @@
     "test:coverage": "node ../../node_modules/c8/bin/c8.js --reporter=text --reporter=text-summary --reporter=html --reporter=lcov --reporter=json-summary --include=src/**/*.ts --exclude=test/**/*.test.ts --exclude=**/*.d.ts --check-coverage --lines 70 --functions 65 --branches 80 --statements 70 node --experimental-strip-types --test $(find test -name '*.test.ts' ! -name '*-integration.test.ts' | sort)"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.106.0",
+    "@anthropic-ai/sdk": "^0.110.0",
     "@fastify/cors": "^11.1.0",
     "@fastify/helmet": "^13.0.1",
     "@fastify/static": "^9.1.3",
@@ -24,7 +24,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.27",
     "@nestjs/platform-fastify": "^11.1.27",
-    "@nestjs/swagger": "^11.2.1",
+    "@nestjs/swagger": "^11.4.5",
     "@nestjs/throttler": "^6.4.0",
     "@semse/agents": "workspace:*",
     "@semse/auth": "workspace:*",
@@ -34,7 +34,7 @@
     "@semse/schemas": "workspace:*",
     "@semse/shared": "workspace:*",
     "@semse/tools": "workspace:*",
-    "@sentry/node": "^10.62.0",
+    "@sentry/node": "^10.63.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/pdfkit": "^0.17.6",
@@ -51,7 +51,7 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.23",
-    "@types/multer": "^2.1.0",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.20.0",
     "typescript": "^5.8.2"
   }
