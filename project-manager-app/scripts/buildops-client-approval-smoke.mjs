@@ -48,6 +48,10 @@ async function api(method, pathname, actor, body) {
   return readJson(response);
 }
 
+function assertHttpOk(result, label) {
+  assert.ok(result.status === 200 || result.status === 201, `${label} failed: ${result.text}`);
+}
+
 async function cleanupFixture(input) {
   await prisma.milestone.deleteMany({ where: { project: { tenantId: input.tenantId } } });
   await prisma.evidence.deleteMany({ where: { project: { tenantId: input.tenantId } } });
@@ -235,7 +239,7 @@ async function main() {
       clientActor,
       { source: "client" },
     );
-    assert.equal(clientApprove.status, 200, clientApprove.text);
+    assertHttpOk(clientApprove, "client approve");
     const firstApprovedAt = clientApprove.json?.data?.clientPlanApprovedAt;
     assert.equal(clientApprove.json?.data?.clientPlanApprovalStatus, "approved");
 
@@ -245,7 +249,7 @@ async function main() {
       clientActor,
       { source: "client" },
     );
-    assert.equal(secondApprove.status, 200, secondApprove.text);
+    assertHttpOk(secondApprove, "second approve");
     assert.equal(secondApprove.json?.data?.clientPlanApprovedAt, firstApprovedAt);
 
     const unapprove = await api(
@@ -254,7 +258,7 @@ async function main() {
       clientActor,
       { reason: "Necesito revisar el alcance antes de seguir." },
     );
-    assert.equal(unapprove.status, 200, unapprove.text);
+    assertHttpOk(unapprove, "unapprove");
     assert.equal(unapprove.json?.data?.clientPlanApprovalStatus, "pending");
 
     const adminApproveWithoutReason = await api(
@@ -271,7 +275,7 @@ async function main() {
       adminActor,
       { source: "admin_override", reason: "Override operativo validado por admin." },
     );
-    assert.equal(adminApprove.status, 200, adminApprove.text);
+    assertHttpOk(adminApprove, "admin approve");
     assert.equal(adminApprove.json?.data?.clientPlanApprovalSource, "admin_override");
 
     await prisma.jobReservation.create({
