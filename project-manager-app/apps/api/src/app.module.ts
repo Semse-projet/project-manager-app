@@ -69,6 +69,7 @@ import { EvidenceGatewayModule } from "./modules/evidence-gateway/evidence-gatew
 import { WorkerVerificationModule } from "./modules/worker-verification/worker-verification.module.js";
 import { BrowserAgentModule } from "./modules/browser-agent/browser-agent.module.js";
 import { VisionModule } from "./modules/vision/vision.module.js";
+import { SatellitesModule } from "./modules/satellites/satellites.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -150,6 +151,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     WorkerVerificationModule,
     BrowserAgentModule,
     VisionModule,
+    SatellitesModule,
   ],
   controllers: [HealthController],
   providers: [

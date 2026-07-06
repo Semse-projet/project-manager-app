@@ -193,7 +193,8 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:read",
     "weather:write",
     "agro:read",
-    "agro:write"
+    "agro:write",
+    "satellites:admin"
   ]
 };
 

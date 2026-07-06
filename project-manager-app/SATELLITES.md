@@ -8,7 +8,7 @@ coincidir con esta tabla (SAT-008); toda divergencia es señal de Consciousness.
 
 | Satélite | Spec | Estado | Token (id) | Scopes | Kill switch | Último heartbeat | Notas |
 |---|---|---|---|---|---|---|---|
-| semse-sdk (infra) | SAT-001 | APPROVED | — | — | `SATELLITE_TOKENS_ENABLED` | — | Prerrequisito de todos; SAT-000 también APPROVED |
+| semse-sdk (infra) | SAT-001 | APPROVED | — | — | `SATELLITE_TOKENS_ENABLED` | — | Implementado 2026-07-05 (módulo satellites + @semse/sdk, anillos 1-2 verdes); falta anillo 3-4 para CONNECTED-STAGING |
 | alexa | SAT-002 | DRAFT | — | `intake:write`, `intake:read` | `SATELLITE_ALEXA_ENABLED` | — | Lambda en `~/alexa-openai-skill` |
 | mobile | SAT-003 | DRAFT | — | `jobs:*`, `milestones:read`, `events:subscribe` | `SATELLITE_MOBILE_ENABLED` | — | `~/labsemse/semse-mobile-app` |
 | graphify | SAT-004 | DRAFT | — | `knowledge:read`, `events:subscribe` | `SATELLITE_GRAPHIFY_ENABLED` | — | Sidecar `semse-graphify` |
