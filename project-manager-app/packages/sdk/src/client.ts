@@ -39,7 +39,11 @@ export class SemseClient {
     if (!options.baseUrl) throw new SemseNetworkError("baseUrl is required");
     if (!options.token) throw new SemseAuthError("token is required");
 
-    this.baseUrl = options.baseUrl.replace(/\/+$/, "");
+    let baseUrl = options.baseUrl;
+    while (baseUrl.endsWith("/")) {
+      baseUrl = baseUrl.slice(0, -1);
+    }
+    this.baseUrl = baseUrl;
     this.token = options.token;
     this.timeoutMs = options.timeoutMs ?? 15_000;
     this.retries = options.retries ?? 2;
