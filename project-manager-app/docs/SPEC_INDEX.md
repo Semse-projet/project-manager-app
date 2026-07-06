@@ -27,6 +27,7 @@
 | Spec ID | Domain | Status | Risk | API | UI | Tests | Related Files | Last Verified |
 |---|---|---|---|---|---|---|---|---|
 | [semse-agent-architecture](docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | high | yes | no | yes | 5 | 2026-06-09 |
+| [agt-001-verification-loop](docs/specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [api-agents-runtime](docs/specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-bff-auth-boundary](docs/specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | high | yes | yes | yes | 3 | 2026-06-28 |
 | [api-buildops](docs/specs/api/buildops.spec.md) | buildops | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
@@ -43,20 +44,33 @@
 | [api-milestone-lifecycle](docs/specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-06-07 |
 | [api-payments-escrow](docs/specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
 | [api-prometeo-rag-trade-knowledge](docs/specs/api/prometeo.spec.md) | prometeo | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-rbac-explicit-boundary](docs/specs/api/rbac-explicit-boundary.spec.md) | missing | VERIFIED | l2 | yes | no | no | 0 | missing |
+| [api-readiness](docs/specs/api/readiness.spec.md) | missing | VERIFIED | l2 | yes | no | no | 0 | missing |
 | [api-reservations](docs/specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [aut-001-permanent-loops](docs/specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [fsm-agent-run-lifecycle](docs/specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [fsm-buildops-plan-lifecycle](docs/specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-escrow-lifecycle](docs/specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-job-lifecycle](docs/specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-milestone-lifecycle](docs/specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-reservation-lifecycle](docs/specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
+| [satellites.sdd-harness](docs/specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | high | no | no | no | 3 | missing |
+| [satellites.semse-sdk](docs/specs/satellites/SAT-001-semse-sdk.spec.md) | api | APPROVED | high | yes | no | no | 3 | missing |
+| [satellites.alexa-voice](docs/specs/satellites/SAT-002-alexa-voice-channel.spec.md) | communications | DRAFT | medium | yes | no | no | 1 | missing |
+| [satellites.mobile-app](docs/specs/satellites/SAT-003-mobile-app-client.spec.md) | ui | DRAFT | high | yes | no | no | 2 | missing |
+| [satellites.graphify-knowledge](docs/specs/satellites/SAT-004-graphify-knowledge.spec.md) | rag | DRAFT | medium | no | no | no | 2 | missing |
+| [satellites.storage-driver](docs/specs/satellites/SAT-005-storage-driver.spec.md) | evidence | DRAFT | medium | yes | no | no | 1 | missing |
+| [satellites.protools-embed](docs/specs/satellites/SAT-006-protools-embed.spec.md) | tools | DRAFT | low | yes | no | no | 1 | missing |
+| [satellites.outbound-webhooks](docs/specs/satellites/SAT-007-outbound-webhooks.spec.md) | api | DRAFT | high | yes | no | no | 2 | missing |
+| [satellites.observer-nodes](docs/specs/satellites/SAT-008-observer-satellite-nodes.spec.md) | ops | DRAFT | medium | yes | no | no | 1 | missing |
 | [m1-1-material-pricing](docs/specs/tools/fase-1/m1.1-material-pricing.spec.md) | tools | VERIFIED | medium | yes | no | yes | 4 | 2026-06-09 |
 | [m1-2-regional-costs](docs/specs/tools/fase-1/m1.2-regional-costs.spec.md) | tools | VERIFIED | medium | yes | no | yes | 4 | 2026-06-09 |
 | [m1-3-stripe-escrow](docs/specs/tools/fase-1/m1.3-stripe-escrow.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
 | [m1-4-contracts](docs/specs/tools/fase-1/m1.4-contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
-| [m2-1-lien-rights](docs/specs/tools/fase-2/m2.1-lien-rights.spec.md) | tools | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
-| [m2-2-dispute-docs](docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
-| [m2-3-weather](docs/specs/tools/fase-2/m2.3-weather.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [tools-fase-2-m2-1-lien-rights](docs/specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | missing | yes | no | no | 0 | missing |
+| [tools-fase-2-m2-2-dispute-docs](docs/specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | APPROVED | missing | yes | no | no | 0 | missing |
+| [tools-fase-2-m2-3-weather](docs/specs/tools/fase-2/m2.3-weather.spec.md) | operations | APPROVED | missing | yes | no | no | 0 | missing |
+| [tools-fase-3-m3-1-multi-stage-releases](docs/specs/tools/fase-3/m3.1-multi-stage-releases.spec.md) | missing | READY | missing | yes | no | no | 0 | missing |
 | [m3-1-proactive-agents](docs/specs/tools/fase-3/m3.1-proactive-agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [m3-2-extended-metrics](docs/specs/tools/fase-3/m3.2-extended-metrics.spec.md) | tools | VERIFIED | medium | yes | no | yes | 3 | 2026-06-09 |
 | [m3-3-labor-calibration](docs/specs/tools/fase-3/m3.3-labor-calibration.spec.md) | tools | VERIFIED | medium | yes | no | yes | 3 | 2026-06-09 |
@@ -72,7 +86,9 @@
 | [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
+
 <!-- SPEC_INDEX:END -->
+
 
 ## Specs — Agentic Loop (ADR-021)
 
