@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Star, ChevronLeft, ChevronRight, Quote } from "lucide-react";
 import { PublicLandingTestimonial } from "../../lib/public-landing";
 
@@ -124,7 +124,7 @@ export function TestimonialsCarousel({ testimonials }: TestimonialsCarouselProps
     }, 5000);
   };
 
-  const variants = {
+  const variants: Variants = {
     enter: (dir: number) => ({
       x: dir > 0 ? 100 : -100,
       opacity: 0,
