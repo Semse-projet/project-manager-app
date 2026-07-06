@@ -53,7 +53,7 @@ export class MarketplaceService {
 
     const where = {
       tenantId:  input.tenantId,
-      status:    "PUBLISHED" as const,
+      status:    { in: ["POSTED", "PUBLISHED"] as never[] },
       deletedAt: null,
       ...(input.category ? { category: input.category }             : {}),
       ...(input.location ? { location: { contains: input.location, mode: "insensitive" as const } } : {}),
@@ -100,7 +100,7 @@ export class MarketplaceService {
 
   async getStats(tenantId: string): Promise<MarketplaceStats> {
     const jobs = await this.prisma.job.findMany({
-      where: { tenantId, status: "PUBLISHED", deletedAt: null },
+      where: { tenantId, status: { in: ["POSTED", "PUBLISHED"] }, deletedAt: null },
       select: { category: true, urgency: true, budgetMin: true },
     });
 

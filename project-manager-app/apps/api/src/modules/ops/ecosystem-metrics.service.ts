@@ -96,12 +96,12 @@ export class EcosystemMetricsService {
   private async getJobsMetrics(tenantId: string) {
     const [total, published, inProgress, completed, byCategory] = await Promise.all([
       this.prisma.job.count({ where: { tenantId, deletedAt: null } }),
-      this.prisma.job.count({ where: { tenantId, deletedAt: null, status: "PUBLISHED" } }),
+      this.prisma.job.count({ where: { tenantId, deletedAt: null, status: { in: ["POSTED", "PUBLISHED"] as never[] } } }),
       this.prisma.job.count({ where: { tenantId, deletedAt: null, status: { in: ["RESERVED", "ACCEPTED", "IN_PROGRESS"] as never[] } } }),
       this.prisma.job.count({ where: { tenantId, deletedAt: null, status: "COMPLETED" as never } }),
       this.prisma.job.groupBy({
         by: ["category"],
-        where: { tenantId, deletedAt: null, status: "PUBLISHED" },
+        where: { tenantId, deletedAt: null, status: { in: ["POSTED", "PUBLISHED"] } },
         _count: { id: true },
       }),
     ]);

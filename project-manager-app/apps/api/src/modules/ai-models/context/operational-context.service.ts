@@ -138,7 +138,7 @@ export class OperationalContextService {
     ]);
 
     const activeJobs = jobs.filter((j: JobSummaryRow) => ["IN_PROGRESS", "RESERVED", "ACCEPTED"].includes(j.status));
-    const waitingJobs = jobs.filter((j: JobSummaryRow) => j.status === "PUBLISHED");
+    const waitingJobs = jobs.filter((j: JobSummaryRow) => j.status === "POSTED" || j.status === "PUBLISHED");
     const completedJobs = jobs.filter((j: JobSummaryRow) => j.status === "COMPLETED");
 
     // Load project data if projectId given
