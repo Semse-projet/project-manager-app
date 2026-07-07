@@ -37,13 +37,21 @@ export const BLS_SERIES: BlsPpiSeries[] = [
 
 const BLS_API_BASE = "https://api.bls.gov/publicAPI/v2/timeseries/data/";
 
+// DB column is Decimal(6,4): a signed percentage must fit in ±99.9999.
+const CHANGE_YOY_LIMIT = 99.9999;
+
+export type BlsSeriesReading = {
+  latest: number;
+  yearAgo?: number;
+};
+
 @Injectable()
 export class BlsPpiService {
   private readonly logger = new Logger(BlsPpiService.name);
 
-  async fetchSeries(seriesIds: string[]): Promise<Map<string, number>> {
+  async fetchSeries(seriesIds: string[]): Promise<Map<string, BlsSeriesReading>> {
     const unique = [...new Set(seriesIds)];
-    const result = new Map<string, number>();
+    const result = new Map<string, BlsSeriesReading>();
 
     try {
       const body = {
@@ -75,10 +83,19 @@ export class BlsPpiService {
       }
 
       for (const series of data.Results.series) {
-        const latest = series.data.find(d => d.period !== "M13"); // skip annual average
-        if (latest) {
-          result.set(series.seriesID, parseFloat(latest.value));
-        }
+        // BLS returns data in reverse chronological order; skip the annual-average pseudo-period.
+        const monthly = series.data.filter(d => d.period !== "M13");
+        const latest = monthly[0];
+        if (!latest) continue;
+
+        const yearAgo = monthly.find(
+          d => d.period === latest.period && d.year === String(Number(latest.year) - 1)
+        );
+
+        result.set(series.seriesID, {
+          latest: parseFloat(latest.value),
+          yearAgo: yearAgo ? parseFloat(yearAgo.value) : undefined,
+        });
       }
     } catch (err) {
       this.logger.warn(`BLS API fetch failed: ${(err as Error).message}`);
@@ -95,7 +112,8 @@ export class BlsPpiService {
     const now = new Date();
 
     for (const series of BLS_SERIES) {
-      const currentIndex = indexMap.get(series.seriesId);
+      const reading = indexMap.get(series.seriesId);
+      const currentIndex = reading?.latest;
 
       if (currentIndex) {
         // Convert PPI index (base 2012=100) to approximate USD price
@@ -103,8 +121,7 @@ export class BlsPpiService {
         const adjustmentFactor = currentIndex / 100;
         const pricePerUnit = Math.round(series.basePrice * adjustmentFactor * 100) / 100;
 
-        // Approximate YoY change — would need prior year data for accuracy
-        const changeYoY = Math.round((adjustmentFactor - 1) * 10000) / 100;
+        const changeYoY = this.computeChangeYoY(currentIndex, reading?.yearAgo);
 
         results.push({
           seriesId: series.seriesId,
@@ -133,5 +150,19 @@ export class BlsPpiService {
     }
 
     return results;
+  }
+
+  /**
+   * True year-over-year change using the same-month index from a year ago.
+   * Falls back to null when no prior-year reading is available (e.g. a
+   * newly tracked series). Clamped to the DB column's range regardless —
+   * commodity indices can genuinely swing past ±100% in volatile years.
+   */
+  private computeChangeYoY(current: number, yearAgo: number | undefined): number | null {
+    if (!yearAgo || yearAgo <= 0) return null;
+
+    const rawChange = ((current - yearAgo) / yearAgo) * 100;
+    const rounded = Math.round(rawChange * 100) / 100;
+    return Math.max(-CHANGE_YOY_LIMIT, Math.min(CHANGE_YOY_LIMIT, rounded));
   }
 }

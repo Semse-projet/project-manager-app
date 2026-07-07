@@ -115,8 +115,8 @@ export function AsistenteTab() {
         degraded: result.mode === "fallback",
       };
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo contactar a Cronos.");
+    } catch {
+      setError("No se pudo contactar a Cronos. Intenta de nuevo en unos segundos.");
     } finally {
       setSending(false);
     }

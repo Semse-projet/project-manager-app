@@ -8,24 +8,14 @@ import {
   validateWebServerEnv
 } from "@semse/shared";
 import { decodeSession, SESSION_COOKIE } from "../../../lib/auth";
+import { AccessTokenBootstrapper } from "./_access-token-bootstrap";
 
 type ApiEnvelope<T> = {
   requestId: string;
   data: T;
 };
 
-type AuthTokenResponse = {
-  accessToken?: string;
-  token?: string;
-  accessExpiresAt?: string;
-};
-
-type CachedAccessToken = {
-  value: string;
-  expiresAt: number;
-};
-
-const accessTokenCache = new Map<string, CachedAccessToken>();
+const accessTokenBootstrapper = new AccessTokenBootstrapper();
 
 type RuntimeConfig = {
   apiBaseUrl: string;
@@ -218,50 +208,23 @@ async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestIni
     config.userId,
     config.roles
   ].join("::");
-  const now = Date.now();
-  const cachedToken = accessTokenCache.get(cacheKey);
   const shouldBootstrapAccessToken =
     process.env.NODE_ENV === "production" || process.env.SEMSE_ENABLE_ACCESS_TOKEN_BOOTSTRAP === "true";
 
   let authorizationHeader: string | undefined;
-  if (cachedToken && cachedToken.expiresAt > now + 30_000) {
-    authorizationHeader = `Bearer ${cachedToken.value}`;
-  } else if (shouldBootstrapAccessToken) {
-    try {
-      const tokenAbort = new AbortController();
-      const tokenTimeout = setTimeout(() => tokenAbort.abort(), 4_000);
-      const authResponse = await fetch(`${config.apiBaseUrl}/v1/auth/token`, {
-        method: "POST",
-        cache: "no-store",
-        signal: tokenAbort.signal,
-        headers: {
-          ...buildBootstrapHeaders(),
-          "content-type": "application/json"
-        },
-        body: JSON.stringify({
-          tenantId: config.tenantId,
-          orgId: config.orgId,
-          userId: config.userId,
-          roles: parseRoleList(config.roles)
-        })
-      }).finally(() => clearTimeout(tokenTimeout));
-
-      if (authResponse.ok) {
-        const envelope = (await authResponse.json()) as ApiEnvelope<AuthTokenResponse>;
-        const accessToken = envelope.data?.accessToken ?? envelope.data?.token;
-        if (typeof accessToken === "string" && accessToken.trim().length > 0) {
-          const expiresAtRaw = envelope.data?.accessExpiresAt;
-          const parsedExpiry = typeof expiresAtRaw === "string" ? Date.parse(expiresAtRaw) : NaN;
-          accessTokenCache.set(cacheKey, {
-            value: accessToken.trim(),
-            expiresAt: Number.isFinite(parsedExpiry) ? parsedExpiry : now + 55 * 60 * 1000
-          });
-          authorizationHeader = `Bearer ${accessToken.trim()}`;
-        }
-      }
-    } catch {
-      // Fall back to plain identity headers for bootstrap/dev environments.
-    }
+  if (shouldBootstrapAccessToken) {
+    // Concurrent callers for the same identity share one in-flight bootstrap —
+    // otherwise a page that mounts several components at once bursts past
+    // POST /v1/auth/token's rate limit and the losers proceed unauthenticated.
+    const accessToken = await accessTokenBootstrapper.getToken(cacheKey, {
+      apiBaseUrl: config.apiBaseUrl,
+      tenantId: config.tenantId,
+      orgId: config.orgId,
+      userId: config.userId,
+      roles: parseRoleList(config.roles),
+      bootstrapHeaders: buildBootstrapHeaders()
+    });
+    if (accessToken) authorizationHeader = `Bearer ${accessToken}`;
   }
 
   const response = await fetch(`${config.apiBaseUrl}${path}`, {
