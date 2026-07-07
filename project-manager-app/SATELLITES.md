@@ -10,7 +10,7 @@ coincidir con esta tabla (SAT-008); toda divergencia es señal de Consciousness.
 |---|---|---|---|---|---|---|---|
 | semse-sdk (infra) | SAT-001 | CONNECTED-STAGING | — | — | `SATELLITE_TOKENS_ENABLED=true` (Railway prod) | — | Anillo 4 cerrado 2026-07-07 contra prod real (docs/reportes/2026-07-07_sat001_sat002_railway_smoke.md). Falta LIVE: uso continuo por un satélite real |
 | alexa | SAT-002 | CONNECTED-STAGING | `cmra4rlsy0000mz01xp2dvbdw` | `intake:write` | `SEMSE_SATELLITE_ENABLED` (lambda, aún `false`) + `SATELLITE_TOKENS_ENABLED=true` (API) | 2026-07-07T04:14:49Z | Token real emitido y probado en prod (happy path + 2 negativos + heartbeat, ver reporte). Falta LIVE: desplegar Lambda con el token y `SEMSE_SATELLITE_ENABLED=true` + prueba con dispositivo Alexa |
-| mobile | SAT-003 | DRAFT | — | `jobs:*`, `milestones:read`, `events:subscribe` | `SATELLITE_MOBILE_ENABLED` | — | `~/labsemse/semse-mobile-app` |
+| mobile | SAT-003 | APPROVED | — | `jobs:read`, `milestones:read` (SDK); `jobs:write`, `events:subscribe` pendientes de uso | `SATELLITE_MOBILE_ENABLED` (aún no creado — sin rutas que lo requieran) | — | `~/labsemse/semse-mobile-app`. Implementado 2026-07-07: `SatelliteAppGuard` (doble identidad app+usuario) + SDK jobs/milestones, 16 tests. Sin enganchar a rutas reales aún (ver spec §4.1) — falta decisión de producto antes de anillo 3/4 |
 | graphify | SAT-004 | DRAFT | — | `knowledge:read`, `events:subscribe` | `SATELLITE_GRAPHIFY_ENABLED` | — | Sidecar `semse-graphify` |
 | storage | SAT-005 | DRAFT | — | `uploads:driver` (si HTTP) | `STORAGE_DRIVER` env | — | Unificar 2 copias locales |
 | protools-embed | SAT-006 | DRAFT (LATENTE) | — | `tools:invoke` | `SATELLITE_PROTOOLS_ENABLED` | — | Token asumido público |
