@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -158,5 +159,47 @@ export class SatellitesService {
       });
 
     return { id: record.id, name: record.name, scopes: record.scopes };
+  }
+
+  /**
+   * Resuelve el canal declarado en x-semse-channel (SAT-002). Reclamar un
+   * canal exige un satellite token valido con el scope requerido; sin header
+   * devuelve null (canal por defecto del llamador, normalmente "web").
+   */
+  async resolveChannel(
+    headers: Record<string, unknown>,
+    requiredScope: string = "intake:write"
+  ): Promise<string | null> {
+    const rawChannel = headers["x-semse-channel"];
+    if (typeof rawChannel !== "string" || !rawChannel.trim()) {
+      return null;
+    }
+
+    const channel = rawChannel.trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9-]{0,29}$/.test(channel)) {
+      throw new UnauthorizedException({ message: "Invalid x-semse-channel value" });
+    }
+
+    const authorization = headers.authorization;
+    const token =
+      typeof authorization === "string" && authorization.trim().toLowerCase().startsWith("bearer ")
+        ? authorization.trim().slice(7).trim()
+        : null;
+    if (!token) {
+      throw new UnauthorizedException({
+        message: "Channel claims require a satellite token — 'Authorization: Bearer sst_...'"
+      });
+    }
+
+    const satellite = await this.verifyToken(token);
+    if (!satellite.scopes.includes(requiredScope)) {
+      throw new ForbiddenException({
+        message: "Satellite token lacks required scopes",
+        required: [requiredScope],
+        missing: [requiredScope]
+      });
+    }
+
+    return channel;
   }
 }

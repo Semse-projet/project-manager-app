@@ -17,6 +17,7 @@ import {
   buildLiveSummary,
   buildNormalizedTitle,
   detectCategoryConfidence,
+  buildVoicePrompt,
   detectLanguage,
   derivePaintingScope,
   getAccuracyDetail,
@@ -61,6 +62,7 @@ type StoredIntake = {
   city: string | null;
   urgency: string | null;
   detectedLanguage: string;
+  channel: string | null;
   categoryConfidence: number;
   accuracyScore: number;
   accuracyLevel: string;
@@ -92,6 +94,7 @@ type AnalyzeInput = {
   modality?: "on_site" | "remote" | "hybrid" | null;
   city?: string | null;
   urgency?: "low" | "medium" | "high" | "urgent" | null;
+  channel?: string | null;
 };
 
 type PublishResult = {
@@ -144,6 +147,7 @@ export class SmartIntakeService {
       city: row.city,
       urgency: (row.urgency as ProjectIntakeRecord["urgency"]) ?? null,
       detectedLanguage: (row.detectedLanguage as ProjectIntakeRecord["detectedLanguage"]) ?? "es",
+      channel: row.channel ?? "web",
       categoryConfidence: row.categoryConfidence,
       accuracyScore: row.accuracyScore,
       accuracyLevel: row.accuracyLevel as ProjectIntakeRecord["accuracyLevel"],
@@ -207,6 +211,7 @@ export class SmartIntakeService {
       create: {
         id: intake.id,
         tenantId: intake.tenantId,
+        channel: intake.channel,
         userId: intake.userId,
         sessionToken: intake.sessionToken,
         publishedJobId: intake.publishedJobId,
@@ -249,13 +254,16 @@ export class SmartIntakeService {
     tips: BilingualString[];
     liveSummary: LiveSummary;
     estimateUnlocked: boolean;
+    voicePrompt: string | null;
   } {
+    const nextQuestion = getNextQuestion(intake);
     return {
       intake,
-      nextQuestion: getNextQuestion(intake),
+      nextQuestion,
       tips: generateTips(intake),
       liveSummary: buildLiveSummary(intake),
       estimateUnlocked: getAccuracyDetail(intake).estimateReady,
+      voicePrompt: buildVoicePrompt(intake, nextQuestion),
     };
   }
 
@@ -334,6 +342,7 @@ export class SmartIntakeService {
         modality: input.modality ?? null,
         city: input.city ?? null,
         urgency: input.urgency ?? null,
+        channel: input.channel ?? null,
       });
     }
 
