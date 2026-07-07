@@ -24,7 +24,11 @@ function jsonResponse(status: number, body: unknown) {
   };
 }
 
-function makeClient(responses: Array<ReturnType<typeof jsonResponse>> | (() => never), calls: RecordedCall[] = []) {
+function makeClient(
+  responses: Array<ReturnType<typeof jsonResponse>> | (() => never),
+  calls: RecordedCall[] = [],
+  extraOptions: Partial<{ appToken: string }> = {}
+) {
   const queue = Array.isArray(responses) ? [...responses] : responses;
   const fetchFn = (async (url: string, init: RequestInit) => {
     calls.push({ url, init });
@@ -34,7 +38,7 @@ function makeClient(responses: Array<ReturnType<typeof jsonResponse>> | (() => n
     return next;
   }) as unknown as typeof fetch;
 
-  return new SemseClient({ baseUrl: "https://api.semse.test/", token: "sst_test", fetchFn });
+  return new SemseClient({ baseUrl: "https://api.semse.test/", token: "sst_test", fetchFn, ...extraOptions });
 }
 
 test("SDK: envía bearer token y x-semse-sdk-version, desenvuelve el envelope", async () => {
@@ -121,4 +125,52 @@ test("SDK: intake.answer usa PATCH /v1/intake/:id/answer", async () => {
 
   assert.equal(calls[0].url, "https://api.semse.test/v1/intake/int_1/answer");
   assert.equal(calls[0].init.method, "PATCH");
+});
+
+// ── SAT-003: doble identidad (appToken) + recursos jobs/milestones ─────────────
+
+test("SDK: sin appToken no envía x-semse-app-token", async () => {
+  const calls: RecordedCall[] = [];
+  await makeClient([jsonResponse(200, { requestId: "r5", data: { ok: true } })], calls).satellites.me();
+
+  const headers = calls[0].init.headers as Record<string, string>;
+  assert.equal(Object.hasOwn(headers, "x-semse-app-token"), false);
+});
+
+test("SDK: con appToken envía x-semse-app-token junto al bearer de sesión de usuario", async () => {
+  const calls: RecordedCall[] = [];
+  const client = makeClient(
+    [jsonResponse(200, { requestId: "r6", data: [] })],
+    calls,
+    { appToken: "sst_mobile_app_token" }
+  );
+
+  await client.jobs.list();
+
+  const headers = calls[0].init.headers as Record<string, string>;
+  assert.equal(headers.authorization, "Bearer sst_test");
+  assert.equal(headers["x-semse-app-token"], "sst_mobile_app_token");
+});
+
+test("SDK: jobs.list construye query de status; jobs.get usa /v1/jobs/:id", async () => {
+  const calls: RecordedCall[] = [];
+  const client = makeClient(
+    [jsonResponse(200, { requestId: "r7", data: [] }), jsonResponse(200, { requestId: "r8", data: {} })],
+    calls
+  );
+
+  await client.jobs.list({ status: "posted" });
+  await client.jobs.get("job_1");
+
+  assert.equal(calls[0].url, "https://api.semse.test/v1/jobs?status=posted");
+  assert.equal(calls[1].url, "https://api.semse.test/v1/jobs/job_1");
+});
+
+test("SDK: milestones.listByJob usa /v1/jobs/:jobId/milestones", async () => {
+  const calls: RecordedCall[] = [];
+  const client = makeClient([jsonResponse(200, { requestId: "r9", data: [] })], calls);
+
+  await client.milestones.listByJob("job_1");
+
+  assert.equal(calls[0].url, "https://api.semse.test/v1/jobs/job_1/milestones");
 });

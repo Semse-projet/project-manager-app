@@ -8,4 +8,6 @@ export {
   SemseApiError
 } from "./errors.js";
 export { IntakeResource, type AnalyzeInput, type AnswerInput } from "./resources/intake.js";
+export { JobsResource, type ListJobsQuery } from "./resources/jobs.js";
+export { MilestonesResource } from "./resources/milestones.js";
 export { SatellitesResource, type SatelliteMe } from "./resources/satellites.js";

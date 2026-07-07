@@ -6,6 +6,8 @@ import {
   SemseScopeError
 } from "./errors.js";
 import { IntakeResource } from "./resources/intake.js";
+import { JobsResource } from "./resources/jobs.js";
+import { MilestonesResource } from "./resources/milestones.js";
 import { SatellitesResource } from "./resources/satellites.js";
 
 export const SDK_VERSION = "0.1.0";
@@ -13,8 +15,19 @@ export const SDK_VERSION = "0.1.0";
 export type SemseClientOptions = {
   /** Base URL del API SEMSE, ej. https://api.semse.example */
   baseUrl: string;
-  /** Satellite token (sst_...) emitido en /admin (SAT-001). */
+  /**
+   * Bearer principal. Para satélites de servicio (Alexa) es el satellite
+   * token (sst_...). Para satélites que actúan en nombre de un usuario
+   * (mobile, SAT-003) es la sesión de usuario (SEMSE Signed Token); en ese
+   * caso combinar con `appToken`.
+   */
   token: string;
+  /**
+   * Satellite token de la app (sst_...), enviado como `x-semse-app-token`
+   * junto al `token` de sesión de usuario (SAT-003 — doble identidad:
+   * autorización efectiva = permisos del usuario ∩ scopes de la app).
+   */
+  appToken?: string;
   /** Timeout por request en ms. Default 15000. */
   timeoutMs?: number;
   /** Reintentos para GET idempotentes. Default 2. */
@@ -27,10 +40,13 @@ export type ApiEnvelope<T> = { requestId: string; data: T };
 
 export class SemseClient {
   readonly intake: IntakeResource;
+  readonly jobs: JobsResource;
+  readonly milestones: MilestonesResource;
   readonly satellites: SatellitesResource;
 
   private readonly baseUrl: string;
   private readonly token: string;
+  private readonly appToken?: string;
   private readonly timeoutMs: number;
   private readonly retries: number;
   private readonly fetchFn: typeof fetch;
@@ -45,11 +61,14 @@ export class SemseClient {
     }
     this.baseUrl = baseUrl;
     this.token = options.token;
+    this.appToken = options.appToken;
     this.timeoutMs = options.timeoutMs ?? 15_000;
     this.retries = options.retries ?? 2;
     this.fetchFn = options.fetchFn ?? fetch;
 
     this.intake = new IntakeResource(this);
+    this.jobs = new JobsResource(this);
+    this.milestones = new MilestonesResource(this);
     this.satellites = new SatellitesResource(this);
   }
 
@@ -84,6 +103,7 @@ export class SemseClient {
           authorization: `Bearer ${this.token}`,
           "content-type": "application/json",
           "x-semse-sdk-version": SDK_VERSION,
+          ...(this.appToken ? { "x-semse-app-token": this.appToken } : {}),
           ...headers
         },
         body: body === undefined ? undefined : JSON.stringify(body)

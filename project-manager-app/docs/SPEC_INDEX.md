@@ -57,7 +57,7 @@
 | [satellites.sdd-harness](docs/specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | high | no | no | no | 3 | missing |
 | [satellites.semse-sdk](docs/specs/satellites/SAT-001-semse-sdk.spec.md) | api | APPROVED | high | yes | no | yes | 4 | 2026-07-07 |
 | [satellites.alexa-voice](docs/specs/satellites/SAT-002-alexa-voice-channel.spec.md) | communications | APPROVED | medium | yes | no | yes | 5 | 2026-07-07 |
-| [satellites.mobile-app](docs/specs/satellites/SAT-003-mobile-app-client.spec.md) | ui | DRAFT | high | yes | no | no | 2 | missing |
+| [satellites.mobile-app](docs/specs/satellites/SAT-003-mobile-app-client.spec.md) | ui | APPROVED | high | yes | no | yes | 3 | 2026-07-07 |
 | [satellites.graphify-knowledge](docs/specs/satellites/SAT-004-graphify-knowledge.spec.md) | rag | DRAFT | medium | no | no | no | 2 | missing |
 | [satellites.storage-driver](docs/specs/satellites/SAT-005-storage-driver.spec.md) | evidence | DRAFT | medium | yes | no | no | 1 | missing |
 | [satellites.protools-embed](docs/specs/satellites/SAT-006-protools-embed.spec.md) | tools | DRAFT | low | yes | no | no | 1 | missing |
@@ -88,6 +88,7 @@
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
 
 <!-- SPEC_INDEX:END -->
+
 
 
 
