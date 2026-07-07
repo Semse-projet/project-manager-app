@@ -112,7 +112,7 @@ export class PaymentGovernanceRepository {
       where: {
         AND: [
           { OR: [{ buildOpsProjectId: projectId }, { milestoneId }] },
-          { status: { in: ["predicted", "submitted"] } },
+          { status: { in: ["predicted", "submitted", "changes_requested"] } },
         ],
       },
     });

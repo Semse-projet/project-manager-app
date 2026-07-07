@@ -944,7 +944,7 @@ export class MilestonesRepository {
         where: { projectId: input.projectId, deletedAt: null },
       }),
       this.prisma.milestone.count({
-        where: { projectId: input.projectId, deletedAt: null, status: "APPROVED" },
+        where: { projectId: input.projectId, deletedAt: null, status: { in: ["APPROVED", "PAID"] } },
       }),
     ]);
     return total > 0 && total === approved;

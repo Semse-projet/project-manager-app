@@ -287,23 +287,28 @@ export class BidsRepository {
 
     const accepted = (await this.prisma.$transaction(async (tx) => {
       const db = tx as BidTx;
-      const existingAcceptedReservation = await db.jobReservation.findFirst({
+      const conflictingReservation = await db.jobReservation.findFirst({
         where: {
           jobId: bid.jobId,
-          status: "ACCEPTED"
+          status: { in: ["ACTIVE", "ACCEPTED"] }
         },
         select: {
           id: true,
+          status: true,
           professionalId: true,
           professionalOrgId: true
         }
       });
 
+      if (conflictingReservation?.status === "ACTIVE") {
+        throw new ConflictException("job already has an active reservation flow");
+      }
+
       if (
-        existingAcceptedReservation &&
+        conflictingReservation &&
         (
-          existingAcceptedReservation.professionalId !== bid.professionalUserId ||
-          existingAcceptedReservation.professionalOrgId !== bid.proOrgId
+          conflictingReservation.professionalId !== bid.professionalUserId ||
+          conflictingReservation.professionalOrgId !== bid.proOrgId
         )
       ) {
         throw new ConflictException("job already has an accepted reservation");
@@ -339,7 +344,7 @@ export class BidsRepository {
         }
       });
 
-      if (!existingAcceptedReservation) {
+      if (!conflictingReservation) {
         const now = new Date();
         await db.jobReservation.create({
           data: {
