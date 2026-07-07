@@ -24,7 +24,7 @@ related_endpoints:
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-06"
+last_verified: "2026-07-07"
 ---
 
 # Spec: Alexa como canal de voz (satélite `~/alexa-openai-skill`)

@@ -24,7 +24,7 @@ related_endpoints:
   - v1/satellites/me
 related_events: []
 related_agents: []
-last_verified: "2026-07-05"
+last_verified: "2026-07-07"
 ---
 
 # Spec: `@semse/sdk` + `semse_py` + satellite tokens
