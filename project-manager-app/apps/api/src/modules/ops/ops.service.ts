@@ -746,7 +746,7 @@ export class OpsService {
         },
       }),
       this.prisma.changeOrderCandidate.count({
-        where: { tenantId, status: { in: ["predicted", "submitted"] } },
+        where: { tenantId, status: { in: ["predicted", "submitted", "changes_requested"] } },
       }),
     ]);
 

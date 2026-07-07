@@ -82,17 +82,26 @@ export class EscrowReleaseService {
         netAmountUsd    = result.netAmountUsd;
         platformFeeCents = result.platformFeeCents;
 
-        // Record PaymentTxn for the release
-        await this.prisma.paymentTxn.create({
-          data: {
-            escrowId:   milestone.project?.escrow.id,
-            milestoneId,
-            type:       "RELEASE",
-            amount:     netAmountUsd,
-            providerRef: transferId,
-            status:     "SUCCEEDED",
-          },
-        });
+        // Record PaymentTxn for the release and mark the milestone paid, so a
+        // second auto-release attempt is blocked by the same "already released"
+        // guard the manual release path relies on (computePaymentReadiness
+        // treats status === "PAID" as released).
+        await this.prisma.$transaction([
+          this.prisma.paymentTxn.create({
+            data: {
+              escrowId:   milestone.project?.escrow.id,
+              milestoneId,
+              type:       "RELEASE",
+              amount:     netAmountUsd,
+              providerRef: transferId,
+              status:     "SUCCEEDED",
+            },
+          }),
+          this.prisma.milestone.update({
+            where: { id: milestoneId },
+            data: { status: "PAID" },
+          }),
+        ]);
 
         this.logger.log(`[EscrowRelease] Released $${netAmountUsd} for milestone ${milestoneId} → transfer ${transferId}`);
 
