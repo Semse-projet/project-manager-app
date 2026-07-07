@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   BadRequestException, Body, Controller, Delete, Get,
   Param, Patch, Post, Query, Req,
@@ -7,6 +8,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { LaborEngineService } from "./labor-engine.service.js";
+import { LaborChatService } from "./labor-chat.service.js";
 
 function actor(req: { headers?: Record<string, unknown> }) {
   return resolveRequestContext(req);
@@ -17,7 +19,10 @@ function rid(req: { headers?: Record<string, unknown> }) {
 
 @Controller("v1/labor")
 export class LaborEngineController {
-  constructor(private readonly svc: LaborEngineService) {}
+  constructor(
+    private readonly svc: LaborEngineService,
+    private readonly chat: LaborChatService,
+  ) {}
 
   // ── Free Projects ─────────────────────────────────────────────────────────
 
@@ -231,6 +236,31 @@ export class LaborEngineController {
   async monthlySummary(@Req() req: { headers?: Record<string, unknown> }) {
     const a = actor(req);
     const data = await this.svc.getMonthlySummary(a.tenantId, a.userId);
+    return ok(rid(req), data);
+  }
+
+  // ── Chat (Cronos, vía Ollama local) ───────────────────────────────────────
+
+  @Post("chat")
+  @RequirePermissions("field-ops:read")
+  async chatWithCronos(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Body() body: Record<string, unknown>,
+  ) {
+    const a = actor(req);
+    const message = typeof body["message"] === "string" ? body["message"].trim() : "";
+    if (!message) throw new BadRequestException("message is required");
+    const threadId = typeof body["threadId"] === "string" && body["threadId"].trim().length > 0
+      ? body["threadId"].trim()
+      : randomUUID();
+
+    const data = await this.chat.chat({
+      tenantId: a.tenantId,
+      orgId: a.orgId,
+      userId: a.userId,
+      message,
+      threadId,
+    });
     return ok(rid(req), data);
   }
 }
