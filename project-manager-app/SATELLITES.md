@@ -8,8 +8,8 @@ coincidir con esta tabla (SAT-008); toda divergencia es señal de Consciousness.
 
 | Satélite | Spec | Estado | Token (id) | Scopes | Kill switch | Último heartbeat | Notas |
 |---|---|---|---|---|---|---|---|
-| semse-sdk (infra) | SAT-001 | APPROVED | — | — | `SATELLITE_TOKENS_ENABLED` | — | Implementado 2026-07-05 (módulo satellites + @semse/sdk, anillos 1-2 verdes); falta anillo 3-4 para CONNECTED-STAGING |
-| alexa | SAT-002 | APPROVED | — | `intake:write` | `SEMSE_SATELLITE_ENABLED` (lambda) + `SATELLITE_TOKENS_ENABLED` (API) | — | Implementado 2026-07-06: canal `x-semse-channel`, voicePrompt, DescribeProjectIntent + fallback OpenAI. Falta emitir token real + smoke Railway (anillo 4) para CONNECTED-STAGING |
+| semse-sdk (infra) | SAT-001 | CONNECTED-STAGING | — | — | `SATELLITE_TOKENS_ENABLED=true` (Railway prod) | — | Anillo 4 cerrado 2026-07-07 contra prod real (docs/reportes/2026-07-07_sat001_sat002_railway_smoke.md). Falta LIVE: uso continuo por un satélite real |
+| alexa | SAT-002 | CONNECTED-STAGING | `cmra4rlsy0000mz01xp2dvbdw` | `intake:write` | `SEMSE_SATELLITE_ENABLED` (lambda, aún `false`) + `SATELLITE_TOKENS_ENABLED=true` (API) | 2026-07-07T04:14:49Z | Token real emitido y probado en prod (happy path + 2 negativos + heartbeat, ver reporte). Falta LIVE: desplegar Lambda con el token y `SEMSE_SATELLITE_ENABLED=true` + prueba con dispositivo Alexa |
 | mobile | SAT-003 | DRAFT | — | `jobs:*`, `milestones:read`, `events:subscribe` | `SATELLITE_MOBILE_ENABLED` | — | `~/labsemse/semse-mobile-app` |
 | graphify | SAT-004 | DRAFT | — | `knowledge:read`, `events:subscribe` | `SATELLITE_GRAPHIFY_ENABLED` | — | Sidecar `semse-graphify` |
 | storage | SAT-005 | DRAFT | — | `uploads:driver` (si HTTP) | `STORAGE_DRIVER` env | — | Unificar 2 copias locales |
