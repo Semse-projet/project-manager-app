@@ -68,6 +68,7 @@ type StoredIntake = {
   city: string | null;
   urgency: string | null;
   detectedLanguage: string;
+  channel: string | null;
   categoryConfidence: number;
   accuracyScore: number;
   accuracyLevel: string;
@@ -1165,6 +1166,7 @@ export class IntakeOperationsBridgeService {
       city: row.city,
       urgency: (row.urgency as ProjectIntakeRecord["urgency"]) ?? null,
       detectedLanguage: (row.detectedLanguage as ProjectIntakeRecord["detectedLanguage"]) ?? "es",
+      channel: row.channel ?? "web",
       categoryConfidence: row.categoryConfidence,
       accuracyScore: row.accuracyScore,
       accuracyLevel: row.accuracyLevel as ProjectIntakeRecord["accuracyLevel"],

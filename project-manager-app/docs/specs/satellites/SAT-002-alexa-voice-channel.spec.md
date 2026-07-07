@@ -4,21 +4,27 @@ title: "SAT-002 — Alexa como canal de voz de Prometeo/Smart-Intake"
 type: spec
 domain: "communications"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
 date: "2026-07-05"
 author: "Claude — sesión planificación satélites"
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
-  - apps/api/src/modules/communications
-related_tests: []
+  - apps/api/src/modules/satellites/satellites.service.ts
+  - apps/api/src/modules/smart-intake
+  - packages/db/prisma/migrations/20260706000000_intake_channel
+  - "~/alexa-openai-skill/lambda/services/semse.service.js"
+  - "~/alexa-openai-skill/lambda/index.js"
+related_tests:
+  - apps/api/test/satellite-channel.test.ts
+  - "~/alexa-openai-skill/lambda/test-local-semse.js"
 related_endpoints:
-  - v1/intake
+  - v1/intake/analyze
 related_events: []
 related_agents:
   - prometeo
-last_verified: ""
+last_verified: "2026-07-06"
 ---
 
 # Spec: Alexa como canal de voz (satélite `~/alexa-openai-skill`)

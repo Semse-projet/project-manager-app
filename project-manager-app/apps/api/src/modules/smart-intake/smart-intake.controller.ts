@@ -17,6 +17,7 @@ import { AuthenticatedAccess, RequirePermissions } from "../../common/permission
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { SatellitesService } from "../satellites/satellites.service.js";
 import { SmartIntakeService } from "./smart-intake.service.js";
 import { getAccuracyDetail } from "./smart-intake.logic.js";
 
@@ -89,7 +90,10 @@ function requireSessionToken(headers: Record<string, unknown>, body?: { sessionT
 
 @Controller("v1/intake")
 export class SmartIntakeController {
-  constructor(private readonly smartIntakeService: SmartIntakeService) {}
+  constructor(
+    private readonly smartIntakeService: SmartIntakeService,
+    private readonly satellitesService: SatellitesService
+  ) {}
 
   @Post("cleanup-expired")
   @RequirePermissions("ops:dashboard:write")
@@ -115,9 +119,11 @@ export class SmartIntakeController {
       sessionToken: typeof body.sessionToken === "string" ? body.sessionToken : undefined,
     });
     const tenantId = tenantIdHeader?.trim() || "tenant_default";
+    const channel = await this.satellitesService.resolveChannel(req.headers ?? {});
     const result = await this.smartIntakeService.analyze({
       tenantId,
       sessionToken,
+      channel,
       intakeId: parsed.data.intakeId,
       rawDescription: parsed.data.rawDescription,
       title: parsed.data.title,
@@ -142,6 +148,7 @@ export class SmartIntakeController {
       tips: result.tips,
       nextQuestion: result.nextQuestion,
       estimateUnlocked: result.estimateUnlocked,
+      voicePrompt: result.voicePrompt,
       status: result.intake.status,
     });
   }
@@ -179,6 +186,7 @@ export class SmartIntakeController {
       nextQuestion: result.nextQuestion,
       estimateUnlocked: result.estimateUnlocked,
       liveSummary: result.liveSummary,
+      voicePrompt: result.voicePrompt,
       status: result.intake.status,
     });
   }

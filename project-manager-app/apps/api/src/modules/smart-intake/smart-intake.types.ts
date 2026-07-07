@@ -213,6 +213,7 @@ export type ProjectIntakeRecord = {
   city: string | null;
   urgency: "low" | "medium" | "high" | "urgent" | null;
   detectedLanguage: "es" | "en";
+  channel: string;
   categoryConfidence: number;
   accuracyScore: number;
   accuracyLevel: AccuracyLevel;

@@ -2325,6 +2325,7 @@ model ProjectIntake {
   city                   String?
   urgency                String?
   detectedLanguage       String   @default("es")
+  channel                String   @default("web")
   categoryConfidence     Float    @default(0)
   accuracyScore          Int      @default(0)
   accuracyLevel          String   @default("low")

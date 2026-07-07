@@ -1142,6 +1142,7 @@ export function buildInitialIntake(input: {
   modality?: "on_site" | "remote" | "hybrid" | null;
   city?: string | null;
   urgency?: "low" | "medium" | "high" | "urgent" | null;
+  channel?: string | null;
 }): ProjectIntakeRecord {
   const detectedCategory = detectCategoryFromText({
     selectedCategoryId: input.selectedCategoryId ?? null,
@@ -1170,6 +1171,7 @@ export function buildInitialIntake(input: {
     city: input.city?.trim() || null,
     urgency: input.urgency ?? null,
     detectedLanguage: detectLanguage(input.rawDescription),
+    channel: input.channel?.trim() || "web",
     categoryConfidence: detectCategoryConfidence({
       selectedCategoryId: input.selectedCategoryId ?? null,
       selectedSubcategoryId: input.selectedSubcategoryId ?? null,
@@ -1203,4 +1205,44 @@ export function updateAnswerSet(answers: IntakeAnswer[], nextAnswer: IntakeAnswe
 
 export function getSupportedQuestions(category: SmartIntakeCategory): IntakeQuestion[] {
   return CATEGORY_REGISTRY[category]?.questions ?? PAINTING_QUESTIONS;
+}
+
+// ── Voice profile (SAT-002) ────────────────────────────────────────────────────
+
+export const VOICE_CHANNELS = new Set(["alexa"]);
+
+/**
+ * Prompt hablable para canales de voz: texto plano, sin markdown ni links,
+ * ≤ 90 palabras. Devuelve null para canales no-voz.
+ */
+export function buildVoicePrompt(
+  intake: ProjectIntakeRecord,
+  nextQuestion: IntakeQuestion | null
+): string | null {
+  if (!VOICE_CHANNELS.has(intake.channel)) {
+    return null;
+  }
+
+  const lang = intake.detectedLanguage === "en" ? "en" : "es";
+
+  if (!nextQuestion) {
+    return lang === "en"
+      ? "Thanks, I have what I need for now. A professional will review your project and contact you soon."
+      : "Gracias, ya tengo lo necesario por ahora. Un profesional revisará tu proyecto y te contactará pronto.";
+  }
+
+  const parts: string[] = [nextQuestion.label[lang]];
+
+  const options = (nextQuestion.options ?? []).slice(0, 4).map((option) => option.label[lang]);
+  if (options.length > 0) {
+    parts.push(
+      lang === "en"
+        ? `You can answer: ${options.join(", ")}.`
+        : `Puedes responder: ${options.join(", ")}.`
+    );
+  }
+
+  const spoken = parts.join(" ").replace(/\s+/g, " ").trim();
+  const words = spoken.split(" ");
+  return words.length > 90 ? `${words.slice(0, 90).join(" ")}…` : spoken;
 }
