@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { BarChart3, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
+import { BarChart3, Bot, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
 import {
   createManualTrackerSession,
   fetchJobContract,
@@ -44,6 +44,7 @@ import { ResumenTab } from "./sections/ResumenTab";
 import { RegistrosTab } from "./sections/RegistrosTab";
 import { ProyectosTab } from "./sections/ProyectosTab";
 import { ReportesTab } from "./sections/ReportesTab";
+import { AsistenteTab } from "./sections/AsistenteTab";
 
 function pad(n: number) {
   return String(Math.floor(n)).padStart(2, "0");
@@ -216,7 +217,7 @@ const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: 
 type TrackerHistoryRange = "week" | "month" | "all";
 type TrackerHistoryStatus = TrackerSessionView["status"] | "all";
 
-type TrackerTab = "timer" | "resumen" | "registros" | "proyectos" | "reportes";
+type TrackerTab = "timer" | "resumen" | "registros" | "proyectos" | "reportes" | "asistente";
 
 const TRACKER_TABS: { value: TrackerTab; label: string; icon: typeof Timer }[] = [
   { value: "timer", label: "Timer", icon: Timer },
@@ -224,6 +225,7 @@ const TRACKER_TABS: { value: TrackerTab; label: string; icon: typeof Timer }[] =
   { value: "registros", label: "Registros", icon: ListChecks },
   { value: "proyectos", label: "Proyectos", icon: FolderOpen },
   { value: "reportes", label: "Reportes", icon: BarChart3 },
+  { value: "asistente", label: "Asistente", icon: Bot },
 ];
 
 function trackerHistoryStatusLabel(status: TrackerHistoryStatus) {
@@ -920,6 +922,7 @@ export default function WorkerTrackerPage() {
       {tab === "registros" ? <RegistrosTab jobs={jobs} /> : null}
       {tab === "proyectos" ? <ProyectosTab jobs={jobs} /> : null}
       {tab === "reportes" ? <ReportesTab jobs={jobs} /> : null}
+      {tab === "asistente" ? <AsistenteTab /> : null}
 
       <div style={{ display: tab === "timer" ? "grid" : "none", gap: "18px" }}>
       <HtmlInCanvasPanel as="section" style={{ ...card, textAlign: "center" }} canvasClassName="rounded-2xl" minHeight={340}>

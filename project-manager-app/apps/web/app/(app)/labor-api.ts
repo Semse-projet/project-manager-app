@@ -77,6 +77,16 @@ export type MonthlySummaryView = {
   byDay: { date: string; minutes: number }[];
 };
 
+export type LaborChatResponse = {
+  threadId: string;
+  response: string;
+  provider: string;
+  model: string;
+  mode: "runtime" | "fallback";
+  timestamp: string;
+  errorMessage?: string;
+};
+
 // ── Free Projects ─────────────────────────────────────────────────────────────
 
 export async function fetchFreeProjects(): Promise<FreeProjectView[]> {
@@ -171,6 +181,12 @@ export async function fetchWeeklySummary(weekOffset = 0): Promise<WeeklySummaryV
 
 export async function fetchMonthlySummary(): Promise<MonthlySummaryView> {
   return fetchLabor<MonthlySummaryView>("/api/semse/labor/summary/month");
+}
+
+// ── Chat (Cronos, vía Ollama local) ────────────────────────────────────────────
+
+export async function sendLaborChatMessage(message: string, threadId?: string): Promise<LaborChatResponse> {
+  return mutateLabor<LaborChatResponse>("/api/semse/labor/chat", { message, threadId });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
