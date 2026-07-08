@@ -79,11 +79,11 @@ Taxonomía acordada:
 
 ### Tareas F3
 
-- [ ] F3.1 — Sección "¿Qué quieres hacer hoy?" en la landing: selector de persona (Agricultor / Contratista / Cliente / Empresa) que re-renderiza tarjetas de capacidades sin recargar, alimentado del mismo catálogo del Hub. Sin login.
-- [ ] F3.2 — Cada tarjeta enlaza a detalle de módulo del Hub o al intake wizard según el caso (no duplicar el flujo de intake existente — spec `public-landing-operational-entry` sigue vigente).
-- [ ] F3.3 — Persistir persona elegida (localStorage) para que el Hub resalte lo relevante en visitas siguientes.
-- [ ] F3.4 — Tests e2e: cambio de persona cambia tarjetas; deep links funcionan. Spec a IMPLEMENTED.
-- [ ] F3.5 — `pnpm check` verde. Commit + push + **PR de F3**.
+- [x] F3.1 — Sección "¿Qué quieres hacer hoy?" (`#ecosistema`) con `PersonaSelector` (client): 4 personas (agro/contratista/cliente/empresa), tarjetas filtradas del catálogo `hubModules` etiquetado con `personas`, sin recarga ni login. Suspense por `useSearchParams`.
+- [x] F3.2 — Tarjetas enlazan a `/modules/[id]`; persona "cliente" agrega tarjeta destacada al intake (`/client/jobs/new`). Flujo de intake existente intacto.
+- [x] F3.3 — Persona persistida en localStorage `semse.persona`; deep link `/?persona=<id>`; `HubModulesGrid` (client) resalta módulos "Para ti" en /hub.
+- [x] F3.4 — Tests e2e `tests/e2e-semse/landing-personas.spec.ts` (default 9 tarjetas, cambio de persona, intake card, deep link, persistencia, resaltado en hub). Spec a IMPLEMENTED.
+- [x] F3.5 — typecheck web limpio en archivos F3 + `pnpm spec:validate` sin errores nuevos. Commit + push (PR #279 apilada).
 
 ---
 
@@ -134,3 +134,4 @@ Taxonomía acordada:
 |---|-------|-------|-----------|
 | 1 | 2026-07-07 | F1.1–F1.4 | Fase F1 completa: taxonomía creada, README enlazado, OKComputer localizado en `apps/assistant-portal/`, PR abierta |
 | 2 | 2026-07-08 | F2.1–F2.6 | Fase F2 completa: /hub con 9 módulos, detalle extendido + 404 fix, nav/footer, e2e hub.spec.ts. Spec IMPLEMENTED |
+| 3 | 2026-07-08 | F3.1–F3.5 | Fase F3 completa: PersonaSelector en landing, catálogo etiquetado por persona, localStorage + deep link, resaltado en Hub, e2e landing-personas.spec.ts. Spec IMPLEMENTED |

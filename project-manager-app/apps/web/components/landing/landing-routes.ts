@@ -25,6 +25,24 @@ export interface EcosystemModule {
 
 export type HubModuleStatus = "live" | "demo-soon";
 
+export type PersonaId = "agro" | "contratista" | "cliente" | "empresa";
+
+export const PERSONA_STORAGE_KEY = "semse.persona";
+
+export interface PersonaOption {
+  id: PersonaId;
+  label: string;
+  emoji: string;
+  headline: string;
+}
+
+export const personaOptions: PersonaOption[] = [
+  { id: "agro", label: "Soy agricultor", emoji: "🌾", headline: "Administra tu finca y contrata especialistas sin salir de la plataforma." },
+  { id: "contratista", label: "Soy contratista o profesional", emoji: "🏗️", headline: "Encuentra trabajos, cotiza con datos y cobra protegido por hitos." },
+  { id: "cliente", label: "Necesito contratar", emoji: "🤝", headline: "Publica tu proyecto y paga solo contra avances con evidencia." },
+  { id: "empresa", label: "Opero una empresa", emoji: "📊", headline: "Equipos, permisos, IA y conocimiento en una sola operación." },
+];
+
 export interface HubModule {
   id: string;
   title: string;
@@ -32,6 +50,7 @@ export interface HubModule {
   capabilities: string[];
   status: HubModuleStatus;
   href: string;
+  personas: PersonaId[];
 }
 
 export const trustBarItems: TrustBarItem[] = [
@@ -161,6 +180,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/core",
+    personas: ["empresa"],
   },
   {
     id: "connect",
@@ -175,6 +195,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/connect",
+    personas: ["agro", "contratista", "cliente", "empresa"],
   },
   {
     id: "payments",
@@ -188,6 +209,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/payments",
+    personas: ["agro", "cliente", "contratista"],
   },
   {
     id: "trust",
@@ -201,6 +223,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/trust",
+    personas: ["contratista", "cliente"],
   },
   {
     id: "ai",
@@ -214,6 +237,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/ai",
+    personas: ["empresa", "contratista"],
   },
   {
     id: "agro",
@@ -227,6 +251,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "demo-soon",
     href: "/modules/agro",
+    personas: ["agro"],
   },
   {
     id: "buildops",
@@ -240,6 +265,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/buildops",
+    personas: ["contratista"],
   },
   {
     id: "knowledge",
@@ -253,6 +279,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/knowledge",
+    personas: ["empresa", "contratista"],
   },
   {
     id: "integrations",
@@ -266,6 +293,7 @@ export const hubModules: HubModule[] = [
     ],
     status: "live",
     href: "/modules/integrations",
+    personas: ["empresa"],
   },
 ];
 
