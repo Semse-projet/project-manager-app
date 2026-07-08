@@ -51,10 +51,10 @@ Taxonomía acordada:
 
 ### Tareas F1
 
-- [ ] F1.1 — Crear `docs/SEMSE_CONNECT_TAXONOMY.md` con la tabla anterior expandida: por módulo, listar directorios de código reales (`apps/api/src/modules/*`, rutas web) y endpoints principales. Es un mapeo de lo que EXISTE, no aspiracional.
-- [ ] F1.2 — Actualizar `docs/specs/README.md`: agregar dominio `connect` a la descripción de estructura y referenciar la taxonomía.
-- [ ] F1.3 — Buscar referencias a "OKComputer" en el monorepo (`grep -ri okcomputer`) y documentar en la taxonomía la decisión de absorción (no renombrar código si aparece; solo documentar).
-- [ ] F1.4 — `pnpm spec:validate` + `pnpm spec:index` verdes. Commit + push + **PR de F1** (docs only, merge fácil).
+- [x] F1.1 — Crear `docs/SEMSE_CONNECT_TAXONOMY.md` con la tabla anterior expandida: por módulo, listar directorios de código reales (`apps/api/src/modules/*`, rutas web) y endpoints principales. Es un mapeo de lo que EXISTE, no aspiracional.
+- [x] F1.2 — Actualizar `docs/specs/README.md`: agregar dominio `connect` a la descripción de estructura y referenciar la taxonomía.
+- [x] F1.3 — Buscar referencias a "OKComputer" en el monorepo (`grep -ri okcomputer`) y documentar en la taxonomía la decisión de absorción (no renombrar código si aparece; solo documentar). **Hallazgo:** el código fuente de OKComputer vive en `apps/assistant-portal/` — objetivo directo para la auditoría F5.
+- [x] F1.4 — `pnpm spec:validate` + `pnpm spec:index` verdes (0 errores nuevos vs baseline de 17 preexistentes). Commit + push + **PR de F1** (docs only, merge fácil).
 
 ---
 
@@ -132,3 +132,4 @@ Taxonomía acordada:
 
 | # | Fecha | Tarea | Resultado |
 |---|-------|-------|-----------|
+| 1 | 2026-07-07 | F1.1–F1.4 | Fase F1 completa: taxonomía creada, README enlazado, OKComputer localizado en `apps/assistant-portal/`, PR abierta |
