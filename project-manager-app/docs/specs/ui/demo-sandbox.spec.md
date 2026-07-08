@@ -37,23 +37,38 @@ Un visitante no puede experimentar el valor de un vertical antes de registrarse;
 - No se crean flujos paralelos de Agro: la demo reutiliza las pantallas reales de `apps/web/app/agro` con el contexto sandbox.
 - No convierte datos demo en datos reales al registrarse (v1: el usuario empieza limpio; la intención se conserva vía `?from=`).
 
-## Aislamiento (decisión de diseño — REQUIERE validación antes de codificar)
+## Aislamiento — DISEÑO VALIDADO (F4.1, 2026-07-08)
+
+Decisiones del usuario: **lectura + escritura sobre sandbox** (la visión completa), **TTL 30 minutos**.
+
+Validación contra el schema real: `AgroFarm` se aisla por `ownerId` (nullable, sin tenant/org),
+y todos los endpoints agro exigen permisos `agro:read`/`agro:write` con scoping por `ctx.userId`
+(`resolveRequestContext`). Por lo tanto **NO se necesita flag `isDemo` en Organization ni migración**:
+el aislamiento natural del dominio es suficiente con un usuario demo dedicado.
 
 ```yaml
-org_sandbox:
-  - flag `isDemo` en Organization (migración Prisma) o org con id reservado documentado
-  - REGLA DURA: entidades de org demo EXCLUIDAS de: matching, reputación, consciousness,
-    analytics, notificaciones externas (WhatsApp/email), colas de agentes
+identidad_demo:
+  - usuario seed reservado: email demo-agro@semse.internal (constante DEMO_AGRO_EMAIL)
+  - rol con permission set EXACTO {agro:read, agro:write} — nada más
+  - exclusión de matching/reputación/consciousness/pagos POR CONSTRUCCIÓN:
+    el usuario demo no puede tocar jobs/bids/payments (deny-by-default RBAC,
+    hereda rbac-explicit-boundary); agro no alimenta matching ni reputación
+granja_sandbox:
+  - 1 AgroFarm seed determinista propiedad del usuario demo:
+    animales, grupos, unidades, inventario, tareas, costos realistas
+  - escrituras del visitante permitidas SOLO ahí (scoping ownerId existente)
 session:
-  - POST /v1/demo/session → token efímero (TTL ≤ 60 min), scope: org demo, rol DEMO_VIEWER
-  - rate limit por IP; sin captura de PII; auditable como `demo.session.created`
+  - POST /v1/demo/session (público, rate-limited por IP):
+    crea AuthSession del usuario demo con accessExpiresAt = +30min
+    y refreshExpiresAt = +30min (sin renovación); mismo shape de tokens
+    que el login normal para reutilizar el BFF web-session sin cambios
+  - audit_log: demo.session.created
 reset:
-  - job de worker (o TTL en datos) que restaura el seed determinista cada N horas
-riesgos_a_validar_en_F4.1:
-  - costo de queries públicos sin auth (abuso) → rate limit + cache
-  - fuga de datos demo hacia métricas (Consciousness/Observer) → verificar filtros con test
-  - decisiones de producto abiertas (TTL exacto, cuota, si escrituras demo se permiten en v1)
-    → si hay dudas, PAUSAR loop y preguntar al usuario (regla 8b del programa)
+  - al crear sesión demo: si el último reset > 6h, borrar AgroFarm demo
+    (onDelete: Cascade limpia todo el árbol) y re-sembrar seed determinista
+  - sin job de worker en v1 (reset lazy en sesión); worker cron es mejora v2
+kill_switch:
+  - DEMO_MODE_ENABLED (env): apagado → 404 en el endpoint y CTAs ocultos
 ```
 
 ## API Contract
@@ -88,9 +103,9 @@ required_behavior:
 
 ## Data Model Impact
 
-- Prisma models: flag `isDemo` en Organization (o convención de org reservada — decidir en F4.1)
-- Migrations: 1 (si se usa flag)
-- Backfill: N/A; seed determinista nuevo en `packages/db` seed scripts
+- Prisma models: **ninguno nuevo** (diseño F4.1: usuario demo + granja por ownerId)
+- Migrations: **ninguna**
+- Backfill: N/A; seed determinista de usuario+granja demo en el módulo demo (idempotente en runtime, no en seed.ts, para funcionar también en prod)
 
 ## Security / RBAC
 

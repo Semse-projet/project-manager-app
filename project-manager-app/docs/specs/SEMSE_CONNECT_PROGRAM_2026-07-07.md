@@ -94,7 +94,7 @@ Taxonomía acordada:
 
 ### Tareas F4
 
-- [ ] F4.1 — Diseño de aislamiento: organización sandbox `demo` con seed determinista, flag `isDemo` a nivel org, exclusión de matching/reputación/consciousness/analytics. Documentar en el spec y validar contra el schema Prisma real.
+- [x] F4.1 — Diseño de aislamiento validado contra el schema real y decidido con el usuario (lectura+escritura sandbox, TTL 30 min): usuario demo dedicado con permisos exactos {agro:read, agro:write} + granja seed por `ownerId` — sin flag isDemo ni migración. Reset lazy >6h al crear sesión. Kill switch `DEMO_MODE_ENABLED`. Documentado en el spec.
 - [ ] F4.2 — Endpoint de sesión demo (`POST /v1/demo/session` o equivalente): crea contexto efímero read-mostly sobre datos seed, TTL corto, rate-limited, sin PII.
 - [ ] F4.3 — UI: `/hub` → "Probar SEMSE Agro" → vista Agro en modo demo (banner persistente "datos de demostración", CTA a registro que conserva intención).
 - [ ] F4.4 — Reset/expiración de datos demo (job de worker o TTL en query).
@@ -135,3 +135,4 @@ Taxonomía acordada:
 | 1 | 2026-07-07 | F1.1–F1.4 | Fase F1 completa: taxonomía creada, README enlazado, OKComputer localizado en `apps/assistant-portal/`, PR abierta |
 | 2 | 2026-07-08 | F2.1–F2.6 | Fase F2 completa: /hub con 9 módulos, detalle extendido + 404 fix, nav/footer, e2e hub.spec.ts. Spec IMPLEMENTED |
 | 3 | 2026-07-08 | F3.1–F3.5 | Fase F3 completa: PersonaSelector en landing, catálogo etiquetado por persona, localStorage + deep link, resaltado en Hub, e2e landing-personas.spec.ts. Spec IMPLEMENTED |
+| 4 | 2026-07-08 | Recuperación + F4.1 | PR #279 se mergeó solo con F1; F2/F3 recuperadas vía cherry-pick en PR #282. F4.1: diseño de aislamiento demo cerrado con usuario (RW sandbox, TTL 30min, sin migración) |
