@@ -64,12 +64,12 @@ Taxonomía acordada:
 
 ### Tareas F2
 
-- [ ] F2.1 — Auditar rutas actuales: qué verticales solo son alcanzables vía `/admin` (agro, tools, buildops, knowledge, communications) y qué existe ya en `(public)/modules/[id]` y `ecosystem-modules.tsx`. Dejar hallazgos en el spec (sección Implementation Map).
-- [ ] F2.2 — Crear ruta `/hub` en `apps/web/app/(public)/hub/page.tsx`: grid de módulos del ecosistema alimentado desde un catálogo tipado único (extender `landing-routes.ts` / `ecosystemModules`), con estado por módulo (live / demo próximamente) y CTA por rol.
-- [ ] F2.3 — Página de detalle de módulo: extender `(public)/modules/[id]` para cubrir los 9 módulos de la taxonomía con capacidades reales (no lorem), enlaces a login con `?from=` correcto por rol.
-- [ ] F2.4 — Navegación: enlazar Hub desde landing nav y footer; los verticales dejan de estar escondidos en `/admin` (los accesos admin permanecen, pero dejan de ser la única puerta).
-- [ ] F2.5 — Tests e2e mínimos (patrón `tests/e2e-semse/public-landing.spec.ts`): `/hub` renderiza los 9 módulos, cada detalle responde 200, CTAs apuntan al login correcto. Subir spec a IMPLEMENTED con related_tests.
-- [ ] F2.6 — `pnpm check` verde en lo tocado. Commit + push + **PR de F2**.
+- [x] F2.1 — Auditar rutas actuales: qué verticales solo son alcanzables vía `/admin` (agro, tools, buildops, knowledge, communications) y qué existe ya en `(public)/modules/[id]` y `ecosystem-modules.tsx`. Hallazgos documentados en el spec (Implementation Map). Bonus: corregido fallback silencioso a ProTools en id desconocido → ahora 404.
+- [x] F2.2 — Crear ruta `/hub` en `apps/web/app/(public)/hub/page.tsx`: grid de módulos del ecosistema alimentado desde un catálogo tipado único (`hubModules` en `landing-routes.ts`), con estado por módulo (live / demo próximamente) y CTA por rol.
+- [x] F2.3 — Página de detalle de módulo: `(public)/modules/[id]` extendida con core/connect/payments/ai/agro/knowledge/integrations (trust y buildops ya existían), capacidades reales, CTAs por rol vía `/login?from=`.
+- [x] F2.4 — Navegación: "Ecosistema" en landing nav + "Ecosistema SEMSE" en footer → `/hub`; los verticales dejan de estar escondidos en `/admin`.
+- [x] F2.5 — Tests e2e `tests/e2e-semse/hub.spec.ts`: 9 módulos en /hub, cada detalle 200, id desconocido 404, CTAs con `?from=` correcto, nav/footer enlazan Hub. Spec a IMPLEMENTED con related_tests.
+- [x] F2.6 — typecheck web verde en archivos tocados + `pnpm spec:validate` sin errores nuevos. Commit + push + **PR de F2** (misma PR #279, apilada sobre F1).
 
 ---
 
@@ -79,11 +79,11 @@ Taxonomía acordada:
 
 ### Tareas F3
 
-- [ ] F3.1 — Sección "¿Qué quieres hacer hoy?" en la landing: selector de persona (Agricultor / Contratista / Cliente / Empresa) que re-renderiza tarjetas de capacidades sin recargar, alimentado del mismo catálogo del Hub. Sin login.
-- [ ] F3.2 — Cada tarjeta enlaza a detalle de módulo del Hub o al intake wizard según el caso (no duplicar el flujo de intake existente — spec `public-landing-operational-entry` sigue vigente).
-- [ ] F3.3 — Persistir persona elegida (localStorage) para que el Hub resalte lo relevante en visitas siguientes.
-- [ ] F3.4 — Tests e2e: cambio de persona cambia tarjetas; deep links funcionan. Spec a IMPLEMENTED.
-- [ ] F3.5 — `pnpm check` verde. Commit + push + **PR de F3**.
+- [x] F3.1 — Sección "¿Qué quieres hacer hoy?" (`#ecosistema`) con `PersonaSelector` (client): 4 personas (agro/contratista/cliente/empresa), tarjetas filtradas del catálogo `hubModules` etiquetado con `personas`, sin recarga ni login. Suspense por `useSearchParams`.
+- [x] F3.2 — Tarjetas enlazan a `/modules/[id]`; persona "cliente" agrega tarjeta destacada al intake (`/client/jobs/new`). Flujo de intake existente intacto.
+- [x] F3.3 — Persona persistida en localStorage `semse.persona`; deep link `/?persona=<id>`; `HubModulesGrid` (client) resalta módulos "Para ti" en /hub.
+- [x] F3.4 — Tests e2e `tests/e2e-semse/landing-personas.spec.ts` (default 9 tarjetas, cambio de persona, intake card, deep link, persistencia, resaltado en hub). Spec a IMPLEMENTED.
+- [x] F3.5 — typecheck web limpio en archivos F3 + `pnpm spec:validate` sin errores nuevos. Commit + push (PR #279 apilada).
 
 ---
 
@@ -133,3 +133,5 @@ Taxonomía acordada:
 | # | Fecha | Tarea | Resultado |
 |---|-------|-------|-----------|
 | 1 | 2026-07-07 | F1.1–F1.4 | Fase F1 completa: taxonomía creada, README enlazado, OKComputer localizado en `apps/assistant-portal/`, PR abierta |
+| 2 | 2026-07-08 | F2.1–F2.6 | Fase F2 completa: /hub con 9 módulos, detalle extendido + 404 fix, nav/footer, e2e hub.spec.ts. Spec IMPLEMENTED |
+| 3 | 2026-07-08 | F3.1–F3.5 | Fase F3 completa: PersonaSelector en landing, catálogo etiquetado por persona, localStorage + deep link, resaltado en Hub, e2e landing-personas.spec.ts. Spec IMPLEMENTED |
