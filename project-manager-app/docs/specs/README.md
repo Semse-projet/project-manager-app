@@ -6,6 +6,8 @@ Son la fuente de verdad que gobierna el código.
 **Template para nuevos specs:** `docs/specs/templates/semse-spec-template.md`
 **Template Spec Kit:** `.specify/templates/overrides/semse-spec.md`
 **Kit ecosistema SDD/SSD:** `docs/specs/SEMSE_ECOSYSTEM_SDD_KIT_2026-06-28.md`
+**Taxonomía de módulos del ecosistema:** `docs/SEMSE_CONNECT_TAXONOMY.md` (naming de producto: Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge, Integrations)
+**Programa activo SEMSE Connect:** `docs/specs/SEMSE_CONNECT_PROGRAM_2026-07-07.md` (fases F1-F5)
 **Índice completo:** `docs/SPEC_INDEX.md`
 **Protocolo SDD:** `docs/SDD_GOVERNANCE.md`
 **Validación:** `pnpm spec:preflight`
