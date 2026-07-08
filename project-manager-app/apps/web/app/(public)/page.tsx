@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { fetchPublicLandingOverviewServer } from "../../lib/public-landing";
 import { LandingIntake } from "../../components/landing/landing-intake";
 import { StepsCarousel } from "../../components/landing/steps-carousel";
@@ -12,6 +13,7 @@ import { AnimatedCounter } from "../../components/landing/animated-counter";
 import { PricingEstimator } from "../../components/landing/pricing-estimator";
 import { EcosystemModules } from "../../components/landing/ecosystem-modules";
 import { OperationalRoutesGrid } from "../../components/landing/operational-routes-grid";
+import { PersonaSelector } from "../../components/landing/persona-selector";
 import { UsageGuideContent } from "../como-funciona/page";
 import {
   Sparkles,
@@ -347,6 +349,24 @@ export default async function LandingPage({ searchParams }: LandingPageProps) {
         <div className="bg-[var(--surface)]/80 backdrop-blur-md rounded-3xl border border-[var(--border)] shadow-2xl p-1 sm:p-2 overflow-hidden transition-all duration-300">
           <LandingIntake />
         </div>
+      </section>
+
+      {/* ── ¿QUÉ QUIERES HACER HOY? (PERSONAS) ── */}
+      <section
+        id="ecosistema"
+        className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 border-t border-slate-200/50 dark:border-slate-900/50"
+      >
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-200/50 dark:border-blue-900/30 text-xs font-bold text-blue-600 dark:text-blue-400 mb-4 uppercase tracking-wider">
+            Ecosistema SEMSE
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
+            ¿Qué quieres hacer hoy?
+          </h2>
+        </div>
+        <Suspense>
+          <PersonaSelector />
+        </Suspense>
       </section>
 
       {/* ── ELIGE TU RUTA DE TRABAJO ── */}

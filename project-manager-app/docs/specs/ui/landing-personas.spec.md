@@ -2,14 +2,17 @@
 id: "ui.landing-personas"
 title: "Landing dinámica por persona — ¿Qué quieres hacer hoy?"
 domain: "ui"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "low"
 related_files:
   - apps/web/app/(public)/page.tsx
+  - apps/web/app/(public)/hub/page.tsx
   - apps/web/components/landing/landing-routes.ts
-  - apps/web/components/landing/operational-routes-grid.tsx
-related_tests: []
+  - apps/web/components/landing/persona-selector.tsx
+  - apps/web/components/landing/hub-modules-grid.tsx
+related_tests:
+  - tests/e2e-semse/landing-personas.spec.ts
 related_endpoints: []
 related_events: []
 related_agents: []
