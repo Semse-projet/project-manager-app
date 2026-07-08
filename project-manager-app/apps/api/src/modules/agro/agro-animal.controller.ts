@@ -10,6 +10,7 @@ import { AgroAnimalService } from "./agro-animal.service.js";
 
 const speciesEnum = z.enum(["CATTLE", "PIG", "GOAT", "SHEEP", "HORSE", "CHICKEN", "OTHER"]);
 const statusEnum  = z.enum(["ACTIVE", "SOLD", "DEAD", "LOST", "INACTIVE"]);
+const purposeEnum = z.enum(["FATTENING", "DAIRY", "BREEDING", "GENETICS", "LAYING", "RESALE", "WORK", "OTHER"]);
 
 const createAnimalSchema = z.object({
   currentUnitId:       z.string().optional(),
@@ -22,6 +23,10 @@ const createAnimalSchema = z.object({
   initialWeight:       z.number().positive().optional(),
   acquisitionDate:     z.coerce.date().optional(),
   acquisitionCost:     z.number().nonnegative().optional(),
+  purpose:             purposeEnum.optional(),
+  estimatedValue:      z.number().nonnegative().optional(),
+  expectedSalePrice:   z.number().nonnegative().optional(),
+  expectedSaleDate:    z.coerce.date().optional(),
   notes:               z.string().optional(),
 });
 
@@ -30,6 +35,10 @@ const updateAnimalSchema = z.object({
   breed:              z.string().optional(),
   birthDate:          z.coerce.date().optional(),
   estimatedAgeMonths: z.number().int().nonnegative().optional(),
+  purpose:            purposeEnum.optional(),
+  estimatedValue:     z.number().nonnegative().optional(),
+  expectedSalePrice:  z.number().nonnegative().optional(),
+  expectedSaleDate:   z.coerce.date().optional(),
   notes:              z.string().optional(),
 });
 
@@ -41,12 +50,20 @@ const createGroupSchema = z.object({
   averageWeight:   z.number().positive().optional(),
   acquisitionDate: z.coerce.date().optional(),
   acquisitionCost: z.number().nonnegative().optional(),
+  purpose:           purposeEnum.optional(),
+  estimatedValue:    z.number().nonnegative().optional(),
+  expectedSalePrice: z.number().nonnegative().optional(),
+  expectedSaleDate:  z.coerce.date().optional(),
   notes:           z.string().optional(),
 });
 
 const updateGroupSchema = z.object({
   name:          z.string().min(1).optional(),
   averageWeight: z.number().positive().optional(),
+  purpose:           purposeEnum.optional(),
+  estimatedValue:    z.number().nonnegative().optional(),
+  expectedSalePrice: z.number().nonnegative().optional(),
+  expectedSaleDate:  z.coerce.date().optional(),
   notes:         z.string().optional(),
 });
 

@@ -45,6 +45,10 @@ export class AgroAnimalService {
     initialWeight?: number;
     acquisitionDate?: Date;
     acquisitionCost?: number;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     await this.assertFarmAccess(farmId, ownerId);
@@ -71,6 +75,10 @@ export class AgroAnimalService {
     breed?: string;
     birthDate?: Date;
     estimatedAgeMonths?: number;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     const animal = await this.getAnimal(animalId);
@@ -170,6 +178,10 @@ export class AgroAnimalService {
     averageWeight?: number;
     acquisitionDate?: Date;
     acquisitionCost?: number;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     await this.assertFarmAccess(farmId, ownerId);
@@ -193,6 +205,10 @@ export class AgroAnimalService {
   async updateGroup(groupId: string, ownerId: string, input: {
     name?: string;
     averageWeight?: number;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     const group = await this.getGroup(groupId);

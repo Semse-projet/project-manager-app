@@ -2833,6 +2833,8 @@ model AgroFarm {
   harvestRecords   AgroHarvestRecord[]
   traceability     AgroTraceabilityEvent[]
   complianceChecks AgroComplianceCheck[]
+  productionRecords AgroProductionRecord[]
+  saleRecords      AgroSaleRecord[]
 
   @@index([ownerId])
 }
@@ -2873,6 +2875,10 @@ model AgroAnimal {
   status              String    @default("ACTIVE") // ACTIVE | SOLD | DEAD | LOST | INACTIVE
   acquisitionDate     DateTime?
   acquisitionCost     Decimal?  @db.Decimal(12, 2)
+  purpose             String    @default("OTHER") // FATTENING | DAIRY | BREEDING | GENETICS | LAYING | RESALE | WORK | OTHER
+  estimatedValue      Decimal?  @db.Decimal(12, 2)
+  expectedSalePrice   Decimal?  @db.Decimal(12, 2)
+  expectedSaleDate    DateTime?
   notes               String?   @db.Text
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -2896,6 +2902,10 @@ model AgroAnimalGroup {
   status           String    @default("ACTIVE") // ACTIVE | SOLD | DEAD | LOST | INACTIVE
   acquisitionDate  DateTime?
   acquisitionCost  Decimal?  @db.Decimal(12, 2)
+  purpose          String    @default("OTHER") // FATTENING | DAIRY | BREEDING | GENETICS | LAYING | RESALE | WORK | OTHER
+  estimatedValue   Decimal?  @db.Decimal(12, 2)
+  expectedSalePrice Decimal? @db.Decimal(12, 2)
+  expectedSaleDate DateTime?
   notes            String?   @db.Text
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -2903,6 +2913,53 @@ model AgroAnimalGroup {
   @@index([farmId])
   @@index([currentUnitId])
   @@index([status])
+}
+
+model AgroProductionRecord {
+  id         String   @id @default(cuid())
+  farmId     String
+  farm       AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  targetType String   // ANIMAL | ANIMAL_GROUP | FARM
+  targetId   String?
+  type       String   // MILK | EGGS | WEIGHT_GAIN | BIRTH | WOOL | HONEY | BREEDING_SERVICE | OTHER
+  quantity   Decimal  @db.Decimal(12, 4)
+  unit       String   // LITER | UNIT | DOZEN | LB | KG | HEAD | OTHER
+  unitPrice  Decimal? @db.Decimal(12, 4)
+  totalValue Decimal? @db.Decimal(14, 2)
+  occurredAt DateTime
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([farmId])
+  @@index([targetType, targetId])
+  @@index([occurredAt])
+  @@index([type])
+}
+
+model AgroSaleRecord {
+  id             String   @id @default(cuid())
+  farmId         String
+  farm           AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  targetType     String   // ANIMAL | ANIMAL_GROUP
+  targetId       String
+  buyerName      String?
+  quantity       Int      @default(1)
+  saleWeight     Decimal? @db.Decimal(10, 2)
+  salePrice      Decimal  @db.Decimal(14, 2)
+  freightCost    Decimal? @db.Decimal(12, 2)
+  commission     Decimal? @db.Decimal(12, 2)
+  paymentMethod  String?  // CASH | TRANSFER | CHECK | CREDIT | OTHER
+  totalCostBasis Decimal? @db.Decimal(14, 2)
+  netProfit      Decimal? @db.Decimal(14, 2)
+  marginPercent  Decimal? @db.Decimal(8, 4)
+  currency       String   @default("USD")
+  occurredAt     DateTime
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([farmId])
+  @@index([targetType, targetId])
+  @@index([occurredAt])
 }
 
 model AgroFarmTask {

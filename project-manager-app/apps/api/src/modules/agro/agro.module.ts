@@ -23,6 +23,12 @@ import { AgroProductionCycleService } from "./agro-production-cycle.service.js";
 import { AgroProductionCycleController } from "./agro-production-cycle.controller.js";
 import { AgroTraceabilityService } from "./agro-traceability.service.js";
 import { AgroTraceabilityController } from "./agro-traceability.controller.js";
+import { AgroEconomicsRepository } from "./agro-economics.repository.js";
+import { AgroProductionService } from "./agro-production.service.js";
+import { AgroProfitabilityService } from "./agro-profitability.service.js";
+import { AgroSaleService } from "./agro-sale.service.js";
+import { AgroSimulatorService } from "./agro-simulator.service.js";
+import { AgroEconomicsController } from "./agro-economics.controller.js";
 
 @Module({
   controllers: [
@@ -34,6 +40,7 @@ import { AgroTraceabilityController } from "./agro-traceability.controller.js";
     AgroDashboardController,
     AgroProductionCycleController,
     AgroTraceabilityController,
+    AgroEconomicsController,
   ],
   providers: [
     AgroFarmRepository,
@@ -52,6 +59,11 @@ import { AgroTraceabilityController } from "./agro-traceability.controller.js";
     AgroSyncService,
     AgroProductionCycleService,
     AgroTraceabilityService,
+    AgroEconomicsRepository,
+    AgroProductionService,
+    AgroProfitabilityService,
+    AgroSaleService,
+    AgroSimulatorService,
   ],
   exports: [
     AgroFarmService,
@@ -63,6 +75,10 @@ import { AgroTraceabilityController } from "./agro-traceability.controller.js";
     AgroAuditRepository,
     AgroProductionCycleService,
     AgroTraceabilityService,
+    AgroProductionService,
+    AgroProfitabilityService,
+    AgroSaleService,
+    AgroSimulatorService,
   ],
 })
 export class AgroModule {}
