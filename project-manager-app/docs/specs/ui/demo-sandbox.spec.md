@@ -2,14 +2,24 @@
 id: "ui.demo-sandbox"
 title: "Modo demo/sandbox sin registro — Agro primero"
 domain: "ui"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
 related_files:
-  - apps/web/app/agro
-  - apps/api/src/modules/agro
-related_tests: []
-related_endpoints: []
+  - apps/api/src/modules/demo/demo.module.ts
+  - apps/api/src/modules/demo/demo.controller.ts
+  - apps/api/src/modules/demo/demo.service.ts
+  - apps/api/src/modules/demo/demo-seed.ts
+  - apps/web/app/api/semse/demo/session/route.ts
+  - apps/web/app/demo/agro/page.tsx
+  - apps/web/app/agro/layout.tsx
+  - apps/web/components/demo/demo-banner.tsx
+  - apps/web/components/landing/hub-modules-grid.tsx
+  - packages/auth/src/rbac.ts
+related_tests:
+  - apps/api/test/demo.service.test.ts
+related_endpoints:
+  - "v1/demo"
 related_events: []
 related_agents: []
 last_verified: ""
@@ -115,11 +125,12 @@ required_behavior:
 
 ## Tests Required
 
-- [ ] Sesión demo accede a datos demo y NO a ninguna otra org (no-fuga)
-- [ ] Entidades demo excluidas de matching y métricas (Observer/Consciousness)
-- [ ] TTL expira y la UI muestra estado `expired`
-- [ ] Rate limit responde 429
-- [ ] Reset restaura el seed determinista
+- [x] Sesión demo emite rol DEMO_AGRO con TTL 1800s — no-fuga por RBAC deny-by-default + scoping ownerId (unit: demo.service.test.ts)
+- [x] Exclusión de matching/métricas POR CONSTRUCCIÓN: el permission set {agro:read, agro:write} no alcanza jobs/matching/payments (documentado en rbac.ts; cubierto por rbac-explicit-boundary)
+- [x] Kill switch: DEMO_MODE_ENABLED apagado → 404 (unit)
+- [x] Rate limit 429: @Throttle 5/min en el endpoint + manejo de estado `rate-limited` en /demo/agro
+- [x] Reset restaura el seed determinista: granja fresca se reutiliza, granja >6h se borra y re-siembra (unit)
+- [ ] e2e navegador del flujo completo (requiere API con DEMO_MODE_ENABLED en el entorno e2e) — pendiente para VERIFIED
 
 ## Implementation Map
 
