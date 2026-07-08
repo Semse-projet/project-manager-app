@@ -2,15 +2,19 @@
 id: "ui.semse-hub"
 title: "SEMSE Hub — portal público de módulos del ecosistema"
 domain: "ui"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "low"
 related_files:
   - apps/web/app/(public)/page.tsx
+  - apps/web/app/(public)/hub/page.tsx
   - apps/web/app/(public)/modules/[id]/page.tsx
   - apps/web/components/landing/ecosystem-modules.tsx
   - apps/web/components/landing/landing-routes.ts
-related_tests: []
+  - apps/web/components/landing/landing-nav.tsx
+  - apps/web/components/landing/landing-footer.tsx
+related_tests:
+  - tests/e2e-semse/hub.spec.ts
 related_endpoints: []
 related_events: []
 related_agents: []
@@ -71,6 +75,13 @@ required_behavior:
 - [ ] nav y footer de landing enlazan a `/hub`
 
 ## Implementation Map
+
+### Hallazgos de auditoría F2.1 (2026-07-08)
+
+- Ya existía `(public)/modules/[id]` con 7 detalles interactivos (protools, buildops, evidence, escrow, marketplace, prometeo, trust) — se conservan y se agregan los ids de taxonomía: `core`, `connect`, `payments`, `ai`, `agro`, `knowledge`, `integrations` (trust y buildops ya existían con contenido equivalente).
+- `ecosystemModules` en `landing-routes.ts` tenía 7 módulos legacy; el nuevo catálogo `hubModules` (9 módulos de taxonomía) convive con él sin romper la sección existente de la landing.
+- Verticales solo alcanzables vía `/admin` antes de este spec: Agro, Knowledge, Communications, analizadores AI. `/hub` los expone públicamente como contenido descriptivo + CTA.
+- Bug preexistente corregido: id desconocido en `/modules/[id]` mostraba ProTools como fallback; ahora hace `notFound()`.
 
 ### Web
 

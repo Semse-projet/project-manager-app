@@ -87,10 +87,11 @@
 | [ui.landing-personas](docs/specs/ui/landing-personas.spec.md) | ui | APPROVED | low | no | yes | no | 3 | missing |
 | [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui-public-landing-operational-entry](docs/specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
-| [ui.semse-hub](docs/specs/ui/semse-hub.spec.md) | ui | APPROVED | low | no | yes | no | 4 | missing |
+| [ui.semse-hub](docs/specs/ui/semse-hub.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 7 | missing |
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
 
 <!-- SPEC_INDEX:END -->
+
 
 
 
