@@ -29,7 +29,7 @@ export class AgroDashboardService {
     const monthAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
     const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
 
-    const [animals, groups, tasks, items, recentAuditEvents, recentEvidence, costEntries] =
+    const [animals, groups, tasks, items, recentAuditEvents, recentEvidence, costEntries, productionEntries, saleEntries] =
       await Promise.all([
         this.prisma.agroAnimal.findMany({ where: { farmId, status: "ACTIVE" } }),
         this.prisma.agroAnimalGroup.findMany({ where: { farmId, status: "ACTIVE" } }),
@@ -38,6 +38,8 @@ export class AgroDashboardService {
         this.prisma.agroAuditEvent.findMany({ where: { farmId }, orderBy: { createdAt: "desc" }, take: 10 }),
         this.prisma.agroEvidenceItem.findMany({ where: { farmId }, orderBy: { capturedAt: "desc" }, take: 5 }),
         this.prisma.agroCostEntry.findMany({ where: { farmId, occurredAt: { gte: monthAgo } } }),
+        this.prisma.agroProductionRecord.findMany({ where: { farmId, occurredAt: { gte: monthAgo } } }),
+        this.prisma.agroSaleRecord.findMany({ where: { farmId, occurredAt: { gte: monthAgo } } }),
       ]);
 
     const overdueTasks = tasks.filter(t =>
@@ -60,6 +62,15 @@ export class AgroDashboardService {
     );
 
     const monthCost = costEntries.reduce((s, e) => s + Number(e.amount), 0);
+
+    const animalValue = (a: { estimatedValue: unknown; acquisitionCost: unknown }) =>
+      Number(a.estimatedValue ?? a.acquisitionCost ?? 0);
+    const livestockCapital =
+      animals.reduce((s, a) => s + animalValue(a), 0) +
+      groups.reduce((s, g) => s + animalValue(g), 0);
+    const monthProductionIncome = productionEntries.reduce((s, p) => s + Number(p.totalValue ?? 0), 0);
+    const monthSalesRevenue = saleEntries.reduce((s, x) => s + Number(x.salePrice), 0);
+    const monthIncome = monthProductionIncome + monthSalesRevenue;
 
     const alerts: AgroAlert[] = [
       ...overdueTasks.map(t => ({
@@ -101,6 +112,15 @@ export class AgroDashboardService {
         lowStockItems: lowStockItems.length,
       },
       monthCostSummary: { total: monthCost, since: monthAgo, currency: "USD" },
+      capital: { livestock: livestockCapital, currency: "USD" },
+      monthIncomeSummary: {
+        production: monthProductionIncome,
+        sales: monthSalesRevenue,
+        total: monthIncome,
+        projectedProfit: monthIncome - monthCost,
+        since: monthAgo,
+        currency: "USD",
+      },
       alerts,
       recentActivity: recentAuditEvents,
       recentEvidence,

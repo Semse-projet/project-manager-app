@@ -31,6 +31,10 @@ export class AgroAnimalRepository {
     currentWeight?: number;
     acquisitionDate?: Date;
     acquisitionCost?: number;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     return this.prisma.agroAnimal.create({
@@ -48,6 +52,10 @@ export class AgroAnimalRepository {
         status: "ACTIVE",
         acquisitionDate: input.acquisitionDate,
         acquisitionCost: input.acquisitionCost,
+        purpose: input.purpose ?? "OTHER",
+        estimatedValue: input.estimatedValue,
+        expectedSalePrice: input.expectedSalePrice,
+        expectedSaleDate: input.expectedSaleDate,
         notes: input.notes,
       },
     });
@@ -61,6 +69,10 @@ export class AgroAnimalRepository {
     estimatedAgeMonths?: number;
     currentWeight?: number;
     status?: string;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     return this.prisma.agroAnimal.update({
@@ -73,6 +85,10 @@ export class AgroAnimalRepository {
         ...(input.estimatedAgeMonths !== undefined && { estimatedAgeMonths: input.estimatedAgeMonths }),
         ...(input.currentWeight !== undefined && { currentWeight: input.currentWeight }),
         ...(input.status !== undefined && { status: input.status }),
+        ...(input.purpose !== undefined && { purpose: input.purpose }),
+        ...(input.estimatedValue !== undefined && { estimatedValue: input.estimatedValue }),
+        ...(input.expectedSalePrice !== undefined && { expectedSalePrice: input.expectedSalePrice }),
+        ...(input.expectedSaleDate !== undefined && { expectedSaleDate: input.expectedSaleDate }),
         ...(input.notes !== undefined && { notes: input.notes }),
       },
     });
@@ -100,6 +116,10 @@ export class AgroAnimalRepository {
     averageWeight?: number;
     acquisitionDate?: Date;
     acquisitionCost?: number;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     return this.prisma.agroAnimalGroup.create({
@@ -113,6 +133,10 @@ export class AgroAnimalRepository {
         status: "ACTIVE",
         acquisitionDate: input.acquisitionDate,
         acquisitionCost: input.acquisitionCost,
+        purpose: input.purpose ?? "OTHER",
+        estimatedValue: input.estimatedValue,
+        expectedSalePrice: input.expectedSalePrice,
+        expectedSaleDate: input.expectedSaleDate,
         notes: input.notes,
       },
     });
@@ -124,6 +148,10 @@ export class AgroAnimalRepository {
     count?: number;
     averageWeight?: number;
     status?: string;
+    purpose?: string;
+    estimatedValue?: number;
+    expectedSalePrice?: number;
+    expectedSaleDate?: Date;
     notes?: string;
   }) {
     return this.prisma.agroAnimalGroup.update({
@@ -134,6 +162,10 @@ export class AgroAnimalRepository {
         ...(input.count !== undefined && { count: input.count }),
         ...(input.averageWeight !== undefined && { averageWeight: input.averageWeight }),
         ...(input.status !== undefined && { status: input.status }),
+        ...(input.purpose !== undefined && { purpose: input.purpose }),
+        ...(input.estimatedValue !== undefined && { estimatedValue: input.estimatedValue }),
+        ...(input.expectedSalePrice !== undefined && { expectedSalePrice: input.expectedSalePrice }),
+        ...(input.expectedSaleDate !== undefined && { expectedSaleDate: input.expectedSaleDate }),
         ...(input.notes !== undefined && { notes: input.notes }),
       },
     });
