@@ -3,7 +3,8 @@ import { encodeSession, SESSION_COOKIE, type SessionPayload } from "@/lib/auth";
 
 // Cookie legible por el cliente para que la UI muestre el banner de demo.
 // No es una credencial: la sesión real viaja en la cookie firmada httpOnly.
-export const DEMO_FLAG_COOKIE = "semse_demo";
+// (Sin export: los route files de Next.js solo admiten exports de handlers.)
+const DEMO_FLAG_COOKIE = "semse_demo";
 
 type DemoSessionData = {
   userId?: string;
