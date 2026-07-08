@@ -1,6 +1,6 @@
 # SEMSE Connect — Programa SDD 2026-07-07
 
-**Estado:** ACTIVO
+**Estado:** COMPLETADO (2026-07-08) — F1 en #279, F2+F3 en #282, F4 en #283, F5 auditoría en este mismo árbol. Único gap identificado a futuro: agenda inteligente (ver SEMSE_CONNECT_OKCOMPUTER_AUDIT.md).
 **Rama base de trabajo:** `feat/semse-connect-sdd` (worktree `/home/yoni/semse-worktrees/semse-connect-sdd`)
 **Decisión rectora:** OKComputer NO evoluciona como producto independiente. Se renombra **SEMSE Connect** y se convierte en la capa de conexión del ecosistema (marketplace, contratación, agenda, mensajería, evidencias, coordinación). El código existente del monorepo ya cubre ~80% de esa capa; este programa es de **naming, navegación y empaquetado**, no de reconstrucción.
 
@@ -109,10 +109,10 @@ Taxonomía acordada:
 
 ### Tareas F5
 
-- [ ] F5.1 — Localizar el código de OKComputer en el filesystem (`~/nuevo proyecto`, `~/app prototipos`, u otro) y inventariar sus features: marketplace, escrow, jobs, agenda, evidencias.
-- [ ] F5.2 — Matriz feature-por-feature contra SEMSEproject: EXISTS / PARTIAL / GAP. Hipótesis principal de gap: agenda inteligente (reprogramación, sincronización calendarios externos, optimización de rutas).
-- [ ] F5.3 — Informe `docs/specs/SEMSE_CONNECT_OKCOMPUTER_AUDIT.md` con recomendación por gap: extraer / reimplementar / descartar. NO se migra código en esta fase.
-- [ ] F5.4 — Commit + push + **PR de F5** (docs only). Marcar programa COMPLETADO y detener el loop.
+- [x] F5.1 — Localizado: DOS artefactos bajo "OKComputer" en `apps/assistant-portal/` — (1a) prototipo HTML estático del marketplace (14 archivos, sin backend) y (1b) WebAssistant Portal (workbench de desarrollo, otro dominio).
+- [x] F5.2 — Matriz completa en el informe: todo el prototipo marketplace EXISTS en SEMSE con versiones superiores, salvo **agenda con calendario visual** (GAP parcial: reservations existe; falta calendario, disponibilidad, reprogramación, sync externo, rutas).
+- [x] F5.3 — Informe `docs/specs/SEMSE_CONNECT_OKCOMPUTER_AUDIT.md`: reimplementar agenda (no extraer — prototipo sin lógica reutilizable) sobre reservations+field-ops cuando se priorice; descartar el resto; assistant-portal queda como archivo de referencia.
+- [x] F5.4 — Commit + push + **PR de F5** (docs only). Programa COMPLETADO.
 
 ---
 
@@ -137,3 +137,4 @@ Taxonomía acordada:
 | 3 | 2026-07-08 | F3.1–F3.5 | Fase F3 completa: PersonaSelector en landing, catálogo etiquetado por persona, localStorage + deep link, resaltado en Hub, e2e landing-personas.spec.ts. Spec IMPLEMENTED |
 | 4 | 2026-07-08 | Recuperación + F4.1 | PR #279 se mergeó solo con F1; F2/F3 recuperadas vía cherry-pick en PR #282. F4.1: diseño de aislamiento demo cerrado con usuario (RW sandbox, TTL 30min, sin migración) |
 | 5 | 2026-07-08 | F4.2–F4.6 | Fase F4 completa: módulo demo API + rol DEMO_AGRO + BFF cookie demo + /demo/agro + DemoBanner + CTA Hub. 5 tests unit nuevos, suite API 1783/1783. Spec IMPLEMENTED |
+| 6 | 2026-07-08 | F5.1–F5.4 | Auditoría OKComputer: prototipo HTML sin lógica reutilizable; único gap real = agenda inteligente (reimplementar sobre reservations). PROGRAMA COMPLETADO |
