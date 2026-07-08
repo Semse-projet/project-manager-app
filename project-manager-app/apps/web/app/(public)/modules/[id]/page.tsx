@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, notFound } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -24,7 +24,13 @@ import {
   ShieldCheck,
   CheckSquare,
   Square,
-  MessageSquare
+  MessageSquare,
+  Users,
+  Network,
+  CreditCard,
+  Sprout,
+  BookOpen,
+  Plug
 } from "lucide-react";
 
 interface ModuleDetail {
@@ -128,12 +134,107 @@ const MODULES_DATA: Record<string, ModuleDetail> = {
       { title: "Intermediación de disputas", desc: "Proceso justo asistido por árbitros reales ante discrepancias en la calidad." },
       { title: "Verificación KYC avanzada", desc: "Doble factor de identidad y validación oficial de licencias profesionales." }
     ]
+  },
+  // ── Módulos del ecosistema (docs/SEMSE_CONNECT_TAXONOMY.md) ──
+  core: {
+    id: "core",
+    title: "SEMSE Core",
+    tagline: "La identidad compartida de todo el ecosistema",
+    description: "Usuarios, organizaciones, roles y permisos viven en un solo lugar. Cada módulo del ecosistema hereda la misma cuenta, la misma seguridad y las mismas reglas de acceso.",
+    icon: Users,
+    color: "from-slate-500 to-slate-700",
+    features: [
+      { title: "Una cuenta para todo", desc: "Clientes, profesionales y operadores usan la misma identidad en todos los módulos." },
+      { title: "Permisos con denegación por defecto", desc: "Ningún acceso existe hasta que se otorga explícitamente. Auditoría en cada acción sensible." },
+      { title: "Organizaciones y equipos", desc: "Empresas con miembros, roles y verificación de identidad de trabajadores." }
+    ]
+  },
+  connect: {
+    id: "connect",
+    title: "SEMSE Connect",
+    tagline: "La red que conecta personas, empresas, proyectos y agentes",
+    description: "Publicar una necesidad, encontrar al profesional correcto, coordinar el trabajo, conversar en un solo hilo y registrar evidencias: todo el ciclo de colaboración ocurre aquí, y cualquier vertical (Agro, BuildOps) lo consume sin salir de la plataforma.",
+    icon: Network,
+    color: "from-blue-500 to-cyan-600",
+    features: [
+      { title: "Ciclo de trabajo completo", desc: "Solicitud, propuesta, ejecución, evidencia, aprobación, pago y calificación en un solo flujo." },
+      { title: "Matching explicable", desc: "Candidatos sugeridos por especialidad, cercanía y reputación, con razones visibles." },
+      { title: "Comunicación centralizada", desc: "Mensajes, archivos y notificaciones del trabajo en un hilo único, incluido WhatsApp." }
+    ]
+  },
+  payments: {
+    id: "payments",
+    title: "SEMSE Payments",
+    tagline: "El dinero protegido hasta cumplir lo acordado",
+    description: "Escrow por hitos con Stripe: el cliente deposita, el profesional trabaja con la certeza de que los fondos existen, y el dinero se libera contra evidencia aprobada.",
+    icon: CreditCard,
+    color: "from-emerald-500 to-teal-600",
+    features: [
+      { title: "Escrow por hitos", desc: "Fondos retenidos por etapa de trabajo y liberados contra aprobación." },
+      { title: "Liberaciones y reembolsos", desc: "Liberaciones parciales, reembolsos administrados y trazabilidad completa." },
+      { title: "Panel financiero", desc: "Estado de cada pago visible para cliente, profesional y operador." }
+    ]
+  },
+  ai: {
+    id: "ai",
+    title: "SEMSE AI",
+    tagline: "Prometeo y los agentes que supervisan la operación",
+    description: "La inteligencia del ecosistema: Prometeo orquesta consultas, la visión artificial audita evidencias fotográficas y los agentes autónomos vigilan la operación con interruptor de seguridad.",
+    icon: Sparkles,
+    color: "from-purple-500 to-violet-600",
+    features: [
+      { title: "Prometeo conversacional", desc: "Asistente que conoce presupuestos, riesgos y estado de los proyectos." },
+      { title: "Auditoría visual", desc: "Análisis automático de fotos de avance: materiales, espacios y seguridad." },
+      { title: "Conocimiento con citas", desc: "Respuestas basadas en manuales técnicos reales, con fuentes verificables." }
+    ]
+  },
+  agro: {
+    id: "agro",
+    title: "SEMSE Agro",
+    tagline: "La operación agrícola y ganadera, de punta a punta",
+    description: "Animales, cultivos, inventarios, tareas de campo y costos en un solo panel. Y cuando la finca necesita un veterinario o un técnico, SEMSE Connect lo encuentra sin salir de la plataforma.",
+    icon: Sprout,
+    color: "from-green-500 to-lime-600",
+    features: [
+      { title: "Ganado con trazabilidad", desc: "Registro de animales, acciones sanitarias y ciclo de vida completo." },
+      { title: "Inventario y costos", desc: "Stock, movimientos y control de costos por operación de campo." },
+      { title: "Tareas de campo", desc: "Asignación y seguimiento formal de labores con estados verificables." }
+    ]
+  },
+  knowledge: {
+    id: "knowledge",
+    title: "SEMSE Knowledge",
+    tagline: "El conocimiento del oficio, consultable con citas",
+    description: "Biblioteca técnica por oficio con manuales reales en español e inglés. La búsqueda híbrida responde con citas verificables y mejora con la retroalimentación de los usuarios.",
+    icon: BookOpen,
+    color: "from-indigo-500 to-blue-600",
+    features: [
+      { title: "Biblioteca por oficio", desc: "Manuales de electricidad, plomería y más, indexados y consultables." },
+      { title: "Respuestas con fuentes", desc: "Cada respuesta cita el manual y la sección de donde proviene." },
+      { title: "Mejora continua", desc: "El feedback humano ajusta la relevancia de los resultados con el uso." }
+    ]
+  },
+  integrations: {
+    id: "integrations",
+    title: "SEMSE Integrations",
+    tagline: "Un solo hub para todos los servicios externos",
+    description: "Stripe, WhatsApp Business, proveedores de IA y satélites externos se conectan una sola vez y quedan disponibles para todos los módulos del ecosistema.",
+    icon: Plug,
+    color: "from-orange-500 to-amber-600",
+    features: [
+      { title: "Pagos", desc: "Stripe para escrow, liberaciones y reembolsos en todos los verticales." },
+      { title: "Comunicación", desc: "WhatsApp Business (Meta) verificado, con webhooks firmados." },
+      { title: "IA multi-proveedor", desc: "Ollama local, OpenAI y Anthropic detrás de una sola puerta de enlace." }
+    ]
   }
 };
 
 export default function ModulePage() {
   const { id } = useParams() as { id: string };
-  const data = useMemo(() => MODULES_DATA[id] || MODULES_DATA.protools!, [id]);
+  const data = useMemo(() => MODULES_DATA[id], [id]);
+  if (!data) {
+    notFound();
+  }
 
   // Interactive widget states
   const [calcArea, setCalcArea] = useState(60);
@@ -195,11 +296,11 @@ export default function ModulePage() {
         {/* Navigation & Header */}
         <div className="flex justify-between items-center pb-6 border-b border-slate-200/50 dark:border-slate-800/60">
           <Link
-            href="/"
+            href="/hub"
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-550 dark:text-slate-400 hover:text-[var(--brand)] transition-colors no-underline"
           >
             <ArrowLeft size={16} />
-            Volver a SEMSEproject
+            Volver al Hub
           </Link>
           <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
             Detalle de Módulo
@@ -781,14 +882,31 @@ export default function ModulePage() {
 
         </div>
 
-        {/* Action Bottom */}
-        <div className="text-center pt-8 border-t border-slate-200/50 dark:border-slate-800/60">
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 active:scale-98 transition-all duration-200 no-underline"
-          >
-            Empezar hoy mismo con SEMSEproject
-          </Link>
+        {/* Action Bottom — CTA por rol */}
+        <div className="text-center pt-8 border-t border-slate-200/50 dark:border-slate-800/60 space-y-4">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Empieza a usar {data.title} según tu rol:
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-3" data-testid="module-role-ctas">
+            <Link
+              href="/client/jobs/new"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md no-underline transition-colors"
+            >
+              Soy cliente
+            </Link>
+            <Link
+              href="/login?from=/worker/dashboard"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm no-underline hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+            >
+              Soy profesional
+            </Link>
+            <Link
+              href="/login?from=/admin/dashboard"
+              className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-bold text-sm no-underline hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+            >
+              Opero una empresa
+            </Link>
+          </div>
         </div>
 
       </div>

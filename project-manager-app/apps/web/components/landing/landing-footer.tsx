@@ -13,6 +13,7 @@ const FOOTER_COLS = [
   {
     title: "Plataforma",
     links: [
+      { label: "Ecosistema SEMSE", href: "/hub" },
       { label: "Cómo funciona", href: "#como-funciona" },
       { label: "Pagos seguros", href: "#pagos" },
       { label: "Publicar proyecto", href: "/client/jobs/new" },
