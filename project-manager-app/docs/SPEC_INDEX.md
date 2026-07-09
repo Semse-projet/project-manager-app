@@ -104,6 +104,10 @@
 
 
 
+<<<<<<< HEAD
+
+=======
+>>>>>>> origin/main
 ## Specs — Agentic Loop (ADR-021)
 
 > Añadidos 2026-07-02. Aprobación de alcance completo 2026-07-04.
