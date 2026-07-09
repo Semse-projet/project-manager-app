@@ -195,6 +195,12 @@ export const rolePermissions: Record<string, string[]> = {
     "agro:read",
     "agro:write",
     "satellites:admin"
+  ],
+  // Sesión demo pública (ui.demo-sandbox): SOLO agro, nada más — el aislamiento
+  // del sandbox depende de que este set nunca crezca hacia jobs/payments/matching.
+  DEMO_AGRO: [
+    "agro:read",
+    "agro:write"
   ]
 };
 

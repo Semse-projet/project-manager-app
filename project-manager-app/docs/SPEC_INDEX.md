@@ -82,7 +82,7 @@
 | [m5-3-monetization](docs/specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [ui-admin-flows](docs/specs/ui/admin-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui-client-flows](docs/specs/ui/client-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
-| [ui.demo-sandbox](docs/specs/ui/demo-sandbox.spec.md) | ui | APPROVED | high | yes | yes | no | 2 | missing |
+| [ui.demo-sandbox](docs/specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | missing |
 | [ui-smart-intake-flow](docs/specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](docs/specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | missing |
 | [ui-pro-flows](docs/specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
@@ -91,6 +91,8 @@
 | [ui-work-os-navigation-decision-intelligence](docs/specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |
 
 <!-- SPEC_INDEX:END -->
+
+
 
 
 

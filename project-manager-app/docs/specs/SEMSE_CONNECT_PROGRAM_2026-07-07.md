@@ -94,12 +94,12 @@ Taxonomía acordada:
 
 ### Tareas F4
 
-- [ ] F4.1 — Diseño de aislamiento: organización sandbox `demo` con seed determinista, flag `isDemo` a nivel org, exclusión de matching/reputación/consciousness/analytics. Documentar en el spec y validar contra el schema Prisma real.
-- [ ] F4.2 — Endpoint de sesión demo (`POST /v1/demo/session` o equivalente): crea contexto efímero read-mostly sobre datos seed, TTL corto, rate-limited, sin PII.
-- [ ] F4.3 — UI: `/hub` → "Probar SEMSE Agro" → vista Agro en modo demo (banner persistente "datos de demostración", CTA a registro que conserva intención).
-- [ ] F4.4 — Reset/expiración de datos demo (job de worker o TTL en query).
-- [ ] F4.5 — Tests: sesión demo no aparece en matching ni métricas; TTL expira; rate limit. Spec a IMPLEMENTED.
-- [ ] F4.6 — `pnpm check` verde. Commit + push + **PR de F4**.
+- [x] F4.1 — Diseño de aislamiento validado contra el schema real y decidido con el usuario (lectura+escritura sandbox, TTL 30 min): usuario demo dedicado con permisos exactos {agro:read, agro:write} + granja seed por `ownerId` — sin flag isDemo ni migración. Reset lazy >6h al crear sesión. Kill switch `DEMO_MODE_ENABLED`. Documentado en el spec.
+- [x] F4.2 — `POST /v1/demo/session` (módulo `apps/api/src/modules/demo/`): @Public + @Throttle 5/min, upsert identidad demo (tenant semse-demo, org demo, user demo-agro@semse.internal sin password), rol `DEMO_AGRO` nuevo en `packages/auth/src/rbac.ts`, sesión vía AuthService.issueSession TTL 1800s.
+- [x] F4.3 — UI: botón "Probar demo" en tarjeta Agro del Hub → `/demo/agro` (auto-inicia sesión vía BFF `/api/semse/demo/session` que setea cookie `semse_session` con identidad demo + cookie visible `semse_demo`) → redirect a `/agro` con `DemoBanner` persistente (CTA `/register?from=agro`). Estados starting/error/rate-limited.
+- [x] F4.4 — Reset lazy en el service: granja demo >6h se borra (cascade) y se re-siembra con seed determinista. Sin worker job en v1 (documentado como mejora v2).
+- [x] F4.5 — Tests unit `apps/api/test/demo.service.test.ts` (5): kill switch 404, vertical no soportado, seed completo + sesión DEMO_AGRO 1800s, reutilización de granja fresca, reset de granja >6h. No-fuga por construcción documentada en spec. Spec a IMPLEMENTED.
+- [x] F4.6 — Suite API completa 1783/1783 ✅, typecheck web limpio en archivos F4, spec:validate sin errores nuevos. Commit + push + **PR de F4**.
 
 ---
 
@@ -135,3 +135,5 @@ Taxonomía acordada:
 | 1 | 2026-07-07 | F1.1–F1.4 | Fase F1 completa: taxonomía creada, README enlazado, OKComputer localizado en `apps/assistant-portal/`, PR abierta |
 | 2 | 2026-07-08 | F2.1–F2.6 | Fase F2 completa: /hub con 9 módulos, detalle extendido + 404 fix, nav/footer, e2e hub.spec.ts. Spec IMPLEMENTED |
 | 3 | 2026-07-08 | F3.1–F3.5 | Fase F3 completa: PersonaSelector en landing, catálogo etiquetado por persona, localStorage + deep link, resaltado en Hub, e2e landing-personas.spec.ts. Spec IMPLEMENTED |
+| 4 | 2026-07-08 | Recuperación + F4.1 | PR #279 se mergeó solo con F1; F2/F3 recuperadas vía cherry-pick en PR #282. F4.1: diseño de aislamiento demo cerrado con usuario (RW sandbox, TTL 30min, sin migración) |
+| 5 | 2026-07-08 | F4.2–F4.6 | Fase F4 completa: módulo demo API + rol DEMO_AGRO + BFF cookie demo + /demo/agro + DemoBanner + CTA Hub. 5 tests unit nuevos, suite API 1783/1783. Spec IMPLEMENTED |

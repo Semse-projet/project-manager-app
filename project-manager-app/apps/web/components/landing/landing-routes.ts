@@ -50,6 +50,7 @@ export interface HubModule {
   capabilities: string[];
   status: HubModuleStatus;
   href: string;
+  demoHref?: string;
   personas: PersonaId[];
 }
 
@@ -249,8 +250,9 @@ export const hubModules: HubModule[] = [
       "Tareas de campo con ciclo de vida formal",
       "Control de costos por operación",
     ],
-    status: "demo-soon",
+    status: "live",
     href: "/modules/agro",
+    demoHref: "/demo/agro",
     personas: ["agro"],
   },
   {

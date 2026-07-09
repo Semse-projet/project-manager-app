@@ -43,12 +43,11 @@ export function HubModulesGrid() {
         {hubModules.map((mod) => {
           const recommended = persona !== null && mod.personas.includes(persona);
           return (
-            <Link
+            <div
               key={mod.id}
-              href={mod.href}
               data-testid={`hub-module-${mod.id}`}
               data-recommended={recommended || undefined}
-              className={`group bg-white dark:bg-slate-900 border rounded-2xl p-6 flex flex-col gap-4 no-underline hover:shadow-lg transition-all duration-200 ${
+              className={`group bg-white dark:bg-slate-900 border rounded-2xl p-6 flex flex-col gap-4 hover:shadow-lg transition-all duration-200 ${
                 recommended
                   ? "border-blue-500/70 dark:border-blue-500/60 ring-1 ring-blue-500/30"
                   : "border-slate-200/60 dark:border-slate-800/60 hover:border-blue-400/60 dark:hover:border-blue-500/50"
@@ -89,10 +88,24 @@ export function HubModulesGrid() {
                   </li>
                 ))}
               </ul>
-              <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                Ver módulo →
-              </span>
-            </Link>
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  href={mod.href}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 no-underline hover:underline"
+                >
+                  Ver módulo →
+                </Link>
+                {mod.demoHref && (
+                  <Link
+                    href={mod.demoHref}
+                    data-testid={`hub-demo-${mod.id}`}
+                    className="text-xs font-black px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white no-underline transition-colors"
+                  >
+                    Probar demo
+                  </Link>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>
