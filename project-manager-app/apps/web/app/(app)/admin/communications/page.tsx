@@ -685,7 +685,7 @@ export default function AdminCommunicationsPage() {
                   <div style={{ display: "flex", gap: "7px", flexWrap: "wrap", marginTop: "12px", alignItems: "center" }}>
                     <StatusPill value={selectedThread.status} />
                     {selectedThread.contractorLeadId ? (
-                      <Link href={`/admin/contractor-leads/${selectedThread.contractorLeadId}`} style={{ textDecoration: "none" }}>
+                      <Link href={`/admin/contractors?leadId=${selectedThread.contractorLeadId}`} style={{ textDecoration: "none" }}>
                         <span style={{ ...chipStyle("#60a5fa"), cursor: "pointer" }}>Lead ↗ {shortId(selectedThread.contractorLeadId)}</span>
                       </Link>
                     ) : null}

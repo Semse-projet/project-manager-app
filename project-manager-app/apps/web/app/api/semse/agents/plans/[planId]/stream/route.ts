@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildSemseRequestHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
+import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function GET(
   try {
     const { planId } = await context.params;
     const cfg = await getServerConfig(request);
-    const headers = buildSemseRequestHeaders(cfg);
+    const headers = (await buildAuthorizedHeaders(cfg));
 
     const apiRes = await fetch(
       `${cfg.apiBaseUrl}/v1/sse/plans/${encodeURIComponent(planId)}`,

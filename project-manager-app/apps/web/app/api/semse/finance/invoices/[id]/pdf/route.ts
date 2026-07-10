@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { buildSemseRequestHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
+import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export async function GET(
   try {
     const { id } = await context.params;
     const cfg = await getServerConfig(request);
-    const headers = buildSemseRequestHeaders(cfg);
+    const headers = (await buildAuthorizedHeaders(cfg));
     const type = request.nextUrl.searchParams.get("type") ?? "";
     const qs = type ? `?type=${encodeURIComponent(type)}` : "";
 

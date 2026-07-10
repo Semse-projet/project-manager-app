@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildSemseRequestHeaders, getServerConfig, handleServerError, runtimeDisabledResponse } from "../_server";
+import { buildAuthorizedHeaders, getServerConfig, handleServerError, runtimeDisabledResponse } from "../_server";
 
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const jobId = request.nextUrl.searchParams.get("jobId");
     const milestoneId = request.nextUrl.searchParams.get("milestoneId");
     const cfg = await getServerConfig(request);
-    const headers = buildSemseRequestHeaders(cfg);
+    const headers = (await buildAuthorizedHeaders(cfg));
 
     const timeline = request.nextUrl.searchParams.get("timeline");
     const fps = request.nextUrl.searchParams.get("fps");
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid endpoint" }, { status: 400 });
     }
     const cfg = await getServerConfig(request);
-    const headers = { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) };
+    const headers = { "content-type": "application/json", ...(await buildAuthorizedHeaders(cfg)) };
 
     const resp = await fetch(`${API}/v1/vision/${rawEndpoint}`, {
       method: "POST",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleServerError, runtimeDisabledResponse, buildSemseRequestHeaders, getServerConfig } from "../../_server";
+import { handleServerError, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../../_server";
 
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     // Dispatch MILESTONE_CREATED to Evidence Agent via message bus and get checklist
     const resp = await fetch(`${API}/v1/agents/semse/evidence/checklist`, {
       method: "POST",
-      headers: { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) },
+      headers: { "content-type": "application/json", ...(await buildAuthorizedHeaders(cfg)) },
       body: JSON.stringify(body),
     });
 
