@@ -114,11 +114,13 @@ export class LaborEngineRepository {
     });
   }
 
-  async pauseTimeEntry(id: string, tenantId: string): Promise<TimeEntryRecord> {
-    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId } });
+  async pauseTimeEntry(id: string, tenantId: string, createdBy: string): Promise<TimeEntryRecord> {
+    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId, createdBy } });
     if (!entry) throw new NotFoundException("TimeEntry not found");
     const now = new Date();
-    const elapsed = Math.floor((now.getTime() - (entry.resumedAt ?? entry.startedAt).getTime()) / 1000);
+    const elapsed = entry.status === "running"
+      ? Math.max(0, Math.floor((now.getTime() - (entry.resumedAt ?? entry.startedAt).getTime()) / 1000))
+      : 0;
     return this.prisma.timeEntry.update({
       where: { id },
       data: {
@@ -130,8 +132,8 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord;
   }
 
-  async resumeTimeEntry(id: string, tenantId: string): Promise<TimeEntryRecord> {
-    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId } });
+  async resumeTimeEntry(id: string, tenantId: string, createdBy: string): Promise<TimeEntryRecord> {
+    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId, createdBy } });
     if (!entry) throw new NotFoundException("TimeEntry not found");
     const now = new Date();
     return this.prisma.timeEntry.update({
@@ -140,8 +142,17 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord;
   }
 
-  async stopTimeEntry(id: string, tenantId: string, notes?: string): Promise<TimeEntryRecord> {
-    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId } });
+  async updateTimeEntryNotes(id: string, tenantId: string, createdBy: string, notes: string): Promise<TimeEntryRecord> {
+    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId, createdBy } });
+    if (!entry) throw new NotFoundException("TimeEntry not found");
+    return this.prisma.timeEntry.update({
+      where: { id },
+      data: { notes: notes.trim() || null, updatedAt: new Date() },
+    }) as unknown as TimeEntryRecord;
+  }
+
+  async stopTimeEntry(id: string, tenantId: string, createdBy: string, notes?: string): Promise<TimeEntryRecord> {
+    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId, createdBy } });
     if (!entry) throw new NotFoundException("TimeEntry not found");
     const now = new Date();
     const lastResume = entry.resumedAt ?? entry.startedAt;

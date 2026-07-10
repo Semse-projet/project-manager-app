@@ -79,16 +79,20 @@ export class LaborEngineService {
     return this.repo.startRealtimeEntry(params);
   }
 
-  async pauseTimer(id: string, tenantId: string) {
-    return this.repo.pauseTimeEntry(id, tenantId);
+  async pauseTimer(id: string, tenantId: string, createdBy: string) {
+    return this.repo.pauseTimeEntry(id, tenantId, createdBy);
   }
 
-  async resumeTimer(id: string, tenantId: string) {
-    return this.repo.resumeTimeEntry(id, tenantId);
+  async resumeTimer(id: string, tenantId: string, createdBy: string) {
+    return this.repo.resumeTimeEntry(id, tenantId, createdBy);
   }
 
-  async stopTimer(id: string, tenantId: string, notes?: string) {
-    return this.repo.stopTimeEntry(id, tenantId, notes);
+  async stopTimer(id: string, tenantId: string, createdBy: string, notes?: string) {
+    return this.repo.stopTimeEntry(id, tenantId, createdBy, notes);
+  }
+
+  async updateTimerNotes(id: string, tenantId: string, createdBy: string, notes: string) {
+    return this.repo.updateTimeEntryNotes(id, tenantId, createdBy, notes);
   }
 
   async getActiveTimer(tenantId: string, createdBy: string) {

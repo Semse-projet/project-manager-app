@@ -4,24 +4,34 @@ import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { BarChart3, Bot, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
+import { BarChart3, Bot, Briefcase, Calculator, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
 import {
-  createManualTrackerSession,
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
-  fetchTimeTrackerSessions,
-  fetchTrackerBootstrap,
-  pauseTrackerSession,
-  resumeTrackerSession,
-  startTrackerSession,
-  stopTrackerSession,
-  updateTimeTrackerSessionNotes,
+  fetchTimeTrackerJobs,
   SemseApiError,
   type JobRecordView,
-  type TimeTrackerSummaryView,
-  type TrackerSessionView
 } from "../../../semse-api";
+import {
+  createManualEntry,
+  elapsedSeconds,
+  fetchActiveTimer,
+  fetchFreeProjects,
+  fetchLaborEntries,
+  fetchMonthlySummary,
+  fetchWeeklySummary,
+  LaborApiError,
+  pauseLaborTimer,
+  resumeLaborTimer,
+  startLaborTimer,
+  stopLaborTimer,
+  updateLaborTimerNotes,
+  type FreeProjectView,
+  type MonthlySummaryView,
+  type TimeEntryView,
+  type WeeklySummaryView,
+} from "../../labor-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import {
   clearTrackerLocalState,
@@ -39,6 +49,7 @@ import {
   type TrackerLocalSession,
   type TrackerLocalState,
   type TrackerPendingEvent,
+  type TrackerPurpose,
 } from "./trackerLocalStore";
 import { ResumenTab } from "./sections/ResumenTab";
 import { RegistrosTab } from "./sections/RegistrosTab";
@@ -76,15 +87,15 @@ function formatMoney(value?: number) {
   });
 }
 
-function formatSessionDate(value: string) {
+function formatEntryDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function formatSessionRange(session: TrackerSessionView) {
-  const startedAt = new Date(session.startedAt);
-  const endedAt = new Date(session.stoppedAt ?? session.pausedAt ?? session.updatedAt);
+function formatEntryRange(entry: TimeEntryView) {
+  const startedAt = new Date(entry.startedAt);
+  const endedAt = new Date(entry.endedAt ?? entry.pausedAt ?? entry.updatedAt);
   const start = Number.isNaN(startedAt.getTime())
     ? "—"
     : startedAt.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
@@ -98,75 +109,76 @@ function safeRouteId(value: string | undefined) {
   return value && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : "";
 }
 
-function elapsedFromSession(session: TrackerSessionView | null): number {
-  if (!session) return 0;
-  if (session.status !== "RUNNING" || !session.resumedAt) {
-    return session.elapsedSeconds;
-  }
-
-  const resumedAt = new Date(session.resumedAt).getTime();
-  if (Number.isNaN(resumedAt)) {
-    return session.elapsedSeconds;
-  }
-
-  return session.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - resumedAt) / 1000));
-}
-
 function elapsedFromLocalSession(session: TrackerLocalSession | null): number {
   if (!session) return 0;
-  if (session.status !== "RUNNING" || !session.resumedAt) return session.accumulatedSeconds;
+  if (session.status !== "RUNNING") return session.accumulatedSeconds;
 
-  const resumedAt = new Date(session.resumedAt).getTime();
-  if (Number.isNaN(resumedAt)) return session.accumulatedSeconds;
+  const anchor = session.resumedAt ?? session.startedAt;
+  const anchorTime = new Date(anchor).getTime();
+  if (Number.isNaN(anchorTime)) return session.accumulatedSeconds;
 
-  return session.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - resumedAt) / 1000));
+  return session.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - anchorTime) / 1000));
 }
 
-function localSessionToView(session: TrackerLocalSession, jobs: JobRecordView[]): TrackerSessionView {
-  const job = jobs.find((item) => item.id === session.jobId);
-  const jobTitle = session.jobTitle ?? job?.title ?? "Trabajo guardado localmente";
+function localStatusToEntryStatus(status: TrackerLocalSession["status"]): TimeEntryView["status"] {
+  if (status === "RUNNING") return "running";
+  if (status === "PAUSED") return "paused";
+  return "completed";
+}
+
+function entryStatusToLocalStatus(status: TimeEntryView["status"]): TrackerLocalSession["status"] {
+  if (status === "running") return "RUNNING";
+  if (status === "paused") return "PAUSED";
+  return "STOPPED";
+}
+
+function localSessionToEntry(session: TrackerLocalSession): TimeEntryView {
   return {
     id: session.backendSessionId ?? session.id,
-    jobId: session.jobId,
-    job: {
-      id: session.jobId,
-      title: jobTitle,
-      status: job?.status ?? "LOCAL_PENDING",
-    },
-    status: session.status,
+    mode: "realtime",
+    purpose: session.purpose ?? (session.jobId ? "job_linked" : "personal"),
+    jobId: session.jobId ?? null,
+    freeProjectId: session.freeProjectId ?? null,
+    status: localStatusToEntryStatus(session.status),
     startedAt: session.startedAt,
+    endedAt: session.stoppedAt ?? null,
     resumedAt: session.resumedAt ?? null,
     pausedAt: session.pausedAt ?? null,
-    stoppedAt: session.stoppedAt ?? null,
+    breakMinutes: 0,
+    durationMinutes: null,
     accumulatedSeconds: session.accumulatedSeconds,
-    elapsedSeconds: elapsedFromLocalSession(session),
+    hourlyRate: null,
+    currency: "MXN",
+    location: null,
     notes: session.notes ?? null,
-    updatedAt: session.updatedAt,
-  } as TrackerSessionView;
-}
-
-function viewToLocalSession(session: TrackerSessionView): TrackerLocalSession {
-  return {
-    id: session.id,
-    backendSessionId: session.id,
-    jobId: session.jobId,
-    jobTitle: session.job.title,
-    status: session.status,
-    startedAt: session.startedAt,
-    resumedAt: session.resumedAt ?? undefined,
-    pausedAt: session.pausedAt ?? undefined,
-    stoppedAt: session.stoppedAt ?? undefined,
-    accumulatedSeconds: session.accumulatedSeconds,
-    notes: session.notes ?? undefined,
+    createdAt: session.startedAt,
     updatedAt: session.updatedAt,
   };
 }
 
-function ensureLocalStateForSession(state: TrackerLocalState, session: TrackerSessionView): TrackerLocalState {
-  if (state.activeSession?.id === session.id || state.activeSession?.backendSessionId === session.id) return state;
+function entryToLocalSession(entry: TimeEntryView): TrackerLocalSession {
+  return {
+    id: entry.id,
+    backendSessionId: entry.id,
+    purpose: entry.purpose,
+    jobId: entry.jobId ?? undefined,
+    freeProjectId: entry.freeProjectId ?? undefined,
+    status: entryStatusToLocalStatus(entry.status),
+    startedAt: entry.startedAt,
+    resumedAt: entry.resumedAt ?? undefined,
+    pausedAt: entry.pausedAt ?? undefined,
+    stoppedAt: entry.endedAt ?? undefined,
+    accumulatedSeconds: entry.accumulatedSeconds,
+    notes: entry.notes ?? undefined,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+function ensureLocalStateForEntry(state: TrackerLocalState, entry: TimeEntryView): TrackerLocalState {
+  if (state.activeSession?.id === entry.id || state.activeSession?.backendSessionId === entry.id) return state;
   return {
     ...state,
-    activeSession: viewToLocalSession(session),
+    activeSession: entryToLocalSession(entry),
   };
 }
 
@@ -185,16 +197,19 @@ function friendlyConnectionMessage(action: string) {
 function shouldPreserveLocalEvent(caught: unknown) {
   if (isLikelyConnectionError(caught)) return true;
   if (caught instanceof SemseApiError) return caught.status >= 500;
+  if (caught instanceof LaborApiError) return caught.status >= 500;
   return false;
 }
 
-function manualDurationSeconds(date: string, startTime: string, endTime: string): number | null {
+function manualDurationSeconds(date: string, startTime: string, endTime: string, breakMinutes: number): number | null {
   const startedAt = new Date(`${date}T${startTime}:00`);
   const endedAt = new Date(`${date}T${endTime}:00`);
   if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime()) || endedAt <= startedAt) {
     return null;
   }
-  return Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
+  const gross = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
+  const net = gross - Math.max(0, breakMinutes) * 60;
+  return net > 0 ? net : null;
 }
 
 function csvCell(value: unknown) {
@@ -202,20 +217,56 @@ function csvCell(value: unknown) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function trackerHistoryFileLabel(range: TrackerHistoryRange, jobId: string) {
+function trackerHistoryFileLabel(range: TrackerHistoryRange, target: string) {
   const rangeLabel = range === "week" ? "7d" : range === "month" ? "30d" : "all";
-  const jobLabel = jobId === "all" ? "all-jobs" : jobId.replaceAll(/[^A-Za-z0-9_-]/g, "-").slice(0, 40);
-  return `${rangeLabel}-${jobLabel}`;
+  const targetLabel = target === "all" ? "all" : target.replaceAll(/[^A-Za-z0-9_-]/g, "-").slice(0, 40);
+  return `${rangeLabel}-${targetLabel}`;
 }
 
-const STATUS_META: Record<TrackerSessionView["status"], { label: string; color: string; bg: string }> = {
-  RUNNING: { label: "Corriendo", color: "#10b981", bg: "rgba(16,185,129,.12)" },
-  PAUSED: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  STOPPED: { label: "Detenida", color: "#64748b", bg: "rgba(100,116,139,.12)" },
+const ENTRY_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+  running: { label: "Corriendo", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  paused: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  completed: { label: "Completada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  pending_review: { label: "En revisión", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  approved: { label: "Aprobada", color: "#059669", bg: "rgba(5,150,105,.12)" },
 };
 
+function entryStatusMeta(status: string) {
+  return ENTRY_STATUS_META[status] ?? { label: status, color: "#64748b", bg: "rgba(100,116,139,.12)" };
+}
+
+type TrackerMode = "job" | "free" | "personal";
+
+const MODE_META: Record<TrackerMode, { label: string; hint: string; purpose: TrackerPurpose; icon: typeof Timer }> = {
+  job: { label: "Job real", hint: "Tiempo ligado a un trabajo formal con escrow.", purpose: "job_linked", icon: Briefcase },
+  free: { label: "Proyecto libre", hint: "Trabajo propio sin cliente formal (convertible a job).", purpose: "payable", icon: FolderOpen },
+  personal: { label: "Solo calcular", hint: "Cuenta tus horas sin asociarlas a nada.", purpose: "personal", icon: Calculator },
+};
+
+function modeFromEntry(entry: { purpose?: string; jobId?: string | null; freeProjectId?: string | null } | null): TrackerMode {
+  if (!entry) return "job";
+  if (entry.jobId) return "job";
+  if (entry.freeProjectId) return "free";
+  return "personal";
+}
+
 type TrackerHistoryRange = "week" | "month" | "all";
-type TrackerHistoryStatus = TrackerSessionView["status"] | "all";
+type TrackerHistoryStatus = "all" | "running" | "paused" | "completed";
+
+/** "all" | "personal" | `job:<id>` | `free:<id>` */
+type TrackerTargetKey = string;
+
+function targetKeyForEntry(entry: TimeEntryView): TrackerTargetKey {
+  if (entry.jobId) return `job:${entry.jobId}`;
+  if (entry.freeProjectId) return `free:${entry.freeProjectId}`;
+  return "personal";
+}
+
+function parseTargetKey(key: TrackerTargetKey): { purpose: TrackerPurpose; jobId?: string; freeProjectId?: string } {
+  if (key.startsWith("job:")) return { purpose: "job_linked", jobId: key.slice(4) };
+  if (key.startsWith("free:")) return { purpose: "payable", freeProjectId: key.slice(5) };
+  return { purpose: "personal" };
+}
 
 type TrackerTab = "timer" | "resumen" | "registros" | "proyectos" | "reportes" | "asistente";
 
@@ -229,18 +280,13 @@ const TRACKER_TABS: { value: TrackerTab; label: string; icon: typeof Timer }[] =
 ];
 
 function trackerHistoryStatusLabel(status: TrackerHistoryStatus) {
-  return status === "all" ? "Todos los estados" : STATUS_META[status].label;
+  return status === "all" ? "Todos los estados" : entryStatusMeta(status).label;
 }
 
-function trackerHistoryExportLabel(range: TrackerHistoryRange, jobId: string, status: TrackerHistoryStatus) {
-  const statusLabel = status === "all" ? "all-statuses" : status.toLowerCase();
-  return `${trackerHistoryFileLabel(range, jobId)}-${statusLabel}`;
-}
-
-function isSessionInHistoryRange(session: TrackerSessionView, range: TrackerHistoryRange) {
+function isEntryInHistoryRange(entry: TimeEntryView, range: TrackerHistoryRange) {
   if (range === "all") return true;
 
-  const startedAt = new Date(session.startedAt).getTime();
+  const startedAt = new Date(entry.startedAt).getTime();
   if (Number.isNaN(startedAt)) return false;
 
   const days = range === "month" ? 30 : 7;
@@ -251,29 +297,33 @@ export default function WorkerTrackerPage() {
   const { t } = useLanguage();
   const [tab, setTab] = useState<TrackerTab>("timer");
   const [jobs, setJobs] = useState<JobRecordView[]>([]);
-  const [sessions, setSessions] = useState<TrackerSessionView[]>([]);
-  const [activeSession, setActiveSession] = useState<TrackerSessionView | null>(null);
+  const [freeProjects, setFreeProjects] = useState<FreeProjectView[]>([]);
+  const [entries, setEntries] = useState<TimeEntryView[]>([]);
+  const [activeEntry, setActiveEntry] = useState<TimeEntryView | null>(null);
+  const [mode, setMode] = useState<TrackerMode>("job");
   const [selectedJob, setSelectedJob] = useState("");
+  const [selectedFreeProject, setSelectedFreeProject] = useState("");
   const [notes, setNotes] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [manualJobId, setManualJobId] = useState("");
+  const [manualTarget, setManualTarget] = useState<TrackerTargetKey>("personal");
   const [manualDate, setManualDate] = useState(new Date().toISOString().slice(0, 10));
   const [manualStart, setManualStart] = useState("09:00");
   const [manualEnd, setManualEnd] = useState("13:00");
+  const [manualBreak, setManualBreak] = useState("0");
   const [manualNotes, setManualNotes] = useState("");
   const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
-  const [historyJobId, setHistoryJobId] = useState("all");
+  const [historyTarget, setHistoryTarget] = useState<TrackerTargetKey>("all");
   const [historyStatus, setHistoryStatus] = useState<TrackerHistoryStatus>("all");
   const [historyLoading, setHistoryLoading] = useState(false);
   const [escrow, setEscrow] = useState<Record<string, unknown> | null>(null);
   const [payments, setPayments] = useState<Record<string, unknown>[]>([]);
   const [contract, setContract] = useState<Record<string, unknown> | null>(null);
-  const [weekSummary, setWeekSummary] = useState<TimeTrackerSummaryView | null>(null);
-  const [monthSummary, setMonthSummary] = useState<TimeTrackerSummaryView | null>(null);
+  const [weekSummary, setWeekSummary] = useState<WeeklySummaryView | null>(null);
+  const [monthSummary, setMonthSummary] = useState<MonthlySummaryView | null>(null);
   const [trackerLocalState, setTrackerLocalState] = useState<TrackerLocalState>(() => createTrackerLocalState());
   const [isOnline, setIsOnline] = useState(true);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -288,19 +338,30 @@ export default function WorkerTrackerPage() {
   }, []);
 
   const loadTracker = useCallback(async () => {
-    const tracker = await fetchTrackerBootstrap();
+    const [nextJobs, nextFreeProjects, nextActive, nextWeek, nextMonth] = await Promise.all([
+      fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
+      fetchFreeProjects().catch(() => [] as FreeProjectView[]),
+      fetchActiveTimer(),
+      fetchWeeklySummary().catch(() => null),
+      fetchMonthlySummary().catch(() => null),
+    ]);
 
-    const preferredJobId = tracker.activeSession?.jobId ?? tracker.jobs[0]?.id ?? "";
+    setJobs(nextJobs);
+    setFreeProjects(nextFreeProjects);
+    setActiveEntry(nextActive);
+    setWeekSummary(nextWeek);
+    setMonthSummary(nextMonth);
+    setElapsed(nextActive ? elapsedSeconds(nextActive) : 0);
 
-    setJobs(tracker.jobs);
-    setSessions(tracker.recentSessions);
-    setActiveSession(tracker.activeSession);
-    setSelectedJob(tracker.activeSession?.jobId ?? preferredJobId);
-    setManualJobId((prev) => prev || tracker.jobs[0]?.id || "");
-    setNotes(tracker.activeSession?.notes ?? "");
-    setElapsed(elapsedFromSession(tracker.activeSession));
-    setWeekSummary(tracker.summaries.week);
-    setMonthSummary(tracker.summaries.month);
+    if (nextActive) {
+      setMode(modeFromEntry(nextActive));
+      if (nextActive.jobId) setSelectedJob(nextActive.jobId);
+      if (nextActive.freeProjectId) setSelectedFreeProject(nextActive.freeProjectId);
+      setNotes(nextActive.notes ?? "");
+    } else {
+      setSelectedJob((prev) => prev || nextJobs[0]?.id || "");
+      setSelectedFreeProject((prev) => prev || nextFreeProjects[0]?.id || "");
+    }
   }, []);
 
   const syncPendingEvents = useCallback(async (state: TrackerLocalState = trackerLocalState) => {
@@ -317,36 +378,44 @@ export default function WorkerTrackerPage() {
       for (const event of syncingState.pendingEvents) {
         switch (event.type) {
           case "start": {
-            const session = await startTrackerSession({ jobId: event.jobId, notes: event.notes });
-            sessionIdMap.set(event.localSessionId, session.id);
+            const entry = await startLaborTimer({
+              purpose: event.purpose ?? (event.jobId ? "job_linked" : "personal"),
+              jobId: event.jobId,
+              freeProjectId: event.freeProjectId,
+              notes: event.notes,
+            });
+            sessionIdMap.set(event.localSessionId, entry.id);
             break;
           }
           case "pause": {
-            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
-            await pauseTrackerSession(sessionId, { notes: event.notes });
+            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await pauseLaborTimer(entryId);
             break;
           }
           case "resume": {
-            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
-            await resumeTrackerSession(sessionId, { notes: event.notes });
+            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await resumeLaborTimer(entryId);
             break;
           }
           case "stop": {
-            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
-            await stopTrackerSession(sessionId, { notes: event.notes });
+            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await stopLaborTimer(entryId, event.notes);
             break;
           }
           case "update_note": {
-            const sessionId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
-            await updateTimeTrackerSessionNotes(sessionId, { notes: event.notes });
+            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            await updateLaborTimerNotes(entryId, event.notes);
             break;
           }
           case "manual_session":
-            await createManualTrackerSession({
+            await createManualEntry({
+              purpose: event.purpose ?? (event.jobId ? "job_linked" : "personal"),
               jobId: event.jobId,
+              freeProjectId: event.freeProjectId,
               date: event.date,
               startTime: event.startTime,
               endTime: event.endTime,
+              breakMinutes: event.breakMinutes,
               notes: event.notes,
             });
             break;
@@ -376,8 +445,11 @@ export default function WorkerTrackerPage() {
     setIsOnline(navigator.onLine);
 
     if (storedState.activeSession && storedState.activeSession.status !== "STOPPED") {
-      setActiveSession(localSessionToView(storedState.activeSession, []));
-      setSelectedJob(storedState.activeSession.jobId);
+      const recovered = localSessionToEntry(storedState.activeSession);
+      setActiveEntry(recovered);
+      setMode(modeFromEntry(recovered));
+      if (storedState.activeSession.jobId) setSelectedJob(storedState.activeSession.jobId);
+      if (storedState.activeSession.freeProjectId) setSelectedFreeProject(storedState.activeSession.freeProjectId);
       setNotes(storedState.activeSession.notes ?? "");
       setElapsed(elapsedFromLocalSession(storedState.activeSession));
       setSyncNotice("Sesión recuperada. Encontramos una jornada guardada localmente.");
@@ -430,19 +502,21 @@ export default function WorkerTrackerPage() {
     setHistoryLoading(true);
     setError(null);
     try {
-      const nextSessions = await fetchTimeTrackerSessions({
+      const target = parseTargetKey(historyTarget === "all" || historyTarget === "personal" ? "" : historyTarget);
+      const nextEntries = await fetchLaborEntries({
         range: historyRange,
-        jobId: historyJobId,
-        status: historyStatus,
+        jobId: target.jobId,
+        freeProjectId: target.freeProjectId,
+        purpose: historyTarget === "personal" ? "personal" : undefined,
         limit: 200,
       });
-      setSessions(nextSessions);
+      setEntries(nextEntries);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
     } finally {
       setHistoryLoading(false);
     }
-  }, [historyJobId, historyRange, historyStatus]);
+  }, [historyRange, historyTarget]);
 
   useEffect(() => {
     if (loading) return;
@@ -450,19 +524,20 @@ export default function WorkerTrackerPage() {
   }, [loadFilteredHistory, loading]);
 
   useEffect(() => {
-    setElapsed(elapsedFromSession(activeSession));
-    if (activeSession?.status !== "RUNNING") return;
+    setElapsed(activeEntry ? elapsedSeconds(activeEntry) : 0);
+    if (activeEntry?.status !== "running") return;
 
     const timer = window.setInterval(() => {
-      setElapsed(elapsedFromSession(activeSession));
+      setElapsed(elapsedSeconds(activeEntry));
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [activeSession]);
+  }, [activeEntry]);
+
+  const currentJobId = activeEntry?.jobId ?? (mode === "job" ? selectedJob : "");
 
   useEffect(() => {
-    const jobId = activeSession?.jobId ?? selectedJob;
-    if (!jobId) {
+    if (!currentJobId) {
       setEscrow(null);
       setPayments([]);
       setContract(null);
@@ -472,9 +547,9 @@ export default function WorkerTrackerPage() {
     const run = async () => {
       try {
         const [escrowResult, paymentsResult, contractResult] = await Promise.all([
-          fetchJobEscrow(jobId).catch(() => null),
-          fetchJobPayments(jobId).catch(() => []),
-          fetchJobContract(jobId).catch(() => null),
+          fetchJobEscrow(currentJobId).catch(() => null),
+          fetchJobPayments(currentJobId).catch(() => []),
+          fetchJobContract(currentJobId).catch(() => null),
         ]);
         setEscrow(escrowResult);
         setPayments(paymentsResult);
@@ -487,43 +562,66 @@ export default function WorkerTrackerPage() {
     };
 
     void run();
-  }, [selectedJob, activeSession?.jobId]);
+  }, [currentJobId]);
 
-  const currentJobId = activeSession?.jobId ?? selectedJob;
   const currentJobRouteId = safeRouteId(currentJobId);
-  const currentJob = activeSession?.job
-    ?? jobs.find((job) => job.id === currentJobId)
-    ?? null;
+  const currentJob = jobs.find((job) => job.id === currentJobId) ?? null;
+  const currentFreeProject = freeProjects.find((project) => project.id === (activeEntry?.freeProjectId ?? selectedFreeProject)) ?? null;
   const releasedAmount = payments.reduce((sum, item) => sum + (asString(item.type) === "RELEASE" ? asNumber(item.amount) ?? 0 : 0), 0);
   const fundedAmount = asNumber(escrow?.totalAmount);
-  const sessionElapsed = (session: TrackerSessionView) => (
-    activeSession?.id === session.id ? elapsed : session.elapsedSeconds
-  );
-  const weekSeconds = sessions
-    .filter((item) => Date.now() - new Date(item.startedAt).getTime() <= 7 * 24 * 3600 * 1000)
-    .reduce((sum, item) => sum + sessionElapsed(item), 0);
-  const monthSeconds = sessions
-    .filter((item) => Date.now() - new Date(item.startedAt).getTime() <= 30 * 24 * 3600 * 1000)
-    .reduce((sum, item) => sum + sessionElapsed(item), 0);
-  const displayedWeekSeconds = Math.max(weekSummary?.totalSeconds ?? 0, weekSeconds);
-  const displayedMonthSeconds = Math.max(monthSummary?.totalSeconds ?? 0, monthSeconds);
-  const filteredSessions = useMemo(() => sessions.filter((session) => {
-    if (!isSessionInHistoryRange(session, historyRange)) return false;
-    if (historyStatus !== "all" && session.status !== historyStatus) return false;
-    return historyJobId === "all" || session.jobId === historyJobId;
-  }), [historyJobId, historyRange, historyStatus, sessions]);
-  const filteredSessionSeconds = filteredSessions.reduce((sum, session) => sum + sessionElapsed(session), 0);
-  const filteredSessionStatusCounts = filteredSessions.reduce<Record<TrackerSessionView["status"], number>>((counts, session) => {
-    counts[session.status] += 1;
+
+  const entryTitle = useCallback((entry: TimeEntryView) => {
+    if (entry.jobId) {
+      return jobs.find((job) => job.id === entry.jobId)?.title ?? "Trabajo formal";
+    }
+    if (entry.freeProjectId) {
+      return freeProjects.find((project) => project.id === entry.freeProjectId)?.name ?? "Proyecto libre";
+    }
+    return "Horas personales";
+  }, [freeProjects, jobs]);
+
+  const activeTitle = activeEntry ? entryTitle(activeEntry) : null;
+
+  const entryElapsed = useCallback((entry: TimeEntryView) => (
+    activeEntry?.id === entry.id ? elapsed : elapsedSeconds(entry)
+  ), [activeEntry?.id, elapsed]);
+
+  const displayedWeekSeconds = (weekSummary?.totalMinutes ?? 0) * 60 + (activeEntry ? elapsed : 0);
+  const displayedMonthSeconds = (monthSummary?.totalMinutes ?? 0) * 60 + (activeEntry ? elapsed : 0);
+  const daysWorkedThisWeek = weekSummary?.byDay.filter((day) => day.minutes > 0).length ?? 0;
+
+  const filteredEntries = useMemo(() => entries.filter((entry) => {
+    if (!isEntryInHistoryRange(entry, historyRange)) return false;
+    if (historyStatus !== "all" && entry.status !== historyStatus) return false;
+    if (historyTarget === "all") return true;
+    return targetKeyForEntry(entry) === historyTarget;
+  }), [entries, historyRange, historyStatus, historyTarget]);
+
+  const filteredEntrySeconds = filteredEntries.reduce((sum, entry) => sum + entryElapsed(entry), 0);
+  const filteredStatusCounts = filteredEntries.reduce<Record<TrackerHistoryStatus, number>>((counts, entry) => {
+    if (entry.status === "running" || entry.status === "paused" || entry.status === "completed") {
+      counts[entry.status] += 1;
+    }
     return counts;
-  }, { RUNNING: 0, PAUSED: 0, STOPPED: 0 });
-  const filteredSessionLabel = historyRange === "week"
+  }, { all: 0, running: 0, paused: 0, completed: 0 });
+  const filteredEntriesLabel = historyRange === "week"
     ? "Últimos 7 días"
     : historyRange === "month"
       ? "Últimos 30 días"
       : "Todo el historial cargado";
-  const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd);
+
+  const recentNotes = useMemo(() => entries.filter((entry) => entry.notes?.trim()).slice(0, 4), [entries]);
+  const weekByDay = weekSummary?.byDay ?? [];
+  const maxDayMinutes = weekByDay.reduce((max, day) => Math.max(max, day.minutes), 0);
+
+  const manualBreakMinutes = Number.parseInt(manualBreak, 10) || 0;
+  const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd, manualBreakMinutes);
   const pendingEventCount = trackerLocalState.pendingEvents.length;
+
+  const startDisabled = saving
+    || (mode === "job" && !selectedJob)
+    || (mode === "free" && !selectedFreeProject);
+
   const syncBanner = useMemo(() => {
     if (!isOnline) {
       return {
@@ -573,24 +671,29 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleStart() {
-    if (!selectedJob || saving) return;
-    if (activeSession || trackerLocalState.activeSession) {
+    if (startDisabled) return;
+    if (activeEntry || trackerLocalState.activeSession) {
       setError("Ya hay una sesión activa. Pausa o detén la sesión actual antes de iniciar otra.");
       return;
     }
     setSaving(true);
     setError(null);
-    const selectedJobRecord = jobs.find((job) => job.id === selectedJob);
+    const purpose = MODE_META[mode].purpose;
+    const jobId = mode === "job" ? selectedJob : undefined;
+    const freeProjectId = mode === "free" ? selectedFreeProject : undefined;
     const localStart = startTrackerLocalSession(readTrackerLocalState(window.localStorage), {
-      jobId: selectedJob,
-      jobTitle: selectedJobRecord?.title,
+      purpose,
+      jobId,
+      jobTitle: jobId ? jobs.find((job) => job.id === jobId)?.title : undefined,
+      freeProjectId,
+      freeProjectName: freeProjectId ? freeProjects.find((project) => project.id === freeProjectId)?.name : undefined,
       notes,
     });
     persistTrackerLocalState(localStart.state);
-    setActiveSession(localSessionToView(localStart.localSession, jobs));
+    setActiveEntry(localSessionToEntry(localStart.localSession));
     setElapsed(0);
     try {
-      const session = await startTrackerSession({ jobId: selectedJob, notes });
+      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined });
       const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
       persistTrackerLocalState({
         ...localStart.state,
@@ -600,7 +703,7 @@ export default function WorkerTrackerPage() {
         lastSyncedAt: new Date().toISOString(),
         lastError: undefined,
       });
-      setActiveSession(session);
+      setActiveEntry(entry);
       await refreshAfterMutation();
     } catch (caught) {
       if (shouldPreserveLocalEvent(caught)) {
@@ -608,7 +711,7 @@ export default function WorkerTrackerPage() {
       } else {
         const cleanState = markTrackerSynced(localStart.state);
         persistTrackerLocalState(cleanState);
-        setActiveSession(null);
+        setActiveEntry(null);
         setElapsed(0);
         setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión.");
       }
@@ -618,28 +721,28 @@ export default function WorkerTrackerPage() {
   }
 
   async function handlePause() {
-    if (!activeSession || saving) return;
+    if (!activeEntry || saving) return;
     setSaving(true);
     setError(null);
     const localTimestamp = new Date().toISOString();
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "pause",
-      sessionId: activeSession.id,
+      sessionId: activeEntry.id,
       notes,
       localTimestamp,
     };
     try {
-      const session = await pauseTrackerSession(activeSession.id, { notes });
-      setActiveSession(session);
+      const entry = await pauseLaborTimer(activeEntry.id);
+      setActiveEntry(entry);
       await refreshAfterMutation();
     } catch (caught) {
       if (shouldPreserveLocalEvent(caught)) {
-        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const baseState = ensureLocalStateForEntry(readTrackerLocalState(window.localStorage), activeEntry);
         const nextState = updateTrackerLocalSession(baseState, event);
         persistTrackerLocalState(nextState);
         if (nextState.activeSession) {
-          setActiveSession(localSessionToView(nextState.activeSession, jobs));
+          setActiveEntry(localSessionToEntry(nextState.activeSession));
         }
         setSyncNotice(friendlyConnectionMessage("No pudimos pausar en SEMSE ahora"));
       } else {
@@ -651,28 +754,28 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleResume() {
-    if (!activeSession || saving) return;
+    if (!activeEntry || saving) return;
     setSaving(true);
     setError(null);
     const localTimestamp = new Date().toISOString();
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "resume",
-      sessionId: activeSession.id,
+      sessionId: activeEntry.id,
       notes,
       localTimestamp,
     };
     try {
-      const session = await resumeTrackerSession(activeSession.id, { notes });
-      setActiveSession(session);
+      const entry = await resumeLaborTimer(activeEntry.id);
+      setActiveEntry(entry);
       await refreshAfterMutation();
     } catch (caught) {
       if (shouldPreserveLocalEvent(caught)) {
-        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const baseState = ensureLocalStateForEntry(readTrackerLocalState(window.localStorage), activeEntry);
         const nextState = updateTrackerLocalSession(baseState, event);
         persistTrackerLocalState(nextState);
         if (nextState.activeSession) {
-          setActiveSession(localSessionToView(nextState.activeSession, jobs));
+          setActiveEntry(localSessionToEntry(nextState.activeSession));
         }
         setSyncNotice(friendlyConnectionMessage("No pudimos reanudar en SEMSE ahora"));
       } else {
@@ -684,29 +787,29 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleStop() {
-    if (!activeSession || saving) return;
+    if (!activeEntry || saving) return;
     setSaving(true);
     setError(null);
     const localTimestamp = new Date().toISOString();
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "stop",
-      sessionId: activeSession.id,
+      sessionId: activeEntry.id,
       notes,
       localTimestamp,
     };
     try {
-      await stopTrackerSession(activeSession.id, { notes });
+      await stopLaborTimer(activeEntry.id, notes.trim() || undefined);
       setNotes("");
-      setActiveSession(null);
+      setActiveEntry(null);
       await refreshAfterMutation();
     } catch (caught) {
       if (shouldPreserveLocalEvent(caught)) {
-        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const baseState = ensureLocalStateForEntry(readTrackerLocalState(window.localStorage), activeEntry);
         const nextState = updateTrackerLocalSession(baseState, event);
         persistTrackerLocalState(nextState);
         setNotes("");
-        setActiveSession(null);
+        setActiveEntry(null);
         setSyncNotice(friendlyConnectionMessage("No pudimos detener en SEMSE ahora"));
       } else {
         setError(caught instanceof Error ? caught.message : "No se pudo detener la sesión.");
@@ -717,27 +820,27 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleSaveActiveNote() {
-    if (!activeSession || saving) return;
+    if (!activeEntry || saving) return;
     setSaving(true);
     setError(null);
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "update_note",
-      sessionId: activeSession.id,
+      sessionId: activeEntry.id,
       notes,
       localTimestamp: new Date().toISOString(),
     };
     try {
-      const session = await updateTimeTrackerSessionNotes(activeSession.id, { notes });
-      setActiveSession(session);
+      const entry = await updateLaborTimerNotes(activeEntry.id, notes);
+      setActiveEntry(entry);
       await loadTracker();
     } catch (caught) {
       if (shouldPreserveLocalEvent(caught)) {
-        const baseState = ensureLocalStateForSession(readTrackerLocalState(window.localStorage), activeSession);
+        const baseState = ensureLocalStateForEntry(readTrackerLocalState(window.localStorage), activeEntry);
         const nextState = updateTrackerLocalSession(baseState, event);
         persistTrackerLocalState(nextState);
         if (nextState.activeSession) {
-          setActiveSession(localSessionToView(nextState.activeSession, jobs));
+          setActiveEntry(localSessionToEntry(nextState.activeSession));
         }
         setSyncNotice(friendlyConnectionMessage("No pudimos guardar la nota en SEMSE ahora"));
       } else {
@@ -749,31 +852,38 @@ export default function WorkerTrackerPage() {
   }
 
   async function handleManualSave() {
-    if (!manualJobId || saving) return;
+    if (saving) return;
     if (manualPreviewSeconds === null) {
-      setError("La entrada manual necesita una hora final posterior a la hora inicial.");
+      setError("La entrada manual necesita una hora final posterior a la hora inicial (descontando el descanso).");
       return;
     }
+    const target = parseTargetKey(manualTarget);
     setSaving(true);
     setError(null);
     const localTimestamp = new Date().toISOString();
     const event: TrackerPendingEvent = {
       id: createTrackerEventId(),
       type: "manual_session",
-      jobId: manualJobId,
+      purpose: target.purpose,
+      jobId: target.jobId,
+      freeProjectId: target.freeProjectId,
       date: manualDate,
       startTime: manualStart,
       endTime: manualEnd,
+      breakMinutes: manualBreakMinutes,
       notes: manualNotes,
       localTimestamp,
     };
     try {
-      await createManualTrackerSession({
-        jobId: manualJobId,
+      await createManualEntry({
+        purpose: target.purpose,
+        jobId: target.jobId,
+        freeProjectId: target.freeProjectId,
         date: manualDate,
         startTime: manualStart,
         endTime: manualEnd,
-        notes: manualNotes,
+        breakMinutes: manualBreakMinutes,
+        notes: manualNotes.trim() || undefined,
       });
       await refreshAfterMutation();
     } catch (caught) {
@@ -792,20 +902,22 @@ export default function WorkerTrackerPage() {
   }
 
   function handleExportHistoryCsv() {
-    if (filteredSessions.length === 0) return;
+    if (filteredEntries.length === 0) return;
 
     const rows = [
-      ["session_id", "job_id", "job_title", "status", "started_at", "ended_at", "duration_seconds", "duration_hhmmss", "notes"],
-      ...filteredSessions.map((session) => [
-        session.id,
-        session.jobId,
-        session.job.title,
-        session.status,
-        session.startedAt,
-        session.stoppedAt ?? session.pausedAt ?? session.updatedAt,
-        String(sessionElapsed(session)),
-        fmtSeconds(sessionElapsed(session)),
-        session.notes ?? "",
+      ["entry_id", "mode", "purpose", "target", "status", "started_at", "ended_at", "break_minutes", "duration_seconds", "duration_hhmmss", "notes"],
+      ...filteredEntries.map((entry) => [
+        entry.id,
+        entry.mode,
+        entry.purpose,
+        entryTitle(entry),
+        entry.status,
+        entry.startedAt,
+        entry.endedAt ?? entry.pausedAt ?? entry.updatedAt,
+        String(entry.breakMinutes),
+        String(entryElapsed(entry)),
+        fmtSeconds(entryElapsed(entry)),
+        entry.notes ?? "",
       ]),
     ];
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
@@ -813,7 +925,7 @@ export default function WorkerTrackerPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `semse-time-tracker-${trackerHistoryExportLabel(historyRange, historyJobId, historyStatus)}.csv`;
+    anchor.download = `semse-labor-tracker-${trackerHistoryFileLabel(historyRange, historyTarget)}.csv`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -827,6 +939,8 @@ export default function WorkerTrackerPage() {
     padding: "20px",
   };
 
+  const activeStatusMeta = activeEntry ? entryStatusMeta(activeEntry.status) : null;
+
   return (
     <div style={{ maxWidth: "980px", margin: "0 auto", display: "grid", gap: "18px" }}>
       <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }} canvasClassName="rounded-2xl" minHeight={90}>
@@ -834,7 +948,7 @@ export default function WorkerTrackerPage() {
           <Link href="/worker/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}><span style={{ fontSize: "14px" }}>←</span> Dashboard</Link>
           <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.timeTracker")}</h1>
           <p style={{ fontSize: "13px", color: "var(--muted)" }}>
-            Sesión persistente por trabajo. Si sales de la web, el tiempo sigue corriendo hasta pausar o detener.
+            Registra tiempo en jobs reales, proyectos libres o solo para ti. Si sales de la web, el tiempo sigue corriendo hasta pausar o detener.
           </p>
         </div>
         <NotificationBanner audience="worker" />
@@ -878,14 +992,14 @@ export default function WorkerTrackerPage() {
             >
               <item.icon size={14} />
               {item.label}
-              {item.value === "timer" && activeSession ? (
+              {item.value === "timer" && activeEntry ? (
                 <span
                   style={{
                     width: "7px",
                     height: "7px",
                     borderRadius: "999px",
-                    background: activeSession.status === "RUNNING" ? "#10b981" : "#f59e0b",
-                    boxShadow: activeSession.status === "RUNNING" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
+                    background: activeEntry.status === "running" ? "#10b981" : "#f59e0b",
+                    boxShadow: activeEntry.status === "running" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
                   }}
                 />
               ) : null}
@@ -932,7 +1046,7 @@ export default function WorkerTrackerPage() {
             fontSize: "52px",
             fontWeight: 800,
             fontVariantNumeric: "tabular-nums",
-            color: activeSession?.status === "RUNNING" ? "var(--brand)" : "var(--ink)",
+            color: activeEntry?.status === "running" ? "var(--brand)" : "var(--ink)",
             letterSpacing: "0.05em",
             marginBottom: "8px",
             fontFamily: "'Geist Mono', 'JetBrains Mono', monospace",
@@ -942,66 +1056,155 @@ export default function WorkerTrackerPage() {
         </div>
 
         <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "18px" }}>
-          {activeSession
-            ? `${STATUS_META[activeSession.status].label}: ${activeSession.job.title}`
-            : jobs.length === 0 && !loading
-              ? "Aún no tienes trabajos aceptados para registrar tiempo."
-              : "Selecciona un trabajo y presiona Iniciar"}
+          {activeEntry && activeStatusMeta
+            ? `${activeStatusMeta.label}: ${activeTitle}`
+            : "Elige el modo, selecciona el destino y presiona Iniciar"}
         </p>
 
-        {!activeSession && jobs.length === 0 && !loading ? (
-          <div style={{ marginBottom: "18px" }}>
-            <Link href="/worker/opportunities" style={linkButton()}>
-              Buscar oportunidades
-            </Link>
+        {!activeEntry ? (
+          <div data-testid="tracker-mode-selector" style={{ display: "flex", justifyContent: "center", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
+            {(Object.keys(MODE_META) as TrackerMode[]).map((value) => {
+              const meta = MODE_META[value];
+              const active = mode === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  data-testid={`tracker-mode-${value}`}
+                  onClick={() => setMode(value)}
+                  title={meta.hint}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "7px",
+                    padding: "9px 16px",
+                    borderRadius: "10px",
+                    border: active ? "1px solid var(--brand)" : "1px solid var(--border)",
+                    background: active ? "var(--brand)" : "var(--bg)",
+                    color: active ? "#fff" : "var(--muted)",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  <meta.icon size={14} />
+                  {meta.label}
+                </button>
+              );
+            })}
           </div>
         ) : null}
 
-        {!activeSession ? (
+        {!activeEntry && mode === "job" ? (
           <div style={{ marginBottom: "16px", maxWidth: "420px", marginInline: "auto" }}>
-            <div style={{ position: "relative" }}>
-              <select
-                data-testid="tracker-job-select"
-                value={selectedJob}
-                onChange={(event) => setSelectedJob(event.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 36px 10px 14px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border)",
-                  background: "var(--bg)",
-                  color: "var(--ink)",
-                  fontSize: "13px",
-                  appearance: "none",
-                  cursor: "pointer",
-                  outline: "none",
-                }}
-              >
-                {jobs.length === 0 ? (
-                  <option value="">Sin trabajos aceptados</option>
-                ) : null}
-                {jobs.map((job) => (
-                  <option key={job.id} value={job.id}>
-                    {job.title}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                style={{
-                  position: "absolute",
-                  right: "12px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--muted)",
-                  pointerEvents: "none",
-                }}
-              />
-            </div>
+            {jobs.length === 0 && !loading ? (
+              <div style={{ display: "grid", gap: "10px", justifyItems: "center" }}>
+                <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>Aún no tienes trabajos aceptados para registrar tiempo.</p>
+                <Link href="/worker/opportunities" style={linkButton()}>
+                  Buscar oportunidades
+                </Link>
+              </div>
+            ) : (
+              <div style={{ position: "relative" }}>
+                <select
+                  data-testid="tracker-job-select"
+                  value={selectedJob}
+                  onChange={(event) => setSelectedJob(event.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 36px 10px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--ink)",
+                    fontSize: "13px",
+                    appearance: "none",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  {jobs.length === 0 ? (
+                    <option value="">Sin trabajos aceptados</option>
+                  ) : null}
+                  {jobs.map((job) => (
+                    <option key={job.id} value={job.id}>
+                      {job.title}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--muted)",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            )}
           </div>
         ) : null}
 
-        <div style={{ marginBottom: "18px", maxWidth: "520px", marginInline: "auto", display: "grid", gridTemplateColumns: activeSession ? "1fr auto" : "1fr", gap: "8px" }}>
+        {!activeEntry && mode === "free" ? (
+          <div style={{ marginBottom: "16px", maxWidth: "420px", marginInline: "auto" }}>
+            {freeProjects.length === 0 && !loading ? (
+              <div style={{ display: "grid", gap: "10px", justifyItems: "center" }}>
+                <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>Aún no tienes proyectos libres.</p>
+                <button type="button" onClick={() => setTab("proyectos")} style={linkButton()}>
+                  <Plus size={12} /> Crear proyecto libre
+                </button>
+              </div>
+            ) : (
+              <div style={{ position: "relative" }}>
+                <select
+                  data-testid="tracker-free-project-select"
+                  value={selectedFreeProject}
+                  onChange={(event) => setSelectedFreeProject(event.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "10px 36px 10px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border)",
+                    background: "var(--bg)",
+                    color: "var(--ink)",
+                    fontSize: "13px",
+                    appearance: "none",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  {freeProjects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--muted)",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {!activeEntry && mode === "personal" ? (
+          <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "16px" }}>
+            Estas horas quedan solo para tu control personal. No se asocian a jobs ni pagos.
+          </p>
+        ) : null}
+
+        <div style={{ marginBottom: "18px", maxWidth: "520px", marginInline: "auto", display: "grid", gridTemplateColumns: activeEntry ? "1fr auto" : "1fr", gap: "8px" }}>
           <input
             data-testid="tracker-notes-input"
             value={notes}
@@ -1019,7 +1222,7 @@ export default function WorkerTrackerPage() {
               boxSizing: "border-box",
             }}
           />
-          {activeSession ? (
+          {activeEntry ? (
             <button
               data-testid="tracker-save-note-button"
               onClick={() => void handleSaveActiveNote()}
@@ -1032,16 +1235,16 @@ export default function WorkerTrackerPage() {
         </div>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
-          {!activeSession ? (
+          {!activeEntry ? (
             <button
               data-testid="tracker-start-button"
               onClick={() => void handleStart()}
-              disabled={!selectedJob || saving}
-              style={primaryButton("#10b981", !selectedJob || saving)}
+              disabled={startDisabled}
+              style={primaryButton("#10b981", startDisabled)}
             >
               <Play size={16} fill="#fff" /> {saving ? "Iniciando..." : "Iniciar"}
             </button>
-          ) : activeSession.status === "RUNNING" ? (
+          ) : activeEntry.status === "running" ? (
             <>
               <button data-testid="tracker-pause-button" onClick={() => void handlePause()} disabled={saving} style={secondaryButton()}>
                 <Pause size={16} /> {saving ? "Pausando..." : "Pausar"}
@@ -1066,7 +1269,7 @@ export default function WorkerTrackerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
         <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
         <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="#10b981" />
-        <MetricCard label="Días trabajados" value={String(weekSummary?.daysWorked ?? "—")} color="#8b5cf6" />
+        <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="#8b5cf6" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
       </div>
 
@@ -1075,22 +1278,23 @@ export default function WorkerTrackerPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: "12px" }}>
             <div>
               <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>RESUMEN SEMANAL</p>
-              <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>Tiempo por trabajo</h2>
+              <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>Tiempo por día</h2>
             </div>
             <span style={{ fontSize: "11px", color: "var(--muted)" }}>
-              {weekSummary?.sessionCount ?? 0} sesiones · {weekSummary?.sessionsWithoutNotes ?? 0} sin nota
+              {weekSummary?.totalEntries ?? 0} entradas
+              {weekSummary?.changePercent != null ? ` · ${weekSummary.changePercent > 0 ? "+" : ""}${weekSummary.changePercent}% vs sem. anterior` : ""}
             </span>
           </div>
 
           <div style={{ display: "grid", gap: "10px" }}>
-            {weekSummary?.byJob.length ? (
-              weekSummary.byJob.slice(0, 5).map((item) => {
-                const pct = displayedWeekSeconds > 0 ? Math.min(100, Math.round((item.seconds / displayedWeekSeconds) * 100)) : 0;
+            {weekByDay.length > 0 ? (
+              weekByDay.map((day) => {
+                const pct = maxDayMinutes > 0 ? Math.min(100, Math.round((day.minutes / maxDayMinutes) * 100)) : 0;
                 return (
-                  <div key={item.jobId} style={{ display: "grid", gap: "6px" }}>
+                  <div key={day.date} style={{ display: "grid", gap: "6px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", fontSize: "12px" }}>
-                      <span style={{ color: "var(--ink)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.jobTitle}</span>
-                      <span style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtSeconds(item.seconds)}</span>
+                      <span style={{ color: "var(--ink)", fontWeight: 700 }}>{formatEntryDate(day.date)}</span>
+                      <span style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtSeconds(day.minutes * 60)}</span>
                     </div>
                     <div style={{ height: "7px", borderRadius: "999px", background: "rgba(148,163,184,.18)", overflow: "hidden" }}>
                       <div style={{ width: `${pct}%`, height: "100%", background: "var(--brand)" }} />
@@ -1110,20 +1314,20 @@ export default function WorkerTrackerPage() {
               <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>LIBRETA</p>
               <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>Notas recientes</h2>
             </div>
-            <span style={{ fontSize: "11px", color: "var(--muted)" }}>Últimas 10</span>
+            <span style={{ fontSize: "11px", color: "var(--muted)" }}>Últimas {recentNotes.length}</span>
           </div>
 
           <div style={{ display: "grid", gap: "10px" }}>
-            {weekSummary?.recentNotes.length ? (
-              weekSummary.recentNotes.slice(0, 4).map((item) => (
-                <div key={item.sessionId} style={{ borderLeft: "3px solid var(--brand)", paddingLeft: "10px" }}>
-                  <p style={{ margin: 0, fontSize: "12px", color: "var(--ink)", fontWeight: 700 }}>{item.jobTitle}</p>
-                  <p style={{ margin: "3px 0", fontSize: "12px", color: "var(--muted)", lineHeight: 1.45 }}>{item.note}</p>
-                  <p style={{ margin: 0, fontSize: "11px", color: "var(--muted)" }}>{formatSessionDate(item.startedAt)}</p>
+            {recentNotes.length > 0 ? (
+              recentNotes.map((entry) => (
+                <div key={entry.id} style={{ borderLeft: "3px solid var(--brand)", paddingLeft: "10px" }}>
+                  <p style={{ margin: 0, fontSize: "12px", color: "var(--ink)", fontWeight: 700 }}>{entryTitle(entry)}</p>
+                  <p style={{ margin: "3px 0", fontSize: "12px", color: "var(--muted)", lineHeight: 1.45 }}>{entry.notes}</p>
+                  <p style={{ margin: 0, fontSize: "11px", color: "var(--muted)" }}>{formatEntryDate(entry.startedAt)}</p>
                 </div>
               ))
             ) : (
-              <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6 }}>Las sesiones con nota aparecerán aquí para seguimiento y cierre semanal.</p>
+              <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6 }}>Las entradas con nota aparecerán aquí para seguimiento y cierre semanal.</p>
             )}
           </div>
         </div>
@@ -1133,10 +1337,15 @@ export default function WorkerTrackerPage() {
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <div>
-              <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>TRABAJO CONECTADO</p>
-              <h2 data-testid="tracker-current-job" style={{ fontSize: "16px", fontWeight: 700, color: "var(--ink)" }}>{currentJob?.title ?? "Selecciona un trabajo"}</h2>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                {mode === "free" && !activeEntry?.jobId ? "PROYECTO LIBRE" : "TRABAJO CONECTADO"}
+              </p>
+              <h2 data-testid="tracker-current-job" style={{ fontSize: "16px", fontWeight: 700, color: "var(--ink)" }}>
+                {currentJob?.title
+                  ?? (mode === "free" ? currentFreeProject?.name ?? "Selecciona un proyecto" : mode === "personal" ? "Horas personales" : "Selecciona un trabajo")}
+              </h2>
             </div>
-            {activeSession ? (
+            {activeEntry && activeStatusMeta ? (
               <span
                 data-testid="tracker-status-chip"
                 style={{
@@ -1144,38 +1353,59 @@ export default function WorkerTrackerPage() {
                   alignItems: "center",
                   padding: "4px 10px",
                   borderRadius: "999px",
-                  background: STATUS_META[activeSession.status].bg,
-                  color: STATUS_META[activeSession.status].color,
+                  background: activeStatusMeta.bg,
+                  color: activeStatusMeta.color,
                   fontSize: "11px",
                   fontWeight: 700,
                 }}
               >
-                {STATUS_META[activeSession.status].label}
+                {activeStatusMeta.label}
               </span>
             ) : null}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
-            <MiniStat label="Estado job" value={currentJob?.status ?? "—"} icon={<Clock size={14} color="var(--brand)" />} />
-            <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="#10b981" />} />
-            <MiniStat label="Fondeado" value={formatMoney(fundedAmount)} icon={<Receipt size={14} color="var(--accent)" />} />
-          </div>
+          {currentJobId ? (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+                <MiniStat label="Estado job" value={currentJob?.status ?? "—"} icon={<Clock size={14} color="var(--brand)" />} />
+                <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="#10b981" />} />
+                <MiniStat label="Fondeado" value={formatMoney(fundedAmount)} icon={<Receipt size={14} color="var(--accent)" />} />
+              </div>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "14px" }}>
-            {currentJobRouteId ? (
-              <>
-                <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}`} style={linkButton()}>
-                  Ver trabajo
-                </Link>
-                <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}/escrow`} style={linkButton()}>
-                  Ver escrow
-                </Link>
-                <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}/evidence`} style={linkButton()}>
-                  Ver evidencia
-                </Link>
-              </>
-            ) : null}
-          </div>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "14px" }}>
+                {currentJobRouteId ? (
+                  <>
+                    <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}`} style={linkButton()}>
+                      Ver trabajo
+                    </Link>
+                    <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}/escrow`} style={linkButton()}>
+                      Ver escrow
+                    </Link>
+                    <Link href={`/jobs/${encodeURIComponent(currentJobRouteId)}/evidence`} style={linkButton()}>
+                      Ver evidencia
+                    </Link>
+                  </>
+                ) : null}
+              </div>
+            </>
+          ) : mode === "free" && currentFreeProject ? (
+            <>
+              <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+                {currentFreeProject.description || "Proyecto libre sin cliente formal. Cuando lo formalices podrás convertirlo en job con escrow desde la pestaña Proyectos."}
+              </p>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginTop: "14px" }}>
+                <button type="button" onClick={() => setTab("proyectos")} style={linkButton()}>
+                  Gestionar proyectos libres
+                </button>
+              </div>
+            </>
+          ) : (
+            <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.6, margin: 0 }}>
+              {mode === "personal"
+                ? "Modo personal: solo cuentas tus horas. Cambia a Job real o Proyecto libre para conectar escrow, pagos o clientes."
+                : "Conecta un trabajo para ver escrow, pagos y contrato en tiempo real."}
+            </p>
+          )}
         </div>
 
         <div style={card}>
@@ -1188,35 +1418,46 @@ export default function WorkerTrackerPage() {
 
           {showForm ? (
             <div style={{ display: "grid", gap: "10px" }}>
-              {jobs.length === 0 ? (
-                <p style={{ fontSize: "12px", color: "#ef4444", margin: 0 }}>
-                  Sin trabajos aceptados. Acepta un trabajo antes de registrar horas.
-                </p>
-              ) : (
-                <div style={{ position: "relative" }}>
-                  <select
-                    value={manualJobId}
-                    onChange={(event) => setManualJobId(event.target.value)}
-                    style={{ ...inputStyle(), paddingRight: "32px", appearance: "none", cursor: "pointer" }}
-                  >
-                    {jobs.map((job) => (
-                      <option key={job.id} value={job.id}>{job.title}</option>
-                    ))}
-                  </select>
-                  <ChevronDown size={13} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
-                </div>
-              )}
+              <div style={{ position: "relative" }}>
+                <select
+                  data-testid="tracker-manual-target-select"
+                  value={manualTarget}
+                  onChange={(event) => setManualTarget(event.target.value)}
+                  style={{ ...inputStyle(), paddingRight: "32px", appearance: "none", cursor: "pointer" }}
+                >
+                  <option value="personal">Horas personales (solo calcular)</option>
+                  {jobs.length > 0 ? (
+                    <optgroup label="Jobs reales">
+                      {jobs.map((job) => (
+                        <option key={job.id} value={`job:${job.id}`}>{job.title}</option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                  {freeProjects.length > 0 ? (
+                    <optgroup label="Proyectos libres">
+                      {freeProjects.map((project) => (
+                        <option key={project.id} value={`free:${project.id}`}>{project.name}</option>
+                      ))}
+                    </optgroup>
+                  ) : null}
+                </select>
+                <ChevronDown size={13} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+              </div>
               <input value={manualDate} onChange={(event) => setManualDate(event.target.value)} type="date" style={inputStyle()} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <input value={manualStart} onChange={(event) => setManualStart(event.target.value)} type="time" style={inputStyle()} />
                 <input value={manualEnd} onChange={(event) => setManualEnd(event.target.value)} type="time" style={inputStyle()} />
               </div>
+              <label style={{ display: "grid", gap: "4px", fontSize: "11px", color: "var(--muted)", fontWeight: 700 }}>
+                Descanso (minutos)
+                <input value={manualBreak} onChange={(event) => setManualBreak(event.target.value)} type="number" min="0" step="5" style={inputStyle()} />
+              </label>
               <p style={{ fontSize: "12px", color: manualPreviewSeconds === null ? "#ef4444" : "var(--muted)", margin: 0 }}>
-                Duración: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
+                Duración neta: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
               <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => void handleManualSave()} disabled={!manualJobId || manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", !manualJobId || manualPreviewSeconds === null || saving)}>
+                <button onClick={() => void handleManualSave()} disabled={manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", manualPreviewSeconds === null || saving)}>
                   {saving ? "Guardando..." : "Guardar"}
                 </button>
                 <button onClick={() => setShowForm(false)} style={secondaryButton()}>
@@ -1226,7 +1467,7 @@ export default function WorkerTrackerPage() {
             </div>
           ) : (
             <div style={{ color: "var(--muted)", fontSize: "13px", lineHeight: 1.6 }}>
-              Crea sesiones cerradas por trabajo para cuadrar horas, escrow y seguimiento operativo sin depender del reloj activo.
+              Registra horas pasadas (fecha, entrada, salida y descanso) en jobs, proyectos libres o solo para tu control.
             </div>
           )}
 
@@ -1240,9 +1481,9 @@ export default function WorkerTrackerPage() {
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
           <div>
-            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Sesiones recientes</h2>
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "4px" }}>Entradas recientes</h2>
             <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
-              {filteredSessions.length} sesiones · {fmtSeconds(filteredSessionSeconds)} · {filteredSessionLabel} · {trackerHistoryStatusLabel(historyStatus)}
+              {filteredEntries.length} entradas · {fmtSeconds(filteredEntrySeconds)} · {filteredEntriesLabel} · {trackerHistoryStatusLabel(historyStatus)}
             </p>
           </div>
 
@@ -1250,8 +1491,8 @@ export default function WorkerTrackerPage() {
             <button
               type="button"
               onClick={handleExportHistoryCsv}
-              disabled={filteredSessions.length === 0 || loading || historyLoading}
-              style={historyActionButton(filteredSessions.length === 0 || loading || historyLoading)}
+              disabled={filteredEntries.length === 0 || loading || historyLoading}
+              style={historyActionButton(filteredEntries.length === 0 || loading || historyLoading)}
             >
               <Download size={13} /> CSV
             </button>
@@ -1276,32 +1517,44 @@ export default function WorkerTrackerPage() {
                 style={{ ...compactSelect(), minWidth: "154px" }}
               >
                 <option value="all">Todos los estados</option>
-                <option value="RUNNING">Corriendo</option>
-                <option value="PAUSED">En pausa</option>
-                <option value="STOPPED">Detenidas</option>
+                <option value="running">Corriendo</option>
+                <option value="paused">En pausa</option>
+                <option value="completed">Completadas</option>
               </select>
               <ChevronDown size={13} style={selectChevron()} />
             </div>
             <div style={{ position: "relative" }}>
               <select
-                aria-label="Filtrar historial por trabajo"
-                value={historyJobId}
-                onChange={(event) => setHistoryJobId(event.target.value)}
+                aria-label="Filtrar historial por destino"
+                value={historyTarget}
+                onChange={(event) => setHistoryTarget(event.target.value)}
                 style={{ ...compactSelect(), minWidth: "190px", maxWidth: "260px" }}
               >
-                <option value="all">Todos los trabajos</option>
-                {jobs.map((job) => (
-                  <option key={job.id} value={job.id}>{job.title}</option>
-                ))}
+                <option value="all">Todos los destinos</option>
+                <option value="personal">Horas personales</option>
+                {jobs.length > 0 ? (
+                  <optgroup label="Jobs reales">
+                    {jobs.map((job) => (
+                      <option key={job.id} value={`job:${job.id}`}>{job.title}</option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                {freeProjects.length > 0 ? (
+                  <optgroup label="Proyectos libres">
+                    {freeProjects.map((project) => (
+                      <option key={project.id} value={`free:${project.id}`}>{project.name}</option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
               <ChevronDown size={13} style={selectChevron()} />
             </div>
           </div>
         </div>
 
-        {filteredSessions.length > 0 ? (
+        {filteredEntries.length > 0 ? (
           <div data-testid="tracker-history-status-summary" style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
-            {(Object.keys(STATUS_META) as TrackerSessionView["status"][]).map((status) => (
+            {(["running", "paused", "completed"] as const).map((status) => (
               <span
                 key={status}
                 style={{
@@ -1310,13 +1563,13 @@ export default function WorkerTrackerPage() {
                   gap: "6px",
                   padding: "5px 9px",
                   borderRadius: "8px",
-                  background: STATUS_META[status].bg,
-                  color: STATUS_META[status].color,
+                  background: entryStatusMeta(status).bg,
+                  color: entryStatusMeta(status).color,
                   fontSize: "11px",
                   fontWeight: 800,
                 }}
               >
-                {STATUS_META[status].label}: {filteredSessionStatusCounts[status]}
+                {entryStatusMeta(status).label}: {filteredStatusCounts[status]}
               </span>
             ))}
           </div>
@@ -1331,31 +1584,36 @@ export default function WorkerTrackerPage() {
             <div style={{ ...card, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
               {error}
             </div>
-          ) : sessions.length === 0 ? (
-            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Todavía no hay sesiones registradas.</div>
-          ) : filteredSessions.length === 0 ? (
+          ) : entries.length === 0 ? (
+            <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Todavía no hay entradas registradas.</div>
+          ) : filteredEntries.length === 0 ? (
             <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>
-              No hay sesiones que coincidan con estos filtros.
+              No hay entradas que coincidan con estos filtros.
             </div>
           ) : (
-            filteredSessions.map((session) => (
-              <div data-testid="tracker-session-card" key={session.id} style={{ ...card, display: "flex", alignItems: "center", gap: "16px", padding: "14px 16px" }}>
-                <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: `${STATUS_META[session.status].color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Clock size={16} color={STATUS_META[session.status].color} />
+            filteredEntries.map((entry) => {
+              const meta = entryStatusMeta(entry.status);
+              return (
+                <div data-testid="tracker-session-card" key={entry.id} style={{ ...card, display: "flex", alignItems: "center", gap: "16px", padding: "14px 16px" }}>
+                  <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: `${meta.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Clock size={16} color={meta.color} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px" }}>{entryTitle(entry)}</p>
+                    <p style={{ fontSize: "11px", color: "var(--muted)" }}>
+                      {formatEntryDate(entry.startedAt)} · {formatEntryRange(entry)}
+                      {entry.mode === "manual" ? " · manual" : ""}
+                      {entry.breakMinutes > 0 ? ` · ${entry.breakMinutes}m descanso` : ""}
+                      {entry.notes ? ` · ${entry.notes}` : ""}
+                    </p>
+                  </div>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <p style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>{fmtSeconds(entryElapsed(entry))}</p>
+                    <p style={{ fontSize: "11px", color: meta.color }}>{meta.label}</p>
+                  </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px" }}>{session.job.title}</p>
-                  <p style={{ fontSize: "11px", color: "var(--muted)" }}>
-                    {formatSessionDate(session.startedAt)} · {formatSessionRange(session)}
-                    {session.notes ? ` · ${session.notes}` : ""}
-                  </p>
-                </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <p style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)" }}>{fmtSeconds(session.elapsedSeconds)}</p>
-                  <p style={{ fontSize: "11px", color: STATUS_META[session.status].color }}>{STATUS_META[session.status].label}</p>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -1467,6 +1725,7 @@ function linkButton(): CSSProperties {
     fontSize: "12px",
     fontWeight: 600,
     textDecoration: "none",
+    cursor: "pointer",
   };
 }
 
