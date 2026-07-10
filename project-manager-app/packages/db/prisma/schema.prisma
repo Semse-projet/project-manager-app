@@ -3314,3 +3314,35 @@ model GovernanceCreditEvent {
   @@index([tenantId, userId])
   @@index([userId, createdAt])
 }
+
+// ── Vision Analysis — computer-vision evidence scoring ────────────────────────
+// Table created by migration 20260613000000_vision_analysis.
+
+model VisionAnalysis {
+  id                     String   @id @default(cuid())
+  evidenceId             String   @unique
+  jobId                  String?
+  milestoneId            String?
+  trade                  String?
+  status                 String   @default("pending")
+  qualityScore           Float?
+  blurScore              Float?
+  brightnessScore        Float?
+  contrastScore          Float?
+  duplicateRisk          Float?
+  changeScore            Float?
+  visualProgressDetected Boolean  @default(false)
+  requiresHumanReview    Boolean  @default(true)
+  canAutoApprove         Boolean  @default(false)
+  recommendedAction      String?
+  riskLevel              String?
+  riskReasons            Json?
+  rawResult              Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([evidenceId])
+  @@index([jobId])
+  @@index([milestoneId])
+  @@index([status])
+}
