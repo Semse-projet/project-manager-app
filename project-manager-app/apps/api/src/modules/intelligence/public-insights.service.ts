@@ -211,7 +211,7 @@ export class PublicInsightsService {
       where: {
         tenantId,
         deletedAt: null,
-        status: { in: OPEN_JOB_STATUSES },
+        status: { in: ["POSTED", "PUBLISHED"] },
       },
       orderBy: { updatedAt: "desc" },
       take: Math.min(Math.max(limit, 1), 50),
@@ -226,7 +226,7 @@ export class PublicInsightsService {
         id: jobId,
         tenantId,
         deletedAt: null,
-        status: { in: OPEN_JOB_STATUSES },
+        status: { in: ["POSTED", "PUBLISHED"] },
       },
       select: PUBLIC_OPENING_SELECT,
     });
@@ -245,8 +245,6 @@ export type PublicJobOpening = {
   location: string | null;
   urgency: string | null;
 };
-
-const OPEN_JOB_STATUSES = ["POSTED", "PUBLISHED"];
 
 const PUBLIC_OPENING_SELECT = {
   id: true,

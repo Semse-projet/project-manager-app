@@ -33,6 +33,15 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
     async createTimeEntry(...args: unknown[]) {
       return record("createTimeEntry", args, { id: "te2", mode: "manual" });
     },
+    async listActiveEntriesForTenant(...args: unknown[]) {
+      return record("listActiveEntriesForTenant", args, []);
+    },
+    async getTeamSummary(...args: unknown[]) {
+      return record("getTeamSummary", args, []);
+    },
+    async listLongEntries(...args: unknown[]) {
+      return record("listLongEntries", args, []);
+    },
     ...overrides,
   };
   return repo;
@@ -135,4 +144,60 @@ void test("createManualEntry creates a manual entry with break minutes", async (
   assert.equal(payload.mode, "manual");
   assert.equal(payload.jobId, "job-9");
   assert.equal(payload.breakMinutes, 30);
+});
+
+void test("getAdminOverview flags stale timers, overtime and long entries", async () => {
+  const now = Date.now();
+  const { service } = createService({
+    async listActiveEntriesForTenant() {
+      return [
+        {
+          id: "te-stale",
+          createdBy: "worker-1",
+          status: "running",
+          startedAt: new Date(now - 14 * 3600 * 1000),
+          resumedAt: new Date(now - 13 * 3600 * 1000),
+          accumulatedSeconds: 3600,
+        },
+        {
+          id: "te-fresh",
+          createdBy: "worker-2",
+          status: "running",
+          startedAt: new Date(now - 30 * 60 * 1000),
+          resumedAt: new Date(now - 30 * 60 * 1000),
+          accumulatedSeconds: 0,
+        },
+      ];
+    },
+    async getTeamSummary() {
+      return [
+        { workerId: "worker-1", totalMinutes: 50 * 60, totalEntries: 6, knownCost: 900, minutesWithoutRate: 0 },
+        { workerId: "worker-2", totalMinutes: 20 * 60, totalEntries: 3, knownCost: 0, minutesWithoutRate: 20 * 60 },
+      ];
+    },
+    async listLongEntries() {
+      return [
+        { id: "te-long", createdBy: "worker-3", durationMinutes: 13 * 60 },
+      ];
+    },
+  });
+
+  const overview = await service.getAdminOverview("tnt");
+
+  assert.equal(overview.activeTimers.length, 2);
+  assert.equal(overview.team.length, 2);
+
+  const types = overview.alerts.map((alert: { type: string; workerId: string }) => `${alert.type}:${alert.workerId}`);
+  assert.ok(types.includes("stale_timer:worker-1"), "should flag the 14h running timer");
+  assert.ok(types.includes("overtime:worker-1"), "should flag 50h week as overtime");
+  assert.ok(types.includes("long_entry:worker-3"), "should flag the 13h single entry");
+  assert.ok(!types.some((t: string) => t.endsWith(":worker-2")), "worker-2 has no alerts");
+});
+
+void test("getAdminOverview returns empty alerts for a quiet week", async () => {
+  const { service } = createService();
+  const overview = await service.getAdminOverview("tnt");
+  assert.deepEqual(overview.alerts, []);
+  assert.equal(typeof overview.period.from, "string");
+  assert.equal(overview.thresholds.staleTimerHours, 12);
 });

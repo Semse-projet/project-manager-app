@@ -213,6 +213,61 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord | null;
   }
 
+  /** Todos los timers activos del tenant (vista admin multi-worker). */
+  async listActiveEntriesForTenant(tenantId: string): Promise<TimeEntryRecord[]> {
+    return this.prisma.timeEntry.findMany({
+      where: { tenantId, status: { in: ["running", "paused"] } },
+      orderBy: { startedAt: "asc" },
+    }) as unknown as TimeEntryRecord[];
+  }
+
+  /** Horas completadas por worker en un rango (vista admin de equipo). */
+  async getTeamSummary(params: { tenantId: string; from: Date; to: Date }): Promise<
+    Array<{ workerId: string; totalMinutes: number; totalEntries: number; knownCost: number; minutesWithoutRate: number }>
+  > {
+    const entries = await this.prisma.timeEntry.findMany({
+      where: {
+        tenantId: params.tenantId,
+        status: "completed",
+        startedAt: { gte: params.from, lte: params.to },
+      },
+      select: { createdBy: true, durationMinutes: true, hourlyRate: true },
+    });
+
+    const byWorker = new Map<string, { totalMinutes: number; totalEntries: number; knownCost: number; minutesWithoutRate: number }>();
+    for (const entry of entries as Array<{ createdBy: string; durationMinutes: number | null; hourlyRate: unknown }>) {
+      const minutes = entry.durationMinutes ?? 0;
+      const rate = entry.hourlyRate != null ? parseFloat(String(entry.hourlyRate)) : null;
+      const current = byWorker.get(entry.createdBy) ?? { totalMinutes: 0, totalEntries: 0, knownCost: 0, minutesWithoutRate: 0 };
+      current.totalMinutes += minutes;
+      current.totalEntries += 1;
+      if (rate != null && Number.isFinite(rate)) {
+        current.knownCost += (minutes / 60) * rate;
+      } else {
+        current.minutesWithoutRate += minutes;
+      }
+      byWorker.set(entry.createdBy, current);
+    }
+
+    return Array.from(byWorker.entries())
+      .map(([workerId, summary]) => ({ workerId, ...summary, knownCost: Math.round(summary.knownCost * 100) / 100 }))
+      .sort((a, b) => b.totalMinutes - a.totalMinutes);
+  }
+
+  /** Entradas completadas anormalmente largas en un rango (QualityGuard). */
+  async listLongEntries(params: { tenantId: string; from: Date; to: Date; minMinutes: number }): Promise<TimeEntryRecord[]> {
+    return this.prisma.timeEntry.findMany({
+      where: {
+        tenantId: params.tenantId,
+        status: "completed",
+        startedAt: { gte: params.from, lte: params.to },
+        durationMinutes: { gte: params.minMinutes },
+      },
+      orderBy: { durationMinutes: "desc" },
+      take: 50,
+    }) as unknown as TimeEntryRecord[];
+  }
+
   async getLaborSummary(params: {
     tenantId: string;
     workerId: string;

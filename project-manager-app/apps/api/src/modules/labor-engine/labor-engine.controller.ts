@@ -253,6 +253,16 @@ export class LaborEngineController {
     return ok(rid(req), data);
   }
 
+  // ── Admin / supervisor (multi-worker + QualityGuard) ──────────────────────
+
+  @Get("admin/overview")
+  @RequirePermissions("ops:dashboard:read")
+  async adminOverview(@Req() req: { headers?: Record<string, unknown> }) {
+    const a = actor(req);
+    const data = await this.svc.getAdminOverview(a.tenantId);
+    return ok(rid(req), data);
+  }
+
   // ── Chat (Cronos, vía Ollama local) ───────────────────────────────────────
 
   @Post("chat")
