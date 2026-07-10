@@ -3258,3 +3258,59 @@ model PermanentLoopState {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
+
+// ── Governance Sandbox — P4/P5 Prometeo DAO ───────────────────────────────────
+// Reputation-weighted proposals, quadratic voting, participation credits.
+// Tables created by migration 20260525000000_governance_sandbox.
+
+model GovernanceProposal {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  title                 String
+  description           String
+  category              String   @default("general")
+  status                String   @default("open")
+  authorId              String
+  authorReputationScore Decimal  @default(0) @db.Decimal(6, 2)
+  mcaAdvice             String?
+  mcaRisk               String   @default("low")
+  closesAt              DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  votes GovernanceVote[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, closesAt])
+  @@index([authorId])
+}
+
+model GovernanceVote {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  proposalId           String
+  proposal             GovernanceProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  voterId              String
+  choice               String
+  voterReputationScore Decimal  @default(0) @db.Decimal(6, 2)
+  units                Int      @default(1)
+  reason               String?
+  createdAt            DateTime @default(now())
+
+  @@unique([proposalId, voterId])
+  @@index([tenantId, proposalId])
+  @@index([voterId])
+}
+
+model GovernanceCreditEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  eventType String
+  credits   Decimal  @db.Decimal(8, 2)
+  context   String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([userId, createdAt])
+}

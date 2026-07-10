@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildSemseRequestHeaders, getServerConfig, runtimeDisabledResponse } from "../../../_server";
+import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get("projectId");
     const cfg = await getServerConfig(request);
-    const headers = buildSemseRequestHeaders(cfg);
+    const headers = (await buildAuthorizedHeaders(cfg));
 
     const qs = projectId ? `?projectId=${encodeURIComponent(projectId)}` : "";
     const apiRes = await fetch(

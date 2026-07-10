@@ -193,13 +193,15 @@ export function runtimeDisabledResponse(): NextResponse {
   );
 }
 
-async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestInit): Promise<T> {
-  const identityHeaders = buildIdentityHeaders({
-    tenantId: config.tenantId,
-    orgId: config.orgId,
-    userId: config.userId,
-    roles: parseRoleList(config.roles)
-  });
+/**
+ * Bootstraps a Bearer access token for the given identity, when running in an
+ * environment where the API enforces token auth (production, or explicitly
+ * enabled for dev). Returns `undefined` when no token is needed/available.
+ */
+async function resolveAuthorizationHeader(config: RuntimeConfig): Promise<string | undefined> {
+  const shouldBootstrapAccessToken =
+    process.env.NODE_ENV === "production" || process.env.SEMSE_ENABLE_ACCESS_TOKEN_BOOTSTRAP === "true";
+  if (!shouldBootstrapAccessToken) return undefined;
 
   const cacheKey = [
     config.apiBaseUrl,
@@ -208,31 +210,48 @@ async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestIni
     config.userId,
     config.roles
   ].join("::");
-  const shouldBootstrapAccessToken =
-    process.env.NODE_ENV === "production" || process.env.SEMSE_ENABLE_ACCESS_TOKEN_BOOTSTRAP === "true";
 
-  let authorizationHeader: string | undefined;
-  if (shouldBootstrapAccessToken) {
-    // Concurrent callers for the same identity share one in-flight bootstrap —
-    // otherwise a page that mounts several components at once bursts past
-    // POST /v1/auth/token's rate limit and the losers proceed unauthenticated.
-    const accessToken = await accessTokenBootstrapper.getToken(cacheKey, {
-      apiBaseUrl: config.apiBaseUrl,
-      tenantId: config.tenantId,
-      orgId: config.orgId,
-      userId: config.userId,
-      roles: parseRoleList(config.roles),
-      bootstrapHeaders: buildBootstrapHeaders()
-    });
-    if (accessToken) authorizationHeader = `Bearer ${accessToken}`;
-  }
+  // Concurrent callers for the same identity share one in-flight bootstrap —
+  // otherwise a page that mounts several components at once bursts past
+  // POST /v1/auth/token's rate limit and the losers proceed unauthenticated.
+  const accessToken = await accessTokenBootstrapper.getToken(cacheKey, {
+    apiBaseUrl: config.apiBaseUrl,
+    tenantId: config.tenantId,
+    orgId: config.orgId,
+    userId: config.userId,
+    roles: parseRoleList(config.roles),
+    bootstrapHeaders: buildBootstrapHeaders()
+  });
+  return accessToken ? `Bearer ${accessToken}` : undefined;
+}
+
+/**
+ * Identity headers PLUS a bootstrapped Bearer token. Handlers that build their
+ * own `fetch` (streaming, PDF passthrough, custom status handling) must use
+ * this instead of the token-less `buildSemseRequestHeaders`, otherwise the API
+ * rejects them with 401 in production.
+ */
+export async function buildAuthorizedHeaders(config: RuntimeConfig): Promise<Record<string, string>> {
+  const identityHeaders = buildIdentityHeaders({
+    tenantId: config.tenantId,
+    orgId: config.orgId,
+    userId: config.userId,
+    roles: parseRoleList(config.roles)
+  }) as Record<string, string>;
+  const authorizationHeader = await resolveAuthorizationHeader(config);
+  return authorizationHeader
+    ? { ...identityHeaders, authorization: authorizationHeader }
+    : identityHeaders;
+}
+
+async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestInit): Promise<T> {
+  const headers = await buildAuthorizedHeaders(config);
 
   const response = await fetch(`${config.apiBaseUrl}${path}`, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
-      ...identityHeaders,
-      ...(authorizationHeader ? { authorization: authorizationHeader } : {})
+      ...headers
     },
     cache: "no-store"
   });
@@ -304,6 +323,10 @@ export async function getServerConfig(req: NextRequest): Promise<RuntimeConfig> 
   return cfg;
 }
 
+/**
+ * @deprecated Identity headers WITHOUT a Bearer token — rejected with 401 by the
+ * API in production. Use {@link buildAuthorizedHeaders} instead.
+ */
 export function buildSemseRequestHeaders(cfg: RuntimeConfig): Record<string, string> {
   return buildIdentityHeaders({
     tenantId: cfg.tenantId,
