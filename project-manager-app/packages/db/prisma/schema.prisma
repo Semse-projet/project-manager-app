@@ -2065,6 +2065,47 @@ model ContractorLead {
   @@index([tenantId, status])
 }
 
+// ── Worker Onboarding — aplicaciones públicas ─────────────────────────────────
+
+/// Aplicación pública de un trabajador para unirse a SEMSE (con o sin vacante).
+model WorkerApplication {
+  id              String    @id @default(cuid())
+  tenantId        String
+
+  // Contacto
+  fullName        String
+  email           String
+  phone           String?
+  city            String?
+
+  // Perfil
+  trade           String    // oficio principal: "electrical", "painting", ...
+  yearsExperience Int?
+  message         String?   // presentación libre
+  proposedRate    Decimal?  @db.Decimal(10, 2) // propuesta económica opcional (para vacante)
+
+  // Vacante que motivó la aplicación (opcional)
+  jobId           String?
+
+  // Pipeline de revisión
+  status          String    @default("submitted")
+  // submitted | reviewing | approved | rejected
+  reviewNotes     String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdUserId   String?   // si al aprobar se creó/enlazó un usuario
+
+  // Anti-abuso / origen
+  sessionToken    String?
+  sourceChannel   String    @default("web")
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, email])
+}
+
 // ── AI Mission Control Incidents ──────────────────────────────────────────────
 
 /// Persistent log of AI system posture incidents detected by Mission Control.

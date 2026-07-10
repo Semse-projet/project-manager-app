@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
-  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, Shield, ShieldCheck, Star, TrendingUp,
+  AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, Shield, ShieldCheck, Star, TrendingUp, UserPlus,
 } from "lucide-react";
 import { TrustPassportCard } from "../../../../components/semse/TrustPassportCard";
 
@@ -155,6 +156,10 @@ export default function TrustPage() {
             {lastAt && <> · {lastAt} · auto-refresh 30s</>}
           </p>
         </div>
+        <Link href="/admin/trust/worker-applications"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "#10b981", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
+          <UserPlus size={13} /> Aplicaciones de workers
+        </Link>
         <button onClick={load} disabled={loading}
           style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
