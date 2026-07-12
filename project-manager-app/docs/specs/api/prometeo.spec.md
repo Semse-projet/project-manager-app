@@ -15,6 +15,7 @@ related_files:
   - apps/api/src/modules/prometeo
   - apps/api/src/modules/ai-models/orchestrator/prometeo-orchestrator.service.ts
   - apps/api/src/modules/prometeo/prometeo-tool-registry.ts
+  - apps/api/src/modules/agents/prometeo-mission.service.ts
   - packages/schemas/src/prometeo-runtime.schema.ts
   - apps/web/app/api/semse/cortex/chat/route.ts
   - packages/schemas/src/knowledge-domain.schema.ts
@@ -26,6 +27,7 @@ related_endpoints:
   - v1/prometeo
   - v1/prometeo/tools
   - v1/prometeo/tools/invoke
+  - v1/prometeo/missions
   - v1/ai-models/prometeo/chat
 related_events: []
 related_agents:
@@ -200,6 +202,56 @@ Lecturas conectadas en P1:
 - `vision.get_analysis`
 - `vision.get_job_analyses`
 - `vision.get_milestone_analyses`
+
+### Extensión P2 — Mission Runtime durable
+
+Las misiones persistentes reutilizan `AgentWorkPlan`, `PlanExecutionService`,
+las políticas de tools y el bus SSE existentes. Prometeo no mantiene una
+segunda máquina de estados ni una tabla paralela.
+
+```typescript
+type PrometeoMissionCreateInput = {
+  goal: string;
+  title?: string;
+  description?: string;
+  projectId?: string;
+  threadId?: string;
+  selectedEntities?: EntityReference[];
+  proposedActions?: ProposedAction[];
+  successCriteria?: string[];
+  context?: Record<string, unknown>;
+};
+
+type PrometeoMissionCheckpointInput = {
+  action: "start" | "complete" | "block" | "fail" | "retry" | "skip";
+  detail?: string;
+  evidenceCount?: number;
+};
+```
+
+Endpoints P2:
+
+- `POST /v1/prometeo/missions`: crea una misión y autoaprueba solo planes sin
+  acciones que requieran aprobación.
+- `GET /v1/prometeo/missions/:missionId`: recupera estado, progreso y pasos
+  después de reinicios o cambios de dispositivo.
+- `POST /v1/prometeo/missions/:missionId/approve|reject|cancel`: registra la
+  decisión usando el ciclo de vida canónico de `AgentWorkPlan`.
+- `POST /v1/prometeo/missions/:missionId/steps/:stepId/checkpoint`: inicia,
+  completa, bloquea, falla, reintenta u omite un paso mediante
+  `PlanExecutionService`.
+
+Reglas P2:
+
+- Acciones `critical` se normalizan a riesgo `high` en el plan y nunca se
+  autoaprueban.
+- Dependencias, evidencia requerida y readiness se evalúan con las políticas
+  ya usadas por Project Copilot.
+- `PrometeoMissionState.durable` distingue una misión persistida del estado
+  sintético que acompaña un turno de chat sin misión explícita.
+- El BFF y `semse-api.ts` exponen creación, lectura, decisión y checkpoints.
+- P2 persiste y reanuda el plan; todavía no habilita mutaciones de negocio ni
+  sustituye las aprobaciones específicas de pagos/disputas.
 
 ### `POST /v1/prometeo/ingest` — Indexar documento
 ```yaml

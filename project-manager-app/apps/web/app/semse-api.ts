@@ -31,6 +31,8 @@ import type {
   PrometeoAttachment,
   PrometeoCitation,
   PrometeoEntityReference,
+  PrometeoMissionCheckpointInput,
+  PrometeoMissionCreateInput,
   PrometeoMissionState,
   PrometeoPageContext,
   PrometeoProposedAction,
@@ -72,6 +74,8 @@ export type {
   PrometeoAttachment,
   PrometeoCitation,
   PrometeoEntityReference,
+  PrometeoMissionCheckpointInput,
+  PrometeoMissionCreateInput,
   PrometeoMissionState,
   PrometeoPageContext,
   PrometeoProposedAction,
@@ -2088,6 +2092,39 @@ export async function fetchPrometeoToolRegistry(): Promise<{ generatedAt: string
 
 export async function invokePrometeoTool(input: PrometeoToolInvokeInput): Promise<PrometeoToolExecutionResult> {
   return mutateSemse<PrometeoToolExecutionResult>("/api/semse/prometeo/tools/invoke", input);
+}
+
+export async function createPrometeoMission(input: PrometeoMissionCreateInput): Promise<PrometeoMissionState> {
+  return mutateSemse<PrometeoMissionState>(
+    "/api/semse/prometeo/missions",
+    input as Record<string, unknown>,
+  );
+}
+
+export async function fetchPrometeoMission(missionId: string): Promise<PrometeoMissionState> {
+  return fetchSemse<PrometeoMissionState>(
+    `/api/semse/prometeo/missions/${encodeURIComponent(missionId)}`,
+  );
+}
+
+export async function decidePrometeoMission(
+  missionId: string,
+  decision: "approve" | "reject" | "cancel",
+): Promise<PrometeoMissionState> {
+  return mutateSemse<PrometeoMissionState>(
+    `/api/semse/prometeo/missions/${encodeURIComponent(missionId)}/${decision}`,
+  );
+}
+
+export async function checkpointPrometeoMission(
+  missionId: string,
+  stepId: string,
+  input: PrometeoMissionCheckpointInput,
+): Promise<PrometeoMissionState> {
+  return mutateSemse<PrometeoMissionState>(
+    `/api/semse/prometeo/missions/${encodeURIComponent(missionId)}/steps/${encodeURIComponent(stepId)}/checkpoint`,
+    input as Record<string, unknown>,
+  );
 }
 
 export async function fetchAiModelLogs(

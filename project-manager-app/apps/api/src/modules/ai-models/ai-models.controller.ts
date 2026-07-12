@@ -780,6 +780,7 @@ export class AiModelsController {
       status,
       phase: status === "completed" ? "completed" : status === "waiting_approval" ? "approval" : "planning",
       goal: input.request.requestedAction ?? (input.request.message?.trim() || "Prometeo request"),
+      durable: false,
       pendingApprovals,
       steps: [
         { id: "observe", label: "Observar entrada y contexto", status: "completed" },

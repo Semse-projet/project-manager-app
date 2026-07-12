@@ -117,6 +117,14 @@ export const prometeoMissionStepSchema = z.object({
   detail: z.string().trim().min(1).optional(),
 });
 
+export const prometeoMissionProgressSchema = z.object({
+  totalSteps: z.number().int().nonnegative(),
+  completedSteps: z.number().int().nonnegative(),
+  blockedSteps: z.number().int().nonnegative(),
+  failedSteps: z.number().int().nonnegative(),
+  percent: z.number().min(0).max(100),
+});
+
 export const prometeoMissionStateSchema = z.object({
   id: z.string().trim().min(1),
   status: z.enum(["draft", "running", "waiting_input", "waiting_approval", "completed", "failed", "cancelled"]),
@@ -125,6 +133,38 @@ export const prometeoMissionStateSchema = z.object({
   steps: z.array(prometeoMissionStepSchema).default([]),
   pendingApprovals: z.array(z.string().trim().min(1)).default([]),
   traceId: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).optional(),
+  threadId: z.string().trim().min(1).optional(),
+  durable: z.boolean().default(false),
+  progress: prometeoMissionProgressSchema.optional(),
+  createdAt: z.string().trim().min(1).optional(),
+  updatedAt: z.string().trim().min(1).optional(),
+});
+
+export const prometeoMissionCreateSchema = z.object({
+  goal: z.string().trim().min(1),
+  title: z.string().trim().min(1).optional(),
+  description: z.string().trim().min(1).optional(),
+  projectId: z.string().trim().min(1).optional(),
+  threadId: z.string().trim().min(1).optional(),
+  selectedEntities: z.array(prometeoEntityReferenceSchema).default([]),
+  proposedActions: z.array(prometeoProposedActionSchema).default([]),
+  successCriteria: z.array(z.string().trim().min(1)).default([]),
+  context: z.record(z.unknown()).default({}),
+});
+
+export const prometeoMissionCheckpointSchema = z.object({
+  action: z.enum(["start", "complete", "block", "fail", "retry", "skip"]),
+  detail: z.string().trim().min(1).optional(),
+  evidenceCount: z.number().int().nonnegative().default(0),
+}).superRefine((value, ctx) => {
+  if ((value.action === "block" || value.action === "fail") && !value.detail) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "detail is required when blocking or failing a mission step",
+      path: ["detail"],
+    });
+  }
 });
 
 export const prometeoCitationSchema = z.object({
@@ -184,7 +224,10 @@ export type PrometeoResponseBlock = z.infer<typeof prometeoResponseBlockSchema>;
 export type PrometeoProposedAction = z.infer<typeof prometeoProposedActionSchema>;
 export type PrometeoToolExecutionResult = z.infer<typeof prometeoToolExecutionResultSchema>;
 export type PrometeoMissionStep = z.infer<typeof prometeoMissionStepSchema>;
+export type PrometeoMissionProgress = z.infer<typeof prometeoMissionProgressSchema>;
 export type PrometeoMissionState = z.infer<typeof prometeoMissionStateSchema>;
+export type PrometeoMissionCreateInput = z.infer<typeof prometeoMissionCreateSchema>;
+export type PrometeoMissionCheckpointInput = z.infer<typeof prometeoMissionCheckpointSchema>;
 export type PrometeoCitation = z.infer<typeof prometeoCitationSchema>;
 export type PrometeoResponse = z.infer<typeof prometeoResponseSchema>;
 export type PrometeoToolInvokeInput = z.infer<typeof prometeoToolInvokeSchema>;
