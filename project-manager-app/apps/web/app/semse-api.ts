@@ -27,7 +27,18 @@ import type {
   TrackerSnapshotView,
   AutonomyLlmStatusView,
   AutonomyRunListView,
-  AutonomyRunView
+  AutonomyRunView,
+  PrometeoAttachment,
+  PrometeoCitation,
+  PrometeoEntityReference,
+  PrometeoMissionState,
+  PrometeoPageContext,
+  PrometeoProposedAction,
+  PrometeoRequest,
+  PrometeoResponseBlock,
+  PrometeoToolDescriptor,
+  PrometeoToolExecutionResult,
+  PrometeoToolInvokeInput
 } from "@semse/schemas";
 
 export type {
@@ -57,7 +68,18 @@ export type {
   TrackerSnapshotView,
   AutonomyLlmStatusView,
   AutonomyRunListView,
-  AutonomyRunView
+  AutonomyRunView,
+  PrometeoAttachment,
+  PrometeoCitation,
+  PrometeoEntityReference,
+  PrometeoMissionState,
+  PrometeoPageContext,
+  PrometeoProposedAction,
+  PrometeoRequest,
+  PrometeoResponseBlock,
+  PrometeoToolDescriptor,
+  PrometeoToolExecutionResult,
+  PrometeoToolInvokeInput
 } from "@semse/schemas";
 
 export type ApiEnvelope<T> = {
@@ -1868,6 +1890,13 @@ export type PrometeoChatResponse = {
   threadId: string;
   agentId: string;
   response: string;
+  message?: string;
+  blocks?: PrometeoResponseBlock[];
+  proposedActions?: PrometeoProposedAction[];
+  executionResults?: PrometeoToolExecutionResult[];
+  mission?: PrometeoMissionState;
+  citations?: PrometeoCitation[];
+  refreshTargets?: string[];
   mode: "demo" | "runtime" | "report" | "context_only" | "fallback";
   route?: PrometeoRouteView;
   context?: PrometeoOperationalContext;
@@ -2035,13 +2064,30 @@ export function subscribeToContextUpdates(input: {
   return () => es.close();
 }
 
-export async function chatWithPrometeo(input: {
-  message: string;
+export type PrometeoChatInput = {
+  message?: string;
   agentId?: string;
   threadId?: string;
   projectId?: string;
-}): Promise<PrometeoChatResponse> {
+  missionId?: string;
+  requestedAction?: string;
+  requestedActionInput?: Record<string, unknown>;
+  attachments?: PrometeoAttachment[];
+  selectedEntities?: PrometeoEntityReference[];
+  pageContext?: PrometeoPageContext;
+  context?: unknown;
+};
+
+export async function chatWithPrometeo(input: PrometeoChatInput): Promise<PrometeoChatResponse> {
   return mutateSemse<PrometeoChatResponse>("/api/semse/cortex/chat", input as Record<string, unknown>);
+}
+
+export async function fetchPrometeoToolRegistry(): Promise<{ generatedAt: string; tools: PrometeoToolDescriptor[] }> {
+  return fetchSemse<{ generatedAt: string; tools: PrometeoToolDescriptor[] }>("/api/semse/prometeo/tools");
+}
+
+export async function invokePrometeoTool(input: PrometeoToolInvokeInput): Promise<PrometeoToolExecutionResult> {
+  return mutateSemse<PrometeoToolExecutionResult>("/api/semse/prometeo/tools/invoke", input);
 }
 
 export async function fetchAiModelLogs(

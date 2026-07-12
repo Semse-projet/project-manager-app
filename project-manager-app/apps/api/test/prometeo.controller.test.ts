@@ -4,6 +4,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import { PrometeoController } from "../dist/modules/prometeo/prometeo.controller.js";
+import { PrometeoToolExecutionService } from "../dist/modules/prometeo/prometeo-tool-execution.service.js";
 
 function createController() {
   const calls: Array<Record<string, unknown>> = [];
@@ -80,12 +81,27 @@ function createController() {
     },
   } as never;
 
-  return { controller: new PrometeoController(svc, undefined, tradeGuide), calls };
+  const toolExecution = {
+    async invokeReadTool(actor: Record<string, unknown>, requestId: string, invocation: Record<string, unknown>) {
+      calls.push({ method: "invokeReadTool", actor, requestId, invocation });
+      return {
+        id: "exec_1",
+        namespace: String(invocation.namespace ?? "time_tracker"),
+        tool: String(invocation.name ?? "get_status"),
+        status: "succeeded",
+        output: { data: { ok: true } },
+      };
+    },
+  } as never;
+
+  return { controller: new PrometeoController(svc, undefined, tradeGuide, toolExecution), calls };
 }
 
 test("prometeo controller declares permissions and wraps representative payloads", async () => {
   const expectations: Array<[string, string]> = [
     ["ingest", "agents:run:create"],
+    ["listTools", "agents:run:create"],
+    ["invokeTool", "agents:run:create"],
     ["ingestFile", "agents:run:create"],
     ["getTradeLibrary", "agents:run:create"],
     ["listDocuments", "agents:run:create"],
@@ -117,6 +133,8 @@ test("prometeo controller declares permissions and wraps representative payloads
   };
 
   const ingested = await controller.ingest(actor as never, { title: "Guide", text: "NEC content", trade: "electrical" });
+  const tools = await controller.listTools(actor as never);
+  const invoked = await controller.invokeTool(actor as never, { namespace: "time_tracker", name: "get_status", input: {} });
   const documents = await controller.listDocuments(actor as never, undefined, "electrical");
   const search = await controller.search(actor as never, { query: "NEC", trade: "electrical", topK: 1 });
   const ragContext = await controller.ragContext(actor as never, { query: "NEC", trade: "electrical" });
@@ -126,6 +144,9 @@ test("prometeo controller declares permissions and wraps representative payloads
   const health = await controller.embeddingsHealth(actor as never);
 
   assert.equal(ingested.requestId, "req_prm_1");
+  assert.ok(tools.data.tools.some((tool: { namespace?: string; name?: string }) => tool.namespace === "time_tracker" && tool.name === "get_status"));
+  assert.equal(invoked.data.status, "succeeded");
+  assert.ok(calls.some((call) => call.method === "invokeReadTool"));
   assert.equal(documents.data[0]?.metadataJson.trade, "electrical");
   assert.equal(search.data[0]?.documentId, "doc_1");
   assert.equal(ragContext.data.chunks[0]?.documentId, "doc_1");
@@ -137,4 +158,116 @@ test("prometeo controller declares permissions and wraps representative payloads
   assert.ok(calls.some((call) => call.method === "ingestText"));
   assert.ok(calls.some((call) => call.method === "buildRagContext"));
   assert.ok(calls.some((call) => call.method === "tradeGuide"));
+});
+
+test("prometeo tool execution runs only read adapters and blocks pending video pipeline", async () => {
+  const calls: Array<Record<string, unknown>> = [];
+  const fieldOps = {
+    async getTrackerBootstrap(input: Record<string, unknown>) {
+      calls.push({ method: "getTrackerBootstrap", input });
+      return { activeSession: null, recentSessions: [], jobs: [], summaries: {} };
+    },
+    async listTrackerJobs(input: Record<string, unknown>) {
+      calls.push({ method: "listTrackerJobs", input });
+      return [{ id: "job_1", title: "Drywall" }];
+    },
+    async getTrackerSummary(input: Record<string, unknown>) {
+      calls.push({ method: "getTrackerSummary", input });
+      return { range: input.range, totalSeconds: 0 };
+    },
+    async listTrackerSessions(input: Record<string, unknown>) {
+      calls.push({ method: "listTrackerSessions", input });
+      return [];
+    },
+  } as never;
+  const agroFarms = {
+    async listFarms(ownerId: string) {
+      calls.push({ method: "listFarms", ownerId });
+      return [];
+    },
+    async getFarm(farmId: string, ownerId: string) {
+      calls.push({ method: "getFarm", farmId, ownerId });
+      return { id: farmId, ownerId };
+    },
+  } as never;
+  const agroAnimals = {
+    async listAnimals(farmId: string, ownerId: string) {
+      calls.push({ method: "listAnimals", farmId, ownerId });
+      return [];
+    },
+    async getAnimal(animalId: string) {
+      calls.push({ method: "getAnimal", animalId });
+      return { id: animalId, farmId: "farm_1" };
+    },
+    async listGroups(farmId: string, ownerId: string) {
+      calls.push({ method: "listGroups", farmId, ownerId });
+      return [];
+    },
+  } as never;
+  const agroTasks = {
+    async listTasks(farmId: string, ownerId: string, filters: Record<string, unknown>) {
+      calls.push({ method: "listTasks", farmId, ownerId, filters });
+      return [];
+    },
+  } as never;
+  const agroInventory = {
+    async listItems(farmId: string, ownerId: string) {
+      calls.push({ method: "listItems", farmId, ownerId });
+      return [];
+    },
+    async listCosts(farmId: string, ownerId: string, filters: Record<string, unknown>) {
+      calls.push({ method: "listCosts", farmId, ownerId, filters });
+      return [];
+    },
+    async getCostSummary(farmId: string, ownerId: string, days: number) {
+      calls.push({ method: "getCostSummary", farmId, ownerId, days });
+      return { total: 0 };
+    },
+  } as never;
+  const agroDashboard = {
+    async getDashboard(farmId: string, ownerId: string) {
+      calls.push({ method: "getDashboard", farmId, ownerId });
+      return { farm: { id: farmId } };
+    },
+  } as never;
+  const vision = {
+    async getAnalysis(evidenceId: string) {
+      calls.push({ method: "getAnalysis", evidenceId });
+      return { evidenceId };
+    },
+    async getByJob(jobId: string) {
+      calls.push({ method: "getByJob", jobId });
+      return [];
+    },
+    async getByMilestone(milestoneId: string) {
+      calls.push({ method: "getByMilestone", milestoneId });
+      return [];
+    },
+  } as never;
+  const service = new PrometeoToolExecutionService(
+    fieldOps,
+    agroFarms,
+    agroAnimals,
+    agroTasks,
+    agroInventory,
+    agroDashboard,
+    vision,
+  );
+  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["CLIENT"] };
+
+  const jobs = await service.invokeReadTool(actor, "req_tool_1", { namespace: "time_tracker", name: "list_jobs", input: {} });
+  const animal = await service.invokeReadTool(actor, "req_tool_2", { namespace: "agro", name: "get_animal", input: { animalId: "animal_1" } });
+  const blockedVideo = await service.invokeReadTool(actor, "req_tool_3", { namespace: "vision", name: "analyze_video", input: { videoFileId: "vid_1" } });
+
+  assert.equal(jobs.status, "succeeded");
+  assert.deepEqual((jobs.output as { data?: unknown }).data, [{ id: "job_1", title: "Drywall" }]);
+  assert.equal(animal.status, "succeeded");
+  assert.ok(calls.some((call) => call.method === "getFarm" && call.farmId === "farm_1" && call.ownerId === "usr_1"));
+  assert.equal(blockedVideo.status, "blocked");
+  assert.match(blockedVideo.errorMessage ?? "", /not wired for read execution/);
+
+  await assert.rejects(
+    () => service.invokeReadTool(actor, "req_tool_4", { namespace: "time_tracker", name: "start", input: { jobId: "job_1" } }),
+    /can only invoke read tools/,
+  );
 });

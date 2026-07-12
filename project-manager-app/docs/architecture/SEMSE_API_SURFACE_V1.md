@@ -53,6 +53,21 @@
 - `GET /v1/projects/:projectId/evidence`
 - `GET /v1/evidence/:evidenceId`
 
+## Prometeo
+- `POST /v1/ai-models/prometeo/chat` (acepta `PrometeoRequest` multimodal legacy-compatible)
+- `GET /v1/prometeo/tools`
+- `POST /v1/prometeo/tools/invoke` (P1: ejecución solo lectura contra registry)
+- BFF web: `GET /api/semse/prometeo/tools` y `POST /api/semse/prometeo/tools/invoke`
+- `POST /v1/prometeo/ingest`
+- `POST /v1/prometeo/ingest-file`
+- `GET /v1/prometeo/trade-library`
+- `GET /v1/prometeo/documents`
+- `POST /v1/prometeo/search`
+- `POST /v1/prometeo/rag-context`
+- `POST /v1/prometeo/rag-query`
+- `POST /v1/prometeo/trade-guide`
+- `POST /v1/prometeo/assets`
+
 ## Disputes
 - `POST /v1/disputes`
 - `GET /v1/disputes`
