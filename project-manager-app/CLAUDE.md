@@ -62,20 +62,25 @@ Key modules in `apps/api/src/modules/`:
 - `governance/` — quadratic voting, MCA
 - `agro/` — agriculture vertical
 
-## Labor Engine — v1 API layer DONE, UI pending
-
-Full spec in memory: `~/.claude/projects/-home-yoni/memory/project_labor_engine_pending.md`
+## Labor Engine — COMPLETE (API + Worker UI + Admin UI)
 
 **Done (2026-07):** domain module `labor-engine/` (controller/service/repository),
 entities `TimeEntry`, `FreeProject`, `LaborSheet`, `TimeEvidence` (migration
 `20260630000000_labor_engine_v1`), BFF routes `/app/api/semse/labor/*`, client
 helpers in `/app/(app)/labor-api.ts`. Endpoints: free-projects CRUD + convert,
-realtime timer (start/pause/resume/stop), manual entries, weekly/monthly summaries.
+realtime timer (start/pause/resume/stop/notes), manual entries (with breaks),
+weekly/monthly summaries, admin overview.
 
-**Pending:** Worker UI `/worker/tracker` rewrite (shadcn/ui + Recharts + Ollama
-chat) and Admin UI `/admin/labor-engine` (multi-worker, SmartMatch, Pricing,
-QualityGuard). `field-ops/time-tracker` remains the active tracker until the
-new UI ships.
+**Worker UI:** `/worker/tracker` runs fully on the Labor Engine — timer with
+3 modes (job real / proyecto libre / solo calcular), offline-first via
+`trackerLocalStore` (events sync to labor-api), 6 tabs (Timer, Resumen,
+Registros, Proyectos, Reportes, Asistente/Cronos).
+
+**Admin UI:** `/admin/labor-engine` — multi-worker active timers, team hours +
+estimated cost (pricing baseline), QualityGuard alerts (stale timer >12h,
+overtime >48h/week, single entries >12h), SmartMatch panel (matching module).
+
+`field-ops/time-tracker` remains only as legacy API (jobs list still consumed).
 
 ## Web BFF pattern
 

@@ -204,4 +204,70 @@ export class PublicInsightsService {
       generatedAt: new Date().toISOString(),
     };
   }
+
+  /** Vacantes abiertas para el onboarding público de workers (/worker/apply). */
+  async getPublicOpenings(tenantId: string, limit = 12): Promise<PublicJobOpening[]> {
+    const jobs = await this.prisma.job.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: { in: ["POSTED", "PUBLISHED"] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 50),
+      select: PUBLIC_OPENING_SELECT,
+    });
+    return (jobs as PublicFeaturedJobRow[]).map(toPublicOpening);
+  }
+
+  async getPublicOpening(tenantId: string, jobId: string): Promise<PublicJobOpening | null> {
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: jobId,
+        tenantId,
+        deletedAt: null,
+        status: { in: ["POSTED", "PUBLISHED"] },
+      },
+      select: PUBLIC_OPENING_SELECT,
+    });
+    return job ? toPublicOpening(job as PublicFeaturedJobRow) : null;
+  }
+}
+
+export type PublicJobOpening = {
+  id: string;
+  title: string;
+  category: string | null;
+  scope: string;
+  status: string;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  location: string | null;
+  urgency: string | null;
+};
+
+const PUBLIC_OPENING_SELECT = {
+  id: true,
+  title: true,
+  category: true,
+  scope: true,
+  status: true,
+  budgetMin: true,
+  budgetMax: true,
+  location: true,
+  urgency: true,
+} as const;
+
+function toPublicOpening(job: PublicFeaturedJobRow): PublicJobOpening {
+  return {
+    id: job.id,
+    title: job.title,
+    category: job.category,
+    scope: job.scope,
+    status: job.status,
+    budgetMin: job.budgetMin ? toNum(job.budgetMin) : null,
+    budgetMax: job.budgetMax ? toNum(job.budgetMax) : null,
+    location: job.location,
+    urgency: job.urgency,
+  };
 }

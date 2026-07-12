@@ -79,16 +79,20 @@ export class LaborEngineService {
     return this.repo.startRealtimeEntry(params);
   }
 
-  async pauseTimer(id: string, tenantId: string) {
-    return this.repo.pauseTimeEntry(id, tenantId);
+  async pauseTimer(id: string, tenantId: string, createdBy: string) {
+    return this.repo.pauseTimeEntry(id, tenantId, createdBy);
   }
 
-  async resumeTimer(id: string, tenantId: string) {
-    return this.repo.resumeTimeEntry(id, tenantId);
+  async resumeTimer(id: string, tenantId: string, createdBy: string) {
+    return this.repo.resumeTimeEntry(id, tenantId, createdBy);
   }
 
-  async stopTimer(id: string, tenantId: string, notes?: string) {
-    return this.repo.stopTimeEntry(id, tenantId, notes);
+  async stopTimer(id: string, tenantId: string, createdBy: string, notes?: string) {
+    return this.repo.stopTimeEntry(id, tenantId, createdBy, notes);
+  }
+
+  async updateTimerNotes(id: string, tenantId: string, createdBy: string, notes: string) {
+    return this.repo.updateTimeEntryNotes(id, tenantId, createdBy, notes);
   }
 
   async getActiveTimer(tenantId: string, createdBy: string) {
@@ -196,4 +200,75 @@ export class LaborEngineService {
       byDay: result.byDay,
     };
   }
+
+  // ── Admin / supervisor (multi-worker + QualityGuard) ──────────────────────
+
+  async getAdminOverview(tenantId: string) {
+    const { from, to } = weekBounds();
+    const [activeTimers, team, longEntries] = await Promise.all([
+      this.repo.listActiveEntriesForTenant(tenantId),
+      this.repo.getTeamSummary({ tenantId, from, to }),
+      this.repo.listLongEntries({ tenantId, from, to, minMinutes: QUALITY_GUARD.longEntryMinutes }),
+    ]);
+
+    const now = Date.now();
+    const alerts: Array<{
+      type: "stale_timer" | "overtime" | "long_entry";
+      severity: "warning" | "critical";
+      workerId: string;
+      entryId?: string;
+      detail: string;
+    }> = [];
+
+    for (const entry of activeTimers) {
+      const anchor = entry.status === "running" ? (entry.resumedAt ?? entry.startedAt) : null;
+      const elapsedSeconds = entry.accumulatedSeconds
+        + (anchor ? Math.max(0, Math.floor((now - anchor.getTime()) / 1000)) : 0);
+      if (elapsedSeconds >= QUALITY_GUARD.staleTimerHours * 3600) {
+        alerts.push({
+          type: "stale_timer",
+          severity: "critical",
+          workerId: entry.createdBy,
+          entryId: entry.id,
+          detail: `Timer ${entry.status === "running" ? "corriendo" : "en pausa"} desde hace ${Math.floor(elapsedSeconds / 3600)}h — posible olvido.`,
+        });
+      }
+    }
+
+    for (const worker of team) {
+      if (worker.totalMinutes >= QUALITY_GUARD.overtimeWeekMinutes) {
+        alerts.push({
+          type: "overtime",
+          severity: worker.totalMinutes >= QUALITY_GUARD.overtimeWeekMinutes * 1.25 ? "critical" : "warning",
+          workerId: worker.workerId,
+          detail: `${(worker.totalMinutes / 60).toFixed(1)}h esta semana — supera el umbral de ${QUALITY_GUARD.overtimeWeekMinutes / 60}h.`,
+        });
+      }
+    }
+
+    for (const entry of longEntries) {
+      alerts.push({
+        type: "long_entry",
+        severity: "warning",
+        workerId: entry.createdBy,
+        entryId: entry.id,
+        detail: `Jornada de ${((entry.durationMinutes ?? 0) / 60).toFixed(1)}h en una sola entrada.`,
+      });
+    }
+
+    return {
+      period: { from: from.toISOString(), to: to.toISOString() },
+      activeTimers,
+      team,
+      alerts,
+      thresholds: QUALITY_GUARD,
+      generatedAt: new Date().toISOString(),
+    };
+  }
 }
+
+const QUALITY_GUARD = {
+  staleTimerHours: 12,
+  overtimeWeekMinutes: 48 * 60,
+  longEntryMinutes: 12 * 60,
+};

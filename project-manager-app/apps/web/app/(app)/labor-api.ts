@@ -1,10 +1,17 @@
 // Labor Engine — client-side API functions
 
+export class LaborApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "LaborApiError";
+  }
+}
+
 async function fetchLabor<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
   if (!res.ok) {
     const err = await res.json().catch(() => ({})) as { error?: { message?: string } };
-    throw new Error(err?.error?.message ?? `Labor API error ${res.status}`);
+    throw new LaborApiError(err?.error?.message ?? `Labor API error ${res.status}`, res.status);
   }
   const json = await res.json() as { data: T };
   return json.data;
@@ -138,6 +145,10 @@ export async function stopLaborTimer(id: string, notes?: string): Promise<TimeEn
   return mutateLabor<TimeEntryView>(`/api/semse/labor/timer/${encodeURIComponent(id)}/stop`, { notes });
 }
 
+export async function updateLaborTimerNotes(id: string, notes: string): Promise<TimeEntryView> {
+  return mutateLabor<TimeEntryView>(`/api/semse/labor/timer/${encodeURIComponent(id)}/notes`, { notes }, "PATCH");
+}
+
 // ── Manual entries ────────────────────────────────────────────────────────────
 
 export async function createManualEntry(input: {
@@ -207,8 +218,10 @@ export function fmtMinutes(m: number): string {
 }
 
 export function elapsedSeconds(entry: TimeEntryView): number {
-  if (entry.status !== "running" || !entry.resumedAt) return entry.accumulatedSeconds;
-  return entry.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - new Date(entry.resumedAt).getTime()) / 1000));
+  if (entry.status !== "running") return entry.accumulatedSeconds;
+  const anchor = entry.resumedAt ?? entry.startedAt;
+  if (!anchor) return entry.accumulatedSeconds;
+  return entry.accumulatedSeconds + Math.max(0, Math.floor((Date.now() - new Date(anchor).getTime()) / 1000));
 }
 
 export const PURPOSE_LABELS: Record<string, string> = {
