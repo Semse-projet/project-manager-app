@@ -183,7 +183,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
             </p>
             {profile.lastActivityAt && (
               <p style={{ fontSize: 11, color: "#1e3a5f", margin: "4px 0 0" }}>
-                Última actividad: {new Date(profile.lastActivityAt).toLocaleDateString("es-MX", { month: "long", year: "numeric" })}
+                Última actividad: {new Date(profile.lastActivityAt).toLocaleDateString("es-US", { month: "long", year: "numeric" })}
               </p>
             )}
           </div>

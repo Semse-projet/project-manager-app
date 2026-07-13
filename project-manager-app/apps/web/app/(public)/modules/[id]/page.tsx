@@ -409,20 +409,20 @@ export default function ModulePage() {
               <div className="md:col-span-6 bg-slate-50/50 dark:bg-slate-950/40 border border-slate-200/40 dark:border-slate-850 p-6 rounded-2xl space-y-4 text-center">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest block">Presupuesto Estimado</span>
                 <div className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-                  ${(calcArea * (calcQuality === "standard" ? 120 : 260)).toLocaleString("es-MX")} MXN
+                  ${(calcArea * (calcQuality === "standard" ? 12 : 26)).toLocaleString("en-US")} USD
                 </div>
                 <div className="grid grid-cols-2 gap-4 border-t border-slate-200/40 dark:border-slate-800/60 pt-4 text-left">
                   <div>
                     <span className="text-[9px] text-slate-400 uppercase font-semibold">Materiales</span>
-                    <span className="text-xs font-bold block">${Math.round(calcArea * (calcQuality === "standard" ? 48 : 110)).toLocaleString("es-MX")} MXN</span>
+                    <span className="text-xs font-bold block">${Math.round(calcArea * (calcQuality === "standard" ? 5 : 11)).toLocaleString("en-US")} USD</span>
                   </div>
                   <div>
                     <span className="text-[9px] text-slate-400 uppercase font-semibold">Mano de Obra</span>
-                    <span className="text-xs font-bold block">${Math.round(calcArea * (calcQuality === "standard" ? 72 : 150)).toLocaleString("es-MX")} MXN</span>
+                    <span className="text-xs font-bold block">${Math.round(calcArea * (calcQuality === "standard" ? 7 : 15)).toLocaleString("en-US")} USD</span>
                   </div>
                 </div>
                 <div className="text-[10px] text-slate-400 leading-relaxed pt-1 block">
-                  *Valores estimados con un margen de confianza del 94% basados en la plaza de CDMX.
+                  *Valores estimados con un margen de confianza del 94% basados en el mercado de Florida.
                 </div>
               </div>
             </div>
@@ -580,7 +580,7 @@ export default function ModulePage() {
                       </div>
                       <h4 className="font-bold text-sm text-slate-850">Etapa 1: Hito Creado y Pendiente</h4>
                       <p className="text-xs text-slate-400 max-w-md mx-auto">
-                        El proyecto se desglosa por etapas claras. El dinero de este hito ($4,500 MXN) está en manos del cliente. Aún no se ha realizado depósito.
+                        El proyecto se desglosa por etapas claras. El dinero de este hito ($4,500 USD) está en manos del cliente. Aún no se ha realizado depósito.
                       </p>
                     </motion.div>
                   )}

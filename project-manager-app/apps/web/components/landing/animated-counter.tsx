@@ -50,7 +50,7 @@ export function AnimatedCounter({ value, duration = 1.2, suffix = "", decimals =
     };
   }, [value, duration, isInView]);
 
-  const displayValue = count.toLocaleString("es-MX", {
+  const displayValue = count.toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });
