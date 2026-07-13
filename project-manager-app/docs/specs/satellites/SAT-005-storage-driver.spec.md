@@ -11,13 +11,13 @@ date: "2026-07-05"
 author: "Claude — sesión planificación satélites"
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
-  - apps/api/src/modules/uploads
+  - apps/api/src/infrastructure/storage
 related_tests: []
 related_endpoints:
   - v1/uploads
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-12"
 ---
 
 # Spec: semse-storage como StorageDriver (satélite `~/semse-storage`)

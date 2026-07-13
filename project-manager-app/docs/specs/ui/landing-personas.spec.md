@@ -16,7 +16,7 @@ related_tests:
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-12"
 ---
 
 # Spec: Landing dinámica por persona

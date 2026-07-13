@@ -50,7 +50,7 @@
 | Observabilidad | PARCIAL | Sentry, Prometheus, health/readiness y audit | OTel traces, correlation y SLOs de negocio |
 | Backup/DR | PARCIAL | BCP/restore simulations para operacion asistida | Restore real DB/storage, PITR y evidencia RPO/RTO |
 | CI/CD | IMPLEMENTADO | quality gates, coverage, E2E, smoke, integration, Railway health | Mantener pipeline <15 min o justificar excepcion; migration gates |
-| Salud SDD | PARCIAL | `spec:coverage` pasa: 63 specs, 83% con tests, 71% VERIFIED | Resolver 17 errores baseline de `spec:validate` antes de cerrar F0 |
+| Salud SDD | IMPLEMENTADO | `spec:validate -- --strict`: 63 specs, 0 errores, 0 warnings; `spec:coverage`: 92% con tests, 71% VERIFIED | Mantener metadata/evidencia en cada cambio; 5 drafts satelite aun no requieren tests |
 
 ## Hallazgos que cambian documentos anteriores
 

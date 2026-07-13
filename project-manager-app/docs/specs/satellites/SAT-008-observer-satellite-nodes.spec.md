@@ -11,13 +11,13 @@ date: "2026-07-05"
 author: "Claude — sesión planificación satélites"
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
-  - apps/api/src/modules/consciousness
+  - apps/api/src/modules/ops
 related_tests: []
 related_endpoints:
   - v1/ops/consciousness
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-12"
 ---
 
 # Spec: Satélites en Observer/Consciousness

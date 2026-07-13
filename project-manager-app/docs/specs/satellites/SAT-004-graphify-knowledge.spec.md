@@ -14,7 +14,7 @@ related_files:
   - apps/api/src/modules/graphify
   - apps/api/src/modules/repo-knowledge
   - apps/api/src/modules/prometeo/prometeo.service.ts
-  - apps/api/Dockerfile
+  - Dockerfile.api
 related_tests:
   - apps/api/test/graphify.service.test.ts
 related_endpoints:

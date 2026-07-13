@@ -22,7 +22,7 @@ related_endpoints:
   - "v1/demo"
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-12"
 ---
 
 # Spec: Modo demo/sandbox sin registro (Agro primero)

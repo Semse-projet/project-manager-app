@@ -1,8 +1,8 @@
 # F0 — Reconciliacion de arquitectura y fuentes de verdad
 
 **Fecha:** 2026-07-12
-**Rama:** `docs/architecture-master-f0`
-**Base auditada:** `main@b7691f4e209a4fdce250da063b75b790bd48679d`
+**Ramas:** `docs/architecture-master-f0`, `chore/sdd-baseline-repair`
+**Base de cierre:** `main@80421571197c4ae1704dc9eddc2db1fe2d943b0c`
 
 ## Objetivo
 
@@ -36,6 +36,14 @@ implementacion existente.
 - Se marcaron blueprints, roadmaps y mapas historicos como supersedidos.
 - Se corrigio `scripts/spec-index.mjs` para generar enlaces relativos validos y
   producir salida idempotente.
+- Se normalizo la metadata canónica de specs legacy sin promover borradores.
+- Se corrigio el validador para reconocer rutas NestJS compuestas por
+  `@Controller` + decorator de handler en un mismo archivo.
+- Se retiraron del metadata local referencias externas o puramente futuras; su
+  alcance permanece documentado dentro de los specs correspondientes.
+- Multi-stage Releases paso de `READY` a `IMPLEMENTED`: hay controller,
+  service y test, pero se mantuvo fuera de `VERIFIED` hasta fortalecer pruebas
+  de persistencia y pagos reales.
 
 ## Validacion
 
@@ -45,12 +53,12 @@ implementacion existente.
 | Enlaces relativos en documentos canónicos | PASS |
 | `node --check scripts/spec-index.mjs` | PASS |
 | `pnpm spec:index` dos veces, mismo SHA-256 | PASS |
-| `pnpm spec:coverage` | PASS: 63 specs; 83% con tests; 71% VERIFIED |
-| `pnpm spec:validate` | FAIL baseline: 17 errores y 15 warnings no introducidos por F0 |
+| `pnpm spec:coverage` | PASS: 63 specs; 92% con tests; 71% VERIFIED |
+| `pnpm spec:validate -- --strict` | PASS: 63 specs; 0 errores; 0 warnings |
 
-## Deuda SDD que impide cerrar F0 completo
+## Cierre de la deuda SDD
 
-Los 17 errores se concentran en:
+La linea base inicial tenia 17 errores y 15 warnings, concentrados en:
 
 - metadata faltante en `rbac-explicit-boundary`, `readiness` y
   `m3.1-multi-stage-releases`;
@@ -58,13 +66,15 @@ Los 17 errores se concentran en:
 - endpoints declarados que el validador no encuentra;
 - estado legacy `READY`.
 
-No se corrigieron mecanicamente porque requieren decidir si cada spec es
-vigente, externa, reemplazada o debe actualizar su evidencia real.
+Cada caso fue contrastado contra el arbol real antes de modificarlo. Los specs
+de capacidades futuras conservaron `DRAFT`; las rutas externas de Alexa siguen
+documentadas como dependencia fuera del monorepo, no como `related_files`
+locales. F0 queda cerrado con el gate estricto en verde.
 
 ## Siguiente slice recomendado
 
-Cerrar la deuda de `spec:validate` y luego escribir el spec de F1 Event Backbone
-con un primer slice vertical. No implementar outbox/Prisma antes de aprobar:
+Escribir el spec de F1 Event Backbone con un primer slice vertical. No
+implementar outbox/Prisma antes de aprobar:
 
 - envelope v2;
 - compatibilidad v1;

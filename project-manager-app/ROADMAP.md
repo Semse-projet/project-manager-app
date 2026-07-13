@@ -15,9 +15,9 @@ actual sin reescritura ni renombramiento masivo.
   tienen implementacion real en distintos grados.
 - Prometeo Runtime P2 esta fusionado y desplegado.
 - CI, Railway Deploy y Production Health Gate estaban verdes para
-  `main@b7691f4` en el corte.
+  `main@8042157` en el corte de cierre F0.
 
-## F0 — Sincronizar la verdad (EN CURSO)
+## F0 — Sincronizar la verdad (COMPLETADO)
 
 Entregables:
 
@@ -33,8 +33,7 @@ Gate de salida:
 - ningun documento canónico afirma que el repo carece de API/DB/monorepo;
 - Prometeo P2 aparece como desplegado;
 - cada sistema transversal distingue estado real de arquitectura objetivo.
-- `pnpm spec:validate` queda verde o cada excepcion legacy se reclasifica y
-  documenta explicitamente.
+- `pnpm spec:validate -- --strict` pasa con 63 specs, 0 errores y 0 warnings.
 
 ## F1 — Event Backbone
 
