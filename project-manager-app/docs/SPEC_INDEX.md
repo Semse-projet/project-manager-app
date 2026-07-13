@@ -69,7 +69,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
-| [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 10 | 2026-07-12 |
+| [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | high | no | no | no | 3 | 2026-07-12 |
 | [satellites.semse-sdk](specs/satellites/SAT-001-semse-sdk.spec.md) | api | APPROVED | high | yes | no | yes | 4 | 2026-07-07 |
 | [satellites.alexa-voice](specs/satellites/SAT-002-alexa-voice-channel.spec.md) | communications | APPROVED | medium | yes | no | yes | 3 | 2026-07-07 |

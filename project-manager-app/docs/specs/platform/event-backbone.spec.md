@@ -20,6 +20,7 @@ related_files:
   - packages/schemas/src/domain-events.schema.ts
   - packages/schemas/src/domain-events-v2.schema.ts
   - apps/api/src/modules/domain-events
+  - apps/api/src/modules/domain-events/outbox.repository.ts
   - apps/api/src/modules/evidence/evidence.repository.ts
   - apps/api/src/modules/evidence/evidence.service.ts
   - apps/api/src/infrastructure/queue
@@ -30,6 +31,8 @@ related_files:
 related_tests:
   - apps/api/test/event-backbone-contract.test.ts
   - apps/api/test/event-backbone-prisma-contract.test.ts
+  - apps/api/test/evidence-outbox-producer.test.ts
+  - apps/api/test/evidence-outbox-integration.test.ts
 related_endpoints:
   - v1/domain-events
 related_events:
@@ -103,14 +106,14 @@ idempotencia persistente; y exponer estados de entrega, fallos y replay a Ops.
 
 ## 4. Actores y permisos
 
-| Actor | Rol/identidad | Puede hacer | No puede hacer |
-| --- | --- | --- | --- |
-| Servicio de dominio | `PLATFORM` interno | escribir state + outbox mediante repository gobernado | emitir fuera de la transacción para productores migrados |
-| Dispatcher | identidad de plataforma | claim, enqueue, ack/nack y renovar lease | ejecutar reglas de negocio |
-| Consumer worker | identidad de plataforma | procesar un consumer declarado y registrar receipt | mutar otro bounded context sin adapter/policy |
-| Ops | `OPS_ADMIN` + `domain-events:read` | consultar outbox, deliveries, lag y DLQ | alterar payloads persistidos |
-| Ops autorizado | `OPS_ADMIN` + `domain-events:replay` | solicitar replay auditable de un fallo | replay de un evento completado sin override separado |
-| Usuario normal | cualquier rol de producto | ninguno sobre outbox/replay | listar payloads o ejecutar replay |
+| Actor               | Rol/identidad                        | Puede hacer                                           | No puede hacer                                           |
+| ------------------- | ------------------------------------ | ----------------------------------------------------- | -------------------------------------------------------- |
+| Servicio de dominio | `PLATFORM` interno                   | escribir state + outbox mediante repository gobernado | emitir fuera de la transacción para productores migrados |
+| Dispatcher          | identidad de plataforma              | claim, enqueue, ack/nack y renovar lease              | ejecutar reglas de negocio                               |
+| Consumer worker     | identidad de plataforma              | procesar un consumer declarado y registrar receipt    | mutar otro bounded context sin adapter/policy            |
+| Ops                 | `OPS_ADMIN` + `domain-events:read`   | consultar outbox, deliveries, lag y DLQ               | alterar payloads persistidos                             |
+| Ops autorizado      | `OPS_ADMIN` + `domain-events:replay` | solicitar replay auditable de un fallo                | replay de un evento completado sin override separado     |
+| Usuario normal      | cualquier rol de producto            | ninguno sobre outbox/replay                           | listar payloads o ejecutar replay                        |
 
 Las rutas internas de procesamiento requieren identidad de servicio válida y
 deny-by-default. `tenantId` limita datos, pero no autoriza por sí solo.
@@ -121,15 +124,15 @@ El contrato base es `SemseDomainEventV2`:
 
 ```ts
 type SemseDomainEventV2<TPayload> = {
-  eventId: string;                  // UUID estable, nunca se regenera en retry
+  eventId: string; // UUID estable, nunca se regenera en retry
   eventType: `${string}.${string}.v${number}`;
-  version: number;                  // versión del payload; coincide con suffix
+  version: number; // versión del payload; coincide con suffix
   envelopeVersion: 2;
-  occurredAt: string;               // instante del hecho de dominio
-  recordedAt: string;               // instante de persistencia en outbox
+  occurredAt: string; // instante del hecho de dominio
+  recordedAt: string; // instante de persistencia en outbox
   tenantId: string;
   orgId: string;
-  module: string;                   // evidence, buildops, payments, etc.
+  module: string; // evidence, buildops, payments, etc.
   entityType: string;
   entityId: string;
   actor: {
@@ -363,7 +366,7 @@ permissions: [domain-events:read]
 privacyCritical: true
 input: status?, eventType?, correlationId?, limit?, cursor?
 output: items redacted, nextCursor, counts, oldestPendingAgeMs
-errores: {400: filtro inválido, 403: permiso insuficiente}
+errores: { 400: filtro inválido, 403: permiso insuficiente }
 efectos:
   auditLog: false
   evento: none
@@ -381,7 +384,7 @@ auth: requerida
 permissions: [domain-events:read]
 privacyCritical: true
 output: outbox state + consumers + attempts + errores redacted
-errores: {403: permiso insuficiente, 404: evento no existe en tenant}
+errores: { 403: permiso insuficiente, 404: evento no existe en tenant }
 ```
 
 ### `POST /v1/domain-events/:eventId/replay`
@@ -391,8 +394,8 @@ auth: requerida
 permissions: [domain-events:replay]
 roles: [OPS_ADMIN]
 privacyCritical: true
-input: {consumerName?: string, reason: string}
-output: {eventId, replayCount, status, auditRef}
+input: { consumerName?: string, reason: string }
+output: { eventId, replayCount, status, auditRef }
 errores:
   400: reason vacío
   403: permiso/rol insuficiente
@@ -485,15 +488,15 @@ ENTONCES ve evento, outbox state, queue attempt, consumers y audit timeline
 
 ## 14. SLO y métricas
 
-| Métrica | Objetivo F1 |
-| --- | --- |
-| write de dominio + outbox p95 | < 500 ms |
-| outbox publish lag p95 | < 2 s |
-| eventos PENDING > 60 s | 0 sostenidos |
-| pérdida state/event en fault tests | 0 |
-| duplicate logical effects | 0 |
-| DLQ sin owner > 15 min | 0 |
-| replay audit coverage | 100% |
+| Métrica                            | Objetivo F1  |
+| ---------------------------------- | ------------ |
+| write de dominio + outbox p95      | < 500 ms     |
+| outbox publish lag p95             | < 2 s        |
+| eventos PENDING > 60 s             | 0 sostenidos |
+| pérdida state/event en fault tests | 0            |
+| duplicate logical effects          | 0            |
+| DLQ sin owner > 15 min             | 0            |
+| replay audit coverage              | 100%         |
 
 Métricas mínimas:
 
@@ -580,4 +583,4 @@ correlationId, consumerName, attempt y traceparent.
 - [x] Migración, rollout, kill switch y rollback definidos.
 - [x] Arquitectura registrada en ADR-022.
 - [x] Aprobación de dirección proviene de la Arquitectura Maestra consolidada
-  entregada el 2026-07-12; cualquier cambio de alcance exige revisión del spec.
+      entregada el 2026-07-12; cualquier cambio de alcance exige revisión del spec.

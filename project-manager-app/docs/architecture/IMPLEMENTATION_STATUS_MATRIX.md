@@ -26,7 +26,7 @@
 | Domain Event schema | PARCIAL | `packages/schemas/src/domain-events.schema.ts` con union Zod | Envelope v2 con IDs, version en type, causation, idempotency, schemaRef y trace |
 | Domain Event bus | PARCIAL | AuditLog, notifications best-effort y AgentTriggerRouter con retry inline | Persistencia atomica, dispatcher, durable delivery y replay |
 | Event Catalog | PARCIAL | `docs/foundation/EVENT_CATALOG.md` | Alinear nombres al schema, versionar y mapear producers/consumers |
-| Transactional Outbox general | PARCIAL (F1-A) | Contratos Zod v2 y migracion aditiva para outbox/receipts | Producer state+outbox, dispatcher, BullMQ ingress, consumer y lag observable |
+| Transactional Outbox general | PARCIAL (F1-B) | Contratos Zod v2, migracion aditiva y producer Evidence state+outbox atomico | Dispatcher, BullMQ ingress, consumer, replay y lag observable |
 | Communications delivery outbox | PARCIAL | Delivery row + adapter WhatsApp | Separar persistencia de envio; worker/retry/circuit breaker durable |
 | Idempotencia transversal | PARCIAL | Headers y reglas puntuales | Inbox/consumer keys y pruebas de replay por slice |
 | Event DLQ/replay | PARCIAL | AgentRun dead-letter y replay de algorithm engine | DLQ de eventos y operacion desde Mission Control |
