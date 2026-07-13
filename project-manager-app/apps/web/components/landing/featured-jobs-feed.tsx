@@ -15,9 +15,9 @@ const FALLBACK_JOBS: PublicLandingFeaturedJob[] = [
     category: "Pintura",
     scope: "Se requiere pintar paredes y techos de un departamento de 80m2. Incluye sala, cocina, pasillo y 2 recámaras. Se proporciona pintura vinílica mate de primera calidad.",
     status: "POSTED",
-    budgetMin: 3500,
-    budgetMax: 5000,
-    location: "Naucalpan, Mex.",
+    budgetMin: 1800,
+    budgetMax: 2600,
+    location: "Tallahassee, FL",
     urgency: "urgent",
   },
   {
@@ -26,9 +26,9 @@ const FALLBACK_JOBS: PublicLandingFeaturedJob[] = [
     category: "Drywall",
     scope: "Reparación de sección de 1.5 x 2 metros en plafón de cocina. Requiere cambio de placas, encintado, compuesto y preparación final para pintura.",
     status: "IN_PROGRESS",
-    budgetMin: 1800,
-    budgetMax: 2600,
-    location: "Benito Juárez, CDMX",
+    budgetMin: 450,
+    budgetMax: 700,
+    location: "Orlando, FL",
     urgency: "high",
   },
   {
@@ -37,9 +37,9 @@ const FALLBACK_JOBS: PublicLandingFeaturedJob[] = [
     category: "Remodelación",
     scope: "Instalación de nueva loseta cerámica en muros y piso, cambio de taza de baño, lavamanos y colocación de accesorios de grifería.",
     status: "POSTED",
-    budgetMin: 8500,
-    budgetMax: 12000,
-    location: "San Pedro Garza, NL",
+    budgetMin: 6500,
+    budgetMax: 9500,
+    location: "Tampa, FL",
     urgency: "standard",
   },
   {
@@ -48,9 +48,9 @@ const FALLBACK_JOBS: PublicLandingFeaturedJob[] = [
     category: "Mantenimiento",
     scope: "Servicio de limpieza y recarga de refrigerante para 3 equipos minisplit inverter de 1.5 toneladas.",
     status: "REVIEW",
-    budgetMin: 1500,
-    budgetMax: 2200,
-    location: "Mérida, Yuc.",
+    budgetMin: 350,
+    budgetMax: 550,
+    location: "Miami, FL",
     urgency: "standard",
   },
   {
@@ -59,9 +59,9 @@ const FALLBACK_JOBS: PublicLandingFeaturedJob[] = [
     category: "Pisos",
     scope: "Colocación de piso laminado de 8mm sobre superficie nivelada en recámara principal y vestidor. Aprox 30m2.",
     status: "AWARDED",
-    budgetMin: 4000,
-    budgetMax: 5500,
-    location: "Zapopan, Jal.",
+    budgetMin: 1400,
+    budgetMax: 2000,
+    location: "Jacksonville, FL",
     urgency: "high",
   },
 ];
@@ -199,7 +199,7 @@ export function FeaturedJobsFeed({ jobs }: FeaturedJobsFeedProps) {
                 </div>
                 <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                   {job.budgetMin !== null
-                    ? `$${job.budgetMin.toLocaleString("es-MX")}${job.budgetMax !== null ? ` - $${job.budgetMax.toLocaleString("es-MX")}` : ""}`
+                    ? `$${job.budgetMin.toLocaleString("en-US")}${job.budgetMax !== null ? ` - $${job.budgetMax.toLocaleString("en-US")}` : ""}`
                     : "Por definir"}
                 </div>
                 <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">
