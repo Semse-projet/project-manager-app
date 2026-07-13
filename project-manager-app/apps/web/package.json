@@ -17,7 +17,7 @@
     "@semse/shared": "workspace:*",
     "@semse/ui": "workspace:*",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.23.0",
+    "lucide-react": "^0.577.0",
     "motion": "^11.18.0",
     "next": "15.5.20",
     "react": "19.2.7",
@@ -25,12 +25,12 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/eslintrc": "^3.3.6",
     "@tailwindcss/postcss": "^4.3.2",
-    "@types/node": "^22.20.0",
+    "@types/node": "^22.20.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.4",
-    "eslint": "^9.39.4",
+    "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.20",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.8.2"
