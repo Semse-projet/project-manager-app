@@ -388,7 +388,7 @@ export default function LoginPage() {
               Olvidé mi contraseña
             </Link>
             <Link
-              href="/register"
+              href={redirectTo ? `/register?from=${encodeURIComponent(redirectTo)}` : "/register"}
               style={{
                 color: "#93c5fd",
                 textDecoration: "none",
