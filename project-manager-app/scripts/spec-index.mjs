@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync } from "node:fs";
+import { dirname, relative } from "node:path";
 import { findSpecFiles, classifyCoverage, readSpec } from "./spec-lib.mjs";
 
 const INDEX_PATH = "docs/SPEC_INDEX.md";
@@ -30,7 +31,7 @@ function buildGeneratedIndex(specs) {
     const metadata = spec.metadata;
     lines.push(
       [
-        link(metadata.id, spec.relativePath),
+        link(metadata.id, relative(dirname(INDEX_PATH), spec.relativePath).replaceAll("\\", "/")),
         metadata.domain || "missing",
         metadata.status || "missing",
         metadata.risk || "missing",
@@ -43,7 +44,7 @@ function buildGeneratedIndex(specs) {
     );
   }
 
-  lines.push("", END, "");
+  lines.push("", END);
   return lines.join("\n");
 }
 
@@ -52,7 +53,9 @@ function upsertBlock(current, generated) {
   const endIndex = current.indexOf(END);
 
   if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-    return `${current.slice(0, startIndex)}${generated}${current.slice(endIndex + END.length)}`;
+    const prefix = current.slice(0, startIndex).trimEnd();
+    const suffix = current.slice(endIndex + END.length).trim();
+    return `${prefix}\n\n${generated}\n\n${suffix}\n`;
   }
 
   const insertionPoint = current.indexOf("\n## NIVEL 0");

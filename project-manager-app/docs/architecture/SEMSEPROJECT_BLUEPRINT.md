@@ -1,5 +1,11 @@
 # SEMSEproject Blueprint
 
+> **SUPERSEDIDO (2026-07-12):** este blueprint conserva el punto de partida
+> historico de una app local. Ya no describe el repositorio actual. Usar
+> [`CURRENT_ARCHITECTURE.md`](CURRENT_ARCHITECTURE.md),
+> [`IMPLEMENTATION_STATUS_MATRIX.md`](IMPLEMENTATION_STATUS_MATRIX.md) y el
+> [`ROADMAP.md`](../../ROADMAP.md). No ejecutar su “siguiente sprint”.
+
 ## 1) Aterrizaje al estado actual
 
 Base existente en este repo:

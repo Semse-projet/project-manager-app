@@ -1,5 +1,10 @@
 # SEMSE Implementation Backlog
 
+> **SUPERSEDIDO (2026-07-12):** las fases que proponian crear monorepo, API,
+> Prisma, auth y CI ya fueron implementadas. El programa activo es F0-F9 en
+> [`../../ROADMAP.md`](../../ROADMAP.md), con estado verificado en
+> [`IMPLEMENTATION_STATUS_MATRIX.md`](IMPLEMENTATION_STATUS_MATRIX.md).
+
 ## Fase 0 - Foundation
 
 Objetivo: preparar base productiva sin romper lo existente.

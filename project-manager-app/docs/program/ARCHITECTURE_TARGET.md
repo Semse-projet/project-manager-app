@@ -1,5 +1,10 @@
 # Arquitectura Objetivo
 
+> **SUPERSEDIDO PARCIALMENTE (2026-07-12):** contiene decisiones historicas y
+> rutas locales que ya no son canónicas. La arquitectura vigente vive en
+> [`../architecture/CURRENT_ARCHITECTURE.md`](../architecture/CURRENT_ARCHITECTURE.md).
+> Consultar este archivo solo para trazabilidad.
+
 ## 1. Base Canonica
 
 La base tecnica del sistema sera el monorepo ya existente en [project-manager-app](/home/yoni/labsemse/project-manager-app).

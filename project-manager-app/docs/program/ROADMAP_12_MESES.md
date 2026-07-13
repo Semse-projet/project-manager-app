@@ -1,5 +1,9 @@
 # Roadmap 12 Meses
 
+> **SUPERSEDIDO COMO PLAN DE EJECUCION (2026-07-12):** conserva contexto
+> historico. Usar el [`ROADMAP.md`](../../ROADMAP.md) F0-F9 y la
+> [`arquitectura vigente`](../architecture/CURRENT_ARCHITECTURE.md).
+
 ## Tramo 0: Preparacion
 
 Duracion:
