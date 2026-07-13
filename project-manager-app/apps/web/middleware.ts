@@ -127,6 +127,7 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     // Invalid or expired session — clear cookie and redirect to login
     const url = new URL("/login", req.url);
     url.searchParams.set("expired", "1");
+    url.searchParams.set("from", `${pathname}${req.nextUrl.search}`);
     const res = NextResponse.redirect(url);
     res.cookies.delete(SESSION_COOKIE);
     return res;

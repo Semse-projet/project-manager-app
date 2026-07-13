@@ -6,6 +6,7 @@ import {
   defaultDashboardForRole,
   type SessionPayload,
 } from "@/lib/auth";
+import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 
 const TTL_SECONDS = 8 * 60 * 60;
 
@@ -39,7 +40,7 @@ async function fetchApiEnvelope<T>(url: string, init?: RequestInit): Promise<T> 
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let body: { email?: string; password?: string; name?: string; role?: string };
+  let body: { email?: string; password?: string; name?: string; role?: string; redirectTo?: string };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const sessionPayload: SessionPayload = { ...identity, exp: now + TTL_SECONDS };
 
     const appRole = roleFromRoles(sessionPayload.roles);
-    const redirectTo = defaultDashboardForRole(appRole);
+    const redirectTo = resolveSafeRedirectPath(body.redirectTo, defaultDashboardForRole(appRole));
     const isHttps = req.nextUrl.protocol === "https:";
 
     const res = NextResponse.json({ ok: true, redirectTo }, { headers: { "cache-control": "no-store" } });
