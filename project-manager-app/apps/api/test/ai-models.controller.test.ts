@@ -16,6 +16,7 @@ function createController() {
   const calls = {
     interactions: [] as Array<Record<string, unknown>>,
     synthetic: [] as Array<Record<string, unknown>>,
+    toolExecutions: [] as Array<Record<string, unknown>>,
   };
 
   const gateway = {
@@ -127,6 +128,14 @@ function createController() {
       return null;
     },
   };
+  const skillMatcher = {
+    buildForIntent() {
+      return null;
+    },
+    matchForIntent() {
+      return [];
+    },
+  };
 
   return {
     controller: new AiModelsController(
@@ -140,6 +149,25 @@ function createController() {
       operationalContext as never,
       orchestrator as never,
       budgetIntelligence as never,
+      skillMatcher as never,
+      {
+        async invokeReadTool(actor: Record<string, unknown>, requestId: string, invocation: Record<string, unknown>) {
+          calls.toolExecutions.push({ actor, requestId, invocation });
+          return {
+            id: "exec_chat_1",
+            namespace: String(invocation.namespace ?? "time_tracker"),
+            tool: String(invocation.name ?? "get_status"),
+            status: "succeeded",
+            output: {
+              outputKind: "TrackerBootstrapView",
+              data: { activeSession: null, jobs: [] },
+            },
+            auditRef: "prometeo-tool:req-ai-models:exec_chat_1",
+            startedAt: "2026-07-12T00:00:00.000Z",
+            completedAt: "2026-07-12T00:00:00.001Z",
+          };
+        },
+      } as never,
     ),
     calls,
   };
@@ -182,6 +210,9 @@ test("ai-models controller returns context_only and writes synthetic log when no
 
   assert.equal(result.data.mode, "context_only");
   assert.equal(result.data.response, "NO PROJECT");
+  assert.equal(result.data.message, "NO PROJECT");
+  assert.ok(Array.isArray(result.data.blocks));
+  assert.ok(result.data.mission);
   assert.equal(calls.synthetic.length, 1);
   assert.equal(calls.synthetic[0]?.mode, "context_only");
 });
@@ -196,6 +227,71 @@ test("ai-models controller returns report mode and writes synthetic log for oper
 
   assert.equal(result.data.mode, "report");
   assert.equal(result.data.response, "REPORTE OPERATIVO");
+  assert.equal(result.data.message, "REPORTE OPERATIVO");
+  assert.ok(result.data.blocks.some((block: { type?: string }) => block.type === "mission_status"));
+  assert.deepEqual(result.data.executionResults, []);
+  assert.ok(result.data.refreshTargets.includes("prometeo.context"));
   assert.equal(calls.synthetic.length, 1);
   assert.equal(calls.synthetic[0]?.mode, "report");
+});
+
+test("ai-models controller returns multimodal envelope blocks and proposed video action", async () => {
+  const { controller } = createController();
+
+  const result = await controller.prometeoChat(
+    { headers: actorHeaders() } as never,
+    {
+      message: "dame un resumen operativo con este video",
+      agentId: "assistant",
+      attachments: [{ type: "video", source: "upload", name: "avance.mp4", mimeType: "video/mp4" }],
+      selectedEntities: [{ type: "project", id: "project_1", label: "Cocina" }],
+      pageContext: { route: "/client/projects/project_1", module: "project" },
+    },
+  );
+
+  assert.equal(result.data.mode, "report");
+  assert.ok(result.data.blocks.some((block: { type?: string }) => block.type === "attachment_summary"));
+  assert.ok(result.data.blocks.some((block: { type?: string }) => block.type === "context_chips"));
+  assert.equal(result.data.proposedActions[0]?.namespace, "vision");
+  assert.equal(result.data.proposedActions[0]?.tool, "analyze_video");
+  assert.equal(result.data.proposedActions[0]?.status, "blocked");
+  assert.equal(result.data.mission.status, "waiting_input");
+  assert.ok(result.data.refreshTargets.includes("vision.evidence"));
+});
+
+test("ai-models controller accepts requestedAction without text and keeps read actions approval-free", async () => {
+  const { controller, calls } = createController();
+
+  const result = await controller.prometeoChat(
+    { headers: actorHeaders() } as never,
+    { requestedAction: "time_tracker.get_status", agentId: "assistant" },
+  );
+
+  assert.equal(result.data.mode, "runtime");
+  assert.equal(result.data.response, "respuesta runtime");
+  assert.equal(result.data.proposedActions[0]?.namespace, "time_tracker");
+  assert.equal(result.data.proposedActions[0]?.tool, "get_status");
+  assert.equal(result.data.proposedActions[0]?.requiresApproval, false);
+  assert.equal(result.data.executionResults[0]?.status, "succeeded");
+  assert.equal(result.data.executionResults[0]?.namespace, "time_tracker");
+  assert.ok(result.data.blocks.some((block: { type?: string }) => block.type === "tool_execution_results"));
+  assert.equal(result.data.mission.status, "completed");
+  assert.equal(calls.toolExecutions.length, 1);
+  assert.equal(calls.interactions.length, 1);
+});
+
+test("ai-models controller does not execute write requestedAction from chat", async () => {
+  const { controller, calls } = createController();
+
+  const result = await controller.prometeoChat(
+    { headers: actorHeaders() } as never,
+    { requestedAction: "time_tracker.start", requestedActionInput: { jobId: "job_1" }, agentId: "assistant" },
+  );
+
+  assert.equal(result.data.proposedActions[0]?.namespace, "time_tracker");
+  assert.equal(result.data.proposedActions[0]?.tool, "start");
+  assert.equal(result.data.proposedActions[0]?.requiresApproval, true);
+  assert.deepEqual(result.data.executionResults, []);
+  assert.equal(calls.toolExecutions.length, 0);
+  assert.equal(result.data.mission.status, "waiting_approval");
 });

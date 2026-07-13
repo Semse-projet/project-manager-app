@@ -3,6 +3,7 @@ import { LLMModule } from "../../infrastructure/llm/llm.module.js";
 import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
 import { FinanceModule } from "../finance/finance.module.js";
 import { IntelligenceModule } from "../intelligence/intelligence.module.js";
+import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { AiModelGatewayService } from "./gateway/ai-model-gateway.service.js";
 import { AiInteractionLoggerService } from "./logging/ai-interaction-logger.service.js";
 import { AiMissionIncidentService } from "./logging/ai-mission-incident.service.js";
@@ -14,7 +15,7 @@ import { PrometeoOrchestratorService } from "./orchestrator/prometeo-orchestrato
 import { SkillsModule } from "../skills/skills.module.js";
 
 @Module({
-  imports: [LLMModule, PrismaModule, forwardRef(() => FinanceModule), forwardRef(() => IntelligenceModule), SkillsModule],
+  imports: [LLMModule, PrismaModule, forwardRef(() => FinanceModule), forwardRef(() => IntelligenceModule), SkillsModule, PrometeoModule],
   controllers: [AiModelsController],
   providers: [
     AiModelRouterService,

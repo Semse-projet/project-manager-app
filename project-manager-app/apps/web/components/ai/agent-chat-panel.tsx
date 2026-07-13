@@ -25,6 +25,10 @@ interface ChatMessage {
   content: string;
   agentId: string;
   ts: number;
+  blocks?: PrometeoChatResponse["blocks"];
+  mission?: PrometeoChatResponse["mission"];
+  proposedActions?: PrometeoChatResponse["proposedActions"];
+  executionResults?: PrometeoChatResponse["executionResults"];
 }
 
 type PanelStatus = "idle" | "open" | "minimized";
@@ -116,6 +120,81 @@ type LastReplyMeta = {
   timestamp?: string;
 };
 
+function StructuredResponseCards({ message, color }: { message: ChatMessage; color: string }) {
+  const actions = message.proposedActions ?? [];
+  const mission = message.mission;
+  const attachmentBlock = message.blocks?.find((block) => block.type === "attachment_summary");
+
+  if (!mission && actions.length === 0 && !attachmentBlock) return null;
+
+  return (
+    <div style={{ marginTop: 8, display: "grid", gap: 8, width: "min(620px, 100%)" }}>
+      {mission && (
+        <div style={{
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(255,255,255,0.045)",
+          borderRadius: 12,
+          padding: "10px 12px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color }}>Misión {mission.phase}</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)", textTransform: "uppercase" }}>{mission.status}</div>
+          </div>
+          <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+            {mission.steps.slice(0, 5).map((step) => (
+              <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "rgba(255,255,255,0.58)" }}>
+                <span style={{ width: 7, height: 7, borderRadius: 99, background: step.status === "completed" ? "#10b981" : step.status === "pending" ? "#f59e0b" : "rgba(255,255,255,0.25)" }} />
+                <span>{step.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {attachmentBlock && (
+        <div style={{
+          border: "1px solid rgba(255,255,255,0.10)",
+          background: "rgba(255,255,255,0.035)",
+          borderRadius: 12,
+          padding: "10px 12px",
+          fontSize: 11,
+          color: "rgba(255,255,255,0.58)",
+        }}>
+          <strong style={{ color: "rgba(255,255,255,0.75)" }}>{attachmentBlock.title ?? "Adjuntos"}</strong>
+          {attachmentBlock.summary ? <div style={{ marginTop: 4 }}>{attachmentBlock.summary}</div> : null}
+        </div>
+      )}
+
+      {actions.length > 0 && (
+        <div style={{ display: "grid", gap: 6 }}>
+          {actions.slice(0, 4).map((action) => (
+            <div key={action.id} style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 10,
+              alignItems: "center",
+              border: "1px solid rgba(255,255,255,0.10)",
+              background: action.requiresApproval ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.035)",
+              borderRadius: 12,
+              padding: "9px 11px",
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#e2e8f0" }}>{action.label}</div>
+                <div style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
+                  {action.namespace}.{action.tool} · {action.riskLevel}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: action.requiresApproval ? "#fbbf24" : "rgba(255,255,255,0.45)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                {action.status}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Hook de chat ─────────────────────────────────────────────
 
 function buildWelcomeMessage(agentId: AgentId): ChatMessage {
@@ -206,6 +285,12 @@ function useAgentChat(
             agentId: activeAgent,
             threadId: activeConversationId ?? undefined,
             projectId: selectedProjectId ?? undefined,
+            selectedEntities: selectedProjectId ? [{ type: "project", id: selectedProjectId }] : undefined,
+            pageContext: {
+              route: pathname ?? undefined,
+              module: "agent-chat",
+              metadata: { activeAgent },
+            },
           });
 
           const { response, threadId } = data;
@@ -227,6 +312,10 @@ function useAgentChat(
               agentId: activeAgent,
               content: response,
               ts: Date.now(),
+              blocks: data.blocks,
+              mission: data.mission,
+              proposedActions: data.proposedActions,
+              executionResults: data.executionResults,
             },
           ]);
         }
@@ -470,6 +559,11 @@ export function AgentChatPanel() {
                       prefillHref={publishJobDraft.prefillHref}
                       budgetSuggestion={publishJobDraft.budgetSuggestion}
                     />
+                  </div>
+                )}
+                {message.role === "assistant" && (
+                  <div style={{ marginLeft: 42 }}>
+                    <StructuredResponseCards message={message} color={agent.color} />
                   </div>
                 )}
               </div>

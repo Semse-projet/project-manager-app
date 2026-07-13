@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
+import { prometeoToolInvokeSchema } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
@@ -6,6 +7,8 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
+import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
+import { listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
 
 @Controller("v1/prometeo")
@@ -15,9 +18,36 @@ export class PrometeoController {
     private readonly svc: PrometeoService,
     @Optional() private readonly llm?: LLMOrchestrator,
     @Optional() private readonly tradeGuide?: TradeGuideService,
+    @Optional() private readonly toolExecution?: PrometeoToolExecutionService,
   ) {}
 
   // ── RAG Documents ───────────────────────────────────────────────────────────
+
+  @Get("tools")
+  @RequirePermissions("agents:run:create")
+  listTools(@Req() req: { headers?: Record<string, unknown> }) {
+    return ok(resolveRequestId(req.headers ?? {}), {
+      generatedAt: new Date().toISOString(),
+      tools: listPrometeoToolRegistry(),
+    });
+  }
+
+  @Post("tools/invoke")
+  @RequirePermissions("agents:run:create")
+  async invokeTool(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
+    if (!this.toolExecution) {
+      throw new BadRequestException("Prometeo tool execution is not available");
+    }
+    const parsed = prometeoToolInvokeSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues.map((issue) => issue.message).join("; "));
+    }
+
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = await this.toolExecution.invokeReadTool(actor, rid, parsed.data);
+    return ok(rid, result);
+  }
 
   @Post("ingest")
   @RequirePermissions("agents:run:create")

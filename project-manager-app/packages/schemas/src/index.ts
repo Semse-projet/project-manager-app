@@ -29,6 +29,7 @@ export * from "./runtime-relation.schema.js";
 export * from "./runtime-tree.schema.js";
 export * from "./runtime-query.schema.js";
 export * from "./knowledge-domain.schema.js";
+export * from "./prometeo-runtime.schema.js";
 export * from "./matching.schema.js";
 export * from "./reputation.schema.js";
 export * from "./developer-runtime.schema.js";
