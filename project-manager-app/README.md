@@ -29,6 +29,9 @@ URLs locales comunes:
 
 La evolucion del repo esta documentada en:
 
+- [docs/architecture/CURRENT_ARCHITECTURE.md](docs/architecture/CURRENT_ARCHITECTURE.md)
+- [docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
+- [docs/SEMSE_CONTEXT.md](docs/SEMSE_CONTEXT.md)
 - [docs/architecture/SEMSEPROJECT_BLUEPRINT.md](docs/architecture/SEMSEPROJECT_BLUEPRINT.md)
 - [docs/architecture/SEMSE_IMPLEMENTATION_BACKLOG.md](docs/architecture/SEMSE_IMPLEMENTATION_BACKLOG.md)
 - [docs/architecture/SEMSE_API_SURFACE_V1.md](docs/architecture/SEMSE_API_SURFACE_V1.md)
@@ -46,6 +49,9 @@ apps/
   api/       NestJS API
   web/       Next.js web app
   worker/    background worker
+  vision-service/  visual analysis service
+  autonomy-server/ autonomy runtime where deployed
+  mobile/    mobile/offline client
 
 packages/
   agents/
@@ -53,6 +59,7 @@ packages/
   autonomy/
   db/
   knowledge/
+  sdk/
   schemas/
   shared/
   tools/
@@ -98,7 +105,7 @@ Archivos relevantes:
 
 - [Dockerfile.api](Dockerfile.api)
 - [Dockerfile.web](Dockerfile.web)
-- [railway.json](railway.json)
+- [infra/railway/railway.json](infra/railway/railway.json)
 - [../.github/workflows/railway-deploy.yml](../.github/workflows/railway-deploy.yml)
 
 El workflow de Railway dispara fresh builds para los servicios SEMSE y luego valida:

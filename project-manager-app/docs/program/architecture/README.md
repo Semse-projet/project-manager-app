@@ -1,5 +1,10 @@
 # SEMSE Architecture Bridge
 
+> **AREA HISTORICA/DE PUENTE:** las decisiones vigentes se consolidan en
+> [`../../architecture/CURRENT_ARCHITECTURE.md`](../../architecture/CURRENT_ARCHITECTURE.md),
+> la [matriz de implementacion](../../architecture/IMPLEMENTATION_STATUS_MATRIX.md)
+> y el [roadmap F0-F9](../../../ROADMAP.md).
+
 ## Purpose
 
 This area formalizes the bridge between:
