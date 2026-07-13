@@ -12,6 +12,7 @@ export * from "./payment.schema.js";
 export * from "./evidence.schema.js";
 export * from "./dispute.schema.js";
 export * from "./domain-events.schema.js";
+export * from "./domain-events-v2.schema.js";
 export * from "./domain-events.view.js";
 export * from "./api-input.schema.js";
 export * from "./tracker.schema.js";
