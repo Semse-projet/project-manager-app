@@ -74,8 +74,8 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 - Hay movimientos `PaymentTxn`, pero no ledger double-entry compartido.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
-- `pnpm spec:validate` tiene 17 errores baseline en metadata/rutas de specs
-  antiguos; no atribuirlos a cambios nuevos ni ignorarlos al cerrar F0.
+- La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
+  63 specs, 0 errores y 0 warnings.
 
 ## Reglas de Prometeo
 
@@ -128,8 +128,8 @@ Todo evento nuevo debe declarar:
 
 ## Secuencia activa
 
-1. F0: sincronizar documentacion y verdad (en curso).
-2. F1: Event Backbone.
+1. F0: sincronizar documentacion y verdad (completado).
+2. F1: Event Backbone (siguiente fase activa).
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection.
 5. F4: Mission Control 2.0.

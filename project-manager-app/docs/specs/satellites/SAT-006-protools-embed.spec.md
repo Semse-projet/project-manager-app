@@ -17,7 +17,7 @@ related_endpoints:
   - v1/tools
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-12"
 ---
 
 # Spec: Pro Tools v2 HTML embebible (satélite `~/labsemse/SEMSE Pro Tools v2`)

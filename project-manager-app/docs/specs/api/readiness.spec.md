@@ -1,3 +1,23 @@
+---
+id: "api.readiness"
+title: "API Spec: Readiness"
+domain: "platform"
+status: "VERIFIED"
+owner: "semse-core"
+risk: "high"
+related_files:
+  - apps/api/src/modules/health/health.controller.ts
+  - apps/api/src/modules/health/readiness.logic.ts
+  - apps/api/src/modules/health/readiness.service.ts
+related_tests:
+  - tests/unit/api-readiness.test.ts
+related_endpoints:
+  - v1/ready
+related_events: []
+related_agents: []
+last_verified: "2026-07-12"
+---
+
 # API Spec: Readiness
 
 **Estado:** VERIFIED

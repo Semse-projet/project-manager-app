@@ -14,11 +14,8 @@ related_files:
   - apps/api/src/modules/satellites/satellites.service.ts
   - apps/api/src/modules/smart-intake
   - packages/db/prisma/migrations/20260706000000_intake_channel
-  - "~/alexa-openai-skill/lambda/services/semse.service.js"
-  - "~/alexa-openai-skill/lambda/index.js"
 related_tests:
   - apps/api/test/satellite-channel.test.ts
-  - "~/alexa-openai-skill/lambda/test-local-semse.js"
 related_endpoints:
   - v1/intake/analyze
 related_events: []

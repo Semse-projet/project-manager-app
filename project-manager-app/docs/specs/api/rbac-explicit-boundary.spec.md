@@ -1,3 +1,23 @@
+---
+id: "api.rbac-explicit-boundary"
+title: "API Spec: RBAC Explicit Boundary"
+domain: "core"
+status: "VERIFIED"
+owner: "semse-core"
+risk: "high"
+related_files:
+  - apps/api/src/common/permissions.decorator.ts
+  - apps/api/src/common/rbac.guard.ts
+related_tests:
+  - apps/api/test/rbac-explicit-boundary.test.ts
+  - apps/api/test/domain-rbac-permissions.test.ts
+  - apps/api/test/legacy-evidence-rbac-permissions.test.ts
+related_endpoints: []
+related_events: []
+related_agents: []
+last_verified: "2026-07-12"
+---
+
 # API Spec: RBAC Explicit Boundary
 
 **Estado:** VERIFIED
