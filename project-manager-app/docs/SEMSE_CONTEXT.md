@@ -77,8 +77,9 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 - La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
   64 specs, 0 errores y 0 warnings.
 - F1 Event Backbone tiene spec, plan, tasks y ADR aprobados. F1-A agrega
-  contratos Zod v2 y migracion aditiva de outbox/receipts; producer,
-  dispatcher y consumer siguen pendientes hasta PRs posteriores.
+  contratos Zod v2 y migracion aditiva de outbox/receipts. F1-B agrega el
+  producer atomico `Evidence + outbox`, con idempotencia concurrente; dispatcher
+  y consumer siguen pendientes hasta PRs posteriores.
 
 ## Reglas de Prometeo
 

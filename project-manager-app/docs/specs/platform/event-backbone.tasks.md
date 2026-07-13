@@ -25,8 +25,8 @@ date: "2026-07-12"
 
 - [x] **T-010** Crear tests del envelope v2 y `evidence.uploaded.v1`.
 - [x] **T-011** Testear rechazo suffix/version, actor, tenant y schemaRef inválidos.
-- [ ] **T-012** Crear integration test state+outbox atomic rollback.
-- [ ] **T-013** Crear concurrency test unique idempotency key.
+- [x] **T-012** Crear integration test state+outbox atomic rollback.
+- [x] **T-013** Crear concurrency test unique idempotency key.
 - [ ] **T-014** Crear claim test con dos dispatchers y lease vencida.
 - [ ] **T-015** Crear consumer test duplicate delivery/no double effect.
 - [ ] **T-016** Crear DLQ/replay RBAC/tenant/audit tests.
@@ -43,12 +43,12 @@ date: "2026-07-12"
 
 ## Fase 3 — Producer Evidence atómico
 
-- [ ] **T-030** Crear outbox repository con transaction client.
-- [ ] **T-031** Construir envelope desde datos persistidos de Evidence.
-- [ ] **T-032** Migrar `EvidenceRepository.create` a state+outbox en mismo tx.
-- [ ] **T-033** Añadir idempotency key determinística por comando.
-- [ ] **T-034** Pasar rollback y concurrency tests de producer.
-- [ ] **T-035** Verificar que no hay network/Redis dentro de la transacción.
+- [x] **T-030** Crear outbox repository con transaction client.
+- [x] **T-031** Construir envelope desde datos persistidos de Evidence.
+- [x] **T-032** Migrar `EvidenceRepository.create` a state+outbox en mismo tx.
+- [x] **T-033** Añadir idempotency key determinística por comando.
+- [x] **T-034** Pasar rollback y concurrency tests de producer.
+- [x] **T-035** Verificar que no hay network/Redis dentro de la transacción.
 
 ## Fase 4 — Dispatcher e ingreso BullMQ
 
