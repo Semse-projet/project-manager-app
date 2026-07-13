@@ -75,9 +75,10 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
 - La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
-  63 specs, 0 errores y 0 warnings.
-- F1 Event Backbone tiene spec, plan, tasks y ADR aprobados; su implementacion
-  (tablas, dispatcher y consumer) todavia no existe.
+  64 specs, 0 errores y 0 warnings.
+- F1 Event Backbone tiene spec, plan, tasks y ADR aprobados. F1-A agrega
+  contratos Zod v2 y migracion aditiva de outbox/receipts; producer,
+  dispatcher y consumer siguen pendientes hasta PRs posteriores.
 
 ## Reglas de Prometeo
 

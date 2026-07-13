@@ -26,7 +26,7 @@
 | Domain Event schema | PARCIAL | `packages/schemas/src/domain-events.schema.ts` con union Zod | Envelope v2 con IDs, version en type, causation, idempotency, schemaRef y trace |
 | Domain Event bus | PARCIAL | AuditLog, notifications best-effort y AgentTriggerRouter con retry inline | Persistencia atomica, dispatcher, durable delivery y replay |
 | Event Catalog | PARCIAL | `docs/foundation/EVENT_CATALOG.md` | Alinear nombres al schema, versionar y mapear producers/consumers |
-| Transactional Outbox general | PENDIENTE | No hay modelo/dispatcher general | State + outbox en una transaccion y publish lag observable |
+| Transactional Outbox general | PARCIAL (F1-A) | Contratos Zod v2 y migracion aditiva para outbox/receipts | Producer state+outbox, dispatcher, BullMQ ingress, consumer y lag observable |
 | Communications delivery outbox | PARCIAL | Delivery row + adapter WhatsApp | Separar persistencia de envio; worker/retry/circuit breaker durable |
 | Idempotencia transversal | PARCIAL | Headers y reglas puntuales | Inbox/consumer keys y pruebas de replay por slice |
 | Event DLQ/replay | PARCIAL | AgentRun dead-letter y replay de algorithm engine | DLQ de eventos y operacion desde Mission Control |
@@ -50,7 +50,7 @@
 | Observabilidad | PARCIAL | Sentry, Prometheus, health/readiness y audit | OTel traces, correlation y SLOs de negocio |
 | Backup/DR | PARCIAL | BCP/restore simulations para operacion asistida | Restore real DB/storage, PITR y evidencia RPO/RTO |
 | CI/CD | IMPLEMENTADO | quality gates, coverage, E2E, smoke, integration, Railway health | Mantener pipeline <15 min o justificar excepcion; migration gates |
-| Salud SDD | IMPLEMENTADO | `spec:validate -- --strict`: 64 specs, 0 errores, 0 warnings; `spec:coverage`: 91% con tests, 70% VERIFIED | Mantener metadata/evidencia; F1 no declara tests hasta crear T-010–T-017 |
+| Salud SDD | IMPLEMENTADO | `spec:validate -- --strict`: 64 specs, 0 errores, 0 warnings; `spec:coverage`: 92% con tests, 70% VERIFIED | Mantener metadata/evidencia; F1-B debe ampliar pruebas de integración T-012–T-017 |
 
 ## Hallazgos que cambian documentos anteriores
 

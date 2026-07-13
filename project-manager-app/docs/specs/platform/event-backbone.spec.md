@@ -18,14 +18,18 @@ fsmTransicion: "N/A — lifecycle técnico de entrega"
 paymentGovernance: false
 related_files:
   - packages/schemas/src/domain-events.schema.ts
+  - packages/schemas/src/domain-events-v2.schema.ts
   - apps/api/src/modules/domain-events
   - apps/api/src/modules/evidence/evidence.repository.ts
   - apps/api/src/modules/evidence/evidence.service.ts
   - apps/api/src/infrastructure/queue
   - apps/worker/src/main.mjs
   - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260712000000_f1_event_backbone
   - packages/shared/src/index.ts
-related_tests: []
+related_tests:
+  - apps/api/test/event-backbone-contract.test.ts
+  - apps/api/test/event-backbone-prisma-contract.test.ts
 related_endpoints:
   - v1/domain-events
 related_events:

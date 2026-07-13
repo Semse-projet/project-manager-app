@@ -35,7 +35,7 @@ Gate de salida:
 - cada sistema transversal distingue estado real de arquitectura objetivo.
 - `pnpm spec:validate -- --strict` pasa con 63 specs, 0 errores y 0 warnings.
 
-## F1 — Event Backbone (SPEC APROBADO; IMPLEMENTACION PENDIENTE)
+## F1 — Event Backbone (F1-A CONTRATOS/MIGRACION EN IMPLEMENTACION)
 
 Contrato ejecutable:
 

@@ -104,6 +104,22 @@ enum AgentRunStatus {
   CANCELLED
 }
 
+enum DomainOutboxStatus {
+  PENDING
+  CLAIMED
+  PUBLISHED
+  FAILED
+  DEAD_LETTER
+}
+
+enum DomainConsumptionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DEAD_LETTER
+}
+
 model Tenant {
   id         String      @id @default(cuid())
   slug       String      @unique
@@ -114,6 +130,8 @@ model Tenant {
   projects   Project[]
   disputes   Dispute[]
   auditLogs  AuditLog[]
+  domainOutboxEvents DomainOutboxEvent[]
+  domainEventConsumptions DomainEventConsumption[]
   agentRuns  AgentRun[]
   agentApprovals AgentApproval[]
   developerRuntimeSessions    DeveloperRuntimeSessionStore[]
@@ -723,6 +741,69 @@ model AuditLog {
 
   @@index([tenantId, occurredAt])
   @@index([entityType, entityId])
+}
+
+model DomainOutboxEvent {
+  eventId          String             @id @default(uuid()) @db.Uuid
+  eventType        String
+  version          Int
+  envelopeVersion  Int                @default(2)
+  tenantId         String
+  orgId            String
+  module            String
+  entityType       String
+  entityId         String
+  actorType        String
+  actorId          String
+  correlationId    String
+  causationId      String?
+  idempotencyKey   String
+  schemaRef         String
+  payloadJson      Json
+  metadataJson     Json?
+  traceContextJson Json?
+  occurredAt       DateTime
+  recordedAt       DateTime           @default(now())
+  status           DomainOutboxStatus @default(PENDING)
+  attempts         Int                @default(0)
+  maxAttempts      Int                @default(5)
+  nextAttemptAt    DateTime           @default(now())
+  lockedAt         DateTime?
+  lockExpiresAt    DateTime?
+  lockedBy         String?
+  publishedAt      DateTime?
+  lastError        String?
+  replayCount      Int                @default(0)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  consumptions     DomainEventConsumption[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, nextAttemptAt, recordedAt])
+  @@index([tenantId, correlationId, recordedAt])
+  @@index([entityType, entityId, occurredAt])
+}
+
+model DomainEventConsumption {
+  id            String                  @id @default(cuid())
+  eventId       String                  @db.Uuid
+  tenantId      String
+  consumerName  String
+  status        DomainConsumptionStatus @default(PENDING)
+  attempts      Int                     @default(0)
+  maxAttempts   Int                     @default(5)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  nextAttemptAt DateTime                @default(now())
+  lastError     String?
+  resultJson    Json?
+  replayCount   Int                     @default(0)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  event         DomainOutboxEvent       @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, consumerName])
+  @@index([tenantId, status, nextAttemptAt])
 }
 
 model AgentRun {

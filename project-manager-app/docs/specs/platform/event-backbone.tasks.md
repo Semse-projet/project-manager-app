@@ -16,15 +16,15 @@ date: "2026-07-12"
 
 ## Fase 0 — Preflight
 
-- [ ] **T-001** Crear `feat/f1-event-backbone` desde `origin/main` limpio.
-- [ ] **T-002** Ejecutar `pnpm spec:validate:strict` y guardar baseline.
-- [ ] **T-003** Confirmar Railway/Production Health Gate verdes antes de schema.
-- [ ] **T-004** Revisar Prisma schema/migrations recientes para evitar colisión.
+- [x] **T-001** Crear `feat/f1-event-backbone` desde `origin/main` limpio.
+- [x] **T-002** Ejecutar `pnpm spec:validate:strict` y guardar baseline.
+- [x] **T-003** Confirmar Railway/Production Health Gate verdes antes de schema.
+- [x] **T-004** Revisar Prisma schema/migrations recientes para evitar colisión.
 
 ## Fase 1 — Tests antes del código
 
-- [ ] **T-010** Crear tests del envelope v2 y `evidence.uploaded.v1`.
-- [ ] **T-011** Testear rechazo suffix/version, actor, tenant y schemaRef inválidos.
+- [x] **T-010** Crear tests del envelope v2 y `evidence.uploaded.v1`.
+- [x] **T-011** Testear rechazo suffix/version, actor, tenant y schemaRef inválidos.
 - [ ] **T-012** Crear integration test state+outbox atomic rollback.
 - [ ] **T-013** Crear concurrency test unique idempotency key.
 - [ ] **T-014** Crear claim test con dos dispatchers y lease vencida.
@@ -34,12 +34,12 @@ date: "2026-07-12"
 
 ## Fase 2 — Contratos y migración
 
-- [ ] **T-020** Implementar schemas v2 en `@semse/schemas`.
-- [ ] **T-021** Implementar adapter compatible v2 -> v1 para Evidence.
-- [ ] **T-022** Agregar enums/modelos/índices Prisma.
-- [ ] **T-023** Crear migración aditiva `*_f1_event_backbone`.
-- [ ] **T-024** Ejecutar `prisma format`, `db:generate` y `migrate diff`.
-- [ ] **T-025** Documentar rollback operacional sin down destructivo.
+- [x] **T-020** Implementar schemas v2 en `@semse/schemas`.
+- [x] **T-021** Implementar adapter compatible v2 -> v1 para Evidence.
+- [x] **T-022** Agregar enums/modelos/índices Prisma.
+- [x] **T-023** Crear migración aditiva `*_f1_event_backbone`.
+- [x] **T-024** Ejecutar `prisma validate`, `db:generate` y `migrate diff` estático.
+- [x] **T-025** Documentar rollback operacional sin down destructivo.
 
 ## Fase 3 — Producer Evidence atómico
 
@@ -104,4 +104,3 @@ date: "2026-07-12"
 - [ ] tenant/RBAC/redaction verificados;
 - [ ] CI, Railway Deploy y Production Health Gate verdes;
 - [ ] spec marcado IMPLEMENTED o VERIFIED solo con evidencia correspondiente.
-
