@@ -33,6 +33,20 @@ Si una acción importante no produce evento ni deja audit log, está incompleta.
   - `requestId`
   - `metadata`
 
+## Contratos F1 aprobados, todavía no implementados
+
+Los siguientes nombres están reservados por
+[`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md),
+pero no deben tratarse como eventos emitidos hasta que el slice F1 pase tests y
+se despliegue:
+
+- `evidence.uploaded.v1`
+- `ops.event_replay_requested.v1`
+
+La convención v1 sin suffix permanece activa para código existente. La
+migración es productor por productor y usa adapter explícito; no se hace
+dual-write.
+
 ## Auth / Identity
 
 - `user.created`

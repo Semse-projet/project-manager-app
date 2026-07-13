@@ -2,7 +2,7 @@
 
 **Estado:** CANONICA
 **Corte verificado:** 2026-07-12
-**Codigo verificado:** `main@b7691f4e209a4fdce250da063b75b790bd48679d`
+**Codigo/produccion verificados:** `main@bd0d98cd3c6815c5f0a0867852c4dbf7c1169e48`
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
 
@@ -212,6 +212,11 @@ No se migrara con un big bang. F1 debe introducir el envelope y la outbox en un
 slice vertical de alto valor, probar replay/idempotencia y luego ampliar dominio
 por dominio.
 
+El contrato F1 esta aprobado en
+[`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md)
+y ADR-022. Su estado sigue siendo **pendiente de implementacion**: aprobar el
+spec no equivale a tener tablas, dispatcher o consumers desplegados.
+
 ## 9. Flujos canónicos
 
 ### Flujo monetizable
@@ -277,9 +282,9 @@ su cuenta.
 
 ## 11. Estado de produccion verificado
 
-Verificado el 2026-07-12 despues de la PR #289:
+Verificado el 2026-07-12 despues de la PR #291:
 
-- `main`: `b7691f4e209a4fdce250da063b75b790bd48679d`.
+- `main`: `bd0d98cd3c6815c5f0a0867852c4dbf7c1169e48`.
 - Railway Deploy: exitoso.
 - Production Health Gate: exitoso.
 - API `/v1/health`: HTTP 200.
@@ -287,6 +292,7 @@ Verificado el 2026-07-12 despues de la PR #289:
 - `/v1/prometeo/tools`: HTTP 401 sin token, confirmando que la ruta esta
   desplegada y protegida; el estado anterior de HTTP 404 queda supersedido.
 - CI de `main`: quality gates, coverage y E2E exitosos.
+- linea base SDD estricta: 63 specs, 0 errores y 0 warnings en el corte F0.
 
 Estos datos son un snapshot, no una garantia permanente. Cada documento de
 estado posterior debe registrar nuevo SHA, fecha y evidencia de CI/deploy.

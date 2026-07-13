@@ -35,7 +35,14 @@ Gate de salida:
 - cada sistema transversal distingue estado real de arquitectura objetivo.
 - `pnpm spec:validate -- --strict` pasa con 63 specs, 0 errores y 0 warnings.
 
-## F1 — Event Backbone
+## F1 — Event Backbone (SPEC APROBADO; IMPLEMENTACION PENDIENTE)
+
+Contrato ejecutable:
+
+- [`docs/specs/platform/event-backbone.spec.md`](docs/specs/platform/event-backbone.spec.md)
+- [`docs/specs/platform/event-backbone.plan.md`](docs/specs/platform/event-backbone.plan.md)
+- [`docs/specs/platform/event-backbone.tasks.md`](docs/specs/platform/event-backbone.tasks.md)
+- [`docs/architecture/ADR-022-transactional-outbox-bullmq.md`](docs/architecture/ADR-022-transactional-outbox-bullmq.md)
 
 Objetivo: introducir entrega durable sin reemplazar de golpe el bus actual.
 

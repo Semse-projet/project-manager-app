@@ -66,7 +66,7 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 ## Estado verificado importante
 
 - Prometeo Runtime P2 esta implementado, fusionado y desplegado.
-- SHA de produccion del corte: `b7691f4e209a4fdce250da063b75b790bd48679d`.
+- SHA de produccion del corte: `bd0d98cd3c6815c5f0a0867852c4dbf7c1169e48`.
 - `/v1/prometeo/tools` existe y requiere Bearer token.
 - Tool Registry: 23 herramientas read, 7 write; 17 casos read cableados.
 - Write tools de Prometeo siguen bloqueadas por el runtime actual.
@@ -76,6 +76,8 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
   parciales, no ausentes ni completas.
 - La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
   63 specs, 0 errores y 0 warnings.
+- F1 Event Backbone tiene spec, plan, tasks y ADR aprobados; su implementacion
+  (tablas, dispatcher y consumer) todavia no existe.
 
 ## Reglas de Prometeo
 
