@@ -1,7 +1,3 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import type { ProfessionalCredentialRecord } from "../../semse-api";
 
 const BADGE_META: Record<string, { label: string; color: string; emoji: string }> = {
@@ -35,34 +31,39 @@ function TrustMeter({ score }: { score: number }) {
   );
 }
 
-export default function PublicProfilePage() {
-  const params = useParams();
-  const slug = typeof params?.slug === "string" ? params.slug : "";
-  const [profile, setProfile] = useState<ProfessionalCredentialRecord | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-
-  useEffect(() => {
-    if (!slug) return;
-    fetch(`/api/pro/${encodeURIComponent(slug)}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.data) setProfile(d.data as ProfessionalCredentialRecord);
-        else setNotFound(true);
-      })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
-  }, [slug]);
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#020408", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#475569", fontSize: 14 }}>Cargando perfil...</div>
-      </div>
+async function fetchPublicProfile(slug: string): Promise<ProfessionalCredentialRecord | null> {
+  const apiBase = process.env.SEMSE_API_BASE_URL ?? "http://127.0.0.1:4000";
+  try {
+    const res = await fetch(
+      `${apiBase}/v1/intelligence/credentials/public/${encodeURIComponent(slug)}`,
+      {
+        headers: { "x-tenant-id": process.env.SEMSE_TENANT_ID ?? "tenant_default" },
+        cache: "no-store",
+      },
     );
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: ProfessionalCredentialRecord };
+    return json.data ?? null;
+  } catch {
+    return null;
   }
+}
 
-  if (notFound || !profile) {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const profile = await fetchPublicProfile(slug);
+  if (!profile) return { title: "Perfil no encontrado · SEMSE" };
+  return {
+    title: `${profile.displayName} · Profesional verificado · SEMSE`,
+    description: `Perfil público de ${profile.displayName}: ${profile.completedProjects} proyectos completados, trust score ${profile.trustScore}/100.`,
+  };
+}
+
+export default async function PublicProfilePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const profile = slug ? await fetchPublicProfile(slug) : null;
+
+  if (!profile) {
     return (
       <div style={{ minHeight: "100vh", background: "#020408", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: 32 }}>🔍</div>

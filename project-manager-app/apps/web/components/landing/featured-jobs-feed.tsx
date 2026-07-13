@@ -66,6 +66,14 @@ const FALLBACK_JOBS: PublicLandingFeaturedJob[] = [
   },
 ];
 
+const URGENCY_LABELS: Record<string, string> = {
+  urgent: "Urgente",
+  high: "Alta",
+  medium: "Media",
+  standard: "Estándar",
+  low: "Baja",
+};
+
 function timeSince(index: number) {
   const times = [
     "hace 2 min",
@@ -198,7 +206,7 @@ export function FeaturedJobsFeed({ jobs }: FeaturedJobsFeedProps) {
                   Urgencia: <span className={
                     job.urgency === "urgent" ? "text-red-500 font-extrabold" :
                     job.urgency === "high" ? "text-amber-500" : "text-slate-400"
-                  }>{job.urgency ?? "standard"}</span>
+                  }>{URGENCY_LABELS[job.urgency ?? "standard"] ?? "Estándar"}</span>
                 </div>
               </div>
 
