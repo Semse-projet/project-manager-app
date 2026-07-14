@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00..PI-03.1 COMPLETADOS. Siguiente: PI-04 (módulo ingesta + retención).
+**Estado:** PI-00..PI-04 COMPLETADOS. Siguiente: PI-05 (instrumentación auth/registro/wizard).
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -82,11 +82,11 @@ Detecta drift código↔schema.prisma↔migraciones↔prod (la clase de bug de #
 
 ### PI-03 — Modelos Prisma
 - [x] PI-03.1 — 5 modelos en `schema.prisma` (los 4 de la spec + `ProductIngestBatch` como ledger de idempotencia) + enums ProductConsentClass/FrictionKind. Migración `20260713000000_product_intelligence_pi03` generada con `prisma migrate diff` y verificada aplicando en schema temporal de Postgres local. Sin FK a Tenant (tablas de volumen, limpieza por retención).
-- [ ] PI-03.2 — Job de retención (30d identificable / 90d agregada). REUBICADO a PI-04: el worker no toca la DB directamente (patrón curator: llama endpoints del API), así que la retención vive como endpoint del módulo `product-intelligence` + timer del worker.
+- [x] PI-03.2 — Retención implementada en PI-04: `POST /v1/product-intelligence/retention/run` (ops:dashboard:write) + timer diario del worker (solo si PRODUCT_INTELLIGENCE_ENABLED=true, patrón curator).
 
 ### PI-04 — Ingesta
-- [ ] PI-04.1 — Módulo `product-intelligence` en API: `POST /v1/product-intelligence/ingest` batch idempotente, rate-limited, kill switch.
-- [ ] PI-04.2 — BFF `/api/semse/product-intelligence/ingest` (público con consentimiento, anónimo permitido).
+- [x] PI-04.1 — Módulo `product-intelligence`: ingest @Public con kill switches (403), 413 si >50 eventos, validación Zod (allowlist+consentimiento), idempotencia por ledger ProductIngestBatch (incl. carrera P2002), re-redacción server-side vía @semse/product-events. 5/5 tests.
+- [x] PI-04.2 — BFF `/api/semse/product-intelligence/ingest` público (allowlist en semse-api-auth.ts), proxy con x-tenant-id del entorno.
 
 ### PI-05 — Instrumentación P0: auth/registro/wizard
 Primer flujo instrumentado por historial real de bugs (register perdía contexto — PR #296).
