@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00 (#300) + PI-01 (guard) + PI-02 (schemas+SDK) COMPLETADOS. Siguiente: PI-03 (modelos Prisma).
+**Estado:** PI-00..PI-03.1 COMPLETADOS. Siguiente: PI-04 (módulo ingesta + retención).
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -81,8 +81,8 @@ Detecta drift código↔schema.prisma↔migraciones↔prod (la clase de bug de #
 - [x] PI-02.2 — `packages/product-events`: track/flush con cola local, redacción en cliente (emails/teléfonos/direcciones), rutas sin query, reintento con MISMO batchId, no-op total con kill switch. 7/7 tests.
 
 ### PI-03 — Modelos Prisma
-- [ ] PI-03.1 — `ProductEvent`, `ProductSession`, `FrictionSignal`, `ConsentRecord` en `schema.prisma` + migración.
-- [ ] PI-03.2 — Job de retención (30d identificable / 90d agregada).
+- [x] PI-03.1 — 5 modelos en `schema.prisma` (los 4 de la spec + `ProductIngestBatch` como ledger de idempotencia) + enums ProductConsentClass/FrictionKind. Migración `20260713000000_product_intelligence_pi03` generada con `prisma migrate diff` y verificada aplicando en schema temporal de Postgres local. Sin FK a Tenant (tablas de volumen, limpieza por retención).
+- [ ] PI-03.2 — Job de retención (30d identificable / 90d agregada). REUBICADO a PI-04: el worker no toca la DB directamente (patrón curator: llama endpoints del API), así que la retención vive como endpoint del módulo `product-intelligence` + timer del worker.
 
 ### PI-04 — Ingesta
 - [ ] PI-04.1 — Módulo `product-intelligence` en API: `POST /v1/product-intelligence/ingest` batch idempotente, rate-limited, kill switch.
