@@ -12,6 +12,7 @@ const TASKS = {
     ["pnpm", ["--filter", "@semse/autonomy", "build"]],
     ["pnpm", ["--filter", "@semse/tools", "build"]],
     ["pnpm", ["--filter", "@semse/sdk", "build"]],
+    ["pnpm", ["--filter", "@semse/product-events", "build"]],
   ],
   "build:apps": [
     ["pnpm", ["run", "db:generate"]],
