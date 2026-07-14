@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { BrowserAgentController } from "./browser-agent.controller.js";
 import { BrowserAgentService } from "./browser-agent.service.js";
 import { AgentsModule } from "../agents/agents.module.js";
@@ -7,7 +7,7 @@ import { EvidenceGatewayModule } from "../evidence-gateway/evidence-gateway.modu
 
 @Module({
   imports: [
-    AgentsModule,
+    forwardRef(() => AgentsModule),
     AiModelsModule,
     EvidenceGatewayModule,
   ],
