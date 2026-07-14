@@ -1,5 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
+import { DomainEventQueueModule } from "../../infrastructure/queue/domain-event-queue.module.js";
 import { AgentsModule } from "../agents/agents.module.js";
 import { AiModelsModule } from "../ai-models/ai-models.module.js";
 import { MatchingModule } from "../matching/matching.module.js";
@@ -10,11 +11,13 @@ import { DomainEventsRepository } from "./domain-events.repository.js";
 import { DomainEventsService } from "./domain-events.service.js";
 import { DomainEventBus } from "./domain-event-bus.service.js";
 import { OutboxRepository } from "./outbox.repository.js";
+import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
 
 @Module({
   controllers: [DomainEventsController],
   imports: [
     PrismaModule,
+    DomainEventQueueModule,
     forwardRef(() => AgentsModule),
     forwardRef(() => AiModelsModule),
     MatchingModule,
@@ -26,6 +29,7 @@ import { OutboxRepository } from "./outbox.repository.js";
     DomainEventBus,
     AgentTriggerRouter,
     OutboxRepository,
+    OutboxDispatcherService,
   ],
   exports: [DomainEventBus, DomainEventsService, OutboxRepository],
 })
