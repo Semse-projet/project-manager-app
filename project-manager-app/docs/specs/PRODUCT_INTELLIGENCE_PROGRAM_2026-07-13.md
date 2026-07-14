@@ -1,7 +1,7 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00 EN CURSO (este documento + spec de plataforma). PI-01..PI-11 pendientes.
-**Rama base de trabajo:** `docs/product-intelligence-pi00`
+**Estado:** PI-00 COMPLETADO (#300, spec APPROVED). PI-01 COMPLETADO (guard + baseline + CI). Siguiente: PI-02.
+**Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
 > Este documento es la fuente de verdad del programa Y el archivo de estado del loop de ejecución.
@@ -13,8 +13,8 @@
 
 | Fase | Spec | Estado |
 |------|------|--------|
-| PI-00 | `docs/specs/platform/product-intelligence.spec.md` | DRAFT (aprobar antes de PI-02) |
-| PI-01 | (guard técnico, sección PI-01) | — |
+| PI-00 | `docs/specs/platform/product-intelligence.spec.md` | APPROVED (2026-07-13) |
+| PI-01 | (guard técnico, sección PI-01) | DONE |
 | PI-02+ | se derivan de la spec de plataforma al aprobarse | — |
 
 ---
@@ -65,16 +65,16 @@ SDK @semse/product-events (web, batch, redacción en cliente)
 
 ## Fases
 
-### PI-00 — Spec + auditoría (docs only) — EN CURSO
+### PI-00 — Spec + auditoría (docs only) — COMPLETADO (PR #300)
 - [x] PI-00.1 — Programa maestro (este documento).
 - [x] PI-00.2 — `docs/specs/platform/product-intelligence.spec.md` (DRAFT) con contratos de ingesta, modelos y privacidad.
-- [ ] PI-00.3 — `pnpm spec:validate` + `pnpm spec:index` verdes. PR docs-only.
-- [ ] PI-00.4 — Aprobación humana de la spec (DRAFT→APPROVED) antes de escribir código.
+- [x] PI-00.3 — `pnpm spec:validate` + `pnpm spec:index` verdes. PR docs-only (#300).
+- [x] PI-00.4 — Aprobación humana de la spec (DRAFT→APPROVED) — usuario, 2026-07-13.
 
 ### PI-01 — Guard `verify-prisma-runtime-contract`
 Detecta drift código↔schema.prisma↔migraciones↔prod (la clase de bug de #286/#285 que motivó PI). Vale por sí solo aunque el resto del programa se postergue.
-- [ ] PI-01.1 — Script CI que compara modelos referenciados en código vs `schema.prisma` vs migraciones aplicadas.
-- [ ] PI-01.2 — Integrarlo a quality-gates (no bloqueante 1 semana, luego bloqueante).
+- [x] PI-01.1 — `scripts/verify-prisma-runtime-contract.mjs`: 3 niveles (code→schema, schema→migrations, schema→database con --db) + baseline `scripts/prisma-contract-baseline.json` que solo puede encogerse.
+- [x] PI-01.2 — Paso en quality-gates tras las migraciones (`continue-on-error: true` hasta 2026-07-20, después bloqueante).
 
 ### PI-02 — SDK + contratos
 - [ ] PI-02.1 — Schemas Zod en `packages/schemas/src/product-events.schema.ts` (evento, sesión, consentimiento, batch envelope con idempotency key).
@@ -122,3 +122,5 @@ Primer flujo instrumentado por historial real de bugs (register perdía contexto
 | 2026-07-11 | Material externo aceptado como base; pseudocódigo = spec funcional, no código. |
 | 2026-07-11 | El módulo se llama `product-intelligence`; `analytics` existente no se toca. |
 | 2026-07-13 | PI-00 arranca tras cerrar los P0 de la auditoría web (PRs #295–#298 + fix de dato en prod). |
+| 2026-07-13 | Spec aprobada por el usuario (DRAFT→APPROVED). |
+| 2026-07-13 | PI-01 detectó drift REAL preexistente en main: 6 accessors sin modelo (`changeOrder`, `drawRequest`, `evidenceLog`, `evidencePhoto`, `tradeMetric`, `weatherAlert`) — todos en código muerto jamás registrado en módulos NestJS, habilitado por el index signature `[delegate: string]: any` de PrismaService; y 3 tablas Lien* en prod (baseline P3005) sin migración. Documentado en `scripts/prisma-contract-baseline.json`; la lista solo puede encogerse. |

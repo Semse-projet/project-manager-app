@@ -4,7 +4,7 @@ title: "Product Intelligence — telemetría de producto gobernada"
 type: spec
 domain: "platform"
 version: "0.1"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 date: "2026-07-13"
