@@ -59,6 +59,11 @@ jobs:
       - name: Apply database migrations
         run: pnpm db:migrate
 
+      # PI-01: no bloqueante hasta 2026-07-20; después quitar continue-on-error.
+      - name: Verify Prisma runtime contract
+        run: pnpm verify:prisma-contract:db
+        continue-on-error: true
+
       - name: Spec preflight
         run: pnpm spec:preflight
 

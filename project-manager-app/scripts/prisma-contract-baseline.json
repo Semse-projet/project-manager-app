@@ -1,0 +1,21 @@
+{
+  "$comment": "Drift preexistente documentado 2026-07-13 (PI-01). Esta lista solo puede ENCOGERSE. codeToSchema: accessors usados en código sin modelo en schema.prisma — todos viven en código muerto (controllers/services jamás registrados en ningún módulo NestJS: change-order, daily-log, photo, export-bundle, draw-request, weather-*, extended-metrics). Resolver: registrar el módulo Y crear los modelos, o borrar el código. schemaToMigrations: tablas Lien* existen en prod (baseline P3005) pero ninguna migración las crea — un entorno nuevo desde migraciones no las tendría.",
+  "codeToSchema": [
+    "changeOrder",
+    "drawRequest",
+    "evidenceLog",
+    "evidencePhoto",
+    "tradeMetric",
+    "weatherAlert"
+  ],
+  "schemaToMigrations": [
+    "LienCalendar",
+    "LienNotice",
+    "LienWaiver"
+  ],
+  "schemaToDatabase": [
+    "LienCalendar",
+    "LienNotice",
+    "LienWaiver"
+  ]
+}
