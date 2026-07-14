@@ -27,7 +27,7 @@ date: "2026-07-12"
 - [x] **T-011** Testear rechazo suffix/version, actor, tenant y schemaRef inválidos.
 - [x] **T-012** Crear integration test state+outbox atomic rollback.
 - [x] **T-013** Crear concurrency test unique idempotency key.
-- [ ] **T-014** Crear claim test con dos dispatchers y lease vencida.
+- [x] **T-014** Crear claim test con dos dispatchers y lease vencida.
 - [ ] **T-015** Crear consumer test duplicate delivery/no double effect.
 - [ ] **T-016** Crear DLQ/replay RBAC/tenant/audit tests.
 - [ ] **T-017** Confirmar que los tests nuevos fallan por ausencia controlada.
@@ -52,13 +52,13 @@ date: "2026-07-12"
 
 ## Fase 4 — Dispatcher e ingreso BullMQ
 
-- [ ] **T-040** Agregar `SEMSE_DOMAIN_EVENT_QUEUE` a shared.
-- [ ] **T-041** Implementar queue service con jobId determinístico y retention.
-- [ ] **T-042** Implementar claim batch `FOR UPDATE SKIP LOCKED`.
-- [ ] **T-043** Implementar lease/reclaim, ack, nack y exponential backoff.
-- [ ] **T-044** Añadir scheduler con kill switch OFF por defecto.
-- [ ] **T-045** Emitir métricas pending/oldest-age/publish-lag/DLQ.
-- [ ] **T-046** Pasar tests de doble dispatcher y Redis caído.
+- [x] **T-040** Agregar `SEMSE_DOMAIN_EVENT_QUEUE` a shared.
+- [x] **T-041** Implementar queue service con jobId determinístico y retention.
+- [x] **T-042** Implementar claim batch `FOR UPDATE SKIP LOCKED`.
+- [x] **T-043** Implementar lease/reclaim, ack, nack y exponential backoff.
+- [x] **T-044** Añadir scheduler con kill switch OFF por defecto.
+- [x] **T-045** Emitir métricas pending/oldest-age/publish-lag/DLQ.
+- [x] **T-046** Pasar tests de doble dispatcher y Redis caído.
 
 ## Fase 5 — Worker y consumer idempotente
 

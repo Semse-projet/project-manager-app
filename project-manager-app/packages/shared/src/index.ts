@@ -7,6 +7,7 @@ import { z } from "zod";
 export const API_VERSION = "v1";
 export const SEMSE_AGENT_RUN_QUEUE = "semse-agent-runs";
 export const SEMSE_DEVELOPER_RUNTIME_QUEUE = "semse-developer-runtime";
+export const SEMSE_DOMAIN_EVENT_QUEUE = "semse-domain-events";
 export const SEMSE_BOOTSTRAP_HEADER_NAME = "x-semse-bootstrap-token";
 
 export * from "./developer-runtime.js";
@@ -101,6 +102,10 @@ export const apiEnvSchema = z
     DATABASE_URL: nonEmptyString,
     AUTH_SECRET: z.string().min(32).optional(),
     REDIS_URL: nonEmptyString.default("redis://127.0.0.1:6379"),
+    SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED: z.enum(["true", "false"]).default("false"),
+    SEMSE_EVENT_OUTBOX_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(1_000),
+    SEMSE_EVENT_OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(250).default(50),
+    SEMSE_EVENT_OUTBOX_LEASE_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
     CORS_ORIGINS: z.string().optional(),
     RATE_LIMIT_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_LIMIT: z.coerce.number().int().positive().default(20),
