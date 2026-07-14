@@ -26,10 +26,12 @@ import { ProjectCopilotHarness } from "./harnesses/project-copilot.harness.js";
 import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { AiModelsModule } from "../ai-models/ai-models.module.js";
 import { BrowserAgentModule } from "../browser-agent/browser-agent.module.js";
+import { PrometeoMissionController } from "./prometeo-mission.controller.js";
+import { PrometeoMissionService } from "./prometeo-mission.service.js";
 
 @Module({
   imports: [AgentQueueModule, LLMModule, ProjectsModule, KnowledgeModule, MilestonesModule, DisputesModule, PaymentsModule, UsersModule, PrometeoModule, AiModelsModule, forwardRef(() => BrowserAgentModule)],
-  controllers: [AgentsController],
+  controllers: [AgentsController, PrometeoMissionController],
   providers: [
     AgentApprovalService,
     AgentPolicyService,
@@ -45,6 +47,7 @@ import { BrowserAgentModule } from "../browser-agent/browser-agent.module.js";
     CoordinatorService,
     PlanTemplatesService,
     ProjectCopilotHarness,
+    PrometeoMissionService,
     IdempotencyService,
   ],
   exports: [
@@ -60,6 +63,7 @@ import { BrowserAgentModule } from "../browser-agent/browser-agent.module.js";
     CoordinatorService,
     PlanTemplatesService,
     ProjectCopilotHarness,
+    PrometeoMissionService,
   ],
 })
 export class AgentsModule {}

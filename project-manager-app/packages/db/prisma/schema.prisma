@@ -104,6 +104,22 @@ enum AgentRunStatus {
   CANCELLED
 }
 
+enum DomainOutboxStatus {
+  PENDING
+  CLAIMED
+  PUBLISHED
+  FAILED
+  DEAD_LETTER
+}
+
+enum DomainConsumptionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  DEAD_LETTER
+}
+
 model Tenant {
   id         String      @id @default(cuid())
   slug       String      @unique
@@ -114,6 +130,8 @@ model Tenant {
   projects   Project[]
   disputes   Dispute[]
   auditLogs  AuditLog[]
+  domainOutboxEvents DomainOutboxEvent[]
+  domainEventConsumptions DomainEventConsumption[]
   agentRuns  AgentRun[]
   agentApprovals AgentApproval[]
   developerRuntimeSessions    DeveloperRuntimeSessionStore[]
@@ -723,6 +741,69 @@ model AuditLog {
 
   @@index([tenantId, occurredAt])
   @@index([entityType, entityId])
+}
+
+model DomainOutboxEvent {
+  eventId          String             @id @default(uuid()) @db.Uuid
+  eventType        String
+  version          Int
+  envelopeVersion  Int                @default(2)
+  tenantId         String
+  orgId            String
+  module            String
+  entityType       String
+  entityId         String
+  actorType        String
+  actorId          String
+  correlationId    String
+  causationId      String?
+  idempotencyKey   String
+  schemaRef         String
+  payloadJson      Json
+  metadataJson     Json?
+  traceContextJson Json?
+  occurredAt       DateTime
+  recordedAt       DateTime           @default(now())
+  status           DomainOutboxStatus @default(PENDING)
+  attempts         Int                @default(0)
+  maxAttempts      Int                @default(5)
+  nextAttemptAt    DateTime           @default(now())
+  lockedAt         DateTime?
+  lockExpiresAt    DateTime?
+  lockedBy         String?
+  publishedAt      DateTime?
+  lastError        String?
+  replayCount      Int                @default(0)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  consumptions     DomainEventConsumption[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, nextAttemptAt, recordedAt])
+  @@index([tenantId, correlationId, recordedAt])
+  @@index([entityType, entityId, occurredAt])
+}
+
+model DomainEventConsumption {
+  id            String                  @id @default(cuid())
+  eventId       String                  @db.Uuid
+  tenantId      String
+  consumerName  String
+  status        DomainConsumptionStatus @default(PENDING)
+  attempts      Int                     @default(0)
+  maxAttempts   Int                     @default(5)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  nextAttemptAt DateTime                @default(now())
+  lastError     String?
+  resultJson    Json?
+  replayCount   Int                     @default(0)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  event         DomainOutboxEvent       @relation(fields: [eventId], references: [eventId], onDelete: Cascade)
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, consumerName])
+  @@index([tenantId, status, nextAttemptAt])
 }
 
 model AgentRun {
@@ -2065,6 +2146,47 @@ model ContractorLead {
   @@index([tenantId, status])
 }
 
+// ── Worker Onboarding — aplicaciones públicas ─────────────────────────────────
+
+/// Aplicación pública de un trabajador para unirse a SEMSE (con o sin vacante).
+model WorkerApplication {
+  id              String    @id @default(cuid())
+  tenantId        String
+
+  // Contacto
+  fullName        String
+  email           String
+  phone           String?
+  city            String?
+
+  // Perfil
+  trade           String    // oficio principal: "electrical", "painting", ...
+  yearsExperience Int?
+  message         String?   // presentación libre
+  proposedRate    Decimal?  @db.Decimal(10, 2) // propuesta económica opcional (para vacante)
+
+  // Vacante que motivó la aplicación (opcional)
+  jobId           String?
+
+  // Pipeline de revisión
+  status          String    @default("submitted")
+  // submitted | reviewing | approved | rejected
+  reviewNotes     String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  createdUserId   String?   // si al aprobar se creó/enlazó un usuario
+
+  // Anti-abuso / origen
+  sessionToken    String?
+  sourceChannel   String    @default("web")
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, email])
+}
+
 // ── AI Mission Control Incidents ──────────────────────────────────────────────
 
 /// Persistent log of AI system posture incidents detected by Mission Control.
@@ -2833,6 +2955,8 @@ model AgroFarm {
   harvestRecords   AgroHarvestRecord[]
   traceability     AgroTraceabilityEvent[]
   complianceChecks AgroComplianceCheck[]
+  productionRecords AgroProductionRecord[]
+  saleRecords      AgroSaleRecord[]
 
   @@index([ownerId])
 }
@@ -2873,6 +2997,10 @@ model AgroAnimal {
   status              String    @default("ACTIVE") // ACTIVE | SOLD | DEAD | LOST | INACTIVE
   acquisitionDate     DateTime?
   acquisitionCost     Decimal?  @db.Decimal(12, 2)
+  purpose             String    @default("OTHER") // FATTENING | DAIRY | BREEDING | GENETICS | LAYING | RESALE | WORK | OTHER
+  estimatedValue      Decimal?  @db.Decimal(12, 2)
+  expectedSalePrice   Decimal?  @db.Decimal(12, 2)
+  expectedSaleDate    DateTime?
   notes               String?   @db.Text
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -2896,6 +3024,10 @@ model AgroAnimalGroup {
   status           String    @default("ACTIVE") // ACTIVE | SOLD | DEAD | LOST | INACTIVE
   acquisitionDate  DateTime?
   acquisitionCost  Decimal?  @db.Decimal(12, 2)
+  purpose          String    @default("OTHER") // FATTENING | DAIRY | BREEDING | GENETICS | LAYING | RESALE | WORK | OTHER
+  estimatedValue   Decimal?  @db.Decimal(12, 2)
+  expectedSalePrice Decimal? @db.Decimal(12, 2)
+  expectedSaleDate DateTime?
   notes            String?   @db.Text
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -2903,6 +3035,53 @@ model AgroAnimalGroup {
   @@index([farmId])
   @@index([currentUnitId])
   @@index([status])
+}
+
+model AgroProductionRecord {
+  id         String   @id @default(cuid())
+  farmId     String
+  farm       AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  targetType String   // ANIMAL | ANIMAL_GROUP | FARM
+  targetId   String?
+  type       String   // MILK | EGGS | WEIGHT_GAIN | BIRTH | WOOL | HONEY | BREEDING_SERVICE | OTHER
+  quantity   Decimal  @db.Decimal(12, 4)
+  unit       String   // LITER | UNIT | DOZEN | LB | KG | HEAD | OTHER
+  unitPrice  Decimal? @db.Decimal(12, 4)
+  totalValue Decimal? @db.Decimal(14, 2)
+  occurredAt DateTime
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([farmId])
+  @@index([targetType, targetId])
+  @@index([occurredAt])
+  @@index([type])
+}
+
+model AgroSaleRecord {
+  id             String   @id @default(cuid())
+  farmId         String
+  farm           AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  targetType     String   // ANIMAL | ANIMAL_GROUP
+  targetId       String
+  buyerName      String?
+  quantity       Int      @default(1)
+  saleWeight     Decimal? @db.Decimal(10, 2)
+  salePrice      Decimal  @db.Decimal(14, 2)
+  freightCost    Decimal? @db.Decimal(12, 2)
+  commission     Decimal? @db.Decimal(12, 2)
+  paymentMethod  String?  // CASH | TRANSFER | CHECK | CREDIT | OTHER
+  totalCostBasis Decimal? @db.Decimal(14, 2)
+  netProfit      Decimal? @db.Decimal(14, 2)
+  marginPercent  Decimal? @db.Decimal(8, 4)
+  currency       String   @default("USD")
+  occurredAt     DateTime
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([farmId])
+  @@index([targetType, targetId])
+  @@index([occurredAt])
 }
 
 model AgroFarmTask {
@@ -3200,4 +3379,92 @@ model PermanentLoopState {
   tokensConsumed   Int       @default(0)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+// ── Governance Sandbox — P4/P5 Prometeo DAO ───────────────────────────────────
+// Reputation-weighted proposals, quadratic voting, participation credits.
+// Tables created by migration 20260525000000_governance_sandbox.
+
+model GovernanceProposal {
+  id                    String   @id @default(cuid())
+  tenantId              String
+  title                 String
+  description           String
+  category              String   @default("general")
+  status                String   @default("open")
+  authorId              String
+  authorReputationScore Decimal  @default(0) @db.Decimal(6, 2)
+  mcaAdvice             String?
+  mcaRisk               String   @default("low")
+  closesAt              DateTime
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  votes GovernanceVote[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, closesAt])
+  @@index([authorId])
+}
+
+model GovernanceVote {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  proposalId           String
+  proposal             GovernanceProposal @relation(fields: [proposalId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  voterId              String
+  choice               String
+  voterReputationScore Decimal  @default(0) @db.Decimal(6, 2)
+  units                Int      @default(1)
+  reason               String?
+  createdAt            DateTime @default(now())
+
+  @@unique([proposalId, voterId])
+  @@index([tenantId, proposalId])
+  @@index([voterId])
+}
+
+model GovernanceCreditEvent {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  eventType String
+  credits   Decimal  @db.Decimal(8, 2)
+  context   String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, userId])
+  @@index([userId, createdAt])
+}
+
+// ── Vision Analysis — computer-vision evidence scoring ────────────────────────
+// Table created by migration 20260613000000_vision_analysis.
+
+model VisionAnalysis {
+  id                     String   @id @default(cuid())
+  evidenceId             String   @unique
+  jobId                  String?
+  milestoneId            String?
+  trade                  String?
+  status                 String   @default("pending")
+  qualityScore           Float?
+  blurScore              Float?
+  brightnessScore        Float?
+  contrastScore          Float?
+  duplicateRisk          Float?
+  changeScore            Float?
+  visualProgressDetected Boolean  @default(false)
+  requiresHumanReview    Boolean  @default(true)
+  canAutoApprove         Boolean  @default(false)
+  recommendedAction      String?
+  riskLevel              String?
+  riskReasons            Json?
+  rawResult              Json?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([evidenceId])
+  @@index([jobId])
+  @@index([milestoneId])
+  @@index([status])
 }

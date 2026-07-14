@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { buildSemseRequestHeaders, getServerConfig, runtimeDisabledResponse } from "../../_server";
+import { buildAuthorizedHeaders, getServerConfig, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const cfg = await getServerConfig(request);
     const apiRes = await fetch(
       `${cfg.apiBaseUrl}/v1/sse/agents`,
-      { headers: buildSemseRequestHeaders(cfg), signal: request.signal },
+      { headers: (await buildAuthorizedHeaders(cfg)), signal: request.signal },
     );
     if (!apiRes.ok || !apiRes.body) return runtimeDisabledResponse();
     return new Response(apiRes.body, {

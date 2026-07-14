@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle, Building2, CheckCircle2, Phone, Plus, RefreshCw,
   Search, Star, TrendingUp, Users, XCircle,
@@ -87,6 +87,14 @@ export default function ContractorsPage() {
   const [showForm, setShowForm] = useState(false);
   const [newLead,  setNewLead]  = useState({ name: "", phone: "", email: "", trade: "general", source: "direct" });
 
+  // Deep-link target (e.g. from Communications: /admin/contractors?leadId=…)
+  const [focusLeadId, setFocusLeadId] = useState<string | null>(null);
+  const focusRowRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setFocusLeadId(new URLSearchParams(window.location.search).get("leadId"));
+  }, []);
+
   const loadLeads = useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -109,6 +117,13 @@ export default function ContractorsPage() {
   }, [filter, search]);
 
   useEffect(() => { void loadLeads(); }, [loadLeads]);
+
+  // Scroll the deep-linked lead into view once it renders.
+  useEffect(() => {
+    if (focusLeadId && focusRowRef.current) {
+      focusRowRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focusLeadId, leads]);
 
   const handleCreate = async () => {
     if (!newLead.name.trim()) return;
@@ -242,9 +257,12 @@ export default function ContractorsPage() {
           </div>
         )}
 
-        {leads.map((lead) => (
+        {leads.map((lead) => {
+          const isFocused = lead.id === focusLeadId;
+          return (
           <div key={lead.id}
-            style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+            ref={isFocused ? focusRowRef : undefined}
+            style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border)", alignItems: "center", background: isFocused ? "rgba(99,102,241,.12)" : undefined, boxShadow: isFocused ? "inset 3px 0 0 #818cf8" : undefined }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{lead.name}</div>
               {lead.email && <div style={{ fontSize: 10, color: "var(--muted)" }}>{lead.email}</div>}
@@ -260,7 +278,8 @@ export default function ContractorsPage() {
               {new Date(lead.createdAt).toLocaleDateString("es-MX")}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>

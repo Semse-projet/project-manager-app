@@ -53,6 +53,26 @@
 - `GET /v1/projects/:projectId/evidence`
 - `GET /v1/evidence/:evidenceId`
 
+## Prometeo
+- `POST /v1/ai-models/prometeo/chat` (acepta `PrometeoRequest` multimodal legacy-compatible)
+- `GET /v1/prometeo/tools`
+- `POST /v1/prometeo/tools/invoke` (P1: ejecución solo lectura contra registry)
+- BFF web: `GET /api/semse/prometeo/tools` y `POST /api/semse/prometeo/tools/invoke`
+- `POST /v1/prometeo/missions` (P2: crea misión durable sobre `AgentWorkPlan`)
+- `GET /v1/prometeo/missions/:missionId`
+- `POST /v1/prometeo/missions/:missionId/approve|reject|cancel`
+- `POST /v1/prometeo/missions/:missionId/steps/:stepId/checkpoint`
+- BFF web: `/api/semse/prometeo/missions/**`
+- `POST /v1/prometeo/ingest`
+- `POST /v1/prometeo/ingest-file`
+- `GET /v1/prometeo/trade-library`
+- `GET /v1/prometeo/documents`
+- `POST /v1/prometeo/search`
+- `POST /v1/prometeo/rag-context`
+- `POST /v1/prometeo/rag-query`
+- `POST /v1/prometeo/trade-guide`
+- `POST /v1/prometeo/assets`
+
 ## Disputes
 - `POST /v1/disputes`
 - `GET /v1/disputes`

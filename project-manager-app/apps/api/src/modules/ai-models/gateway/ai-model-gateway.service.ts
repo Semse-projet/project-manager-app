@@ -5,6 +5,7 @@ import type { AiGenerateResponse } from "../dto/ai-generate-response.dto.js";
 import { AiModelRouterService } from "../router/ai-model-router.service.js";
 import { DeepSeekProvider } from "../providers/deepseek.provider.js";
 import { KimiProvider } from "../providers/kimi.provider.js";
+import { GlmProvider } from "../providers/glm.provider.js";
 import { createContextEngine } from "../context/token-budget-engine.js";
 import type { ContextEngine, ContextEngineStatus } from "../context/context-engine.interface.js";
 import { buildSafeSystemPrompt, wrapOperationalContext, wrapUserInput } from "../prompt-safety.js";
@@ -15,6 +16,8 @@ export class AiModelGatewayService {
   private readonly deepseekChat: DeepSeekProvider;
   private readonly deepseekReasoner: DeepSeekProvider;
   private readonly kimi: KimiProvider;
+  private readonly glm: GlmProvider;
+  private readonly glmOllama: GlmProvider;
   private readonly contextEngine: ContextEngine;
 
   constructor(
@@ -25,6 +28,20 @@ export class AiModelGatewayService {
     this.deepseekChat = new DeepSeekProvider(dsKey, process.env.DEEPSEEK_DEFAULT_MODEL ?? "deepseek-chat");
     this.deepseekReasoner = new DeepSeekProvider(dsKey, process.env.DEEPSEEK_REASONER_MODEL ?? "deepseek-reasoner");
     this.kimi = new KimiProvider(process.env.KIMI_API_KEY, process.env.KIMI_DEFAULT_MODEL ?? "moonshot-v1-128k");
+    this.glm = new GlmProvider(
+      process.env.GLM_BASE_URL ?? "https://open.bigmodel.cn/api/paas/v4",
+      process.env.GLM_API_KEY,
+      process.env.GLM_DEFAULT_MODEL ?? "glm-4-plus",
+      "glm-4",
+      true,
+    );
+    this.glmOllama = new GlmProvider(
+      `${(process.env.OLLAMA_BASE_URL ?? "http://localhost:11434").replace(/\/$/, "")}/v1`,
+      undefined,
+      process.env.OLLAMA_GLM_MODEL ?? "glm4",
+      "glm-ollama",
+      false,
+    );
     this.contextEngine = createContextEngine("token-budget", 128_000);
   }
 
@@ -81,6 +98,16 @@ export class AiModelGatewayService {
     }
     if (slug === "kimi-k2") {
       const resp = { ...(await this.kimi.generate(request)), routeReason, fallbackUsed };
+      this.feedContextEngine(resp.inputTokens, resp.outputTokens);
+      return resp;
+    }
+    if (slug === "glm-4") {
+      const resp = { ...(await this.glm.generate(request)), routeReason, fallbackUsed };
+      this.feedContextEngine(resp.inputTokens, resp.outputTokens);
+      return resp;
+    }
+    if (slug === "glm-ollama") {
+      const resp = { ...(await this.glmOllama.generate(request)), routeReason, fallbackUsed };
       this.feedContextEngine(resp.inputTokens, resp.outputTokens);
       return resp;
     }

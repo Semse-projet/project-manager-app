@@ -111,7 +111,7 @@ const AGENTS_DATA: AgentDef[] = [
     logs: [
       "[ProTools] Ejecutando cubicación para 12m2 de loseta cerámica.",
       "[ProTools] Lista generada: 14 cajas de loseta, 4 sacos de adhesivo, 2 de boquilla.",
-      "[ProTools] Costo estimado de materiales: $3,400 MXN · Mano de obra: 18 horas.",
+      "[ProTools] Costo estimado de materiales: $340 USD · Mano de obra: 18 horas.",
       "[ProTools] Alerta de riesgo: Se detectó tubería antigua de cobre sin llave de paso.",
       "[ProTools] Enviando checklist de seguridad a contratista antes del inicio."
     ]
@@ -165,7 +165,7 @@ const AGENTS_DATA: AgentDef[] = [
     modules: ["EscrowEngine", "MilestonePaymentEngine", "PayoutScheduler", "FinancialLedger"],
     integratesWith: ["evidence", "buildops", "prometeo"],
     logs: [
-      "[Crowd] Hito 1 fondeado por cliente ($4,200 MXN) y bloqueado en escrow.",
+      "[Crowd] Hito 1 fondeado por cliente ($1,400 USD) y bloqueado en escrow.",
       "[Crowd] Estado del ledger del proyecto #8912: Fondeado y Seguro.",
       "[Crowd] Confirmación de verificación recibida de Evidence Agent.",
       "[Crowd] Liberando pago de Hito 1 a contratista. Transacción en curso.",
@@ -214,7 +214,7 @@ const CHAT_QUESTIONS: ChatQuestion[] = [
     steps: [
       "[Prometeo] Recibiendo consulta sobre retención del Hito 2.",
       "[Prometeo] Consultando estado de fondos con @crowd Agent...",
-      "[Crowd] Fondos del Hito 2 ($5,800 MXN) resguardados de forma segura en Escrow.",
+      "[Crowd] Fondos del Hito 2 ($1,800 USD) resguardados de forma segura en Escrow.",
       "[Prometeo] Consultando evidencias operativas con @evidence Agent...",
       "[Evidence] Alerta: Falta la foto de verificación ('Tubería de desagüe instalada'). El hito permanece BLOQUEADO.",
       "[Prometeo] Compilando respuesta explicativa..."
@@ -227,12 +227,12 @@ const CHAT_QUESTIONS: ChatQuestion[] = [
       "[Prometeo] Recibiendo consulta de estimación de costos.",
       "[Prometeo] Consultando base de precios históricos con @protools Agent...",
       "[ProTools] Calculando materiales y mano de obra para Pintura Interior en departamento de 70m².",
-      "[ProTools] Rango base estimado: $5,200 MXN a $7,500 MXN (incluye preparación de muros, sellador y 2 manos de pintura).",
+      "[ProTools] Rango base estimado: $1,500 USD a $2,200 USD (incluye preparación de muros, sellador y 2 manos de pintura).",
       "[Prometeo] Consultando disponibilidad local con @marketplace Agent...",
-      "[Marketplace] 5 pintores verificados y activos en tu delegación listos para ofertar.",
+      "[Marketplace] 5 pintores verificados y activos en tu zona listos para ofertar.",
       "[Prometeo] Compilando respuesta explicativa..."
     ],
-    answer: "Pintar un departamento de 70m² oscila entre **$5,200 MXN y $7,500 MXN** en promedio. Esto incluye resanar imperfecciones menores, sellado y la aplicación de dos manos de pintura vinílica. Actualmente contamos con 5 pintores comerciales verificados en tu zona disponibles para enviarte cotizaciones exactas."
+    answer: "Pintar un departamento de 70m² oscila entre **$1,500 USD y $2,200 USD** en promedio. Esto incluye resanar imperfecciones menores, sellado y la aplicación de dos manos de pintura vinílica. Actualmente contamos con 5 pintores comerciales verificados en tu zona disponibles para enviarte cotizaciones exactas."
   },
   {
     question: "¿Qué pasa si el contratista abandona el proyecto?",

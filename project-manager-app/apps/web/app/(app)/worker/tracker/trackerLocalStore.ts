@@ -1,11 +1,16 @@
 export type TrackerEventType = "start" | "pause" | "resume" | "stop" | "update_note" | "manual_session";
 
+export type TrackerPurpose = "personal" | "payable" | "job_linked";
+
 export type TrackerPendingEvent =
   | {
       id: string;
       type: "start";
       localSessionId: string;
-      jobId: string;
+      /** Ausente en estados guardados antes del Labor Engine — tratar como "job_linked". */
+      purpose?: TrackerPurpose;
+      jobId?: string;
+      freeProjectId?: string;
       notes?: string;
       localTimestamp: string;
     }
@@ -33,10 +38,13 @@ export type TrackerPendingEvent =
   | {
       id: string;
       type: "manual_session";
-      jobId: string;
+      purpose?: TrackerPurpose;
+      jobId?: string;
+      freeProjectId?: string;
       date: string;
       startTime: string;
       endTime: string;
+      breakMinutes?: number;
       notes?: string;
       localTimestamp: string;
     };
@@ -44,8 +52,11 @@ export type TrackerPendingEvent =
 export type TrackerLocalSession = {
   id: string;
   backendSessionId?: string;
-  jobId: string;
+  purpose?: TrackerPurpose;
+  jobId?: string;
   jobTitle?: string;
+  freeProjectId?: string;
+  freeProjectName?: string;
   status: "RUNNING" | "PAUSED" | "STOPPED";
   startedAt: string;
   resumedAt?: string;
@@ -192,8 +203,11 @@ export function markTrackerSynced(state: TrackerLocalState, syncedAt: string = n
 export function startTrackerLocalSession(
   state: TrackerLocalState,
   input: {
-    jobId: string;
+    purpose?: TrackerPurpose;
+    jobId?: string;
     jobTitle?: string;
+    freeProjectId?: string;
+    freeProjectName?: string;
     notes?: string;
     now?: Date;
   },
@@ -205,10 +219,14 @@ export function startTrackerLocalSession(
   const now = input.now ?? new Date();
   const localTimestamp = now.toISOString();
   const localSessionId = createTrackerLocalSessionId(now);
+  const purpose = input.purpose ?? (input.jobId ? "job_linked" : "personal");
   const localSession: TrackerLocalSession = {
     id: localSessionId,
+    purpose,
     jobId: input.jobId,
     jobTitle: input.jobTitle,
+    freeProjectId: input.freeProjectId,
+    freeProjectName: input.freeProjectName,
     status: "RUNNING",
     startedAt: localTimestamp,
     resumedAt: localTimestamp,
@@ -220,7 +238,9 @@ export function startTrackerLocalSession(
     id: createTrackerEventId(now),
     type: "start",
     localSessionId,
+    purpose,
     jobId: input.jobId,
+    freeProjectId: input.freeProjectId,
     notes: normalizeOptionalText(input.notes),
     localTimestamp,
   };

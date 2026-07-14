@@ -23,6 +23,7 @@ temp/
 **/temp/
 
 # Build outputs and generated assets
+/graphify-out/
 .next/
 **/.next/
 .vite/

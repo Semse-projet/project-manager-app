@@ -1,4 +1,4 @@
-# SEMSEproject / Sense Project
+# SEMSEproject / Semse Project
 
 SEMSEproject es un ecosistema digital para gestionar servicios profesionales, construcción y operación asistida con IA. La raíz Git de este workspace es `labsemse/`, pero la raíz canónica de desarrollo vive en `project-manager-app/`.
 

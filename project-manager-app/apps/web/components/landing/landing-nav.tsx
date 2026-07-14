@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Menu, X, Sparkles, LogIn, PlusCircle, Sun, Moon } from "lucide-react";
 
 const NAV_LINKS = [
+  { label: "Ecosistema", href: "/hub" },
   { label: "Servicios", href: "/#servicios" },
   { label: "Cómo funciona", href: "/como-funciona" },
   { label: "Pagos seguros", href: "/#pagos" },

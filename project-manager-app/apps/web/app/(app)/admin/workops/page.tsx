@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, AlertTriangle, Briefcase, CheckSquare, FileText, Users, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, Briefcase, CheckSquare, Clock, FileText, Users, Wrench } from "lucide-react";
 import { ModuleShell } from "../../../../components/admin/module-shell";
 import { getAdminModuleById } from "../../../../lib/admin/admin-navigation";
 
@@ -17,6 +17,7 @@ const QUICK_LINKS = [
   { href: "/admin/worker",        icon: Users,       label: "Workers",        desc: "Perfiles, asignaciones y disponibilidad" },
   { href: "/admin/contractors",   icon: Briefcase,   label: "Contractors",    desc: "Empresas contratistas y su historial" },
   { href: "/admin/change-orders", icon: FileText,    label: "Change Orders",  desc: "Solicitudes de cambio pendientes de aprobación" },
+  { href: "/admin/labor-engine",  icon: Clock,       label: "Labor Engine",   desc: "Timers del equipo, QualityGuard, costos y SmartMatch" },
   { href: "/admin/pmo",           icon: Activity,    label: "PMO",            desc: "Vista de programa, riesgos y milestones" },
   { href: "/admin/qa",            icon: CheckSquare, label: "QA",             desc: "Revisión de calidad y criterios de aceptación" },
 ];

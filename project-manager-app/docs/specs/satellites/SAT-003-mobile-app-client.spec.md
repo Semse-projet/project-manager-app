@@ -4,24 +4,27 @@ title: "SAT-003 — semse-mobile-app como cliente satélite del BFF/API"
 type: spec
 domain: "ui"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 date: "2026-07-05"
 author: "Claude — sesión planificación satélites"
 spec_index: "docs/SPEC_INDEX.md"
 related_files:
-  - apps/api
-  - packages/auth
-related_tests: []
+  - apps/api/src/modules/satellites/satellite-app.guard.ts
+  - packages/sdk/src/resources/jobs.ts
+  - packages/sdk/src/resources/milestones.ts
+related_tests:
+  - apps/api/test/satellite-app-guard.test.ts
+  - tests/unit/sdk-client.test.ts
 related_endpoints:
   - v1/jobs
-  - v1/milestones
+  - v1/jobs/:jobId/milestones
 related_events:
   - job.matched
   - rating.requested
 related_agents: []
-last_verified: ""
+last_verified: "2026-07-07"
 ---
 
 # Spec: semse-mobile-app como cliente satélite (satélite `~/labsemse/semse-mobile-app`)
@@ -71,15 +74,29 @@ superficie satélite).
 
 ## 4. Tasks lado SEMSE
 
-1. Extender guard SAT-001 para modo dual token-de-app + sesión-de-usuario.
-2. Revisar que jobs/milestones/rate/tracker estén completos en `/v1` (audit rápido contra la tabla §2; crear specs puntuales para gaps).
-3. Recurso `jobs`/`milestones`/`fieldOps` en el SDK.
-4. Rate limit por app token independiente del rate limit por usuario.
+1. ✅ Extender guard SAT-001 para modo dual token-de-app + sesión-de-usuario — `SatelliteAppGuard` (lee `x-semse-app-token`, corre junto a `AuthGuard`/`RbacGuard` sin reemplazarlos). **No está enganchado a ningún endpoint todavía** (ver §4.1).
+2. ⏳ Audit jobs/milestones/rate/tracker en `/v1` — pendiente, ver §4.2.
+3. Parcial: recursos `jobs` (list/get) y `milestones` (listByJob) en el SDK. **`fieldOps` y `events` (SSE) no implementados** — el catálogo de scopes de satélite (SAT-001) no incluye `field-ops:*` todavía; se agregará junto con el wiring real.
+4. ⏳ Rate limit por app token independiente del rate limit por usuario — pendiente.
+
+### 4.1 Por qué el guard no está enganchado a rutas todavía
+
+`JobsController`/`MilestonesController` son compartidos con `apps/web` y `apps/worker` (vía BFF y llamadas internas). Agregar `@UseGuards(SatelliteAppGuard)` + `@SatelliteScopes(...)` directamente en esos controllers exigiría `x-semse-app-token` a **todos** los clientes existentes, rompiendo web/worker en producción. El guard se construyó y testeó como infraestructura reutilizable (anillo 1 completo); enganchar rutas reales requiere una decisión de producto: ¿nuevas rutas dedicadas `/v1/mobile/...`, o un mecanismo de bypass para llamadas internas del BFF? Se resuelve cuando se implemente el lado satélite real (app corriendo, no solo el SDK).
+
+### 4.2 Audit rápido de la tabla §2 (2026-07-07)
+
+| Pantalla | Estado en `/v1` |
+|---|---|
+| Jobs (list/detail) | ✅ `GET /v1/jobs`, `GET /v1/jobs/:jobId` |
+| Milestones por job | ✅ `GET /v1/jobs/:jobId/milestones` |
+| Field-ops tracker (start/pause/resume/stop) | ✅ existe en `/v1/field-ops/tracker/*`, pero usa permisos de usuario (`field-ops:read/write`), no scopes de satélite — falta decidir si se agrega `field-ops:*` al catálogo SAT-001 |
+| Rating | No auditado en esta pasada |
+| SSE / eventos en vivo | Existe infraestructura SSE interna; conexión de satélites es SAT-007 (Fase 3), no esta spec |
 
 ## 5. Acceptance Criteria (arnés SAT-000)
 
-- [ ] Anillo 1: token de app sin sesión de usuario → 401 en recursos de usuario; intersección de permisos testeada (worker no lee jobs de otro worker).
-- [ ] Anillo 2: recursos `jobs`, `milestones`, `fieldOps`, `events` del SDK cubiertos.
-- [ ] Anillo 3: e2e headless — login, listar jobs, start/stop tracker, recibir evento SSE.
-- [ ] Anillo 4: smoke con la app real contra Railway; ciclo worker completo (ver job → track → rate) en dispositivo; evidencia en `docs/reportes/`.
-- [ ] Kill switch `SATELLITE_MOBILE_ENABLED` verificado.
+- [x] Anillo 1: `SatelliteAppGuard` — 401 sin app token, 401 app token vacío, 403 scope insuficiente con `missing`, 401 propagado del servicio (token revocado), intersección probada (scope de la app limita aunque falte modelar el lado RBAC del usuario en el mismo test). 6/6 tests.
+- [x] Anillo 2 (parcial): SDK — `appToken` opcional en `SemseClientOptions` (header `x-semse-app-token`), recursos `jobs.list/get`, `milestones.listByJob`. **`fieldOps` y `events` pendientes.** 10/10 tests SDK, suite API completa 1737/1737 sin regresiones.
+- [ ] Anillo 3: e2e headless — pendiente (requiere endpoints reales enganchados, ver §4.1).
+- [ ] Anillo 4: smoke con la app real contra Railway — pendiente (requiere §4.1 resuelto + app desplegada).
+- [ ] Kill switch `SATELLITE_MOBILE_ENABLED` — no creado todavía; no hay ninguna ruta que dependa de él aún.

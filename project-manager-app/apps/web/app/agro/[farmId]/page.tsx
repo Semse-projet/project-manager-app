@@ -22,6 +22,11 @@ interface DashboardData {
     completedThisWeek: number; inventoryItems: number; lowStockItems: number;
   };
   monthCostSummary: { total: number; since: string; currency: string };
+  capital?: { livestock: number; currency: string };
+  monthIncomeSummary?: {
+    production: number; sales: number; total: number;
+    projectedProfit: number; since: string; currency: string;
+  };
   alerts: Alert[];
   nextBestActions: { priority: number; action: string; detail: string }[];
 }
@@ -339,6 +344,28 @@ export default function FarmDashboardPage() {
                 value={`$${monthCostSummary.total.toLocaleString("es-CO", { minimumFractionDigits: 0 })} ${monthCostSummary.currency}`}
                 icon={DollarSign}
               />
+              {data.capital && (
+                <StatCard
+                  label="Capital vivo"
+                  value={`$${data.capital.livestock.toLocaleString("es-CO", { minimumFractionDigits: 0 })}`}
+                  icon={DollarSign}
+                />
+              )}
+              {data.monthIncomeSummary && (
+                <>
+                  <StatCard
+                    label="Ingreso del mes"
+                    value={`$${data.monthIncomeSummary.total.toLocaleString("es-CO", { minimumFractionDigits: 0 })}`}
+                    icon={TrendingUp}
+                  />
+                  <StatCard
+                    label="Utilidad del mes"
+                    value={`$${data.monthIncomeSummary.projectedProfit.toLocaleString("es-CO", { minimumFractionDigits: 0 })}`}
+                    icon={TrendingUp}
+                    danger={data.monthIncomeSummary.projectedProfit < 0}
+                  />
+                </>
+              )}
             </div>
 
             {/* Weather widget */}

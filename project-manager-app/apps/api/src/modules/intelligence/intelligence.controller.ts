@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Headers, NotFoundException, Param, Post, Query, Req } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 import { ok } from "../../common/api-response.js";
 import { resolveRequestContext } from "../../common/request-context.js";
@@ -127,6 +127,35 @@ export class IntelligenceController {
     const rid = resolveRequestId(req.headers ?? {});
     const tenantId = tenantIdHeader?.trim() || "tenant_default";
     return ok(rid, await this.publicInsights.getLandingOverview(tenantId, limit ? parseInt(limit, 10) : 3));
+  }
+
+  // Público — vacantes abiertas para onboarding de workers (/worker/apply)
+  @Get("public/openings")
+  @Public()
+  async publicOpenings(
+    @Req() req: FastifyRequest,
+    @Headers("x-tenant-id") tenantIdHeader?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const tenantId = tenantIdHeader?.trim() || "tenant_default";
+    return ok(rid, await this.publicInsights.getPublicOpenings(tenantId, limit ? parseInt(limit, 10) : 12));
+  }
+
+  @Get("public/openings/:jobId")
+  @Public()
+  async publicOpening(
+    @Req() req: FastifyRequest,
+    @Param("jobId") jobId: string,
+    @Headers("x-tenant-id") tenantIdHeader?: string,
+  ) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const tenantId = tenantIdHeader?.trim() || "tenant_default";
+    const opening = await this.publicInsights.getPublicOpening(tenantId, jobId);
+    if (!opening) {
+      throw new NotFoundException("Opening not found or no longer open");
+    }
+    return ok(rid, opening);
   }
 
   // ── PMO Dashboard ─────────────────────────────────────────────────────────────

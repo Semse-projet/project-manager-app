@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
 
 type AccountRole = "CLIENT" | "PRO";
 
@@ -67,6 +69,9 @@ function PasswordStrength({ password }: { password: string }) {
 }
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
+  const loginHref = redirectTo ? `/login?from=${encodeURIComponent(redirectTo)}` : "/login";
   const [role, setRole] = useState<AccountRole>("CLIENT");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -96,7 +101,7 @@ export default function RegisterPage() {
         method: "POST",
         credentials: "include",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password, name, role }),
+        body: JSON.stringify({ email, password, name, role, redirectTo }),
       });
 
       const data = (await res.json()) as { ok?: boolean; redirectTo?: string; error?: unknown };
@@ -293,7 +298,7 @@ export default function RegisterPage() {
                 {error.includes("iniciar sesión") && (
                   <>
                     {" "}
-                    <Link href="/login" style={{ color: "#93c5fd", textDecoration: "underline" }}>
+                    <Link href={loginHref} style={{ color: "#93c5fd", textDecoration: "underline" }}>
                       Ir al login
                     </Link>
                   </>
@@ -327,7 +332,7 @@ export default function RegisterPage() {
 
           <p style={{ marginTop: "18px", fontSize: "13px", color: "var(--muted, #94a3b8)", textAlign: "center" }}>
             ¿Ya tienes cuenta?{" "}
-            <Link href="/login" style={{ color: "#93c5fd", textDecoration: "none", fontWeight: 600 }}>
+            <Link href={loginHref} style={{ color: "#93c5fd", textDecoration: "none", fontWeight: 600 }}>
               Iniciar sesión
             </Link>
           </p>

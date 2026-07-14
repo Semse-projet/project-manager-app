@@ -133,7 +133,7 @@ export class LaborEngineController {
     @Param("id") id: string,
   ) {
     const a = actor(req);
-    const data = await this.svc.pauseTimer(id, a.tenantId);
+    const data = await this.svc.pauseTimer(id, a.tenantId, a.userId);
     return ok(rid(req), data);
   }
 
@@ -145,7 +145,7 @@ export class LaborEngineController {
     @Param("id") id: string,
   ) {
     const a = actor(req);
-    const data = await this.svc.resumeTimer(id, a.tenantId);
+    const data = await this.svc.resumeTimer(id, a.tenantId, a.userId);
     return ok(rid(req), data);
   }
 
@@ -159,7 +159,21 @@ export class LaborEngineController {
   ) {
     const a = actor(req);
     const notes = typeof body["notes"] === "string" ? body["notes"] : undefined;
-    const data = await this.svc.stopTimer(id, a.tenantId, notes);
+    const data = await this.svc.stopTimer(id, a.tenantId, a.userId, notes);
+    return ok(rid(req), data);
+  }
+
+  @Post("timer/:id/notes")
+  @Patch("timer/:id/notes")
+  @RequirePermissions("field-ops:write")
+  async updateTimerNotes(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const a = actor(req);
+    if (typeof body["notes"] !== "string") throw new BadRequestException("notes required");
+    const data = await this.svc.updateTimerNotes(id, a.tenantId, a.userId, body["notes"]);
     return ok(rid(req), data);
   }
 
@@ -236,6 +250,16 @@ export class LaborEngineController {
   async monthlySummary(@Req() req: { headers?: Record<string, unknown> }) {
     const a = actor(req);
     const data = await this.svc.getMonthlySummary(a.tenantId, a.userId);
+    return ok(rid(req), data);
+  }
+
+  // ── Admin / supervisor (multi-worker + QualityGuard) ──────────────────────
+
+  @Get("admin/overview")
+  @RequirePermissions("ops:dashboard:read")
+  async adminOverview(@Req() req: { headers?: Record<string, unknown> }) {
+    const a = actor(req);
+    const data = await this.svc.getAdminOverview(a.tenantId);
     return ok(rid(req), data);
   }
 

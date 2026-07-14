@@ -37,6 +37,8 @@
     "lint": "pnpm --filter @semse/api lint && pnpm --filter @semse/web lint",
     "validate:workspace": "node ./scripts/validate-workspace.mjs",
     "verify:workspace": "pnpm run railway:preflight && pnpm --filter @semse/api test:unit",
+    "verify:prisma-contract": "node ./scripts/verify-prisma-runtime-contract.mjs",
+    "verify:prisma-contract:db": "node ./scripts/verify-prisma-runtime-contract.mjs --db",
     "railway:preflight": "node ./scripts/workspace-runner.mjs railway:preflight",
     "spec:preflight": "pnpm railway:preflight",
     "smoke:persistence": "node ./scripts/api-persistence-smoke.mjs",

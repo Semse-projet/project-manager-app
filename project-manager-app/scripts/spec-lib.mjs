@@ -200,7 +200,25 @@ export function searchRepo(paths, needles) {
 
   if (haystack.length === 0) return false;
   const joined = haystack.join("\n");
-  return normalizedNeedles.some((needle) => joined.includes(needle) || joined.includes(endpointPathOnly(needle)));
+  return normalizedNeedles.some((needle) => {
+    const pathNeedle = endpointPathOnly(needle);
+    if (joined.includes(needle) || joined.includes(pathNeedle)) return true;
+
+    // NestJS commonly composes a route from @Controller("v1/base") and
+    // @Get/@Post("child") instead of storing the full endpoint contiguously.
+    // Require both halves to occur in the same source file so the validator
+    // can recognize that composition without accepting unrelated repo hits.
+    const segments = pathNeedle.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
+    for (let splitAt = 1; splitAt < segments.length; splitAt += 1) {
+      const controllerPath = segments.slice(0, splitAt).join("/");
+      const handlerPath = segments.slice(splitAt).join("/");
+      if (haystack.some((content) => content.includes(controllerPath) && content.includes(handlerPath))) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 }
 
 export function classifyCoverage(spec) {

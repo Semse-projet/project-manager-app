@@ -44,9 +44,9 @@ const CATEGORIES: CategoryDef[] = [
     maxArea: 300,
     defaultArea: 50,
     rates: {
-      basico: 120, // MXN per unit
-      estandar: 220,
-      premium: 380
+      basico: 12, // USD per unit
+      estandar: 22,
+      premium: 38
     },
     features: {
       basico: [
@@ -63,7 +63,7 @@ const CATEGORIES: CategoryDef[] = [
         "Limpieza intermedia al terminar"
       ],
       premium: [
-        "Pintura a 3 manos Sherwin-Williams/Comex",
+        "Pintura a 3 manos Sherwin-Williams/Behr",
         "Plasteado y alisado completo de muros",
         "Tratamiento antihumedad previo",
         "Pintura lavable satinada premium",
@@ -81,9 +81,9 @@ const CATEGORIES: CategoryDef[] = [
     maxArea: 25,
     defaultArea: 6,
     rates: {
-      basico: 3200,
-      estandar: 5500,
-      premium: 9500
+      basico: 320,
+      estandar: 550,
+      premium: 950
     },
     features: {
       basico: [
@@ -96,7 +96,7 @@ const CATEGORIES: CategoryDef[] = [
         "Loseta porcelánica de gran formato",
         "Impermeabilización total de zona húmeda",
         "Nicho empotrado para jabonera",
-        "Grifería Helvex o equivalente",
+        "Grifería Moen o equivalente",
         "Boquilla epóxica antihongos"
       ],
       premium: [
@@ -118,9 +118,9 @@ const CATEGORIES: CategoryDef[] = [
     maxArea: 40,
     defaultArea: 12,
     rates: {
-      basico: 4500,
-      estandar: 8000,
-      premium: 14000
+      basico: 450,
+      estandar: 800,
+      premium: 1400
     },
     features: {
       basico: [
@@ -131,7 +131,7 @@ const CATEGORIES: CategoryDef[] = [
       ],
       estandar: [
         "Gabinetes de MDF pintado o termoformado",
-        "Cubierta de cuarzo o granito nacional",
+        "Cubierta de cuarzo o granito natural",
         "Tarja doble de acero inoxidable grueso",
         "Herrajes con cierre suave (soft-close)",
         "Iluminación LED bajo gabinetes"
@@ -155,9 +155,9 @@ const CATEGORIES: CategoryDef[] = [
     maxArea: 500,
     defaultArea: 100,
     rates: {
-      basico: 80,
-      estandar: 160,
-      premium: 280
+      basico: 8,
+      estandar: 16,
+      premium: 28
     },
     features: {
       basico: [
@@ -381,7 +381,7 @@ export function PricingEstimator() {
                     <span className="text-sm font-black tracking-tight">{titles[t].title}</span>
                     <span className="text-[10px] leading-tight text-slate-400 dark:text-slate-500 mt-1">{titles[t].desc}</span>
                     <span className="text-xs font-black mt-2 inline-block">
-                      ${category.rates[t]} MXN <span className="text-[9px] font-medium text-slate-400">/ m²</span>
+                      ${category.rates[t]} USD <span className="text-[9px] font-medium text-slate-400">/ m²</span>
                     </span>
                   </button>
                 );
@@ -407,19 +407,19 @@ export function PricingEstimator() {
             </span>
             <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
               <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-                ${minCost.toLocaleString("es-MX")}
+                ${minCost.toLocaleString("en-US")}
               </span>
               <span className="text-sm font-bold text-slate-400 dark:text-slate-500">—</span>
               <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-                ${maxCost.toLocaleString("es-MX")}
+                ${maxCost.toLocaleString("en-US")}
               </span>
               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1">
-                MXN
+                USD
               </span>
             </div>
             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5 leading-relaxed flex items-center gap-1">
               <AlertCircle size={10} className="text-slate-400 inline shrink-0" />
-              <span>Costo medio de referencia: <strong>${totalCost.toLocaleString("es-MX")} MXN</strong> para {area} {category.unit.split(" ")[0]}.</span>
+              <span>Costo medio de referencia: <strong>${totalCost.toLocaleString("en-US")} USD</strong> para {area} {category.unit.split(" ")[0]}.</span>
             </p>
           </div>
 
@@ -436,7 +436,7 @@ export function PricingEstimator() {
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                   Materiales ({breakdown.percent.materiales}%)
                 </span>
-                <span>${breakdown.materiales.toLocaleString("es-MX")} MXN</span>
+                <span>${breakdown.materiales.toLocaleString("en-US")} USD</span>
               </div>
               <div className="w-full h-1.5 bg-slate-250 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
@@ -453,7 +453,7 @@ export function PricingEstimator() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Mano de Obra ({breakdown.percent.manoObra}%)
                 </span>
-                <span>${breakdown.manoObra.toLocaleString("es-MX")} MXN</span>
+                <span>${breakdown.manoObra.toLocaleString("en-US")} USD</span>
               </div>
               <div className="w-full h-1.5 bg-slate-250 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
@@ -470,7 +470,7 @@ export function PricingEstimator() {
                   <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                   Seguridad & IA Escrow ({breakdown.percent.operativo}%)
                 </span>
-                <span>${breakdown.operativo.toLocaleString("es-MX")} MXN</span>
+                <span>${breakdown.operativo.toLocaleString("en-US")} USD</span>
               </div>
               <div className="w-full h-1.5 bg-slate-250 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div

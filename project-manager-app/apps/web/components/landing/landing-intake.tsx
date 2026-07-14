@@ -373,7 +373,7 @@ export function LandingIntake() {
                   >
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{item.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>desde ${item.basePrice.toLocaleString("es-MX")}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>desde ${item.basePrice.toLocaleString("en-US")}</div>
                     </div>
                     {subcategoryId === item.id ? <CheckCircle size={15} color="var(--brand)" /> : null}
                   </button>
@@ -616,10 +616,10 @@ export function LandingIntake() {
                 </span>
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.02em", marginBottom: 6 }}>
-                ${visibleLegacyBudget.min.toLocaleString("es-MX")} - ${visibleLegacyBudget.max.toLocaleString("es-MX")} {visibleLegacyBudget.currency}
+                ${visibleLegacyBudget.min.toLocaleString("en-US")} - ${visibleLegacyBudget.max.toLocaleString("en-US")} {visibleLegacyBudget.currency}
               </div>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
-                Mediana ${visibleLegacyBudget.median.toLocaleString("es-MX")} · {visibleLegacyBudget.similarJobsFound} referencias
+                Mediana ${visibleLegacyBudget.median.toLocaleString("en-US")} · {visibleLegacyBudget.similarJobsFound} referencias
               </div>
               <p style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.6 }}>{visibleLegacyBudget.aiNarrative}</p>
             </div>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { PrometeoAttachment, PrometeoEntityReference, PrometeoPageContext } from "@semse/schemas";
 import { fetchSemseDataForRequest, handleServerError, isSemseRuntimeEnabled } from "../../_server";
 
 export const dynamic = "force-dynamic";
@@ -55,11 +56,23 @@ function pick(arr: string[]): string {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // POST /api/semse/cortex/chat
-// Body: { message: string; agentId?: string; threadId?: string; context?: object }
+// Body: PrometeoRequest legacy-compatible envelope.
 // ──────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  let body: { message?: string; agentId?: string; threadId?: string; context?: unknown; projectId?: string };
+  let body: {
+    message?: string;
+    agentId?: string;
+    threadId?: string;
+    missionId?: string;
+    context?: unknown;
+    projectId?: string;
+    requestedAction?: string;
+    requestedActionInput?: Record<string, unknown>;
+    attachments?: PrometeoAttachment[];
+    selectedEntities?: PrometeoEntityReference[];
+    pageContext?: PrometeoPageContext;
+  };
 
   try {
     body = await req.json();
@@ -67,26 +80,57 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { status: 400, message: "Invalid JSON body" } }, { status: 400 });
   }
 
-  const { message, agentId = "assistant", threadId, context, projectId } = body;
+  const {
+    message,
+    agentId = "assistant",
+    threadId,
+    missionId,
+    context,
+    projectId,
+    requestedAction,
+    requestedActionInput,
+    attachments = [],
+    selectedEntities = [],
+    pageContext,
+  } = body;
+  const trimmedMessage = typeof message === "string" ? message.trim() : "";
+  const hasOperationalInput = trimmedMessage.length > 0 || attachments.length > 0 || Boolean(requestedAction);
 
-  if (!message || typeof message !== "string" || message.trim().length === 0) {
-    return NextResponse.json({ error: { status: 400, message: "message is required" } }, { status: 400 });
+  if (!hasOperationalInput) {
+    return NextResponse.json({ error: { status: 400, message: "message, attachments, or requestedAction is required" } }, { status: 400 });
   }
+
+  const effectiveMessage = trimmedMessage || (requestedAction ? `Prepara la acción solicitada: ${requestedAction}` : "Analiza los adjuntos recibidos.");
 
   // ── Demo mode ──────────────────────────────────────────────────────────────
   if (!isSemseRuntimeEnabled()) {
     // Simula latencia de red
     await new Promise(r => setTimeout(r, 600 + Math.random() * 500));
+    const demoResponse = projectId
+      ? getDemoResponse(effectiveMessage)
+      : "No tengo proyecto seleccionado. Puedo darte un resumen general o usar tus trabajos recientes si activas el backend real.";
 
     return NextResponse.json({
       requestId: `chat-demo-${Date.now()}`,
       data: {
         threadId: threadId ?? `thread-demo-${Date.now()}`,
         agentId,
-        response: projectId
-          ? getDemoResponse(message)
-          : "No tengo proyecto seleccionado. Puedo darte un resumen general o usar tus trabajos recientes si activas el backend real.",
+        response: demoResponse,
+        message: demoResponse,
         mode: "demo",
+        blocks: [
+          {
+            id: "demo-runtime",
+            type: "mission_status",
+            title: "Modo demo",
+            status: "skipped",
+            summary: "El envelope multimodal se validó en web, pero el runtime SEMSE no está activo.",
+          },
+        ],
+        proposedActions: [],
+        executionResults: [],
+        citations: [],
+        refreshTargets: ["prometeo.chat"],
         timestamp: new Date().toISOString(),
       },
     });
@@ -105,10 +149,29 @@ export async function POST(req: NextRequest) {
       modelSlug?: string;
       provider?: string;
       errorMessage?: string;
+      message?: string;
+      blocks?: unknown[];
+      proposedActions?: unknown[];
+      executionResults?: unknown[];
+      mission?: unknown;
+      citations?: unknown[];
+      refreshTargets?: string[];
     }>("/v1/ai-models/prometeo/chat", req, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message: message.trim(), agentId, threadId, context, projectId }),
+      body: JSON.stringify({
+        message: trimmedMessage || undefined,
+        agentId,
+        threadId,
+        missionId,
+        context,
+        projectId,
+        requestedAction,
+        requestedActionInput,
+        attachments,
+        selectedEntities,
+        pageContext,
+      }),
     });
 
     return NextResponse.json({

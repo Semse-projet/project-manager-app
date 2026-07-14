@@ -11,7 +11,9 @@ interface AnimatedCounterProps {
 }
 
 export function AnimatedCounter({ value, duration = 1.2, suffix = "", decimals = 0 }: AnimatedCounterProps) {
-  const [count, setCount] = useState(0);
+  // Arranca en el valor final: el HTML de servidor (crawlers, sin JS) muestra
+  // la cifra real en vez de 0; la animación 0→valor corre al entrar en vista.
+  const [count, setCount] = useState(value);
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true, margin: "-50px" });
 
@@ -48,7 +50,7 @@ export function AnimatedCounter({ value, duration = 1.2, suffix = "", decimals =
     };
   }, [value, duration, isInView]);
 
-  const displayValue = count.toLocaleString("es-MX", {
+  const displayValue = count.toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   });

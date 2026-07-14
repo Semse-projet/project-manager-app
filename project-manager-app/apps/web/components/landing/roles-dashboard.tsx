@@ -180,7 +180,7 @@ export function RolesDashboard() {
                         <CheckCircle2 size={13} className="text-emerald-500" />
                         <span className="font-bold text-slate-700 dark:text-slate-250">Hito 1: Demolición y desmontaje</span>
                       </div>
-                      <span className="text-slate-400 dark:text-slate-500 font-bold">$4,500 MXN · Pagado</span>
+                      <span className="text-slate-400 dark:text-slate-500 font-bold">$4,500 USD · Pagado</span>
                     </div>
                     
                     <div className="flex items-center justify-between text-xs border-b border-slate-100 dark:border-slate-900 pb-2">
@@ -194,7 +194,7 @@ export function RolesDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`${milestone2Status === "released" ? "text-slate-400" : "text-indigo-600 dark:text-indigo-400"} font-bold`}>
-                          {milestone2Status === "released" ? "$5,800 MXN · Pagado" : "$5,800 MXN · Bloqueado"}
+                          {milestone2Status === "released" ? "$5,800 USD · Pagado" : "$5,800 USD · Bloqueado"}
                         </span>
                         {milestone2Status === "locked" && (
                           <button
@@ -213,7 +213,7 @@ export function RolesDashboard() {
                         <span className="w-3.5 h-3.5 rounded-full border border-slate-300 dark:border-slate-700 flex shrink-0" />
                         <span>Hito 3: Loseta y grifería final</span>
                       </div>
-                      <span className="font-bold">$3,000 MXN · Pendiente</span>
+                      <span className="font-bold">$3,000 USD · Pendiente</span>
                     </div>
                   </div>
                 </div>
@@ -301,7 +301,7 @@ export function RolesDashboard() {
                     </div>
                     <div>
                       <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest leading-none">Fondos en Escrow</div>
-                      <span className="text-sm font-black text-slate-800 dark:text-white leading-none mt-1 inline-block">$12,500 MXN</span>
+                      <span className="text-sm font-black text-slate-800 dark:text-white leading-none mt-1 inline-block">$12,500 USD</span>
                     </div>
                   </div>
                   <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold bg-emerald-500/10 px-2 py-1 rounded-lg shrink-0">

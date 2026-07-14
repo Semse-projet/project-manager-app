@@ -1,5 +1,10 @@
 # SEMSE Module Map
 
+> **SUPERSEDIDO COMO TAXONOMIA (2026-07-12):** esta lista de pantallas conserva
+> valor historico, pero los dominios oficiales son los nueve definidos en
+> [`../../../SEMSE_CONNECT_TAXONOMY.md`](../../../SEMSE_CONNECT_TAXONOMY.md) y
+> [`../../../architecture/CURRENT_ARCHITECTURE.md`](../../../architecture/CURRENT_ARCHITECTURE.md).
+
 ## MVP base modules
 1. Dashboard
 2. Jobs

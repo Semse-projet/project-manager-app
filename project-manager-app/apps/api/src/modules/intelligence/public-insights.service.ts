@@ -4,6 +4,11 @@ import {
   ProfessionalCredentialService,
   type ProfessionalCredentialRecord,
 } from "./professional-credential.service.js";
+import {
+  generalizePublicLocation,
+  publicDisplayName,
+  redactPublicText,
+} from "./public-sanitizer.js";
 
 export type PublicLandingOverview = {
   tenantId: string;
@@ -184,24 +189,80 @@ export class PublicInsightsService {
         .map((row: PublicTestimonialRow) => ({
           id: row.id,
           score: row.score,
-          comment: String(row.comment).trim(),
-          jobTitle: row.job.title,
-          authorName: row.fromUser.profile?.displayName?.trim() || row.fromUser.email,
-          targetName: row.toUser.profile?.displayName?.trim() || row.toUser.email,
+          comment: redactPublicText(String(row.comment), 400),
+          jobTitle: redactPublicText(row.job.title, 120),
+          authorName: publicDisplayName(row.fromUser.profile?.displayName, "Cliente verificado"),
+          targetName: publicDisplayName(row.toUser.profile?.displayName, "Profesional verificado"),
           createdAt: row.createdAt.toISOString(),
         })),
-      featuredJobs: (featuredJobs as PublicFeaturedJobRow[]).map((job: PublicFeaturedJobRow) => ({
-        id: job.id,
-        title: job.title,
-        category: job.category,
-        scope: job.scope,
-        status: job.status,
-        budgetMin: job.budgetMin ? toNum(job.budgetMin) : null,
-        budgetMax: job.budgetMax ? toNum(job.budgetMax) : null,
-        location: job.location,
-        urgency: job.urgency,
-      })),
+      featuredJobs: (featuredJobs as PublicFeaturedJobRow[]).map(toPublicOpening),
       generatedAt: new Date().toISOString(),
     };
   }
+
+  /** Vacantes abiertas para el onboarding público de workers (/worker/apply). */
+  async getPublicOpenings(tenantId: string, limit = 12): Promise<PublicJobOpening[]> {
+    const jobs = await this.prisma.job.findMany({
+      where: {
+        tenantId,
+        deletedAt: null,
+        status: { in: ["POSTED", "PUBLISHED"] },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: Math.min(Math.max(limit, 1), 50),
+      select: PUBLIC_OPENING_SELECT,
+    });
+    return (jobs as PublicFeaturedJobRow[]).map(toPublicOpening);
+  }
+
+  async getPublicOpening(tenantId: string, jobId: string): Promise<PublicJobOpening | null> {
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: jobId,
+        tenantId,
+        deletedAt: null,
+        status: { in: ["POSTED", "PUBLISHED"] },
+      },
+      select: PUBLIC_OPENING_SELECT,
+    });
+    return job ? toPublicOpening(job as PublicFeaturedJobRow) : null;
+  }
+}
+
+export type PublicJobOpening = {
+  id: string;
+  title: string;
+  category: string | null;
+  scope: string;
+  status: string;
+  budgetMin: number | null;
+  budgetMax: number | null;
+  location: string | null;
+  urgency: string | null;
+};
+
+const PUBLIC_OPENING_SELECT = {
+  id: true,
+  title: true,
+  category: true,
+  scope: true,
+  status: true,
+  budgetMin: true,
+  budgetMax: true,
+  location: true,
+  urgency: true,
+} as const;
+
+function toPublicOpening(job: PublicFeaturedJobRow): PublicJobOpening {
+  return {
+    id: job.id,
+    title: redactPublicText(job.title, 120),
+    category: job.category,
+    scope: redactPublicText(job.scope, 280),
+    status: job.status,
+    budgetMin: job.budgetMin ? toNum(job.budgetMin) : null,
+    budgetMax: job.budgetMax ? toNum(job.budgetMax) : null,
+    location: generalizePublicLocation(job.location),
+    urgency: job.urgency,
+  };
 }

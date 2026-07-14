@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleServerError, runtimeDisabledResponse, buildSemseRequestHeaders, getServerConfig } from "../_server";
+import { handleServerError, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../_server";
 
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -40,7 +40,7 @@ function toClientBid(bid: MyBid) {
 export async function GET(request: NextRequest) {
   try {
     const cfg = await getServerConfig(request);
-    const headers = { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) };
+    const headers = { "content-type": "application/json", ...(await buildAuthorizedHeaders(cfg)) };
     const response = await fetch(`${API}/v1/my-bids`, { headers });
     if (!response.ok) return runtimeDisabledResponse();
     const payload = await response.json() as { data?: MyBid[] };

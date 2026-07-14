@@ -1,4 +1,14 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import crypto from "node:crypto";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
+import {
+  EVIDENCE_UPLOADED_V1_SCHEMA_REF,
+  evidenceUploadedV1EventSchema,
+  evidenceUploadedV1PayloadSchema,
+} from "@semse/schemas";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import {
@@ -6,8 +16,17 @@ import {
   isTenantScopedStorageKey,
   normalizeStorageKey,
 } from "../../infrastructure/storage/storage-key.js";
-import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
-import { assertEvidenceReadable, assertEvidenceWritable, type EvidenceActor, type EvidenceOwnership } from "./evidence.policy.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
+import {
+  findProjectLinkByJobIdOrThrow,
+  findProjectLinkByProjectIdOrThrow,
+} from "../projects/project-link.repository.js";
+import {
+  assertEvidenceReadable,
+  assertEvidenceWritable,
+  type EvidenceActor,
+  type EvidenceOwnership,
+} from "./evidence.policy.js";
 
 type ActorInput = {
   tenantId: string;
@@ -17,9 +36,15 @@ type ActorInput = {
 };
 
 type ScopeInput = ActorInput & {
+  requestId: string;
   projectId?: string;
   jobId?: string;
   milestoneId?: string;
+};
+
+type CreateEvidenceInput = ScopeInput & {
+  key: string;
+  kind: "PHOTO" | "VIDEO" | "DOCUMENT";
 };
 
 export type EvidenceView = {
@@ -50,31 +75,163 @@ type EvidenceRow = {
 export class EvidenceRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly actorContextService: ActorContextService
+    private readonly actorContextService: ActorContextService,
+    private readonly outboxRepository: OutboxRepository,
   ) {}
 
-  async create(input: ScopeInput & { key: string; kind: "PHOTO" | "VIDEO" | "DOCUMENT" }): Promise<EvidenceView> {
+  async create(input: CreateEvidenceInput): Promise<EvidenceView> {
     await this.actorContextService.ensureActorContext(input);
     const scope = await this.resolveScope(input);
     assertEvidenceWritable(this.toActor(input), scope.ownership);
     const bucketKey = normalizeEvidenceBucketKey(input.key, input.tenantId);
+    const idempotencyKey = evidenceUploadedIdempotencyKey(input.requestId);
 
-    const evidence = await this.prisma.evidence.create({
-      data: {
-        projectId: scope.projectId,
-        milestoneId: scope.milestoneId,
-        uploadedById: input.userId,
-        kind: input.kind,
-        bucketKey,
-        metadataJson: {
-          jobId: scope.jobId
-        }
+    const existing = await this.findExistingByIdempotencyKey(
+      input,
+      scope,
+      idempotencyKey,
+      bucketKey,
+    );
+    if (existing) {
+      return existing;
+    }
+
+    try {
+      const evidence = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.evidence.create({
+          data: {
+            projectId: scope.projectId,
+            milestoneId: scope.milestoneId,
+            uploadedById: input.userId,
+            kind: input.kind,
+            bucketKey,
+            metadataJson: {
+              jobId: scope.jobId,
+            },
+          },
+        });
+
+        const recordedAt = new Date();
+        const event = evidenceUploadedV1EventSchema.parse({
+          eventId: crypto.randomUUID(),
+          eventType: "evidence.uploaded.v1",
+          version: 1,
+          envelopeVersion: 2,
+          occurredAt: created.createdAt.toISOString(),
+          recordedAt: recordedAt.toISOString(),
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          module: "evidence",
+          entityType: "Evidence",
+          entityId: created.id,
+          actor: { type: "user", id: input.userId },
+          correlationId: input.requestId,
+          idempotencyKey,
+          schemaRef: EVIDENCE_UPLOADED_V1_SCHEMA_REF,
+          payload: {
+            evidenceId: created.id,
+            projectId: scope.projectId,
+            jobId: scope.jobId,
+            milestoneId: scope.milestoneId,
+            uploaderId: input.userId,
+            kind: input.kind,
+            bucketKey,
+          },
+          metadata: { source: "evidence.register" },
+        });
+
+        await this.outboxRepository.create(tx, event);
+        return created;
+      });
+
+      return this.toEvidenceView(input.tenantId, scope, evidence);
+    } catch (error) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
       }
+
+      const raced = await this.findExistingByIdempotencyKey(
+        input,
+        scope,
+        idempotencyKey,
+        bucketKey,
+      );
+      if (raced) {
+        return raced;
+      }
+
+      throw error;
+    }
+  }
+
+  private async findExistingByIdempotencyKey(
+    input: CreateEvidenceInput,
+    scope: { projectId: string; jobId: string; milestoneId?: string },
+    idempotencyKey: string,
+    bucketKey: string,
+  ): Promise<EvidenceView | undefined> {
+    const outbox = await this.prisma.domainOutboxEvent.findUnique({
+      where: {
+        tenantId_idempotencyKey: {
+          tenantId: input.tenantId,
+          idempotencyKey,
+        },
+      },
+      select: { payloadJson: true },
     });
 
+    if (!outbox) {
+      return undefined;
+    }
+
+    const payload = evidenceUploadedV1PayloadSchema.safeParse(
+      outbox.payloadJson,
+    );
+    if (
+      !payload.success ||
+      payload.data.projectId !== scope.projectId ||
+      payload.data.jobId !== scope.jobId ||
+      payload.data.milestoneId !== scope.milestoneId ||
+      payload.data.uploaderId !== input.userId ||
+      payload.data.kind !== input.kind ||
+      payload.data.bucketKey !== bucketKey
+    ) {
+      throw new BadRequestException(
+        "requestId is already bound to a different Evidence command",
+      );
+    }
+
+    const evidence = await this.prisma.evidence.findFirst({
+      where: {
+        id: payload.data.evidenceId,
+        projectId: scope.projectId,
+        project: { tenantId: input.tenantId },
+      },
+    });
+
+    if (!evidence) {
+      throw new BadRequestException(
+        "requestId references an incomplete Evidence transaction",
+      );
+    }
+
+    return this.toEvidenceView(input.tenantId, scope, evidence);
+  }
+
+  private toEvidenceView(
+    tenantId: string,
+    scope: { projectId: string; jobId: string; milestoneId?: string },
+    evidence: {
+      id: string;
+      uploadedById: string;
+      kind: string;
+      bucketKey: string;
+      createdAt: Date;
+    },
+  ): EvidenceView {
     return {
       id: evidence.id,
-      tenantId: input.tenantId,
+      tenantId,
       projectId: scope.projectId,
       jobId: scope.jobId,
       milestoneId: scope.milestoneId,
@@ -82,11 +239,13 @@ export class EvidenceRepository {
       kind: evidence.kind.toLowerCase(),
       key: evidence.bucketKey,
       metadata: { jobId: scope.jobId },
-      createdAt: evidence.createdAt.toISOString()
+      createdAt: evidence.createdAt.toISOString(),
     };
   }
 
-  async listByProject(input: ActorInput & { projectId: string }): Promise<EvidenceView[]> {
+  async listByProject(
+    input: ActorInput & { projectId: string },
+  ): Promise<EvidenceView[]> {
     await this.actorContextService.ensureActorContext(input);
 
     const project = await findProjectLinkByProjectIdOrThrow(this.prisma, input);
@@ -97,10 +256,10 @@ export class EvidenceRepository {
       where: {
         projectId: input.projectId,
         project: {
-          tenantId: input.tenantId
-        }
+          tenantId: input.tenantId,
+        },
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     })) as EvidenceRow[];
 
     return rows.map((row: EvidenceRow) => ({
@@ -113,11 +272,13 @@ export class EvidenceRepository {
       kind: row.kind.toLowerCase(),
       key: row.bucketKey,
       metadata: toRecord(row.metadataJson),
-      createdAt: row.createdAt.toISOString()
+      createdAt: row.createdAt.toISOString(),
     }));
   }
 
-  async listByJob(input: ActorInput & { jobId: string }): Promise<EvidenceView[]> {
+  async listByJob(
+    input: ActorInput & { jobId: string },
+  ): Promise<EvidenceView[]> {
     await this.actorContextService.ensureActorContext(input);
 
     let project;
@@ -136,19 +297,21 @@ export class EvidenceRepository {
       orgId: input.orgId,
       userId: input.userId,
       roles: input.roles,
-      projectId: project.id
+      projectId: project.id,
     });
   }
 
-  async findById(input: ActorInput & { evidenceId: string }): Promise<EvidenceView> {
+  async findById(
+    input: ActorInput & { evidenceId: string },
+  ): Promise<EvidenceView> {
     await this.actorContextService.ensureActorContext(input);
 
     const row = (await this.prisma.evidence.findFirst({
       where: {
         id: input.evidenceId,
         project: {
-          tenantId: input.tenantId
-        }
+          tenantId: input.tenantId,
+        },
       },
       include: {
         project: {
@@ -157,12 +320,12 @@ export class EvidenceRepository {
             assignedProOrgId: true,
             job: {
               select: {
-                clientOrgId: true
-              }
-            }
-          }
-        }
-      }
+                clientOrgId: true,
+              },
+            },
+          },
+        },
+      },
     })) as {
       id: string;
       projectId: string;
@@ -197,7 +360,7 @@ export class EvidenceRepository {
       kind: row.kind.toLowerCase(),
       key: row.bucketKey,
       metadata: toRecord(row.metadataJson),
-      createdAt: row.createdAt.toISOString()
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
@@ -213,8 +376,8 @@ export class EvidenceRepository {
           id: input.milestoneId,
           deletedAt: null,
           project: {
-            tenantId: input.tenantId
-          }
+            tenantId: input.tenantId,
+          },
         },
         select: {
           id: true,
@@ -225,49 +388,51 @@ export class EvidenceRepository {
               assignedProOrgId: true,
               job: {
                 select: {
-                  clientOrgId: true
-                }
-              }
-            }
-          }
-        }
+                  clientOrgId: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       if (!milestone) {
-        throw new NotFoundException(`Milestone '${input.milestoneId}' not found`);
+        throw new NotFoundException(
+          `Milestone '${input.milestoneId}' not found`,
+        );
       }
 
       return {
         projectId: milestone.projectId,
         jobId: milestone.project.jobId,
         milestoneId: milestone.id,
-        ownership: this.toOwnership(milestone.project)
+        ownership: this.toOwnership(milestone.project),
       };
     }
 
     if (input.projectId) {
       const project = await findProjectLinkByProjectIdOrThrow(this.prisma, {
         tenantId: input.tenantId,
-        projectId: input.projectId
+        projectId: input.projectId,
       });
 
       return {
         projectId: project.id,
         jobId: project.jobId,
-        ownership: this.toOwnership(project)
+        ownership: this.toOwnership(project),
       };
     }
 
     if (input.jobId) {
       const project = await findProjectLinkByJobIdOrThrow(this.prisma, {
         tenantId: input.tenantId,
-        jobId: input.jobId
+        jobId: input.jobId,
       });
 
       return {
         projectId: project.id,
         jobId: project.jobId,
-        ownership: this.toOwnership(project)
+        ownership: this.toOwnership(project),
       };
     }
 
@@ -279,16 +444,37 @@ export class EvidenceRepository {
       tenantId: input.tenantId,
       orgId: input.orgId,
       userId: input.userId,
-      roles: input.roles
+      roles: input.roles,
     };
   }
 
-  private toOwnership(project: { assignedProOrgId: string; job: { clientOrgId: string } }): EvidenceOwnership {
+  private toOwnership(project: {
+    assignedProOrgId: string;
+    job: { clientOrgId: string };
+  }): EvidenceOwnership {
     return {
       clientOrgId: project.job.clientOrgId,
-      assignedProOrgId: project.assignedProOrgId
+      assignedProOrgId: project.assignedProOrgId,
     };
   }
+}
+
+export function evidenceUploadedIdempotencyKey(requestId: string): string {
+  const normalized = requestId.trim();
+  if (!normalized || normalized.length > 255) {
+    throw new BadRequestException("requestId must contain 1 to 255 characters");
+  }
+
+  return `evidence.uploaded.v1:${normalized}`;
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }
 
 function toRecord(value: unknown): Record<string, unknown> | undefined {
@@ -302,16 +488,27 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
 function normalizeEvidenceBucketKey(key: string, tenantId: string): string {
   try {
     const normalized = normalizeStorageKey(key);
-    if (isTenantScopedStorageKey({ key: normalized, tenantId, domain: "evidence" })) {
+    if (
+      isTenantScopedStorageKey({
+        key: normalized,
+        tenantId,
+        domain: "evidence",
+      })
+    ) {
       return normalized;
     }
 
-    if (process.env.NODE_ENV !== "production" && isLegacyDomainStorageKey(normalized, "evidence")) {
+    if (
+      process.env.NODE_ENV !== "production" &&
+      isLegacyDomainStorageKey(normalized, "evidence")
+    ) {
       return normalized;
     }
   } catch {
     // Normalize all malformed-key failures to a stable 400.
   }
 
-  throw new BadRequestException("Evidence key must be a tenant-scoped storage key");
+  throw new BadRequestException(
+    "Evidence key must be a tenant-scoped storage key",
+  );
 }

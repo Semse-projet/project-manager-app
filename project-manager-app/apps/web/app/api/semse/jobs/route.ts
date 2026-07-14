@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleServerError, isApiBaseConfigured, runtimeDisabledResponse, buildSemseRequestHeaders, getServerConfig } from "../_server";
+import { handleServerError, isApiBaseConfigured, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../_server";
 import type { JobRecordView } from "@semse/schemas";
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const qs = status ? `?status=${encodeURIComponent(status)}` : "";
     const resp = await fetch(`${API}/v1/jobs${qs}`, {
-      headers: buildSemseRequestHeaders(cfg),
+      headers: (await buildAuthorizedHeaders(cfg)),
     });
     const json = await resp.json() as { requestId: string; data: JobRecordView[] };
     return NextResponse.json(json, { status: resp.status });
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const cfg  = await getServerConfig(request);
     const resp = await fetch(`${API}/v1/jobs`, {
       method: "POST",
-      headers: { "content-type": "application/json", ...buildSemseRequestHeaders(cfg) },
+      headers: { "content-type": "application/json", ...(await buildAuthorizedHeaders(cfg)) },
       body: JSON.stringify(body),
     });
     const json = await resp.json();
