@@ -50,9 +50,11 @@ import {
   SEMSE_AGENT_RUN_QUEUE,
   SEMSE_BOOTSTRAP_HEADER_NAME,
   SEMSE_DEVELOPER_RUNTIME_QUEUE,
+  SEMSE_DOMAIN_EVENT_QUEUE,
   validateWorkerEnv
 } from "@semse/shared";
 import { executeSpecializedWorkerRun, shouldUseSpecializedWorkerHandler } from "./agent-run-handlers.mjs";
+import { processDomainEventQueueJob } from "./domain-event-worker.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
 import { runCurator } from "./modules/curator/curator.service.mjs";
 import { setupPermanentLoops } from "./modules/autonomy-loops/loops.scheduler.mjs";
@@ -176,6 +178,7 @@ async function main() {
     tenantId: config.tenantId,
     userId: config.userId,
     roles: config.roles,
+    domainEventConsumersEnabled: env.SEMSE_EVENT_CONSUMERS_ENABLED === "true",
   }));
 
   await ensureAuthSession();
@@ -237,6 +240,45 @@ async function main() {
     logger.error({ sessionId: job?.data?.sessionId, error }, "developer runtime job failed");
   });
 
+  const domainEventWorker = env.SEMSE_EVENT_CONSUMERS_ENABLED === "true"
+    ? new Worker(
+        SEMSE_DOMAIN_EVENT_QUEUE,
+        async (job) => processDomainEventQueueJob({
+          jobData: job.data,
+          workerId: config.workerId,
+          postJson,
+        }),
+        {
+          connection,
+          concurrency: 2,
+        },
+      )
+    : null;
+
+  if (domainEventWorker) {
+    domainEventWorker.on("completed", (job, result) => {
+      logger.info(
+        { eventId: job?.data?.eventId, status: result?.status },
+        "domain event consumer job completed",
+      );
+    });
+    domainEventWorker.on("failed", (job, error) => {
+      logger.error(
+        { eventId: job?.data?.eventId, error },
+        "domain event consumer job failed",
+      );
+    });
+    domainEventWorker.on("error", (error) => {
+      logger.error({ error }, "domain event worker error");
+    });
+    logger.info(
+      { queue: SEMSE_DOMAIN_EVENT_QUEUE, concurrency: 2 },
+      "domain event consumer worker enabled",
+    );
+  } else {
+    logger.info("domain event consumer worker disabled by kill switch");
+  }
+
   reclaimTimer = setInterval(() => {
     void reclaimStaleRuns();
   }, config.reclaimIntervalMs);
@@ -276,6 +318,7 @@ async function main() {
 
   await worker.close();
   await developerRuntimeWorker.close();
+  if (domainEventWorker) await domainEventWorker.close();
   if (permanentLoopsHandle) await permanentLoopsHandle.close();
   await releaseLock();
   await connection.quit();

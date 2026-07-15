@@ -70,16 +70,20 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 - `/v1/prometeo/tools` existe y requiere Bearer token.
 - Tool Registry: 23 herramientas read, 7 write; 17 casos read cableados.
 - Write tools de Prometeo siguen bloqueadas por el runtime actual.
-- Hay schema y bus de domain events, pero no outbox transaccional general.
+- El primer slice durable de domain events ya tiene envelope v2, outbox,
+  dispatcher BullMQ y consumer idempotente de Evidence; la adopcion general y
+  el replay operacional siguen pendientes.
 - Hay movimientos `PaymentTxn`, pero no ledger double-entry compartido.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
 - La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
   64 specs, 0 errores y 0 warnings.
 - F1 Event Backbone tiene spec, plan, tasks y ADR aprobados. F1-A agrega
-  contratos Zod v2 y migracion aditiva de outbox/receipts. F1-B agrega el
-  producer atomico `Evidence + outbox`, con idempotencia concurrente; dispatcher
-  y consumer siguen pendientes hasta PRs posteriores.
+  contratos Zod v2 y migracion aditiva de outbox/receipts; F1-B el producer
+  atomico `Evidence + outbox`; F1-C el dispatcher con leases e ingreso BullMQ;
+  F1-D el worker, ruta interna y `evidence-readiness.v1` con receipt atomico.
+  Los switches siguen OFF. Ops/replay (F1-E) y canary/cierre (F1-F) permanecen
+  pendientes.
 
 ## Reglas de Prometeo
 

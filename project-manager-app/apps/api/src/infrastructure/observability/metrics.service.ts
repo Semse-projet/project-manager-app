@@ -4,6 +4,8 @@ type RouteMetric = {
   totalDurationMs: number;
 };
 
+type EventConsumerOutcome = "completed" | "failed";
+
 export class MetricsService {
   private readonly routeMetrics = new Map<string, RouteMetric>();
   private readonly counters = {
@@ -16,6 +18,9 @@ export class MetricsService {
     publishLagSeconds: 0,
     deadLetterTotal: 0,
   };
+  private readonly eventConsumerAttempts = new Map<string, number>();
+  private readonly eventConsumerDuplicates = new Map<string, number>();
+  private readonly eventConsumerDeadLetters = new Map<string, number>();
 
   recordHttpRequest(input: {
     method: string;
@@ -58,6 +63,31 @@ export class MetricsService {
     this.outboxMetrics.publishLagSeconds = Math.max(0, seconds);
   }
 
+  recordEventConsumerAttempt(
+    consumer: string,
+    outcome: EventConsumerOutcome,
+  ): void {
+    const key = `${consumer}\u0000${outcome}`;
+    this.eventConsumerAttempts.set(
+      key,
+      (this.eventConsumerAttempts.get(key) ?? 0) + 1,
+    );
+  }
+
+  recordEventConsumerDuplicate(consumer: string): void {
+    this.eventConsumerDuplicates.set(
+      consumer,
+      (this.eventConsumerDuplicates.get(consumer) ?? 0) + 1,
+    );
+  }
+
+  recordEventConsumerDeadLetter(consumer: string): void {
+    this.eventConsumerDeadLetters.set(
+      consumer,
+      (this.eventConsumerDeadLetters.get(consumer) ?? 0) + 1,
+    );
+  }
+
   renderPrometheus(): string {
     const lines = [
       "# HELP semse_http_requests_total Total HTTP requests handled by the API",
@@ -84,7 +114,32 @@ export class MetricsService {
       "# HELP semse_event_dlq_total Durable outbox events currently in dead letter",
       "# TYPE semse_event_dlq_total gauge",
       `semse_event_dlq_total ${this.outboxMetrics.deadLetterTotal}`,
+      "# HELP semse_event_consumer_attempts_total Domain event consumer attempts by outcome",
+      "# TYPE semse_event_consumer_attempts_total counter",
+      "# HELP semse_event_consumer_duplicates_total Idempotent duplicate deliveries skipped by consumer",
+      "# TYPE semse_event_consumer_duplicates_total counter",
+      "# HELP semse_event_consumer_dead_letter_total Consumer deliveries exhausted or rejected terminally",
+      "# TYPE semse_event_consumer_dead_letter_total counter",
     ];
+
+    for (const [key, value] of this.eventConsumerAttempts.entries()) {
+      const [consumer, outcome] = key.split("\u0000");
+      lines.push(
+        `semse_event_consumer_attempts_total{consumer="${escapePrometheusLabel(consumer ?? "")}",outcome="${escapePrometheusLabel(outcome ?? "")}"} ${value}`,
+      );
+    }
+
+    for (const [consumer, value] of this.eventConsumerDuplicates.entries()) {
+      lines.push(
+        `semse_event_consumer_duplicates_total{consumer="${escapePrometheusLabel(consumer)}"} ${value}`,
+      );
+    }
+
+    for (const [consumer, value] of this.eventConsumerDeadLetters.entries()) {
+      lines.push(
+        `semse_event_consumer_dead_letter_total{consumer="${escapePrometheusLabel(consumer)}"} ${value}`,
+      );
+    }
 
     for (const [routeKey, metric] of this.routeMetrics.entries()) {
       const [method, ...routeParts] = routeKey.split(" ");
@@ -108,4 +163,11 @@ export class MetricsService {
 
     return `${lines.join("\n")}\n`;
   }
+}
+
+function escapePrometheusLabel(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n");
 }

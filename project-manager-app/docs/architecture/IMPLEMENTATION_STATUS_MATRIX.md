@@ -1,7 +1,7 @@
 # Matriz de implementacion de la arquitectura SEMSE
 
-**Corte:** 2026-07-12
-**Base:** `main@b7691f4e209a4fdce250da063b75b790bd48679d`
+**Corte:** 2026-07-14
+**Base:** `main@9d1580ba5604e250f3b8fe58ffd535f9d5baaa0f` + corte F1-D
 
 ## Leyenda
 
@@ -23,13 +23,13 @@
 | Prometeo Runtime P2 | IMPLEMENTADO/DESPLEGADO | `PrometeoMissionService`, `AgentWorkPlan`, controllers/BFF; PR #289 | Verify/learn, budgets, timeout y compensacion |
 | Tool Registry | PARCIAL | 23 descriptors read, 7 write; 17 casos read cableados | Adapter por tool, policy central, audit y verification; write gradual |
 | Video tool | PENDIENTE | Descriptor `vision.analyze_video` marcado `adapter_pending` | Pipeline temporal, storage, limits y review humano |
-| Domain Event schema | PARCIAL | `packages/schemas/src/domain-events.schema.ts` con union Zod | Envelope v2 con IDs, version en type, causation, idempotency, schemaRef y trace |
-| Domain Event bus | PARCIAL | AuditLog, notifications best-effort y AgentTriggerRouter con retry inline | Persistencia atomica, dispatcher, durable delivery y replay |
+| Domain Event schema | IMPLEMENTADO para slice Evidence | `domain-events-v2.schema.ts`, envelope v2 y `evidence.uploaded.v1` | Ampliar catalogo versionado dominio por dominio |
+| Domain Event bus | PARCIAL (F1-D) | Evidence state+outbox, dispatcher BullMQ, worker y receipt/efecto atomico | Ops/replay, trace extendido, canary y adopcion multi-dominio |
 | Event Catalog | PARCIAL | `docs/foundation/EVENT_CATALOG.md` | Alinear nombres al schema, versionar y mapear producers/consumers |
-| Transactional Outbox general | PARCIAL (F1-B) | Contratos Zod v2, migracion aditiva y producer Evidence state+outbox atomico | Dispatcher, BullMQ ingress, consumer, replay y lag observable |
+| Transactional Outbox general | PARCIAL (F1-D) | Contratos v2, producer Evidence atomico, dispatcher con leases, BullMQ ingress y `evidence-readiness.v1` | Replay/operacion F1-E, canary F1-F y mas producers |
 | Communications delivery outbox | PARCIAL | Delivery row + adapter WhatsApp | Separar persistencia de envio; worker/retry/circuit breaker durable |
-| Idempotencia transversal | PARCIAL | Headers y reglas puntuales | Inbox/consumer keys y pruebas de replay por slice |
-| Event DLQ/replay | PARCIAL | AgentRun dead-letter y replay de algorithm engine | DLQ de eventos y operacion desde Mission Control |
+| Idempotencia transversal | PARCIAL | Unique producer key y receipt `(eventId, consumerName)` probados con concurrencia/crash | Replay autorizado y adopcion por cada consumer |
+| Event DLQ/replay | PARCIAL | Outbox y consumer alcanzan `DEAD_LETTER`; BullMQ corta 4xx terminal | Replay RBAC/tenant/auditado y operacion desde Mission Control |
 | Payment orchestration | IMPLEMENTADO/PARCIAL | `PaymentEscrow`, `PaymentTxn`, Stripe, payment governance | Reconciliacion integral y lenguaje legal consistente |
 | Shared Economic Ledger | PENDIENTE | PaymentTxn y credit ledgers verticales no son double-entry comun | Accounts, entries, balanced lines, reversals y trial balance |
 | Evidence provenance | PARCIAL | checksum, metadata, geo, validation, Vision, bucketKey | Chain of custody, signatures, retention y access history unificados |

@@ -2,8 +2,9 @@ import "reflect-metadata";
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException } from "@nestjs/common";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
+import { hasPermission } from "../src/common/rbac.ts";
 import { DomainEventsController } from "../dist/modules/domain-events/domain-events.controller.js";
 
 function makeReq(overrides: Record<string, unknown> = {}) {
@@ -28,6 +29,7 @@ test("domain-events controller declares correct @RequirePermissions", () => {
     ["list",    "domain-events:read"],
     ["trace",   "domain-events:read"],
     ["emit",    "domain-events:emit"],
+    ["process", "domain-events:consume"],
   ];
 
   for (const [method, permission] of expectations) {
@@ -162,6 +164,67 @@ test("domain-events controller: emit routes valid event to service and returns o
   assert.equal(result.requestId, "req_de_1");
   assert.equal((result.data as Record<string, unknown>).emitted, true);
   assert.equal(emitCalls.length, 1);
+});
+
+test("domain-events controller: process requires EVENT_CONSUMER service identity", async () => {
+  const controller = new DomainEventsController({} as never, {
+    async process() { return { status: "completed" }; },
+  } as never);
+
+  await assert.rejects(
+    () => controller.process(
+      makeReq() as never,
+      "6e2ac8a0-9116-47b2-8171-1bf41d420c19",
+      { workerId: "worker-f1d" },
+    ),
+    ForbiddenException,
+  );
+});
+
+test("domain-events policy: human WORKER cannot consume events; EVENT_CONSUMER can", () => {
+  assert.equal(hasPermission(["WORKER"], "domain-events:consume"), false);
+  assert.equal(hasPermission(["EVENT_CONSUMER"], "domain-events:consume"), true);
+});
+
+test("domain-events controller: process accepts only workerId and forwards service identity", async () => {
+  const processed: Array<{ eventId: string; identity: unknown }> = [];
+  const controller = new DomainEventsController({} as never, {
+    async process(eventId: string, identity: unknown) {
+      processed.push({ eventId, identity });
+      return { eventId, status: "completed" };
+    },
+  } as never);
+  const req = makeReq({
+    authContext: {
+      tenantId: "tenant_worker",
+      orgId: "org_worker",
+      userId: "usr_worker",
+      roles: ["EVENT_CONSUMER"],
+    },
+  });
+  const eventId = "6e2ac8a0-9116-47b2-8171-1bf41d420c19";
+
+  const result = await controller.process(
+    req as never,
+    eventId,
+    { workerId: "worker-f1d" },
+  );
+  assert.deepEqual(processed, [{
+    eventId,
+    identity: {
+      workerId: "worker-f1d",
+      serviceActorId: "usr_worker",
+    },
+  }]);
+  assert.equal((result.data as Record<string, unknown>).status, "completed");
+  await assert.rejects(
+    () => controller.process(
+      req as never,
+      eventId,
+      { workerId: "worker-f1d", payload: { unsafe: true } },
+    ),
+    BadRequestException,
+  );
 });
 
 // ── Domain event bus ──────────────────────────────────────────────────────────

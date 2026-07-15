@@ -114,6 +114,9 @@ export const rolePermissions: Record<string, string[]> = {
     "vision:run",
     "weather:read"
   ],
+  EVENT_CONSUMER: [
+    "domain-events:consume"
+  ],
   OPS_ADMIN: [
     "jobs:read",
     "jobs:create",

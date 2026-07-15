@@ -28,9 +28,9 @@ date: "2026-07-12"
 - [x] **T-012** Crear integration test state+outbox atomic rollback.
 - [x] **T-013** Crear concurrency test unique idempotency key.
 - [x] **T-014** Crear claim test con dos dispatchers y lease vencida.
-- [ ] **T-015** Crear consumer test duplicate delivery/no double effect.
+- [x] **T-015** Crear consumer test duplicate delivery/no double effect.
 - [ ] **T-016** Crear DLQ/replay RBAC/tenant/audit tests.
-- [ ] **T-017** Confirmar que los tests nuevos fallan por ausencia controlada.
+- [x] **T-017** Confirmar que los tests nuevos fallan por ausencia controlada.
 
 ## Fase 2 — Contratos y migración
 
@@ -62,15 +62,15 @@ date: "2026-07-12"
 
 ## Fase 5 — Worker y consumer idempotente
 
-- [ ] **T-050** Registrar worker `semse-domain-events` con shutdown limpio.
-- [ ] **T-051** Añadir handler por `eventId`; no aceptar payload canónico desde Redis.
-- [ ] **T-052** Añadir ruta interna `process` con service identity y permiso.
-- [ ] **T-053** Implementar receipts por consumer.
-- [ ] **T-054** Implementar `evidence-readiness.v1`.
-- [ ] **T-055** Confirmar efecto + receipt en mismo tx.
-- [ ] **T-056** Confirmar no-op para Evidence sin milestone.
-- [ ] **T-057** Confirmar que no cambia Milestone.status ni Payment.
-- [ ] **T-058** Pasar duplicate/crash/retry tests.
+- [x] **T-050** Registrar worker `semse-domain-events` con shutdown limpio.
+- [x] **T-051** Añadir handler por `eventId`; no aceptar payload canónico desde Redis.
+- [x] **T-052** Añadir ruta interna `process` con service identity y permiso.
+- [x] **T-053** Implementar receipts por consumer.
+- [x] **T-054** Implementar `evidence-readiness.v1`.
+- [x] **T-055** Confirmar efecto + receipt en mismo tx.
+- [x] **T-056** Confirmar no-op para Evidence sin milestone.
+- [x] **T-057** Confirmar que no cambia Milestone.status ni Payment.
+- [x] **T-058** Pasar duplicate/crash/retry tests.
 
 ## Fase 6 — Ops, DLQ y replay
 

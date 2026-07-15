@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-07-12
+**Actualizado:** 2026-07-14
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -35,7 +35,7 @@ Gate de salida:
 - cada sistema transversal distingue estado real de arquitectura objetivo.
 - `pnpm spec:validate -- --strict` pasa con 63 specs, 0 errores y 0 warnings.
 
-## F1 — Event Backbone (F1-B PRODUCER EVIDENCE ATOMICO EN IMPLEMENTACION)
+## F1 — Event Backbone (F1-D CONSUMER/WORKER IMPLEMENTADO; F1-E SIGUIENTE)
 
 Contrato ejecutable:
 
@@ -59,6 +59,17 @@ Entregables:
 
 Slice recomendado: `evidence.submitted -> review -> milestone readiness`, sin
 activar liberacion monetaria automatica.
+
+Estado del corte F1-D:
+
+- `Evidence + outbox`, dispatcher BullMQ y consumer
+  `evidence-readiness.v1` ya forman un slice durable;
+- receipt y efecto se confirman en la misma transaccion;
+- duplicados, crash/retry, no-op sin milestone y dead letter fueron probados
+  contra PostgreSQL y Redis reales;
+- `Milestone.status`, `paymentReadiness` y Payments no son mutados;
+- dispatcher y consumers permanecen apagados por defecto;
+- F1-E (Ops, replay, redaccion y trace extendido) sigue pendiente.
 
 Gate de salida:
 
