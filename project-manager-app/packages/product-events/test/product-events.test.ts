@@ -104,3 +104,13 @@ test("redactValue y sanitizeRoute directos", () => {
   assert.equal(sanitizeRoute("/pro/juan?email=a@b.com"), "/pro/juan");
   assert.ok(redactValue("presupuesto 3500 - 5000").includes("3500"));
 });
+
+test("redactValue es lineal ante entradas adversarias (ReDoS)", () => {
+  const adversarial = ["+".repeat(5000), `${"1".repeat(500)} `.repeat(20), `${"a. ".repeat(400)}street 1`];
+  for (const input of adversarial) {
+    const start = process.hrtime.bigint();
+    redactValue(input);
+    const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
+    assert.ok(elapsedMs < 200, `redactValue tardó ${elapsedMs}ms`);
+  }
+});

@@ -6,8 +6,14 @@
 
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]{2,}/gi;
 
-// Teléfonos con 9+ dígitos y separadores; no toca números sueltos cortos.
-const PHONE_RE = /(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{4}\b/g;
+// Candidatos a teléfono: corrida de dígitos/separadores (clase única, lineal —
+// sin cuantificadores anidados ambiguos que permitan ReDoS). El callback decide
+// por conteo de dígitos (≥9), así "3500 - 5000" de un presupuesto se conserva.
+const PHONE_CANDIDATE_RE = /[+(]?\d[\d\s().-]{7,}\d/g;
+
+// Cota superior de entrada: la redacción es para props/rutas cortas; cualquier
+// exceso se trunca antes de tocar los regex (defensa adicional contra ReDoS).
+const MAX_INPUT_LENGTH = 1000;
 
 const STREET_WORDS =
   "(?:street|st|avenue|ave|boulevard|blvd|circle|cir|road|rd|drive|dr|lane|ln|court|ct|way|place|pl|terrace|ter|calle|avenida|av|colonia|col|privada|cerrada|andador|callejon|callejón|carretera)";
@@ -26,10 +32,11 @@ export const REDACTED = "[redacted]";
 
 export function redactValue(value: string): string {
   return value
+    .slice(0, MAX_INPUT_LENGTH)
     .replace(EMAIL_RE, REDACTED)
     .replace(STREET_ADDR_RE, REDACTED)
     .replace(STREET_ADDR_ES_RE, REDACTED)
-    .replace(PHONE_RE, (match) => {
+    .replace(PHONE_CANDIDATE_RE, (match) => {
       const digits = match.replace(/\D/g, "");
       return digits.length >= 9 ? REDACTED : match;
     });
