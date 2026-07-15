@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { MetricsService } from "../dist/infrastructure/observability/metrics.service.js";
 import {
+  DomainEventConsumerService,
   EVIDENCE_READINESS_CONSUMER,
   calculateEvidenceReadiness,
   isDomainEventConsumersEnabled,
@@ -47,6 +48,39 @@ test("F1-D kill switch and allowlists default to deny", () => {
     parseEventConsumerAllowlist(` ${EVIDENCE_READINESS_CONSUMER},other.v1 `),
     new Set([EVIDENCE_READINESS_CONSUMER, "other.v1"]),
   );
+});
+
+test("F1-D service rejects before storage access when the kill switch is disabled", async () => {
+  const previousValue = process.env.SEMSE_EVENT_CONSUMERS_ENABLED;
+  delete process.env.SEMSE_EVENT_CONSUMERS_ENABLED;
+  let storageAccessed = false;
+  const prisma = {
+    domainOutboxEvent: {
+      findUnique: async () => {
+        storageAccessed = true;
+        return null;
+      },
+    },
+  };
+
+  try {
+    const service = new DomainEventConsumerService(
+      prisma as never,
+      new MetricsService(),
+    );
+    await assert.rejects(
+      () => service.process(EVENT_ID),
+      (error: Error & { getStatus?: () => number }) =>
+        error.getStatus?.() === 503 && /kill switch/i.test(error.message),
+    );
+    assert.equal(storageAccessed, false);
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env.SEMSE_EVENT_CONSUMERS_ENABLED;
+    } else {
+      process.env.SEMSE_EVENT_CONSUMERS_ENABLED = previousValue;
+    }
+  }
 });
 
 test("F1-D worker accepts only an eventId reference, never a canonical payload", () => {
