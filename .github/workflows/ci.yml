@@ -107,8 +107,21 @@ jobs:
         run: |
           node --input-type=module -e "import fs from 'node:fs'; const p='apps/api/coverage/coverage-summary.json'; if (!fs.existsSync(p)) process.exit(0); const t=JSON.parse(fs.readFileSync(p,'utf8')).total; const lines=[`Coverage Summary`,`- Lines: ${t.lines.pct}%`,`- Branches: ${t.branches.pct}%`,`- Functions: ${t.functions.pct}%`,`- Statements: ${t.statements.pct}%`].join('\n'); fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines + '\n');"
 
-      - name: Upload coverage to Codecov
+      - name: Detect Codecov configuration
+        id: codecov
         if: always()
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          if [ -n "${CODECOV_TOKEN}" ]; then
+            echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            echo "Codecov upload skipped: CODECOV_TOKEN is not configured." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: Upload coverage to Codecov
+        if: ${{ always() && steps.codecov.outputs.enabled == 'true' }}
         uses: codecov/codecov-action@v7
         with:
           files: project-manager-app/apps/api/coverage/lcov.info
