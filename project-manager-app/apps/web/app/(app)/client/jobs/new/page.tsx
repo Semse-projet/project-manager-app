@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { ClientPageHeader } from "../../../../components/client/ClientPageHeader";
 import { CLIENT_ROUTES } from "../../../../lib/client-routes";
+import { trackProductEvent } from "../../../../../lib/product-intelligence";
 import { suggestBudget, type BudgetSuggestion } from "../../../../semse-api";
 import {
   computeInitialJobWizardStep,
@@ -107,10 +108,23 @@ export default function NewJobPage() {
     : null;
 
   const [step, setStep] = useState(() => computeInitialJobWizardStep(prefill));
+  const [wizardStartedAt] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeIntakeId, setActiveIntakeId] = useState(prefill.intakeId);
   const [intakeRecovered, setIntakeRecovered] = useState(false);
+
+  useEffect(() => {
+    if (prefill.categoryId || prefill.intakeId) {
+      trackProductEvent("wizard.prefill_arrived", {
+        category: prefill.categoryId || null,
+        step: computeInitialJobWizardStep(prefill),
+        source: prefill.source ?? null,
+      });
+    }
+    // Solo al montar: describe la llegada con prefill.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Step 1
   const [categoryId, setCategoryId] = useState(prefill.categoryId);
@@ -289,6 +303,10 @@ export default function NewJobPage() {
         return;
       }
       clearPersistedIntakeId();
+      trackProductEvent("wizard.published", {
+        category: categoryId || null,
+        durationMs: Date.now() - wizardStartedAt,
+      });
       const jobId = data.data?.jobId ?? data.data?.id;
       if (jobId && preferredProfessional) {
         const qs = new URLSearchParams();

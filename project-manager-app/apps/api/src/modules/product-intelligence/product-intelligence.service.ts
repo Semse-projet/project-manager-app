@@ -89,6 +89,30 @@ export class ProductIntelligenceService {
     return { accepted: batch.events.length, duplicated: false };
   }
 
+  /** PI-05.2 — funnel de eventos por nombre en una ventana de días. */
+  async getFunnel(tenantId: string, days = 7): Promise<{
+    windowDays: number;
+    since: string;
+    sessions: number;
+    events: Array<{ name: string; count: number }>;
+  }> {
+    const since = new Date(Date.now() - Math.min(Math.max(days, 1), 90) * 86_400_000);
+    const [grouped, sessions] = await Promise.all([
+      this.prisma.productEvent.groupBy({
+        by: ["name"],
+        where: { tenantId, ts: { gte: since } },
+        _count: { name: true },
+      }),
+      this.prisma.productSession.count({
+        where: { tenantId, lastSeen: { gte: since } },
+      }),
+    ]);
+    const events = (grouped as Array<{ name: string; _count: { name: number } }>)
+      .map((row) => ({ name: row.name, count: row._count.name }))
+      .sort((a, b) => b.count - a.count);
+    return { windowDays: days, since: since.toISOString(), sessions, events };
+  }
+
   /** PI-03.2 — retención: 30d identificable, 90d señales agregadas. */
   async runRetention(): Promise<RetentionResult> {
     const identifiableCutoff = new Date(Date.now() - IDENTIFIABLE_RETENTION_DAYS * 86_400_000);

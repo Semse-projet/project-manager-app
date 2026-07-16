@@ -3,10 +3,12 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   Headers,
   HttpCode,
   PayloadTooLargeException,
   Post,
+  Query,
   Req,
 } from "@nestjs/common";
 import { PRODUCT_EVENT_BATCH_MAX, productEventBatchSchema } from "@semse/schemas";
@@ -65,6 +67,23 @@ export class ProductIntelligenceController {
 
     const tenantId = tenantIdHeader?.trim() || "tenant_default";
     const result = await this.service.ingest(tenantId, parsed.data);
+    return ok(resolveRequestId(req.headers ?? {}), result);
+  }
+
+  // PI-05.2 — funnel para el panel admin.
+  @Get("funnel")
+  @RequirePermissions("ops:dashboard:read")
+  async funnel(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Headers("x-tenant-id") tenantIdHeader?: string,
+    @Query("days") days?: string,
+  ) {
+    if (!productIntelligenceEnabled()) {
+      throw new ForbiddenException("Product Intelligence is disabled");
+    }
+    const tenantId = tenantIdHeader?.trim() || "tenant_default";
+    const parsedDays = days ? parseInt(days, 10) : 7;
+    const result = await this.service.getFunnel(tenantId, Number.isFinite(parsedDays) ? parsedDays : 7);
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 
