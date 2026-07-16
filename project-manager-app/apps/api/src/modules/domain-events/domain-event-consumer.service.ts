@@ -14,15 +14,25 @@ import {
 import { randomUUID } from "node:crypto";
 import { MetricsService } from "../../infrastructure/observability/metrics.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import {
+  calculateEvidenceReadiness,
+  isDomainEventConsumersEnabled,
+  parseEventConsumerAllowlist,
+  redactConsumerError,
+  type EvidenceReadiness,
+} from "./domain-event-consumer.policy.js";
+
+export {
+  calculateEvidenceReadiness,
+  isDomainEventConsumersEnabled,
+  parseEventConsumerAllowlist,
+} from "./domain-event-consumer.policy.js";
 
 const { Prisma: PrismaRuntime } = prismaClientPackage as typeof import("../../../../../node_modules/.prisma/client/index.js");
 
 export const EVIDENCE_READINESS_CONSUMER = "evidence-readiness.v1";
 export const EVIDENCE_UPLOADED_EVENT_TYPE = "evidence.uploaded.v1";
 const CONSUMER_MAX_ATTEMPTS = 5;
-
-type ConsumerEnvironment = Record<string, string | undefined>;
-type EvidenceReadiness = "missing" | "partial" | "complete";
 
 type ConsumptionReceipt = {
   id: string;
@@ -52,49 +62,6 @@ type ProcessingIdentity = {
 
 class TerminalConsumerError extends Error {}
 class AlreadyDeadLetteredError extends Error {}
-
-export function isDomainEventConsumersEnabled(
-  environment: ConsumerEnvironment = process.env,
-): boolean {
-  return environment.SEMSE_EVENT_CONSUMERS_ENABLED === "true";
-}
-
-export function parseEventConsumerAllowlist(value: string | undefined): Set<string> {
-  return new Set(
-    (value ?? "")
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean),
-  );
-}
-
-export function calculateEvidenceReadiness(
-  requiredEvidenceTypes: readonly string[],
-  presentEvidenceTypes: readonly string[],
-): EvidenceReadiness {
-  const required = new Set(
-    requiredEvidenceTypes.map((entry) => entry.trim().toUpperCase()).filter(Boolean),
-  );
-  if (required.size === 0) {
-    return "complete";
-  }
-
-  const present = new Set(
-    presentEvidenceTypes.map((entry) => entry.trim().toUpperCase()).filter(Boolean),
-  );
-  const presentRequiredCount = [...required].filter((entry) => present.has(entry)).length;
-  if (presentRequiredCount === 0) {
-    return "missing";
-  }
-  return presentRequiredCount === required.size ? "complete" : "partial";
-}
-
-function redactConsumerError(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error))
-    .replace(/\b(rediss?|https?):\/\/[^@/\s]+@/gi, "$1://***@")
-    .replace(/\b(password|token|secret|api[_-]?key)=([^\s&]+)/gi, "$1=***")
-    .slice(0, 500);
-}
 
 @Injectable()
 export class DomainEventConsumerService {

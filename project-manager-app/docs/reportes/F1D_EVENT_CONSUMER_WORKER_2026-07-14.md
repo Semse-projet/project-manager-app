@@ -61,10 +61,11 @@ Las pruebas nuevas fallaron de forma controlada:
 
 ### Verde
 
-- 19/19 pruebas unitarias focalizadas:
+- 20/20 pruebas unitarias focalizadas:
   - cálculo determinístico missing/partial/complete;
   - kill switch y allowlists deny-by-default;
   - el kill switch corta antes de cualquier acceso a almacenamiento;
+  - los errores redactan URLs autenticadas y secretos antes de persistir;
   - payload Redis estricto `{ eventId }`;
   - identidad de servicio y body interno estricto;
   - clasificación terminal/retryable;

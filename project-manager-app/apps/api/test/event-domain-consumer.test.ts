@@ -5,10 +5,13 @@ import { MetricsService } from "../dist/infrastructure/observability/metrics.ser
 import {
   DomainEventConsumerService,
   EVIDENCE_READINESS_CONSUMER,
+} from "../dist/modules/domain-events/domain-event-consumer.service.js";
+import {
   calculateEvidenceReadiness,
   isDomainEventConsumersEnabled,
   parseEventConsumerAllowlist,
-} from "../dist/modules/domain-events/domain-event-consumer.service.js";
+  redactConsumerError,
+} from "../src/modules/domain-events/domain-event-consumer.policy.ts";
 import {
   isTerminalDomainEventHttpStatus,
   parseDomainEventJobData,
@@ -81,6 +84,16 @@ test("F1-D service rejects before storage access when the kill switch is disable
       process.env.SEMSE_EVENT_CONSUMERS_ENABLED = previousValue;
     }
   }
+});
+
+test("F1-D consumer errors redact credentials before durable persistence", () => {
+  assert.equal(
+    redactConsumerError(
+      new Error("redis://worker:password@redis.internal token=raw-token"),
+    ),
+    "redis://***@redis.internal token=***",
+  );
+  assert.equal(redactConsumerError("secret=raw-secret"), "secret=***");
 });
 
 test("F1-D worker accepts only an eventId reference, never a canonical payload", () => {
