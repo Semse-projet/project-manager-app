@@ -3506,3 +3506,92 @@ model BrowserMissionStep {
 
   @@index([missionId, stepNumber])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Product Intelligence (PI-03) — telemetría de producto.
+// Spec: docs/specs/platform/product-intelligence.spec.md (APPROVED 2026-07-13).
+// ProductEvent ≠ DomainEvent: tablas de telemetría, sin FK a Tenant (volumen,
+// limpieza por job de retención — 30d identificable / 90d señales agregadas).
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ProductConsentClass {
+  ESSENTIAL
+  STANDARD
+  RESTRICTED
+}
+
+enum FrictionKind {
+  RAGE_CLICK
+  NAV_LOOP
+  FORM_ABANDON
+  ERROR_REPEAT
+}
+
+model ProductSession {
+  sessionId   String         @id
+  tenantId    String
+  anonymousId String
+  userId      String?
+  device      String?
+  firstSeen   DateTime       @default(now())
+  lastSeen    DateTime       @default(now())
+  events      ProductEvent[]
+
+  @@index([tenantId, lastSeen])
+  @@index([anonymousId])
+}
+
+model ProductEvent {
+  id        String         @id @default(cuid())
+  tenantId  String
+  sessionId String
+  batchId   String
+  name      String
+  route     String
+  propsJson Json?
+  ts        DateTime
+  createdAt DateTime       @default(now())
+  session   ProductSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+
+  @@index([tenantId, name, ts])
+  @@index([sessionId, ts])
+  @@index([createdAt])
+}
+
+/// Ledger de idempotencia de ingesta: un batchId procesado nunca se re-inserta.
+model ProductIngestBatch {
+  batchId       String              @id
+  tenantId      String
+  acceptedCount Int
+  consentClass  ProductConsentClass
+  receivedAt    DateTime            @default(now())
+
+  @@index([tenantId, receivedAt])
+  @@index([receivedAt])
+}
+
+model FrictionSignal {
+  id           String       @id @default(cuid())
+  tenantId     String
+  kind         FrictionKind
+  route        String
+  severity     String       @default("low")
+  evidenceJson Json
+  windowStart  DateTime
+  windowEnd    DateTime
+  createdAt    DateTime     @default(now())
+
+  @@index([tenantId, kind, createdAt])
+  @@index([createdAt])
+}
+
+model ConsentRecord {
+  id           String              @id @default(cuid())
+  tenantId     String
+  anonymousId  String
+  consentClass ProductConsentClass
+  grantedAt    DateTime            @default(now())
+  revokedAt    DateTime?
+
+  @@index([tenantId, anonymousId, grantedAt])
+}

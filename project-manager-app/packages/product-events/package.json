@@ -1,0 +1,25 @@
+{
+  "name": "@semse/product-events",
+  "version": "0.1.0",
+  "description": "SEMSE Product Intelligence SDK — telemetría de producto con redacción en cliente, consentimiento y batching (PI-02.2)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@semse/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

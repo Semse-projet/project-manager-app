@@ -146,10 +146,19 @@ for (const [modelName, tableName] of models) {
 
 // ── Nivel 3: schema→database (opcional) ──────────────────────────────────────
 async function checkDatabase() {
-  const url = process.env.PRISMA_CONTRACT_DB_URL || process.env.DATABASE_URL;
-  if (!url) {
+  const rawUrl = process.env.PRISMA_CONTRACT_DB_URL || process.env.DATABASE_URL;
+  if (!rawUrl) {
     warnings.push("schema→database: sin DATABASE_URL, nivel 3 omitido");
     return;
+  }
+  // Las URLs de Prisma llevan params propios (?schema=public) que psql rechaza.
+  let url = rawUrl;
+  try {
+    const parsed = new URL(rawUrl);
+    parsed.search = "";
+    url = parsed.toString();
+  } catch {
+    // URL no estándar: se intenta tal cual.
   }
   const { execFileSync } = await import("node:child_process");
   const sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'";
