@@ -210,7 +210,6 @@ async function resolveAuthorizationHeader(config: RuntimeConfig): Promise<string
     config.userId,
     config.roles
   ].join("::");
-
   // Concurrent callers for the same identity share one in-flight bootstrap —
   // otherwise a page that mounts several components at once bursts past
   // POST /v1/auth/token's rate limit and the losers proceed unauthenticated.

@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { BrowserAgentService } from "../../browser-agent/browser-agent.service.js";
 import type { AgentApprovalRequest } from "@semse/agents";
 import { getActionPolicy } from "@semse/agents";
 import type { AgentAction, AgentActionType } from "@semse/schemas";
@@ -94,6 +95,8 @@ export class ProjectCopilotHarness {
     private readonly prometeoService: PrometeoService,
     private readonly operationalContextService: OperationalContextService,
     private readonly prometeoOrchestrator: PrometeoOrchestratorService,
+    @Inject(forwardRef(() => BrowserAgentService))
+    private readonly browserAgentService: BrowserAgentService,
   ) {}
 
   // ── Public entry point ────────────────────────────────────────────────────
@@ -997,6 +1000,9 @@ export class ProjectCopilotHarness {
         case "REQUEST_AGENT_HELP":
           summary = await this.executeRequestHelp(runtime, payload);
           break;
+        case "RUN_BROWSER_MISSION":
+          summary = await this.executeBrowserMission(runtime, payload);
+          break;
         default:
           summary = `Sin handler de ejecución registrado para '${actionType}'.`;
           break;
@@ -1413,5 +1419,18 @@ export class ProjectCopilotHarness {
       if (Number.isFinite(parsed)) return parsed;
     }
     return 0;
+  }
+
+  private async executeBrowserMission(
+    runtime: ProjectCopilotHarnessRuntime,
+    payload: any
+  ): Promise<string> {
+    const result = await this.browserAgentService.createMission({
+      tenantId: runtime.actor.tenantId,
+      actorId: runtime.actor.userId,
+      goal: payload.goal,
+      steps: payload.steps || [],
+    });
+    return `Misión de Navegación creada exitosamente. Mission ID: ${result.missionId}, Run ID: ${result.runId}`;
   }
 }

@@ -2712,6 +2712,50 @@ export async function fetchBrowserInspectionResult(runId: string): Promise<Brows
   return fetchSemse<BrowserInspectionResult>(`/api/semse/browser-agent/inspect/${encodeURIComponent(runId)}`);
 }
 
+export interface BrowserMissionStep {
+  id: string;
+  missionId: string;
+  stepNumber: number;
+  actionType: "navigate" | "get_markdown" | "query" | "click" | "fill" | string;
+  parameters: any;
+  engineUsed: string;
+  status: "PENDING" | "RUNNING" | "COMPLETED" | "FAILED" | string;
+  error?: string;
+  evidenceRef?: string;
+  createdAt: string;
+}
+
+export interface BrowserMission {
+  id: string;
+  tenantId: string;
+  actorId: string;
+  status: "PLANNED" | "RUNNING" | "COMPLETED" | "FAILED" | string;
+  goal: string;
+  budgetLimit: number;
+  budgetSpent: number;
+  createdAt: string;
+  updatedAt: string;
+  steps: BrowserMissionStep[];
+}
+
+export async function createBrowserMission(input: {
+  goal: string;
+  steps: Array<{
+    actionType: string;
+    parameters?: any;
+    engineUsed?: string;
+  }>;
+}): Promise<{ missionId: string; runId: string; stepsCount: number }> {
+  return mutateSemse<{ missionId: string; runId: string; stepsCount: number }>(
+    "/api/semse/browser-agent/missions",
+    input as Record<string, unknown>
+  );
+}
+
+export async function fetchBrowserMission(id: string): Promise<BrowserMission> {
+  return fetchSemse<BrowserMission>(`/api/semse/browser-agent/missions/${encodeURIComponent(id)}`);
+}
+
 export interface ActivityEvent {
   id: string;
   type: string;

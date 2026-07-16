@@ -3470,6 +3470,44 @@ model VisionAnalysis {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Browser Agent — misiones stateful (PR #303). Los servicios de
+// browser-agent.service.ts ya usaban estos modelos sin que existieran en el
+// schema (drift detectado por verify-prisma-runtime-contract).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model BrowserMission {
+  id          String               @id @default(cuid())
+  tenantId    String
+  actorId     String
+  goal        String
+  status      String               @default("PLANNED")
+  budgetLimit Decimal?             @db.Decimal(10, 2)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  steps       BrowserMissionStep[]
+
+  @@index([tenantId, createdAt])
+  @@index([actorId])
+}
+
+model BrowserMissionStep {
+  id          String         @id @default(cuid())
+  missionId   String
+  stepNumber  Int
+  actionType  String
+  parameters  Json
+  engineUsed  String         @default("PLAYWRIGHT")
+  status      String         @default("PENDING")
+  error       String?
+  evidenceRef String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  mission     BrowserMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@index([missionId, stepNumber])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Product Intelligence (PI-03) — telemetría de producto.
 // Spec: docs/specs/platform/product-intelligence.spec.md (APPROVED 2026-07-13).
 // ProductEvent ≠ DomainEvent: tablas de telemetría, sin FK a Tenant (volumen,
