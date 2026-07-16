@@ -18,7 +18,10 @@ const STREET_WORDS =
 const UNIT_WORDS =
   "(?:apt|apartment|unit|suite|ste|bldg|building|depto|departamento|interior|int)";
 
-const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]{2,}/gi;
+// Cuantificadores acotados (RFC: local ≤64, label ≤63) para que el peor caso
+// sea lineal — un `+` sin cota sobre input de usuario es ReDoS polinómico
+// (js/polynomial-redos, CodeQL PR #306).
+const EMAIL_RE = /[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}/gi;
 
 // Teléfonos de 9+ dígitos con separadores (evita presupuestos tipo "3500 - 5000").
 const PHONE_RE =
