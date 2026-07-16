@@ -73,10 +73,23 @@ export class BrowserToolRunner {
 
   static htmlToMarkdown(html: string): string {
     let text = html;
-    
-    // Remove scripts and styles
-    text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+
+    // Remove scripts and styles. Se repite hasta punto fijo y se admite
+    // espacio antes de '>' en el tag de cierre: un solo pase con regex es
+    // evadible con tags anidados/malformados (</script >, <scr<script>ipt>).
+    const removeAll = (input: string, pattern: RegExp): string => {
+      let previous: string;
+      let output = input;
+      do {
+        previous = output;
+        output = output.replace(pattern, "");
+      } while (output !== previous);
+      return output;
+    };
+    text = removeAll(text, /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi);
+    text = removeAll(text, /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi);
+    // Tags script/style sueltos (sin cierre) que hubieran quedado.
+    text = removeAll(text, /<\/?(?:script|style)\b[^>]*>/gi);
     
     // Convert headings
     text = text.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, "\n# $1\n");

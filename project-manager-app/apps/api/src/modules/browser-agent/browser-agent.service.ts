@@ -350,7 +350,9 @@ ${result.visibleTextSample || "(None extracted)"}
   async getMission(id: string) {
     const mission = await this.prisma.browserMission.findUnique({
       where: { id },
-      include: { steps: true, sessions: true }
+      // Las sesiones de navegador viven en memoria (BrowserSessionPool),
+      // no hay modelo persistido de sesión que incluir.
+      include: { steps: true }
     });
     if (!mission) throw new NotFoundException("Mission not found");
     return mission;
