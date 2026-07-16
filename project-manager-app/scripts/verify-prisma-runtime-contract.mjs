@@ -18,17 +18,26 @@
  * Uso:
  *   node scripts/verify-prisma-runtime-contract.mjs           # niveles 1 y 2
  *   node scripts/verify-prisma-runtime-contract.mjs --db      # + nivel 3
+ *   node scripts/verify-prisma-runtime-contract.mjs --root <dir>  # raíz alterna (fixtures/tests)
  *
  * Baseline: scripts/prisma-contract-baseline.json lista drift preexistente
  * documentado. Un hallazgo en baseline se reporta como ⚠ pero no falla; el
  * objetivo es que la lista solo pueda encogerse, nunca crecer.
+ *
+ * No requiere base de datos (el nivel 3 es opcional y se omite sin
+ * DATABASE_URL). Comentarios y strings entrecomillados se descartan antes de
+ * escanear para no producir falsos positivos.
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const rootFlagIndex = process.argv.indexOf("--root");
+const ROOT =
+  rootFlagIndex !== -1 && process.argv[rootFlagIndex + 1]
+    ? process.argv[rootFlagIndex + 1]
+    : join(dirname(fileURLToPath(import.meta.url)), "..");
 const SCHEMA_PATH = join(ROOT, "packages/db/prisma/schema.prisma");
 const MIGRATIONS_DIR = join(ROOT, "packages/db/prisma/migrations");
 const BASELINE_PATH = join(ROOT, "scripts/prisma-contract-baseline.json");
@@ -77,8 +86,40 @@ const CLIENT_METHODS = new Set([
 // tx.<x>.<verbo prisma> exige verbo conocido para no confundir otros objetos `tx`.
 const PRISMA_VERBS =
   "(?:findUnique|findUniqueOrThrow|findFirst|findFirstOrThrow|findMany|create|createMany|createManyAndReturn|update|updateMany|upsert|delete|deleteMany|count|aggregate|groupBy)";
-const DIRECT_RE = /this\.prisma\.([a-zA-Z_$][\w$]*)/g;
-const TX_RE = new RegExp(`\\btx\\.([a-zA-Z_][\\w]*)\\.${PRISMA_VERBS}\\(`, "g");
+// `?.` opcional: `this.prisma?.modelo` es el mismo contrato en runtime.
+const DIRECT_RE = /this\.prisma\??\.([a-zA-Z_$][\w$]*)/g;
+const TX_RE = new RegExp(`\\btx\\??\\.([a-zA-Z_][\\w]*)\\??\\.${PRISMA_VERBS}\\(`, "g");
+
+/**
+ * Blanquea comentarios (`//`, `/* *​/`) y strings de comillas simples/dobles
+ * conservando los saltos de línea, para que menciones en documentación o
+ * mensajes no cuenten como accesos reales. Los template literals se conservan
+ * porque sus interpolaciones `${...}` sí contienen código.
+ */
+function stripCommentsAndStrings(source) {
+  let out = "";
+  let state = "code"; // code | line | block | single | double
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    const next = source[i + 1];
+    if (state === "code") {
+      if (ch === "/" && next === "/") { state = "line"; i++; out += "  "; continue; }
+      if (ch === "/" && next === "*") { state = "block"; i++; out += "  "; continue; }
+      if (ch === "'") { state = "single"; out += " "; continue; }
+      if (ch === '"') { state = "double"; out += " "; continue; }
+      out += ch;
+      continue;
+    }
+    if (ch === "\n") { if (state === "line") state = "code"; out += "\n"; continue; }
+    if (state === "block" && ch === "*" && next === "/") { state = "code"; i++; out += "  "; continue; }
+    if (state === "single" && ch === "\\") { i++; out += "  "; continue; }
+    if (state === "double" && ch === "\\") { i++; out += "  "; continue; }
+    if (state === "single" && ch === "'") { state = "code"; out += " "; continue; }
+    if (state === "double" && ch === '"') { state = "code"; out += " "; continue; }
+    out += state === "line" || state === "block" || state === "single" || state === "double" ? " " : ch;
+  }
+  return out;
+}
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -93,25 +134,27 @@ function* walk(dir) {
   }
 }
 
-const usages = new Map(); // accessor → Set<file>
+const usages = new Map(); // accessor → Set<"file:línea">
 for (const dir of CODE_DIRS) {
   for (const file of walk(dir)) {
-    const source = readFileSync(file, "utf8");
+    const source = stripCommentsAndStrings(readFileSync(file, "utf8"));
     for (const re of [DIRECT_RE, TX_RE]) {
       re.lastIndex = 0;
-      for (const [, accessor] of source.matchAll(re)) {
+      for (const match of source.matchAll(re)) {
+        const accessor = match[1];
         if (CLIENT_METHODS.has(accessor) || accessor.startsWith("$")) continue;
+        const line = source.slice(0, match.index).split("\n").length;
         if (!usages.has(accessor)) usages.set(accessor, new Set());
-        usages.get(accessor).add(file.replace(`${ROOT}/`, ""));
+        usages.get(accessor).add(`${file.replace(`${ROOT}/`, "")}:${line}`);
       }
     }
   }
 }
 
 // ── Nivel 1: code→schema ─────────────────────────────────────────────────────
-for (const [accessor, files] of [...usages.entries()].sort()) {
+for (const [accessor, locations] of [...usages.entries()].sort()) {
   if (!accessorToModel.has(accessor)) {
-    const sample = [...files].slice(0, 3).join(", ");
+    const sample = [...locations].slice(0, 3).join(", ");
     report(
       "codeToSchema",
       accessor,
@@ -146,10 +189,19 @@ for (const [modelName, tableName] of models) {
 
 // ── Nivel 3: schema→database (opcional) ──────────────────────────────────────
 async function checkDatabase() {
-  const url = process.env.PRISMA_CONTRACT_DB_URL || process.env.DATABASE_URL;
+  let url = process.env.PRISMA_CONTRACT_DB_URL || process.env.DATABASE_URL;
   if (!url) {
     warnings.push("schema→database: sin DATABASE_URL, nivel 3 omitido");
     return;
+  }
+  // `?schema=public` es un parámetro de Prisma que psql rechaza — quitarlo
+  // (sin él, el nivel 3 se omitía silenciosamente incluso en CI).
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete("schema");
+    url = parsed.toString();
+  } catch {
+    // URL no estándar: se intenta tal cual
   }
   const { execFileSync } = await import("node:child_process");
   const sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'";

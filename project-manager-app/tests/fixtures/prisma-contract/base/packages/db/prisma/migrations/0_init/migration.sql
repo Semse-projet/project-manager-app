@@ -1,0 +1,2 @@
+CREATE TABLE "Job" ("id" TEXT PRIMARY KEY);
+CREATE TABLE "user_profiles" ("id" TEXT PRIMARY KEY);
