@@ -75,6 +75,7 @@ COPY --from=builder /app/packages/knowledge/dist ./packages/knowledge/dist
 COPY --from=builder /app/packages/agents/dist ./packages/agents/dist
 COPY --from=builder /app/packages/autonomy/dist ./packages/autonomy/dist
 COPY --from=builder /app/packages/tools/dist ./packages/tools/dist
+COPY --from=builder /app/packages/product-events/dist ./packages/product-events/dist
 
 # Re-install ONLY production deps so pnpm creates correct workspace links
 RUN pnpm install --frozen-lockfile --prod
