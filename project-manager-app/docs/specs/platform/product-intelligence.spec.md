@@ -3,7 +3,7 @@ id: "platform.product-intelligence"
 title: "Product Intelligence — telemetría de producto gobernada"
 type: spec
 domain: "platform"
-version: "0.1"
+version: "0.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -17,18 +17,21 @@ sse: false
 fsmTransicion: "N/A — telemetría, sin FSM de negocio"
 paymentGovernance: false
 related_files:
-  # apps/api/src/modules/product-intelligence se agrega cuando exista (PI-04).
   - packages/schemas/src/product-events.schema.ts
   - packages/product-events
+  - apps/api/src/modules/product-intelligence
+  - apps/web/lib/product-intelligence.ts
   - apps/api/src/modules/operational-intelligence/operational-signals.service.ts
   - apps/api/src/modules/ops
   - packages/db/prisma/schema.prisma
 related_tests:
   - packages/product-events/test/product-events.test.ts
-related_endpoints: []
+  - apps/api/test/product-intelligence-ingest.test.ts
+related_endpoints:
+  - v1/product-intelligence
 related_events: []
 related_agents: []
-last_verified: "2026-07-13"
+last_verified: "2026-07-16"
 ---
 
 # Spec: Product Intelligence — telemetría de producto gobernada
@@ -95,6 +98,24 @@ effects:
   sse: no
 ```
 
+### `GET /v1/product-intelligence/funnel` · `GET /v1/product-intelligence/funnel/economic` (v0.2)
+
+```yaml
+auth: required
+roles: [ops:dashboard:read]
+privacyCritical: false        # solo agregados, nunca eventos individuales
+input_schema:
+  days: int (1-90 funnel · 1-180 economic)
+output_schema:
+  funnel: { windowDays, since, sessions, events: [{name, count}] }
+  economic: { windowDays, since, stages: [{stage, count, conversionPct, medianHoursFromJob}] }
+errors:
+  403: kill switch PRODUCT_INTELLIGENCE_ENABLED=false
+notes: el funnel económico se DERIVA de las tablas de dominio (Job/Bid/
+  Contract/PaymentEscrow) — fuente de verdad del servidor; no duplica
+  eventos de UI. Evidence no es etapa (cuelga de Project, no de Job).
+```
+
 ## Data Model
 
 | Modelo | Campos clave | Retención |
@@ -103,6 +124,7 @@ effects:
 | ProductSession | sessionId, anonymousId, userId?, firstSeen, lastSeen, device | 30 días |
 | FrictionSignal | id, kind(rage_click/nav_loop/form_abandon/error_repeat), route, evidencia agregada, severity | 90 días |
 | ConsentRecord | anonymousId, consentClass, grantedAt, revokedAt? | permanente (obligación legal) |
+| ProductIngestBatch | batchId (pk), acceptedCount, consentClass, receivedAt | 30 días — ledger de idempotencia (agregado en PI-03) |
 
 ## Privacy Rules (bloqueantes)
 
