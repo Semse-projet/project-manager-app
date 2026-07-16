@@ -87,6 +87,23 @@ export class ProductIntelligenceController {
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 
+  // PI-06 — funnel económico (derivado de tablas de dominio).
+  @Get("funnel/economic")
+  @RequirePermissions("ops:dashboard:read")
+  async economicFunnel(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Headers("x-tenant-id") tenantIdHeader?: string,
+    @Query("days") days?: string,
+  ) {
+    if (!productIntelligenceEnabled()) {
+      throw new ForbiddenException("Product Intelligence is disabled");
+    }
+    const tenantId = tenantIdHeader?.trim() || "tenant_default";
+    const parsedDays = days ? parseInt(days, 10) : 30;
+    const result = await this.service.getEconomicFunnel(tenantId, Number.isFinite(parsedDays) ? parsedDays : 30);
+    return ok(resolveRequestId(req.headers ?? {}), result);
+  }
+
   // PI-03.2 — invocado por el worker (patrón curator: timer → endpoint API).
   @Post("retention/run")
   @RequirePermissions("ops:dashboard:write")

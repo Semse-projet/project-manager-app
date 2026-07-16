@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00..PI-05 COMPLETADOS. Siguiente: PI-06 (funnel económico). Para activar en prod: PRODUCT_INTELLIGENCE_ENABLED=true (API+worker) y NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=true (web).
+**Estado:** PI-00..PI-06 COMPLETADOS. Siguiente: PI-07 (Friction Engine). Para activar en prod: PRODUCT_INTELLIGENCE_ENABLED=true (API+worker) y NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=true (web).
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -94,8 +94,8 @@ Primer flujo instrumentado por historial real de bugs (register perdía contexto
 - [x] PI-05.2 — GET /v1/product-intelligence/funnel (ops:dashboard:read) con groupBy por evento + sesiones; BFF /api/semse/product-intelligence/funnel; panel /admin/product-intelligence con barras del funnel y ventanas 7/14/30 días.
 
 ### PI-06 — Funnel económico
-- [ ] PI-06.1 — Eventos job→bid→contract→evidence→payment.
-- [ ] PI-06.2 — Métricas de conversión por etapa + tiempo entre etapas.
+- [x] PI-06.1 — DECISIÓN: en vez de duplicar eventos de UI, el funnel económico se deriva de las tablas de dominio (Job/Bid/Contract/PaymentEscrow) — fuente de verdad del servidor. Evidence no es etapa (cuelga de Project, no de Job). `getEconomicFunnel` en el módulo product-intelligence.
+- [x] PI-06.2 — GET /v1/product-intelligence/funnel/economic: conversión % por etapa + mediana de horas desde la creación del job; BFF + sección en /admin/product-intelligence. 7/7 tests.
 
 ### PI-07 — Friction Engine
 - [ ] PI-07.1 — Detección: rage clicks, loops de navegación, abandono de formulario, errores repetidos → `FrictionSignal`.

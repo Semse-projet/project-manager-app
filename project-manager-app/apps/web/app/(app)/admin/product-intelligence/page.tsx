@@ -15,6 +15,20 @@ type FunnelData = {
   events: Array<{ name: string; count: number }>;
 };
 
+type EconomicFunnelData = {
+  windowDays: number;
+  since: string;
+  stages: Array<{ stage: string; count: number; conversionPct: number; medianHoursFromJob: number | null }>;
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  job_created: "Jobs creados",
+  first_bid: "Con primera oferta",
+  contract: "Con contrato",
+  escrow_funded: "Con escrow fondeado",
+  payment_released: "Pago liberado",
+};
+
 const FUNNEL_ORDER = [
   "auth.login_view",
   "auth.register_view",
@@ -35,6 +49,7 @@ const EVENT_LABELS: Record<string, string> = {
 
 export default function ProductIntelligencePage() {
   const [data, setData] = useState<FunnelData | null>(null);
+  const [economic, setEconomic] = useState<EconomicFunnelData | null>(null);
   const [days, setDays] = useState(7);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,6 +69,9 @@ export default function ProductIntelligencePage() {
         return;
       }
       setData(json.data);
+      const econRes = await fetch(`/api/semse/product-intelligence/funnel/economic?days=${Math.max(windowDays, 30)}`);
+      const econJson = (await econRes.json()) as { data?: EconomicFunnelData };
+      if (econRes.ok && econJson.data) setEconomic(econJson.data);
     } catch {
       setError("No se pudo conectar con el servidor");
     } finally {
@@ -126,6 +144,38 @@ export default function ProductIntelligencePage() {
               );
             })}
           </section>
+
+          {economic && (
+            <section className="mt-10">
+              <h2 className="mb-1 text-xl font-bold">Funnel económico</h2>
+              <p className="mb-4 text-sm text-slate-400">
+                job → oferta → contrato → escrow → pago (derivado de tablas de dominio,
+                últimos {economic.windowDays} días, mediana de horas desde la creación del job).
+              </p>
+              <div className="space-y-3">
+                {economic.stages.map((stage) => {
+                  const first = economic.stages[0]?.count ?? 1;
+                  return (
+                    <div key={stage.stage} className="rounded-xl border border-slate-800 bg-slate-950/50 p-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="font-semibold">{STAGE_LABELS[stage.stage] ?? stage.stage}</span>
+                        <span className="font-mono">
+                          {stage.count} · {stage.conversionPct}%
+                          {stage.medianHoursFromJob !== null ? ` · ~${stage.medianHoursFromJob}h` : ""}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded bg-slate-800">
+                        <div
+                          className="h-full rounded bg-emerald-500"
+                          style={{ width: `${Math.round((stage.count / Math.max(first, 1)) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {otherEvents.length > 0 && (
             <section className="mt-8">

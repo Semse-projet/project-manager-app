@@ -113,6 +113,88 @@ export class ProductIntelligenceService {
     return { windowDays: days, since: since.toISOString(), sessions, events };
   }
 
+  /**
+   * PI-06 — funnel económico derivado de las tablas de dominio (fuente de
+   * verdad del servidor, sin duplicar eventos de UI):
+   * job → primer bid → contrato → escrow → pago liberado.
+   * "Evidence" no entra como etapa: Evidence cuelga de Project, no de Job.
+   */
+  async getEconomicFunnel(tenantId: string, days = 30): Promise<{
+    windowDays: number;
+    since: string;
+    stages: Array<{ stage: string; count: number; conversionPct: number; medianHoursFromJob: number | null }>;
+  }> {
+    const windowDays = Math.min(Math.max(days, 1), 180);
+    const since = new Date(Date.now() - windowDays * 86_400_000);
+    const jobs = await this.prisma.job.findMany({
+      where: { tenantId, deletedAt: null, createdAt: { gte: since } },
+      take: 1000,
+      select: {
+        createdAt: true,
+        bids: { select: { createdAt: true }, orderBy: { createdAt: "asc" }, take: 1 },
+        contract: { select: { createdAt: true } },
+        escrow: { select: { createdAt: true, status: true } },
+      },
+    });
+
+    type JobRow = {
+      createdAt: Date;
+      bids: Array<{ createdAt: Date }>;
+      contract: { createdAt: Date } | null;
+      escrow: { createdAt: Date; status: string } | null;
+    };
+    const rows = jobs as JobRow[];
+
+    const hoursFromJob = (row: JobRow, at: Date | undefined | null): number | null =>
+      at ? (at.getTime() - row.createdAt.getTime()) / 3_600_000 : null;
+
+    const median = (values: number[]): number | null => {
+      if (values.length === 0) return null;
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const value = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      return Math.round(value * 10) / 10;
+    };
+
+    const withBid = rows.filter((r) => r.bids.length > 0);
+    const withContract = rows.filter((r) => r.contract);
+    const withEscrow = rows.filter((r) => r.escrow);
+    const paid = rows.filter((r) => r.escrow?.status === "RELEASED" || r.escrow?.status === "CLOSED");
+
+    const total = rows.length;
+    const pct = (count: number) => (total > 0 ? Math.round((count / total) * 1000) / 10 : 0);
+
+    const stages = [
+      { stage: "job_created", count: total, conversionPct: total > 0 ? 100 : 0, medianHoursFromJob: null as number | null },
+      {
+        stage: "first_bid",
+        count: withBid.length,
+        conversionPct: pct(withBid.length),
+        medianHoursFromJob: median(withBid.map((r) => hoursFromJob(r, r.bids[0]?.createdAt)).filter((v): v is number => v !== null)),
+      },
+      {
+        stage: "contract",
+        count: withContract.length,
+        conversionPct: pct(withContract.length),
+        medianHoursFromJob: median(withContract.map((r) => hoursFromJob(r, r.contract?.createdAt)).filter((v): v is number => v !== null)),
+      },
+      {
+        stage: "escrow_funded",
+        count: withEscrow.length,
+        conversionPct: pct(withEscrow.length),
+        medianHoursFromJob: median(withEscrow.map((r) => hoursFromJob(r, r.escrow?.createdAt)).filter((v): v is number => v !== null)),
+      },
+      {
+        stage: "payment_released",
+        count: paid.length,
+        conversionPct: pct(paid.length),
+        medianHoursFromJob: null,
+      },
+    ];
+
+    return { windowDays, since: since.toISOString(), stages };
+  }
+
   /** PI-03.2 — retención: 30d identificable, 90d señales agregadas. */
   async runRetention(): Promise<RetentionResult> {
     const identifiableCutoff = new Date(Date.now() - IDENTIFIABLE_RETENTION_DAYS * 86_400_000);

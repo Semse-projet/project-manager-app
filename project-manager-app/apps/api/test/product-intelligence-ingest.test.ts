@@ -129,3 +129,44 @@ test("runRetention borra por ventanas 30/90 días", async () => {
   const signalCutoff = cutoffs[2].where.createdAt.lt.getTime();
   assert.ok(Math.abs(now - signalCutoff - 90 * 86_400_000) < 60_000);
 });
+
+test("getEconomicFunnel calcula etapas, conversión y medianas", async () => {
+  const base = Date.now() - 5 * 86_400_000;
+  const jobRows = [
+    {
+      createdAt: new Date(base),
+      bids: [{ createdAt: new Date(base + 2 * 3_600_000) }],
+      contract: { createdAt: new Date(base + 24 * 3_600_000) },
+      escrow: { createdAt: new Date(base + 30 * 3_600_000), status: "RELEASED" },
+    },
+    {
+      createdAt: new Date(base),
+      bids: [{ createdAt: new Date(base + 4 * 3_600_000) }],
+      contract: null,
+      escrow: null,
+    },
+    { createdAt: new Date(base), bids: [], contract: null, escrow: null },
+    { createdAt: new Date(base), bids: [], contract: null, escrow: null },
+  ];
+  const prisma = { job: { findMany: async () => jobRows } };
+  const service = new ProductIntelligenceService(prisma as never);
+  const funnel = await service.getEconomicFunnel("tenant_default", 30);
+
+  const byStage = Object.fromEntries(funnel.stages.map((s) => [s.stage, s]));
+  assert.equal(byStage.job_created.count, 4);
+  assert.equal(byStage.first_bid.count, 2);
+  assert.equal(byStage.first_bid.conversionPct, 50);
+  assert.equal(byStage.first_bid.medianHoursFromJob, 3); // mediana de 2h y 4h
+  assert.equal(byStage.contract.count, 1);
+  assert.equal(byStage.escrow_funded.count, 1);
+  assert.equal(byStage.payment_released.count, 1);
+});
+
+test("getEconomicFunnel con cero jobs no divide por cero", async () => {
+  const prisma = { job: { findMany: async () => [] } };
+  const service = new ProductIntelligenceService(prisma as never);
+  const funnel = await service.getEconomicFunnel("tenant_default", 30);
+  assert.equal(funnel.stages[0].count, 0);
+  assert.equal(funnel.stages[0].conversionPct, 0);
+  assert.ok(funnel.stages.every((s) => Number.isFinite(s.conversionPct)));
+});
