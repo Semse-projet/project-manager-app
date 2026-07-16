@@ -1,14 +1,24 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Post, Req } from "@nestjs/common";
 import { semseEventSchema } from "@semse/schemas";
+import { z } from "zod";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { normalizeRoles } from "../../common/rbac.js";
+import { DomainEventConsumerService } from "./domain-event-consumer.service.js";
 import { DomainEventsService } from "./domain-events.service.js";
+
+const processDomainEventBodySchema = z.object({
+  workerId: z.string().trim().min(1).max(255),
+}).strict();
 
 @Controller("v1/domain-events")
 export class DomainEventsController {
-  constructor(private readonly domainEventsService: DomainEventsService) {}
+  constructor(
+    private readonly domainEventsService: DomainEventsService,
+    private readonly domainEventConsumerService: DomainEventConsumerService,
+  ) {}
 
   @Get("manual-catalog")
   @RequirePermissions("domain-events:emit")
@@ -71,6 +81,44 @@ export class DomainEventsController {
       roles: actor.roles
     });
 
+    return ok(requestId, data);
+  }
+
+  @Post(":eventId/process")
+  @RequirePermissions("domain-events:consume")
+  async process(
+    @Req() req: {
+      headers?: Record<string, unknown>;
+      authContext?: {
+        userId: string;
+        tenantId: string;
+        orgId: string;
+        roles: string[];
+      };
+    },
+    @Param("eventId") eventId: string,
+    @Body() body: unknown,
+  ) {
+    const actor = resolveRequestContext(req);
+    if (!normalizeRoles(actor.roles).includes("EVENT_CONSUMER")) {
+      throw new ForbiddenException({
+        message: "Domain event processing requires service identity",
+        requiredRole: "EVENT_CONSUMER",
+      });
+    }
+    if (!z.string().uuid().safeParse(eventId).success) {
+      throw new BadRequestException({ message: "eventId must be a UUID" });
+    }
+    const parsedBody = processDomainEventBodySchema.safeParse(body);
+    if (!parsedBody.success) {
+      throw new BadRequestException(parsedBody.error.flatten());
+    }
+
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.domainEventConsumerService.process(eventId, {
+      workerId: parsedBody.data.workerId,
+      serviceActorId: actor.userId,
+    });
     return ok(requestId, data);
   }
 }

@@ -6,6 +6,7 @@ import { AiModelsModule } from "../ai-models/ai-models.module.js";
 import { MatchingModule } from "../matching/matching.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
 import { AgentTriggerRouter } from "./agent-trigger-router.service.js";
+import { DomainEventConsumerService } from "./domain-event-consumer.service.js";
 import { DomainEventsController } from "./domain-events.controller.js";
 import { DomainEventsRepository } from "./domain-events.repository.js";
 import { DomainEventsService } from "./domain-events.service.js";
@@ -26,6 +27,7 @@ import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
   providers: [
     DomainEventsRepository,
     DomainEventsService,
+    DomainEventConsumerService,
     DomainEventBus,
     AgentTriggerRouter,
     OutboxRepository,

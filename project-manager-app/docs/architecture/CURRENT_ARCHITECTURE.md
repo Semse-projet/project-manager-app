@@ -182,7 +182,7 @@ Reglas:
   compensacion antes de habilitarse.
 - Prometeo nunca mantiene una copia paralela del estado de negocio.
 
-## 8. Event Backbone objetivo
+## 8. Event Backbone en consolidacion
 
 El estado actual no debe confundirse con el objetivo. El flujo durable aprobado
 es:
@@ -199,7 +199,7 @@ Command/Webhook
   -> Mission Control
 ```
 
-El envelope canónico futuro debe contener al menos:
+El envelope canónico v2 contiene al menos:
 
 ```text
 eventId, eventType, version, occurredAt, recordedAt,
@@ -208,14 +208,17 @@ correlationId, causationId, idempotencyKey,
 payload, metadata, traceContext, schemaRef
 ```
 
-No se migrara con un big bang. F1 debe introducir el envelope y la outbox en un
-slice vertical de alto valor, probar replay/idempotencia y luego ampliar dominio
-por dominio.
+No se migrara con un big bang. F1-A–F1-D ya introducen el envelope y la outbox
+en Evidence, el dispatcher BullMQ y el consumer idempotente
+`evidence-readiness.v1`. El efecto y su receipt comparten transaccion, y el
+worker recibe solo `eventId`. F1-E debe añadir Ops/replay/trace y F1-F debe
+realizar canary antes de ampliar dominio por dominio.
 
 El contrato F1 esta aprobado en
 [`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md)
-y ADR-022. Su estado sigue siendo **pendiente de implementacion**: aprobar el
-spec no equivale a tener tablas, dispatcher o consumers desplegados.
+y ADR-022. Su estado es **parcial, implementado localmente hasta F1-D**. Los
+switches de dispatcher/consumers permanecen apagados por defecto y el corte no
+se considera desplegado ni cerrado hasta completar verificacion de produccion.
 
 ## 9. Flujos canónicos
 
