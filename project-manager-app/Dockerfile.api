@@ -16,6 +16,7 @@ COPY packages/auth/package.json ./packages/auth/
 COPY packages/autonomy/package.json ./packages/autonomy/
 COPY packages/db/package.json ./packages/db/
 COPY packages/knowledge/package.json ./packages/knowledge/
+COPY packages/product-events/package.json ./packages/product-events/
 COPY packages/schemas/package.json ./packages/schemas/
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/tools/package.json ./packages/tools/
@@ -59,12 +60,14 @@ COPY --from=builder /app/packages/auth/package.json ./packages/auth/package.json
 COPY --from=builder /app/packages/autonomy/package.json ./packages/autonomy/package.json
 COPY --from=builder /app/packages/db/package.json ./packages/db/package.json
 COPY --from=builder /app/packages/knowledge/package.json ./packages/knowledge/package.json
+COPY --from=builder /app/packages/product-events/package.json ./packages/product-events/package.json
 COPY --from=builder /app/packages/schemas/package.json ./packages/schemas/package.json
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=builder /app/packages/tools/package.json ./packages/tools/package.json
 COPY --from=builder /app/packages/ui/package.json ./packages/ui/package.json
 
 # Copy built dist for workspace packages (needed by the API at runtime)
+COPY --from=builder /app/packages/product-events/dist ./packages/product-events/dist
 COPY --from=builder /app/packages/schemas/dist ./packages/schemas/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
