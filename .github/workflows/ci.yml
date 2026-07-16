@@ -59,10 +59,14 @@ jobs:
       - name: Apply database migrations
         run: pnpm db:migrate
 
-      # PI-01: no bloqueante hasta 2026-07-20; después quitar continue-on-error.
+      # PI-01: bloqueante desde el gate P0 2026-07-13 — el drift preexistente
+      # documentado vive en scripts/prisma-contract-baseline.json (solo puede
+      # encogerse) y cualquier drift nuevo rompe el build.
       - name: Verify Prisma runtime contract
         run: pnpm verify:prisma-contract:db
-        continue-on-error: true
+
+      - name: Verify toolchain alignment (Node/pnpm)
+        run: pnpm check:toolchain
 
       - name: Spec preflight
         run: pnpm spec:preflight

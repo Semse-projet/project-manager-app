@@ -1,3 +1,9 @@
+import {
+  generalizePublicLocation,
+  publicDisplayName,
+  redactPublicText,
+} from "@semse/schemas";
+
 export type PublicLandingProfessional = {
   id: string;
   displayName: string;
@@ -60,6 +66,35 @@ const FALLBACK_OVERVIEW: PublicLandingOverview = {
   generatedAt: new Date(0).toISOString(),
 };
 
+/**
+ * Defensa en profundidad: el API ya sanitiza estos campos antes de
+ * serializar, pero esta capa re-aplica el mismo contrato para que un API
+ * desactualizado, un fallback o un dato legado nunca metan PII en el HTML
+ * inicial del SSR.
+ */
+export function sanitizePublicOverview(overview: PublicLandingOverview): PublicLandingOverview {
+  return {
+    ...overview,
+    topProfessionals: overview.topProfessionals.map((pro) => ({
+      ...pro,
+      displayName: publicDisplayName(pro.displayName, "Profesional verificado"),
+    })),
+    testimonials: overview.testimonials.map((testimonial) => ({
+      ...testimonial,
+      comment: redactPublicText(testimonial.comment, 400),
+      jobTitle: redactPublicText(testimonial.jobTitle, 120),
+      authorName: publicDisplayName(testimonial.authorName, "Cliente verificado"),
+      targetName: publicDisplayName(testimonial.targetName, "Profesional verificado"),
+    })),
+    featuredJobs: overview.featuredJobs.map((job) => ({
+      ...job,
+      title: redactPublicText(job.title, 120),
+      scope: redactPublicText(job.scope, 280),
+      location: generalizePublicLocation(job.location),
+    })),
+  };
+}
+
 export async function fetchPublicLandingOverviewServer(): Promise<PublicLandingOverview> {
   const apiBase = process.env.SEMSE_API_BASE_URL ?? "http://127.0.0.1:4000";
 
@@ -74,7 +109,7 @@ export async function fetchPublicLandingOverviewServer(): Promise<PublicLandingO
     }
 
     const json = (await response.json()) as { data?: PublicLandingOverview };
-    return json.data ?? FALLBACK_OVERVIEW;
+    return sanitizePublicOverview(json.data ?? FALLBACK_OVERVIEW);
   } catch {
     return FALLBACK_OVERVIEW;
   }

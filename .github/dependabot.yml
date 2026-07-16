@@ -8,9 +8,10 @@ updates:
       time: "08:00"
       timezone: "America/New_York"
     open-pull-requests-limit: 5
+    # Solo etiquetas que EXISTEN en el repo: una etiqueta inexistente hace que
+    # Dependabot comente "The following labels could not be found" en cada PR.
     labels:
       - "dependencies"
-      - "npm"
     groups:
       angular:
         patterns:
@@ -36,7 +37,6 @@ updates:
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
-      - "github-actions"
     groups:
       actions:
         patterns:
