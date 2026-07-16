@@ -36,9 +36,11 @@
     "typecheck:all": "node ./scripts/workspace-runner.mjs typecheck:all",
     "lint": "pnpm --filter @semse/api lint && pnpm --filter @semse/web lint",
     "validate:workspace": "node ./scripts/validate-workspace.mjs",
-    "verify:workspace": "pnpm run railway:preflight && pnpm --filter @semse/api test:unit",
+    "verify:workspace": "pnpm audit:prisma-usage && pnpm check:toolchain && pnpm run railway:preflight && pnpm --filter @semse/api test:unit",
     "verify:prisma-contract": "node ./scripts/verify-prisma-runtime-contract.mjs",
     "verify:prisma-contract:db": "node ./scripts/verify-prisma-runtime-contract.mjs --db",
+    "audit:prisma-usage": "node ./scripts/verify-prisma-runtime-contract.mjs",
+    "check:toolchain": "node ./scripts/check-toolchain-alignment.mjs",
     "railway:preflight": "node ./scripts/workspace-runner.mjs railway:preflight",
     "spec:preflight": "pnpm railway:preflight",
     "smoke:persistence": "node ./scripts/api-persistence-smoke.mjs",
@@ -121,10 +123,13 @@
       "js-yaml": "4.2.0",
       "multer": "2.2.0",
       "piscina": "5.2.0",
-      "postcss": "8.5.15",
+      "postcss": "8.5.19",
       "undici@^6.0.0": "6.27.0",
       "undici@^7.0.0": "7.28.0",
-      "vite": "7.3.5"
+      "vite": "7.3.6"
     }
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
