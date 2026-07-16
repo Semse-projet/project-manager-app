@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { generalizePublicLocation, redactPublicText } from "@semse/schemas";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    return NextResponse.json({ data: json.data });
+    // Defensa en profundidad: re-aplica el contrato de privacidad pública del API.
+    const opening = json.data as { title?: unknown; scope?: unknown; location?: unknown } | null;
+    const data = opening
+      ? {
+          ...opening,
+          title: redactPublicText(String(opening.title ?? ""), 120),
+          scope: redactPublicText(String(opening.scope ?? ""), 280),
+          location: generalizePublicLocation(opening.location ? String(opening.location) : null),
+        }
+      : opening;
+    return NextResponse.json({ data });
   } catch {
     return NextResponse.json({ error: { message: "Service unavailable" } }, { status: 503 });
   }

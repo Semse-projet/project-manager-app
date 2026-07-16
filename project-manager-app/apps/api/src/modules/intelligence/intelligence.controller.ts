@@ -11,6 +11,7 @@ import { ProfessionalCredentialService } from "./professional-credential.service
 import { PmoService } from "./pmo.service.js";
 import { BudgetIntelligenceService } from "./budget-intelligence.service.js";
 import { PublicInsightsService } from "./public-insights.service.js";
+import { publicDisplayName } from "./public-sanitizer.js";
 import { MatchingService } from "../matching/matching.service.js";
 
 function actor(req: FastifyRequest) {
@@ -114,7 +115,12 @@ export class IntelligenceController {
   @Public()
   async credentialBySlug(@Req() req: FastifyRequest, @Param("slug") slug: string) {
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.credential.getCredentialBySlug(slug));
+    const record = await this.credential.getCredentialBySlug(slug);
+    // Credenciales previas al fix P0 pueden tener el email como displayName.
+    return ok(
+      rid,
+      record ? { ...record, displayName: publicDisplayName(record.displayName, "Profesional verificado") } : record,
+    );
   }
 
   @Get("public/overview")

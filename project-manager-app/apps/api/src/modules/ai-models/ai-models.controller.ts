@@ -316,7 +316,7 @@ export class AiModelsController {
 
       if (suggestion) {
         const budgetResponse = suggestion.min > 0
-          ? `**Estimación de presupuesto**\n\nRango: $${suggestion.min.toLocaleString()} – $${suggestion.max.toLocaleString()} MXN\nMediana del mercado: $${suggestion.median.toLocaleString()} MXN\nConfianza: ${suggestion.confidence.toUpperCase()}\n\n${suggestion.aiNarrative}\n\n*Basado en ${suggestion.similarJobsFound} trabajos similares en el historial.*`
+          ? `**Estimación de presupuesto**\n\nRango: $${suggestion.min.toLocaleString()} – $${suggestion.max.toLocaleString()} ${suggestion.currency}\nMediana del mercado: $${suggestion.median.toLocaleString()} ${suggestion.currency}\nConfianza: ${suggestion.confidence.toUpperCase()}\n\n${suggestion.aiNarrative}\n\n*Basado en ${suggestion.similarJobsFound} trabajos similares en el historial.*`
           : suggestion.aiNarrative;
 
         await this.logger.logSyntheticInteraction({

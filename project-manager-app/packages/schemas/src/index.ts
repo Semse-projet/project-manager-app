@@ -41,3 +41,5 @@ export * from "./professional.schema.js";
 export * from "./client.types.js";
 // API-response-aligned types (uppercase enums matching Prisma/NestJS layer)
 export * from "./escrow-view.types.js";
+export * from "./public-sanitizer.js";
+export * from "./public-market.js";
