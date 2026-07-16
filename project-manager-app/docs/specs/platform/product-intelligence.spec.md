@@ -17,13 +17,14 @@ sse: false
 fsmTransicion: "N/A — telemetría, sin FSM de negocio"
 paymentGovernance: false
 related_files:
-  # Puntos de integración existentes. Los paths nuevos (packages/product-events,
-  # apps/api/src/modules/product-intelligence, schemas) se agregan al frontmatter
-  # cuando existan (PI-02+); mientras tanto viven en el cuerpo de la spec.
+  # apps/api/src/modules/product-intelligence se agrega cuando exista (PI-04).
+  - packages/schemas/src/product-events.schema.ts
+  - packages/product-events
   - apps/api/src/modules/operational-intelligence/operational-signals.service.ts
   - apps/api/src/modules/ops
   - packages/db/prisma/schema.prisma
-related_tests: []
+related_tests:
+  - packages/product-events/test/product-events.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []

@@ -6,6 +6,7 @@ export const PUBLIC_SEMSE_API_EXACT_PATHS = [
   "/api/semse/auth/token",
   "/api/semse/healthz",
   "/api/semse/stats/public",
+  "/api/semse/product-intelligence/ingest",
 ] as const;
 
 export const PUBLIC_SEMSE_API_PREFIXES = ["/api/semse/public/"] as const;
