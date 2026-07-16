@@ -86,8 +86,8 @@ export class BrowserToolRunner {
       } while (output !== previous);
       return output;
     };
-    text = removeAll(text, /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi);
-    text = removeAll(text, /<style\b[^>]*>[\s\S]*?<\/style\s*>/gi);
+    text = removeAll(text, /<script\b[^>]*>[\s\S]*?<\/script\b[^>]*>/gi);
+    text = removeAll(text, /<style\b[^>]*>[\s\S]*?<\/style\b[^>]*>/gi);
     // Tags script/style sueltos (sin cierre) que hubieran quedado.
     text = removeAll(text, /<\/?(?:script|style)\b[^>]*>/gi);
     
