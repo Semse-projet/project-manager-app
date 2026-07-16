@@ -194,8 +194,9 @@ async function checkDatabase() {
     warnings.push("schema→database: sin DATABASE_URL, nivel 3 omitido");
     return;
   }
-  // `?schema=public` es un parámetro de Prisma que psql rechaza — quitarlo
-  // (sin él, el nivel 3 se omitía silenciosamente incluso en CI).
+  // `?schema=public` es un parámetro de Prisma que psql rechaza — quitar SOLO
+  // ese parámetro (borrar toda la query rompería sslmode=require y similares).
+  // Sin esto, el nivel 3 se omitía silenciosamente incluso en CI.
   try {
     const parsed = new URL(url);
     parsed.searchParams.delete("schema");

@@ -153,6 +153,9 @@ importers:
       '@semse/knowledge':
         specifier: workspace:*
         version: link:../../packages/knowledge
+      '@semse/product-events':
+        specifier: workspace:*
+        version: link:../../packages/product-events
       '@semse/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
@@ -717,6 +720,16 @@ importers:
         version: 4.23.1
 
   packages/knowledge:
+    dependencies:
+      '@semse/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+
+  packages/product-events:
     dependencies:
       '@semse/schemas':
         specifier: workspace:*

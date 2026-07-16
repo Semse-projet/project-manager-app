@@ -61,6 +61,7 @@ import { SmartIntakeModule } from "./modules/smart-intake/smart-intake.module.js
 import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge/intake-operations-bridge.module.js";
 import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module.js";
 import { OperationalIntelligenceModule } from "./modules/operational-intelligence/operational-intelligence.module.js";
+import { ProductIntelligenceModule } from "./modules/product-intelligence/product-intelligence.module.js";
 import { CommunicationsModule } from "./modules/communications/communications.module.js";
 import { PricingModule } from "./modules/pricing/pricing.module.js";
 import { DidModule } from "./modules/did/did.module.js";
@@ -144,6 +145,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     IntakeOperationsBridgeModule,
     ChangeOrdersModule,
     OperationalIntelligenceModule,
+    ProductIntelligenceModule,
     CommunicationsModule,
     PricingModule,
     DidModule,
