@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { PUBLIC_MARKET_CURRENCY } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
 
@@ -166,7 +167,7 @@ export class BudgetIntelligenceService {
       min: budgetMin,
       max: budgetMax,
       median: budgetMedian,
-      currency: "MXN",
+      currency: PUBLIC_MARKET_CURRENCY,
       confidence,
       basis: basisNote,
       similarJobsFound,
@@ -186,13 +187,13 @@ export class BudgetIntelligenceService {
       return "No hay suficientes datos históricos para generar una estimación confiable. Te recomiendo solicitar 3 cotizaciones de profesionales verificados para establecer un rango real.";
     }
 
-    const prompt = `Eres un experto en presupuestos de construcción y servicios en México.
+    const prompt = `Eres un experto en presupuestos de construcción y servicios en Florida, Estados Unidos.
 
 Trabajo: "${input.title}"
 Descripción: "${input.scope}"
 Categoría: ${input.category ?? "general"}
 Datos del sistema: ${similarCount} trabajos similares encontrados
-Rango estimado: $${min.toLocaleString()} - $${max.toLocaleString()} MXN (mediana $${median.toLocaleString()})
+Rango estimado: $${min.toLocaleString()} - $${max.toLocaleString()} ${PUBLIC_MARKET_CURRENCY} (mediana $${median.toLocaleString()})
 Confianza: ${confidence}
 
 Escribe una explicación corta (3-4 oraciones) en español que:
@@ -213,7 +214,7 @@ Sé directo y conversacional. No uses listas. Máximo 100 palabras.`;
       });
       return response.output.trim();
     } catch {
-      return `Para este tipo de trabajo, el rango de $${min.toLocaleString()} - $${max.toLocaleString()} MXN refleja el mercado local basado en ${similarCount} proyectos similares. La mediana de $${median.toLocaleString()} es un buen punto de partida para negociar.`;
+      return `Para este tipo de trabajo, el rango de $${min.toLocaleString()} - $${max.toLocaleString()} ${PUBLIC_MARKET_CURRENCY} refleja el mercado local basado en ${similarCount} proyectos similares. La mediana de $${median.toLocaleString()} es un buen punto de partida para negociar.`;
     }
   }
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { PUBLIC_MARKET_CURRENCY, formatPublicMoney, formatPublicMoneyRange } from "@semse/schemas";
 import { CheckCircle, ExternalLink, MapPin, Sparkles, Star, Upload, Users } from "lucide-react";
 import {
   buildJobIntakeHref,
@@ -35,7 +36,6 @@ type RecommendedProfessional = {
   userId: string;
   displayName: string;
   publicSlug: string | null;
-  email: string;
   score: number;
   percentileRank: number;
   verificationStatus: string;
@@ -373,7 +373,7 @@ export function LandingIntake() {
                   >
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{item.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>desde ${item.basePrice.toLocaleString("en-US")}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>desde {formatPublicMoney(item.basePrice)}</div>
                     </div>
                     {subcategoryId === item.id ? <CheckCircle size={15} color="var(--brand)" /> : null}
                   </button>
@@ -616,10 +616,10 @@ export function LandingIntake() {
                 </span>
               </div>
               <div style={{ fontSize: 24, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.02em", marginBottom: 6 }}>
-                ${visibleLegacyBudget.min.toLocaleString("en-US")} - ${visibleLegacyBudget.max.toLocaleString("en-US")} {visibleLegacyBudget.currency}
+                {formatPublicMoneyRange(visibleLegacyBudget.min, visibleLegacyBudget.max)} {PUBLIC_MARKET_CURRENCY}
               </div>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10 }}>
-                Mediana ${visibleLegacyBudget.median.toLocaleString("en-US")} · {visibleLegacyBudget.similarJobsFound} referencias
+                Mediana {formatPublicMoney(visibleLegacyBudget.median)} · {visibleLegacyBudget.similarJobsFound} referencias
               </div>
               <p style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.6 }}>{visibleLegacyBudget.aiNarrative}</p>
             </div>

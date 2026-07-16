@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { publicDisplayName } from "@semse/schemas";
 import type {
   MatchCandidateView,
   MatchJobInput,
@@ -22,7 +23,6 @@ export type PublicProfessionalPreview = {
   userId: string;
   displayName: string;
   publicSlug: string | null;
-  email: string;
   score: number;
   percentileRank: number;
   breakdown: MatchScoreBreakdown;
@@ -262,9 +262,10 @@ export class MatchingService {
 
       return {
         userId: candidate.userId,
-        displayName: profile?.displayName ?? candidate.email,
+        // Superficie pública anónima: jamás exponer el email del candidato,
+        // ni como campo ni como displayName de fallback.
+        displayName: publicDisplayName(profile?.displayName, "Profesional verificado"),
         publicSlug: profile?.publicSlug ?? null,
-        email: profile?.email || candidate.email,
         score,
         percentileRank: candidate.percentileRank,
         breakdown: candidate.breakdown,

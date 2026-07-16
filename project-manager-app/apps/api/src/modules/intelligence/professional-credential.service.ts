@@ -1,5 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { publicDisplayName } from "./public-sanitizer.js";
 
 export type CredentialBadge =
   | "top_rated"
@@ -155,7 +156,10 @@ export class ProfessionalCredentialService {
 
     const specialties = inferSpecialties((allProjects as PRow[]).map((p: PRow) => p.job.category ?? "general").filter(Boolean));
     const badges = buildBadges({ avgClientRating, disputeRate, onTimeRate, completedProjects, trustScore });
-    const displayNameRaw = user.profile?.displayName ?? user.email;
+    // Nunca usar el email como nombre público: aparece en la landing, en
+    // /pro/[slug] y en el propio slug de la URL. publicDisplayName también
+    // descarta displayNames que sean un email o un teléfono.
+    const displayNameRaw = publicDisplayName(user.profile?.displayName, "Profesional SEMSE");
     const slug = slugify(displayNameRaw, userId);
 
     const data = {

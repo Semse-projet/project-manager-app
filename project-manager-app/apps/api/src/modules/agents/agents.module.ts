@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { IdempotencyService } from "../../common/idempotency.service.js";
 import { AgentQueueModule } from "../../infrastructure/queue/agent-queue.module.js";
 import { LLMModule } from "../../infrastructure/llm/llm.module.js";
@@ -25,11 +25,12 @@ import { PlanTemplatesService } from "./plan-templates.service.js";
 import { ProjectCopilotHarness } from "./harnesses/project-copilot.harness.js";
 import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { AiModelsModule } from "../ai-models/ai-models.module.js";
+import { BrowserAgentModule } from "../browser-agent/browser-agent.module.js";
 import { PrometeoMissionController } from "./prometeo-mission.controller.js";
 import { PrometeoMissionService } from "./prometeo-mission.service.js";
 
 @Module({
-  imports: [AgentQueueModule, LLMModule, ProjectsModule, KnowledgeModule, MilestonesModule, DisputesModule, PaymentsModule, UsersModule, PrometeoModule, AiModelsModule],
+  imports: [AgentQueueModule, LLMModule, ProjectsModule, KnowledgeModule, MilestonesModule, DisputesModule, PaymentsModule, UsersModule, PrometeoModule, AiModelsModule, forwardRef(() => BrowserAgentModule)],
   controllers: [AgentsController, PrometeoMissionController],
   providers: [
     AgentApprovalService,

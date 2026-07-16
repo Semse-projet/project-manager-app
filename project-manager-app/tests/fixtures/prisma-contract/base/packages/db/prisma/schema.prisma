@@ -1,0 +1,8 @@
+model Job {
+  id String @id
+}
+
+model UserProfile {
+  id String @id
+  @@map("user_profiles")
+}

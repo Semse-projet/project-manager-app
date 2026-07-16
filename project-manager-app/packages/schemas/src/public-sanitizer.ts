@@ -1,0 +1,145 @@
+/**
+ * Sanitización de datos que salen por superficies públicas sin autenticación
+ * (landing, /worker/apply, /pro/[slug]).
+ *
+ * Regla: un visitante anónimo nunca debe ver direcciones exactas, emails ni
+ * teléfonos de un lead o usuario, aunque el dato original los contenga.
+ *
+ * Fuente única del contrato de privacidad pública: el API sanitiza antes de
+ * serializar y la capa web re-aplica estas mismas funciones como defensa en
+ * profundidad (un API desactualizado o un fallback no deben poder filtrar PII).
+ */
+
+const STREET_WORDS =
+  "(?:street|st|avenue|ave|boulevard|blvd|circle|cir|road|rd|drive|dr|lane|ln|court|ct|way|place|pl|terrace|ter|calle|avenida|av|colonia|col|privada|cerrada|andador|callejon|callejón|carretera)";
+
+// "Apt 4B" / "Unit 12" / "Suite 300" / "Depto. 5" — unidades interiores que
+// identifican una vivienda exacta incluso sin número de calle.
+const UNIT_WORDS =
+  "(?:apt|apartment|unit|suite|ste|bldg|building|depto|departamento|interior|int)";
+
+// Cuantificadores acotados (RFC: local ≤64, label ≤63) para que el peor caso
+// sea lineal — un `+` sin cota sobre input de usuario es ReDoS polinómico
+// (js/polynomial-redos, CodeQL PR #306).
+const EMAIL_RE = /[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}/gi;
+
+// Teléfonos de 9+ dígitos con separadores (evita presupuestos tipo "3500 - 5000").
+const PHONE_RE =
+  /(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{4}\b/g;
+
+// "4064 Hal's circle" / "1200 Main Street"
+const STREET_ADDR_RE = new RegExp(
+  String.raw`\b\d{1,5}\s+(?:[A-Za-zÀ-ÿ'’.]+\s+){0,4}${STREET_WORDS}\b\.?`,
+  "gi",
+);
+
+// "Calle Hidalgo #23" / "Av. Reforma 1200"
+const STREET_ADDR_ES_RE = new RegExp(
+  String.raw`\b${STREET_WORDS}\.?\s+(?:[A-Za-zÀ-ÿ'’.]+\s+){0,4}#?\d{1,5}\b`,
+  "gi",
+);
+
+// "Apt 4B" / "Unit #12" / "Suite 300"
+const UNIT_ADDR_RE = new RegExp(String.raw`\b${UNIT_WORDS}\.?\s*#?\s*[\w-]{1,6}\b`, "gi");
+
+const STREET_WORD_TOKEN_RE = new RegExp(`^${STREET_WORDS}\\.?$`, "i");
+const UNIT_WORD_TOKEN_RE = new RegExp(`^${UNIT_WORDS}\\.?$`, "i");
+
+function truncateAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  const cut = text.slice(0, maxLength);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${cut.slice(0, lastSpace > maxLength * 0.6 ? lastSpace : maxLength).trimEnd()}…`;
+}
+
+/**
+ * Redacta emails, teléfonos y direcciones de calle en texto libre público
+ * (scope de jobs, comentarios de testimonios) y acota su largo.
+ */
+export function redactPublicText(text: string | null | undefined, maxLength = 280): string {
+  if (!text) return "";
+  const redacted = text
+    .replace(EMAIL_RE, "[contacto retirado]")
+    .replace(STREET_ADDR_RE, "[dirección retirada]")
+    .replace(STREET_ADDR_ES_RE, "[dirección retirada]")
+    .replace(UNIT_ADDR_RE, "[dirección retirada]")
+    .replace(PHONE_RE, (match) => {
+      const digits = match.replace(/\D/g, "");
+      return digits.length >= 9 ? "[contacto retirado]" : match;
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+  return truncateAtWord(redacted, maxLength);
+}
+
+/**
+ * Generaliza una ubicación a nivel ciudad/región: si contiene números o
+ * palabras de calle se descartan esos segmentos y se conserva solo la cola
+ * (ciudad, estado). "Naucalpan, Mex." pasa intacto; "4064 Hal's circle
+ * Tallahassee Florida" se convierte en "Tallahassee Florida".
+ */
+export function generalizePublicLocation(location: string | null | undefined): string | null {
+  if (!location) return null;
+  const trimmed = location.replace(/\s+/g, " ").trim();
+  if (!trimmed) return null;
+
+  const looksExact =
+    /\d/.test(trimmed) ||
+    STREET_ADDR_RE.test(trimmed) ||
+    STREET_ADDR_ES_RE.test(trimmed) ||
+    UNIT_ADDR_RE.test(trimmed);
+  // Los regex globales mantienen lastIndex entre llamadas: reiniciar.
+  STREET_ADDR_RE.lastIndex = 0;
+  STREET_ADDR_ES_RE.lastIndex = 0;
+  UNIT_ADDR_RE.lastIndex = 0;
+  if (!looksExact) return truncateAtWord(trimmed, 80);
+
+  const parts = trimmed.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    const safeParts = parts.filter(
+      (part) =>
+        !/\d/.test(part) &&
+        !part
+          .split(" ")
+          .some((word) => STREET_WORD_TOKEN_RE.test(word) || UNIT_WORD_TOKEN_RE.test(word)),
+    );
+    if (safeParts.length > 0) {
+      return truncateAtWord(safeParts.slice(-2).join(", "), 80);
+    }
+  }
+
+  const safeWords = trimmed
+    .replace(/,/g, " ")
+    .split(" ")
+    .filter(
+      (word) =>
+        word &&
+        !/\d/.test(word) &&
+        !STREET_WORD_TOKEN_RE.test(word) &&
+        !UNIT_WORD_TOKEN_RE.test(word) &&
+        !/^#/.test(word),
+    );
+  const tail = safeWords.slice(-2).join(" ").trim();
+  return tail.length > 0 ? truncateAtWord(tail, 80) : null;
+}
+
+/**
+ * Nombre público de un usuario en testimonios y perfiles: nunca un email ni
+ * un teléfono (algunos registros usan el email como displayName implícito).
+ * Si no hay displayName utilizable se usa una etiqueta genérica.
+ */
+export function publicDisplayName(
+  displayName: string | null | undefined,
+  fallbackLabel = "Usuario verificado",
+): string {
+  const trimmed = displayName?.trim();
+  if (!trimmed) return fallbackLabel;
+  EMAIL_RE.lastIndex = 0;
+  if (EMAIL_RE.test(trimmed)) {
+    EMAIL_RE.lastIndex = 0;
+    return fallbackLabel;
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length >= 9) return fallbackLabel;
+  return trimmed;
+}

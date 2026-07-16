@@ -3,9 +3,21 @@ name: Railway Deploy
 # serviceInstanceDeploy(latestCommit: true, commitSha: SHA) triggers a REAL
 # fresh build from source — unlike serviceInstanceDeployV2 which redeploys
 # the same cached image. Always use this form when pushing code changes.
+#
+# Gate P0 2026-07-13: este workflow ya NO se dispara con cada push a main.
+# Solo despliega cuando el workflow CI del MISMO SHA terminó en success
+# (workflow_run), y despliega exactamente ese SHA (DEPLOY_SHA =
+# workflow_run.head_sha). Si CI falla, no hay deploy — producción se queda en
+# el último SHA sano.
+#
+# Rollback: re-ejecutar este workflow con workflow_dispatch desde main NO
+# retrocede código; para volver a un SHA anterior, revertir el commit en main
+# (git revert) y dejar que CI + este gate desplieguen el revert. Nunca
+# desplegar a mano un SHA sin CI verde.
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
 
 concurrency:
@@ -17,11 +29,41 @@ permissions: {}
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # workflow_run: exigir CI success sobre main. workflow_dispatch: exigir
+    # que se lance desde main (github.ref del dispatch).
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/main')
+    outputs:
+      deploy_sha: ${{ steps.resolve-sha.outputs.deploy_sha }}
     steps:
+      - name: Resolve verified SHA
+        id: resolve-sha
+        env:
+          # En workflow_run, GITHUB_SHA apunta al último commit de la rama por
+          # defecto en el momento del evento — puede NO ser el SHA que CI
+          # validó. head_sha sí es el commit exacto evaluado por CI.
+          WORKFLOW_RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            deploy_sha="$WORKFLOW_RUN_HEAD_SHA"
+          else
+            deploy_sha="$GITHUB_SHA"
+          fi
+          [ -n "$deploy_sha" ] || { echo "No se pudo resolver el SHA a desplegar"; exit 1; }
+          echo "deploy_sha=$deploy_sha" >> "$GITHUB_OUTPUT"
+          echo "SHA verificado a desplegar: $deploy_sha"
+
       - name: Deploy exact commit to Railway (fresh build)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
+          DEPLOY_SHA: ${{ steps.resolve-sha.outputs.deploy_sha }}
         run: |
           set -euo pipefail
           # semse-worker, semse-API, semse-web, semse-vision (proyecto SEMSEproject)
@@ -33,7 +75,7 @@ jobs:
             response=$(curl -sf -X POST https://backboard.railway.com/graphql/v2 \
               -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\":\"mutation { serviceInstanceDeploy(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", latestCommit: true, commitSha: \\\"$GITHUB_SHA\\\") }\"}")
+              -d "{\"query\":\"mutation { serviceInstanceDeploy(serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\", latestCommit: true, commitSha: \\\"$DEPLOY_SHA\\\") }\"}")
             # Un error GraphQL también contiene "serviceInstanceDeploy" en su
             # "path" — hay que exigir data:true y rechazar cualquier "errors".
             echo "$response" | grep -q '"serviceInstanceDeploy":true' \
@@ -41,7 +83,7 @@ jobs:
             if echo "$response" | grep -q '"errors"'; then
               echo "Deploy returned GraphQL errors for $svc: $response"; exit 1
             fi
-            echo "Fresh build de $GITHUB_SHA disparado para servicio $svc"
+            echo "Fresh build de $DEPLOY_SHA disparado para servicio $svc"
           done
 
   health-check:
@@ -55,6 +97,7 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           ENV_ID: d682210a-956a-4508-9c5b-4ca5959278f9
+          DEPLOY_SHA: ${{ needs.deploy.outputs.deploy_sha }}
         run: |
           set -euo pipefail
           for svc in \
@@ -70,16 +113,16 @@ jobs:
                 -d "{\"query\":\"{ deployments(first: 1, input: { serviceId: \\\"$svc\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { status meta } } } }\"}") || { sleep 15; continue; }
               status=$(echo "$response" | grep -o '"status":"[A-Z_]*"' | head -1 | cut -d'"' -f4)
               commit=$(echo "$response" | grep -o '"commitHash":"[a-f0-9]*"' | head -1 | cut -d'"' -f4)
-              if [ "$commit" = "$GITHUB_SHA" ] && [ "$status" = "SUCCESS" ]; then
-                echo "servicio $svc: deployment de $GITHUB_SHA en SUCCESS ✅"; ok=1; break
+              if [ "$commit" = "$DEPLOY_SHA" ] && [ "$status" = "SUCCESS" ]; then
+                echo "servicio $svc: deployment de $DEPLOY_SHA en SUCCESS ✅"; ok=1; break
               fi
-              if [ "$commit" = "$GITHUB_SHA" ] && { [ "$status" = "FAILED" ] || [ "$status" = "CRASHED" ]; }; then
-                echo "servicio $svc: deployment de $GITHUB_SHA terminó en $status ❌"; exit 1
+              if [ "$commit" = "$DEPLOY_SHA" ] && { [ "$status" = "FAILED" ] || [ "$status" = "CRASHED" ]; }; then
+                echo "servicio $svc: deployment de $DEPLOY_SHA terminó en $status ❌"; exit 1
               fi
               echo "servicio $svc: esperando (commit=$commit status=$status, intento $attempt/40)"
               sleep 15
             done
-            [ -n "$ok" ] || { echo "servicio $svc: el deployment de $GITHUB_SHA no llegó a SUCCESS a tiempo ❌"; exit 1; }
+            [ -n "$ok" ] || { echo "servicio $svc: el deployment de $DEPLOY_SHA no llegó a SUCCESS a tiempo ❌"; exit 1; }
           done
 
       - name: Verify semse-API health

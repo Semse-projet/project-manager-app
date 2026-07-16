@@ -350,6 +350,39 @@ export const COPILOT_TOOLS: LLMToolDefinition[] = [
       required: ["agentId", "question"],
     },
   },
+  {
+    name: "run_browser_mission",
+    description: "Planifica y ejecuta una misión autónoma de navegación y raspado (scraping) de páginas web usando motores Chromium (Playwright/Obscura) de forma segura y gobernada. Úsala cuando el usuario te pida buscar, verificar o interactuar con un sitio web externo.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        goal: { type: "string", description: "Meta u objetivo de la navegación (ej. Verificar listado de precios en Home Depot)" },
+        steps: {
+          type: "array",
+          description: "Secuencia ordenada de pasos interactivos",
+          items: {
+            type: "object",
+            properties: {
+              actionType: { type: "string", enum: ["navigate", "get_markdown", "query", "click", "fill"], description: "Acción a realizar" },
+              parameters: {
+                type: "object",
+                description: "Parámetros específicos (url para navigate, selector para query/click/fill, value para fill)",
+                properties: {
+                  url: { type: "string" },
+                  selector: { type: "string" },
+                  value: { type: "string" }
+                }
+              },
+              engineUsed: { type: "string", enum: ["PLAYWRIGHT", "OBSCURA"], description: "Motor de renderizado" }
+            },
+            required: ["actionType"]
+          },
+          minItems: 1
+        }
+      },
+      required: ["goal", "steps"]
+    }
+  }
 ];
 
 // ── Tool call → AgentAction mapping ──────────────────────────────────────────
@@ -385,10 +418,13 @@ const TOOL_META: Record<string, { actionType: string; domain: string; riskLevel:
   // Delegation
   delegate_task:              { actionType: "DELEGATE_TASK",              domain: "delegation",  riskLevel: "medium", approvalMode: "recommended" },
   request_agent_help:         { actionType: "REQUEST_AGENT_HELP",         domain: "delegation",  riskLevel: "low",    approvalMode: "none"        },
+  run_browser_mission:        { actionType: "RUN_BROWSER_MISSION",        domain: "internal",    riskLevel: "medium", approvalMode: "required"    },
 };
 
 function buildSummary(toolName: string, input: Record<string, unknown>): string {
   switch (toolName) {
+    case "run_browser_mission":
+      return `Misión de Navegación: ${String(input.goal ?? "")}`;
     case "propose_milestone_approval":
       return `Aprobar milestone: ${String(input.milestoneName ?? "hito")}`;
     case "propose_escrow_release":

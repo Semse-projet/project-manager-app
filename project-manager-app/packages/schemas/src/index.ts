@@ -37,7 +37,10 @@ export * from "./developer-runtime.schema.js";
 export * from "./communication.schema.js";
 // Professional domain schemas (Zod)
 export * from "./professional.schema.js";
+export * from "./product-events.schema.js";
 // UI-facing TypeScript types (no Zod — pure interfaces for the frontend)
 export * from "./client.types.js";
 // API-response-aligned types (uppercase enums matching Prisma/NestJS layer)
 export * from "./escrow-view.types.js";
+export * from "./public-sanitizer.js";
+export * from "./public-market.js";

@@ -300,4 +300,79 @@ ${result.visibleTextSample || "(None extracted)"}
       },
     });
   }
+
+  async createMission(data: { tenantId: string; actorId: string; goal: string; steps: any[] }) {
+    const mission = await this.prisma.browserMission.create({
+      data: {
+        tenantId: data.tenantId,
+        actorId: data.actorId,
+        goal: data.goal,
+        status: "PLANNED",
+        budgetLimit: 100.0,
+      }
+    });
+
+    const steps = await Promise.all(
+      data.steps.map((step, idx) =>
+        this.prisma.browserMissionStep.create({
+          data: {
+            missionId: mission.id,
+            stepNumber: idx + 1,
+            actionType: step.actionType,
+            parameters: step.parameters || {},
+            engineUsed: step.engineUsed || "PLAYWRIGHT",
+            status: "PENDING"
+          }
+        })
+      )
+    );
+
+    // Create the background AgentRun to execute the mission
+    const correlationId = `browser-mission-${mission.id}-${Date.now()}`;
+    const run = await this.agentsService.create({
+      tenantId: data.tenantId,
+      orgId: data.actorId,
+      userId: data.actorId,
+      roles: ["project_manager"],
+      agentType: "browser-agent",
+      triggerType: "manual",
+      correlationId,
+      input: {
+        missionId: mission.id,
+      },
+      inputSummary: `Ejecución de misión browser: ${data.goal}`,
+      requestId: correlationId,
+    });
+
+    return { missionId: mission.id, runId: run.id, stepsCount: steps.length };
+  }
+
+  async getMission(id: string) {
+    const mission = await this.prisma.browserMission.findUnique({
+      where: { id },
+      // Las sesiones de navegador viven en memoria (BrowserSessionPool),
+      // no hay modelo persistido de sesión que incluir.
+      include: { steps: true }
+    });
+    if (!mission) throw new NotFoundException("Mission not found");
+    return mission;
+  }
+
+  async updateMission(id: string, body: any) {
+    return this.prisma.browserMission.update({
+      where: { id },
+      data: { status: body.status }
+    });
+  }
+
+  async updateStep(stepId: string, body: any) {
+    return this.prisma.browserMissionStep.update({
+      where: { id: stepId },
+      data: {
+        status: body.status,
+        error: body.error,
+        evidenceRef: body.evidenceRef
+      }
+    });
+  }
 }

@@ -183,7 +183,13 @@ export class PublicInsightsService {
       },
       topProfessionals: topProfessionals
         .filter((pro: ProfessionalCredentialRecord) => Boolean(pro.publicSlug))
-        .slice(0, limit),
+        .slice(0, limit)
+        // Credenciales construidas antes del fix P0 pueden tener el email
+        // almacenado como displayName — nunca publicarlo.
+        .map((pro: ProfessionalCredentialRecord) => ({
+          ...pro,
+          displayName: publicDisplayName(pro.displayName, "Profesional verificado"),
+        })),
       testimonials: (testimonials as PublicTestimonialRow[])
         .filter((row: PublicTestimonialRow) => typeof row.comment === "string" && row.comment.trim().length > 0)
         .map((row: PublicTestimonialRow) => ({

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Briefcase, ArrowRight, Zap, RefreshCw } from "lucide-react";
+import { formatPublicMoneyRange } from "@semse/schemas";
 import { PublicLandingFeaturedJob } from "../../lib/public-landing";
 
 interface FeaturedJobsFeedProps {
@@ -199,7 +200,7 @@ export function FeaturedJobsFeed({ jobs }: FeaturedJobsFeedProps) {
                 </div>
                 <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                   {job.budgetMin !== null
-                    ? `$${job.budgetMin.toLocaleString("en-US")}${job.budgetMax !== null ? ` - $${job.budgetMax.toLocaleString("en-US")}` : ""}`
+                    ? formatPublicMoneyRange(job.budgetMin, job.budgetMax)
                     : "Por definir"}
                 </div>
                 <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mt-0.5">

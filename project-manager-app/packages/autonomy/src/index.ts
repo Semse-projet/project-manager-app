@@ -303,3 +303,17 @@ export {
 export { runPermanentLoopCycle, type LoopRunnerDeps } from "./loops/loop-runner.js";
 export { buildExportInventory, findDuplicateCandidates, analyzeDedupAbstractions, type ExportRecord } from "./loops/dedup-loop.js";
 export { analyzeSpecDrift, buildSpecHealthReport, parseSpecMetadata } from "./loops/spec-drift-loop.js";
+
+// ── Browser agent (misiones stateful + adapters de engine) ──────────────────
+export { BrowserSessionPool, type ActiveSession } from "./browser/session-pool.js";
+export { BrowserToolRunner } from "./browser/browser-tool-runner.js";
+export { EngineRouter } from "./browser/engine-router.js";
+export { PlaywrightAdapter } from "./browser/playwright-adapter.js";
+export { ObscuraAdapter } from "./browser/obscura-adapter.js";
+export { SecureNetworkGateway } from "./browser/secure-network-gateway.js";
+export { SessionManager } from "./browser/session-manager.js";
+export type {
+  BrowserEngineAdapter,
+  BrowserInspectionOptions,
+  BrowserInspectionResult,
+} from "./browser/browser-engine.interface.js";

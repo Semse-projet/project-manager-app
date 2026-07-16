@@ -1,3 +1,4 @@
+import { publicDisplayName } from "@semse/schemas";
 import type { ProfessionalCredentialRecord } from "../../semse-api";
 
 const BADGE_META: Record<string, { label: string; color: string; emoji: string }> = {
@@ -43,7 +44,13 @@ async function fetchPublicProfile(slug: string): Promise<ProfessionalCredentialR
     );
     if (!res.ok) return null;
     const json = (await res.json()) as { data?: ProfessionalCredentialRecord };
-    return json.data ?? null;
+    if (!json.data) return null;
+    // Defensa en profundidad: el nombre público jamás puede ser un email o
+    // teléfono (aparece en el HTML, el <title> y la meta description).
+    return {
+      ...json.data,
+      displayName: publicDisplayName(json.data.displayName, "Profesional verificado"),
+    };
   } catch {
     return null;
   }

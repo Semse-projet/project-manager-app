@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { formatPublicMoney } from "@semse/schemas";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -407,11 +408,11 @@ export function PricingEstimator() {
             </span>
             <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
               <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-                ${minCost.toLocaleString("en-US")}
+                {formatPublicMoney(minCost)}
               </span>
               <span className="text-sm font-bold text-slate-400 dark:text-slate-500">—</span>
               <span className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white">
-                ${maxCost.toLocaleString("en-US")}
+                {formatPublicMoney(maxCost)}
               </span>
               <span className="text-xs font-bold text-slate-400 dark:text-slate-500 ml-1">
                 USD
