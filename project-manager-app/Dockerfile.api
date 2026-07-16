@@ -67,7 +67,6 @@ COPY --from=builder /app/packages/tools/package.json ./packages/tools/package.js
 COPY --from=builder /app/packages/ui/package.json ./packages/ui/package.json
 
 # Copy built dist for workspace packages (needed by the API at runtime)
-COPY --from=builder /app/packages/product-events/dist ./packages/product-events/dist
 COPY --from=builder /app/packages/schemas/dist ./packages/schemas/dist
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
