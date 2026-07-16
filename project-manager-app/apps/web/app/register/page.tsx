@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
+import { flushProductEvents, trackProductEvent } from "@/lib/product-intelligence";
 
 type AccountRole = "CLIENT" | "PRO";
 
@@ -73,6 +74,12 @@ export default function RegisterPage() {
   const redirectTo = normalizeSafeRedirectPath(searchParams?.get("from")) ?? undefined;
   const loginHref = redirectTo ? `/login?from=${encodeURIComponent(redirectTo)}` : "/login";
   const [role, setRole] = useState<AccountRole>("CLIENT");
+
+  useEffect(() => {
+    trackProductEvent("auth.register_view", { hasFrom: Boolean(redirectTo), role: "CLIENT" });
+    // Solo al montar: describe la llegada a la vista con el rol inicial.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -115,6 +122,10 @@ export default function RegisterPage() {
         return;
       }
 
+      if (redirectTo) {
+        trackProductEvent("auth.context_recovered", { target: data.redirectTo ?? redirectTo });
+      }
+      await flushProductEvents();
       window.location.assign(data.redirectTo ?? "/client/dashboard");
     } catch {
       setError("No se pudo conectar con el servidor");

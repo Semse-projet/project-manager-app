@@ -13,6 +13,7 @@
     "@next/swc-wasm-nodejs": "^16.2.10",
     "@semse/agents": "workspace:*",
     "@semse/auth": "workspace:*",
+    "@semse/product-events": "workspace:*",
     "@semse/schemas": "workspace:*",
     "@semse/shared": "workspace:*",
     "@semse/ui": "workspace:*",

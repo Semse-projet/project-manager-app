@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00..PI-04 COMPLETADOS. Siguiente: PI-05 (instrumentación auth/registro/wizard).
+**Estado:** PI-00..PI-05 COMPLETADOS. Siguiente: PI-06 (funnel económico). Para activar en prod: PRODUCT_INTELLIGENCE_ENABLED=true (API+worker) y NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=true (web).
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -90,8 +90,8 @@ Detecta drift código↔schema.prisma↔migraciones↔prod (la clase de bug de #
 
 ### PI-05 — Instrumentación P0: auth/registro/wizard
 Primer flujo instrumentado por historial real de bugs (register perdía contexto — PR #296).
-- [ ] PI-05.1 — Eventos: `auth.login_view`, `auth.register_view`, `auth.context_recovered`, `wizard.prefill_arrived`, `wizard.published`.
-- [ ] PI-05.2 — Funnel landing→wizard→registro→job publicado visible en admin.
+- [x] PI-05.1 — 5 eventos instrumentados: login (view + context_recovered), register (view + context_recovered), wizard (prefill_arrived con category/step/source, published con durationMs). Cliente web en apps/web/lib/product-intelligence.ts: kill switch NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED, consentClass essential (sin userId hasta que exista banner), sessionId/anonymousId en storage, flush en pagehide.
+- [x] PI-05.2 — GET /v1/product-intelligence/funnel (ops:dashboard:read) con groupBy por evento + sesiones; BFF /api/semse/product-intelligence/funnel; panel /admin/product-intelligence con barras del funnel y ventanas 7/14/30 días.
 
 ### PI-06 — Funnel económico
 - [ ] PI-06.1 — Eventos job→bid→contract→evidence→payment.

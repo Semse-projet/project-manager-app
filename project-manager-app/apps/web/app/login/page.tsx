@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
+import { flushProductEvents, trackProductEvent } from "@/lib/product-intelligence";
 
 const DEMO_LOGIN_ENABLED =
   process.env.NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED?.trim() === "true" ||
@@ -57,6 +58,12 @@ export default function LoginPage() {
 
   const activePreset = DEMO_LOGIN_ENABLED ? PRESETS.find(p => p.email === email) ?? null : null;
 
+  useEffect(() => {
+    trackProductEvent("auth.login_view", { hasFrom: Boolean(redirectTo) });
+    // Solo al montar: el evento describe la llegada a la vista.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -77,6 +84,10 @@ export default function LoginPage() {
         return;
       }
 
+      if (redirectTo) {
+        trackProductEvent("auth.context_recovered", { target: data.redirectTo ?? redirectTo });
+      }
+      await flushProductEvents();
       window.location.assign(data.redirectTo ?? "/client/dashboard");
     } catch {
       setError("No se pudo conectar con el servidor");
