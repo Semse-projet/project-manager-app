@@ -209,10 +209,10 @@ function ToolCard({ tool, onCopyContext }: { tool: (typeof TOOLS)[0]; onCopyCont
 }
 
 export default function ToolHubPage() {
-  const module = getAdminModuleById("tool-hub");
+  const mod = getAdminModuleById("tool-hub");
   const [bridgeCopied, setBridgeCopied] = useState(false);
 
-  if (!module) return null;
+  if (!mod) return null;
 
   async function copyContext() {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -223,7 +223,7 @@ export default function ToolHubPage() {
   }
 
   return (
-    <ModuleShell module={module} eyebrow="SEMSE Tool Hub">
+    <ModuleShell module={mod} eyebrow="SEMSE Tool Hub">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {TOOLS.map((tool) => (

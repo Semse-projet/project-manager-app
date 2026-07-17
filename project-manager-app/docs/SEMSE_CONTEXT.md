@@ -1,7 +1,7 @@
 # Contexto operativo canónico de SEMSEproject
 
 **Leer antes de planificar o modificar SEMSE.**
-**Corte verificado:** 2026-07-12
+**Corte verificado:** 2026-07-16 (`main@6a8b4a0` y deploy exacto verificados)
 
 ## Identidad
 
@@ -55,9 +55,9 @@ apps/autonomy-server runtime de autonomia
 apps/mobile          cliente movil/offline
 
 packages/agents      packages/auth       packages/autonomy
-packages/db          packages/knowledge  packages/schemas
-packages/sdk         packages/shared     packages/tools
-packages/ui
+packages/db          packages/knowledge  packages/product-events
+packages/schemas     packages/sdk        packages/shared
+packages/tools       packages/ui
 ```
 
 `apps/angular` y `apps/assistant-portal` son superficies adicionales o de
@@ -66,20 +66,27 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 ## Estado verificado importante
 
 - Prometeo Runtime P2 esta implementado, fusionado y desplegado.
-- SHA de produccion del corte: `bd0d98cd3c6815c5f0a0867852c4dbf7c1169e48`.
+- SHA de produccion del corte: `6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`.
 - `/v1/prometeo/tools` existe y requiere Bearer token.
 - Tool Registry: 23 herramientas read, 7 write; 17 casos read cableados.
 - Write tools de Prometeo siguen bloqueadas por el runtime actual.
-- Hay schema y bus de domain events, pero no outbox transaccional general.
+- El slice Evidence del Event Backbone tiene envelope v2, producer atomico,
+  outbox, dispatcher BullMQ, worker y consumer idempotente con receipt atomico.
+  Ops/replay, canary y adopcion general siguen pendientes.
 - Hay movimientos `PaymentTxn`, pero no ledger double-entry compartido.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
 - La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
-  64 specs, 0 errores y 0 warnings.
-- F1 Event Backbone tiene spec, plan, tasks y ADR aprobados. F1-A agrega
-  contratos Zod v2 y migracion aditiva de outbox/receipts. F1-B agrega el
-  producer atomico `Evidence + outbox`, con idempotencia concurrente; dispatcher
-  y consumer siguen pendientes hasta PRs posteriores.
+  65 specs, 0 errores y 0 warnings.
+- F1 Event Backbone tiene spec, plan, tasks y ADR aprobados. F1-A-F1-D estan en
+  `main`; F1-E (Ops/replay/RBAC/trace) y F1-F (canary/cierre) siguen pendientes.
+- Product Intelligence PI-00..PI-06 esta implementado: SDK separado de domain
+  events, contratos/modelos, ingesta/retencion, instrumentacion auth/wizard y
+  funnels de experiencia/economico. PI-07 Friction Engine es el siguiente
+  incremento.
+- El deploy contiene F1-D y PI-06, pero activacion y allowlists no se pudieron
+  verificar porque Railway CLI no estaba autenticada. No confundir codigo
+  desplegado con feature activa.
 
 ## Reglas de Prometeo
 
@@ -109,8 +116,9 @@ domain transaction + outbox row
   -> Mission Control
 ```
 
-El bus actual es parcial. No afirmar atomicidad donde hoy solo existe AuditLog y
-routing best-effort.
+El bus actual es parcial. La atomicidad solo esta demostrada para el producer y
+consumer del slice Evidence F1; el resto de dominios conserva contratos y
+routing anteriores hasta su migracion explicita.
 
 Todo evento nuevo debe declarar:
 
@@ -132,8 +140,8 @@ Todo evento nuevo debe declarar:
 
 ## Secuencia activa
 
-1. F0: sincronizar documentacion y verdad (completado).
-2. F1: Event Backbone (siguiente fase activa).
+1. F0: sincronizar documentacion y verdad (revalidado 2026-07-16).
+2. F1: Event Backbone (F1-E siguiente; F1-F cierra con canary).
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection.
 5. F4: Mission Control 2.0.

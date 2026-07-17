@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { handleServerError, resolveRuntimeConfigForRequest } from "../../../_server";
+import {
+  buildAuthorizedHeaders,
+  handleServerError,
+  resolveRuntimeConfigForRequest,
+} from "../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -22,10 +26,12 @@ export async function PUT(
 
     const contentType = request.headers.get("content-type") ?? "application/octet-stream";
     const body = await request.arrayBuffer();
+    const authorizedHeaders = await buildAuthorizedHeaders(config);
 
     const apiRes = await fetch(`${config.apiBaseUrl}/v1/uploads/files/${encodeURIComponent(keyStr)}`, {
       method: "PUT",
       headers: {
+        ...authorizedHeaders,
         "content-type": contentType,
         "content-length": String(body.byteLength),
       },

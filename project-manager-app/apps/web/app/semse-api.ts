@@ -42,6 +42,10 @@ import type {
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput
 } from "@semse/schemas";
+import {
+  buildStoredPrometeoAttachment,
+  getPrometeoUploadContentType,
+} from "../components/ai/prometeo-attachments";
 
 export type {
   AgentRuntimeList,
@@ -754,6 +758,47 @@ export async function uploadEvidenceFile(
   const evidenceId = String(evidence.id ?? "");
 
   return { key, evidenceId };
+}
+
+export async function uploadPrometeoAttachment(
+  file: File,
+  source: PrometeoAttachment["source"],
+): Promise<PrometeoAttachment> {
+  const originalContentType = file.type || "application/octet-stream";
+  const uploadContentType = getPrometeoUploadContentType(file);
+  const plan = await presignEvidence({
+    filename: file.name,
+    contentType: uploadContentType,
+    fileSizeBytes: file.size,
+    source: source === "camera" ? "camera_capture" : "project_copilot",
+  });
+
+  const key = typeof plan.key === "string" ? plan.key : "";
+  if (!key) {
+    throw new Error("No se pudo preparar el almacenamiento del adjunto.");
+  }
+
+  const uploadResponse = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: {
+      "content-type": uploadContentType,
+      "content-length": String(file.size),
+    },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    const payload = await uploadResponse.text().catch(() => "");
+    throw new Error(payload || `No se pudo subir “${file.name}” (${uploadResponse.status}).`);
+  }
+
+  return buildStoredPrometeoAttachment({
+    key,
+    name: file.name,
+    mimeType: originalContentType,
+    sizeBytes: file.size,
+    source,
+  });
 }
 
 export async function fetchNotifications(input?: {

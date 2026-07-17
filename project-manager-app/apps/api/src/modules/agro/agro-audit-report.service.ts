@@ -26,7 +26,7 @@ export class AgroAuditReportService {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
 
-    const [tasks, animals, items, movements, events, costEntries] = await Promise.all([
+    const [tasks, animals, items, _movements, events, costEntries] = await Promise.all([
       this.prisma.agroFarmTask.findMany({ where: { farmId } }),
       this.prisma.agroAnimal.findMany({ where: { farmId, status: "ACTIVE" } }),
       this.prisma.agroInventoryItem.findMany({ where: { farmId } }),

@@ -55,7 +55,6 @@ export class PaymentGovernanceService {
     });
 
     const projectId = milestone?.project?.id ?? null;
-    const jobId = milestone?.project?.jobId ?? null;
 
     // 3. Evidence summary from items
     const allItems = milestone?.evidenceItems ?? [];

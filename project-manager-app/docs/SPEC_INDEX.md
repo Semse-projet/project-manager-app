@@ -1,5 +1,5 @@
 # SPEC_INDEX — SEMSEproject
-**Última actualización manual:** 2026-07-12 (la matriz SDD se regenera con `pnpm spec:index`)
+**Última actualización manual:** 2026-07-16 (la matriz SDD se regenera con `pnpm spec:index`)
 **Mantenido por:** Architecture Agent / CTO Agent
 **Propósito:** Registry canónico de todos los documentos de especificación. Todo agente de IA debe leer este índice antes de trabajar en cualquier feature.
 
@@ -103,6 +103,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | 2026-07-12 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
+| [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | medium | yes | yes | yes | 6 | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
 | [ui.semse-hub](specs/ui/semse-hub.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 7 | 2026-07-12 |
 | [ui-work-os-navigation-decision-intelligence](specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | high | yes | yes | yes | 5 | 2026-06-09 |

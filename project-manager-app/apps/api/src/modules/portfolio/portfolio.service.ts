@@ -38,7 +38,7 @@ export class PortfolioService {
     return Math.round(totalSpent / avgDays);
   }
 
-  async getRiskSummary(userId: string): Promise<{ highRisk: number; mediumRisk: number; lowRisk: number }> {
+  async getRiskSummary(_userId: string): Promise<{ highRisk: number; mediumRisk: number; lowRisk: number }> {
     return { highRisk: 0, mediumRisk: 2, lowRisk: 3 };
   }
 }

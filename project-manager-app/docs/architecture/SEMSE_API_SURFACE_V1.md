@@ -53,6 +53,13 @@
 - `GET /v1/projects/:projectId/evidence`
 - `GET /v1/evidence/:evidenceId`
 
+## Domain Events
+- `GET /v1/domain-events/manual-catalog`
+- `GET /v1/domain-events`
+- `GET /v1/domain-events/:correlationId`
+- `POST /v1/domain-events/emit`
+- `POST /v1/domain-events/:eventId/process` (interno; service identity `EVENT_CONSUMER` + `domain-events:consume`; body estricto `{ workerId }`; recupera el evento canónico por `eventId`)
+
 ## Prometeo
 - `POST /v1/ai-models/prometeo/chat` (acepta `PrometeoRequest` multimodal legacy-compatible)
 - `GET /v1/prometeo/tools`

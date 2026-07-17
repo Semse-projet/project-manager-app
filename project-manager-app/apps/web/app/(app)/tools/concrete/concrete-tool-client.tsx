@@ -122,9 +122,9 @@ export function ConcreteToolClient({ section }: ConcreteToolClientProps) {
           </div>
         );
       case "scope":
-        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Area: {input.squareFeet} sqft • Thickness: {input.thickness}\" • Type: {input.type}</p></Card>;
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Project Scope</h3><p className="text-sm text-muted">Area: {input.squareFeet} sqft • Thickness: {input.thickness}&quot; • Type: {input.type}</p></Card>;
       case "materials":
-        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">Concrete: {input.squareFeet} sqft @ {input.thickness}\" • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
+        return <Card className="p-6"><h3 className="mb-4 font-semibold">Materials Takeoff</h3><p className="text-sm text-muted">Concrete: {input.squareFeet} sqft @ {input.thickness}&quot; • Cost/sqft: {formatCurrency(costPerSqft)}</p></Card>;
       case "summary":
         return <Card className="p-6"><h3 className="mb-4 font-semibold">Concrete Summary</h3><p className="text-sm text-muted">Est: {formatCurrency(estimatedCost)} • {input.squareFeet} sqft</p></Card>;
       case "milestones":

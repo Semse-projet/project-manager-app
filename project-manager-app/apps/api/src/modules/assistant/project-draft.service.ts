@@ -51,7 +51,7 @@ export class ProjectDraftService {
     return this.toSnapshot(draft);
   }
 
-  async confirmDraft(id: string, tenantId: string): Promise<ProjectDraftSnapshot> {
+  async confirmDraft(id: string, _tenantId: string): Promise<ProjectDraftSnapshot> {
     const draft = await this.prisma.projectDraft.update({
       where: { id },
       data: { status: "confirmed", updatedAt: new Date() },

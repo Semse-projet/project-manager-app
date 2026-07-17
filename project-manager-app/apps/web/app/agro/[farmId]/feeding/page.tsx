@@ -538,7 +538,7 @@ export default function FeedingPage() {
             <div className="empty-state">
               <Clock size={36} className="empty-icon" />
               <p className="empty-title">Sin plan de raciones activo</p>
-              <p className="empty-desc">Ve a "Plan de raciones" y configura los alimentos para ver el calendario.</p>
+              <p className="empty-desc">Ve a &quot;Plan de raciones&quot; y configura los alimentos para ver el calendario.</p>
               <button className="btn-ghost" onClick={() => setTab("raciones")}>
                 Ir al plan de raciones
               </button>

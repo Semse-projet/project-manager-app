@@ -18,6 +18,12 @@ function actor(req: FastifyRequest) {
   return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
 }
 
+function parseNonNegativeInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 @Controller("v1/intelligence")
 export class IntelligenceController {
   constructor(
@@ -53,7 +59,7 @@ export class IntelligenceController {
   async listArchives(@Req() req: FastifyRequest, @Query("limit") limit?: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.twin.listArchives(ctx.tenantId, limit ? parseInt(limit) : 20));
+    return ok(rid, await this.twin.listArchives(ctx.tenantId, Math.max(1, parseNonNegativeInt(limit, 20))));
   }
 
   // ── Risk Scoring ──────────────────────────────────────────────────────────────
@@ -71,7 +77,7 @@ export class IntelligenceController {
   async highRiskProjects(@Req() req: FastifyRequest, @Query("minScore") minScore?: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.risk.listHighRiskProjects(ctx.tenantId, minScore ? parseInt(minScore) : 50));
+    return ok(rid, await this.risk.listHighRiskProjects(ctx.tenantId, parseNonNegativeInt(minScore, 50)));
   }
 
   // ── Professional Credential ───────────────────────────────────────────────────
@@ -90,7 +96,7 @@ export class IntelligenceController {
   async myCredential(@Req() req: FastifyRequest) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.credential.getCredentialByUserId(ctx.userId));
+    return ok(rid, await this.credential.getCredentialByUserId(ctx.userId, ctx.tenantId));
   }
 
   @Get("credentials/top")
@@ -98,7 +104,7 @@ export class IntelligenceController {
   async topProfessionals(@Req() req: FastifyRequest, @Query("limit") limit?: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    return ok(rid, await this.credential.listTopProfessionals(ctx.tenantId, limit ? parseInt(limit) : 20));
+    return ok(rid, await this.credential.listTopProfessionals(ctx.tenantId, Math.max(1, parseNonNegativeInt(limit, 20))));
   }
 
   @Get("credentials/user/:userId")
@@ -106,8 +112,7 @@ export class IntelligenceController {
   async credentialByUser(@Req() req: FastifyRequest, @Param("userId") userId: string) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    const _ = ctx; // auth check
-    return ok(rid, await this.credential.getCredentialByUserId(userId));
+    return ok(rid, await this.credential.getCredentialByUserId(userId, ctx.tenantId));
   }
 
   // Public — no auth needed (for sharing the credential externally)

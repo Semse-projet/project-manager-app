@@ -378,7 +378,10 @@ export default function ModulePage() {
                       min={10}
                       max={200}
                       value={calcArea}
-                      onChange={(e) => setCalcArea(parseInt(e.target.value))}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        setCalcArea(Number.isFinite(value) ? Math.max(10, Math.min(200, value)) : 10);
+                      }}
                       className="w-full accent-blue-600 cursor-pointer h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none"
                     />
                   </div>
@@ -540,7 +543,10 @@ export default function ModulePage() {
                   min={0}
                   max={100}
                   value={sliderPos}
-                  onChange={(e) => setSliderPos(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setSliderPos(Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0);
+                  }}
                   className="absolute inset-0 opacity-0 cursor-ew-resize z-20 w-full h-full"
                 />
 
@@ -809,7 +815,7 @@ export default function ModulePage() {
                     aiResponse
                   ) : (
                     <span className="text-slate-500">
-                      Haz clic en "Analizar con Prometeo" para disparar la consulta asistida con agentes de inteligencia...
+                      Haz clic en &quot;Analizar con Prometeo&quot; para disparar la consulta asistida con agentes de inteligencia...
                     </span>
                   )}
                 </div>

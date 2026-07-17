@@ -175,7 +175,7 @@ export class LiensService {
       createdBy: string;
     }
   ): Promise<any> {
-    const calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
+    const _calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
       where: { id: lienCalendarId },
     });
 

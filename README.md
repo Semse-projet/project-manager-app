@@ -1,153 +1,111 @@
-# SEMSEproject / Semse Project
+# SEMSEproject
 
-SEMSEproject es un ecosistema digital para gestionar servicios profesionales, construcción y operación asistida con IA. La raíz Git de este workspace es `labsemse/`, pero la raíz canónica de desarrollo vive en `project-manager-app/`.
+SEMSEproject es un sistema operativo modular, transaccional y cognitivo para
+coordinar personas, organizaciones, proyectos, trabajo de campo, evidencia,
+pagos protegidos por hitos, confianza, conocimiento e inteligencia artificial.
 
-## Qué problema resuelve
+## Canonicidad
 
-SEMSE busca unificar en una sola plataforma:
+- Repositorio Git: `Semse-projet/project-manager-app`.
+- Raiz del checkout: este directorio.
+- Raiz canónica de desarrollo: [`project-manager-app/`](project-manager-app/).
+- Codigo de producto: `project-manager-app/apps/` y
+  `project-manager-app/packages/`.
+- Documentacion canónica: `project-manager-app/docs/`.
 
-- captación y gestión de clientes
-- operación de profesionales y contratistas
-- administración interna
-- marketplace de servicios
-- proyectos, contratos, hitos y pagos en escrow
-- evidencias, documentos, facturas y recibos
-- agentes de IA, RAG y automatización operativa
+Los archivos y prototipos fuera de `project-manager-app/` no autorizan nuevas
+implementaciones ni redefinen la arquitectura. Se conservan solo cuando siguen
+siendo utiles como entrada, integracion o referencia historica.
 
-El objetivo es reducir fricción entre venta, ejecución, control documental, pagos y soporte inteligente, empezando por construcción y gestión de proyectos.
+## Fuentes de verdad
 
-## Módulos principales
+En caso de contradiccion:
 
-- Client Dashboard
-- Professional Dashboard
-- Admin Panel
-- Marketplace de servicios
-- Gestión de proyectos
-- Contratos digitales
-- Milestones / hitos
-- Pagos en escrow
-- Evidence Center
-- Invoice & Receipt Scanner
-- AI Center
-- Floating AI Assistant
-- Prometeo Engine
-- Nexus DB / vector database
-- RAG Pipeline
-- Multi-provider LLM Router
+1. codigo actual de `main`;
+2. specs aprobados, schemas Zod, Prisma, migrations y tests;
+3. produccion verificada;
+4. documentacion operativa vigente;
+5. vision y conversaciones;
+6. investigacion externa.
 
-## Estructura del workspace
+Puntos de entrada:
+
+- [Arquitectura vigente](project-manager-app/docs/architecture/CURRENT_ARCHITECTURE.md)
+- [Matriz de implementacion](project-manager-app/docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
+- [Contexto operativo](project-manager-app/docs/SEMSE_CONTEXT.md)
+- [Roadmap F0-F9](project-manager-app/ROADMAP.md)
+- [Indice SDD](project-manager-app/docs/SPEC_INDEX.md)
+
+## Nueve dominios
+
+1. SEMSE Core
+2. SEMSE Connect
+3. SEMSE Payments
+4. SEMSE Trust
+5. SEMSE AI
+6. SEMSE Agro
+7. SEMSE BuildOps
+8. SEMSE Knowledge
+9. SEMSE Integrations
+
+No se autoriza un renombramiento masivo. Los dominios ordenan el ownership sin
+obligar a cambiar los nombres actuales de carpetas y modulos.
+
+## Topologia
 
 ```text
-labsemse/                          <- raíz Git y contenedor del workspace
-├── project-manager-app/           <- tronco canónico de producto y desarrollo
-│   ├── apps/api                   <- backend NestJS
-│   ├── apps/web                   <- frontend Next.js
-│   ├── apps/worker                <- worker / colas
-│   ├── packages/db                <- Prisma + PostgreSQL
-│   ├── packages/agents            <- agentes SEMSE
-│   ├── packages/schemas           <- contratos y tipos
-│   ├── packages/shared            <- utilidades compartidas
-│   ├── packages/ui                <- UI reutilizable
-│   └── docs/                      <- documentación canónica
-├── semse-mobile-app/              <- app Vite/React complementaria
-├── semse/                         <- herramientas y CLI auxiliares
-├── archive/                       <- histórico, no editar para trabajo nuevo
-├── app semse/_satellites-archive/ <- satélites congelados
-└── semse-storage/                 <- almacenamiento operacional local
+project-manager-app/
+├── apps/
+│   ├── api/              NestJS + Fastify + Prisma
+│   ├── web/              Next.js + BFF
+│   ├── worker/           BullMQ y trabajos asincronos
+│   ├── vision-service/   analisis visual
+│   ├── autonomy-server/  runtime de autonomia donde se despliegue
+│   └── mobile/           cliente movil/offline
+├── packages/
+│   ├── db/               schema y cliente Prisma
+│   ├── schemas/          contratos Zod
+│   ├── product-events/   SDK de telemetria de producto
+│   ├── agents/           agentes y contratos
+│   └── shared, auth, autonomy, knowledge, sdk, tools, ui
+└── docs/                 arquitectura, specs, ADR, reportes y runbooks
 ```
 
-## Dónde trabajar
+`apps/angular` y `apps/assistant-portal` son superficies adicionales o de
+transicion; no sustituyen `apps/web` ni `apps/api` como superficies canónicas.
 
-- Backend nuevo: `project-manager-app/apps/api/`
-- Frontend web nuevo: `project-manager-app/apps/web/`
-- Worker / procesos: `project-manager-app/apps/worker/`
-- Prisma / DB: `project-manager-app/packages/db/`
-- Tipos y schemas: `project-manager-app/packages/schemas/`
-- Agentes y orquestación IA: `project-manager-app/packages/agents/`
-- Documentación canónica: `project-manager-app/docs/`
-
-## Stack detectado
-
-- Frontend principal: Next.js 15.5, React 19, Tailwind CSS 4
-- Frontend adicional: Vite + React + TypeScript en `semse-mobile-app/`
-- Módulo Angular detectado: `project-manager-app/apps/angular/`
-- Backend: Node.js, NestJS 11, Fastify
-- Worker / jobs: Node.js + BullMQ
-- Base de datos: PostgreSQL + Prisma
-- Validación: Zod
-- Testing: Node test runner, cobertura API y Playwright E2E
-- IA: OpenAI, Anthropic, DeepSeek, Kimi/Moonshot, Ollama
-- RAG y agentes: Prometeo Engine, Nexus DB conceptual, router multi-modelo
-
-## Instalación
-
-Los scripts reales viven en `project-manager-app/package.json`.
-
-```bash
-cd project-manager-app
-pnpm install
-```
-
-## Cómo correr el proyecto
+## Inicio local
 
 Desde `project-manager-app/`:
 
 ```bash
-pnpm dev:web
+pnpm install --frozen-lockfile
+pnpm db:generate
 pnpm dev:api
+pnpm dev:web
 pnpm dev:worker
 ```
 
-Para levantar la infraestructura local del MVP:
+Validaciones habituales:
 
 ```bash
-docker compose -f infra/docker/compose.semse-mvp.yml up -d
-```
-
-Para API con LLM local:
-
-```bash
-pnpm dev:api:local-llm
-```
-
-## Build y tests
-
-Desde `project-manager-app/`:
-
-```bash
-pnpm build:web
-pnpm build:api
 pnpm verify:workspace
+pnpm spec:preflight
 pnpm test:unit
 pnpm test:e2e
 ```
 
-Si necesitas Playwright por primera vez:
+Elegir validaciones proporcionales al cambio y reportar por separado estado
+local, CI, merge y produccion.
 
-```bash
-pnpm exec playwright install chromium
-```
+## Reglas de contribucion
 
-## Contribuir sin romper estructura
-
-- Trabaja por defecto dentro de `project-manager-app/`.
-- No desarrolles features nuevas en `archive/` ni en `app semse/_satellites-archive/`.
-- No subas secretos, `.env`, tokens ni credenciales.
-- No uses `git add .` sin revisar primero el `git status`.
-- No mezcles cambios documentales, infraestructura y features en un mismo commit si no están relacionados.
-- Mantén `README.md`, `SEMSE_CONTEXT.md` y `ROADMAP.md` alineados cuando cambie la arquitectura.
-- Si mueves carpetas críticas o cambias canonicidad, documenta el plan antes de ejecutar.
-
-## Reglas operativas
-
-- La raíz Git correcta es `labsemse/`.
-- La raíz canónica de producto es `project-manager-app/`.
-- Todo código nuevo debe justificar su ubicación.
-- `archive/` es solo histórico.
-- La documentación es parte del sistema, no un extra.
-
-Consulta también:
-
-- [SEMSE_CONTEXT.md](SEMSE_CONTEXT.md)
-- [ROADMAP.md](ROADMAP.md)
-- [project-manager-app/README.md](project-manager-app/README.md)
+- Leer `project-manager-app/AGENTS.md` y las fuentes obligatorias antes de
+  modificar el producto.
+- No desarrollar features nuevas fuera de `project-manager-app/` sin una
+  decision arquitectonica explicita.
+- No subir secretos, `.env`, tokens ni credenciales.
+- No usar artefactos historicos como fuente de verdad vigente.
+- Mantener arquitectura, contexto, roadmap, matriz y `SPEC_INDEX.md` alineados.
+- No presentar Stripe como escrow legal sin estructura y revision juridica
+  aplicables; usar "pagos protegidos por hitos" por defecto.

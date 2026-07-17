@@ -21,6 +21,7 @@ const TASKS = {
     ["pnpm", ["run", "check:worker"]],
   ],
   "typecheck:all": [
+    ["pnpm", ["run", "build:packages"]],
     ["pnpm", ["run", "db:generate"]],
     ["pnpm", ["exec", "tsc", "--noEmit", "--project", "apps/api/tsconfig.json"]],
     ["pnpm", ["exec", "tsc", "--noEmit", "--project", "apps/web/tsconfig.json"]],

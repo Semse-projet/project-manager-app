@@ -5,7 +5,7 @@ import { WorkerVerificationRepository } from "./worker-verification.repository.j
 
 describe("WorkerVerificationService", () => {
   let service: WorkerVerificationService;
-  let repository: jest.Mocked<WorkerVerificationRepository>;
+  let _repository: jest.Mocked<WorkerVerificationRepository>;
 
   const mockRepository = {
     getWorker: jest.fn(),

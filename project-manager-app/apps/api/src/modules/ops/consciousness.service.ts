@@ -1,7 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
-import { isZeroVector } from "../prometeo/embedding.service.js";
 import type { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
 import { SystemObserverService, type ObservationSnapshot } from "./observer.service.js";
 import type {
@@ -169,7 +168,7 @@ export class ConsciousnessIndexService {
 
   private async buildModuleMap(): Promise<ModuleHealth[]> {
     return MODULE_REGISTRY.map((m) => {
-      const { score, status, gaps } = scoreModule(m);
+      const { score, status } = scoreModule(m);
       return {
         name: m.name, status, maturityScore: score,
         hasBackend: m.hasBackend, hasFrontend: m.hasFrontend, hasTests: m.hasTests,
@@ -345,7 +344,7 @@ export class ConsciousnessIndexService {
   private generateRecommendations(
     maturity: { globalScore: number; weakestAreas: string[] },
     risks: { critical: Risk[]; high: Risk[]; medium: Risk[] },
-    operational: { openSignals: number },
+    _operational: { openSignals: number },
   ) {
     const nextBestActions: string[] = [];
     const doNotDoYet: string[]     = [];

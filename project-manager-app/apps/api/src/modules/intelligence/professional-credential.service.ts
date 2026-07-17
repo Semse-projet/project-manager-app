@@ -188,8 +188,8 @@ export class ProfessionalCredentialService {
     return this.toRecord(credential as Record<string, unknown>);
   }
 
-  async getCredentialByUserId(userId: string): Promise<ProfessionalCredentialRecord | null> {
-    const row = await this.prisma.professionalCredential.findUnique({ where: { userId } });
+  async getCredentialByUserId(userId: string, tenantId: string): Promise<ProfessionalCredentialRecord | null> {
+    const row = await this.prisma.professionalCredential.findFirst({ where: { userId, tenantId } });
     return row ? this.toRecord(row as Record<string, unknown>) : null;
   }
 

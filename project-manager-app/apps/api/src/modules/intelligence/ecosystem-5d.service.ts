@@ -387,7 +387,7 @@ export class Ecosystem5DService {
       disputes,
       invoices,
       expenses,
-      escrow,
+      _escrow,
       credentials,
       delegations,
       risk,
@@ -445,11 +445,6 @@ export class Ecosystem5DService {
     const activeExpenses = expenses.filter((exp) => exp.status !== "rejected" && exp.status !== "archived");
     const totalExpenses = activeExpenses.reduce((sum, exp) => sum + toNum(exp.amount), 0);
     const duplicateExpenses = activeExpenses.filter((exp) => exp.isDuplicate).length;
-    const escrowFunded = toNum(escrow?.totalAmount);
-    const escrowReleased = (escrow?.transactions ?? [])
-      .filter((txn) => txn.type === "RELEASE" && txn.status === "COMPLETED")
-      .reduce((sum, txn) => sum + toNum(txn.amount), 0);
-    const pendingRelease = Math.max(0, escrowFunded - escrowReleased);
     const margin = totalInvoiced > 0 ? ((totalInvoiced - totalExpenses) / totalInvoiced) * 100 : null;
 
     const avgTrustScore = credentials.length > 0

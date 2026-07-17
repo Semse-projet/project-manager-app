@@ -4,6 +4,7 @@ import {
   Post,
   Get,
   Param,
+  Req,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -13,7 +14,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../../common/permissions.decorator.js';
-import { EXIFParser, ValidationResult } from '../../integrations/exif-parser.js';
+import { resolveRequestContext } from '../../common/request-context.js';
+import {EXIFParser} from '../../integrations/exif-parser.js';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
 /**
@@ -39,10 +41,13 @@ export class PhotoController {
   @RequirePermissions('evidence:write')
   @UseInterceptors(FileInterceptor('photo'))
   async uploadPhoto(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File
   ) {
     this.logger.log(`POST /photos: ${projectId}`);
+
+    const actor = resolveRequestContext(req);
 
     if (!file) {
       throw new BadRequestException('No photo file provided');
@@ -79,7 +84,13 @@ export class PhotoController {
       throw new BadRequestException('Invalid GPS coordinates in photo EXIF');
     }
 
-    // 4. Guardar en BD (en producción: S3/CDN)
+    // 4. Validar timestamp EXIF
+    const exifTimestamp = new Date(exifData.timestamp);
+    if (Number.isNaN(exifTimestamp.getTime())) {
+      throw new BadRequestException('Invalid EXIF timestamp');
+    }
+
+    // 5. Guardar en BD (en producción: S3/CDN)
     const photoRecord = await this.prisma.evidencePhoto.create({
       data: {
         projectId,
@@ -87,13 +98,13 @@ export class PhotoController {
         mimeType: file.mimetype,
         sizeBytes: file.size,
         s3Url: `s3://semse-evidence/${projectId}/${file.originalname}`, // Placeholder
-        exifTimestamp: new Date(exifData.timestamp),
+        exifTimestamp,
         gpsLatitude: exifData.gpsLatitude,
         gpsLongitude: exifData.gpsLongitude,
         gpsAltitude: exifData.gpsAltitude,
         cameraModel: exifData.cameraModel,
         status: 'VALIDATED',
-        uploadedBy: 'user-from-jwt', // TODO: obtener del token
+        uploadedBy: actor.userId,
       },
     });
 

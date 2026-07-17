@@ -1,7 +1,8 @@
 // @ts-nocheck
-import { Controller, Post, Get, Param, Body, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Req, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
+import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
 
 /**
@@ -47,15 +48,17 @@ export class WaiverController {
    */
   @Post(':waiverId/sign')
   async signWaiver(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Param('waiverId') waiverId: string,
     @Body() body: { signature: string }
   ) {
     this.logger.log(`POST /waivers/:waiverId/sign: ${waiverId}`);
 
+    const actor = resolveRequestContext(req);
     const signed = await this.liensService.signWaiver(waiverId, {
       signature: body.signature,
-      signedBy: 'user-from-jwt-context', // TODO: obtener del token
+      signedBy: actor.userId,
     });
 
     return {

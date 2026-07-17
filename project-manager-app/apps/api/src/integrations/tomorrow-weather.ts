@@ -145,7 +145,7 @@ export class TomorrowWeatherClient {
 export class MockTomorrowWeatherClient {
   private readonly logger = new Logger('MockTomorrowWeatherClient');
 
-  async getWeatherForecast(lat: number, lon: number, apiKey: string): Promise<WeatherForecast> {
+  async getWeatherForecast(lat: number, lon: number, _apiKey: string): Promise<WeatherForecast> {
     this.logger.debug(`Mock: fetching weather for ${lat}, ${lon}`);
 
     return {
