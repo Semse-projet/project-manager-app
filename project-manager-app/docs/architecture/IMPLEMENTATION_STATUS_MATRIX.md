@@ -1,9 +1,9 @@
 # Matriz de implementacion de la arquitectura SEMSE
 
-**Corte:** 2026-07-16
-**Base codigo/produccion:** `main@6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`
-**Limitacion:** Railway CLI sin sesion; flags, allowlists y servicios privados no
-fueron inspeccionados.
+**Corte:** 2026-07-17
+**Base codigo/produccion:** `main@646528c64cfb774c74bef119522d73b1b2578bd8`
+**Limitacion:** deploy exact-SHA y superficies públicas fueron verificados por
+Railway/GitHub; flags, allowlists y servicios privados no fueron inspeccionados.
 
 ## Leyenda
 
@@ -23,7 +23,7 @@ fueron inspeccionados.
 | Web/BFF | IMPLEMENTADO/DESPLEGADO | `apps/web`, Route Handlers, Railway Web HTTP 200 | SLO y trazas por journey |
 | API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | `apps/api`, `packages/db`, `/v1/health` HTTP 200 | Telemetria end-to-end y ownership por bounded context |
 | Worker/BullMQ | IMPLEMENTADO | `apps/worker`, queues, scheduled jobs, autonomy loops | Consola comun de retries/DLQ y event lag |
-| Nueve dominios | IMPLEMENTADO como taxonomia | `docs/SEMSE_CONNECT_TAXONOMY.md` y modulos mapeados | Mantener ownership y evitar duplicacion cross-domain |
+| Nueve dominios | IMPLEMENTADO/DESPLEGADO como superficies canónicas | `pnpm verify:modules`; 9 probes API protegidos + 9 páginas web verdes en Production Health `29599005110` | Mantener ownership, profundidad honesta y gate 9/9 |
 | Prometeo Runtime P2 | IMPLEMENTADO/DESPLEGADO | `PrometeoMissionService`, `AgentWorkPlan`, controllers/BFF; PR #289 | Verify/learn, budgets, timeout y compensacion |
 | Tool Registry | PARCIAL | 23 descriptors read, 7 write; 17 casos read cableados | Adapter por tool, policy central, audit y verification; write gradual |
 | Video tool | PENDIENTE | Descriptor `vision.analyze_video` marcado `adapter_pending` | Pipeline temporal, storage, limits y review humano |
@@ -53,8 +53,8 @@ fueron inspeccionados.
 | Agenda/Dispatch | PARCIAL | reservations, disponibilidad/field ops y weather/travel dispersos | Calendar canónico, conflicts, routing, reminders y rescheduling |
 | Observabilidad | PARCIAL | Sentry, Prometheus, health/readiness y audit | OTel traces, correlation y SLOs de negocio |
 | Backup/DR | PARCIAL | BCP/restore simulations para operacion asistida | Restore real DB/storage, PITR y evidencia RPO/RTO |
-| CI/CD | IMPLEMENTADO/DESPLEGADO | CI, CodeQL, smoke, integration, deploy exact-SHA y health gate verdes para `6a8b4a0` | Mantener pipeline <15 min o justificar excepcion; migration gates |
-| Salud SDD | IMPLEMENTADO | baseline: 65 specs, 0 errores, 0 warnings; 60/65 con tests y 45/65 VERIFIED; CI del corte verde | Mantener metadata/evidencia; completar T-016 y validacion/canary F1-E/F |
+| CI/CD | IMPLEMENTADO/DESPLEGADO | CI, CodeQL, smoke, integration, deploy exact-SHA `29598805544` y health gate `29599005110` verdes para `646528c` | Mantener pipeline <15 min o justificar excepcion; migration gates |
+| Salud SDD | IMPLEMENTADO | baseline: 66 specs, 0 errores, 0 warnings; 61/66 con tests y 45/66 VERIFIED; CI del corte verde | Mantener metadata/evidencia; completar T-016 y validacion/canary F1-E/F |
 
 ## Hallazgos que cambian documentos anteriores
 
