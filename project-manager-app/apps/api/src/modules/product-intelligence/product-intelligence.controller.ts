@@ -104,6 +104,23 @@ export class ProductIntelligenceController {
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 
+  // PI-07/08 — engines de fricción y anomalía (worker cada 6h; kill switch
+  // adicional PI_ENGINES_ENABLED).
+  @Post("engines/run")
+  @RequirePermissions("ops:dashboard:write")
+  @HttpCode(200)
+  async runEngines(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("windowHours") windowHours?: string,
+  ) {
+    if (!productIntelligenceEnabled() || process.env.PI_ENGINES_ENABLED === "false") {
+      throw new ForbiddenException("Product Intelligence engines are disabled");
+    }
+    const parsed = windowHours ? parseInt(windowHours, 10) : 6;
+    const result = await this.service.runEngines(Number.isFinite(parsed) ? parsed : 6);
+    return ok(resolveRequestId(req.headers ?? {}), result);
+  }
+
   // PI-03.2 — invocado por el worker (patrón curator: timer → endpoint API).
   @Post("retention/run")
   @RequirePermissions("ops:dashboard:write")

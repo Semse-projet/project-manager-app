@@ -170,3 +170,54 @@ test("getEconomicFunnel con cero jobs no divide por cero", async () => {
   assert.equal(funnel.stages[0].conversionPct, 0);
   assert.ok(funnel.stages.every((s) => Number.isFinite(s.conversionPct)));
 });
+
+test("runEngines crea FrictionSignal y OperationalSignal con umbrales", async () => {
+  const created: any[] = [];
+  const opSignals: any[] = [];
+  const prisma = {
+    productEvent: {
+      groupBy: async ({ where }: { where: { name?: { in?: string[] } | string } }) => {
+        if (typeof where.name === "string" && where.name === "friction.rage_click") {
+          return [{ tenantId: "t1", route: "/login", _count: { route: 13 } }];
+        }
+        if (typeof where.name === "string") return [];
+        // funnel: llegadas sin publicaciones
+        return [{ tenantId: "t1", name: "wizard.prefill_arrived", _count: { name: 8 } }];
+      },
+    },
+    frictionSignal: {
+      findFirst: async () => null,
+      create: async ({ data }: { data: unknown }) => { created.push(data); return {}; },
+    },
+  };
+  const operationalSignals = {
+    upsertSignal: async (input: unknown) => { opSignals.push(input); return { created: true, id: "s1" }; },
+  };
+  const service = new ProductIntelligenceService(prisma as never, operationalSignals as never);
+  const result = await service.runEngines(6);
+
+  assert.equal(result.frictionSignalsCreated, 1);
+  assert.equal((created[0] as { severity: string }).severity, "high"); // 13 >= 3*4
+  assert.equal(result.operationalSignalsCreated, 2); // fricción alta + funnel sin conversión
+  assert.ok(opSignals.every((s: { type: string }) => s.type === "EXPERIENCE_FRICTION"));
+});
+
+test("runEngines deduplica señales existentes en la ventana", async () => {
+  const created: any[] = [];
+  const prisma = {
+    productEvent: {
+      groupBy: async ({ where }: { where: { name?: unknown } }) =>
+        typeof where.name === "string" && where.name === "friction.rage_click"
+          ? [{ tenantId: "t1", route: "/login", _count: { route: 5 } }]
+          : [],
+    },
+    frictionSignal: {
+      findFirst: async () => ({ id: "ya-existe" }),
+      create: async ({ data }: { data: unknown }) => { created.push(data); return {}; },
+    },
+  };
+  const service = new ProductIntelligenceService(prisma as never, undefined as never);
+  const result = await service.runEngines(6);
+  assert.equal(result.frictionSignalsCreated, 0);
+  assert.equal(created.length, 0);
+});

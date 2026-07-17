@@ -65,6 +65,14 @@ export type ObservationSnapshot = {
   patterns: SignalPattern[];
   alerts:   ObserverAlert[];
   behavioralHealth: BehavioralHealth | null;
+
+  /** PI-09 — salud de experiencia de usuario (null si PI está apagado). */
+  experienceHealth: {
+    sessions7d: number;
+    frictionSignals24h: number;
+    highFriction24h: number;
+    topFrictionRoute: string | null;
+  } | null;
 };
 
 // ── Pattern rules ─────────────────────────────────────────────────────────────
@@ -75,6 +83,7 @@ const SIGNAL_INTERPRETATIONS: Record<string, string> = {
   DISPUTE_RISK_HIGH:      "Riesgo de disputa elevado — situación con múltiples factores críticos simultáneos",
   CHANGE_ORDER_RECOMMENDED: "Trabajo adicional detectado sin change order formal — documentar para proteger ingresos",
   LOW_CONFIDENCE_ESTIMATE: "Estimados con baja confianza — datos de intake insuficientes",
+  EXPERIENCE_FRICTION:     "Fricción de usuario detectada por Product Intelligence — revisar la vista afectada",
 };
 
 // ── Service ───────────────────────────────────────────────────────────────────
@@ -96,11 +105,12 @@ export class SystemObserverService {
   async observe(tenantId: string): Promise<ObservationSnapshot> {
     const observedAt = new Date().toISOString();
 
-    const [infra, operational, intelligence, behavioralHealth] = await Promise.all([
+    const [infra, operational, intelligence, behavioralHealth, experienceHealth] = await Promise.all([
       this.observeInfrastructure(),
       this.observeOperational(tenantId),
       this.observeIntelligence(tenantId),
       this.behavioralObserver?.observe(tenantId).catch(() => null) ?? Promise.resolve(null),
+      this.observeExperience(tenantId).catch(() => null),
     ]);
 
     const patterns = this.detectPatterns(operational);
@@ -118,7 +128,17 @@ export class SystemObserverService {
       patterns,
       alerts,
       behavioralHealth: behavioralHealth ?? null,
+      experienceHealth,
     };
+
+    if (experienceHealth && experienceHealth.highFriction24h > 0) {
+      alerts.push({
+        level: "high",
+        area: "experiencia",
+        message: `${experienceHealth.highFriction24h} señales de fricción alta en 24h (ruta principal: ${experienceHealth.topFrictionRoute ?? "?"}).`,
+        recommendation: "Revisar /admin/product-intelligence y la vista afectada antes de que impacte conversión.",
+      });
+    }
 
     // Keep last 50 in memory
     this.history.push(snapshot);
@@ -138,6 +158,29 @@ export class SystemObserverService {
 
     this.logger.log(`[Observer] snapshot tenantId=${tenantId} score=${healthScore} alerts=${alerts.length}`);
     return snapshot;
+  }
+
+  /** PI-09 — lee señales de Product Intelligence. Null si PI está apagado. */
+  private async observeExperience(tenantId: string): Promise<ObservationSnapshot["experienceHealth"]> {
+    if (process.env.PRODUCT_INTELLIGENCE_ENABLED !== "true") return null;
+    const day = new Date(Date.now() - 24 * 3_600_000);
+    const week = new Date(Date.now() - 7 * 24 * 3_600_000);
+    const [sessions7d, friction24h, high24h, top] = await Promise.all([
+      this.prisma.productSession.count({ where: { tenantId, lastSeen: { gte: week } } }),
+      this.prisma.frictionSignal.count({ where: { tenantId, createdAt: { gte: day } } }),
+      this.prisma.frictionSignal.count({ where: { tenantId, createdAt: { gte: day }, severity: "high" } }),
+      this.prisma.frictionSignal.findFirst({
+        where: { tenantId, createdAt: { gte: day } },
+        orderBy: { createdAt: "desc" },
+        select: { route: true },
+      }),
+    ]);
+    return {
+      sessions7d,
+      frictionSignals24h: friction24h,
+      highFriction24h: high24h,
+      topFrictionRoute: top?.route ?? null,
+    };
   }
 
   getHistory(): ObservationSnapshot[] {

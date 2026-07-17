@@ -1,8 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import type { Prisma, ProductConsentClass } from "@prisma/client";
 import type { ProductEventBatch } from "@semse/schemas";
 import { redactValue } from "@semse/product-events";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
 
 /**
  * Product Intelligence (PI-04) — ingesta de telemetría + retención.
@@ -30,7 +31,12 @@ function redactScalar(value: unknown): unknown {
 
 @Injectable()
 export class ProductIntelligenceService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ProductIntelligenceService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly operationalSignals?: OperationalSignalsService,
+  ) {}
 
   async ingest(tenantId: string, batch: ProductEventBatch): Promise<IngestResult> {
     const existing = await this.prisma.productIngestBatch.findUnique({
@@ -193,6 +199,118 @@ export class ProductIntelligenceService {
     ];
 
     return { windowDays, since: since.toISOString(), stages };
+  }
+
+  /**
+   * PI-07/PI-08 — engines de fricción y anomalía. Corren sobre los
+   * ProductEvents de la ventana (default 6h):
+   * - PI-07: agrega friction.rage_click / friction.nav_loop / app.error_view
+   *   por ruta → FrictionSignal (con dedupe por ventana).
+   * - PI-08: anomalías de funnel (llegadas al wizard sin publicaciones) y
+   *   fricción alta → OperationalSignal EXPERIENCE_FRICTION (Mission Control).
+   * Nunca interviene: solo OBSERVE→ANALYZE→SUGGEST.
+   */
+  async runEngines(windowHours = 6): Promise<{
+    windowHours: number;
+    frictionSignalsCreated: number;
+    operationalSignalsCreated: number;
+  }> {
+    const windowStart = new Date(Date.now() - Math.min(Math.max(windowHours, 1), 48) * 3_600_000);
+    const windowEnd = new Date();
+
+    const FRICTION_RULES: Array<{ eventName: string; kind: "RAGE_CLICK" | "NAV_LOOP" | "ERROR_REPEAT"; threshold: number }> = [
+      { eventName: "friction.rage_click", kind: "RAGE_CLICK", threshold: 3 },
+      { eventName: "friction.nav_loop", kind: "NAV_LOOP", threshold: 3 },
+      { eventName: "app.error_view", kind: "ERROR_REPEAT", threshold: 5 },
+    ];
+
+    let frictionCreated = 0;
+    let operationalCreated = 0;
+
+    for (const rule of FRICTION_RULES) {
+      const grouped = await this.prisma.productEvent.groupBy({
+        by: ["tenantId", "route"],
+        where: { name: rule.eventName, ts: { gte: windowStart } },
+        _count: { route: true },
+      });
+      for (const row of grouped as Array<{ tenantId: string; route: string; _count: { route: number } }>) {
+        const count = row._count.route;
+        if (count < rule.threshold) continue;
+
+        // Dedupe: una señal por kind+ruta+ventana.
+        const existing = await this.prisma.frictionSignal.findFirst({
+          where: { tenantId: row.tenantId, kind: rule.kind, route: row.route, createdAt: { gte: windowStart } },
+          select: { id: true },
+        });
+        if (existing) continue;
+
+        const severity = count >= rule.threshold * 4 ? "high" : count >= rule.threshold * 2 ? "medium" : "low";
+        await this.prisma.frictionSignal.create({
+          data: {
+            tenantId: row.tenantId,
+            kind: rule.kind,
+            route: row.route,
+            severity,
+            evidenceJson: { eventName: rule.eventName, count, windowHours },
+            windowStart,
+            windowEnd,
+          },
+        });
+        frictionCreated += 1;
+
+        if (severity !== "low" && this.operationalSignals) {
+          const result = await this.operationalSignals.upsertSignal({
+            tenantId: row.tenantId,
+            type: "EXPERIENCE_FRICTION",
+            severity: severity === "high" ? "high" : "medium",
+            title: `Fricción de usuario en ${row.route}`,
+            message: `${count} eventos ${rule.eventName} en ${windowHours}h en la ruta ${row.route}.`,
+            recommendedAction: "Revisar la vista afectada: errores repetidos o UI que no responde a la intención del usuario.",
+            sourceAgent: "product-intelligence",
+            entityType: "route",
+            entityId: row.route,
+            metadataJson: { kind: rule.kind, count, windowHours },
+          });
+          if (result.created) operationalCreated += 1;
+        }
+      }
+    }
+
+    // PI-08 — anomalía de funnel: llegadas al wizard sin ninguna publicación.
+    const funnelGroups = await this.prisma.productEvent.groupBy({
+      by: ["tenantId", "name"],
+      where: { name: { in: ["wizard.prefill_arrived", "wizard.published"] }, ts: { gte: windowStart } },
+      _count: { name: true },
+    });
+    const byTenant = new Map<string, { arrived: number; published: number }>();
+    for (const row of funnelGroups as Array<{ tenantId: string; name: string; _count: { name: number } }>) {
+      const entry = byTenant.get(row.tenantId) ?? { arrived: 0, published: 0 };
+      if (row.name === "wizard.prefill_arrived") entry.arrived = row._count.name;
+      else entry.published = row._count.name;
+      byTenant.set(row.tenantId, entry);
+    }
+    for (const [tenantId, { arrived, published }] of byTenant) {
+      if (arrived >= 5 && published === 0 && this.operationalSignals) {
+        const result = await this.operationalSignals.upsertSignal({
+          tenantId,
+          type: "EXPERIENCE_FRICTION",
+          severity: "high",
+          title: "Funnel del wizard sin conversiones",
+          message: `${arrived} llegadas al wizard con prefill y 0 publicaciones en ${windowHours}h.`,
+          recommendedAction: "Revisar el wizard de publicación: los usuarios llegan con contexto pero ninguno completa.",
+          sourceAgent: "product-intelligence",
+          entityType: "funnel",
+          entityId: "wizard",
+          metadataJson: { arrived, published, windowHours },
+        });
+        if (result.created) operationalCreated += 1;
+      }
+    }
+
+    this.logger.log(
+      `[PI engines] window=${windowHours}h friction=${frictionCreated} operational=${operationalCreated}`,
+    );
+    return { windowHours, frictionSignalsCreated: frictionCreated, operationalSignalsCreated: operationalCreated };
   }
 
   /** PI-03.2 — retención: 30d identificable, 90d señales agregadas. */

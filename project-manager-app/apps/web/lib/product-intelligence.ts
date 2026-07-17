@@ -13,7 +13,12 @@
  *   persistente (localStorage) — nunca derivado de email ni PII.
  */
 
-import { createProductEventsClient, type ProductEventsClient } from "@semse/product-events";
+import {
+  createNavLoopDetector,
+  createProductEventsClient,
+  createRageClickDetector,
+  type ProductEventsClient,
+} from "@semse/product-events";
 
 const SESSION_KEY = "semse_pi_session";
 const ANON_KEY = "semse_pi_anon";
@@ -55,6 +60,26 @@ function getClient(): ProductEventsClient | null {
     window.addEventListener("pagehide", () => {
       void client?.flush();
     });
+
+    // PI-07 — detección de fricción pasiva (solo conteos + ruta).
+    const frictionTrack = (name: string, props: Record<string, number>, route: string) => {
+      client?.track(name, props, route);
+    };
+    const onRageClick = createRageClickDetector(frictionTrack);
+    document.addEventListener(
+      "click",
+      (event) => onRageClick(event, window.location.pathname),
+      { capture: true, passive: true },
+    );
+    const onNavigate = createNavLoopDetector(frictionTrack);
+    let lastPath = window.location.pathname;
+    onNavigate(lastPath);
+    window.setInterval(() => {
+      if (window.location.pathname !== lastPath) {
+        lastPath = window.location.pathname;
+        onNavigate(lastPath);
+      }
+    }, 1_000);
   }
   return client;
 }

@@ -7,7 +7,8 @@ export type SignalType =
   | "PAYMENT_BLOCKED"
   | "LOW_CONFIDENCE_ESTIMATE"
   | "CHANGE_ORDER_RECOMMENDED"
-  | "DISPUTE_RISK_HIGH";
+  | "DISPUTE_RISK_HIGH"
+  | "EXPERIENCE_FRICTION";
 
 export type SignalSeverity = "low" | "medium" | "high" | "critical";
 export type SignalStatus = "open" | "acknowledged" | "resolved" | "dismissed";

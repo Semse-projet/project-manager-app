@@ -3,7 +3,7 @@ id: "platform.product-intelligence"
 title: "Product Intelligence — telemetría de producto gobernada"
 type: spec
 domain: "platform"
-version: "0.2"
+version: "0.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -31,7 +31,7 @@ related_endpoints:
   - v1/product-intelligence
 related_events: []
 related_agents: []
-last_verified: "2026-07-16"
+last_verified: "2026-07-17"
 ---
 
 # Spec: Product Intelligence — telemetría de producto gobernada
@@ -142,7 +142,7 @@ notes: el funnel económico se DERIVA de las tablas de dominio (Job/Bid/
 |----------|---------------|
 | PRODUCT_INTELLIGENCE_ENABLED | ingest devuelve 403; SDK no-op |
 | PI_INGEST_ENABLED | ingest 403, engines siguen leyendo histórico |
-| PI_ENGINES_ENABLED | no se generan FrictionSignal/OperationalSignal |
+| PI_ENGINES_ENABLED | no se generan FrictionSignal/OperationalSignal (engines/run responde 403) |
 
 Defaults en producción: **off** hasta cerrar PI-05.
 
