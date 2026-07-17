@@ -31,6 +31,8 @@ import {
   calculateRoofing,
   calculateChangeOrderImpact,
   calculateDisputeRisk,
+  calculateMaterials,
+  MaterialsCalculatorError,
   type ExportBundle,
   type LocationMultipliers,
   type MaterialPriceMap,
@@ -126,6 +128,15 @@ export class ToolsService {
         return calculateSiding(payload as Parameters<typeof calculateSiding>[0]);
       default:
         throw new BadRequestException(`Unsupported SEMSE tool: ${input.tool}`);
+    }
+  }
+
+  materials(input: unknown) {
+    try {
+      return calculateMaterials(input);
+    } catch (error) {
+      const message = error instanceof MaterialsCalculatorError ? error.message : "Invalid materials input";
+      throw new BadRequestException(message);
     }
   }
 

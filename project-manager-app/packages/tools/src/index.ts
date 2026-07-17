@@ -67,3 +67,18 @@ export { calculateCleaning, runCleaningEngine } from "./trades/cleaning.engine.j
 export type { CleaningInput } from "./trades/cleaning.engine.js";
 export { calculateSiding, runSidingEngine } from "./trades/siding.engine.js";
 export type { SidingInput, SidingMaterial } from "./trades/siding.engine.js";
+
+// Materials calculator (skill: materiales-obra)
+export { calculateMaterials, MaterialsCalculatorError } from "./materials/materials-calculator.js";
+export type {
+  MaterialsCategory,
+  MaterialQuantity,
+  MaterialsEstimate,
+  MaterialsInput,
+  MaterialsPaintingInput,
+  MaterialsDrywallInput,
+  MaterialsFlooringInput,
+  MaterialsConcreteInput,
+  MaterialsLumberInput,
+  MaterialsMulchInput,
+} from "./materials/materials-calculator.js";

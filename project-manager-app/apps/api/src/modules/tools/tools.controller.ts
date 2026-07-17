@@ -147,6 +147,14 @@ export class ToolsController {
     return ok(rid, result);
   }
 
+  @Post("materials")
+  @RequirePermissions("tools:run")
+  materials(@Req() req: FastifyRequest, @Body() body: unknown) {
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = this.toolsService.materials(body);
+    return ok(rid, result);
+  }
+
   @Post("quote")
   @RequirePermissions("tools:run")
   quote(@Req() req: FastifyRequest, @Body() body: { result: Record<string, unknown> }) {

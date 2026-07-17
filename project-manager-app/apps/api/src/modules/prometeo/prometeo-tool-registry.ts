@@ -392,6 +392,34 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     riskLevel: "critical",
     approvalPolicy: "human_required",
   }),
+  readTool({
+    namespace: "materials",
+    name: "calculate",
+    label: "Calcular materiales",
+    description: "Calcula cantidades de materiales de construcción (pintura, drywall, pisos, concreto, madera, mulch) usando las fórmulas del skill materiales-obra.",
+    permissions: ["tools:run"],
+    endpoint: { method: "POST", path: "/v1/tools/materials" },
+    inputSchema: {
+      type: "object",
+      required: ["category", "lengthFt", "widthFt"],
+      properties: {
+        category: { enum: ["painting", "drywall", "flooring", "concrete", "lumber", "mulch"] },
+        lengthFt: { type: "number" },
+        widthFt: { type: "number" },
+        heightFt: { type: "number" },
+        depthInches: { type: "number" },
+        doors: { type: "number" },
+        windows: { type: "number" },
+        coats: { type: "number" },
+        installation: { enum: ["straight", "diagonal", "irregular"] },
+        corners: { type: "number" },
+        openings: { type: "number" },
+        includeCeiling: { type: "boolean" },
+      },
+    },
+    outputKind: "MaterialsEstimate",
+    tags: ["tools", "materials", "read"],
+  }),
 ];
 
 export function listPrometeoToolRegistry(): PrometeoToolDescriptor[] {
