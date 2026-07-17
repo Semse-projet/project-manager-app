@@ -15,6 +15,7 @@ COPY packages/agents/package.json ./packages/agents/
 COPY packages/auth/package.json ./packages/auth/
 COPY packages/autonomy/package.json ./packages/autonomy/
 COPY packages/db/package.json ./packages/db/
+COPY packages/forge/package.json ./packages/forge/
 COPY packages/knowledge/package.json ./packages/knowledge/
 COPY packages/product-events/package.json ./packages/product-events/
 COPY packages/schemas/package.json ./packages/schemas/
