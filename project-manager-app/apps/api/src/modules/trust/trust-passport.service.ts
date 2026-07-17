@@ -40,7 +40,7 @@ function signPassport(claims: Omit<TrustPassportClaims, "jti" | "iat" | "exp">):
 
 function verifyPassport(token: string): TrustPassportClaims {
   const dot = token.lastIndexOf(".");
-  if (dot === -1) throw new Error("malformed token");
+  if (dot <= 0 || dot === token.length - 1) throw new Error("malformed token");
 
   const encoded = token.slice(0, dot);
   const sig = token.slice(dot + 1);
@@ -52,10 +52,21 @@ function verifyPassport(token: string): TrustPassportClaims {
     throw new Error("invalid signature");
   }
 
-  const claims = JSON.parse(fromb64url(encoded)) as TrustPassportClaims;
-  if (claims.typ !== "trust-passport") throw new Error("wrong token type");
-  if (claims.exp < Math.floor(Date.now() / 1000)) throw new Error("passport expired");
-  return claims;
+  const decoded = fromb64url(encoded);
+  let claims: unknown;
+  try {
+    claims = JSON.parse(decoded);
+  } catch {
+    throw new Error("malformed token");
+  }
+
+  if (!claims || typeof claims !== "object") throw new Error("malformed token");
+  const candidate = claims as Partial<TrustPassportClaims>;
+  if (candidate.typ !== "trust-passport") throw new Error("wrong token type");
+  if (typeof candidate.exp !== "number" || candidate.exp < Math.floor(Date.now() / 1000)) {
+    throw new Error("passport expired");
+  }
+  return claims as TrustPassportClaims;
 }
 
 @Injectable()

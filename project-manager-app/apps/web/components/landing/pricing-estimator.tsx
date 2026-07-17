@@ -316,8 +316,8 @@ export function PricingEstimator() {
                   min={category.minArea}
                   max={category.maxArea}
                   onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val)) {
+                    const val = Number(e.target.value);
+                    if (Number.isFinite(val)) {
                       setArea(Math.max(category.minArea, Math.min(category.maxArea, val)));
                     }
                   }}
@@ -335,7 +335,10 @@ export function PricingEstimator() {
                   min={category.minArea}
                   max={category.maxArea}
                   value={area}
-                  onChange={(e) => setArea(parseInt(e.target.value))}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    setArea(Number.isFinite(val) ? Math.max(category.minArea, Math.min(category.maxArea, val)) : category.minArea);
+                  }}
                   className="w-full accent-blue-600 dark:accent-blue-500 cursor-pointer h-2 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none"
                 />
               </div>
