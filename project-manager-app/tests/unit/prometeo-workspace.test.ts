@@ -10,6 +10,10 @@ import {
   getPrometeoUploadContentType,
   isPrometeoAttachmentAccepted,
 } from "../../apps/web/components/ai/prometeo-attachments.ts";
+import {
+  getPrometeoToolResultDetail,
+  shouldRenderPrometeoToolError,
+} from "../../apps/web/components/ai/prometeo-response.ts";
 
 function candidate(name: string, type: string, size = 1024) {
   return { name, type, size };
@@ -117,6 +121,31 @@ test("workspace exposes accessible file, camera, drop and paste controls", () =>
   assert.match(source, /aria-live="polite"/);
   assert.match(source, /<StructuredResponseCards/);
   assert.match(source, /safeCitationUrl\(citation\.url\)/);
+});
+
+test("tool result cards do not repeat an error already used as their detail", () => {
+  const errorMessage = "La herramienta no pudo completar la operación";
+  const fallbackDetail = getPrometeoToolResultDetail({
+    outputKind: "",
+    summary: null,
+    errorMessage,
+  });
+
+  assert.equal(fallbackDetail, errorMessage);
+  assert.equal(
+    shouldRenderPrometeoToolError({ detail: fallbackDetail, errorMessage }),
+    false,
+  );
+
+  const outputDetail = getPrometeoToolResultDetail({
+    outputKind: "3 registros",
+    summary: null,
+    errorMessage,
+  });
+  assert.equal(
+    shouldRenderPrometeoToolError({ detail: outputDetail, errorMessage }),
+    true,
+  );
 });
 
 test("upload proxy derives authorization server-side", () => {

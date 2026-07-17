@@ -22,6 +22,10 @@ import {
   formatPrometeoAttachmentSize,
   getPrometeoAttachmentValidationError,
 } from "./prometeo-attachments";
+import {
+  getPrometeoToolResultDetail,
+  shouldRenderPrometeoToolError,
+} from "./prometeo-response";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -121,7 +125,7 @@ function attachmentIcon(type: PrometeoAttachment["type"]): string {
 
 function describeToolOutput(output: unknown): string | null {
   if (output === undefined || output === null) return null;
-  const payload = typeof output === "object" && output !== null && "data" in output
+  const payload = typeof output === "object" && "data" in output
     ? (output as { data?: unknown }).data
     : output;
 
@@ -390,6 +394,11 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
             const outputKind = typeof result.output === "object" && result.output !== null && "outputKind" in result.output
               ? displayText((result.output as { outputKind?: unknown }).outputKind)
               : "";
+            const detail = getPrometeoToolResultDetail({
+              outputKind,
+              summary,
+              errorMessage: result.errorMessage,
+            });
             return (
               <div key={result.id} style={{
                 border: `1px solid ${failed ? "rgba(239,68,68,0.30)" : succeeded ? "rgba(16,185,129,0.28)" : "rgba(255,255,255,0.10)"}`,
@@ -401,14 +410,14 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
                   <div style={{ minWidth: 0 }}>
                     <div style={{ color: "#e2e8f0", fontSize: 11, fontWeight: 800 }}>{result.namespace}.{result.tool}</div>
                     <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 9, marginTop: 2 }}>
-                      {outputKind || summary || result.errorMessage || "Sin detalle adicional"}
+                      {detail}
                     </div>
                   </div>
                   <span style={{ color: failed ? "#fca5a5" : succeeded ? "#86efac" : "#fbbf24", fontSize: 9, textTransform: "uppercase", whiteSpace: "nowrap" }}>
                     {result.status}
                   </span>
                 </div>
-                {result.errorMessage && outputKind !== result.errorMessage ? (
+                {shouldRenderPrometeoToolError({ detail, errorMessage: result.errorMessage }) ? (
                   <div style={{ color: "#fca5a5", fontSize: 9, marginTop: 5 }}>{result.errorMessage}</div>
                 ) : null}
                 {result.auditRef ? (
