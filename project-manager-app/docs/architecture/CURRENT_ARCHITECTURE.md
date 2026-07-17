@@ -1,8 +1,8 @@
 # Arquitectura vigente de SEMSEproject
 
 **Estado:** CANONICA
-**Corte verificado:** 2026-07-12
-**Codigo/produccion verificados:** `main@bd0d98cd3c6815c5f0a0867852c4dbf7c1169e48`
+**Corte verificado:** 2026-07-16
+**Codigo/produccion verificados:** `main@6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
 
@@ -127,9 +127,9 @@ Paquetes compartidos existentes:
 
 ```text
 packages/agents       packages/auth       packages/autonomy
-packages/db           packages/knowledge  packages/schemas
-packages/sdk          packages/shared     packages/tools
-packages/ui
+packages/db           packages/knowledge  packages/product-events
+packages/schemas      packages/sdk        packages/shared
+packages/tools        packages/ui
 ```
 
 Los futuros paquetes `events`, `policies`, `ledger` y `observability` solo se
@@ -140,8 +140,8 @@ en los modulos actuales.
 
 | Sistema | Estado | Hecho verificado | Brecha principal |
 | --- | --- | --- | --- |
-| Domain Events | Parcial | Union Zod tipada, bus NestJS, auditoria y routing a agentes/notificaciones | Envelope incompleto, nombres sin version y cobertura limitada por dominio |
-| Transactional Outbox | Parcial/vertical | Existe persistencia de delivery en comunicaciones | No hay outbox transaccional general junto al write de dominio ni dispatcher durable |
+| Domain Events | Implementado/parcial (F1-D) | Envelope v2, `evidence.uploaded.v1`, producer atomico, dispatcher BullMQ y consumer idempotente de Evidence | Falta Ops/replay, trace extendido, canary y adopcion dominio por dominio |
+| Transactional Outbox | Implementado/parcial (F1-D) | Evidence + outbox comparten transaccion; dispatcher usa leases y jobId deterministico; effect + receipt del consumer son atomicos | Feature flags siguen default-off; faltan replay operativo, canary y producers adicionales |
 | BullMQ y loops | Implementado/parcial | Worker, retries, backpressure, kill switch y agent runs dead-lettered | Falta unificar observabilidad, replay y DLQ por evento |
 | Prometeo Runtime P2 | Implementado y desplegado | Misiones persistentes sobre `AgentWorkPlan`, aprobacion y checkpoints | Mutaciones, compensacion, budgets y verificacion transversal pendientes |
 | Prometeo Tool Registry | Parcial | 23 tools read y 7 write declaradas; 17 casos read cableados | Write bloqueado; tools declaradas sin adapter; permisos por tool aun dispersos |
@@ -149,7 +149,7 @@ en los modulos actuales.
 | Economic Ledger | Pendiente como sistema comun | `PaymentTxn` y ledgers verticales registran movimientos operativos | No existe double-entry compartido, cuentas, lineas, reversals ni trial balance |
 | Policy/Approval | Parcial | RBAC default-deny y aprobaciones en Prometeo, BuildOps y Payments | No existe decision engine transversal versionado |
 | Mission Control | Parcial | UI, signals, incidents, SSE, AI health y acciones operativas | Las colas y workspaces siguen fragmentados; no hay cockpit unico de eventos/DLQ |
-| Product Intelligence | Parcial | Analytics, reporting, operational intelligence y metricas | Falta un modelo transversal de funnels y friccion por journey/rol |
+| Product Intelligence | Implementado/parcial (PI-00..PI-06) | SDK separado, contratos, modelos, ingesta, retencion, instrumentacion auth/wizard y funnels de experiencia/economico | Activacion de flags no verificada; PI-07 Friction Engine y fases PI-08..PI-11 pendientes |
 | Workspace/Context Bridge | Parcial | Developer runtime, context bridge panel y capas de contexto existentes | Registry de terminales, shared mission context y scopes uniformes |
 | SDD/Blueprint Engine | Parcial | Specs, preflight, developer runtime y flujos de plan | Pipeline idea->spec->tasks->PR->deploy gobernado de punta a punta |
 | Observabilidad | Parcial | Sentry, metricas Prometheus, health/readiness y auditoria | No hay trazas OTel end-to-end ni SLOs de negocio completos |
@@ -208,17 +208,20 @@ correlationId, causationId, idempotencyKey,
 payload, metadata, traceContext, schemaRef
 ```
 
-No se migrara con un big bang. F1-A–F1-D ya introducen el envelope y la outbox
+No se migrara con un big bang. F1-A-F1-D ya introdujeron el envelope y la outbox
 en Evidence, el dispatcher BullMQ y el consumer idempotente
-`evidence-readiness.v1`. El efecto y su receipt comparten transaccion, y el
-worker recibe solo `eventId`. F1-E debe añadir Ops/replay/trace y F1-F debe
-realizar canary antes de ampliar dominio por dominio.
+`evidence-readiness.v1`. El worker recibe solo `eventId`; API reconstruye el
+evento durable desde PostgreSQL; efecto, AuditLog y receipt se confirman en la
+misma transaccion. El consumer no cambia `Milestone.status`, Payments ni
+`paymentReadiness`.
 
 El contrato F1 esta aprobado en
 [`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md)
-y ADR-022. Su estado es **parcial, implementado localmente hasta F1-D**. Los
-switches de dispatcher/consumers permanecen apagados por defecto y el corte no
-se considera desplegado ni cerrado hasta completar verificacion de produccion.
+y ADR-022. Su estado es **parcial hasta F1-D, integrado en `main` y contenido en
+el deploy del corte**. Los switches de dispatcher y consumers son default-off;
+su valor real en Railway no pudo inspeccionarse por falta de sesion CLI. F1-E
+debe completar Ops/replay/RBAC/trace y F1-F debe ejecutar el canary antes de
+declarar el backbone activo o cerrado.
 
 ## 9. Flujos canónicos
 
@@ -285,17 +288,26 @@ su cuenta.
 
 ## 11. Estado de produccion verificado
 
-Verificado el 2026-07-12 despues de la PR #291:
+Verificado el 2026-07-16 para el SHA exacto de `main`:
 
-- `main`: `bd0d98cd3c6815c5f0a0867852c4dbf7c1169e48`.
-- Railway Deploy: exitoso.
+- `main`: `6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d` (PR #312).
+- CI, CodeQL, API Smoke, API Integration, Operacion Asistida y Autonomy Staged:
+  exitosos para ese SHA.
+- Railway Deploy: exitoso; el workflow resolvio y desplego el SHA exacto.
 - Production Health Gate: exitoso.
 - API `/v1/health`: HTTP 200.
 - Web: HTTP 200.
-- `/v1/prometeo/tools`: HTTP 401 sin token, confirmando que la ruta esta
-  desplegada y protegida; el estado anterior de HTTP 404 queda supersedido.
-- CI de `main`: quality gates, coverage y E2E exitosos.
-- linea base SDD estricta: 63 specs, 0 errores y 0 warnings en el corte F0.
+- `/v1/prometeo/tools`: HTTP 401 sin token, confirmando ruta protegida.
+- Product Intelligence `/v1/product-intelligence/funnel` y
+  `/funnel/economic`: HTTP 401 sin token, confirmando rutas protegidas.
+- F1-D y PI-00..PI-06 estan contenidos en el codigo desplegado. Esto no
+  demuestra que sus feature flags esten activas.
+- La CLI de Railway no estaba autenticada durante F0; valores de flags,
+  allowlists, servicios no publicos y provider de storage quedan **no
+  verificados**.
+
+La evidencia reproducible y la divergencia del checkout local se registran en
+[`../reportes/F0_TRUTH_SYNC_2026-07-16.md`](../reportes/F0_TRUTH_SYNC_2026-07-16.md).
 
 Estos datos son un snapshot, no una garantia permanente. Cada documento de
 estado posterior debe registrar nuevo SHA, fecha y evidencia de CI/deploy.
