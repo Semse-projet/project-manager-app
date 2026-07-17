@@ -1,4 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import {
+  calculateMaterials,
+  MaterialsCalculatorError,
+} from "@semse/tools";
 import type {
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
@@ -218,6 +222,14 @@ export class PrometeoToolExecutionService {
 
       case "vision.get_milestone_analyses":
         return this.vision.getByMilestone(requiredString(input, "milestoneId"));
+
+      case "materials.calculate":
+        try {
+          return calculateMaterials(input);
+        } catch (error) {
+          const message = error instanceof MaterialsCalculatorError ? error.message : String(error);
+          return { __blockedReason: message };
+        }
 
       default:
         return {

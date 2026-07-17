@@ -97,6 +97,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [m5-1-ml-risk](specs/tools/fase-5/m5.1-ml-risk.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [tools-materials-calculator](specs/tools/materials-calculator.spec.md) | tools | APPROVED | missing | yes | no | no | 0 | missing |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | VERIFIED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | 2026-07-12 |
