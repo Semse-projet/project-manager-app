@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00..PI-11.1 COMPLETADOS. Resta: activar variables en Railway + PI-11.2 (auditoría privacidad con datos reales).
+**Estado:** ✅ PROGRAMA COMPLETADO (2026-07-17). PI-00..PI-11 cerrados, variables ACTIVAS en Railway (PRODUCT_INTELLIGENCE_ENABLED en API/worker, NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED horneada en el build del web), auditoría de privacidad aprobada, 3 servicios en SUCCESS. Los kill switches permiten apagar todo o solo los engines (PI_ENGINES_ENABLED=false) sin deploy.
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -111,7 +111,7 @@ Primer flujo instrumentado por historial real de bugs (register perdía contexto
 
 ### PI-11 — Verticales + hardening
 - [x] PI-11.1 — agro.dashboard_view, prometeo.chat_opened y prometeo.message_sent (solo el hecho, JAMÁS contenido de mensajes) + friction.form_abandon en register (solo conteo de campos llenos) con regla FORM_ABANDON en el engine.
-- [ ] PI-11.2 — Auditoría de privacidad con payloads REALES de prod — requiere activar variables primero; se ejecuta en el paso de activación.
+- [x] PI-11.2 — EJECUTADA 2026-07-17 en producción: batch adversario con email/teléfono/dirección → persistido 100% [redacted] (incluida la query de la ruta, capturada por la defensa server-side ante un cliente que salte el SDK); escaneo regex de PII sobre TODOS los ProductEvent: 0 coincidencias. E2E navegador→BFF→API→Postgres verificado con accepted:1.
 
 ---
 
@@ -124,3 +124,5 @@ Primer flujo instrumentado por historial real de bugs (register perdía contexto
 | 2026-07-13 | PI-00 arranca tras cerrar los P0 de la auditoría web (PRs #295–#298 + fix de dato en prod). |
 | 2026-07-13 | Spec aprobada por el usuario (DRAFT→APPROVED). |
 | 2026-07-13 | PI-01 detectó drift REAL preexistente en main: 6 accessors sin modelo (`changeOrder`, `drawRequest`, `evidenceLog`, `evidencePhoto`, `tradeMetric`, `weatherAlert`) — todos en código muerto jamás registrado en módulos NestJS, habilitado por el index signature `[delegate: string]: any` de PrismaService; y 3 tablas Lien* en prod (baseline P3005) sin migración. Documentado en `scripts/prisma-contract-baseline.json`; la lista solo puede encogerse. |
+
+| 2026-07-17 | Programa completado: PI-06 (#321), PI-07/08/09/10 (#322), PI-11.1 (#323), build arg web (#325). Variables activadas vía Railway API, auditoría de privacidad PASA (0 PII persistida), E2E navegador→BFF→API→Postgres verificado. |
