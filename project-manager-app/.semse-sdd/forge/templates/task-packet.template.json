@@ -1,0 +1,39 @@
+{
+  "id": "task-id",
+  "title": "Bounded implementation task",
+  "spec": {
+    "id": "spec-id",
+    "path": "docs/specs/domain/feature.spec.md",
+    "digest": "sha256",
+    "status": "APPROVED"
+  },
+  "requestedRole": "backend-builder",
+  "riskLevel": "high",
+  "objective": "Implement only the approved scope.",
+  "allowedFiles": [
+    "apps/api/src/modules/example/**",
+    "tests/**"
+  ],
+  "forbiddenFiles": [
+    "packages/db/prisma/migrations/**",
+    ".env*"
+  ],
+  "allowedCommands": [
+    "pnpm build:api",
+    "pnpm test:unit"
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "AC-1",
+      "statement": "The approved behavior is implemented.",
+      "verification": "unit test",
+      "required": true
+    }
+  ],
+  "dependencies": [],
+  "targetBranch": "agent/example",
+  "environment": "sandbox",
+  "metadata": {
+    "owner": "team"
+  }
+}

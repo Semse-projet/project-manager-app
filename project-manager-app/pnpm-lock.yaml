@@ -722,6 +722,12 @@ importers:
         specifier: ^4.23.1
         version: 4.23.1
 
+  packages/forge:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+
   packages/knowledge:
     dependencies:
       '@semse/schemas':
