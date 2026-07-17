@@ -23,7 +23,7 @@ const QUICK_LINKS = [
 ];
 
 export default function WorkOpsHubPage() {
-  const module = getAdminModuleById("workops");
+  const mod = getAdminModuleById("workops");
   const [metrics, setMetrics] = useState<WorkOpsMetrics | null>(null);
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function WorkOpsHubPage() {
     })();
   }, []);
 
-  if (!module) return null;
+  if (!mod) return null;
 
   const kpis = metrics ? [
     { label: "Jobs activos",    value: metrics.jobs.active,    color: "#6ee7b7", warn: false },
@@ -63,7 +63,7 @@ export default function WorkOpsHubPage() {
   ] : null;
 
   return (
-    <ModuleShell module={module} eyebrow="SEMSE WorkOps">
+    <ModuleShell module={mod} eyebrow="SEMSE WorkOps">
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
         {/* Live KPI strip */}

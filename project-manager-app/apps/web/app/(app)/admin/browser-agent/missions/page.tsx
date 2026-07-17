@@ -296,7 +296,7 @@ export default function BrowserMissionsPage() {
               <div className="flex flex-col items-center justify-center py-20 text-zinc-500 text-center">
                 <Bot size={48} className="text-zinc-600 mb-4 animate-pulse" />
                 <p className="font-bold text-sm text-zinc-400">Sin Misión Activa</p>
-                <p className="text-xs text-zinc-500 max-w-xs mt-1">Configura los pasos y haz clic en "Lanzar Misión Autónoma" para ver el bucle de ejecución en tiempo real.</p>
+                <p className="text-xs text-zinc-500 max-w-xs mt-1">Configura los pasos y haz clic en &quot;Lanzar Misión Autónoma&quot; para ver el bucle de ejecución en tiempo real.</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -388,7 +388,7 @@ export default function BrowserMissionsPage() {
                           <CheckCircle size={14} /> Misión Finalizada con Éxito
                         </h4>
                         <p className="text-xs text-zinc-300">
-                          Todos los pasos planificados para la meta <strong>"{activeMission.goal}"</strong> fueron completados satisfactoriamente. 
+                          Todos los pasos planificados para la meta <strong>&quot;{activeMission.goal}&quot;</strong> fueron completados satisfactoriamente. 
                           Las cookies y la sesión del navegador se sandboxearon efímeramente y se han destruido de forma segura tras la finalización.
                         </p>
                       </div>

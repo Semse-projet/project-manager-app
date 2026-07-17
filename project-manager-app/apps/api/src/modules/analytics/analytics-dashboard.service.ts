@@ -20,7 +20,7 @@ export class AnalyticsDashboardService {
     };
   }
 
-  async getChartData(projectId: string): Promise<any> {
+  async getChartData(_projectId: string): Promise<any> {
     return {
       burnChart: [
         { day: 1, spent: 10000 },

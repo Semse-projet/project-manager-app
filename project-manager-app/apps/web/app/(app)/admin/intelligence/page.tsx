@@ -33,7 +33,7 @@ const MODULES = [
 ];
 
 export default function IntelligenceHubPage() {
-  const module = getAdminModuleById("intelligence");
+  const mod = getAdminModuleById("intelligence");
   const [cs, setCs] = useState<ConsciousnessState | null>(null);
   const [em, setEm] = useState<EcosystemMetrics | null>(null);
 
@@ -70,7 +70,7 @@ export default function IntelligenceHubPage() {
     })();
   }, []);
 
-  if (!module) return null;
+  if (!mod) return null;
 
   const kpis = [
     { label: "Madurez",       value: cs?.maturityScore != null ? `${cs.maturityScore}/100` : "—", color: "#c4b5fd" },
@@ -80,7 +80,7 @@ export default function IntelligenceHubPage() {
   ];
 
   return (
-    <ModuleShell module={module} eyebrow="SEMSE Intelligence">
+    <ModuleShell module={mod} eyebrow="SEMSE Intelligence">
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
         {/* KPI strip */}

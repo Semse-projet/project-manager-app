@@ -4,7 +4,7 @@ import { Public } from "../../common/public.decorator.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
-import { DidService, fromDid, toDid } from "./did.service.js";
+import {DidService, fromDid} from "./did.service.js";
 
 @Controller()
 export class DidController {

@@ -6,8 +6,8 @@ import { PaymentGovernanceDiagnosticsService } from "./diagnostics.service.js";
 
 describe("PaymentGovernanceService", () => {
   let service: PaymentGovernanceService;
-  let repository: jest.Mocked<PaymentGovernanceRepository>;
-  let diagnostics: jest.Mocked<PaymentGovernanceDiagnosticsService>;
+  let _repository: jest.Mocked<PaymentGovernanceRepository>;
+  let _diagnostics: jest.Mocked<PaymentGovernanceDiagnosticsService>;
 
   const mockRepository = {
     getEscrow: jest.fn(),

@@ -61,7 +61,7 @@ export class LenderWebhookController {
    * Manejar draw approved.
    */
   private async handleDrawApproved(data: any): Promise<void> {
-    const { drawId, approvalDate } = data;
+    const { drawId } = data;
 
     this.logger.log(`Processing draw approval: ${drawId}`);
 

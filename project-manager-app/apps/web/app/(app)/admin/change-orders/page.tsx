@@ -234,7 +234,7 @@ export default function AdminChangeOrdersPage() {
             <div style={{ padding: 32, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>Cargando…</div>
           ) : filtered.length === 0 ? (
             <div style={{ ...surface, padding: 32, textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
-              No hay change orders con estado "{filter === "all" ? "cualquiera" : STATUS_META[filter as COStatus]?.label ?? filter}"
+              No hay change orders con estado &quot;{filter === "all" ? "cualquiera" : STATUS_META[filter as COStatus]?.label ?? filter}&quot;
             </div>
           ) : (
             filtered.map((co) => {

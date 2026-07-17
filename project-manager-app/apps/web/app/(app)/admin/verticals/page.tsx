@@ -83,11 +83,11 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 };
 
 export default function VerticalsHubPage() {
-  const module = getAdminModuleById("verticals");
-  if (!module) return null;
+  const mod = getAdminModuleById("verticals");
+  if (!mod) return null;
 
   return (
-    <ModuleShell module={module} eyebrow="SEMSE Verticals">
+    <ModuleShell module={mod} eyebrow="SEMSE Verticals">
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {VERTICALS.map((v) => {
           const badge = STATUS_BADGE[v.status];

@@ -13,7 +13,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { RequirePermissions } from '../../common/permissions.decorator.js';
-import { EXIFParser, ValidationResult } from '../../integrations/exif-parser.js';
+import {EXIFParser} from '../../integrations/exif-parser.js';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
 /**

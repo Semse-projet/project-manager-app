@@ -2,7 +2,6 @@ import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
-import { isZeroVector } from "../prometeo/embedding.service.js";
 import { BehavioralObserverService, type BehavioralHealth } from "./behavioral-observer.service.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────

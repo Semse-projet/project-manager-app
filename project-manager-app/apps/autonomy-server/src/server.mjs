@@ -125,15 +125,34 @@ async function loadProvider() {
 async function loadRuns() {
   const runs = await fetch('/api/runs').then(r => r.json());
   const el = document.getElementById('runs-list');
-  if (!runs.length) { el.innerHTML = '<div style="color:#64748b;font-size:12px">Sin runs aún.</div>'; return; }
-  el.innerHTML = runs.map(r => '<div class="run-item" data-id="' + r.runId + '"><div class="run-title">' + r.task.slice(0,48) + '</div><div class="run-branch">' + (r.branchName || '—') + '</div></div>').join('');
-  el.querySelectorAll('.run-item').forEach(el => {
-    el.addEventListener('click', async () => {
-      const data = await fetch('/api/runs/' + el.dataset.id).then(r => r.json());
+  el.textContent = '';
+  if (!runs.length) {
+    const empty = document.createElement('div');
+    empty.style.color = '#64748b';
+    empty.style.fontSize = '12px';
+    empty.textContent = 'Sin runs aún.';
+    el.appendChild(empty);
+    return;
+  }
+  for (const run of runs) {
+    const item = document.createElement('div');
+    item.className = 'run-item';
+    item.dataset.id = run.runId;
+    const title = document.createElement('div');
+    title.className = 'run-title';
+    title.textContent = String(run.task || '').slice(0, 48);
+    const branch = document.createElement('div');
+    branch.className = 'run-branch';
+    branch.textContent = run.branchName || '—';
+    item.appendChild(title);
+    item.appendChild(branch);
+    item.addEventListener('click', async () => {
+      const data = await fetch('/api/runs/' + item.dataset.id).then(r => r.json());
       document.getElementById('detail-title').textContent = 'Run: ' + data.runId;
       document.getElementById('detail').textContent = JSON.stringify(data, null, 2);
     });
-  });
+    el.appendChild(item);
+  }
 }
 document.getElementById('run-btn').addEventListener('click', async () => {
   const task = document.getElementById('task').value.trim();

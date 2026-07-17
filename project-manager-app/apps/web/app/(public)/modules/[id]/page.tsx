@@ -809,7 +809,7 @@ export default function ModulePage() {
                     aiResponse
                   ) : (
                     <span className="text-slate-500">
-                      Haz clic en "Analizar con Prometeo" para disparar la consulta asistida con agentes de inteligencia...
+                      Haz clic en &quot;Analizar con Prometeo&quot; para disparar la consulta asistida con agentes de inteligencia...
                     </span>
                   )}
                 </div>

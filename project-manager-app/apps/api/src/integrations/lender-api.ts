@@ -117,7 +117,7 @@ export class LenderClient {
 export class MockLenderClient {
   private readonly logger = new Logger('MockLenderClient');
 
-  async authenticate(clientId: string, clientSecret: string): Promise<string> {
+  async authenticate(_clientId: string, _clientSecret: string): Promise<string> {
     this.logger.debug('Mock: authenticating');
     return 'mock_access_token';
   }
@@ -142,7 +142,7 @@ export class MockLenderClient {
     };
   }
 
-  static verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
+  static verifyWebhookSignature(_payload: string, _signature: string, _secret: string): boolean {
     return true; // Mock always passes
   }
 }

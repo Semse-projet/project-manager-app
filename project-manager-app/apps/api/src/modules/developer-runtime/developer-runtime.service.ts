@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import type {
   DeveloperRuntimeApprovalRecord,
-  DeveloperRuntimeArtifact,
   DeveloperRuntimeApprovalResponseInput,
   DeveloperRuntimeCreateMissionInput,
   DeveloperRuntimeCreateSessionInput,
@@ -13,7 +12,6 @@ import type {
   DeveloperRuntimeSession,
   DeveloperRuntimeSessionLog,
   DeveloperRuntimeTaskCategory,
-  DeveloperRuntimeValidationResult,
   DeveloperRuntimeWorkerCompleteInput,
   DeveloperRuntimeWorkerFailInput,
   DeveloperRuntimeWorkerStartInput,

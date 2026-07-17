@@ -52,10 +52,6 @@ function toNum(v: unknown): number {
   return parseFloat(String(v ?? 0)) || 0;
 }
 
-function daysSince(date: Date | string): number {
-  return Math.floor((Date.now() - new Date(date).getTime()) / (1000 * 60 * 60 * 24));
-}
-
 @Injectable()
 export class PmoService {
   private readonly logger = new Logger(PmoService.name);

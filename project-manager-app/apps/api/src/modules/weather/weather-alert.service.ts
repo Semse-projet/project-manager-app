@@ -27,7 +27,7 @@ export class WeatherAlertService {
   }> {
     this.logger.log(`Checking weather alerts: ${projectId}`);
 
-    const project = await this.prisma.project.findUniqueOrThrow({
+    const _project = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
     });
 

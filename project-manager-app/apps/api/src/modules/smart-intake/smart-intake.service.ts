@@ -5,7 +5,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  UnprocessableEntityException,
 } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
@@ -25,7 +24,6 @@ import {
   generateMilestones,
   generateTips,
   getNextQuestion,
-  isPaintingCategory,
   refreshDerivedState,
   updateAnswerSet,
 } from "./smart-intake.logic.js";

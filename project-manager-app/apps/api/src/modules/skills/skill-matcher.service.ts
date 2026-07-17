@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { SkillLoaderService } from "./skill-loader.service.js";
-import type { LoadedSkill, SkillMatchResult } from "./skill.types.js";
+import type {SkillMatchResult} from "./skill.types.js";
 
 const MAX_SKILLS_PER_CONTEXT = 3;
 const MAX_CONTEXT_CHARS = 5_000;

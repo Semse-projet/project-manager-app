@@ -7,7 +7,7 @@ import { StorageService } from "../../infrastructure/storage/storage.service.js"
 
 describe("EvidenceGatewayService", () => {
   let service: EvidenceGatewayService;
-  let repository: jest.Mocked<EvidenceGatewayRepository>;
+  let _repository: jest.Mocked<EvidenceGatewayRepository>;
 
   const mockRepository = {
     createEvidence: jest.fn(),
