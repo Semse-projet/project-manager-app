@@ -142,7 +142,18 @@ export class DailyLogService {
       where: { id: logId },
     });
 
-    const eventsLog = log.eventsLog ? JSON.parse(log.eventsLog) : [];
+    let eventsLog: unknown[] = [];
+    if (log.eventsLog) {
+      try {
+        eventsLog = JSON.parse(log.eventsLog) as unknown[];
+        if (!Array.isArray(eventsLog)) {
+          eventsLog = [];
+        }
+      } catch {
+        this.logger.warn(`Malformed eventsLog for log ${logId}`);
+        eventsLog = [];
+      }
+    }
     const signatures = log.signedAt
       ? [{ user: log.signedBy || 'unknown', signedAt: log.signedAt }]
       : [];

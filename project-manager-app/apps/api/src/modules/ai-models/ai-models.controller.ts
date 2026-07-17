@@ -15,6 +15,7 @@ import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext, type RequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 import { AiModelGatewayService } from "./gateway/ai-model-gateway.service.js";
 import { AiInteractionLoggerService } from "./logging/ai-interaction-logger.service.js";
 import { AiMissionIncidentService, type MissionIncidentInput } from "./logging/ai-mission-incident.service.js";
@@ -155,7 +156,7 @@ export class AiModelsController {
     @Query("source") source?: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
-    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    const parsedLimit = parsePositiveInt(limit, 50);
     const data = source === "buffer"
       ? this.logger.getRecentLogs(parsedLimit)
       : await this.logger.getDbLogs(parsedLimit);
@@ -172,7 +173,7 @@ export class AiModelsController {
   @RequirePermissions("agents:run:create")
   async getDbLogs(@Req() req: { headers?: Record<string, unknown> }, @Query("limit") limit?: string) {
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.logger.getDbLogs(limit ? parseInt(limit, 10) : 100));
+    return ok(rid, await this.logger.getDbLogs(parsePositiveInt(limit, 100)));
   }
 
   @Get("operational-context")
@@ -852,7 +853,7 @@ export class AiModelsController {
   ) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = resolveRequestContext(req.headers ?? {});
-    const data = await this.incidents.getRecent(ctx.tenantId, limit ? parseInt(limit, 10) : 20);
+    const data = await this.incidents.getRecent(ctx.tenantId, parsePositiveInt(limit, 20));
     return ok(rid, data);
   }
 }

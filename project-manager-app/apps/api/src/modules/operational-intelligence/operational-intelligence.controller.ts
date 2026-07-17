@@ -6,6 +6,7 @@ import { ok } from "../../common/api-response.js";
 import { OperationalSignalsService } from "./operational-signals.service.js";
 import { IntelligenceRunsService } from "./intelligence-runs.service.js";
 import { PrometeoBriefService } from "./prometeo-brief.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 
 @Controller("v1/operational-intelligence")
 export class OperationalIntelligenceController {
@@ -37,7 +38,7 @@ export class OperationalIntelligenceController {
       jobId,
       buildOpsProjectId,
       milestoneId,
-      limit: limit ? parseInt(limit, 10) : 50,
+      limit: parsePositiveInt(limit, 50),
     });
     return ok(requestId, results);
   }
@@ -88,7 +89,7 @@ export class OperationalIntelligenceController {
     const ctx = parseHeaderRequestContext(req);
     const results = await this.runs.listRecent(
       ctx.tenantId,
-      limit ? parseInt(limit, 10) : 20,
+      parsePositiveInt(limit, 20),
     );
     return ok(requestId, results);
   }

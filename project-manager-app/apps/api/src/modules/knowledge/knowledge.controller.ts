@@ -6,6 +6,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 import { AgentSkillRepository, type CreateAgentSkillInput } from "./agent-skill.repository.js";
 import { KnowledgeCuratorService } from "./knowledge-curator.service.js";
 import { KnowledgeService } from "./knowledge.service.js";
@@ -43,7 +44,7 @@ export class KnowledgeController {
       tenantId: actor.tenantId,
       workspaceId,
       term: term ?? "",
-      limit: limit ? parseInt(limit, 10) : undefined,
+      limit: limit ? parsePositiveInt(limit, 20) : undefined,
       kinds: kindsArr
     });
     return ok(resolveRequestId(req.headers ?? {}), data);

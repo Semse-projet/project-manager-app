@@ -10,6 +10,12 @@ import { BuildOpsAgent } from "./buildops.agent.js";
 import { CrowdAgent } from "./crowd.agent.js";
 import { EvidenceAgent } from "./evidence.agent.js";
 
+function parsePositiveInt(value: unknown, fallback: number): number {
+  if (typeof value !== "number" && typeof value !== "string") return fallback;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 @Controller("v1/agents/semse")
 export class SemseAgentsController {
   constructor(
@@ -109,7 +115,7 @@ export class SemseAgentsController {
   async buildopsPlan(@Req() req: { headers?: Record<string, unknown> }, @Body() body: Record<string, unknown>) {
     const rid = resolveRequestId(req.headers ?? {});
     const trade = String(body.trade ?? "general");
-    const hours = Number(body.estimatedHours ?? 8);
+    const hours = parsePositiveInt(body.estimatedHours, 8);
     const plan = this.buildopsAgent.createPlan(trade, hours);
     return ok(rid, { agentName: "buildops", trade, ...plan });
   }
@@ -132,7 +138,7 @@ export class SemseAgentsController {
     const rid = resolveRequestId(req.headers ?? {});
     const decision = this.crowdAgent.evaluatePaymentReadiness({
       evidenceApproved:    Boolean(body.evidenceApproved),
-      changeOrdersPending: Number(body.changeOrdersPending ?? 0),
+      changeOrdersPending: Math.max(0, parsePositiveInt(body.changeOrdersPending, 0)),
       disputeOpen:         Boolean(body.disputeOpen),
       milestoneStatus:     String(body.milestoneStatus ?? "draft"),
     });

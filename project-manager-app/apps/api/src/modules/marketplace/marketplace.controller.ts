@@ -4,6 +4,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { MarketplaceService } from "./marketplace.service.js";
+import { parseNonNegativeInt, parsePositiveInt } from "../../common/parse-query.js";
 
 @Controller("v1/marketplace")
 export class MarketplaceController {
@@ -24,8 +25,8 @@ export class MarketplaceController {
     const result = await this.svc.listOpenJobs({
       tenantId: ctx.tenantId,
       category, location, urgency,
-      limit:  limit  ? parseInt(limit, 10)  : 20,
-      offset: offset ? parseInt(offset, 10) : 0,
+      limit: parsePositiveInt(limit, 20),
+      offset: parseNonNegativeInt(offset, 0),
     });
     return ok(rid, result);
   }
@@ -48,7 +49,7 @@ export class MarketplaceController {
     const rid = resolveRequestId(req.headers ?? {});
     return ok(rid, await this.svc.listProfessionals({
       tenantId: ctx.tenantId,
-      limit: limit ? parseInt(limit, 10) : 20,
+      limit: parsePositiveInt(limit, 20),
     }));
   }
 }

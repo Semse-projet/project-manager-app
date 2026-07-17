@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Put, Req } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, NotFoundException, Param, Post, Put, Req } from "@nestjs/common";
 import {
   multipartUploadSessionCompleteSchema,
   multipartUploadSessionCreateSchema,
@@ -160,8 +160,17 @@ export class EvidenceController {
   }
 
   private async readMultipartManifest(sessionId: string): Promise<MultipartSessionManifest> {
-    const content = await readFile(this.getMultipartSessionPath(sessionId), "utf8");
-    return JSON.parse(content) as MultipartSessionManifest;
+    let content: string;
+    try {
+      content = await readFile(this.getMultipartSessionPath(sessionId), "utf8");
+    } catch (_error) {
+      throw new NotFoundException(`Multipart session '${sessionId}' not found`);
+    }
+    try {
+      return JSON.parse(content) as MultipartSessionManifest;
+    } catch {
+      throw new BadRequestException(`Malformed multipart session manifest '${sessionId}'`);
+    }
   }
 
   private createMultipartSession(input: {

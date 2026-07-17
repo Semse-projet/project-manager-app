@@ -84,7 +84,10 @@ export class OrganizationsRepository {
   }): Promise<MembershipRecord[]> {
     await this.actorContextService.ensureActorContext(input);
     const memberships = (await this.prisma.membership.findMany({
-      where: { orgId: input.targetOrgId },
+      where: {
+        orgId: input.targetOrgId,
+        org: { tenantId: input.tenantId }
+      },
       orderBy: { createdAt: "desc" }
     })) as StoredMembership[];
 
@@ -99,7 +102,10 @@ export class OrganizationsRepository {
   }): Promise<MembershipRecord[]> {
     await this.actorContextService.ensureActorContext(input);
     const memberships = (await this.prisma.membership.findMany({
-      where: { userId: input.targetUserId },
+      where: {
+        userId: input.targetUserId,
+        org: { tenantId: input.tenantId }
+      },
       orderBy: { createdAt: "desc" }
     })) as StoredMembership[];
 

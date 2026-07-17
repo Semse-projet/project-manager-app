@@ -7,6 +7,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { AgroEvidenceService } from "./agro-evidence.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 
 const entityTypeEnum = z.enum(["FARM","FARM_UNIT","ANIMAL","ANIMAL_GROUP","FARM_TASK","INVENTORY_ITEM","INVENTORY_MOVEMENT","COST_ENTRY","GENERAL"]);
 const mediaTypeEnum  = z.enum(["NOTE","PHOTO","VIDEO","DOCUMENT","EXTERNAL_URL","OTHER"]);
@@ -92,7 +93,7 @@ export class AgroEvidenceController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const evidence = await this.service.getRecentEvidence(farmId, ctx.userId, limit ? parseInt(limit, 10) : 10);
+    const evidence = await this.service.getRecentEvidence(farmId, ctx.userId, parsePositiveInt(limit, 10));
     return ok(resolveRequestId(req.headers ?? {}), { evidence });
   }
 }

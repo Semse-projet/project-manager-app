@@ -7,6 +7,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { AgroInventoryService } from "./agro-inventory.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 
 const categoryEnum    = z.enum(["FEED","MEDICINE","VACCINE","FERTILIZER","SEED","FUEL","TOOL","MATERIAL","EQUIPMENT","OTHER"]);
 const unitEnum        = z.enum(["UNIT","LB","KG","TON","LITER","GALLON","BAG","BOX","DOSE","BOTTLE","OTHER"]);
@@ -178,7 +179,7 @@ export class AgroInventoryController {
     const ctx = resolveRequestContext(req);
     const summary = await this.service.getCostSummary(
       farmId, ctx.userId,
-      days ? parseInt(days, 10) : 30,
+      parsePositiveInt(days, 30),
     );
     return ok(resolveRequestId(req.headers ?? {}), { summary });
   }

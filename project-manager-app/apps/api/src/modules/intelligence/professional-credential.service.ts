@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { publicDisplayName } from "./public-sanitizer.js";
 
@@ -73,13 +73,23 @@ export class ProfessionalCredentialService {
   constructor(private readonly prisma: PrismaService) {}
 
   async buildCredential(tenantId: string, userId: string): Promise<ProfessionalCredentialRecord> {
-    // Step 1: get membership (needed for archive query)
+    // Step 1: get memberships scoped to the tenant (needed for archive query)
     const memberships = await this.prisma.membership.findMany({
-      where: { userId },
-      select: { orgId: true, role: { select: { name: true } } },
-      take: 1,
+      where: { userId, org: { tenantId } },
+      select: { orgId: true },
     });
+    const orgIds = [...new Set(memberships.map((m) => m.orgId))];
     const orgId = memberships[0]?.orgId ?? null;
+    const hasOrg = orgIds.length > 0;
+
+    // Guard against overwriting a credential that belongs to another tenant.
+    const existing = await this.prisma.professionalCredential.findUnique({
+      where: { userId },
+      select: { id: true, tenantId: true },
+    });
+    if (existing && existing.tenantId !== tenantId) {
+      throw new ConflictException(`Credential for user '${userId}' already belongs to another tenant`);
+    }
 
     // Step 2: parallel load of everything else
     const [user, ratings, allProjects, archives] = await Promise.all([
@@ -91,11 +101,14 @@ export class ProfessionalCredentialService {
         },
       }),
       this.prisma.rating.findMany({
-        where: { toUserId: userId },
+        where: { toUserId: userId, job: { tenantId } },
         select: { score: true },
       }),
       this.prisma.project.findMany({
-        where: { tenantId, ...(orgId ? { assignedProOrgId: orgId } : {}) },
+        where: {
+          tenantId,
+          ...(hasOrg ? { assignedProOrgId: { in: orgIds } } : { assignedProOrgId: { in: [""] } }),
+        },
         select: {
           id: true, status: true, createdAt: true, updatedAt: true,
           job: { select: { category: true, budgetMax: true, budgetMin: true } },
@@ -103,7 +116,10 @@ export class ProfessionalCredentialService {
         take: 100,
       }),
       this.prisma.projectArchive.findMany({
-        where: { tenantId, ...(orgId ? { contractorOrgId: orgId } : {}) },
+        where: {
+          tenantId,
+          ...(hasOrg ? { contractorOrgId: { in: orgIds } } : { contractorOrgId: { in: [""] } }),
+        },
         select: {
           durationDays: true, milestoneCount: true, totalValue: true,
           disputeCount: true, snapshotJson: true,
@@ -114,7 +130,7 @@ export class ProfessionalCredentialService {
     ]);
 
     if (!user) {
-      throw new Error(`User '${userId}' not found`);
+      throw new NotFoundException(`User '${userId}' not found`);
     }
 
     type PRow = { status: string; job: { category: string | null; budgetMax: unknown; budgetMin: unknown }; updatedAt: Date };
