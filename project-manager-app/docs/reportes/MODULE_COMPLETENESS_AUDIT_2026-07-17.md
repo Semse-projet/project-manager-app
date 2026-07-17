@@ -68,5 +68,20 @@ para aparentar completitud ni introducir rutas que fallen en runtime.
 - Railway Deploy verde sobre el mismo SHA
 - Production Health verde con 18 probes modulares (9 API + 9 web)
 
-El SHA, PR y ejecuciones finales se registran en el cierre del cambio una vez que
-Railway confirme producción.
+## Cierre verificado
+
+- PR de implementación: `#320`, fusionado en `92eb9ea1b29c8efb2275e6549a093283a4506e11`.
+- `main` desplegado al cierre: `646528c64cfb774c74bef119522d73b1b2578bd8`;
+  `git merge-base --is-ancestor` confirma que contiene el merge `92eb9ea`.
+- CI del PR: quality-gates, E2E, unit coverage, integración, CodeQL,
+  autonomy-staged y operación asistida en `SUCCESS`.
+- Railway Deploy: run `29598805544`; worker, API, web y vision confirmados en
+  `SUCCESS` para el SHA exacto `646528c`.
+- Production Health: run `29599005110`; API health verde, nueve páginas de
+  módulo con HTTP `200` y nueve probes API protegidos con HTTP `401`.
+- Comprobación HTTP directa posterior al workflow: mismo resultado 9/9 web y
+  9/9 API, sin `404` ni `5xx`.
+
+Estado final del corte: **completitud estructural 9/9 y producción verde**. Las
+capacidades de profundidad que siguen parciales permanecen declaradas como
+roadmap y no bloquean ni se presentan como completas.
