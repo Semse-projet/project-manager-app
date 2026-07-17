@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00..PI-10 COMPLETADOS. Siguiente: PI-11 (Agro/Prometeo + form_abandon + auditoría privacidad). Para activar en prod: PRODUCT_INTELLIGENCE_ENABLED=true (API+worker) y NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=true (web); PI_ENGINES_ENABLED=false apaga solo los engines.
+**Estado:** PI-00..PI-11.1 COMPLETADOS. Resta: activar variables en Railway + PI-11.2 (auditoría privacidad con datos reales).
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -110,8 +110,8 @@ Primer flujo instrumentado por historial real de bugs (register perdía contexto
 - [x] PI-10.1 — CERRADO POR REUSO: las señales EXPERIENCE_FRICTION llegan a Mission Control existente (SSE mission-control:tenant + ack/resolve/dismiss = aprobación humana) y las alertas del Observer entran al RecommendationEngine existente. Los funnels viven en /admin/product-intelligence (PI-05/06).
 
 ### PI-11 — Verticales + hardening
-- [ ] PI-11.1 — Instrumentar Agro y Prometeo chat.
-- [ ] PI-11.2 — Auditoría de privacidad (verificar redacción real en payloads de prod) + cierre.
+- [x] PI-11.1 — agro.dashboard_view, prometeo.chat_opened y prometeo.message_sent (solo el hecho, JAMÁS contenido de mensajes) + friction.form_abandon en register (solo conteo de campos llenos) con regla FORM_ABANDON en el engine.
+- [ ] PI-11.2 — Auditoría de privacidad con payloads REALES de prod — requiere activar variables primero; se ejecuta en el paso de activación.
 
 ---
 

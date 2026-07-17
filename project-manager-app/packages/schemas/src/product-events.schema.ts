@@ -37,10 +37,15 @@ export const PRODUCT_EVENT_ALLOWLIST: Record<string, readonly string[]> = {
   // PI-07 — señales de fricción detectadas en cliente (sin contenido, solo conteos)
   "friction.rage_click": ["clicks"],
   "friction.nav_loop": ["count"],
+  "friction.form_abandon": ["filledFields"],
+  // PI-11 — verticales (nunca contenido de mensajes ni datos de granja)
+  "agro.dashboard_view": [],
+  "prometeo.chat_opened": ["surface"],
+  "prometeo.message_sent": ["surface"],
 };
 
 /** Eventos permitidos bajo consentimiento `restricted`. */
-export const ESSENTIAL_EVENTS: readonly string[] = ["app.error_view", "app.not_found", "friction.rage_click", "friction.nav_loop"];
+export const ESSENTIAL_EVENTS: readonly string[] = ["app.error_view", "app.not_found", "friction.rage_click", "friction.nav_loop", "friction.form_abandon"];
 
 const scalarSchema = z.union([
   z.string().max(200),
