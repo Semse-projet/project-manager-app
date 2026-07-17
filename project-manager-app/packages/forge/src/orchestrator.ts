@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { evaluateForgePolicy } from "./policy.js";
 import { getForgeAgentManifest } from "./registry.js";
 import { assertForgeRunTransition } from "./state-machine.js";
@@ -12,6 +11,10 @@ import type {
   ForgeTaskPacket
 } from "./types.js";
 
+function uuid(): string {
+  return (globalThis as unknown as { crypto: { randomUUID(): string } }).crypto.randomUUID();
+}
+
 export class ForgeHarness {
   private readonly runs = new Map<string, ForgeRun>();
 
@@ -22,9 +25,9 @@ export class ForgeHarness {
     actor?: string;
   }): ForgeRun {
     const now = new Date().toISOString();
-    const id = randomUUID();
+    const id = uuid();
     const event: ForgeEvent = {
-      id: randomUUID(),
+      id: uuid(),
       type: "FORGE_RUN_CREATED",
       runId: id,
       timestamp: now,
@@ -53,6 +56,10 @@ export class ForgeHarness {
     const run = this.runs.get(runId);
     if (!run) throw new Error(`Forge run not found: ${runId}`);
     return structuredClone(run);
+  }
+
+  loadRun(run: ForgeRun): void {
+    this.runs.set(run.id, structuredClone(run));
   }
 
   transition(runId: string, next: ForgeRunState, actor = "forge-supervisor"): ForgeRun {
@@ -165,7 +172,7 @@ export class ForgeHarness {
     detail: Record<string, unknown>
   ): void {
     run.events.push({
-      id: randomUUID(),
+      id: uuid(),
       type,
       runId: run.id,
       timestamp: new Date().toISOString(),

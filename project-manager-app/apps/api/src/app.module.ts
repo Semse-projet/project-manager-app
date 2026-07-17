@@ -5,6 +5,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./modules/health/health.controller.js";
+import { ForgeModule } from "./modules/forge/forge.module.js";
 import { AuthGuard } from "./common/auth.guard.js";
 import { RbacGuard } from "./common/rbac.guard.js";
 import { validateApiEnv } from "./config/env.schema.js";
@@ -97,6 +98,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     PdfModule,
     SseInfraModule,
     AuthModule,
+    ForgeModule,
     AgentsModule,
     DomainEventsModule,
     JobsModule,

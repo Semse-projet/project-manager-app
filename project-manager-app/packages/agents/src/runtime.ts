@@ -16,6 +16,11 @@ import {
   resolveAllowedContextEnvelope
 } from "./governance.js";
 import {
+  evaluateForgePolicy,
+  getForgeAgentManifest,
+  type ForgeTaskPacket
+} from "@semse/forge";
+import {
   DEFAULT_VERIFICATION_TIMEOUT_MS,
   MISSING_VERIFICATION_BUDGET_REASON,
   clampVerificationBudget,
@@ -405,6 +410,55 @@ function buildEcv(input: RuntimeAgentInput): RuntimeAgentResult {
   };
 }
 
+function asForgeTaskPacket(value: unknown): ForgeTaskPacket | undefined {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (
+      typeof obj.id === "string" &&
+      typeof obj.requestedRole === "string" &&
+      Array.isArray(obj.allowedFiles) &&
+      Array.isArray(obj.allowedCommands)
+    ) {
+      return obj as unknown as ForgeTaskPacket;
+    }
+  }
+  return undefined;
+}
+
+function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
+  const task = asForgeTaskPacket(input.task);
+  if (!task) {
+    return {
+      actionType: "alert",
+      summary: "Missing or invalid Forge task packet in agent input",
+      confidence: 1,
+      requiresHumanReview: true,
+      payload: { error: "invalid_task_packet", allowedInputKeys: Object.keys(input) }
+    };
+  }
+
+  const action = typeof input.action === "string" ? input.action : (task.allowedCommands[0] ?? "runtime.execute");
+  const manifest = getForgeAgentManifest(task.requestedRole);
+  const policy = evaluateForgePolicy({ manifest, task, action });
+  const requiresHumanReview = policy.decision !== "allow";
+
+  return {
+    actionType: "forge.evaluate",
+    summary: `Forge policy for '${task.id}' (${task.requestedRole}): ${policy.decision}`,
+    confidence: requiresHumanReview ? 0.5 : 0.95,
+    requiresHumanReview,
+    payload: {
+      forgeRunId: input.forgeRunId,
+      taskId: task.id,
+      requestedRole: task.requestedRole,
+      action,
+      policy,
+      riskLevel: policy.riskLevel,
+      requiredApprovals: policy.requiredApprovals
+    }
+  };
+}
+
 function executeSpecializedHandler(agentType: RuntimeAgentRole, input: RuntimeAgentInput): RuntimeAgentResult {
   switch (agentType) {
     case "pricing":
@@ -423,6 +477,8 @@ function executeSpecializedHandler(agentType: RuntimeAgentRole, input: RuntimeAg
       return buildOrchestrator(input);
     case "ecv":
       return buildEcv(input);
+    case "forge":
+      return buildForge(input);
     // Prometeo agents — handled by specialized worker handlers, not the in-process runtime
     case "field-ops":
     case "project-copilot":

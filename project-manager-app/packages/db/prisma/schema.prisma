@@ -188,6 +188,7 @@ model Tenant {
   buildOpsProjects              BuildOpsProject[]
   buildOpsPlanVersions          BuildOpsPlanVersion[]
   buildOpsTasks                 BuildOpsTask[]
+  forgeRuns                     ForgeRun[]
   createdAt                     DateTime                          @default(now())
   updatedAt                     DateTime                          @updatedAt
 }
@@ -841,6 +842,30 @@ model AgentRun {
   @@index([tenantId, agentType, status, createdAt])
   @@index([tenantId, correlationId])
   @@index([correlationId])
+}
+
+model ForgeRun {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  orgId              String
+  title              String
+  state              String   @default("idea")
+  specId             String
+  specPath           String
+  specDigest         String
+  specStatus         String
+  tasksJson          Json     @default("[]")
+  assignedAgentsJson Json     @default("{}")
+  approvalsJson      Json     @default("[]")
+  eventsJson         Json     @default("[]")
+  agentRunIdsJson    Json     @default("[]")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, state, createdAt])
+  @@index([tenantId, specId])
 }
 
 enum AgentApprovalStatus {

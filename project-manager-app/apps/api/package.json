@@ -27,6 +27,7 @@
     "@nestjs/swagger": "^11.4.5",
     "@nestjs/throttler": "^6.4.0",
     "@semse/agents": "workspace:*",
+    "@semse/forge": "workspace:*",
     "@semse/auth": "workspace:*",
     "@semse/autonomy": "workspace:*",
     "@semse/db": "workspace:*",
