@@ -218,10 +218,11 @@ export class ProductIntelligenceService {
     const windowStart = new Date(Date.now() - Math.min(Math.max(windowHours, 1), 48) * 3_600_000);
     const windowEnd = new Date();
 
-    const FRICTION_RULES: Array<{ eventName: string; kind: "RAGE_CLICK" | "NAV_LOOP" | "ERROR_REPEAT"; threshold: number }> = [
+    const FRICTION_RULES: Array<{ eventName: string; kind: "RAGE_CLICK" | "NAV_LOOP" | "ERROR_REPEAT" | "FORM_ABANDON"; threshold: number }> = [
       { eventName: "friction.rage_click", kind: "RAGE_CLICK", threshold: 3 },
       { eventName: "friction.nav_loop", kind: "NAV_LOOP", threshold: 3 },
       { eventName: "app.error_view", kind: "ERROR_REPEAT", threshold: 5 },
+      { eventName: "friction.form_abandon", kind: "FORM_ABANDON", threshold: 3 },
     ];
 
     let frictionCreated = 0;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { normalizeSafeRedirectPath } from "@/lib/safe-redirect";
@@ -80,6 +80,7 @@ export default function RegisterPage() {
     // Solo al montar: describe la llegada a la vista con el rol inicial.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -88,6 +89,24 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
 
   const passwordMismatch = confirm.length > 0 && password !== confirm;
+
+  // PI-11 — abandono de formulario: campos llenos sin envío al salir.
+  // Solo el CONTEO de campos llenos; nunca sus valores.
+  const abandonState = useRef({ filled: 0, submitted: false });
+  useEffect(() => {
+    abandonState.current.filled = [name, email, password].filter((v) => v.trim().length > 0).length;
+  }, [name, email, password]);
+  useEffect(() => {
+    const onLeave = () => {
+      const { filled, submitted } = abandonState.current;
+      if (filled > 0 && !submitted) {
+        trackProductEvent("friction.form_abandon", { filledFields: filled });
+        void flushProductEvents();
+      }
+    };
+    window.addEventListener("pagehide", onLeave);
+    return () => window.removeEventListener("pagehide", onLeave);
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -122,6 +141,7 @@ export default function RegisterPage() {
         return;
       }
 
+      abandonState.current.submitted = true;
       if (redirectTo) {
         trackProductEvent("auth.context_recovered", { target: data.redirectTo ?? redirectTo });
       }

@@ -16,6 +16,7 @@ import {
 } from "../../app/semse-api";
 import { useAgentPanelState, type PanelAgentId } from "./agent-panel-state";
 import { DraftPreviewCard } from "./draft-preview-card";
+import { trackProductEvent } from "@/lib/product-intelligence";
 import {
   PROMETEO_ATTACHMENT_ACCEPT,
   classifyPrometeoAttachment,
@@ -512,6 +513,11 @@ function useAgentChat(
     setPublishJobSessionId(null);
   }, [activeAgent]);
 
+  useEffect(() => {
+    // PI-11 — solo el hecho de abrir el chat; jamás contenido de mensajes.
+    trackProductEvent("prometeo.chat_opened", { surface: "agent-chat-panel" });
+  }, []);
+
   const sendMessage = useCallback(
     async (content: string, attachments: PrometeoAttachment[] = []): Promise<boolean> => {
       const userMsg: ChatMessage = {
@@ -523,6 +529,7 @@ function useAgentChat(
         attachments,
       };
       setMessages(prev => [...prev, userMsg]);
+      trackProductEvent("prometeo.message_sent", { surface: "agent-chat-panel" });
       setThinking(true);
 
       const isAssistant = activeAgent === "assistant";

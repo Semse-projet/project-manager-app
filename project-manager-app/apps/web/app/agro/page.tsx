@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Leaf, MapPin, ChevronRight, X, Tractor, Wheat, Blend, Users, ClipboardList, AlertTriangle } from "lucide-react";
+import { trackProductEvent } from "../../lib/product-intelligence";
 
 interface AgroFarm {
   id: string;
@@ -43,6 +44,10 @@ function FarmCardSkeleton() {
 }
 
 export default function AgroPage() {
+  useEffect(() => {
+    trackProductEvent("agro.dashboard_view");
+  }, []);
+
   const [farms, setFarms]         = useState<AgroFarm[]>([]);
   const [dashes, setDashes]       = useState<Record<string, FarmDash>>({});
   const [loading, setLoading]     = useState(true);
