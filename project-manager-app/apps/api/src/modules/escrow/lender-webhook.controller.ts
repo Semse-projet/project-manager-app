@@ -23,22 +23,34 @@ export class LenderWebhookController {
    */
   @Post('approval')
   async handleLenderWebhook(
-    @Body() payload: any,
+    @Body() payload: unknown,
     @Headers('x-lender-signature') signature: string
   ) {
     this.logger.log('Received lender webhook');
 
-    // Verificar firma
-    const payloadString = JSON.stringify(payload);
-    const secret = process.env.LENDER_WEBHOOK_SECRET || '';
+    const secret = process.env.LENDER_WEBHOOK_SECRET;
+    if (!secret) {
+      throw new BadRequestException('LENDER_WEBHOOK_SECRET is not configured');
+    }
 
-    if (!LenderClient.verifyWebhookSignature(payloadString, signature, secret)) {
-      this.logger.warn('Invalid webhook signature');
+    if (!payload || typeof payload !== 'object') {
+      throw new BadRequestException('Invalid webhook payload');
+    }
+
+    const rawPayload = payload as Record<string, unknown>;
+    const payloadString = JSON.stringify(rawPayload);
+
+    if (typeof signature !== 'string' || !LenderClient.verifyWebhookSignature(payloadString, signature, secret)) {
+      this.logger.warn('Invalid lender webhook signature');
       throw new BadRequestException('Invalid signature');
     }
 
-    // Procesar evento
-    const { event, data } = payload;
+    const event = rawPayload.event;
+    const data = rawPayload.data;
+
+    if (typeof event !== 'string') {
+      throw new BadRequestException('Missing event in webhook payload');
+    }
 
     switch (event) {
       case 'draw.approved':
@@ -51,21 +63,30 @@ export class LenderWebhookController {
         await this.handleProjectSync(data);
         break;
       default:
-        this.logger.warn(`Unknown event: ${event}`);
+        this.logger.warn(`Unknown lender webhook event: ${event}`);
     }
 
     return { success: true };
   }
 
+  private getStringField(data: unknown, field: string): string | undefined {
+    return data && typeof data === 'object' && typeof (data as Record<string, unknown>)[field] === 'string'
+      ? (data as Record<string, unknown>)[field] as string
+      : undefined;
+  }
+
   /**
    * Manejar draw approved.
    */
-  private async handleDrawApproved(data: any): Promise<void> {
-    const { drawId } = data;
+  private async handleDrawApproved(data: unknown): Promise<void> {
+    const drawId = this.getStringField(data, 'drawId');
+    if (!drawId) {
+      this.logger.warn('Lender webhook draw.approved missing drawId');
+      return;
+    }
 
     this.logger.log(`Processing draw approval: ${drawId}`);
 
-    // Actualizar draw a APPROVED (si estaba PENDING_LENDER)
     try {
       await this.drawService.approveDraw(drawId, 'lender-webhook');
       this.logger.log(`Draw approved: ${drawId}`);
@@ -77,13 +98,19 @@ export class LenderWebhookController {
   /**
    * Manejar draw rejected.
    */
-  private async handleDrawRejected(data: any): Promise<void> {
-    const { drawId, reason } = data;
+  private async handleDrawRejected(data: unknown): Promise<void> {
+    const drawId = this.getStringField(data, 'drawId');
+    if (!drawId) {
+      this.logger.warn('Lender webhook draw.rejected missing drawId');
+      return;
+    }
+
+    const reason = this.getStringField(data, 'reason') || 'Rejected by lender';
 
     this.logger.log(`Processing draw rejection: ${drawId}`);
 
     try {
-      await this.drawService.rejectDraw(drawId, reason || 'Rejected by lender');
+      await this.drawService.rejectDraw(drawId, reason);
       this.logger.log(`Draw rejected: ${drawId}`);
     } catch (error) {
       this.logger.error(`Failed to reject draw: ${drawId}`, error);
@@ -93,12 +120,13 @@ export class LenderWebhookController {
   /**
    * Manejar project sync.
    */
-  private async handleProjectSync(data: any): Promise<void> {
-    const { projectId, status, amountFunded } = data;
+  private async handleProjectSync(data: unknown): Promise<void> {
+    const projectId = this.getStringField(data, 'projectId');
+    const status = this.getStringField(data, 'status');
 
-    this.logger.log(`Processing project sync: ${projectId}`, { status, amountFunded });
+    this.logger.log(`Processing project sync: ${projectId ?? 'unknown'}`, { status });
 
     // En producción: actualizar project status, etc
-    this.logger.log(`Project synced: ${projectId} / ${status}`);
+    this.logger.log(`Project synced: ${projectId ?? 'unknown'} / ${status ?? 'unknown'}`);
   }
 }

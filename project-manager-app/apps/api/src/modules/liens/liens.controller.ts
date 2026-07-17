@@ -4,12 +4,14 @@ import {
   Get,
   Param,
   Body,
+  Req,
   UseGuards,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
+import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
 
 /**
@@ -166,6 +168,7 @@ export class LiensController {
    */
   @Post('waivers/:waiverId/sign')
   async signWaiver(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Param('waiverId') waiverId: string,
     @Body() body: { signature: string }
@@ -176,10 +179,12 @@ export class LiensController {
       throw new BadRequestException('signature is required');
     }
 
+    const actor = resolveRequestContext(req);
+
     try {
       const signed = await this.liensService.signWaiver(waiverId, {
         signature: body.signature,
-        signedBy: 'user-id-from-context', // TODO: obtener del JWT
+        signedBy: actor.userId,
       });
 
       return {

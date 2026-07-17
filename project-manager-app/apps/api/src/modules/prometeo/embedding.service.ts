@@ -41,14 +41,20 @@ export function isZeroVector(vec: EmbeddingVector): boolean {
   return vec.every((v) => v === 0);
 }
 
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
 @Injectable()
 export class EmbeddingService {
   private readonly logger = new Logger(EmbeddingService.name);
   private readonly openaiKey = process.env.OPENAI_API_KEY;
   private readonly model = process.env.EMBEDDINGS_MODEL ?? "text-embedding-3-small";
-  private readonly dim = parseInt(process.env.EMBEDDINGS_DIMENSIONS ?? "1536", 10);
-  private readonly batchSize = parseInt(process.env.EMBEDDINGS_BATCH_SIZE ?? "32", 10);
-  private readonly timeoutMs = parseInt(process.env.EMBEDDINGS_TIMEOUT_MS ?? "30000", 10);
+  private readonly dim = parsePositiveInt(process.env.EMBEDDINGS_DIMENSIONS, 1536);
+  private readonly batchSize = parsePositiveInt(process.env.EMBEDDINGS_BATCH_SIZE, 32);
+  private readonly timeoutMs = parsePositiveInt(process.env.EMBEDDINGS_TIMEOUT_MS, 30000);
 
   // ── Stats ────────────────────────────────────────────────────────────────────
   private successCount = 0;

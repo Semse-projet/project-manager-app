@@ -4,11 +4,13 @@ import {
   Get,
   Param,
   Body,
+  Req,
   UseGuards,
   Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
+import { resolveRequestContext } from '../../common/request-context.js';
 import { NoticeGeneratorService } from './notice-generator.service.js';
 import { LiensService } from './liens.service.js';
 
@@ -39,11 +41,14 @@ export class NoticeController {
    */
   @Post('calendar/:calendarId/generate-notice')
   async generateNotice(
+    @Req() req: { headers?: Record<string, unknown> },
     @Param('projectId') projectId: string,
     @Param('calendarId') calendarId: string,
     @Body() body: { recipientType?: 'owner' | 'general_contractor' | 'lender' | 'architect' }
   ) {
     this.logger.log(`POST /generate-notice: ${calendarId}`);
+
+    const actor = resolveRequestContext(req);
 
     try {
       // Si no especifica recipientType, generar todos
@@ -51,7 +56,7 @@ export class NoticeController {
         const notice = await this.noticeGeneratorService.generateNoticeFromCalendar(
           calendarId,
           body.recipientType,
-          'user-from-context' // TODO: obtener del JWT
+          actor.userId
         );
 
         return {
@@ -62,7 +67,7 @@ export class NoticeController {
         // Generar todos los notices
         const notices = await this.noticeGeneratorService.generateAllNoticesForCalendar(
           calendarId,
-          'user-from-context' // TODO: obtener del JWT
+          actor.userId
         );
 
         return {
