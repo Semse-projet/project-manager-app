@@ -9,7 +9,6 @@ import { RepoKnowledgeController } from "../dist/modules/repo-knowledge/repo-kno
 import { RuntimeKnowledgeController } from "../dist/modules/runtime-knowledge/runtime-knowledge.controller.js";
 import { ToolsController } from "../dist/modules/tools/tools.controller.js";
 import { VisionController } from "../dist/modules/vision/vision.controller.js";
-import { WeatherController } from "../dist/modules/weather/weather.controller.js";
 
 function classPermission(controller: Function): string[] | undefined {
   return Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, controller);
@@ -86,8 +85,3 @@ test("domain RBAC: vision reads results separately from running analysis", () =>
   }
 });
 
-test("domain RBAC: weather reads alerts but manual checks require weather:write", () => {
-  assert.deepEqual(classPermission(WeatherController), ["weather:read"]);
-  assert.equal(classAuthenticatedAccess(WeatherController), undefined);
-  assert.deepEqual(methodPermission(WeatherController, "checkNow"), ["weather:write"]);
-});

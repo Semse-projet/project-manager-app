@@ -6,8 +6,6 @@ const { PrismaClient } = prismaClientPackage as typeof import("../../../../../no
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
-  [delegate: string]: any;
-
   private readonly logger = new Logger(PrismaService.name);
 
   constructor(configService: ConfigService) {
