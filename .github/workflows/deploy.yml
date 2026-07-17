@@ -34,8 +34,11 @@ jobs:
 
       - name: Protected routes (expect 401)
         run: |
-          for ep in /v1/projects /v1/users /v1/jobs /v1/milestones; do
+          set -euo pipefail
+          for ep in /v1/projects /v1/users /v1/jobs /v1/prometeo/tools; do
             code=$(curl -so /dev/null -w "%{http_code}" \
               https://project-manager-app-production-977f.up.railway.app$ep)
-            [ "$code" = "401" ] && echo "  $ep → 401 ✅" || echo "  $ep → $code ⚠️"
+            [ "$code" = "401" ] \
+              && echo "  $ep → 401 ✅" \
+              || { echo "  $ep → $code ❌"; exit 1; }
           done
