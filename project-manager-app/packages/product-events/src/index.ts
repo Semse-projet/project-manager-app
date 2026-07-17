@@ -22,6 +22,7 @@ import {
 import { redactProps, sanitizeRoute, type ScalarProp } from "./redact.ts";
 
 export { redactValue, redactProps, sanitizeRoute, REDACTED } from "./redact.ts";
+export { createRageClickDetector, createNavLoopDetector, type FrictionTracker } from "./friction.ts";
 
 export type ProductEventsClientOptions = {
   /** Kill switch. false → todas las operaciones son no-op. */

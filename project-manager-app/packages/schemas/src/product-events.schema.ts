@@ -34,10 +34,13 @@ export const PRODUCT_EVENT_ALLOWLIST: Record<string, readonly string[]> = {
   // esenciales (permitidos incluso con consentClass=restricted)
   "app.error_view": ["route", "status"],
   "app.not_found": ["route"],
+  // PI-07 — señales de fricción detectadas en cliente (sin contenido, solo conteos)
+  "friction.rage_click": ["clicks"],
+  "friction.nav_loop": ["count"],
 };
 
 /** Eventos permitidos bajo consentimiento `restricted`. */
-export const ESSENTIAL_EVENTS: readonly string[] = ["app.error_view", "app.not_found"];
+export const ESSENTIAL_EVENTS: readonly string[] = ["app.error_view", "app.not_found", "friction.rage_click", "friction.nav_loop"];
 
 const scalarSchema = z.union([
   z.string().max(200),

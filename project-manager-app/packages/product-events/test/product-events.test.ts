@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createProductEventsClient, redactValue, sanitizeRoute } from "../src/index.ts";
+import { createNavLoopDetector, createRageClickDetector } from "../src/friction.ts";
 import { productEventBatchSchema } from "../../schemas/src/product-events.schema.ts";
 
 const SESSION = {
@@ -113,4 +114,29 @@ test("redactValue es lineal ante entradas adversarias (ReDoS)", () => {
     const elapsedMs = Number(process.hrtime.bigint() - start) / 1e6;
     assert.ok(elapsedMs < 200, `redactValue tardó ${elapsedMs}ms`);
   }
+});
+
+test("rage click detector dispara con 3 clicks rápidos al mismo objetivo", () => {
+  const events: Array<[string, Record<string, number>]> = [];
+  const detect = createRageClickDetector((name: string, props: Record<string, number>) => events.push([name, props]));
+  const target = {};
+  detect({ target }, "/login", 1000);
+  detect({ target }, "/login", 1200);
+  detect({ target }, "/login", 1400);
+  assert.equal(events.length, 1);
+  assert.equal(events[0][0], "friction.rage_click");
+  detect({ target: {} }, "/login", 1500); // objetivo distinto resetea
+  assert.equal(events.length, 1);
+});
+
+test("nav loop detector detecta alternancia A-B-A-B", () => {
+  const events: string[] = [];
+  const nav = createNavLoopDetector((name: string) => events.push(name));
+  nav("/a", 1000);
+  nav("/b", 2000);
+  nav("/a", 3000);
+  nav("/b", 4000);
+  assert.deepEqual(events, ["friction.nav_loop"]);
+  nav("/a", 40_000); // fuera de ventana: historial limpio
+  assert.equal(events.length, 1);
 });

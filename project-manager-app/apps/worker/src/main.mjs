@@ -98,12 +98,14 @@ const connection = new Redis(config.redisUrl, {
 const RESERVATION_SWEEP_INTERVAL_MS = 60_000;
 const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curator decides if 7d passed
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
+const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
 
 let shouldStop = false;
 let reclaimTimer;
 let reservationSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
+let piEnginesTimer;
 let authState = {
   accessToken: null,
   refreshToken: null
@@ -299,6 +301,9 @@ async function main() {
   if (process.env.PRODUCT_INTELLIGENCE_ENABLED === "true") {
     void runProductIntelligenceRetentionSafe();
     piRetentionTimer = setInterval(() => { void runProductIntelligenceRetentionSafe(); }, PI_RETENTION_INTERVAL_MS);
+    // PI-07/08 — engines de fricción/anomalía cada 6h.
+    void runProductIntelligenceEnginesSafe();
+    piEnginesTimer = setInterval(() => { void runProductIntelligenceEnginesSafe(); }, PI_ENGINES_INTERVAL_MS);
   }
 
   // SPEC-AUT-001 — permanent loops (kill switch: AUTONOMY_LOOPS_ENABLED)
@@ -324,6 +329,7 @@ async function main() {
   if (reservationSweepTimer) clearInterval(reservationSweepTimer);
   if (curatorTimer) clearInterval(curatorTimer);
   if (piRetentionTimer) clearInterval(piRetentionTimer);
+  if (piEnginesTimer) clearInterval(piEnginesTimer);
 
   await worker.close();
   await developerRuntimeWorker.close();
@@ -428,6 +434,16 @@ async function processQueuedRun(queueRun) {
 
 function shouldFail() {
   return config.failRate > 0 && Math.random() < config.failRate;
+}
+
+async function runProductIntelligenceEnginesSafe() {
+  try {
+    const response = await postJson("/v1/product-intelligence/engines/run", {});
+    logger.info(response?.data ?? {}, "product intelligence engines complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "product intelligence engines failed (non-fatal)");
+  }
 }
 
 async function runProductIntelligenceRetentionSafe() {

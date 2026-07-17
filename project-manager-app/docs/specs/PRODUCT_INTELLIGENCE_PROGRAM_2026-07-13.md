@@ -1,6 +1,6 @@
 # SEMSE Product Intelligence — Programa SDD 2026-07-13
 
-**Estado:** PI-00..PI-06 COMPLETADOS. Siguiente: PI-07 (Friction Engine). Para activar en prod: PRODUCT_INTELLIGENCE_ENABLED=true (API+worker) y NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=true (web).
+**Estado:** PI-00..PI-10 COMPLETADOS. Siguiente: PI-11 (Agro/Prometeo + form_abandon + auditoría privacidad). Para activar en prod: PRODUCT_INTELLIGENCE_ENABLED=true (API+worker) y NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED=true (web); PI_ENGINES_ENABLED=false apaga solo los engines.
 **Rama base de trabajo:** `docs/product-intelligence-pi00` → `feat/pi01-prisma-contract-guard`
 **Decisión rectora:** SEMSE necesita ver la brecha entre "el servicio responde" y "el usuario logró su objetivo". Los tests no ven el recorrido del usuario: PRs #285 (17 handlers BFF sin Bearer) y #286 (modelo ausente en schema.prisma) llegaron a producción con 1778 tests verdes. Product Intelligence es la capa de telemetría de producto que cierra ese hueco, gobernada por el ciclo OBSERVE→ANALYZE→SUGGEST→APPROVE→APPLY de la Constitución.
 
@@ -98,16 +98,16 @@ Primer flujo instrumentado por historial real de bugs (register perdía contexto
 - [x] PI-06.2 — GET /v1/product-intelligence/funnel/economic: conversión % por etapa + mediana de horas desde la creación del job; BFF + sección en /admin/product-intelligence. 7/7 tests.
 
 ### PI-07 — Friction Engine
-- [ ] PI-07.1 — Detección: rage clicks, loops de navegación, abandono de formulario, errores repetidos → `FrictionSignal`.
+- [x] PI-07.1 — Detección en cliente (packages/product-events/friction.ts): rage clicks (≥3 en <1s mismo objetivo) y nav loops (A→B→A→B en <30s), instalados pasivamente por el cliente web; errores via app.error_view. Engine servidor `runEngines` agrega por ruta con umbrales y dedupe por ventana → FrictionSignal. Abandono de formulario DIFERIDO a PI-11 (requiere marcar formularios).
 
 ### PI-08 — Anomaly Engine → OperationalSignal
-- [ ] PI-08.1 — Umbrales sobre funnels y fricción; emite OperationalSignal (severity, evidencia agregada).
+- [x] PI-08.1 — runEngines emite OperationalSignal tipo EXPERIENCE_FRICTION (nuevo en el union) vía OperationalSignalsService (dedupe + SSE a Mission Control): fricción media/alta por ruta y anomalía de funnel (≥5 llegadas al wizard con 0 publicaciones). Worker: timer cada 6h + kill switch PI_ENGINES_ENABLED. POST /v1/product-intelligence/engines/run.
 
 ### PI-09 — Observer / Consciousness
-- [ ] PI-09.1 — Dimensión `experienceHealth` en Observer alimentada por señales PI.
+- [x] PI-09.1 — ObservationSnapshot.experienceHealth (sessions7d, frictionSignals24h, highFriction24h, topFrictionRoute; null con PI apagado) + alerta high cuando hay fricción alta → RecommendationEngine la convierte en recomendación automáticamente.
 
 ### PI-10 — Mission Control UI
-- [ ] PI-10.1 — Panel funnels + fricción + recomendaciones con aprobación humana.
+- [x] PI-10.1 — CERRADO POR REUSO: las señales EXPERIENCE_FRICTION llegan a Mission Control existente (SSE mission-control:tenant + ack/resolve/dismiss = aprobación humana) y las alertas del Observer entran al RecommendationEngine existente. Los funnels viven en /admin/product-intelligence (PI-05/06).
 
 ### PI-11 — Verticales + hardening
 - [ ] PI-11.1 — Instrumentar Agro y Prometeo chat.
