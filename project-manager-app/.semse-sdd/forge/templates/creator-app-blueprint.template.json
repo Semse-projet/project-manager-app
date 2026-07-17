@@ -1,0 +1,52 @@
+{
+  "id": "solar-academy",
+  "creatorId": "creator-id",
+  "creatorRole": "professor",
+  "title": "Solar Installation Academy",
+  "summary": "Training, simulation and field tools.",
+  "domain": "solar-energy",
+  "audience": [
+    "apprentices",
+    "technicians"
+  ],
+  "appType": "hybrid",
+  "learningObjectives": [
+    "Design a safe residential solar installation."
+  ],
+  "knowledgeSources": [
+    {
+      "type": "manual",
+      "reference": "creator-owned-manual",
+      "rightsConfirmed": true
+    }
+  ],
+  "modules": [
+    {
+      "id": "sizing",
+      "title": "System sizing",
+      "purpose": "Calculate system requirements.",
+      "capabilities": [
+        "calculator",
+        "simulation"
+      ]
+    }
+  ],
+  "assessments": [
+    {
+      "id": "practical-1",
+      "type": "practical",
+      "passRule": "score >= 80"
+    }
+  ],
+  "monetization": {
+    "model": "subscription",
+    "priceCents": 2900,
+    "currency": "USD"
+  },
+  "visibility": "marketplace",
+  "dataClassification": "internal",
+  "languages": [
+    "es",
+    "en"
+  ]
+}
