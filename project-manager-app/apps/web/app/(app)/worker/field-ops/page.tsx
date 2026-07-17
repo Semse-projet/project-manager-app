@@ -1011,7 +1011,7 @@ function TrackerTab() {
               {active.status}
             </span>
           </div>
-          {active.notes && <p className="mb-3 text-[0.65rem] italic text-[var(--muted)]">"{active.notes}"</p>}
+          {active.notes && <p className="mb-3 text-[0.65rem] italic text-[var(--muted)]">&quot;{active.notes}&quot;</p>}
           <div className="flex flex-wrap gap-2">
             {active.status === "RUNNING" ? (
               <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/pause`)}

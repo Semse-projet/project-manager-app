@@ -21,3 +21,4 @@ test-results/
 coverage/
 .nyc_output/
 apps/api/skills/.curator_state.json
+_governance/

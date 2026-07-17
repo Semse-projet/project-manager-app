@@ -9,7 +9,7 @@ export class ComplianceReportingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateComplianceReport(projectId: string): Promise<any> {
-    const project = await this.prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+    const _project = await this.prisma.project.findUniqueOrThrow({ where: { id: projectId } });
 
     const checks = {
       liensWaived: true,

@@ -258,7 +258,7 @@ ${result.visibleTextSample || "(None extracted)"}
         return JSON.parse(cleanOutput.substring(jsonStart, jsonEnd + 1));
       }
       return JSON.parse(cleanOutput);
-    } catch (parseError) {
+    } catch (_parseError) {
       // Return fallback structured object if parsing fails
       return {
         summary_es: "La IA generó una respuesta que no pudo ser parseada como JSON: " + response.output.slice(0, 300),

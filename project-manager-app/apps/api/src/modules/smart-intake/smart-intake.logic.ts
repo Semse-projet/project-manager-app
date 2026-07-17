@@ -1004,7 +1004,7 @@ function rebalancePaymentPercentages(milestones: ProjectMilestone[]): ProjectMil
   if (payingMilestones.length === 0) return milestones;
 
   let remaining = 100;
-  return milestones.map((milestone, index) => {
+  return milestones.map((milestone, _index) => {
     const current = milestone.paymentPercentage ?? 0;
     if (current <= 0) {
       return { ...milestone, paymentPercentage: 0 };

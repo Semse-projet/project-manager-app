@@ -849,7 +849,7 @@ export class MilestonesRepository {
     };
   }
 
-  async getVisionSummary(milestoneId: string, tenantId: string): Promise<{
+  async getVisionSummary(milestoneId: string, _tenantId: string): Promise<{
     milestoneId: string;
     totalAnalyzed: number;
     avgQualityScore: number | null;

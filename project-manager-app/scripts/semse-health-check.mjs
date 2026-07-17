@@ -19,7 +19,7 @@
  * ══════════════════════════════════════════════════════════════════
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
@@ -32,7 +32,12 @@ const GOV_DIST   = join(GOV, "distillation");
 const GOV_LOGS   = join(GOV, "logs");
 const REPORTS   = join(GOV, "reports");
 const SATELLITES = join(ROOT, "app semse", "_satellites-archive");
-const CANONICAL  = join(ROOT, "project-manager-app");
+// Detect canonical root: the monorepo may live at ROOT or at ROOT/project-manager-app
+const CANONICAL  = existsSync(join(ROOT, "project-manager-app", "package.json"))
+  ? join(ROOT, "project-manager-app")
+  : existsSync(join(ROOT, "package.json"))
+    ? ROOT
+    : join(ROOT, "project-manager-app");
 const VISION_DIR = join(ROOT, "vision");
 const PROGRAM_DIR = join(ROOT, "program");
 const CONSTITUTION_DIR = join(ROOT, "constitution");
@@ -625,6 +630,9 @@ function generateMarkdownReport(data) {
 async function main() {
   console.log(`\n${bold("🧠 SEMSE Nervous System — Health Check v2")}`);
   console.log(`${dim(`   ${dateStr} ${timeStr} | Root: ${ROOT}`)}\n`);
+
+  mkdirSync(GOV, { recursive: true });
+  mkdirSync(REPORTS, { recursive: true });
 
   const satellites  = readSatellites();
   const canonical   = readCanonicalState();

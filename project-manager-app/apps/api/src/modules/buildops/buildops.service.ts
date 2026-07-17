@@ -84,8 +84,6 @@ type StoredBuildOpsMilestone = {
 };
 
 const RISK_LEVELS = new Set<BuildOpsRiskLevel>(["low", "medium", "high", "critical"]);
-const TASK_STATUSES = new Set<BuildOpsTaskStatus>(["todo", "in_progress", "blocked", "done", "canceled"]);
-const TASK_PRIORITIES = new Set<BuildOpsTaskPriority>(["low", "medium", "high", "urgent"]);
 const MILESTONE_STATUSES = new Set<BuildOpsMilestoneDto["status"]>(["draft", "awaiting_review", "submitted", "approved", "rejected", "paid"]);
 const BUILDOPS_SOURCE_TOOL_RESULT_SCHEMA_VERSION = "1.0";
 

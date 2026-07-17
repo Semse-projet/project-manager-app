@@ -426,7 +426,7 @@ export default function ReputationPage() {
                       </div>
                       {r.comment && (
                         <p style={{ fontSize: "12px", color: "var(--muted, #94a3b8)", margin: "4px 0", lineHeight: 1.5 }}>
-                          "{r.comment}"
+                          &quot;{r.comment}&quot;
                         </p>
                       )}
                       <div style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>

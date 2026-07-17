@@ -161,7 +161,7 @@ export class MockLobClient implements Partial<LobClient> {
   private readonly logger = new Logger('MockLobClient');
 
   async sendLetter(request: LobSendLetterRequest): Promise<LobLetter> {
-    const { to, subject } = request;
+    const { to } = request;
 
     this.logger.debug(`Mock Lob: sending letter to ${to.name}`);
 

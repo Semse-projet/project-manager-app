@@ -11,7 +11,7 @@ export class DisbursementService {
   /**
    * Process automatic ACH/wire transfer.
    */
-  async processDisbursement(drawId: string, bankInfo: any): Promise<{
+  async processDisbursement(drawId: string, _bankInfo: any): Promise<{
     success: boolean;
     transactionId?: string;
     error?: string;

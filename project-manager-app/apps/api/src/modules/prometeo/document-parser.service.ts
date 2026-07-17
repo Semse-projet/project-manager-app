@@ -39,7 +39,6 @@ export class DocumentParserService {
     try {
       // Dynamic import to avoid issues if pdf-parse is not installed
       // pdf-parse exports differ by resolution-mode; support both CJS default and named export
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mod = await import("pdf-parse") as any;
       const pdfParse = (mod.default ?? mod) as (buf: Buffer) => Promise<{ text: string; numpages: number; info: Record<string, unknown> }>;
       const data = await pdfParse(buffer);

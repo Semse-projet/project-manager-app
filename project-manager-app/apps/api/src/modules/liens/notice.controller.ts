@@ -6,7 +6,6 @@ import {
   Body,
   UseGuards,
   Logger,
-  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
@@ -96,7 +95,7 @@ export class NoticeController {
       // Obtener todos los notices de esos calendarios
       const allNotices: any[] = [];
 
-      for (const calendar of calendars) {
+      for (const _calendar of calendars) {
         const notices = await Promise.resolve(
           // En BD: SELECT * FROM LienNotice WHERE lienCalendarId = calendar.id
           []

@@ -72,7 +72,7 @@ export class SemseAgentsController {
     @Body() body: Record<string, unknown>,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
-    const ctx = resolveRequestContext(req);
+    const _ctx = resolveRequestContext(req);
 
     const from = body.from as SemseAgentName;
     const to   = body.to   as SemseAgentName | "broadcast";

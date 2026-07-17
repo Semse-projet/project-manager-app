@@ -55,7 +55,7 @@ export class NoticeGeneratorService {
   /**
    * Template por estado (simplified - en producción sería más complejo).
    */
-  private getNoticeTemplate(stateName: string): string {
+  private getNoticeTemplate(_stateName: string): string {
     const baseTemplate = `
 <!DOCTYPE html>
 <html lang="en">
@@ -208,7 +208,7 @@ export class NoticeGeneratorService {
     lienCalendarId: string,
     createdBy: string
   ): Promise<any[]> {
-    const calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
+    const _calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
       where: { id: lienCalendarId },
       include: { notices: true },
     });

@@ -134,7 +134,7 @@ export class WorkerVerificationRepository {
     }
   }
 
-  async getUnverifiedWorkers(tenantId: string) {
+  async getUnverifiedWorkers(_tenantId: string) {
     try {
       return await this.prisma.user.findMany({
         select: {
@@ -152,7 +152,7 @@ export class WorkerVerificationRepository {
     }
   }
 
-  async countVerifiedWorkers(tenantId: string) {
+  async countVerifiedWorkers(_tenantId: string) {
     try {
       return await this.prisma.user.count();
     } catch (error) {

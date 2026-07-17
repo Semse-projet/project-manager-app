@@ -105,9 +105,9 @@ export class ProjectLiensService {
    * (no solo los 5 más comunes).
    */
   async createLienCalendarsForAllStates(
-    projectId: string,
-    address: string,
-    projectStartDate: Date
+    _projectId: string,
+    _address: string,
+    _projectStartDate: Date
   ): Promise<void> {
     // TODO: Cuando sea necesario, iterar sobre todos los 50 estados
     // y crear calendarios para cada uno.
