@@ -1,91 +1,24 @@
-# ROADMAP
+# Roadmap de SEMSEproject — punto de entrada
 
-## Fase 1: Orden Git y documentación base
+**Estado:** el roadmap raíz anterior queda supersedido desde 2026-07-16.
 
-Objetivo: asegurar versionado, contexto y reglas mínimas de trabajo.
+El programa ejecutable vigente vive en
+[`project-manager-app/ROADMAP.md`](project-manager-app/ROADMAP.md). Su secuencia
+aprobada es:
 
-- endurecer `.gitignore`
-- consolidar `README.md`, `SEMSE_CONTEXT.md` y prompts
-- dejar claro que `labsemse/` es raíz Git y `project-manager-app/` es raíz canónica
-- evitar commits gigantes y secretos
+1. F0 — sincronizar la verdad;
+2. F1 — Event Backbone;
+3. F2 — Prometeo Tool Registry gobernado;
+4. F3 — Project Lifecycle Projection;
+5. F4 — Mission Control 2.0;
+6. F5 — Shared Economic Ledger;
+7. F6 — Agenda y Dispatch;
+8. F7 — Prometeo Multimodal;
+9. F8 — Domain Loops;
+10. F9 — Production Hardening.
 
-## Fase 2: Limpieza de estructura y dependencias
-
-Objetivo: distinguir código vivo, código legado y artefactos locales.
-
-- auditar carpetas activas vs archivadas
-- revisar dependencias duplicadas o huérfanas
-- definir qué módulos siguen vigentes y cuáles quedan congelados
-- limpiar outputs locales fuera de control de versiones
-
-## Fase 3: Estabilización frontend
-
-Objetivo: estabilizar la experiencia de usuario y el flujo visual principal.
-
-- consolidar `apps/web` como frontend canónico
-- revisar compatibilidad con `semse-mobile-app` y módulos Vite
-- validar dashboards de cliente, profesional y admin
-- unificar componentes y reglas de diseño
-
-## Fase 4: Estabilización backend
-
-Objetivo: fortalecer API, workers y contratos internos.
-
-- consolidar módulos NestJS
-- validar límites de dominio y contratos Zod
-- estabilizar jobs, colas y procesos de background
-- mejorar observabilidad, errores y runbooks operativos
-
-## Fase 5: Sistema de usuarios/roles
-
-Objetivo: establecer identidad, permisos y multitenancy.
-
-- auth robusta
-- roles por actor: cliente, profesional, admin, ops
-- tenant y org context consistentes
-- políticas de acceso por módulo
-
-## Fase 6: Contratos, milestones y escrow
-
-Objetivo: formalizar el flujo transaccional del negocio.
-
-- contratos digitales
-- hitos y validaciones
-- evidencias por milestone
-- pagos retenidos, liberación y disputas
-
-## Fase 7: Agentes IA y floating chat
-
-Objetivo: llevar la capa asistiva a un modo operacional real.
-
-- AI Center y floating assistant
-- agentes por dominio
-- acciones seguras con contexto de usuario y tenant
-- auditoría de prompts, tools y ejecución
-
-## Fase 8: Prometeo RAG / Nexus DB
-
-Objetivo: dotar a SEMSE de memoria, recuperación y análisis documental avanzados.
-
-- pipeline RAG
-- vector database / Nexus DB
-- indexación documental y evidencias
-- routing entre proveedores y estrategias de grounding
-
-## Fase 9: Integraciones externas
-
-Objetivo: conectar SEMSE con servicios estratégicos de terceros.
-
-- Home Depot
-- Alexa
-- proveedores de pago
-- mensajería, OCR, mapas, firma digital y otros conectores
-
-## Fase 10: Producción, seguridad y monitoreo
-
-Objetivo: operar SEMSE con disciplina de plataforma.
-
-- hardening de secretos y CI/CD
-- monitoreo, alertas y métricas
-- backups, restauración y continuidad operativa
-- performance, costos y compliance
+No duplicar aqui estados de fases, SHA o criterios de cierre. Consultar siempre
+el roadmap canónico, la
+[`arquitectura vigente`](project-manager-app/docs/architecture/CURRENT_ARCHITECTURE.md)
+y la
+[`matriz de implementacion`](project-manager-app/docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md).

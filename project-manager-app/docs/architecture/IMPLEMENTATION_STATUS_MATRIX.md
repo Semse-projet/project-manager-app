@@ -1,7 +1,9 @@
 # Matriz de implementacion de la arquitectura SEMSE
 
-**Corte:** 2026-07-14
-**Base:** `main@9d1580ba5604e250f3b8fe58ffd535f9d5baaa0f` + corte F1-D
+**Corte:** 2026-07-16
+**Base codigo/produccion:** `main@6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`
+**Limitacion:** Railway CLI sin sesion; flags, allowlists y servicios privados no
+fueron inspeccionados.
 
 ## Leyenda
 
@@ -10,6 +12,8 @@
   criterio de cierre.
 - **PENDIENTE:** no existe como capacidad comun verificable.
 - **DESPLEGADO:** verificado en produccion para el SHA del corte.
+- **ACTIVO:** feature flag/allowlist verificada. No se infiere de
+  **DESPLEGADO**.
 
 ## Matriz
 
@@ -24,9 +28,9 @@
 | Tool Registry | PARCIAL | 23 descriptors read, 7 write; 17 casos read cableados | Adapter por tool, policy central, audit y verification; write gradual |
 | Video tool | PENDIENTE | Descriptor `vision.analyze_video` marcado `adapter_pending` | Pipeline temporal, storage, limits y review humano |
 | Domain Event schema | IMPLEMENTADO para slice Evidence | `domain-events-v2.schema.ts`, envelope v2 y `evidence.uploaded.v1` | Ampliar catalogo versionado dominio por dominio |
-| Domain Event bus | PARCIAL (F1-D) | Evidence state+outbox, dispatcher BullMQ, worker y receipt/efecto atomico | Ops/replay, trace extendido, canary y adopcion multi-dominio |
+| Domain Event bus | PARCIAL (F1-D); DESPLEGADO; ACTIVACION NO VERIFICADA | Evidence state+outbox, dispatcher BullMQ, worker y receipt/efecto atomico | Ops/replay, trace extendido, canary y adopcion multi-dominio |
 | Event Catalog | PARCIAL | `docs/foundation/EVENT_CATALOG.md` | Alinear nombres al schema, versionar y mapear producers/consumers |
-| Transactional Outbox general | PARCIAL (F1-D) | Contratos v2, producer Evidence atomico, dispatcher con leases, BullMQ ingress y `evidence-readiness.v1` | Replay/operacion F1-E, canary F1-F y mas producers |
+| Transactional Outbox general | PARCIAL (F1-D); DESPLEGADO; ACTIVACION NO VERIFICADA | Contratos v2, producer Evidence atomico, dispatcher con leases, BullMQ ingress y `evidence-readiness.v1` | Replay/operacion F1-E, canary F1-F y mas producers |
 | Communications delivery outbox | PARCIAL | Delivery row + adapter WhatsApp | Separar persistencia de envio; worker/retry/circuit breaker durable |
 | Idempotencia transversal | PARCIAL | Unique producer key y receipt `(eventId, consumerName)` probados con concurrencia/crash | Replay autorizado y adopcion por cada consumer |
 | Event DLQ/replay | PARCIAL | Outbox y consumer alcanzan `DEAD_LETTER`; BullMQ corta 4xx terminal | Replay RBAC/tenant/auditado y operacion desde Mission Control |
@@ -39,7 +43,7 @@
 | Policy/Approval Engine | PARCIAL | Aprobaciones verticales y reglas locales | Contrato comun principal/action/resource/context + decision reason |
 | Mission Control | PARCIAL | `/admin/mission-control`, signals, incidents, SSE y AI health | Cockpit unico de exceptions, events, queues, approvals y runbooks |
 | Project Lifecycle Projection | PENDIENTE como proyeccion unica | Datos existen en projects, milestones, evidence y payments | Read model versionado con bloqueo, owner, fecha, costo y next action |
-| Product Intelligence | PARCIAL | analytics/reporting/operational intelligence | Funnels por rol, abandono y friccion ligados a versiones |
+| Product Intelligence | IMPLEMENTADO/PARCIAL (PI-00..PI-06); DESPLEGADO; ACTIVACION NO VERIFICADA | `@semse/product-events`, modelos/ingesta/retencion, auth-wizard funnel y funnel economico | Activar/verificar flags; PI-07 Friction Engine y PI-08..PI-11 |
 | Workspace/Context Bridge | PARCIAL | developer runtime, context bridge panel y contexto operacional | Terminal registry, shared mission context y policy de scopes |
 | SDD/Blueprint Engine | PARCIAL | specs, preflight, developer runtime y plan mode | Flujo gobernado idea->spec->tasks->PR->deploy->observacion |
 | Knowledge/RAG | IMPLEMENTADO/PARCIAL | documents, chunks, hybrid retrieval, embeddings, Graphify, feedback | Learning loop, source governance y evaluation set transversal |
@@ -49,8 +53,8 @@
 | Agenda/Dispatch | PARCIAL | reservations, disponibilidad/field ops y weather/travel dispersos | Calendar canónico, conflicts, routing, reminders y rescheduling |
 | Observabilidad | PARCIAL | Sentry, Prometheus, health/readiness y audit | OTel traces, correlation y SLOs de negocio |
 | Backup/DR | PARCIAL | BCP/restore simulations para operacion asistida | Restore real DB/storage, PITR y evidencia RPO/RTO |
-| CI/CD | IMPLEMENTADO | quality gates, coverage, E2E, smoke, integration, Railway health | Mantener pipeline <15 min o justificar excepcion; migration gates |
-| Salud SDD | IMPLEMENTADO | `spec:validate -- --strict`: 64 specs, 0 errores, 0 warnings; `spec:coverage`: 92% con tests, 70% VERIFIED | Mantener metadata/evidencia; F1-B debe ampliar pruebas de integración T-012–T-017 |
+| CI/CD | IMPLEMENTADO/DESPLEGADO | CI, CodeQL, smoke, integration, deploy exact-SHA y health gate verdes para `6a8b4a0` | Mantener pipeline <15 min o justificar excepcion; migration gates |
+| Salud SDD | IMPLEMENTADO | baseline: 65 specs, 0 errores, 0 warnings; 60/65 con tests y 45/65 VERIFIED; CI del corte verde | Mantener metadata/evidencia; completar T-016 y validacion/canary F1-E/F |
 
 ## Hallazgos que cambian documentos anteriores
 
@@ -58,15 +62,18 @@
    local sin API. Esa descripcion ya no es valida.
 2. Prometeo Runtime P2 esta en `main` y en Railway. `/v1/prometeo/tools` no es
    404; requiere autenticacion y responde 401 sin Bearer token.
-3. El Event Backbone no debe marcarse como inexistente: hay schema, bus,
-   auditoria y consumidores. Tampoco debe marcarse como terminado: los writes de
-   dominio y la entrega no comparten una outbox transaccional general.
+3. El Event Backbone no debe marcarse como inexistente: F1-A-F1-D implementan
+   un slice durable de Evidence. Tampoco debe marcarse como cerrado o activo:
+   replay operacional, canary y adopcion multi-dominio siguen pendientes.
 4. `CommunicationsOutboxService` es una capacidad vertical; no sustituye la
    outbox de plataforma.
 5. `PaymentTxn` registra movimientos de pago, pero no implementa contabilidad
    double-entry compartida.
 6. Prometeo tiene registry real; la brecha es gobernanza y ejecucion completa,
    no la ausencia total de catalogo.
+7. Product Intelligence ya no es solo analytics disperso: PI-00..PI-06 tienen
+   SDK, persistencia, ingesta e interfaces. Su activacion en Railway no fue
+   verificada.
 
 ## Protocolo para actualizar esta matriz
 

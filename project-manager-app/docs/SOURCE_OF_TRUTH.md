@@ -1,84 +1,100 @@
-# SOURCE OF TRUTH — Fuentes de Verdad del Ecosistema SEMSE OS
-**Versión:** 1.0 · **Fecha:** Marzo 22, 2026
-**Mantenido por:** Arquitecto Principal
+# SOURCE OF TRUTH — Fuentes de verdad de SEMSEproject
 
-> Para el mapa completo del ecosistema consultar:
-> `repository-rules/CANONICITY.md` y `program/governance/repository-consolidation/ARCHITECTURE_AUDIT.md` en la raíz de `labsemse/`
+- **Version:** 2.0
+- **Corte:** 2026-07-16
+- **Repositorio:** `Semse-projet/project-manager-app`
+- **Raiz canónica de desarrollo:** `project-manager-app/`
 
----
+Este archivo define precedencia y ownership. No sustituye los contratos SDD.
 
-## Este repo (`project-manager-app`) es la fuente canónica de:
+## Jerarquia oficial
 
-| Capa | Archivo / Directorio | Quién lo consume |
-|------|---------------------|-----------------|
-| **Esquema de datos** | `packages/db/prisma/schema.prisma` | API, Workers, Seeds |
-| **Contratos y tipos** | `packages/schemas/src/` | API, Web, Workers |
-| **Sistema de agentes** | `packages/agents/src/index.ts` | API, Web |
-| **API REST** | `apps/api/src/modules/` | Web, Workers, clientes externos |
-| **Frontend canónico** | `apps/web/` | Usuarios finales |
-| **Componentes UI** | `packages/ui/` | apps/web, futuras apps |
-| **Autenticación** | `packages/auth/` | apps/web, apps/api |
-| **Arquitectura técnica** | `docs/architecture/` | Equipo de ingeniería |
-| **Domain model** | `docs/foundation/DOMAIN_GLOSSARY.md` | Todo el equipo |
+En caso de contradiccion se aplica este orden:
 
----
+1. **Codigo actual de `main`.** Es el comportamiento implementado.
+2. **Specs y contratos aprobados.** Incluye SDD, Zod, Prisma, migrations,
+   eventos, tests, criterios de aceptacion y ADR vigentes.
+3. **Produccion comprobada.** Determina que parte del codigo ya fue desplegada;
+   no convierte por si sola una feature flag en activa.
+4. **Documentacion operativa vigente.** Debe reflejar las tres capas anteriores.
+5. **Conversaciones y vision de producto.** Definen intencion que debe
+   convertirse en specs verificables.
+6. **Investigacion externa.** Informa decisiones sin sobrescribir componentes
+   existentes innecesariamente.
 
-## Este repo NO es la fuente canónica de:
+Codigo, test local, CI, merge, deploy y activacion son estados distintos. Toda
+afirmacion de capacidad debe declarar cual de ellos fue verificado.
 
-| Capa | Fuente real | Nota |
-|------|-------------|------|
-| **Visión de producto** | `/vision/` (raíz de labsemse) | `docs/vision/` aquí es un espejo de lectura |
-| **Estrategia y ejecución** | `/program/` (raíz de labsemse) | MasterPlan, Roadmap, Sprints viven allá |
-| **Infraestructura K8s** | (pendiente → `infra/k8s/` en este repo) | Actualmente en `Agent_Semse App Maximizada` |
-| **Prometheus / Grafana** | (pendiente → `infra/observability/`) | Actualmente en `Agent_Semse App Maximizada` |
+## Ownership canónico en este repositorio
 
----
+| Capa | Fuente | Consumidores |
+| --- | --- | --- |
+| Esquema y migrations | `packages/db/prisma/` | API, workers, CI |
+| Contratos API/dominio | `packages/schemas/src/` | API, Web, workers, SDK |
+| Telemetria de producto | `packages/product-events/` | Web, API Product Intelligence |
+| Autenticacion compartida | `packages/auth/` | Web, API |
+| Agentes y autonomia | `packages/agents/`, `packages/autonomy/` | API, workers, runtimes |
+| Knowledge/RAG | `packages/knowledge/` y modulos API asociados | API, Prometeo, workers |
+| API de dominio | `apps/api/src/modules/` | Web, workers, integraciones |
+| Frontend web canónico | `apps/web/` | Usuarios finales |
+| Procesamiento asincrono | `apps/worker/` | Colas y loops |
+| Contratos SDD | `docs/specs/` + `docs/SPEC_INDEX.md` | Equipo y agentes |
+| Arquitectura vigente | `docs/architecture/CURRENT_ARCHITECTURE.md` | Equipo y agentes |
+| Estado de capacidades | `docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md` | Planificacion y auditoria |
+| Roadmap | `ROADMAP.md` | Ejecucion F0-F9 |
 
-## Regla para `docs/vision/` (este directorio)
+`apps/angular` y `apps/assistant-portal` son superficies adicionales o de
+transicion. No reemplazan `apps/web` ni `apps/api` como superficies canónicas.
 
-Los archivos en `docs/vision/` son **espejo de lectura** de `/vision/` (raíz del repo).
+## Precedencia de contratos TypeScript
 
-- **No editar aquí directamente.**
-- Si necesitas actualizar la visión → edita en `/vision/[archivo].md`
-- Si los archivos divergen → prevalece `/vision/`
-- Proceso de sync: copiar manualmente o automatizar con script cuando sea necesario
-
----
-
-## Precedencia en caso de conflicto de tipos
-
-```
-packages/schemas/  >  src/types/index.ts (Vite App)  >  cualquier tipo local en apps/
-```
-
-Si un tipo en `apps/web/` contradice uno en `packages/schemas/`:
-1. El de `packages/schemas/` es correcto
-2. Actualizar `apps/web/` para que importe de `@semse/schemas`
-3. No crear tipos nuevos dentro de `apps/` — siempre en `packages/schemas/`
-
----
-
-## Precedencia en caso de conflicto de modelos de datos
-
-```
-packages/db/prisma/schema.prisma  >  supabase_schema.sql (legacy)  >  cualquier otro
+```text
+packages/schemas/ > packages compartidos autorizados > tipos locales en apps/
 ```
 
-La base de datos de producción es **PostgreSQL manejada por Prisma**.
-Supabase es la infraestructura transitoria del Vite App (raíz) — no es el destino final.
+Si un tipo local contradice un schema compartido:
 
----
+1. confirmar el contrato SDD y Zod vigente;
+2. corregir el consumidor;
+3. no crear un tercer contrato paralelo.
 
-## Agregar nueva funcionalidad — checklist
+`ProductEvent` y `DomainEvent` son buses distintos: telemetria de experiencia no
+se publica en la outbox transaccional de negocio.
 
-Antes de escribir código nuevo:
+## Precedencia de datos
 
-- [ ] ¿El tipo/modelo ya existe en `packages/schemas/` o `packages/db/`? Si no, crearlo ahí primero.
-- [ ] ¿El componente ya existe en `packages/ui/`? Si no, considerar si debe vivir ahí.
-- [ ] ¿El módulo de API ya existe en `apps/api/src/modules/`? Si no, crearlo con su estructura completa (controller, service, dto, module).
-- [ ] ¿El agente ya está definido en `packages/agents/src/index.ts`? Si no, definirlo ahí antes de implementarlo como microservicio.
-- [ ] ¿La decisión de arquitectura quedó documentada en `docs/adr/`? Si no, crear ADR.
+```text
+packages/db/prisma/schema.prisma + migrations > SQL o modelos legacy
+```
 
----
+- PostgreSQL + Prisma son el sistema de registro.
+- Todo cambio de schema requiere plan de migracion, validacion y rollback.
+- `tenantId` acota el espacio pero no autoriza: ownership y policy siguen
+  siendo obligatorios.
+- Una tabla o accessor presente no demuestra que el flujo esté activo en
+  produccion.
 
-*Ver también: `repository-rules/CANONICITY.md` · `program/governance/repository-consolidation/ARCHITECTURE_AUDIT.md` · `program/MASTERPLAN.md`*
+## Documentos historicos y vision
+
+- Los archivos marcados `SUPERSEDIDO` son referencia, no autorizacion de
+  implementacion.
+- Los documentos fuera de la raiz canónica no prevalecen sobre codigo, specs o
+  documentacion vigente.
+- Una vision nueva debe aterrizarse en spec/ADR antes de modificar codigo.
+- No ejecutar un roadmap historico aunque conserve tareas pendientes.
+
+## Checklist antes de implementar
+
+- [ ] Leer `.specify/memory/constitution.md` y `docs/SPEC_INDEX.md`.
+- [ ] Confirmar bounded context y ownership en la taxonomia de nueve dominios.
+- [ ] Confirmar spec aprobado, invariantes, FSM y eventos aplicables.
+- [ ] Reutilizar modelos, schemas, componentes y adapters existentes.
+- [ ] Declarar cambios de datos, permisos, eventos, pruebas y rollback.
+- [ ] Separar evidencia local, CI, merge, deploy y activacion.
+- [ ] Actualizar arquitectura/matriz/roadmap si cambia el estado real.
+
+## Snapshot vigente
+
+El snapshot verificable más reciente se registra en
+[`reportes/F0_TRUTH_SYNC_2026-07-16.md`](reportes/F0_TRUTH_SYNC_2026-07-16.md).
+No copiar su SHA a documentos futuros sin repetir la verificacion.

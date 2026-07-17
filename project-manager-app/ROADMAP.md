@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-07-14
+**Actualizado:** 2026-07-16
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -14,10 +14,12 @@ actual sin reescritura ni renombramiento masivo.
 - Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge e Integrations
   tienen implementacion real en distintos grados.
 - Prometeo Runtime P2 esta fusionado y desplegado.
-- CI, Railway Deploy y Production Health Gate estaban verdes para
-  `main@8042157` en el corte de cierre F0.
+- CI, Railway Deploy y Production Health Gate estan verdes para
+  `main@6a8b4a0`; API y Web responden 200 en el corte F0 revalidado.
+- F1-D y Product Intelligence PI-00..PI-06 estan integrados y contenidos en el
+  deploy. Sus feature flags/allowlists de Railway no fueron verificadas.
 
-## F0 — Sincronizar la verdad (COMPLETADO)
+## F0 — Sincronizar la verdad (COMPLETADO; REVALIDADO 2026-07-16)
 
 Entregables:
 
@@ -33,9 +35,12 @@ Gate de salida:
 - ningun documento canónico afirma que el repo carece de API/DB/monorepo;
 - Prometeo P2 aparece como desplegado;
 - cada sistema transversal distingue estado real de arquitectura objetivo.
-- `pnpm spec:validate -- --strict` pasa con 63 specs, 0 errores y 0 warnings.
+- la linea base documentada mantiene 65 specs, 0 errores y 0 warnings; CI del
+  SHA de corte esta verde.
+- el snapshot registra por separado `main`, checkout local, CI, deploy,
+  endpoints y configuracion no verificable.
 
-## F1 — Event Backbone (F1-D CONSUMER/WORKER IMPLEMENTADO; F1-E SIGUIENTE)
+## F1 — Event Backbone (F1-D EN MAIN/DEPLOY; F1-E SIGUIENTE)
 
 Contrato ejecutable:
 
@@ -60,16 +65,21 @@ Entregables:
 Slice recomendado: `evidence.submitted -> review -> milestone readiness`, sin
 activar liberacion monetaria automatica.
 
-Estado del corte F1-D:
+Estado del corte:
 
-- `Evidence + outbox`, dispatcher BullMQ y consumer
-  `evidence-readiness.v1` ya forman un slice durable;
+- F1-A: contratos v2 y migracion aditiva, completado;
+- F1-B: producer atomico `Evidence + outbox`, completado;
+- F1-C: dispatcher con leases e ingreso BullMQ, completado;
+- F1-D: worker y consumer `evidence-readiness.v1` idempotente, completado;
+- F1-E: Ops, replay, redaccion, RBAC y trace extendido, pendiente;
+- F1-F: switches OFF, canary, SLO y cierre de produccion, pendiente.
 - receipt y efecto se confirman en la misma transaccion;
 - duplicados, crash/retry, no-op sin milestone y dead letter fueron probados
   contra PostgreSQL y Redis reales;
-- `Milestone.status`, `paymentReadiness` y Payments no son mutados;
-- dispatcher y consumers permanecen apagados por defecto;
-- F1-E (Ops, replay, redaccion y trace extendido) sigue pendiente.
+- `Milestone.status`, `paymentReadiness` y Payments no son mutados.
+
+El codigo F1-D fue desplegado en el SHA del corte, pero no se declara activo:
+los switches son default-off y sus valores Railway no pudieron inspeccionarse.
 
 Gate de salida:
 
@@ -77,6 +87,24 @@ Gate de salida:
 - replay no duplica efectos;
 - un fallo llega a DLQ y se recupera desde una operacion auditada;
 - compatibilidad con eventos v1 documentada.
+
+## Programa transversal — Product Intelligence
+
+PI observa la experiencia sin mezclar `ProductEvent` con `DomainEvent` y sin
+aplicar cambios automaticos.
+
+- PI-00..PI-04: spec, guard Prisma, SDK, modelos, ingesta y retencion,
+  completados;
+- PI-05: instrumentacion auth/registro/wizard y funnel admin, completado;
+- PI-06: funnel economico derivado de Job/Bid/Contract/PaymentEscrow,
+  completado;
+- PI-07: Friction Engine, siguiente incremento;
+- PI-08..PI-11: anomaly signals, Observer, Mission Control y hardening,
+  pendientes.
+
+El codigo PI-06 esta desplegado. La activacion de
+`PRODUCT_INTELLIGENCE_ENABLED` y
+`NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` no fue verificada.
 
 ## F2 — Prometeo Tool Registry gobernado
 

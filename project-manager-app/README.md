@@ -1,6 +1,8 @@
 # Project Manager App / SEMSEproject
 
-Plataforma ConTech para gestion de proyectos, marketplace operativo, evidencia, escrow, trust y automatizacion con agentes.
+Sistema operativo modular para servicios, construcción y Agro: marketplace,
+proyectos, evidencia, pagos protegidos por hitos, trust, conocimiento y
+automatizacion gobernada con agentes.
 
 ## Estado
 
@@ -59,6 +61,7 @@ packages/
   autonomy/
   db/
   knowledge/
+  product-events/
   sdk/
   schemas/
   shared/
@@ -70,6 +73,7 @@ Modulos principales:
 
 - Marketplace y proyectos.
 - Contratos, bids, milestones y escrow.
+- Product Intelligence y funnels operativos con feature flags.
 - Evidencia operacional.
 - Trust, ratings y verificacion.
 - Agentes, autonomia, knowledge y runtime.

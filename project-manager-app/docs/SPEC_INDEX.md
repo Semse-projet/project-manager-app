@@ -1,5 +1,5 @@
 # SPEC_INDEX — SEMSEproject
-**Última actualización manual:** 2026-07-12 (la matriz SDD se regenera con `pnpm spec:index`)
+**Última actualización manual:** 2026-07-16 (la matriz SDD se regenera con `pnpm spec:index`)
 **Mantenido por:** Architecture Agent / CTO Agent
 **Propósito:** Registry canónico de todos los documentos de especificación. Todo agente de IA debe leer este índice antes de trabajar en cualquier feature.
 

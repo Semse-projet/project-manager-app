@@ -8,10 +8,11 @@
 
 ## Identidad del Proyecto
 
-**Proyecto:** SEMSE OS — Sistema Operativo de Servicios Especializados
-**Dominio:** Construcción y gestión de proyectos con IA
+**Proyecto:** SEMSEproject — Sistema Operativo de Servicios Especializados
+**Dominio:** Ecosistema modular para servicios, construcción, Agro y operación con IA
 **Stack:** NestJS · Next.js · Prisma · PostgreSQL · BullMQ · Railway · Ollama
-**Repo raíz:** `labsemse/project-manager-app/`
+**Repositorio:** `Semse-projet/project-manager-app`
+**Raíz canónica de desarrollo:** `project-manager-app/`
 **Deploy activo:** Railway (API + Web + Worker)
 
 ---
@@ -144,15 +145,12 @@ project-manager-app/
 
 ## Dominios Activos y Sus Specs
 
-| Dominio | Spec | Estado |
-|---------|------|--------|
-| Jobs/Marketplace | `docs/specs/api/jobs.spec.md` | MISSING — P1 |
-| Milestones | `docs/specs/api/milestones.spec.md` | MISSING — P1 |
-| Evidence | `docs/specs/api/evidence.spec.md` | MISSING — P1 |
-| Payments/Escrow | `docs/specs/api/payments.spec.md` | MISSING — P1 |
-| Smart Intake | `docs/specs/api/intake.spec.md` | MISSING — P2 |
-| BuildOps | `docs/specs/api/buildops.spec.md` | MISSING — P2 |
-| Prometeo/RAG | `docs/specs/api/prometeo.spec.md` | MISSING — P3 |
-| Communications | `docs/specs/api/communications.spec.md` | MISSING — P3 |
+Los estados no se duplican en este archivo porque cambian con cada ciclo SDD.
+La unica matriz vigente es `docs/SPEC_INDEX.md`, regenerada con
+`pnpm spec:index`. Antes de implementar:
 
-Ver lista completa en `docs/SPEC_INDEX.md` sección 10.
+1. localizar el spec del bounded context en ese indice;
+2. confirmar que su estado autoriza implementacion;
+3. revisar contratos, tests y `lastVerified` enlazados;
+4. detenerse y completar el flujo SDD si el spec esta `DRAFT`, `PARTIAL`,
+   `MISSING` o `REVIEW_REQUIRED`.
