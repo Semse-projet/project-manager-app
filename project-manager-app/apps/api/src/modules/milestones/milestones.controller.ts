@@ -104,6 +104,12 @@ export class MilestonesController {
       roles: actor.roles,
       requestId
     });
+    this.sse?.emit(`buildops:${actor.tenantId}`, "milestone:updated", {
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      status: milestone.status,
+      action: "submitted",
+    });
     return ok(requestId, toVisibleMilestone(milestone));
   }
 
@@ -119,6 +125,12 @@ export class MilestonesController {
       orgId: actor.orgId,
       roles: actor.roles,
       requestId
+    });
+    this.sse?.emit(`buildops:${actor.tenantId}`, "milestone:updated", {
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      status: milestone.status,
+      action: "approved",
     });
     return ok(requestId, toVisibleMilestone(milestone));
   }
@@ -142,6 +154,12 @@ export class MilestonesController {
       roles: actor.roles,
       requestId
     });
+    this.sse?.emit(`buildops:${actor.tenantId}`, "milestone:updated", {
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      status: milestone.status,
+      action: "rejected",
+    });
     return ok(requestId, toVisibleMilestone(milestone));
   }
 
@@ -163,6 +181,12 @@ export class MilestonesController {
       orgId: actor.orgId,
       roles: actor.roles,
       requestId
+    });
+    this.sse?.emit(`buildops:${actor.tenantId}`, "milestone:updated", {
+      milestoneId: milestone.id,
+      projectId: milestone.projectId,
+      status: milestone.status,
+      action: "revision_requested",
     });
     return ok(requestId, toVisibleMilestone(milestone));
   }

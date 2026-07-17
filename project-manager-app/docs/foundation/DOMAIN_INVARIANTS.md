@@ -140,10 +140,11 @@ Reglas:
 
 ## Invariantes de Milestone
 
-Estados:
+Estados persistidos:
 
 - `DRAFT`
-- `AWAITING_REVIEW`
+- `AWAITING_REVIEW` (compatibilidad; la UI puede mostrar "Listo")
+- `SUBMITTED`
 - `APPROVED`
 - `REJECTED`
 - `PAID`
@@ -152,6 +153,8 @@ Reglas:
 
 - no `PAID` sin release financiero exitoso
 - no `APPROVED` sin revision valida
+- `DRAFT`, `AWAITING_REVIEW` y `REJECTED` solo pueden someterse con evidencia
+- el submit durable termina en `SUBMITTED`; `READY` no es un valor persistido
 - `REJECTED` debe dejar trazabilidad
 
 ## Invariantes de Escrow / Payments
@@ -165,11 +168,22 @@ Reglas:
 
 ## Invariantes de Dispute
 
+Estados persistidos:
+
+- `OPEN`
+- `ASSIGNED`
+- `UNDER_REVIEW`
+- `RESOLVED`
+- `REJECTED` (terminal de compatibilidad)
+
 Reglas:
 
 - disputa abierta bloquea cierre final segun politica minima actual
 - disputa abierta debe congelar releases no obligatorios mientras no exista decision explicita
 - resolucion debe quedar auditada
+- toda resolucion requiere `resolutionType`; el cliente dueño solo puede cerrar
+  por acuerdo a favor del profesional, mientras refund, split y escalamiento
+  legal requieren `OPS_ADMIN`
 - toda resolucion debe dejar trazabilidad sobre su efecto financiero: release, holdback, refund o cierre sin movimiento
 - fondos y estados no deben moverse como si no existiera disputa activa
 

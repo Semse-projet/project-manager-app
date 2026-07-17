@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toolCallToProposedPlan, toolCallsToActions } from "../dist/modules/agents/harnesses/copilot-tools.js";
+import { COPILOT_TOOLS, toolCallToProposedPlan, toolCallsToActions } from "../dist/modules/agents/harnesses/copilot-tools.js";
 
 const milestoneCall = {
   toolName: "propose_milestone_approval",
@@ -90,6 +90,18 @@ test("toolCallsToActions handles multiple calls in order", () => {
   // Each action gets a unique id
   const ids = new Set(actions.map((a) => a.id));
   assert.equal(ids.size, 3);
+});
+
+test("dispute resolution tool requires an explicit financial outcome", () => {
+  const tool = COPILOT_TOOLS.find((item) => item.name === "propose_dispute_resolve");
+  assert.ok(tool);
+  assert.deepEqual(tool.inputSchema.required, ["disputeId", "resolution", "resolutionType"]);
+  assert.deepEqual(tool.inputSchema.properties.resolutionType.enum, [
+    "client_favor",
+    "pro_favor",
+    "partial_50_50",
+    "escalated_legal",
+  ]);
 });
 
 test("toolCallToProposedPlan converts propose_plan tool call into structured plan", () => {

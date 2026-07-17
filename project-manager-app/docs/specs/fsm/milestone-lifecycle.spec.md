@@ -26,7 +26,7 @@ related_events:
   - milestone.approved
 related_agents:
   - evidence-coach
-last_verified: 2026-06-09
+last_verified: 2026-07-17
 ---
 
 # FSM Spec: Milestone Lifecycle
@@ -34,9 +34,10 @@ last_verified: 2026-06-09
 ## Estados y transiciones
 
 ```
-DRAFT ──► AWAITING_REVIEW ──► SUBMITTED ──► APPROVED ──► PAID [TERMINAL]
-                                    │
-                                    └──► REJECTED ──► AWAITING_REVIEW (nueva iteración)
+DRAFT ────────────────┐
+AWAITING_REVIEW ──────┼──► SUBMITTED ──► APPROVED ──► PAID [TERMINAL]
+REJECTED ─────────────┘          │             │
+                                └─► REJECTED ◄─┘
 ```
 
 ## Mapeo código → producto
@@ -54,11 +55,12 @@ DRAFT ──► AWAITING_REVIEW ──► SUBMITTED ──► APPROVED ──►
 
 | Estado | → Permitido | Guard | Actor |
 |--------|------------|-------|-------|
-| `draft` | `awaiting_review` | milestone configurado (title, amount, sequence) | PRO, OPS_ADMIN |
+| `draft` | `submitted` | evidencia mínima y milestone configurado | PRO, OPS_ADMIN |
 | `awaiting_review` | `submitted` | evidenceCount > 0 | PRO, OPS_ADMIN |
 | `submitted` | `approved` | revisión válida | CLIENT, OPS_ADMIN |
 | `submitted` | `rejected` | reason ≥ 1 char | CLIENT, OPS_ADMIN |
-| `rejected` | `awaiting_review` | nueva iteración o subsanación | PRO, OPS_ADMIN |
+| `rejected` | `submitted` | nueva iteración + evidencia | PRO, OPS_ADMIN |
+| `approved` | `rejected` | corrección humana antes del pago | CLIENT, OPS_ADMIN |
 | `approved` | `paid` | release financiero exitoso (PaymentGovernance) | PLATFORM (automático) |
 | `paid` | — | TERMINAL | — |
 
@@ -94,4 +96,4 @@ assertMilestoneRejectable:
 - PRO no puede aprobar ni rechazar su propio milestone
 - `paid` es el único estado terminal — no se reabre
 - `approved → paid` solo ocurre tras release financiero exitoso en escrow
-- La transición `rejected → awaiting_review` no es automática — requiere acción del PRO
+- La transición `rejected → submitted` requiere acción del PRO y evidencia

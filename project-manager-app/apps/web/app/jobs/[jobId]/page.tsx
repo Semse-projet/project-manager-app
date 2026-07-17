@@ -279,7 +279,10 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     setError(null);
     setFeedback(null);
     try {
-      await resolveDispute(disputeId, { resolution: "Resolved from job shell" });
+      await resolveDispute(disputeId, {
+        resolution: "Resolved by client in favor of the professional",
+        resolutionType: "pro_favor",
+      });
       await refresh(jobId);
       setFeedback("Dispute resuelta. El job volvió a estado operativo.");
     } catch (e) {

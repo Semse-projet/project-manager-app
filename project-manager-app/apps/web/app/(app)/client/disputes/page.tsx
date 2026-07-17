@@ -231,7 +231,10 @@ export default function ClientDisputesPage() {
     setPendingAction(`resolve:${disputeId}`);
     setError(null);
     try {
-      await resolveDispute(disputeId, { resolution: resolutionText });
+      await resolveDispute(disputeId, {
+        resolution: resolutionText,
+        resolutionType: "pro_favor",
+      });
       await loadDisputes();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo resolver la disputa.");

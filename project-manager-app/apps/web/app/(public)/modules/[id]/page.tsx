@@ -59,7 +59,7 @@ const MODULES_DATA: Record<string, ModuleDetail> = {
   },
   buildops: {
     id: "buildops",
-    title: "BuildOps",
+    title: "SEMSE BuildOps",
     tagline: "Control total de la ejecución diaria en campo",
     description: "La capa operativa que conecta el calendario, las tareas críticas y la supervisión del contratista en una sola fuente de verdad.",
     icon: Zap,
@@ -124,7 +124,7 @@ const MODULES_DATA: Record<string, ModuleDetail> = {
   },
   trust: {
     id: "trust",
-    title: "Trust & Governance",
+    title: "SEMSE Trust",
     tagline: "Seguridad legal y reputacional en cada transacción",
     description: "La capa que garantiza el orden y las reglas del ecosistema. Desde la resolución imparcial de disputas hasta las licencias validadas.",
     icon: Scale,
@@ -166,11 +166,11 @@ const MODULES_DATA: Record<string, ModuleDetail> = {
     id: "payments",
     title: "SEMSE Payments",
     tagline: "El dinero protegido hasta cumplir lo acordado",
-    description: "Escrow por hitos con Stripe: el cliente deposita, el profesional trabaja con la certeza de que los fondos existen, y el dinero se libera contra evidencia aprobada.",
+    description: "Pagos protegidos por hitos con Stripe Connect: el cliente deposita, el profesional trabaja con la certeza de que los fondos existen, y el dinero se libera contra evidencia aprobada.",
     icon: CreditCard,
     color: "from-emerald-500 to-teal-600",
     features: [
-      { title: "Escrow por hitos", desc: "Fondos retenidos por etapa de trabajo y liberados contra aprobación." },
+      { title: "Pagos protegidos por hitos", desc: "Fondos controlados por etapa de trabajo y liberados contra aprobación." },
       { title: "Liberaciones y reembolsos", desc: "Liberaciones parciales, reembolsos administrados y trazabilidad completa." },
       { title: "Panel financiero", desc: "Estado de cada pago visible para cliente, profesional y operador." }
     ]

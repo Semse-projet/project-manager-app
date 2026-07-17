@@ -9,6 +9,10 @@
 > **naming de producto**: los directorios de código conservan sus nombres actuales
 > (regla: nada de rename big-bang).
 
+`LIVE` significa que la superficie canónica del dominio está montada y se prueba
+en producción; no convierte cada subcapacidad del roadmap en completa. El estado
+de profundidad vive en `architecture/IMPLEMENTATION_STATUS_MATRIX.md`.
+
 ---
 
 ## Decisión de absorción: OKComputer → SEMSE Connect
@@ -44,7 +48,8 @@ veterinario, BuildOps pide un electricista) sin salir del ecosistema.
 
 | Capa | Código |
 |------|--------|
-| API | `jobs`, `marketplace`, `matching`, `reservations`, `bids`, `smart-intake`, `intake-operations-bridge`, `field-ops`, `labor-engine`, `communications`, `notifications`, `evidence` (flujo de trabajo), `contracts`, `change-orders`, `disputes`, `tasks`, `contractor`, `travel`, `weather` |
+| API LIVE | `jobs`, `marketplace`, `matching`, `reservations`, `bids`, `smart-intake`, `intake-operations-bridge`, `field-ops`, `labor-engine`, `communications`, `notifications`, `evidence` (controller canónico), `contracts`, `change-orders`, `disputes`, `tasks`, `contractor`, `travel` |
+| Incubación no montada | `weather` y controladores Evidence legacy que dependen de modelos Prisma retirados; no forman parte de la API productiva |
 | Web | landing intake, `/intake/*`, `/worker/*`, `/client/*`, jobs, tracker, `/communications` |
 | Agentes | Match/Scheduler/Evidence/Negotiation/Support Connect Agents = mapeo de producto sobre los agentic loops existentes (SPEC-AGT-001 / SPEC-AUT-001). No hay infraestructura de agentes propia de Connect. |
 
@@ -52,7 +57,8 @@ veterinario, BuildOps pide un electricista) sin salir del ecosistema.
 
 | Capa | Código |
 |------|--------|
-| API | `payments`, `escrow`, `payment-governance`, `finance`, `liens`, `milestones` (readiness de pago) |
+| API LIVE | `payments`, `payment-governance`, `finance`, `milestones` (readiness de pago) |
+| Incubación no montada | `escrow` (draws/lender) y `liens`; requieren cerrar primero sus contratos Prisma/migrations, ownership y permisos granulares |
 | Integraciones | Stripe 22.x (todos los roles), webhooks vía serviceConnect |
 
 ### 4. SEMSE Trust — reputación, verificaciones, cumplimiento, auditoría

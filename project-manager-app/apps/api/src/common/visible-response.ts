@@ -10,7 +10,9 @@ const jobStatusVisibleMap: Record<string, string> = {
   review: "REVIEW",
   dispute: "DISPUTE",
   completed: "COMPLETED",
-  awarded: "COMPLETED",
+  // AWARDED es compatibilidad para adjudicación directa; mostrarlo como
+  // COMPLETED falseaba el lifecycle y podía inducir acciones financieras.
+  awarded: "ACCEPTED",
   cancelled: "CANCELLED"
 };
 
@@ -33,7 +35,9 @@ const milestoneStatusVisibleMap: Record<string, string> = {
 const disputeStatusVisibleMap: Record<string, string> = {
   open: "OPEN",
   assigned: "ASSIGNED",
-  resolved: "RESOLVED"
+  under_review: "UNDER_REVIEW",
+  resolved: "RESOLVED",
+  rejected: "REJECTED"
 };
 
 const escrowActionVisibleMap: Record<string, string> = {

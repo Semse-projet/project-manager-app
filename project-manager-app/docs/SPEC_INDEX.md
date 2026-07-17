@@ -50,13 +50,13 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
-| [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 2 | 2026-06-09 |
+| [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 2 | 2026-07-17 |
 | [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
 | [api-field-ops](specs/api/field-ops.spec.md) | field-ops | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
-| [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-06-07 |
+| [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-07-17 |
 | [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | high | yes | yes | yes | 7 | 2026-07-12 |
 | [api.rbac-explicit-boundary](specs/api/rbac-explicit-boundary.spec.md) | core | VERIFIED | high | yes | no | yes | 2 | 2026-07-12 |
@@ -66,8 +66,8 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [fsm-agent-run-lifecycle](specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [fsm-buildops-plan-lifecycle](specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-escrow-lifecycle](specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
-| [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
-| [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-17 |
+| [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | high | yes | yes | yes | 7 | 2026-07-17 |
@@ -223,13 +223,13 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | Dominio | Ruta | Estado | Tests | Gaps documentados |
 |---|---|---|---|---|
 | Jobs / Marketplace | `docs/specs/api/jobs.spec.md` | VERIFIED | LINKED | 8 |
-| Milestones | `docs/specs/api/milestones.spec.md` | VERIFIED | LINKED | 5 |
+| Milestones | `docs/specs/api/milestones.spec.md` | VERIFIED | LINKED | 2 abiertos, 1 cierre documentado |
 | Evidence | `docs/specs/api/evidence.spec.md` | VERIFIED | LINKED | 6 |
 | Payments / Escrow | `docs/specs/api/payments.spec.md` | VERIFIED | LINKED | 7 |
-| Disputes | `docs/specs/api/disputes.spec.md` | APPROVED | LINKED | 3 |
+| Disputes | `docs/specs/api/disputes.spec.md` | VERIFIED | LINKED | 2 abiertos, 2 cierres documentados |
 | Contracts | `docs/specs/api/contracts.spec.md` | APPROVED | LINKED | 2 |
 | BuildOps | `docs/specs/api/buildops.spec.md` | APPROVED | LINKED | 3 |
-| Communications | `docs/specs/api/communications.spec.md` | APPROVED | LINKED | 1 (P0) |
+| Communications | `docs/specs/api/communications.spec.md` | VERIFIED | LINKED | 3; HMAC P0 cerrado |
 | Consciousness / Observer | `docs/specs/api/consciousness.spec.md` | APPROVED | LINKED | 0 |
 | Smart Intake | `docs/specs/api/intake.spec.md` | APPROVED | LINKED | 3 |
 | Prometeo RAG | `docs/specs/api/prometeo.spec.md` | APPROVED | LINKED | 0 |
@@ -247,7 +247,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 |---|---|---|---|
 | Job lifecycle | `docs/specs/fsm/job-lifecycle.spec.md` | VERIFIED | ✅ |
 | Milestone lifecycle | `docs/specs/fsm/milestone-lifecycle.spec.md` | VERIFIED | ✅ |
-| Escrow / Payment lifecycle | `docs/specs/fsm/escrow-lifecycle.spec.md` | APPROVED | ⚠️ Enum faltante en Prisma |
+| Escrow / Payment lifecycle | `docs/specs/fsm/escrow-lifecycle.spec.md` | APPROVED | ✅ `EscrowStatus` + migration presentes |
 | BuildOps plan lifecycle | `docs/specs/fsm/buildops-lifecycle.spec.md` | APPROVED | ✅ |
 | Reservation lifecycle | `docs/specs/fsm/reservation-lifecycle.spec.md` | APPROVED | N/A — domain-store/repository flow |
 | Agent run lifecycle | `docs/specs/fsm/agent-run-lifecycle.spec.md` | APPROVED | ✅ AgentRun-backed |
@@ -276,14 +276,14 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 
 ---
 
-## Gaps P0 — Críticos (Bloquean producción)
+## Gaps P0 históricos — cerrados
 
-| # | Gap | Módulo | Acción |
-|---|---|---|---|
-| 1 | Webhook WhatsApp sin validación HMAC | `communications/` | IMPLEMENTAR X-Hub-Signature-256 |
-| 2 | PRO puede leer financials del escrow | `payments/` | AGREGAR guard de permisos |
-| 3 | Milestone submit no valida evidencia | `milestones/` | IMPLEMENTAR guard evidenceCount > 0 |
-| 4 | `EscrowStatus` sin enum en Prisma | `payments/` | CREAR enum + migración |
+| # | Gap cerrado | Evidencia |
+|---|---|---|
+| 1 | Webhook WhatsApp valida HMAC | `communications-whatsapp-webhook-signature.test.ts` + adapter Cloud API |
+| 2 | PRO no puede leer financials del escrow | `projects-policy.test.ts` y `payments.spec-contract.test.ts` |
+| 3 | Milestone submit exige evidencia | `milestones.policy.ts` + `milestones-policy.test.ts` |
+| 4 | `EscrowStatus` tipado y migrado | `schema.prisma` + `20260524180000_payment_escrow_status_enum` |
 
 ---
 
@@ -371,6 +371,6 @@ Nivel 7 (Infra/Seguridad):   3/3   ████████████ 100%
 
 Score global SDD: Specs linkeados 100% para niveles 0-7. Verificacion ejecutable: ver bloque generado y `pnpm spec:coverage`.
 
-Gaps P0 cerrados:  1/4  (25%)  ← PRÓXIMO FOCO
+Gaps P0 cerrados:  4/4  (100%)
 Gaps P1 cerrados:  5/5  (100%) ← Specs creados; varios ya están en VERIFIED con pruebas de controller/RBAC
 ```

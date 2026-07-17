@@ -1,5 +1,22 @@
 # SEMSE API Surface v1 (REST)
 
+## Probes canónicos de los nueve módulos
+
+Estas rutas protegidas deben responder `401` sin sesión y nunca `404`; el gate
+de Production Health las verifica junto con las nueve páginas `/modules/*`.
+
+| Módulo | Probe API |
+|---|---|
+| SEMSE Core | `GET /v1/users` |
+| SEMSE Connect | `GET /v1/jobs` |
+| SEMSE Payments | `GET /v1/payments/provider-readiness` |
+| SEMSE Trust | `GET /v1/jobs/module-probe/trust` |
+| SEMSE AI | `GET /v1/prometeo/tools` |
+| SEMSE Agro | `GET /v1/agro/farms` |
+| SEMSE BuildOps | `GET /v1/buildops/overview` |
+| SEMSE Knowledge | `GET /v1/knowledge/overview` |
+| SEMSE Integrations | `GET /v1/satellites/me` |
+
 ## Auth
 - `POST /v1/auth/login`
 - `POST /v1/auth/logout`
@@ -37,6 +54,7 @@
 - `POST /v1/milestones/:milestoneId/submit`
 - `POST /v1/milestones/:milestoneId/approve`
 - `POST /v1/milestones/:milestoneId/reject`
+- `POST /v1/milestones/:milestoneId/request-changes`
 
 ## Payments / Escrow
 - `GET /v1/jobs/:jobId/payments`
@@ -84,7 +102,11 @@
 - `POST /v1/disputes`
 - `GET /v1/disputes`
 - `POST /v1/disputes/:disputeId/assign`
+- `POST /v1/disputes/:disputeId/submit-evidence`
+- `POST /v1/disputes/:disputeId/review`
 - `POST /v1/disputes/:disputeId/resolve`
+- `POST /v1/disputes/:disputeId/archive`
+- `POST /v1/disputes/:disputeId/restore`
 
 ## Trust
 - `GET /v1/jobs/:jobId/trust`

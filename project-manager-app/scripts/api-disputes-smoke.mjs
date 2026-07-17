@@ -69,7 +69,8 @@ async function main() {
   assert.equal(assigned.data.assigneeUserId, "usr_dispute_reviewer");
 
   const resolved = await request(actors.ops, "POST", `/v1/disputes/${created.data.id}/resolve`, {
-    resolution: "Se revisó evidencia y se resolvió a favor del proveedor."
+    resolution: "Se revisó evidencia y se resolvió a favor del proveedor.",
+    resolutionType: "pro_favor"
   });
   assert.equal(resolved.data.status, "RESOLVED");
   assert.equal(resolved.data.assigneeUserId, "usr_dispute_reviewer");

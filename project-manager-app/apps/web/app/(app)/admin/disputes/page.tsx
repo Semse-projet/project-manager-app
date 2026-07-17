@@ -96,11 +96,13 @@ const SEVERITY_COLOR: Record<string, string> = {
   low:    "#10b981",
 };
 
+type DisputeResolutionType = "client_favor" | "pro_favor" | "partial_50_50" | "escalated_legal";
+
 const RESOLVE_OPTIONS = [
-  { label: "Resolver a favor del cliente",      value: "Resuelto a favor del cliente",      color: "#10b981", icon: CheckCircle },
-  { label: "Resolver a favor del profesional",  value: "Resuelto a favor del profesional",  color: "#3b82f6", icon: CheckCircle },
-  { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", color: "#f59e0b", icon: Scale      },
-  { label: "Escalar a legal",                   value: "Escalado al equipo legal para revisión",               color: "#ef4444", icon: XCircle    },
+  { label: "Resolver a favor del cliente",      value: "Resuelto a favor del cliente",      resolutionType: "client_favor", color: "#10b981", icon: CheckCircle },
+  { label: "Resolver a favor del profesional",  value: "Resuelto a favor del profesional",  resolutionType: "pro_favor", color: "#3b82f6", icon: CheckCircle },
+  { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", resolutionType: "partial_50_50", color: "#f59e0b", icon: Scale      },
+  { label: "Escalar a legal",                   value: "Escalado al equipo legal para revisión", resolutionType: "escalated_legal", color: "#ef4444", icon: XCircle    },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────
@@ -124,6 +126,7 @@ export default function AdminDisputesPage() {
 
   // Resolve panel state
   const [customResolution, setCustomResolution] = useState("");
+  const [customResolutionType, setCustomResolutionType] = useState<DisputeResolutionType>("escalated_legal");
   const [resolving, setResolving]   = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [attachmentName, setAttachmentName] = useState("dispute-evidence-bundle.zip");
@@ -213,7 +216,7 @@ export default function AdminDisputesPage() {
 
   const selectedDispute = disputes.find(d => d.id === selected);
 
-  const handleResolve = async (resolution: string) => {
+  const handleResolve = async (resolution: string, resolutionType: DisputeResolutionType) => {
     const targetId = workspaceDisputeId ?? selected;
     if (!targetId || !resolution.trim()) return;
     setResolving(true);
@@ -222,7 +225,7 @@ export default function AdminDisputesPage() {
       const res = await fetch(`/api/semse/disputes/${targetId}/resolve`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ resolution: resolution.trim() }),
+        body: JSON.stringify({ resolution: resolution.trim(), resolutionType }),
       });
       const data = (await res.json()) as { data?: unknown; error?: { message: string } };
       if (!res.ok || data.error) {
@@ -598,7 +601,7 @@ export default function AdminDisputesPage() {
               relatedHref={workspaceDispute.jobId ? `/admin/dashboard` : undefined}
               evidenceHref="/admin/ops"
               onResolve={async (resolution) => {
-                await handleResolve(resolution);
+                await handleResolve(resolution, "escalated_legal");
                 setWorkspaceDisputeId(null);
               }}
               resolveBusy={resolving}
@@ -655,7 +658,7 @@ export default function AdminDisputesPage() {
                       <button
                         key={opt.value}
                         disabled={resolving}
-                        onClick={() => handleResolve(opt.value)}
+                        onClick={() => handleResolve(opt.value, opt.resolutionType)}
                         style={{
                           padding: "9px", borderRadius: "8px", border: "none",
                           background: opt.color, color: "#fff",
@@ -683,9 +686,24 @@ export default function AdminDisputesPage() {
                     resize: "vertical", boxSizing: "border-box", marginBottom: "8px",
                   }}
                 />
+                <select
+                  aria-label="Efecto financiero de la resolución"
+                  value={customResolutionType}
+                  onChange={event => setCustomResolutionType(event.target.value as DisputeResolutionType)}
+                  style={{
+                    width: "100%", padding: "9px 10px", borderRadius: "8px",
+                    border: "1px solid var(--border)", background: "var(--bg)",
+                    color: "var(--ink)", fontSize: "12px", marginBottom: "8px",
+                  }}
+                >
+                  <option value="escalated_legal">Mantener fondos retenidos · escalar a legal</option>
+                  <option value="client_favor">Reembolso a favor del cliente</option>
+                  <option value="pro_favor">Liberación a favor del profesional</option>
+                  <option value="partial_50_50">Resolución parcial 50/50</option>
+                </select>
                 <button
                   disabled={resolving || customResolution.trim().length < 5}
-                  onClick={() => handleResolve(customResolution)}
+                  onClick={() => handleResolve(customResolution, customResolutionType)}
                   style={{
                     width: "100%", padding: "9px", borderRadius: "8px",
                     border: "1px solid var(--border)",

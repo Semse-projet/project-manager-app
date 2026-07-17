@@ -25,9 +25,13 @@ related_endpoints:
   - v1/disputes
 related_events:
   - dispute.opened
+  - dispute.assigned
+  - dispute.evidence_submitted
+  - dispute.under_review
+  - dispute.resolved
 related_agents:
   - dispute-analyzer
-last_verified: 2026-06-09
+last_verified: 2026-07-17
 ---
 
 # Spec: Dispute Lifecycle
@@ -52,8 +56,9 @@ cualquier parte puede abrir una disputa. OPS_ADMIN la revisa y resuelve con un
 |-------|---------|-------------|
 | CLIENT / PRO | `disputes:create` | Abrir disputa |
 | CLIENT / PRO | `disputes:create` | Subir evidencia de disputa |
-| OPS_ADMIN | `disputes:assign` | Asignar revisor, revisar |
-| OPS_ADMIN | `disputes:resolve` | Resolver con resolutionType |
+| OPS_ADMIN | `disputes:assign` | Asignar revisor, iniciar revisión |
+| CLIENT dueño | `disputes:resolve` | Cerrar por acuerdo únicamente con `pro_favor` |
+| OPS_ADMIN | `disputes:resolve` | Resolver con cualquier resolutionType |
 | OPS_ADMIN | `disputes:archive/restore` | Archivar/restaurar |
 
 ---
@@ -63,10 +68,10 @@ cualquier parte puede abrir una disputa. OPS_ADMIN la revisa y resuelve con un
 **Referencia:** `docs/foundation/STATE_MACHINES.md`
 
 ```
-OPEN → UNDER_REVIEW → RESOLVED
-OPEN → CANCELLED
+OPEN → ASSIGNED → UNDER_REVIEW → RESOLVED
+OPEN|ASSIGNED → RESOLVED (acuerdo explícito gobernado)
 
-[TERMINALES: RESOLVED, CANCELLED]
+[TERMINALES: RESOLVED, REJECTED (compatibilidad)]
 ```
 
 ### resolutionType → efecto en escrow
@@ -98,13 +103,13 @@ ENTONCES disputa creada en estado OPEN
 ```
 
 **Casos borde:**
-- `reason` < 10 chars → `400`
+- `reason` < 5 chars → `400`
 - Actor sin `disputes:create` → `403`
 
 ### P1-B — OPS_ADMIN resuelve a favor del PRO
 
 ```
-DADO   disputa en UNDER_REVIEW
+DADO   disputa en OPEN, ASSIGNED o UNDER_REVIEW
        Y actor OPS_ADMIN con disputes:resolve
 CUANDO POST /v1/disputes/:id/resolve { resolution, resolutionType: "pro_favor" }
 ENTONCES disputa pasa a RESOLVED
@@ -134,15 +139,14 @@ método: POST · permiso: disputes:create · roles: [CLIENT, PRO, OPS_ADMIN]
 input:
   schema: createDisputeSchema
   campos:
-    - projectId: string min(1) — requerido
-    - jobId: string min(1) — requerido
-    - reason: string min(10).max(3000) — causa formal
+    - projectId: string min(1) — opcional si se envía jobId
+    - jobId: string min(1) — opcional si se envía projectId
+    - reason: string min(5).max(1000) — causa formal
 output: DisputeRecord en OPEN
 errores:
-  400: reason < 10 chars
+  400: falta projectId/jobId o reason fuera de 5..1000
   403: sin disputes:create
   404: projectId o jobId no existe
-  409: ya existe disputa abierta para este job
 efectos:
   auditLog: true — "dispute.opened"
   evento: "dispute.opened"
@@ -171,8 +175,9 @@ input:
 output: DisputeRecord con reviewer asignado
 errores: 403 solo OPS_ADMIN · 404 · 409 ya RESOLVED
 efectos:
-  auditLog: true — "dispute.review_started"
-  fsmTransicion: OPEN → UNDER_REVIEW
+  auditLog: true — "dispute.assign"
+  evento: "dispute.assigned"
+  fsmTransicion: OPEN → ASSIGNED
 ```
 
 ### `POST /v1/disputes/:disputeId/submit-evidence`
@@ -190,6 +195,20 @@ errores:
   404: disputa no existe
 efectos:
   auditLog: true
+  evento: "dispute.evidence_submitted"
+```
+
+### `POST /v1/disputes/:disputeId/review`
+
+```yaml
+método: POST · permiso: disputes:assign · roles: [OPS_ADMIN]
+input: ninguno
+output: DisputeRecord en UNDER_REVIEW
+errores: 403 solo OPS_ADMIN · 404 · 409 si no está ASSIGNED
+efectos:
+  auditLog: true — "dispute.under_review"
+  evento: "dispute.under_review"
+  fsmTransicion: ASSIGNED → UNDER_REVIEW
 ```
 
 ### `POST /v1/disputes/:disputeId/resolve`
@@ -200,17 +219,17 @@ input:
   schema: resolveProjectDisputeSchema
   campos:
     - resolution: string min(1) — descripción de la resolución
-    - resolutionType: enum [client_favor, pro_favor, partial_50_50, escalated_legal] — opcional
+    - resolutionType: enum [client_favor, pro_favor, partial_50_50, escalated_legal] — requerido
 output: DisputeRecord en RESOLVED
 errores:
   400: resolution vacío
-  403: solo OPS_ADMIN
+  403: actor no autorizado; CLIENT dueño solo puede usar pro_favor
   404: disputeId no existe
-  409: disputa ya RESOLVED o CANCELLED
+  409: disputa ya está RESOLVED o REJECTED
 efectos:
   auditLog: true — "dispute.resolved"
   evento: "dispute.resolved"
-  fsmTransicion: UNDER_REVIEW → RESOLVED
+  fsmTransicion: OPEN|ASSIGNED|UNDER_REVIEW → RESOLVED
   paymentGovernance: true — desbloquea escrow según resolutionType
   notificacion: CLIENT y PRO reciben resultado
 ```
@@ -240,7 +259,7 @@ efectos: auditLog: true
 ```typescript
 describe("POST /v1/disputes") {
   it("PRO puede abrir disputa con reason válido")
-  it("rechaza con 400 si reason < 10 chars")
+  it("rechaza con 400 si reason < 5 chars")
   it("rechaza con 403 si actor sin disputes:create")
   it("rechaza con 409 si ya existe disputa abierta para el job")
   it("emite evento 'dispute.opened'")
@@ -249,7 +268,8 @@ describe("POST /v1/disputes") {
 describe("POST /v1/disputes/:id/resolve") {
   it("OPS_ADMIN resuelve con resolutionType 'pro_favor' → escrow RELEASED")
   it("OPS_ADMIN resuelve con resolutionType 'client_favor' → escrow REFUNDED")
-  it("rechaza con 403 si actor no es OPS_ADMIN")
+  it("CLIENT dueño solo puede cerrar con pro_favor")
+  it("rechaza otros outcomes del CLIENT con 403")
   it("rechaza con 409 si disputa ya está RESOLVED")
   it("emite evento 'dispute.resolved'")
 }
@@ -265,7 +285,7 @@ describe("POST /v1/disputes/:id/submit-evidence") {
 
 | Gap | Severidad |
 |-----|-----------|
-| `resolutionType` es opcional en resolveProjectDisputeSchema — debería ser requerido para trazabilidad financiera | 🟡 Media |
+| `resolutionType` requerido y policy financiera por actor | ✅ Cerrado |
 | No hay endpoint `GET /v1/disputes/:disputeId` para detalle individual | 🟡 Media |
-| `POST /v1/disputes/:id/review` existe en controller (`disputes:assign`) pero no está en SEMSE_API_SURFACE_V1.md | 🟢 Baja |
+| `POST /v1/disputes/:id/review` incluido en la superficie canónica | ✅ Cerrado |
 | No hay timeout automático para disputas en OPEN sin asignar | 🟢 Baja |

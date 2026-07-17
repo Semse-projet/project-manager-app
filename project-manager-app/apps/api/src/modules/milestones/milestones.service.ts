@@ -11,6 +11,12 @@ import { MilestonesRepository } from "./milestones.repository.js";
 import type { EscrowReleaseService } from "../payments/escrow-release.service.js";
 import type { NotificationsService } from "../notifications/notifications.service.js";
 import type { JobsService } from "../jobs/jobs.service.js";
+import {
+  buildMilestoneApprovedEvent,
+  buildMilestoneCreatedEvent,
+  buildMilestoneRejectedEvent,
+  buildMilestoneRevisionRequestedEvent,
+} from "./milestones.events.js";
 
 @Injectable()
 export class MilestonesService {
@@ -63,6 +69,26 @@ export class MilestonesService {
       entityId: milestone.id,
       requestId: input.requestId,
       timestamp: new Date().toISOString()
+    });
+
+    const context = await this.milestonesRepository.getEventContext({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id
+    });
+    await this.domainEventBus.emit(buildMilestoneCreatedEvent({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      actorId: input.userId,
+      projectId: input.projectId,
+      jobId: context.jobId,
+      sequence: milestone.sequence,
+      title: milestone.title,
+      amount: milestone.amount
+    }), {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      requestId: input.requestId
     });
 
     this.syncContext(input.tenantId, input.projectId, "milestone.created", "milestone created");
@@ -214,6 +240,20 @@ export class MilestonesService {
       timestamp: new Date().toISOString()
     });
 
+    await this.domainEventBus.emit(buildMilestoneApprovedEvent({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      actorId: input.userId,
+      projectId: context.projectId,
+      jobId: context.jobId,
+      amount: milestone.amount
+    }), {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      requestId: input.requestId
+    });
+
     void this.workspaceMemory.append(buildMilestoneWorkspaceMemoryRecord({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -301,6 +341,20 @@ export class MilestonesService {
       timestamp: new Date().toISOString()
     });
 
+    await this.domainEventBus.emit(buildMilestoneRejectedEvent({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      actorId: input.userId,
+      projectId: context.projectId,
+      jobId: context.jobId,
+      reason: input.reason
+    }), {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      requestId: input.requestId
+    });
+
     void this.workspaceMemory.append(buildMilestoneWorkspaceMemoryRecord({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -359,6 +413,20 @@ export class MilestonesService {
         reviewDecision: "request_changes",
         reason: input.reason
       }
+    });
+
+    await this.domainEventBus.emit(buildMilestoneRevisionRequestedEvent({
+      tenantId: input.tenantId,
+      milestoneId: milestone.id,
+      actorId: input.userId,
+      projectId: context.projectId,
+      jobId: context.jobId,
+      reason: input.reason
+    }), {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      requestId: input.requestId
     });
 
     this.syncContext(input.tenantId, context.projectId, "milestone.changes_requested", "milestone changes requested");

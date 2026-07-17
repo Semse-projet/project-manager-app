@@ -40,8 +40,16 @@ export function assertDisputeAssignable(actor: DisputeActor): void {
   throw new ForbiddenException("actor cannot assign disputes");
 }
 
-export function assertDisputeResolvable(actor: DisputeActor, ownership: DisputeOwnership, status: string): void {
-  if (!(isOpsAdmin(actor) || actor.orgId === ownership.clientOrgId)) {
+export function assertDisputeResolvable(
+  actor: DisputeActor,
+  ownership: DisputeOwnership,
+  status: string,
+  resolutionType: string,
+): void {
+  // El cliente dueño puede cerrar por acuerdo únicamente a favor del PRO.
+  // Refunds, splits y escalamiento legal requieren intervención de OPS.
+  const clientSettlement = actor.orgId === ownership.clientOrgId && resolutionType === "pro_favor";
+  if (!(isOpsAdmin(actor) || clientSettlement)) {
     throw new ForbiddenException("actor cannot resolve this dispute");
   }
 

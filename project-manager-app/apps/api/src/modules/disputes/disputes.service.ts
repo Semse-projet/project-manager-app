@@ -6,6 +6,7 @@ import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-co
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import { buildDisputeWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
+import { buildDisputeResolvedEvent, type DisputeResolutionType } from "./disputes.events.js";
 import { DisputesRepository } from "./disputes.repository.js";
 
 @Injectable()
@@ -154,6 +155,30 @@ export class DisputesService {
 
     this.syncContext(input.tenantId, context.projectId, "dispute.assigned", "dispute assigned");
 
+    await this.domainEventBus.emit({
+      type: "dispute.assigned",
+      meta: {
+        tenantId: input.tenantId,
+        correlationId: `dispute:${dispute.id}:assigned`,
+        actorId: input.userId,
+        actorType: "user",
+        occurredAt: new Date().toISOString(),
+        version: 1
+      },
+      payload: {
+        disputeId: dispute.id,
+        assigneeId: input.assigneeUserId,
+        jobId: context.jobId,
+        projectId: context.projectId
+      },
+      triggers: ["notification", "audit"]
+    }, {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      requestId: input.requestId
+    });
+
     return dispute;
   }
 
@@ -291,7 +316,7 @@ export class DisputesService {
     roles: string[];
     disputeId: string;
     resolution: string;
-    resolutionType?: string;
+    resolutionType: DisputeResolutionType;
     requestId: string;
   }): Promise<DisputeRecord> {
     if (!input.resolution) {
@@ -315,6 +340,20 @@ export class DisputesService {
     const context = await this.disputesRepository.getEventContext({
       tenantId: input.tenantId,
       disputeId: dispute.id
+    });
+
+    await this.domainEventBus.emit(buildDisputeResolvedEvent({
+      tenantId: input.tenantId,
+      disputeId: dispute.id,
+      jobId: context.jobId,
+      resolvedById: input.userId,
+      resolutionType: input.resolutionType,
+      resolution: input.resolution
+    }), {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      requestId: input.requestId
     });
 
     await this.workspaceMemoryRepository.append(

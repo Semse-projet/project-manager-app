@@ -254,7 +254,7 @@ export interface Booking {
 // DISPUTAS
 // ─────────────────────────────────────────────────────────────
 
-export type DisputeStatusUI = "open" | "under_review" | "resolved" | "rejected";
+export type DisputeStatusUI = "open" | "assigned" | "under_review" | "resolved" | "rejected";
 
 export interface Dispute {
   id: string;

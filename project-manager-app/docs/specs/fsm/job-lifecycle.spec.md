@@ -25,7 +25,7 @@ related_events:
   - job.status_changed
 related_agents:
   - marketplace
-last_verified: 2026-06-09
+last_verified: 2026-07-17
 ---
 
 # FSM Spec: Job Lifecycle
@@ -86,5 +86,6 @@ PUBLISHED  (alias externo de POSTED)
 ## Invariantes
 
 - Los estados terminales (`completed`, `cancelled`) no se reabren sin policy explícita de OPS_ADMIN
-- `awarded` no está en STATE_MACHINES.md canónico — es un estado de implementación para flujo directo
+- `awarded` es compatibilidad para flujo directo; la API lo presenta como
+  `ACCEPTED`, nunca como `COMPLETED`
 - `PARTIALLY_PAID` fue planificado pero no implementado — el ciclo de pagos parciales se gestiona a nivel de milestone

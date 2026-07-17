@@ -53,13 +53,14 @@ function makeServiceStub(milestone: MilestoneRecord) {
   const repo = {
     async create(input: { title: string; amount: number; sequence: number; projectId: string }) {
       if (!input.title.trim()) throw new Error("title is required");
-      return { ...milestone, ...input, status: "draft" as MilestoneStatus };
+      return { ...milestone, ...input, status: "draft" as MilestoneStatus, evidenceCount: 0 };
     },
     async submit(input: { milestoneId: string }) {
       const current = milestone;
-      if (current.status !== "awaiting_review" && current.status !== "draft") {
+      if (!["draft", "awaiting_review", "rejected"].includes(current.status)) {
         throw new Error(`Cannot submit from status '${current.status}'`);
       }
+      if ((current.evidenceCount ?? 0) <= 0) throw new Error("Cannot submit without evidence");
       return { ...current, status: "submitted" as MilestoneStatus };
     },
     async approve(input: { milestoneId: string }) {
@@ -70,7 +71,7 @@ function makeServiceStub(milestone: MilestoneRecord) {
     },
     async reject(input: { milestoneId: string; reason: string }) {
       if (!input.reason.trim()) throw new Error("reason is required");
-      if (milestone.status !== "submitted") {
+      if (milestone.status !== "submitted" && milestone.status !== "approved") {
         throw new Error(`Cannot reject from status '${milestone.status}'`);
       }
       return { ...milestone, status: "rejected" as MilestoneStatus, rejectionReason: input.reason };
@@ -93,26 +94,25 @@ function makeServiceStub(milestone: MilestoneRecord) {
 
 // ── Spec Section 3: Escenarios P1 ─────────────────────────────────────────────
 
-test("P1-A: submit transiciona de awaiting_review a submitted", async () => {
-  const ms = makeMilestone({ status: "awaiting_review" });
+test("P1-A: submit transiciona de awaiting_review a submitted con evidencia", async () => {
+  const ms = makeMilestone({ status: "awaiting_review", evidenceCount: 1 });
   const { repo } = makeServiceStub(ms);
   const result = await repo.submit({ milestoneId: ms.id });
   assert.equal(result.status, "submitted");
 });
 
-test("P1-A: submit rechaza si milestone está en DRAFT (no READY)", async () => {
-  const ms = makeMilestone({ status: "draft" });
-  // draft → submit es inválido; el guard real exige awaiting_review
-  const strictRepo = {
-    async submit() {
-      if (ms.status === "draft") throw new Error("Cannot submit from status 'draft'");
-      return ms;
-    }
-  };
-  await assert.rejects(
-    strictRepo.submit(),
-    (err: Error) => err.message.includes("draft")
-  );
+test("P1-A: submit acepta DRAFT directamente cuando hay evidencia", async () => {
+  const ms = makeMilestone({ status: "draft", evidenceCount: 1 });
+  const { repo } = makeServiceStub(ms);
+  assert.equal((await repo.submit({ milestoneId: ms.id })).status, "submitted");
+});
+
+test("P1-A: submit rechaza cualquier estado permitido si no hay evidencia", async () => {
+  for (const status of ["draft", "awaiting_review", "rejected"] as MilestoneStatus[]) {
+    const ms = makeMilestone({ status, evidenceCount: 0 });
+    const { repo } = makeServiceStub(ms);
+    await assert.rejects(repo.submit({ milestoneId: ms.id }), /without evidence/);
+  }
 });
 
 test("P1-A: submit rechaza si milestone ya está en submitted (409)", async () => {
@@ -183,13 +183,11 @@ test("P1-C: reject rechaza con 400 si reason es solo espacios en blanco", async 
   );
 });
 
-test("P1-C: reject rechaza si milestone no está en submitted", async () => {
+test("P1-C: approved puede corregirse a rejected antes del pago", async () => {
   const ms = makeMilestone({ status: "approved" });
   const { repo } = makeServiceStub(ms);
-  await assert.rejects(
-    repo.reject({ milestoneId: ms.id, reason: "motivo válido" }),
-    (err: Error) => err.message.includes("approved")
-  );
+  const result = await repo.reject({ milestoneId: ms.id, reason: "motivo válido" });
+  assert.equal(result.status, "rejected");
 });
 
 // ── Spec Section 5: Contratos de API — create ──────────────────────────────────
@@ -275,15 +273,11 @@ test("paid es estado terminal — no puede transicionar a submitted", async () =
   await assert.rejects(strictRepo.submit(), (err: Error) => err.message.includes("paid"));
 });
 
-test("FSM: rejected puede volver a awaiting_review (nueva iteración)", async () => {
-  const ms = makeMilestone({ status: "rejected" });
-  const resetRepo = {
-    async resetToReady() {
-      return { ...ms, status: "awaiting_review" as MilestoneStatus };
-    }
-  };
-  const result = await resetRepo.resetToReady();
-  assert.equal(result.status, "awaiting_review");
+test("FSM: rejected puede volver directamente a submitted con nueva evidencia", async () => {
+  const ms = makeMilestone({ status: "rejected", evidenceCount: 2 });
+  const { repo } = makeServiceStub(ms);
+  const result = await repo.submit({ milestoneId: ms.id });
+  assert.equal(result.status, "submitted");
 });
 
 // ── Spec Section 5: Zod schema contracts ──────────────────────────────────────

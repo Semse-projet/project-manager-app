@@ -42,13 +42,14 @@ Regla:
 - `COMPLETED`
 - `DISPUTE`
 - `CANCELLED`
-- `AWARDED` (adjudicación directa sin bid — flujo alternativo)
 
-> **Nota de alineación (2026-05-20):** El estado `WAITING_REVIEW` de especificaciones
-> anteriores se implementa como `review` en el código actual. `PARTIALLY_PAID` se planificó
-> pero no fue implementado — el ciclo de pagos parciales se maneja a nivel de milestone
-> individual, no como estado visible del job. `AWARDED` y `PUBLISHED` son estados del código
-> no documentados en versiones anteriores de este archivo.
+Estados persistidos de compatibilidad, no visibles como estados nuevos:
+
+- `PUBLISHED` se presenta como `POSTED`.
+- `AWARDED` se presenta como `ACCEPTED` y puede avanzar a `IN_PROGRESS`.
+
+`WAITING_REVIEW` de especificaciones antiguas se implementa como `REVIEW`.
+`PARTIALLY_PAID` no fue implementado: los pagos parciales viven en cada milestone.
 
 ### Transiciones válidas
 
@@ -148,7 +149,7 @@ Regla:
 ### Estados
 
 - `DRAFT`
-- `READY`
+- `AWAITING_REVIEW` (compatibilidad; etiqueta de producto "Listo")
 - `SUBMITTED`
 - `APPROVED`
 - `REJECTED`
@@ -156,23 +157,24 @@ Regla:
 
 ### Transiciones válidas
 
-- `DRAFT -> READY`
-- `READY -> SUBMITTED`
+- `DRAFT -> SUBMITTED`
+- `AWAITING_REVIEW -> SUBMITTED`
+- `REJECTED -> SUBMITTED`
 - `SUBMITTED -> APPROVED`
 - `SUBMITTED -> REJECTED`
-- `REJECTED -> READY`
+- `APPROVED -> REJECTED` (corrección humana antes del pago)
 - `APPROVED -> PAID`
 
 ### Condiciones
 
-- `READY -> SUBMITTED`
+- `DRAFT|AWAITING_REVIEW|REJECTED -> SUBMITTED`
   requiere evidencia mínima y actor autorizado.
 - `SUBMITTED -> APPROVED`
   requiere revisión válida.
 - `APPROVED -> PAID`
   requiere release financiero exitoso.
-- `REJECTED -> READY`
-  requiere nueva iteración o subsanación explícita.
+- `REJECTED -> SUBMITTED`
+  requiere nueva iteración, subsanación y evidencia válida.
 
 ## Evidence
 
@@ -231,23 +233,28 @@ Regla:
 ### Estados
 
 - `OPEN`
+- `ASSIGNED`
 - `UNDER_REVIEW`
 - `RESOLVED`
-- `CANCELLED`
+- `REJECTED` (terminal de compatibilidad)
 
 ### Transiciones válidas
 
-- `OPEN -> UNDER_REVIEW`
+- `OPEN -> ASSIGNED`
+- `ASSIGNED -> UNDER_REVIEW`
+- `OPEN -> RESOLVED` (acuerdo explícito permitido por policy)
+- `ASSIGNED -> RESOLVED`
 - `UNDER_REVIEW -> RESOLVED`
-- `OPEN -> CANCELLED`
 
 ### Condiciones
 
 - toda resolución debe dejar outcome explícito:
-  - `release`
-  - `holdback`
-  - `refund`
-  - `close_without_money_move`
+  - `client_favor`
+  - `pro_favor`
+  - `partial_50_50`
+  - `escalated_legal`
+- el cliente dueño solo puede cerrar con `pro_favor`; los demás outcomes
+  requieren `OPS_ADMIN`
 
 ## TrustProfile
 

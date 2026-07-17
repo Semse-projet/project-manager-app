@@ -24,7 +24,6 @@ export const resolveProjectDisputeSchema = z.object({
   resolution: z.string().min(1),
   resolutionType: z
     .enum(["client_favor", "pro_favor", "partial_50_50", "escalated_legal"])
-    .optional()
 });
 
 export const submitDisputeEvidenceSchema = z.object({

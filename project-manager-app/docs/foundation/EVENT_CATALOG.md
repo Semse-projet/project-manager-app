@@ -33,14 +33,18 @@ Si una acción importante no produce evento ni deja audit log, está incompleta.
   - `requestId`
   - `metadata`
 
-## Contratos F1 aprobados, todavía no implementados
+## Contratos F1 versionados
 
 Los siguientes nombres están reservados por
 [`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md),
-pero no deben tratarse como eventos emitidos hasta que el slice F1 pase tests y
-se despliegue:
+El slice Evidence F1-A..F1-D ya está integrado en `main`: contrato v2, productor
+atómico, outbox, dispatcher BullMQ y consumer idempotente. Sigue contenido por
+kill switch/allowlist hasta el canary F1-F:
 
 - `evidence.uploaded.v1`
+
+Reservado y todavía no implementado hasta cerrar Ops/replay F1-E:
+
 - `ops.event_replay_requested.v1`
 
 La convención v1 sin suffix permanece activa para código existente. La
@@ -92,6 +96,7 @@ dual-write.
 - `milestone.submitted`
 - `milestone.approved`
 - `milestone.rejected`
+- `milestone.revision_requested`
 - `milestone.paid`
 
 ## Evidence
@@ -114,10 +119,11 @@ dual-write.
 ## Disputes
 
 - `dispute.opened`
-- `dispute.review_started`
+- `dispute.assigned`
+- `dispute.evidence_submitted`
+- `dispute.under_review`
 - `dispute.resolution_proposed`
 - `dispute.resolved`
-- `dispute.cancelled`
 
 ## Trust
 

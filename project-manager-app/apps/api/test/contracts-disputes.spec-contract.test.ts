@@ -116,40 +116,45 @@ test("Contract audit: activación usa 'contract.activated'", () => {
 
 // ── DISPUTE FSM ────────────────────────────────────────────────────────────────
 
-type DisputeStatus = "open" | "under_review" | "resolved" | "cancelled";
+type DisputeStatus = "open" | "assigned" | "under_review" | "resolved" | "rejected";
 
 function disputeCanTransition(from: DisputeStatus, to: DisputeStatus): boolean {
   const transitions: Record<DisputeStatus, DisputeStatus[]> = {
-    open:         ["under_review", "cancelled"],
+    open:         ["assigned", "resolved"],
+    assigned:     ["under_review", "resolved"],
     under_review: ["resolved"],
     resolved:     [],
-    cancelled:    [],
+    rejected:     [],
   };
   return transitions[from]?.includes(to) ?? false;
 }
 
-test("Dispute FSM: OPEN → UNDER_REVIEW es válido", () => {
-  assert.ok(disputeCanTransition("open", "under_review"));
+test("Dispute FSM: OPEN → ASSIGNED es válido", () => {
+  assert.ok(disputeCanTransition("open", "assigned"));
+});
+
+test("Dispute FSM: ASSIGNED → UNDER_REVIEW es válido", () => {
+  assert.ok(disputeCanTransition("assigned", "under_review"));
 });
 
 test("Dispute FSM: UNDER_REVIEW → RESOLVED es válido", () => {
   assert.ok(disputeCanTransition("under_review", "resolved"));
 });
 
-test("Dispute FSM: OPEN → CANCELLED es válido", () => {
-  assert.ok(disputeCanTransition("open", "cancelled"));
+test("Dispute FSM: acuerdo explícito permite OPEN → RESOLVED", () => {
+  assert.ok(disputeCanTransition("open", "resolved"));
 });
 
 test("Dispute FSM: RESOLVED es terminal", () => {
-  const targets: DisputeStatus[] = ["open", "under_review", "cancelled"];
+  const targets: DisputeStatus[] = ["open", "assigned", "under_review", "rejected"];
   for (const t of targets) {
     assert.ok(!disputeCanTransition("resolved", t), `resolved → ${t} debe ser inválido`);
   }
 });
 
-test("Dispute FSM: CANCELLED es terminal", () => {
-  assert.ok(!disputeCanTransition("cancelled", "open"));
-  assert.ok(!disputeCanTransition("cancelled", "resolved"));
+test("Dispute FSM: REJECTED es terminal de compatibilidad", () => {
+  assert.ok(!disputeCanTransition("rejected", "open"));
+  assert.ok(!disputeCanTransition("rejected", "resolved"));
 });
 
 test("Dispute FSM: UNDER_REVIEW no puede ir a OPEN (no retroactivo)", () => {
@@ -158,19 +163,19 @@ test("Dispute FSM: UNDER_REVIEW no puede ir a OPEN (no retroactivo)", () => {
 
 // ── DISPUTE validaciones ───────────────────────────────────────────────────────
 
-test("Dispute create: reason debe tener mínimo 10 caracteres", () => {
+test("Dispute create: reason debe tener mínimo 5 caracteres", () => {
   const validReason = "El trabajo entregado no cumple con las especificaciones acordadas.";
-  const shortReason = "corto";
-  assert.ok(validReason.length >= 10);
-  assert.ok(shortReason.length < 10, "reason corto es inválido");
+  const shortReason = "no";
+  assert.ok(validReason.length >= 5);
+  assert.ok(shortReason.length < 5, "reason corto es inválido");
 });
 
-test("Dispute create: reason no puede exceder 3000 caracteres", () => {
-  const maxLen = 3000;
-  const okReason = "a".repeat(3000);
-  const tooLong = "a".repeat(3001);
+test("Dispute create: reason no puede exceder 1000 caracteres", () => {
+  const maxLen = 1000;
+  const okReason = "a".repeat(1000);
+  const tooLong = "a".repeat(1001);
   assert.equal(okReason.length, maxLen);
-  assert.ok(tooLong.length > maxLen, "reason > 3000 chars es inválido");
+  assert.ok(tooLong.length > maxLen, "reason > 1000 chars es inválido");
 });
 
 test("Dispute resolve: resolutionType valores válidos", () => {
@@ -178,6 +183,15 @@ test("Dispute resolve: resolutionType valores válidos", () => {
   assert.equal(validTypes.length, 4);
   assert.ok(validTypes.includes("client_favor"));
   assert.ok(!validTypes.includes("no_resolution"), "valor inválido rechazado");
+});
+
+test("Dispute resolve: resolutionType es obligatorio", async () => {
+  const { resolveProjectDisputeSchema } = await import("@semse/schemas");
+  assert.equal(resolveProjectDisputeSchema.safeParse({ resolution: "Acuerdo" }).success, false);
+  assert.equal(resolveProjectDisputeSchema.safeParse({
+    resolution: "Acuerdo",
+    resolutionType: "pro_favor",
+  }).success, true);
 });
 
 test("Dispute resolve: resolutionType determina el destino del escrow", () => {
@@ -211,13 +225,14 @@ test("Dispute submit-evidence: máximo 50 evidenceIds", () => {
 
 // ── DISPUTE permisos ───────────────────────────────────────────────────────────
 
-test("Dispute resolve: solo OPS_ADMIN puede resolver", () => {
-  function canResolve(role: string): boolean {
-    return role === "OPS_ADMIN";
+test("Dispute resolve: OPS resuelve todo y CLIENT dueño solo acuerdo pro_favor", () => {
+  function canResolve(role: string, resolutionType: string): boolean {
+    return role === "OPS_ADMIN" || (role === "CLIENT_OWNER" && resolutionType === "pro_favor");
   }
-  assert.ok(canResolve("OPS_ADMIN"));
-  assert.ok(!canResolve("CLIENT"), "CLIENT no puede resolver disputas");
-  assert.ok(!canResolve("PRO"), "PRO no puede resolver disputas");
+  assert.ok(canResolve("OPS_ADMIN", "client_favor"));
+  assert.ok(canResolve("CLIENT_OWNER", "pro_favor"));
+  assert.ok(!canResolve("CLIENT_OWNER", "client_favor"));
+  assert.ok(!canResolve("PRO", "pro_favor"));
 });
 
 test("Dispute assign: solo OPS_ADMIN puede asignar revisor", () => {
