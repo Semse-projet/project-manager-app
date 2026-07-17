@@ -234,7 +234,7 @@ export const milestoneApprovedEventSchema = domainEvent(
     jobId:          z.string(),
     reviewerId:     z.string(),
     amount:         z.number(),
-    isLastMilestone: z.boolean(),
+    isLastMilestone: z.boolean().optional(),
   }),
   ["notification", "audit"]
 );
@@ -256,6 +256,8 @@ export const milestoneRevisionRequestedEventSchema = domainEvent(
   "milestone.revision_requested",
   z.object({
     milestoneId:    z.string(),
+    projectId:      z.string().optional(),
+    jobId:          z.string().optional(),
     requestedById:  z.string(),
     instructions:   z.string(),
   }),
@@ -402,9 +404,35 @@ export const disputeAssignedEventSchema = domainEvent(
     disputeId:  z.string(),
     assigneeId: z.string(),
     jobId:      z.string(),
-    severity:   z.enum(["low", "medium", "high", "critical"]),
+    projectId:  z.string().optional(),
+    severity:   z.enum(["low", "medium", "high", "critical"]).optional(),
   }),
   ["notification", "audit"]
+);
+
+export const disputeEvidenceSubmittedEventSchema = domainEvent(
+  "dispute.evidence_submitted",
+  z.object({
+    disputeId:         z.string(),
+    jobId:             z.string(),
+    projectId:         z.string(),
+    submittedById:     z.string(),
+    evidenceIds:       z.array(z.string().min(1)).min(1),
+    totalEvidenceCount: z.number().int().nonnegative(),
+  }),
+  []
+);
+
+export const disputeUnderReviewEventSchema = domainEvent(
+  "dispute.under_review",
+  z.object({
+    disputeId:     z.string(),
+    jobId:         z.string(),
+    projectId:     z.string(),
+    assigneeUserId: z.string().optional(),
+    evidenceCount: z.number().int().nonnegative(),
+  }),
+  []
 );
 
 export const disputeResolvedEventSchema = domainEvent(
@@ -613,6 +641,8 @@ export const semseEventSchema = z.discriminatedUnion("type", [
   // Dispute
   disputeOpenedEventSchema,
   disputeAssignedEventSchema,
+  disputeEvidenceSubmittedEventSchema,
+  disputeUnderReviewEventSchema,
   disputeResolvedEventSchema,
   disputeEscalatedEventSchema,
   // Rating
@@ -662,6 +692,8 @@ export const SEMSE_EVENT_TYPES = [
   "payment.refunded",
   "dispute.opened",
   "dispute.assigned",
+  "dispute.evidence_submitted",
+  "dispute.under_review",
   "dispute.resolved",
   "dispute.escalated",
   "rating.submitted",
@@ -706,6 +738,8 @@ export const EVENT_AGENT_MAP: Record<SemseEventType, string[]> = {
   "payment.refunded":               ["notification", "audit"],
   "dispute.opened":                 ["dispute", "risk", "notification", "audit"],
   "dispute.assigned":               ["notification", "audit"],
+  "dispute.evidence_submitted":     [],
+  "dispute.under_review":           [],
   "dispute.resolved":               ["trust-match", "risk", "notification", "audit"],
   "dispute.escalated":              ["notification", "audit"],
   "rating.submitted":               ["trust-match", "audit"],

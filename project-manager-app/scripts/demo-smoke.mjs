@@ -163,7 +163,7 @@ async function main() {
     const resolved = await fetchJson(`${API_ORIGIN}/v1/disputes/${openDispute.id}/resolve`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ resolution: "Smoke resolution" })
+      body: JSON.stringify({ resolution: "Smoke resolution", resolutionType: "pro_favor" })
     });
     if (resolved.data.status !== "resolved") throw new Error("dispute resolve failed");
     log("check", "dispute resolution ok");

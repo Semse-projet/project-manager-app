@@ -396,7 +396,7 @@ export class DisputesRepository {
     roles: string[];
     disputeId: string;
     resolution: string;
-    resolutionType?: string;
+    resolutionType: string;
   }): Promise<DisputeRecord> {
     await this.actorContextService.ensureActorContext(input);
 
@@ -406,16 +406,20 @@ export class DisputesRepository {
     })) as StoredDispute | null;
 
     if (!existing) throw new NotFoundException(`Dispute '${input.disputeId}' not found`);
-    if (existing.status === "RESOLVED") return this.toRecord(existing);
 
-    assertDisputeResolvable(this.toActor(input), this.toOwnership(existing.project!), existing.status);
+    assertDisputeResolvable(
+      this.toActor(input),
+      this.toOwnership(existing.project!),
+      existing.status,
+      input.resolutionType,
+    );
 
     const dispute = (await this.prisma.dispute.update({
       where: { id: existing.id },
       data: {
         status: "RESOLVED",
         resolution: input.resolution,
-        resolutionType: input.resolutionType ?? null,
+        resolutionType: input.resolutionType,
         resolvedById: input.userId,
         resolvedAt: new Date()
       }

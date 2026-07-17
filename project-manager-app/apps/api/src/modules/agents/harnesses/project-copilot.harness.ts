@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { BrowserAgentService } from "../../browser-agent/browser-agent.service.js";
 import type { AgentApprovalRequest } from "@semse/agents";
 import { getActionPolicy } from "@semse/agents";
@@ -14,6 +14,7 @@ import { COPILOT_TOOLS, PLAN_TOOL_NAME, toolCallToProposedPlan, toolCallsToActio
 import { AuditService } from "../../../infrastructure/audit/audit.service.js";
 import { DisputesRepository } from "../../disputes/disputes.repository.js";
 import { DisputesService } from "../../disputes/disputes.service.js";
+import type { DisputeResolutionType } from "../../disputes/disputes.events.js";
 import { MilestonesRepository } from "../../milestones/milestones.repository.js";
 import { MilestonesService } from "../../milestones/milestones.service.js";
 import { PaymentsService } from "../../payments/payments.service.js";
@@ -716,7 +717,7 @@ export class ProjectCopilotHarness {
         domain: "disputes",
         summary: `Resolver o escalar ${input.context.openDisputeCount} disputa(s) abierta(s)`,
         rationale: `Hay ${input.context.openDisputeCount} disputa(s) activa(s) que bloquean el release de escrow y el avance del proyecto.`,
-        requiredInputs: ["disputeId", "resolution"],
+        requiredInputs: ["disputeId", "resolution", "resolutionType"],
         payload: { projectId: input.projectId, openDisputeCount: input.context.openDisputeCount },
         expectedOutcome: "Disputa cerrada. Escrow desbloqueado para release.",
       }));
@@ -1078,6 +1079,19 @@ export class ProjectCopilotHarness {
       typeof payload.resolution === "string" && payload.resolution.trim().length > 0
         ? payload.resolution.trim()
         : "Resuelto por copiloto del proyecto tras flujo de aprobación.";
+    const allowedResolutionTypes: DisputeResolutionType[] = [
+      "client_favor",
+      "pro_favor",
+      "partial_50_50",
+      "escalated_legal",
+    ];
+    const resolutionType = typeof payload.resolutionType === "string"
+      && allowedResolutionTypes.includes(payload.resolutionType as DisputeResolutionType)
+      ? payload.resolutionType as DisputeResolutionType
+      : undefined;
+    if (!resolutionType) {
+      throw new BadRequestException("resolutionType is required for dispute resolution");
+    }
 
     const dispute = await this.disputesService.resolve({
       tenantId: runtime.actor.tenantId,
@@ -1086,6 +1100,7 @@ export class ProjectCopilotHarness {
       roles: runtime.actor.roles,
       disputeId,
       resolution,
+      resolutionType,
       requestId: runtime.requestId,
     });
 

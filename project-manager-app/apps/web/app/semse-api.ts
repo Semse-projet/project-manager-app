@@ -706,7 +706,10 @@ export async function markDisputeUnderReview(
 
 export async function resolveDispute(
   disputeId: string,
-  input: { resolution: string; resolutionType?: string },
+  input: {
+    resolution: string;
+    resolutionType: "client_favor" | "pro_favor" | "partial_50_50" | "escalated_legal";
+  },
 ): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>(
     `/api/semse/disputes/${encodeURIComponent(disputeId)}/resolve`,

@@ -27,15 +27,30 @@ jobs:
             https://project-manager-app-production-977f.up.railway.app/v1/auth/login)
           [ "$code" = "401" ] && echo "Auth endpoint: ok ✅ (returns 401 on bad creds)" || { echo "Auth endpoint unexpected $code ❌"; exit 1; }
 
-      - name: Web frontend
+      - name: Web frontend and canonical module pages
         run: |
-          code=$(curl -so /dev/null -w "%{http_code}" https://semse-web-production.up.railway.app/)
-          [ "$code" = "200" ] && echo "semse-web: ok ✅" || { echo "semse-web returned $code ❌"; exit 1; }
+          set -euo pipefail
+          for ep in / /modules/core /modules/connect /modules/payments /modules/trust /modules/ai /modules/agro /modules/buildops /modules/knowledge /modules/integrations; do
+            code=$(curl -so /dev/null -w "%{http_code}" \
+              "https://semse-web-production.up.railway.app$ep")
+            [ "$code" = "200" ] \
+              && echo "  $ep → 200 ✅" \
+              || { echo "  $ep → $code ❌"; exit 1; }
+          done
 
       - name: Protected routes (expect 401)
         run: |
           set -euo pipefail
-          for ep in /v1/projects /v1/users /v1/jobs /v1/prometeo/tools; do
+          for ep in \
+            /v1/users \
+            /v1/jobs \
+            /v1/payments/provider-readiness \
+            /v1/jobs/module-probe/trust \
+            /v1/prometeo/tools \
+            /v1/agro/farms \
+            /v1/buildops/overview \
+            /v1/knowledge/overview \
+            /v1/satellites/me; do
             code=$(curl -so /dev/null -w "%{http_code}" \
               https://project-manager-app-production-977f.up.railway.app$ep)
             [ "$code" = "401" ] \

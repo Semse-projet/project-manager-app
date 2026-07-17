@@ -312,8 +312,13 @@ export const COPILOT_TOOLS: LLMToolDefinition[] = [
       properties: {
         disputeId: { type: "string", description: "ID de la disputa" },
         resolution: { type: "string", description: "Descripción de la resolución propuesta" },
+        resolutionType: {
+          type: "string",
+          enum: ["client_favor", "pro_favor", "partial_50_50", "escalated_legal"],
+          description: "Efecto financiero explícito de la resolución"
+        },
       },
-      required: ["disputeId", "resolution"],
+      required: ["disputeId", "resolution", "resolutionType"],
     },
   },
   // ── Delegation Tools ──────────────────────────────────────────────────────
