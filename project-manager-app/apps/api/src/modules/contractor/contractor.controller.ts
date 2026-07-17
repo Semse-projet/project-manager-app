@@ -6,6 +6,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { ContractorService, type CreateLeadInput, type LeadStatus, type UpdateLeadInput } from "./contractor.service.js";
 import { ContractorEstimateService } from "./contractor-estimate.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 
 function ctx(req: FastifyRequest) {
   return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
@@ -59,7 +60,7 @@ export class ContractorController {
       orgId: c.orgId,
       status: status as LeadStatus | undefined,
       search,
-      limit: limit ? parseInt(limit, 10) : 100,
+      limit: parsePositiveInt(limit, 100),
     });
     return ok(rid, data);
   }

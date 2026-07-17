@@ -246,7 +246,9 @@ export class VisionController {
     @Query("fps") fps?: string,
   ) {
     const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.visionService.buildJobTimeline(jobId, fps ? parseInt(fps, 10) : 2);
+    const parsedFps = fps ? parseInt(fps, 10) : 2;
+    const fpsValue = Number.isFinite(parsedFps) && parsedFps > 0 ? parsedFps : 2;
+    const result = await this.visionService.buildJobTimeline(jobId, fpsValue);
     return ok(requestId, result);
   }
 }

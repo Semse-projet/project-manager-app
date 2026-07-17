@@ -7,6 +7,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { PdfService } from "../../common/pdf/pdf.service.js";
 import { FinanceService } from "./finance.service.js";
 import { ReceiptOcrService } from "./receipt-ocr.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 import type { ExpenseCategory, InvoiceStatus, TemplateCategory } from "./finance.repository.js";
 
 function actor(req: FastifyRequest) {
@@ -38,7 +39,7 @@ export class FinanceController {
       orgId: ctx.orgId,
       projectId,
       status: status as InvoiceStatus | undefined,
-      limit: limit ? parseInt(limit, 10) : 50,
+      limit: parsePositiveInt(limit, 50),
     });
     return ok(rid, data);
   }
@@ -143,7 +144,7 @@ export class FinanceController {
     return ok(rid, await this.finance.listExpenses({
       tenantId: ctx.tenantId, orgId: ctx.orgId,
       projectId, category: category as ExpenseCategory | undefined,
-      status, limit: limit ? parseInt(limit, 10) : 100,
+      status, limit: parsePositiveInt(limit, 100),
     }));
   }
 

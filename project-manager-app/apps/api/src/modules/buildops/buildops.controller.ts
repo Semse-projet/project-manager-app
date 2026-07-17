@@ -12,6 +12,7 @@ import type { BuildOpsPlanApprovalSource } from "./buildops-plan-approval.types.
 import { BuildOpsPlanApprovalService } from "./buildops-plan-approval.service.js";
 import { BuildOpsPlanRerunService } from "./buildops-plan-rerun.service.js";
 import { BuildOpsService } from "./buildops.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 
 function ctx(req: FastifyRequest) {
   return resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
@@ -80,7 +81,7 @@ export class BuildOpsController {
     const data = await this.buildOpsService.getProjectActivity(
       c.tenantId,
       projectId,
-      limit ? Math.min(200, Math.max(1, parseInt(limit, 10))) : 40,
+      Math.min(200, Math.max(1, parsePositiveInt(limit, 40))),
     );
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

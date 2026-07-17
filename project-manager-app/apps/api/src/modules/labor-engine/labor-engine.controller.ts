@@ -9,6 +9,7 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { LaborEngineService } from "./labor-engine.service.js";
 import { LaborChatService } from "./labor-chat.service.js";
+import { parseNonNegativeInt, parsePositiveInt } from "../../common/parse-query.js";
 
 function actor(req: { headers?: Record<string, unknown> }) {
   return resolveRequestContext(req);
@@ -226,7 +227,7 @@ export class LaborEngineController {
       freeProjectId,
       purpose,
       range: range === "week" ? "week" : range === "month" ? "month" : "all",
-      limit: limit ? Number.parseInt(limit, 10) : 50,
+      limit: parsePositiveInt(limit, 50),
     });
     return ok(rid(req), data);
   }
@@ -240,7 +241,7 @@ export class LaborEngineController {
     @Query("offset") offset?: string,
   ) {
     const a = actor(req);
-    const weekOffset = offset ? Number.parseInt(offset, 10) : 0;
+    const weekOffset = parseNonNegativeInt(offset, 0);
     const data = await this.svc.getWeeklySummary(a.tenantId, a.userId, weekOffset);
     return ok(rid(req), data);
   }

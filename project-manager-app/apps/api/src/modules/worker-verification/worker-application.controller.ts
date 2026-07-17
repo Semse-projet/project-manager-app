@@ -10,6 +10,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { WorkerApplicationService } from "./worker-application.service.js";
+import { parseNonNegativeInt, parsePositiveInt } from "../../common/parse-query.js";
 
 const submitSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
@@ -93,8 +94,8 @@ export class WorkerApplicationController {
     const data = await this.service.listApplications({
       tenantId: ctx.tenantId,
       status: status?.trim() || undefined,
-      limit: limit ? Number.parseInt(limit, 10) : 50,
-      offset: offset ? Number.parseInt(offset, 10) : 0,
+      limit: parsePositiveInt(limit, 50),
+      offset: parseNonNegativeInt(offset, 0),
     });
     return ok(rid, data);
   }

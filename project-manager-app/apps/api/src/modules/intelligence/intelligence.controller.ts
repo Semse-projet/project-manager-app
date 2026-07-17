@@ -87,7 +87,12 @@ export class IntelligenceController {
   async buildCredential(@Req() req: FastifyRequest, @Body() body: Record<string, unknown>) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = actor(req);
-    const userId = (body.userId as string | undefined) ?? ctx.userId;
+    const userId = typeof body.userId === "string" && body.userId.trim().length > 0
+      ? body.userId.trim()
+      : ctx.userId;
+    if (!userId) {
+      throw new BadRequestException("userId is required");
+    }
     return ok(rid, await this.credential.buildCredential(ctx.tenantId, userId));
   }
 
@@ -137,7 +142,7 @@ export class IntelligenceController {
   ) {
     const rid = resolveRequestId(req.headers ?? {});
     const tenantId = tenantIdHeader?.trim() || "tenant_default";
-    return ok(rid, await this.publicInsights.getLandingOverview(tenantId, limit ? parseInt(limit, 10) : 3));
+    return ok(rid, await this.publicInsights.getLandingOverview(tenantId, parseNonNegativeInt(limit, 3)));
   }
 
   // Público — vacantes abiertas para onboarding de workers (/worker/apply)
@@ -150,7 +155,7 @@ export class IntelligenceController {
   ) {
     const rid = resolveRequestId(req.headers ?? {});
     const tenantId = tenantIdHeader?.trim() || "tenant_default";
-    return ok(rid, await this.publicInsights.getPublicOpenings(tenantId, limit ? parseInt(limit, 10) : 12));
+    return ok(rid, await this.publicInsights.getPublicOpenings(tenantId, parseNonNegativeInt(limit, 12)));
   }
 
   @Get("public/openings/:jobId")

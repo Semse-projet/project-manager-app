@@ -15,6 +15,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { OpsService } from "./ops.service.js";
 import { AlgorithmRunService } from "../tools/algorithm-run.service.js";
@@ -595,7 +596,7 @@ export class OpsController {
   async getSimulation(@Req() req: { headers?: Record<string, unknown> }, @Query("limit") limit?: string) {
     const requestId = resolveRequestId(req.headers ?? {});
     const ctx = resolveRequestContext(req);
-    const report = await this.simulationEngine.simulate(ctx.tenantId, limit ? parseInt(limit, 10) : 5);
+    const report = await this.simulationEngine.simulate(ctx.tenantId, parsePositiveInt(limit, 5));
     return ok(requestId, report);
   }
 

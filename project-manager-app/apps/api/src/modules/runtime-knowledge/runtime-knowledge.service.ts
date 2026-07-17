@@ -34,6 +34,15 @@ async function probeTcpTarget(target: string, timeoutMs: number): Promise<Omit<R
   const [host, portText] = target.split(":");
   const port = Number(portText);
 
+  if (!host || !portText || !Number.isInteger(port) || port <= 0 || port > 65535) {
+    return {
+      status: "offline",
+      checkedAt: new Date().toISOString(),
+      detail: "Invalid TCP target",
+      target
+    };
+  }
+
   return await new Promise((resolve) => {
     const socket = net.createConnection({ host, port });
     const finish = (result: Omit<RuntimeServiceStatus, "id" | "name" | "kind">) => {

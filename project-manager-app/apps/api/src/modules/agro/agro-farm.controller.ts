@@ -8,6 +8,7 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 import { AgroFarmService } from "./agro-farm.service.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 
 const createFarmSchema = z.object({
   name:          z.string().min(1),
@@ -133,7 +134,7 @@ export class AgroFarmController {
     const events = await this.service.getAuditEvents(
       farmId,
       ctx.userId,
-      limit ? Math.min(parseInt(limit, 10), 200) : 50,
+      Math.min(200, parsePositiveInt(limit, 50)),
     );
     return ok(resolveRequestId(req.headers ?? {}), { events });
   }

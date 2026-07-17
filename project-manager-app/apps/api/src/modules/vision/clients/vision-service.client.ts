@@ -29,6 +29,7 @@ import {
   AnalyzePortfolioDto,
   PortfolioForensicsResultDto,
 } from "../dto/index.js";
+import { parsePositiveInt } from "../../../common/parse-query.js";
 
 @Injectable()
 export class VisionServiceClient {
@@ -37,7 +38,7 @@ export class VisionServiceClient {
   async analyzeEvidence(payload: AnalyzeEvidenceDto): Promise<VisionResultDto> {
     const baseUrl = process.env.VISION_SERVICE_URL || "http://localhost:8080";
     const url = `${baseUrl}/v1/evidence/analyze`;
-    const timeoutMs = parseInt(process.env.VISION_ANALYSIS_TIMEOUT_MS || "30000", 10);
+    const timeoutMs = parsePositiveInt(process.env.VISION_ANALYSIS_TIMEOUT_MS, 30000);
 
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
@@ -126,7 +127,7 @@ export class VisionServiceClient {
 
   private async post<T>(path: string, body: unknown): Promise<T> {
     const baseUrl = process.env.VISION_SERVICE_URL || "http://localhost:8080";
-    const timeoutMs = parseInt(process.env.VISION_ANALYSIS_TIMEOUT_MS || "30000", 10);
+    const timeoutMs = parsePositiveInt(process.env.VISION_ANALYSIS_TIMEOUT_MS, 30000);
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
     try {

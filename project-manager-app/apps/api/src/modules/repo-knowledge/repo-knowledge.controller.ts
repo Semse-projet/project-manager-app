@@ -8,6 +8,7 @@ import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseWithSchema } from "../../common/zod-validation.js";
+import { parsePositiveInt } from "../../common/parse-query.js";
 import { GraphifyService } from "../graphify/graphify.service.js";
 import { RepoKnowledgeService } from "./repo-knowledge.service.js";
 
@@ -72,7 +73,7 @@ export class RepoKnowledgeController {
     @Query("q") q: string,
     @Query("budget") budget?: string,
   ) {
-    const result = await this.graphify.query(q, budget ? parseInt(budget, 10) : undefined);
+    const result = await this.graphify.query(q, budget ? parsePositiveInt(budget, 10) : undefined);
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 

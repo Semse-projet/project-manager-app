@@ -46,7 +46,7 @@ export function signToken(
 
 export function verifyToken(token: string, secret: string): TokenClaims {
   const dotIndex = token.lastIndexOf(".");
-  if (dotIndex === -1) {
+  if (dotIndex <= 0 || dotIndex === token.length - 1) {
     throw new Error("Invalid token format");
   }
 
@@ -65,12 +65,42 @@ export function verifyToken(token: string, secret: string): TokenClaims {
     throw new Error("Invalid token signature");
   }
 
-  const claims = JSON.parse(fromb64url(encodedPayload)) as TokenClaims;
-  const now = Math.floor(Date.now() / 1000);
+  const decoded = fromb64url(encodedPayload);
+  let claims: unknown;
+  try {
+    claims = JSON.parse(decoded);
+  } catch {
+    throw new Error("Invalid token format");
+  }
 
-  if (claims.exp < now) {
+  if (!claims || typeof claims !== "object") {
+    throw new Error("Invalid token format");
+  }
+
+  const candidate = claims as Partial<TokenClaims>;
+  if (
+    typeof candidate.userId !== "string" ||
+    typeof candidate.tenantId !== "string" ||
+    typeof candidate.orgId !== "string" ||
+    !candidate.userId ||
+    !candidate.tenantId ||
+    !candidate.orgId
+  ) {
+    throw new Error("Invalid token format");
+  }
+
+  if (!Array.isArray(candidate.roles) || !candidate.roles.every((role) => typeof role === "string")) {
+    throw new Error("Invalid token format");
+  }
+
+  if (candidate.typ !== undefined && candidate.typ !== "access") {
+    throw new Error("Invalid auth token type");
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof candidate.exp !== "number" || candidate.exp < now) {
     throw new Error("Token expired");
   }
 
-  return claims;
+  return claims as TokenClaims;
 }
