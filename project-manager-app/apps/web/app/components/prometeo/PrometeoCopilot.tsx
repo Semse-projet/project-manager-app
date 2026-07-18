@@ -98,6 +98,15 @@ export function PrometeoCopilot() {
         ...prev,
         { id: newId(), role: "assistant", content: `Acción "${action.description}" ejecutada.` },
       ]);
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: newId(),
+          role: "assistant",
+          content: e instanceof Error ? e.message : "No se pudo ejecutar la acción.",
+        },
+      ]);
     } finally {
       setPending(false);
     }
