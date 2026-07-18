@@ -6,6 +6,7 @@ import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
 import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
+import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
 import { NotificationBell } from "../../components/semse/NotificationBell";
@@ -659,6 +660,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       <AgentPanelStateProvider>
         <AppLayoutInner>{children}</AppLayoutInner>
         <AgentChatPanel />
+        <PrometeoCopilot />
         <AdminOnlyBanner />
       </AgentPanelStateProvider>
     </LanguageProvider>
