@@ -30,7 +30,7 @@ const dualControlActions = new Set([
   "payment.policy.change"
 ]);
 
-function matchesScope(path: string, scope: string): boolean {
+export function matchesScope(path: string, scope: string): boolean {
   if (scope === "**") return true;
   if (scope.endsWith("/**")) return path.startsWith(scope.slice(0, -3));
   if (scope.endsWith("*")) return path.startsWith(scope.slice(0, -1));

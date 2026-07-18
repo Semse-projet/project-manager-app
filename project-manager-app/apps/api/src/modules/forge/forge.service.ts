@@ -308,6 +308,19 @@ export class ForgeService {
     if (!updated.agentRunIds.includes(agentRunId)) {
       updated.agentRunIds.push(agentRunId);
     }
+
+    const sandbox = payload.sandbox;
+    if (sandbox && typeof sandbox === "object") {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_SANDBOX_PLANNED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: { taskId: task.id, agentRunId, sandboxDecision: (sandbox as { decision?: string }).decision }
+      } as const);
+    }
+
     updated.events.push({
       id: randomUUID(),
       type: "FORGE_VERIFICATION_COMPLETED",

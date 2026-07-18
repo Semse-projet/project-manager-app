@@ -205,6 +205,7 @@ Consume:
 - `forge.run.created`
 - `forge.task.assigned`
 - `forge.task.queued`
+- `forge.sandbox.planned`
 - `forge.verification.completed`
 - `forge.human_review.requested`
 - `forge.approval.decided`
