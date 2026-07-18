@@ -357,13 +357,27 @@ export class ForgeService {
       } as const);
     }
 
+    const verification = payload.verification;
+    const verificationDetail: Record<string, unknown> = { taskId: task.id, agentRunId, policyDecision: policy?.decision };
+    if (verification && typeof verification === "object") {
+      const matrix = verification as { passed?: boolean; items?: unknown[] };
+      verificationDetail.passed = matrix.passed;
+      verificationDetail.itemCount = Array.isArray(matrix.items) ? matrix.items.length : 0;
+      verificationDetail.failedCount = Array.isArray(matrix.items)
+        ? matrix.items.filter((item) => (item as { status?: string }).status === "failed").length
+        : 0;
+      verificationDetail.requiredFailed = Array.isArray(matrix.items)
+        ? matrix.items.filter((item) => (item as { required?: boolean; status?: string }).required && (item as { status?: string }).status === "failed").length
+        : 0;
+    }
+
     updated.events.push({
       id: randomUUID(),
       type: "FORGE_VERIFICATION_COMPLETED",
       runId: updated.id,
       timestamp: new Date().toISOString(),
       actor: actor.userId,
-      detail: { taskId: task.id, agentRunId, policyDecision: policy?.decision }
+      detail: verificationDetail
     } as const);
 
     const persisted = await this.repository.update({

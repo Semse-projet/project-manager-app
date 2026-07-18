@@ -59,10 +59,13 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-07-17 |
 | [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
+| [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | medium | yes | yes | yes | 5 | 2026-07-18 |
+| [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | medium | yes | no | yes | 2 | 2026-07-18 |
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | high | yes | yes | yes | 7 | 2026-07-12 |
 | [api.rbac-explicit-boundary](specs/api/rbac-explicit-boundary.spec.md) | core | VERIFIED | high | yes | no | yes | 2 | 2026-07-12 |
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | high | yes | no | yes | 3 | 2026-07-12 |
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | low | yes | yes | yes | 5 | 2026-07-18 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | high | no | no | yes | 3 | 2026-07-17 |
 | [semse-forge-patch-planner](specs/forge/SEMSE_FORGE_PATCH_PLANNER.spec.md) | forge | APPROVED | high | no | no | yes | 6 | 2026-07-17 |
@@ -71,6 +74,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [semse-forge-sandbox-provider](specs/forge/SEMSE_FORGE_SANDBOX_PROVIDER.spec.md) | forge | APPROVED | high | no | no | yes | 8 | 2026-07-17 |
 | [semse-forge-sdd](specs/forge/SEMSE_FORGE_SDD.spec.md) | forge | APPROVED | critical | no | no | yes | 3 | 2026-07-17 |
 | [semse-forge-tool-adapter](specs/forge/SEMSE_FORGE_TOOL_ADAPTER.spec.md) | forge | APPROVED | high | no | no | yes | 7 | 2026-07-17 |
+| [semse-forge-verification-provider](specs/forge/SEMSE_FORGE_VERIFICATION_PROVIDER.spec.md) | forge | APPROVED | high | no | no | yes | 5 | 2026-07-18 |
 | [fsm-agent-run-lifecycle](specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [fsm-buildops-plan-lifecycle](specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-escrow-lifecycle](specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
