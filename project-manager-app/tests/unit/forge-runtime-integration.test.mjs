@@ -28,7 +28,7 @@ function forgeTask(overrides = {}) {
     objective: "Update runtime integration docs",
     allowedFiles: ["docs/specs/forge/**", "packages/forge/src/**"],
     forbiddenFiles: ["packages/db/**", ".env*"],
-    allowedCommands: ["docs.update"],
+    allowedCommands: ["git status"],
     acceptanceCriteria: [],
     dependencies: [],
     targetBranch: "agent/forge-runtime-docs",
@@ -71,6 +71,8 @@ test("forge specialized handler evaluates a low-risk task as allow", () => {
   assert.equal(result.requiresHumanReview, false);
   assert.equal(result.payload.policy.decision, "allow");
   assert.equal(result.payload.requestedRole, "documentation-curator");
+  assert.equal(result.payload.sandbox?.decision, "allow");
+  assert.equal(result.payload.sandbox?.commands[0]?.program, "git");
 });
 
 test("forge specialized handler denies tasks targeting main branch", () => {
@@ -139,6 +141,8 @@ test("worker handleForge evaluates a low-risk task and calls completion callback
   assert.ok(calls[0].path.includes("/v1/forge/runs/forge-run-1/tasks/task-runtime-1/complete"));
   assert.equal(calls[0].body.agentRunId, "agent-run-1");
   assert.equal(calls[0].body.result.payload.policy.decision, "allow");
+  assert.equal(calls[0].body.result.payload.sandbox?.decision, "allow");
+  assert.equal(calls[0].body.result.payload.sandbox?.commands[0]?.program, "git");
 });
 
 test("worker handleForge reports policy deny for tasks targeting main", async () => {

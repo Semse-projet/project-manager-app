@@ -42,6 +42,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | Spec ID | Domain | Status | Risk | API | UI | Tests | Related Files | Last Verified |
 |---|---|---|---|---|---|---|---|---|
 | [semse-agent-architecture](specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md) | agents | VERIFIED | high | yes | no | yes | 5 | 2026-06-09 |
+| [semse-forge-agent-harness](specs/agents/SEMSE_FORGE_AGENT_HARNESS.spec.md) | agents | APPROVED | critical | no | no | yes | 5 | 2026-07-17 |
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | high | yes | yes | yes | 3 | 2026-06-28 |
@@ -63,9 +64,14 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | high | yes | no | yes | 3 | 2026-07-12 |
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
+| [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | high | no | no | yes | 3 | 2026-07-17 |
+| [semse-forge-runtime-integration](specs/forge/SEMSE_FORGE_RUNTIME_INTEGRATION.spec.md) | forge | APPROVED | high | yes | no | yes | 6 | 2026-07-17 |
+| [semse-forge-sandbox-provider](specs/forge/SEMSE_FORGE_SANDBOX_PROVIDER.spec.md) | forge | APPROVED | high | no | no | yes | 8 | 2026-07-17 |
+| [semse-forge-sdd](specs/forge/SEMSE_FORGE_SDD.spec.md) | forge | APPROVED | critical | no | no | yes | 3 | 2026-07-17 |
 | [fsm-agent-run-lifecycle](specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [fsm-buildops-plan-lifecycle](specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-escrow-lifecycle](specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [forge-run-lifecycle](specs/fsm/forge-run-lifecycle.spec.md) | fsm | APPROVED | high | no | no | yes | 2 | 2026-07-17 |
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |

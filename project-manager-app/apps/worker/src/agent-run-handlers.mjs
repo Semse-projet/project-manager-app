@@ -1166,10 +1166,8 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
 
 async function handleForge({ run, requestJson, logger, tenantId }) {
   const input = asObject(run?.input);
-  const task = asObject(input.task);
   const forgeRunId = asString(input.forgeRunId);
   const taskId = asString(input.taskId);
-  const action = asString(input.action) || asString(task?.allowedCommands?.[0]) || "runtime.execute";
 
   const result = executeGovernedAgentRun({
     agentType: "forge",

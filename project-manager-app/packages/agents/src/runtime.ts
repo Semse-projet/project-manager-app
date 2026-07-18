@@ -16,9 +16,11 @@ import {
   resolveAllowedContextEnvelope
 } from "./governance.js";
 import {
+  createSandboxProvider,
   evaluateForgePolicy,
   getForgeAgentManifest,
-  type ForgeTaskPacket
+  type ForgeTaskPacket,
+  type SandboxPlan
 } from "@semse/forge";
 import {
   DEFAULT_VERIFICATION_TIMEOUT_MS,
@@ -416,7 +418,9 @@ function asForgeTaskPacket(value: unknown): ForgeTaskPacket | undefined {
     if (
       typeof obj.id === "string" &&
       typeof obj.requestedRole === "string" &&
+      typeof obj.environment === "string" &&
       Array.isArray(obj.allowedFiles) &&
+      Array.isArray(obj.forbiddenFiles) &&
       Array.isArray(obj.allowedCommands)
     ) {
       return obj as unknown as ForgeTaskPacket;
@@ -437,9 +441,38 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     };
   }
 
-  const action = typeof input.action === "string" ? input.action : (task.allowedCommands[0] ?? "runtime.execute");
   const manifest = getForgeAgentManifest(task.requestedRole);
-  const policy = evaluateForgePolicy({ manifest, task, action });
+  const firstCommand = task.allowedCommands[0];
+  const inferredAction = typeof firstCommand === "string" && manifest.allowedActions.includes(firstCommand) ? firstCommand : undefined;
+  const action = typeof input.action === "string" ? input.action : (inferredAction ?? "runtime.execute");
+  let policy = evaluateForgePolicy({ manifest, task, action });
+  let sandboxPlan: SandboxPlan | undefined;
+
+  if (policy.decision === "allow") {
+    const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
+    sandboxPlan = sandboxProvider.plan({ task, action, environment: task.environment });
+
+    if (sandboxPlan.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Sandbox validation failed: ${sandboxPlan.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: sandboxPlan.violations.map((violation) => `sandbox.${violation}`),
+        auditTags: [...policy.auditTags, "forge.sandbox.denied"]
+      };
+    } else if (sandboxPlan.decision === "require_approval") {
+      policy = {
+        ...policy,
+        decision: "require_approval",
+        reason: `Sandbox validation requires approval: ${sandboxPlan.reason}`,
+        requiredApprovals: [...new Set([...policy.requiredApprovals, ...sandboxPlan.requiredApprovals])],
+        violatedPolicies: [],
+        auditTags: [...policy.auditTags, "forge.sandbox.approval_required"]
+      };
+    }
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -453,6 +486,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       requestedRole: task.requestedRole,
       action,
       policy,
+      sandbox: sandboxPlan,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }
