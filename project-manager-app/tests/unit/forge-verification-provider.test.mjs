@@ -97,10 +97,22 @@ test("dry-run verification fails required unrecognized criteria", () => {
   assert.equal(matrix.items[0].status, "failed");
 });
 
-test("dry-run verification marks tests passed when test.write tool is allowed", () => {
+test("dry-run verification marks tests passed when command.run tool is allowed", () => {
   const provider = createVerificationProvider({ mode: "dry-run" });
   const matrix = provider.verify({
     task: task([{ id: "ac-test", statement: "Unit tests must pass", verification: "pnpm test:unit", required: true }]),
+    patchResult: patchResult(),
+    toolPlan: toolPlan()
+  });
+
+  assert.equal(matrix.passed, true);
+  assert.equal(matrix.items[0].status, "passed");
+});
+
+test("dry-run verification matches plural 'tests' criteria", () => {
+  const provider = createVerificationProvider({ mode: "dry-run" });
+  const matrix = provider.verify({
+    task: task([{ id: "ac-tests", statement: "Integration tests must pass", verification: "pnpm test:integration", required: true }]),
     patchResult: patchResult(),
     toolPlan: toolPlan()
   });

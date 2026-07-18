@@ -552,7 +552,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     }
   }
 
-  if (policy.decision !== "deny") {
+  if (policy.decision !== "deny" && patchResult) {
     const verificationProvider = createVerificationProvider({ mode: "dry-run" });
     verification = verificationProvider.verify({ task, patchResult, toolPlan });
 

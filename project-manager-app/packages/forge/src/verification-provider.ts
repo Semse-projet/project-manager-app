@@ -38,7 +38,6 @@ function evaluateCriterion(
   const hasCommandRun = toolPlan?.tools.some((tool) => tool.name === "command.run" && tool.allowed) ?? false;
   const hasCodeWrite = toolPlan?.tools.some((tool) => tool.name === "code.write" && tool.allowed) ?? false;
   const hasSpecWrite = toolPlan?.tools.some((tool) => tool.name === "spec.write" && tool.allowed) ?? false;
-  const hasTestWrite = toolPlan?.tools.some((tool) => tool.name === "test.write" && tool.allowed) ?? false;
 
   if (/\bsecurity\b/.test(text)) {
     return result(
@@ -49,7 +48,7 @@ function evaluateCriterion(
     );
   }
 
-  if (/\bspec\b/.test(text) || /\bindex\b/.test(text)) {
+  if (/\bspecs?\b/.test(text) || /\bindex\b/.test(text)) {
     const canWriteSpec = hasSpecWrite || hasCodeWrite;
     return result(
       patchAllowed && canWriteSpec ? "passed" : "failed",
@@ -68,9 +67,9 @@ function evaluateCriterion(
     );
   }
 
-  if (/\btest\b/.test(text) && !/\bno test\b/.test(text)) {
+  if (/\btests?\b/.test(text) && !/\bno tests?\b/.test(text)) {
     return result(
-      patchAllowed && hasTestWrite ? "passed" : "failed",
+      patchAllowed && hasCommandRun ? "passed" : "failed",
       "Dry-run test verification passed.",
       "Dry-run test verification could not be simulated or was not allowed.",
       base

@@ -303,3 +303,32 @@ test("forge specialized handler simulates patch application through patch writer
   assert.equal(result.payload.patchResult?.decision, "allow");
   assert.equal(result.payload.patchResult?.results[0]?.newContent, "export class Controller {}");
 });
+
+test("forge specialized handler skips verification for read-only tasks without proposed files", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-readonly",
+    taskId: "task-runtime-readonly",
+    action: "runtime.execute",
+    task: forgeTask({
+      requestedRole: "documentation-curator",
+      allowedCommands: ["git status"],
+      acceptanceCriteria: [
+        { id: "ac-readonly", statement: "Tests must pass", verification: "pnpm test:unit", required: true }
+      ]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-readonly",
+      taskId: "task-runtime-readonly"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "allow");
+  assert.equal(result.payload.verification, undefined);
+});
