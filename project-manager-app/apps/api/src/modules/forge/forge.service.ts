@@ -321,6 +321,18 @@ export class ForgeService {
       } as const);
     }
 
+    const patch = payload.patch;
+    if (patch && typeof patch === "object") {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_PATCH_PROPOSED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: { taskId: task.id, agentRunId, patchDecision: (patch as { decision?: string }).decision }
+      } as const);
+    }
+
     updated.events.push({
       id: randomUUID(),
       type: "FORGE_VERIFICATION_COMPLETED",

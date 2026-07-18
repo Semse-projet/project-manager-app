@@ -181,3 +181,33 @@ test("worker handleForge reports policy deny for tasks targeting main", async ()
   assert.equal(result.requiresHumanReview, true);
   assert.equal(calls[0].body.result.payload.policy.decision, "deny");
 });
+
+test("forge specialized handler validates proposed files through patch planner", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-patch",
+    taskId: "task-runtime-patch",
+    action: "code.implement",
+    task: forgeTask({
+      requestedRole: "backend-builder",
+      allowedFiles: ["packages/api/src/**"]
+    }),
+    proposedFiles: [
+      { path: "packages/api/src/forge/controller.ts", operation: "update", content: "export class Controller {}" }
+    ],
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-patch",
+      taskId: "task-runtime-patch"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "allow");
+  assert.equal(result.payload.patch?.decision, "allow");
+  assert.equal(result.payload.patch?.changes[0]?.allowed, true);
+});

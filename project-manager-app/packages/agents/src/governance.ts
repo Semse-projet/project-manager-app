@@ -703,7 +703,7 @@ export const runtimeAgentManifests: Record<RuntimeAgentRole, RuntimeAgentManifes
       allowedTools: ["context.read.job", "decision.plan", "decision.recommend", "audit.record.agent", "runtime.complete_run"],
       allowedActions: ["runtime.execute", "context.read", "decision.plan", "decision.recommend", "audit.record", "runtime.complete"],
       allowedContextSources: ["event"],
-      allowedInputKeys: ["forgeRunId", "taskId", "task", "operatorContext", "environment"],
+      allowedInputKeys: ["forgeRunId", "taskId", "task", "action", "proposedFiles", "operatorContext", "environment"],
       maxRiskLevel: "critical",
       networkScopes: ["github.com/Semse-projet/project-manager-app"],
       fileScopes: ["docs/specs/**", ".semse-sdd/**", "packages/**", "apps/**", "tests/**", "scripts/**"],
