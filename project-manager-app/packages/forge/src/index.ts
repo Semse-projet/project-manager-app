@@ -6,3 +6,4 @@ export * from "./orchestrator.js";
 export * from "./creator.js";
 export * from "./sandbox.js";
 export * from "./patch-planner.js";
+export * from "./tool-adapter.js";

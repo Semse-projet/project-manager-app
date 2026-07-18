@@ -18,10 +18,12 @@ import {
 import {
   createPatchPlanner,
   createSandboxProvider,
+  createToolAdapter,
   evaluateForgePolicy,
   getForgeAgentManifest,
   type ForgePatchPlan,
   type ForgeTaskPacket,
+  type ForgeToolPlan,
   type ProposedFileChange,
   type SandboxPlan
 } from "@semse/forge";
@@ -451,6 +453,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let policy = evaluateForgePolicy({ manifest, task, action });
   let sandboxPlan: SandboxPlan | undefined;
   let patchPlan: ForgePatchPlan | undefined;
+  let toolPlan: ForgeToolPlan | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -502,6 +505,31 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     }
   }
 
+  if (policy.decision !== "deny") {
+    const toolAdapter = createToolAdapter({ mode: "dry-run" });
+    toolPlan = toolAdapter.plan({ task, action });
+
+    if (toolPlan.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Tool adapter validation failed: ${toolPlan.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: toolPlan.violations.map((violation) => `tool.${violation}`),
+        auditTags: [...policy.auditTags, "forge.tools.denied"]
+      };
+    } else if (toolPlan.decision === "require_approval") {
+      policy = {
+        ...policy,
+        decision: "require_approval",
+        reason: `Tool adapter validation requires approval: ${toolPlan.reason}`,
+        requiredApprovals: [...new Set([...policy.requiredApprovals, ...toolPlan.requiredApprovals])],
+        violatedPolicies: [],
+        auditTags: [...policy.auditTags, "forge.tools.approval_required"]
+      };
+    }
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -517,6 +545,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       policy,
       sandbox: sandboxPlan,
       patch: patchPlan,
+      tools: toolPlan,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }

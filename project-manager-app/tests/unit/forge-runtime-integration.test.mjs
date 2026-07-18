@@ -211,3 +211,30 @@ test("forge specialized handler validates proposed files through patch planner",
   assert.equal(result.payload.patch?.decision, "allow");
   assert.equal(result.payload.patch?.changes[0]?.allowed, true);
 });
+
+test("forge specialized handler validates action through tool adapter", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-tools",
+    taskId: "task-runtime-tools",
+    action: "code.implement",
+    task: forgeTask({
+      requestedRole: "backend-builder",
+      allowedFiles: ["packages/api/src/**"]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-tools",
+      taskId: "task-runtime-tools"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "allow");
+  assert.equal(result.payload.tools?.decision, "allow");
+  assert.ok(result.payload.tools?.tools.some((t) => t.name === "code.write" && t.allowed));
+});
