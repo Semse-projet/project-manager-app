@@ -112,6 +112,7 @@ export class ForgeRepository {
       assignedAgents: (row.assignedAgentsJson as Record<ForgeAgentRole, string[]>) ?? {},
       approvals: (row.approvalsJson as ForgeRun["approvals"]) ?? [],
       events: (row.eventsJson as ForgeRun["events"]) ?? [],
+      agentRunIds: (row.agentRunIdsJson as string[]) ?? [],
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString()
     };
@@ -131,7 +132,7 @@ export class ForgeRepository {
       assignedAgentsJson: run.assignedAgents as unknown as object,
       approvalsJson: run.approvals as unknown as object,
       eventsJson: run.events as unknown as object,
-      agentRunIdsJson: [] as unknown as object,
+      agentRunIdsJson: run.agentRunIds as unknown as object,
       updatedAt: new Date(run.updatedAt)
     };
   }

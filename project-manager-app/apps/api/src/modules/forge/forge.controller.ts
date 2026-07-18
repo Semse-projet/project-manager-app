@@ -53,7 +53,13 @@ const addTaskSchema = z.object({
 });
 
 const executeTaskSchema = z.object({
-  action: z.string().optional()
+  action: z.string().optional(),
+  async: z.boolean().optional().default(false)
+});
+
+const completeTaskSchema = z.object({
+  agentRunId: z.string().min(1),
+  result: z.record(z.unknown())
 });
 
 const approvalDecisionSchema = z.object({
@@ -131,8 +137,37 @@ export class ForgeController {
     const parsed = parseWithSchema(executeTaskSchema, body);
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
-    const result = await this.forgeService.executeTask({ actor, runId, taskId, action: parsed.action, requestId });
+    const result = await this.forgeService.executeTask({
+      actor,
+      runId,
+      taskId,
+      action: parsed.action,
+      async: parsed.async,
+      requestId
+    });
     return ok(requestId, result);
+  }
+
+  @Post("runs/:runId/tasks/:taskId/complete")
+  @RequirePermissions("agents:run:manage")
+  async completeTask(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Param("taskId") taskId: string,
+    @Body() body: unknown
+  ) {
+    const parsed = parseWithSchema(completeTaskSchema, body);
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const forgeRun = await this.forgeService.completeTask({
+      actor,
+      runId,
+      taskId,
+      agentRunId: parsed.agentRunId,
+      result: parsed.result,
+      requestId
+    });
+    return ok(requestId, forgeRun);
   }
 
   @Post("runs/:runId/approvals/:mode/decide")

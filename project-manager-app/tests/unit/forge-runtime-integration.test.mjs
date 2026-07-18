@@ -6,6 +6,10 @@ import {
   getRuntimeAgentManifest,
   runtimeAgentRoles
 } from "../../packages/agents/dist/index.js";
+import {
+  executeSpecializedWorkerRun,
+  shouldUseSpecializedWorkerHandler
+} from "../../apps/worker/src/agent-run-handlers.mjs";
 
 const approvedSpec = {
   id: "forge-runtime-spec",
@@ -90,4 +94,86 @@ test("forge specialized handler denies tasks targeting main branch", () => {
   assert.equal(result.actionType, "forge.evaluate");
   assert.equal(result.requiresHumanReview, true);
   assert.equal(result.payload.policy.decision, "deny");
+});
+
+test("forge is registered as a specialized worker handler", () => {
+  assert.ok(shouldUseSpecializedWorkerHandler("forge"));
+});
+
+test("worker handleForge evaluates a low-risk task and calls completion callback", async () => {
+  const calls = [];
+  const requestJson = async (path, init) => {
+    calls.push({ path, body: JSON.parse(init.body) });
+    return { ok: true };
+  };
+
+  const result = await executeSpecializedWorkerRun({
+    run: {
+      id: "agent-run-1",
+      correlationId: "corr-1",
+      agentType: "forge",
+      input: {
+        forgeRunId: "forge-run-1",
+        taskId: "task-runtime-1",
+        task: forgeTask(),
+        operatorContext: {
+          source: "forge",
+          operatorId: "user-001",
+          tenantId: "tenant-001",
+          orgId: "org-001",
+          roles: ["OPS_ADMIN"],
+          scope: "task",
+          runId: "forge-run-1",
+          taskId: "task-runtime-1"
+        }
+      }
+    },
+    requestJson,
+    logger: { warn: () => {} },
+    tenantId: "tenant-001"
+  });
+
+  assert.equal(result.actionType, "forge.evaluate");
+  assert.equal(result.requiresHumanReview, false);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].path.includes("/v1/forge/runs/forge-run-1/tasks/task-runtime-1/complete"));
+  assert.equal(calls[0].body.agentRunId, "agent-run-1");
+  assert.equal(calls[0].body.result.payload.policy.decision, "allow");
+});
+
+test("worker handleForge reports policy deny for tasks targeting main", async () => {
+  const calls = [];
+  const requestJson = async (path, init) => {
+    calls.push({ path, body: JSON.parse(init.body) });
+    return { ok: true };
+  };
+
+  const result = await executeSpecializedWorkerRun({
+    run: {
+      id: "agent-run-2",
+      correlationId: "corr-2",
+      agentType: "forge",
+      input: {
+        forgeRunId: "forge-run-2",
+        taskId: "task-runtime-2",
+        task: forgeTask({ targetBranch: "main" }),
+        operatorContext: {
+          source: "forge",
+          operatorId: "user-001",
+          tenantId: "tenant-001",
+          orgId: "org-001",
+          roles: ["OPS_ADMIN"],
+          scope: "task",
+          runId: "forge-run-2",
+          taskId: "task-runtime-2"
+        }
+      }
+    },
+    requestJson,
+    logger: { warn: () => {} },
+    tenantId: "tenant-001"
+  });
+
+  assert.equal(result.requiresHumanReview, true);
+  assert.equal(calls[0].body.result.payload.policy.decision, "deny");
 });

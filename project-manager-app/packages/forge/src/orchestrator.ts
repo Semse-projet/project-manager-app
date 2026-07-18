@@ -44,6 +44,7 @@ export class ForgeHarness {
       assignedAgents: {},
       approvals: [],
       events: [event],
+      agentRunIds: [],
       createdAt: now,
       updatedAt: now
     };
