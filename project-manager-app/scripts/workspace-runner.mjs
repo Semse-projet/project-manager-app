@@ -8,12 +8,12 @@ const TASKS = {
     ["pnpm", ["--filter", "@semse/shared", "build"]],
     ["pnpm", ["--filter", "@semse/auth", "build"]],
     ["pnpm", ["--filter", "@semse/knowledge", "build"]],
+    ["pnpm", ["--filter", "@semse/forge", "build"]],
     ["pnpm", ["--filter", "@semse/agents", "build"]],
     ["pnpm", ["--filter", "@semse/autonomy", "build"]],
     ["pnpm", ["--filter", "@semse/tools", "build"]],
     ["pnpm", ["--filter", "@semse/sdk", "build"]],
     ["pnpm", ["--filter", "@semse/product-events", "build"]],
-    ["pnpm", ["--filter", "@semse/forge", "build"]],
   ],
   "build:apps": [
     ["pnpm", ["run", "db:generate"]],

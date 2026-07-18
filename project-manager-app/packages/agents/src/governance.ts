@@ -17,6 +17,7 @@ export const runtimeAgentRoles = [
   "financial-agent",
   "qa-agent",
   "browser-agent",
+  "forge",
 ] as const;
 
 export type RuntimeAgentRole = (typeof runtimeAgentRoles)[number];
@@ -690,6 +691,25 @@ export const runtimeAgentManifests: Record<RuntimeAgentRole, RuntimeAgentManifes
       approvalRules: []
     },
     metadata: { owner: "semse-prometeo", tags: ["browser", "qa", "observability"], defaultModel: "claude-sonnet-4-6" }
+  },
+  forge: {
+    id: "agt_forge_v1",
+    role: "forge",
+    name: "SEMSE Forge Agent",
+    version: "1.0.0",
+    status: "preview",
+    description: "Executes SEMSE Forge task packets under engineering policy and returns governed recommendations.",
+    capabilities: {
+      allowedTools: ["context.read.job", "decision.plan", "decision.recommend", "audit.record.agent", "runtime.complete_run"],
+      allowedActions: ["runtime.execute", "context.read", "decision.plan", "decision.recommend", "audit.record", "runtime.complete"],
+      allowedContextSources: ["event"],
+      allowedInputKeys: ["forgeRunId", "taskId", "task", "operatorContext", "environment"],
+      maxRiskLevel: "critical",
+      networkScopes: ["github.com/Semse-projet/project-manager-app"],
+      fileScopes: ["docs/specs/**", ".semse-sdd/**", "packages/**", "apps/**", "tests/**", "scripts/**"],
+      approvalRules: []
+    },
+    metadata: { owner: "semse-core", tags: ["forge", "sdd", "engineering"], defaultModel: "claude-sonnet-4-6" }
   }
 };
 
@@ -768,6 +788,8 @@ export function derivePlannedTools(agentType: RuntimeAgentRole): AgentToolName[]
     case "legal-agent":
     case "financial-agent":
       return ["context.read.job", "decision.recommend", "audit.record.agent", "runtime.complete_run"];
+    case "forge":
+      return ["decision.plan", "decision.recommend", "audit.record.agent", "runtime.complete_run"];
     default:
       return ["audit.record.agent", "runtime.complete_run"];
   }

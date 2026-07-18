@@ -92,7 +92,7 @@ test("harness enforces lifecycle transitions", () => {
   assert.equal(current.state, "building");
 });
 
-test("creator blueprint requires rights and builds task graph", () => {
+test("creator blueprint requires rights and builds task graph", async () => {
   const blueprint = {
     id: "solar-academy",
     creatorId: "teacher-001",
@@ -128,7 +128,7 @@ test("creator blueprint requires rights and builds task graph", () => {
   };
 
   assert.equal(validateCreatorBlueprint(blueprint).valid, true);
-  const draftSpec = creatorBlueprintToSpec(blueprint);
+  const draftSpec = await creatorBlueprintToSpec(blueprint);
   const packets = createCreatorTaskPackets(blueprint, {
     ...draftSpec,
     status: "APPROVED"

@@ -1,9 +1,24 @@
-import { createHash } from "node:crypto";
 import type {
   CreatorAppBlueprint,
   ForgeSpecReference,
   ForgeTaskPacket
 } from "./types.js";
+
+type CryptoSubtle = {
+  digest(algorithm: string, data: ArrayBufferView): Promise<ArrayBuffer>;
+};
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const subtle = (globalThis as unknown as { crypto?: { subtle?: CryptoSubtle } }).crypto?.subtle;
+  if (!subtle) {
+    throw new Error("Web Crypto API not available: cannot compute creator blueprint digest");
+  }
+  const buffer = await subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buffer))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export type CreatorBlueprintValidation = {
   valid: boolean;
@@ -50,17 +65,15 @@ export function validateCreatorBlueprint(
   return { valid: errors.length === 0, errors, warnings };
 }
 
-export function creatorBlueprintToSpec(
+export async function creatorBlueprintToSpec(
   blueprint: CreatorAppBlueprint
-): ForgeSpecReference {
+): Promise<ForgeSpecReference> {
   const validation = validateCreatorBlueprint(blueprint);
   if (!validation.valid) {
     throw new Error(`Invalid creator blueprint: ${validation.errors.join("; ")}`);
   }
 
-  const digest = createHash("sha256")
-    .update(JSON.stringify(blueprint))
-    .digest("hex");
+  const digest = await sha256Hex(JSON.stringify(blueprint));
 
   return {
     id: `creator-${blueprint.id}`,
