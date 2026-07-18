@@ -65,6 +65,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | high | no | no | yes | 3 | 2026-07-17 |
+| [semse-forge-patch-planner](specs/forge/SEMSE_FORGE_PATCH_PLANNER.spec.md) | forge | APPROVED | high | no | no | yes | 6 | 2026-07-17 |
 | [semse-forge-runtime-integration](specs/forge/SEMSE_FORGE_RUNTIME_INTEGRATION.spec.md) | forge | APPROVED | high | yes | no | yes | 6 | 2026-07-17 |
 | [semse-forge-sandbox-provider](specs/forge/SEMSE_FORGE_SANDBOX_PROVIDER.spec.md) | forge | APPROVED | high | no | no | yes | 8 | 2026-07-17 |
 | [semse-forge-sdd](specs/forge/SEMSE_FORGE_SDD.spec.md) | forge | APPROVED | critical | no | no | yes | 3 | 2026-07-17 |

@@ -16,10 +16,13 @@ import {
   resolveAllowedContextEnvelope
 } from "./governance.js";
 import {
+  createPatchPlanner,
   createSandboxProvider,
   evaluateForgePolicy,
   getForgeAgentManifest,
+  type ForgePatchPlan,
   type ForgeTaskPacket,
+  type ProposedFileChange,
   type SandboxPlan
 } from "@semse/forge";
 import {
@@ -447,6 +450,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   const action = typeof input.action === "string" ? input.action : (inferredAction ?? "runtime.execute");
   let policy = evaluateForgePolicy({ manifest, task, action });
   let sandboxPlan: SandboxPlan | undefined;
+  let patchPlan: ForgePatchPlan | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -473,6 +477,31 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     }
   }
 
+  if (policy.decision !== "deny" && Array.isArray(input.proposedFiles)) {
+    const patchPlanner = createPatchPlanner({ mode: "dry-run" });
+    patchPlan = patchPlanner.plan(task, input.proposedFiles as ProposedFileChange[]);
+
+    if (patchPlan.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Patch plan validation failed: ${patchPlan.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: patchPlan.violations.map((violation) => `patch.${violation}`),
+        auditTags: [...policy.auditTags, "forge.patch.denied"]
+      };
+    } else if (patchPlan.decision === "require_approval") {
+      policy = {
+        ...policy,
+        decision: "require_approval",
+        reason: `Patch plan validation requires approval: ${patchPlan.reason}`,
+        requiredApprovals: [...new Set([...policy.requiredApprovals, ...patchPlan.requiredApprovals])],
+        violatedPolicies: [],
+        auditTags: [...policy.auditTags, "forge.patch.approval_required"]
+      };
+    }
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -487,6 +516,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       action,
       policy,
       sandbox: sandboxPlan,
+      patch: patchPlan,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }
