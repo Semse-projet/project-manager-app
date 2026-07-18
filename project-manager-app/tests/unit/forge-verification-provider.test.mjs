@@ -109,6 +109,30 @@ test("dry-run verification marks tests passed when test.write tool is allowed", 
   assert.equal(matrix.items[0].status, "passed");
 });
 
+test("dry-run verification passes spec/index criteria with spec.write tool", () => {
+  const provider = createVerificationProvider({ mode: "dry-run" });
+  const matrix = provider.verify({
+    task: task([{ id: "ac-spec", statement: "Spec must be indexed", verification: "pnpm spec:index", required: true }]),
+    patchResult: patchResult(),
+    toolPlan: toolPlan(["repo.read", "spec.read", "spec.write", "audit.record"])
+  });
+
+  assert.equal(matrix.passed, true);
+  assert.equal(matrix.items[0].status, "passed");
+});
+
+test("dry-run verification evidence reflects failed status", () => {
+  const provider = createVerificationProvider({ mode: "dry-run" });
+  const matrix = provider.verify({
+    task: task([{ id: "ac-lint", statement: "Lint must pass", verification: "pnpm lint", required: true }]),
+    patchResult: patchResult("deny"),
+    toolPlan: toolPlan()
+  });
+
+  assert.equal(matrix.items[0].status, "failed");
+  assert.ok(matrix.items[0].evidence.includes("could not be simulated"));
+});
+
 test("live verification provider throws not implemented", () => {
   assert.throws(() => {
     const provider = createVerificationProvider({ mode: "live" });
