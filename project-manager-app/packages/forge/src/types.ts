@@ -131,6 +131,7 @@ export type ForgeEvent = {
     | "FORGE_SPEC_DRAFTED"
     | "FORGE_SPEC_APPROVED"
     | "FORGE_TASK_ASSIGNED"
+    | "FORGE_TASK_QUEUED"
     | "FORGE_CHANGE_PROPOSED"
     | "FORGE_VERIFICATION_COMPLETED"
     | "FORGE_HUMAN_REVIEW_REQUESTED"
@@ -160,6 +161,7 @@ export type ForgeRun = {
     at?: string;
   }>;
   events: ForgeEvent[];
+  agentRunIds: string[];
   createdAt: string;
   updatedAt: string;
 };

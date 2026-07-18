@@ -14,7 +14,7 @@ related_files:
   - packages/forge/src/orchestrator.ts
 related_tests:
   - tests/unit/forge-runtime-integration.test.mjs
-  - node --test tests/unit/forge-harness.test.mjs
+  - tests/unit/forge-harness.test.mjs
 related_endpoints:
   - POST /v1/forge/runs
   - GET /v1/forge/runs
@@ -70,7 +70,8 @@ C. **Endpoints REST/OMEGA para Mission Control**
 - `packages/forge` sigue siendo el plano de control puro; no accede a Prisma.
 - `apps/api` es el único lugar que escribe `ForgeRun` en la base de datos a través de `ForgeRepository`.
 - `packages/agents` extiende `runtimeAgentRoles` y `runtimeAgentManifests` con `forge` para reutilizar `executeGovernedAgentRun` sin duplicar policy engine.
-- La ejecución sincrónica en `POST /v1/forge/runs/:runId/tasks/:taskId/execute` crea, ejecuta y completa un `AgentRun` en el mismo request, actualizando `ForgeRun` inmediatamente. El modo asíncrono vía worker queda habilitado una vez `AgentRun` se encola.
+- La ejecución sincrónica en `POST /v1/forge/runs/:runId/tasks/:taskId/execute` crea, ejecuta y completa un `AgentRun` en el mismo request, actualizando `ForgeRun` inmediatamente.
+- El modo asíncrono usa `POST /v1/forge/runs/:runId/tasks/:taskId/execute?async=true` (o `{"async": true}`) para encolar un `AgentRun` tipo `forge`; el worker lo ejecuta y reporta el resultado vía `POST /v1/forge/runs/:runId/tasks/:taskId/complete`, que cierra el `ForgeRun`.
 
 ## 4. Modelo de datos
 
@@ -109,11 +110,14 @@ model ForgeRun {
 | GET | /v1/forge/runs/:runId | `ops:dashboard:read` | Detalle de un run. |
 | POST | /v1/forge/runs/:runId/transitions | `ops:dashboard:write` | Transicionar estado (FSM). |
 | POST | /v1/forge/runs/:runId/tasks | `ops:dashboard:write` | Agregar `ForgeTaskPacket`. |
-| POST | /v1/forge/runs/:runId/tasks/:taskId/execute | `agents:run:create` | Ejecutar tarea vía `AgentRun` de `forge`. |
+| POST | /v1/forge/runs/:runId/tasks/:taskId/execute | `agents:run:create` | Ejecutar tarea vía `AgentRun` de `forge` (síncrono por defecto; `async: true` para encolar). |
+| POST | /v1/forge/runs/:runId/tasks/:taskId/complete | `agents:run:manage` | Callback del worker con el resultado del `AgentRun` de `forge`. |
 | POST | /v1/forge/runs/:runId/approvals/:mode/decide | `ops:dashboard:write` | Aprobar/rechazar una aprobación pendiente. |
 | GET | /v1/forge/mission-control | `ops:dashboard:read` | Resumen de runs pendientes/bloqueados y aprobaciones. |
 
 ## 6. Secuencia de ejecución de tarea
+
+### Síncrona
 
 ```
 POST /v1/forge/runs/:runId/tasks/:taskId/execute
@@ -127,9 +131,36 @@ POST /v1/forge/runs/:runId/tasks/:taskId/execute
         -> executeGovernedAgentRun (agentType: forge)
           -> buildForge -> evaluateForgePolicy
         -> AgentsRepository.complete
-      -> ForgeHarness.authorizeTaskAction
-      -> ForgeRepository.update
-  <- { agentRun, policy, forgeRun }
+      -> ForgeService.applyTaskResult
+        -> ForgeHarness.authorizeTaskAction
+        -> ForgeRepository.update
+  <- { agentRun, result, forgeRun }
+```
+
+### Asíncrona
+
+```
+POST /v1/forge/runs/:runId/tasks/:taskId/execute { async: true }
+  -> ForgeController
+    -> ForgeService.executeTask
+      -> ForgeRepository.findById
+      -> ForgeHarness.assignTask
+      -> ForgeHarness.transition(planned -> building)
+      -> ForgeAgentAdapter.enqueue
+        -> AgentsService.create (agentType: forge)
+        -> AgentQueueService.enqueueRun
+      -> ForgeRepository.update (FORGE_TASK_QUEUED, agentRunIds)
+  <- { agentRun, forgeRun }
+
+Worker (SEMSE_AGENT_RUN_QUEUE, agentType: forge)
+  -> executeSpecializedWorkerRun -> handleForge
+    -> executeGovernedAgentRun (agentType: forge)
+      -> buildForge -> evaluateForgePolicy
+    -> POST /v1/forge/runs/:runId/tasks/:taskId/complete
+      -> ForgeService.completeTask
+        -> ForgeHarness.authorizeTaskAction
+        -> ForgeRepository.update (FORGE_VERIFICATION_COMPLETED)
+  -> AgentsRepository.complete
 ```
 
 ## 7. Criterios de aceptación
@@ -145,5 +176,4 @@ POST /v1/forge/runs/:runId/tasks/:taskId/execute
 ## 8. Pendiente explícito
 
 - Migración de base de datos real se generará cuando el entorno de desarrollo tenga PostgreSQL accesible.
-- Ejecución asíncrona por worker: el `AgentRun` ya se encola, pero el handler especializado de worker para `forge` queda para la siguiente iteración.
 - Sandbox de comandos y escritura real de archivos quedan fuera de este spec.

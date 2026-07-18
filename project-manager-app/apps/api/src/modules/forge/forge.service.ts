@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { ForgeHarness } from "@semse/forge";
+import { canTransitionForgeRun, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
+  ForgePolicyResult,
   ForgeRun,
   ForgeRunState,
   ForgeSpecReference,
@@ -153,8 +154,12 @@ export class ForgeService {
     runId: string;
     taskId: string;
     action?: string;
+    async?: boolean;
     requestId: string;
-  }): Promise<{ forgeRun: ForgeRun; agentRun: AgentRunRecord; result: Record<string, unknown> }> {
+  }): Promise<
+    | { forgeRun: ForgeRun; agentRun: AgentRunRecord; result: Record<string, unknown> }
+    | { forgeRun: ForgeRun; agentRun: AgentRunRecord }
+  > {
     const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
     const task = current.tasks.find((candidate) => candidate.id === input.taskId);
     if (!task) {
@@ -163,65 +168,175 @@ export class ForgeService {
 
     const harness = this.load(current);
     harness.assignTask(input.runId, input.taskId, task.requestedRole);
+
+    if (input.async) {
+      if (canTransitionForgeRun(current.state, "building")) {
+        harness.transition(input.runId, "building", input.actor.userId);
+      }
+
+      const agentRun = await this.adapter.enqueue({
+        actor: input.actor,
+        forgeRun: current,
+        task,
+        action: input.action,
+        requestId: input.requestId
+      });
+
+      const updated = harness.getRun(input.runId);
+      if (!updated.agentRunIds.includes(agentRun.id)) {
+        updated.agentRunIds.push(agentRun.id);
+      }
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_TASK_QUEUED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: input.actor.userId,
+        detail: { taskId: input.taskId, agentRunId: agentRun.id }
+      } as const);
+
+      const persisted = await this.repository.update({
+        tenantId: input.actor.tenantId,
+        orgId: input.actor.orgId,
+        userId: input.actor.userId,
+        run: updated
+      });
+
+      await this.auditService.append({
+        tenantId: input.actor.tenantId,
+        orgId: input.actor.orgId,
+        actorUserId: input.actor.userId,
+        action: "forge.task.enqueue",
+        entityType: "ForgeRun",
+        entityId: persisted.id,
+        requestId: input.requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { taskId: input.taskId, agentRunId: agentRun.id }
+      });
+
+      return { forgeRun: persisted, agentRun };
+    }
+
     const { agentRun, result } = await this.adapter.execute({
       actor: input.actor,
-      forgeRun: current,
+      forgeRun: harness.getRun(input.runId),
       task,
       action: input.action
     });
 
-    const policy = (result as unknown as { payload?: Record<string, unknown> }).payload?.policy as
-      | { decision: string; riskLevel: string; requiredApprovals: string[] }
-      | undefined;
-
-    harness.authorizeTaskAction({
-      runId: input.runId,
-      taskId: input.taskId,
-      role: task.requestedRole,
-      action: input.action ?? (task.allowedCommands[0] ?? "runtime.execute")
+    const forgeRun = await this.applyTaskResult({
+      actor: input.actor,
+      current: harness.getRun(input.runId),
+      task,
+      agentRunId: agentRun.id,
+      result,
+      requestId: input.requestId
     });
 
-    let stateUpdate = current.state;
+    return { forgeRun, agentRun, result: result as unknown as Record<string, unknown> };
+  }
+
+  async completeTask(input: {
+    actor: ForgeActor;
+    runId: string;
+    taskId: string;
+    agentRunId: string;
+    result: Record<string, unknown>;
+    requestId: string;
+  }): Promise<ForgeRun> {
+    const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
+    const task = current.tasks.find((candidate) => candidate.id === input.taskId);
+    if (!task) {
+      throw new NotFoundException(`Forge task '${input.taskId}' not found`);
+    }
+
+    if (!current.agentRunIds.includes(input.agentRunId)) {
+      return this.applyTaskResult({
+        actor: input.actor,
+        current,
+        task,
+        agentRunId: input.agentRunId,
+        result: input.result,
+        requestId: input.requestId
+      });
+    }
+
+    return current;
+  }
+
+  private async applyTaskResult(input: {
+    actor: ForgeActor;
+    current: ForgeRun;
+    task: ForgeTaskPacket;
+    agentRunId: string;
+    result: Record<string, unknown>;
+    requestId: string;
+  }): Promise<ForgeRun> {
+    const { actor, current, task, agentRunId, result, requestId } = input;
+    const harness = this.load(current);
+
+    const payload = typeof result.payload === "object" && result.payload !== null
+      ? (result.payload as Record<string, unknown>)
+      : {};
+    const resultPolicy = payload.policy ?? (result as Record<string, unknown>).policy;
+    const policy = typeof resultPolicy === "object" && resultPolicy !== null
+      ? (resultPolicy as ForgePolicyResult)
+      : undefined;
+    const action = typeof payload.action === "string"
+      ? payload.action
+      : (input.task.allowedCommands[0] ?? "runtime.execute");
+
+    harness.authorizeTaskAction({
+      runId: current.id,
+      taskId: task.id,
+      role: task.requestedRole,
+      action
+    });
+
+    let nextState = current.state;
     if (policy?.decision === "deny") {
-      stateUpdate = "blocked";
+      nextState = "blocked";
     } else if (policy?.decision === "require_approval") {
-      stateUpdate = stateUpdate === "building" ? stateUpdate : "ready_for_review";
+      nextState = nextState === "building" ? nextState : "ready_for_review";
     }
 
-    if (stateUpdate !== current.state) {
-      harness.transition(input.runId, stateUpdate, input.actor.userId);
+    if (nextState !== current.state && canTransitionForgeRun(current.state, nextState)) {
+      harness.transition(current.id, nextState, actor.userId);
     }
 
-    const updated = harness.getRun(input.runId);
+    const updated = harness.getRun(current.id);
+    if (!updated.agentRunIds.includes(agentRunId)) {
+      updated.agentRunIds.push(agentRunId);
+    }
     updated.events.push({
       id: randomUUID(),
       type: "FORGE_VERIFICATION_COMPLETED",
       runId: updated.id,
       timestamp: new Date().toISOString(),
-      actor: input.actor.userId,
-      detail: { taskId: input.taskId, agentRunId: agentRun.id, policyDecision: policy?.decision }
+      actor: actor.userId,
+      detail: { taskId: task.id, agentRunId, policyDecision: policy?.decision }
     } as const);
 
     const persisted = await this.repository.update({
-      tenantId: input.actor.tenantId,
-      orgId: input.actor.orgId,
-      userId: input.actor.userId,
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
       run: updated
     });
 
     await this.auditService.append({
-      tenantId: input.actor.tenantId,
-      orgId: input.actor.orgId,
-      actorUserId: input.actor.userId,
-      action: "forge.task.execute",
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      actorUserId: actor.userId,
+      action: "forge.task.complete",
       entityType: "ForgeRun",
       entityId: persisted.id,
-      requestId: input.requestId,
+      requestId,
       timestamp: new Date().toISOString(),
-      afterJson: { taskId: input.taskId, agentRunId: agentRun.id, policyDecision: policy?.decision }
+      afterJson: { taskId: task.id, agentRunId, policyDecision: policy?.decision }
     });
 
-    return { forgeRun: persisted, agentRun, result: result as unknown as Record<string, unknown> };
+    return persisted;
   }
 
   async decideApproval(input: {
