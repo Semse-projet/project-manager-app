@@ -333,6 +333,18 @@ export class ForgeService {
       } as const);
     }
 
+    const tools = payload.tools;
+    if (tools && typeof tools === "object") {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_TOOLS_PLANNED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: { taskId: task.id, agentRunId, toolsDecision: (tools as { decision?: string }).decision, action: (tools as { action?: string }).action }
+      } as const);
+    }
+
     updated.events.push({
       id: randomUUID(),
       type: "FORGE_VERIFICATION_COMPLETED",

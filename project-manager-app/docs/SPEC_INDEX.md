@@ -69,6 +69,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [semse-forge-runtime-integration](specs/forge/SEMSE_FORGE_RUNTIME_INTEGRATION.spec.md) | forge | APPROVED | high | yes | no | yes | 6 | 2026-07-17 |
 | [semse-forge-sandbox-provider](specs/forge/SEMSE_FORGE_SANDBOX_PROVIDER.spec.md) | forge | APPROVED | high | no | no | yes | 8 | 2026-07-17 |
 | [semse-forge-sdd](specs/forge/SEMSE_FORGE_SDD.spec.md) | forge | APPROVED | critical | no | no | yes | 3 | 2026-07-17 |
+| [semse-forge-tool-adapter](specs/forge/SEMSE_FORGE_TOOL_ADAPTER.spec.md) | forge | APPROVED | high | no | no | yes | 7 | 2026-07-17 |
 | [fsm-agent-run-lifecycle](specs/fsm/agent-run-lifecycle.spec.md) | agents | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [fsm-buildops-plan-lifecycle](specs/fsm/buildops-lifecycle.spec.md) | buildops | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [fsm-escrow-lifecycle](specs/fsm/escrow-lifecycle.spec.md) | payments | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
