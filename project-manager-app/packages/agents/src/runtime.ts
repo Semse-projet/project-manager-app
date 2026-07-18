@@ -17,11 +17,13 @@ import {
 } from "./governance.js";
 import {
   createPatchPlanner,
+  createPatchWriter,
   createSandboxProvider,
   createToolAdapter,
   evaluateForgePolicy,
   getForgeAgentManifest,
   type ForgePatchPlan,
+  type ForgePatchResult,
   type ForgeTaskPacket,
   type ForgeToolPlan,
   type ProposedFileChange,
@@ -454,6 +456,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let sandboxPlan: SandboxPlan | undefined;
   let patchPlan: ForgePatchPlan | undefined;
   let toolPlan: ForgeToolPlan | undefined;
+  let patchResult: ForgePatchResult | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -530,6 +533,22 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     }
   }
 
+  if (policy.decision !== "deny" && patchPlan && patchPlan.decision !== "deny") {
+    const patchWriter = createPatchWriter({ mode: "dry-run" });
+    patchResult = patchWriter.apply(patchPlan);
+
+    if (patchResult.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Patch writer simulation failed: ${patchResult.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: patchResult.violations.map((violation) => `patch.${violation}`),
+        auditTags: [...policy.auditTags, "forge.patch.denied"]
+      };
+    }
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -546,6 +565,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       sandbox: sandboxPlan,
       patch: patchPlan,
       tools: toolPlan,
+      patchResult,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }

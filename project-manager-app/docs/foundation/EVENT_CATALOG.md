@@ -207,6 +207,7 @@ Consume:
 - `forge.task.queued`
 - `forge.sandbox.planned`
 - `forge.patch.proposed`
+- `forge.patch.simulated`
 - `forge.tools.planned`
 - `forge.verification.completed`
 - `forge.human_review.requested`
