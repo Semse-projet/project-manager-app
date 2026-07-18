@@ -238,3 +238,34 @@ test("forge specialized handler validates action through tool adapter", () => {
   assert.equal(result.payload.tools?.decision, "allow");
   assert.ok(result.payload.tools?.tools.some((t) => t.name === "code.write" && t.allowed));
 });
+
+test("forge specialized handler simulates patch application through patch writer", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-patchwriter",
+    taskId: "task-runtime-patchwriter",
+    action: "code.implement",
+    task: forgeTask({
+      requestedRole: "backend-builder",
+      allowedFiles: ["packages/api/src/**"]
+    }),
+    proposedFiles: [
+      { path: "packages/api/src/forge/controller.ts", operation: "create", content: "export class Controller {}" }
+    ],
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-patchwriter",
+      taskId: "task-runtime-patchwriter"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "allow");
+  assert.ok(result.payload.patchResult, "payload should include patchResult");
+  assert.equal(result.payload.patchResult?.decision, "allow");
+  assert.equal(result.payload.patchResult?.results[0]?.newContent, "export class Controller {}");
+});

@@ -345,6 +345,18 @@ export class ForgeService {
       } as const);
     }
 
+    const patchResult = payload.patchResult;
+    if (patchResult && typeof patchResult === "object") {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_PATCH_SIMULATED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: { taskId: task.id, agentRunId, patchResultDecision: (patchResult as { decision?: string }).decision }
+      } as const);
+    }
+
     updated.events.push({
       id: randomUUID(),
       type: "FORGE_VERIFICATION_COMPLETED",
