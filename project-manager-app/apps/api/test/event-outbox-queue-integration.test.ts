@@ -29,6 +29,7 @@ redisTest(
       await service.enqueueEvent({ eventId });
       await service.enqueueEvent({ eventId });
 
+      assert.equal(jobId, `event-${eventId}-g0`);
       const persisted = await inspector.getJob(jobId);
       assert.ok(persisted);
       assert.deepEqual(persisted.data, { eventId });

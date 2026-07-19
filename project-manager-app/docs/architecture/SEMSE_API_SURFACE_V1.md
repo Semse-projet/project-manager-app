@@ -74,7 +74,10 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 ## Domain Events
 - `GET /v1/domain-events/manual-catalog`
 - `GET /v1/domain-events`
-- `GET /v1/domain-events/:correlationId`
+- `GET /v1/domain-events/outbox` (F1-E; `domain-events:read`; filtros `status?/eventType?/correlationId?/limit?/cursor?`; tenant-scoped; nunca expone `payloadJson`; devuelve `items`, `nextCursor`, `counts` por status y `oldestPendingAgeMs`)
+- `GET /v1/domain-events/:eventId/deliveries` (F1-E; `domain-events:read`; detalle de outbox + recibos de consumer tenant-scoped; 404 si el evento no existe en el tenant del actor)
+- `POST /v1/domain-events/:eventId/replay` (F1-E; `domain-events:replay` + rol `OPS_ADMIN`; body `{ consumerName?: string, reason: string }`; solo replay de estado terminal `DEAD_LETTER` — outbox o consumer según `consumerName`; incrementa `replayCount`, emite `ops.event_replay_requested.v1` como AuditLog auditado y re-encola en BullMQ con generación nueva cuando el replay es por consumer; 400 reason vacío, 404 fuera de tenant, 409 si el estado no es replayable)
+- `GET /v1/domain-events/:correlationId` (incluye ahora `outbox` + `receipts` del correlationId, tenant-scoped)
 - `POST /v1/domain-events/emit`
 - `POST /v1/domain-events/:eventId/process` (interno; service identity `EVENT_CONSUMER` + `domain-events:consume`; body estricto `{ workerId }`; recupera el evento canónico por `eventId`)
 

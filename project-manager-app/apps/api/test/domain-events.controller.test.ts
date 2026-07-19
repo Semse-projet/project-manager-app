@@ -25,11 +25,14 @@ function makeReq(overrides: Record<string, unknown> = {}) {
 
 test("domain-events controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
-    ["catalog", "domain-events:emit"],
-    ["list",    "domain-events:read"],
-    ["trace",   "domain-events:read"],
-    ["emit",    "domain-events:emit"],
-    ["process", "domain-events:consume"],
+    ["catalog",     "domain-events:emit"],
+    ["list",        "domain-events:read"],
+    ["listOutbox",  "domain-events:read"],
+    ["deliveries",  "domain-events:read"],
+    ["replay",      "domain-events:replay"],
+    ["trace",       "domain-events:read"],
+    ["emit",        "domain-events:emit"],
+    ["process",     "domain-events:consume"],
   ];
 
   for (const [method, permission] of expectations) {
@@ -184,6 +187,137 @@ test("domain-events controller: process requires EVENT_CONSUMER service identity
 test("domain-events policy: human WORKER cannot consume events; EVENT_CONSUMER can", () => {
   assert.equal(hasPermission(["WORKER"], "domain-events:consume"), false);
   assert.equal(hasPermission(["EVENT_CONSUMER"], "domain-events:consume"), true);
+});
+
+// ── Ops: outbox list/deliveries/replay (T-016, T-060..T-065) ─────────────────
+
+test("domain-events policy: only OPS_ADMIN has domain-events:replay permission", () => {
+  assert.equal(hasPermission(["OPS_ADMIN"], "domain-events:replay"), true);
+  assert.equal(hasPermission(["CLIENT"], "domain-events:replay"), false);
+  assert.equal(hasPermission(["PRO"], "domain-events:replay"), false);
+  assert.equal(hasPermission(["WORKER"], "domain-events:replay"), false);
+});
+
+function makeOpsController(outboxOpsService: Record<string, unknown>) {
+  return new DomainEventsController(
+    {} as never,
+    {} as never,
+    outboxOpsService as never,
+  );
+}
+
+test("domain-events controller: listOutbox forwards tenant-scoped filters", async () => {
+  const calls: Record<string, unknown>[] = [];
+  const controller = makeOpsController({
+    listOutbox: async (input: Record<string, unknown>) => {
+      calls.push(input);
+      return { items: [], nextCursor: null, counts: {}, oldestPendingAgeMs: 0 };
+    },
+  });
+
+  const result = await controller.listOutbox(makeReq({
+    query: { status: "DEAD_LETTER", eventType: "evidence.uploaded.v1", limit: "10" },
+  }) as never);
+
+  assert.equal(result.requestId, "req_de_1");
+  assert.equal(calls[0]?.status, "DEAD_LETTER");
+  assert.equal(calls[0]?.eventType, "evidence.uploaded.v1");
+  assert.equal(calls[0]?.limit, 10);
+  assert.equal((calls[0]?.actor as Record<string, unknown>).tenantId, "tenant_1");
+});
+
+test("domain-events controller: deliveries rejects non-UUID eventId", async () => {
+  const controller = makeOpsController({ getDeliveryDetail: async () => ({}) });
+
+  await assert.rejects(
+    () => controller.deliveries(makeReq() as never, "not-a-uuid"),
+    BadRequestException,
+  );
+});
+
+test("domain-events controller: deliveries forwards tenant-scoped eventId", async () => {
+  const calls: Record<string, unknown>[] = [];
+  const controller = makeOpsController({
+    getDeliveryDetail: async (input: Record<string, unknown>) => {
+      calls.push(input);
+      return { eventId: input.eventId };
+    },
+  });
+  const eventId = "6e2ac8a0-9116-47b2-8171-1bf41d420c19";
+
+  const result = await controller.deliveries(makeReq() as never, eventId);
+
+  assert.equal(calls[0]?.eventId, eventId);
+  assert.equal((result.data as Record<string, unknown>).eventId, eventId);
+});
+
+test("domain-events controller: replay rejects actors without OPS_ADMIN role even with permission mocked", async () => {
+  const controller = makeOpsController({ replay: async () => ({}) });
+  const req = makeReq({
+    authContext: { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["PRO"] },
+  });
+
+  await assert.rejects(
+    () => controller.replay(req as never, "6e2ac8a0-9116-47b2-8171-1bf41d420c19", { reason: "retry" }),
+    ForbiddenException,
+  );
+});
+
+test("domain-events controller: replay rejects non-UUID eventId", async () => {
+  const controller = makeOpsController({ replay: async () => ({}) });
+
+  await assert.rejects(
+    () => controller.replay(makeReq() as never, "not-a-uuid", { reason: "retry" }),
+    BadRequestException,
+  );
+});
+
+test("domain-events controller: replay rejects empty/whitespace reason", async () => {
+  const controller = makeOpsController({ replay: async () => ({}) });
+  const eventId = "6e2ac8a0-9116-47b2-8171-1bf41d420c19";
+
+  await assert.rejects(
+    () => controller.replay(makeReq() as never, eventId, { reason: "   " }),
+    BadRequestException,
+  );
+  await assert.rejects(
+    () => controller.replay(makeReq() as never, eventId, {}),
+    BadRequestException,
+  );
+});
+
+test("domain-events controller: replay rejects unknown body fields", async () => {
+  const controller = makeOpsController({ replay: async () => ({}) });
+  const eventId = "6e2ac8a0-9116-47b2-8171-1bf41d420c19";
+
+  await assert.rejects(
+    () => controller.replay(makeReq() as never, eventId, { reason: "retry", extra: true }),
+    BadRequestException,
+  );
+});
+
+test("domain-events controller: replay forwards actor, eventId, consumerName and reason to service", async () => {
+  const calls: Record<string, unknown>[] = [];
+  const controller = makeOpsController({
+    replay: async (input: Record<string, unknown>) => {
+      calls.push(input);
+      return { eventId: input.eventId, replayCount: 1, status: "PENDING", auditRef: "aud_1" };
+    },
+  });
+  const eventId = "6e2ac8a0-9116-47b2-8171-1bf41d420c19";
+
+  const result = await controller.replay(
+    makeReq() as never,
+    eventId,
+    { consumerName: "evidence-readiness.v1", reason: "stuck consumer, retrying after fix" },
+  );
+
+  assert.equal(calls[0]?.eventId, eventId);
+  assert.equal(calls[0]?.consumerName, "evidence-readiness.v1");
+  assert.equal(calls[0]?.reason, "stuck consumer, retrying after fix");
+  assert.equal((calls[0]?.actor as Record<string, unknown>).tenantId, "tenant_1");
+  assert.equal((calls[0]?.actor as Record<string, unknown>).userId, "usr_admin_1");
+  assert.equal((result.data as Record<string, unknown>).auditRef, "aud_1");
 });
 
 test("domain-events controller: process accepts only workerId and forwards service identity", async () => {

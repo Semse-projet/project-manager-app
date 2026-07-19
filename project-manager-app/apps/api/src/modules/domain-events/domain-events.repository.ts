@@ -84,6 +84,54 @@ export class DomainEventsRepository {
     }) as Promise<DomainEventAgentRunRow[]>;
   }
 
+  async listOutboxByCorrelationId(input: ActorInput & { correlationId: string }) {
+    await this.actorContextService.ensureActorContext(input);
+
+    return this.prisma.domainOutboxEvent.findMany({
+      where: {
+        tenantId: input.tenantId,
+        correlationId: input.correlationId,
+      },
+      select: {
+        eventId: true,
+        eventType: true,
+        status: true,
+        attempts: true,
+        maxAttempts: true,
+        replayCount: true,
+        recordedAt: true,
+        publishedAt: true,
+        lastError: true,
+      },
+      orderBy: [{ recordedAt: "asc" }, { eventId: "asc" }],
+    });
+  }
+
+  async listConsumptionsByEventIds(input: ActorInput & { eventIds: string[] }) {
+    if (input.eventIds.length === 0) {
+      return [];
+    }
+    await this.actorContextService.ensureActorContext(input);
+
+    return this.prisma.domainEventConsumption.findMany({
+      where: {
+        tenantId: input.tenantId,
+        eventId: { in: input.eventIds },
+      },
+      select: {
+        eventId: true,
+        consumerName: true,
+        status: true,
+        attempts: true,
+        maxAttempts: true,
+        replayCount: true,
+        completedAt: true,
+        lastError: true,
+      },
+      orderBy: { consumerName: "asc" },
+    });
+  }
+
   async listTimelineRows(input: ActorInput & { correlationId: string; runIds: string[] }) {
     await this.actorContextService.ensureActorContext(input);
 

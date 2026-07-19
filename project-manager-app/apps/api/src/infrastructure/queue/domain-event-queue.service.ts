@@ -5,6 +5,7 @@ import { SEMSE_DOMAIN_EVENT_QUEUE } from "@semse/shared";
 
 export type DomainEventQueueInput = {
   eventId: string;
+  generation?: number;
 };
 
 export const DOMAIN_EVENT_JOB_OPTIONS = {
@@ -24,8 +25,9 @@ export const DOMAIN_EVENT_JOB_OPTIONS = {
   },
 } as const;
 
-export function toDomainEventJobId(eventId: string): string {
-  return `event-${eventId}`.replace(/:/g, "_");
+export function toDomainEventJobId(eventId: string, generation = 0): string {
+  const normalizedGeneration = Number.isInteger(generation) && generation >= 0 ? generation : 0;
+  return `event-${eventId}-g${normalizedGeneration}`.replace(/:/g, "_");
 }
 
 export class DomainEventQueueUnavailableError extends Error {
@@ -62,7 +64,7 @@ export class DomainEventQueueService implements OnModuleDestroy {
       "domain-event.process",
       { eventId: input.eventId },
       {
-        jobId: toDomainEventJobId(input.eventId),
+        jobId: toDomainEventJobId(input.eventId, input.generation),
         ...DOMAIN_EVENT_JOB_OPTIONS,
       },
     );

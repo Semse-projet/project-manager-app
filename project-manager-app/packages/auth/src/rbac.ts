@@ -177,6 +177,7 @@ export const rolePermissions: Record<string, string[]> = {
     "ops:incidents:create",
     "domain-events:read",
     "domain-events:emit",
+    "domain-events:replay",
     "communications:read",
     "communications:write",
     "communications:admin",

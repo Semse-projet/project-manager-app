@@ -29,7 +29,7 @@ date: "2026-07-12"
 - [x] **T-013** Crear concurrency test unique idempotency key.
 - [x] **T-014** Crear claim test con dos dispatchers y lease vencida.
 - [x] **T-015** Crear consumer test duplicate delivery/no double effect.
-- [ ] **T-016** Crear DLQ/replay RBAC/tenant/audit tests.
+- [x] **T-016** Crear DLQ/replay RBAC/tenant/audit tests.
 - [x] **T-017** Confirmar que los tests nuevos fallan por ausencia controlada.
 
 ## Fase 2 — Contratos y migración
@@ -74,13 +74,13 @@ date: "2026-07-12"
 
 ## Fase 6 — Ops, DLQ y replay
 
-- [ ] **T-060** Implementar list outbox con cursor/filtros/redaction.
-- [ ] **T-061** Implementar delivery detail tenant-scoped.
-- [ ] **T-062** Implementar replay solo para estado terminal fallido.
-- [ ] **T-063** Auditar actor, reason, eventId, consumer y replayCount.
-- [ ] **T-064** Extender trace con outbox + receipts.
-- [ ] **T-065** Añadir permisos RBAC y default-deny tests.
-- [ ] **T-066** Actualizar `SEMSE_API_SURFACE_V1.md` y EVENT_CATALOG.
+- [x] **T-060** Implementar list outbox con cursor/filtros/redaction.
+- [x] **T-061** Implementar delivery detail tenant-scoped.
+- [x] **T-062** Implementar replay solo para estado terminal fallido.
+- [x] **T-063** Auditar actor, reason, eventId, consumer y replayCount.
+- [x] **T-064** Extender trace con outbox + receipts.
+- [x] **T-065** Añadir permisos RBAC y default-deny tests.
+- [x] **T-066** Actualizar `SEMSE_API_SURFACE_V1.md` y EVENT_CATALOG.
 
 ## Fase 7 — Validación y canary
 
