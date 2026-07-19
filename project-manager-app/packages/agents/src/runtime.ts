@@ -18,6 +18,7 @@ import {
 import {
   createPatchPlanner,
   createPatchWriter,
+  createPRPackageProvider,
   createSandboxProvider,
   createToolAdapter,
   createVerificationProvider,
@@ -25,6 +26,7 @@ import {
   getForgeAgentManifest,
   type ForgePatchPlan,
   type ForgePatchResult,
+  type ForgePRPackage,
   type ForgeTaskPacket,
   type ForgeToolPlan,
   type ForgeVerificationMatrix,
@@ -460,6 +462,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let toolPlan: ForgeToolPlan | undefined;
   let patchResult: ForgePatchResult | undefined;
   let verification: ForgeVerificationMatrix | undefined;
+  let prPackage: ForgePRPackage | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -571,6 +574,18 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     }
   }
 
+  if (policy.decision !== "deny" && patchResult && verification) {
+    const prPackageProvider = createPRPackageProvider({ mode: "dry-run" });
+    prPackage = prPackageProvider.assemble({
+      runId: typeof input.forgeRunId === "string" ? input.forgeRunId : task.id,
+      task,
+      policy,
+      patchResult,
+      verification,
+      toolPlan
+    });
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -589,6 +604,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       tools: toolPlan,
       patchResult,
       verification,
+      prPackage,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }

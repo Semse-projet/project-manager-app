@@ -210,6 +210,7 @@ Consume:
 - `forge.patch.simulated`
 - `forge.tools.planned`
 - `forge.verification.completed`
+- `forge.pr.ready`
 - `forge.human_review.requested`
 - `forge.approval.decided`
 - `forge.run.blocked`

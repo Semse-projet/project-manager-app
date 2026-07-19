@@ -5,6 +5,7 @@ import type {
   ForgeAgentRole,
   ForgeApprovalMode,
   ForgePolicyResult,
+  ForgePRPackage,
   ForgeRun,
   ForgeRunState,
   ForgeSpecReference,
@@ -293,14 +294,22 @@ export class ForgeService {
       action
     });
 
+    const prPackage = payload.prPackage as ForgePRPackage | undefined;
+
     let nextState = current.state;
-    if (policy?.decision === "deny") {
+    if (policy?.decision === "deny" || prPackage?.decision === "deny") {
       nextState = "blocked";
+    } else if (prPackage) {
+      nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
     } else if (policy?.decision === "require_approval") {
       nextState = nextState === "building" ? nextState : "ready_for_review";
     }
 
-    if (nextState !== current.state && canTransitionForgeRun(current.state, nextState)) {
+    if (nextState === "ready_for_review" && current.state === "building") {
+      harness.transition(current.id, "verifying", actor.userId);
+    }
+    const stateAfterIntermediate = harness.getRun(current.id).state;
+    if (nextState !== current.state && canTransitionForgeRun(stateAfterIntermediate, nextState)) {
       harness.transition(current.id, nextState, actor.userId);
     }
 
@@ -379,6 +388,24 @@ export class ForgeService {
       actor: actor.userId,
       detail: verificationDetail
     } as const);
+
+    if (prPackage && prPackage.decision !== "deny") {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_PR_READY",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          prPackageDecision: prPackage.decision,
+          headBranch: prPackage.headBranch,
+          baseBranch: prPackage.baseBranch,
+          changedFileCount: prPackage.changedFiles.length
+        }
+      } as const);
+    }
 
     const persisted = await this.repository.update({
       tenantId: actor.tenantId,
