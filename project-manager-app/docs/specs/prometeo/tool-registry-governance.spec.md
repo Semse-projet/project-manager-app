@@ -20,7 +20,13 @@ related_files:
   - apps/api/src/modules/prometeo/prometeo-tool-registry.ts
   - apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts
   - apps/api/src/modules/prometeo/prometeo.controller.ts
-  - packages/schemas/src/index.ts
+  - packages/schemas/src/prometeo-runtime.schema.ts
+  - packages/forge/src/policy.ts
+  - packages/agents/src/governance.ts
+  - apps/api/src/modules/payments/payments.controller.ts
+  - apps/api/src/modules/payments/payments.service.ts
+  - apps/api/src/modules/payments/escrow-release.service.ts
+  - apps/api/src/modules/payments/payment-governance.service.ts
 related_tests: []
 related_endpoints:
   - v1/prometeo/tools
@@ -126,22 +132,113 @@ nombre de quién y con qué evidencia de resultado.
   `vision.analyze_video`) si no se van a completar en este corte;
 - contrato de adapter por tool que reemplace el switch monolítico.
 
-## 3. Decisiones a bloquear (para aprobación, no decididas aún)
+## 3. Decisiones — investigadas y recomendadas (pendiente confirmación del owner)
 
-1. ¿La policy engine de F2 es una nueva capa en `apps/api`, o una extracción
-   compartida desde el patrón de `packages/forge/src/policy.ts` hacia un
-   paquete común (`@semse/tool-governance` o similar)? Impacta si Forge migra
-   a consumir la misma policy engine o quedan dos implementaciones paralelas.
-2. ¿`payments.propose_release` (única tool `critical`) sigue con
-   `approvalPolicy: "human_required"` resuelto fuera de F2 (por
-   Payment Governance existente), o F2 debe construir el flujo de aprobación
-   humana genérico y `payments.propose_release` es su primer consumidor?
-3. ¿El audit trail de F2 reutiliza `AuditLog` (tabla existente, mismo patrón
-   que Domain Events) o necesita un modelo propio por volumen esperado de
-   invocaciones de lectura?
-4. ¿Los 6 tools `vision:run` no wired se completan en este corte (requiere
-   tocar `VisionService`) o quedan fuera de alcance y solo se corrige que el
-   catálogo los marque `adapter_pending`?
+> Las 4 quedaron abiertas en el borrador inicial. Se investigaron línea por
+> línea contra el código real (no contra suposiciones) el 2026-07-19. Las
+> recomendaciones abajo son eso — recomendaciones, no aprobaciones. Dado que
+> este spec es `risk: critical` y toca `payments`, la decisión #2 en
+> particular exige confirmación explícita del owner antes de `APPROVED`
+> (SDD-005 — human-in-the-loop proporcional al riesgo).
+
+### Decisión 1 — Policy engine: nueva y delgada, NO extraída de Forge
+
+**Recomendado:** módulo nuevo dentro de `apps/api/src/modules/prometeo/` (o
+`tool-governance/`), construido como **consumidor** de `hasPermission()` de
+`@semse/auth`, no como reimplementación de resolución de roles. La lógica
+genuinamente nueva es pequeña (~30-60 líneas): permiso → risk/approvalPolicy →
+decisión.
+
+**Por qué no extraer:** `packages/forge/src/policy.ts` (`evaluateForgePolicy`)
+está fusionado al modelo de task packets de Forge (`task.allowedFiles`,
+`task.targetBranch`, `manifest.fileScopes`) — solo ~4 líneas de la función son
+genéricas. Existe además un **tercer motor de políticas ya en producción**,
+no contemplado en el borrador inicial: `packages/agents/src/governance.ts`
+(`evaluateAgentPolicy`), ya consumido por `agents.service.ts` y ya usado para
+gobernar los propios agentes de IA de Prometeo (`technical-agent`,
+`legal-agent`, etc.) — pero atado a un enum cerrado `AgentToolName` que
+tampoco encaja con `PrometeoToolDescriptor`. Extraer cualquiera de los dos
+como prerequisito de F2 sería un refactor no relacionado y más grande que el
+propio F2.
+
+**Riesgo a registrar (no resuelto por F2, para ítem de trabajo futuro):**
+ya existen 3 motores `allow|deny|require_approval` con formas convergentes
+pero vocabularios divergentes (Forge, `@semse/agents`, y el nuevo de F2) y sin
+interfaz común. Vale un ADR futuro que defina un `PolicyDecision` tipo común
+que los tres devuelvan, sin fusionar la lógica de decisión en sí.
+
+### Decisión 2 — Pagos: gate doble, no uno solo — CONFIRMAR ANTES DE APROBAR
+
+**Hallazgo crítico:** `approvalPolicy: "human_required"` en
+`payments.propose_release` es **ficción hoy**. Si se quitara el rechazo
+genérico de tools no-`read`, la llamada golpearía directo
+`POST /v1/milestones/:milestoneId/escrow/release`
+(`PaymentsController.release`), gateada solo por
+`@RequirePermissions("projects:financials:write")` — un solo permiso, sin
+segunda aprobación humana. El dinero se movería de inmediato.
+
+**Recomendado (híbrido, no (a) ni (b) puros):** dos gates independientes que
+no se pisan:
+
+1. F2 construye la capa genérica de "proposed action" para la invocación de
+   Prometeo en sí (aplica a cualquier tool `human_required`/`dual_approval`,
+   no solo pagos). **Esta capa ya está medio diseñada y sin usar**:
+   `packages/schemas/src/prometeo-runtime.schema.ts` ya define
+   `prometeoApprovalPolicySchema` (`none|confirm|human_required|
+   dual_approval`) y `prometeoProposedActionSchema` con estados
+   `proposed|awaiting_approval|approved|rejected|blocked` — nadie los
+   consume todavía. F2 los conecta, no los reinventa.
+2. Una vez aprobada la propuesta, F2 llama al endpoint existente sin
+   modificarlo. `PaymentsService.release()` conserva intactos sus checks de
+   negocio (contrato firmado, milestone `APPROVED`, sin disputa abierta,
+   balance suficiente) — F2 no los duplica ni los reemplaza.
+
+Los dos gates responden preguntas distintas: "¿puede este agente/sesión
+proponer esto?" (gate 1, nuevo) vs. "¿es esto financieramente válido ahora
+mismo?" (gate 2, ya existe). Ninguno reemplaza al otro.
+
+**Por qué no los puros:** (a) delegar solo en lo existente deja
+`human_required` sin efecto real. (b) construir un flujo de aprobación que
+sea el único gate arriesga duplicar o — peor — bypasear los invariantes de
+`PaymentsService.release()`.
+
+### Decisión 3 — Audit trail: split por write/read, no una tabla única
+
+**Recomendado:**
+
+- **Write-tool invocations** (cuando F2 las habilite): a `AuditLog` vía
+  `AuditService.append`, igual que cualquier otra acción mutante del repo.
+- **Read-tool invocations**: NO una fila de `AuditLog` por invocación.
+  `AuditLog` no tiene retención/purga/particionado, y el volumen esperado
+  (3-5 reads por turno de chat × muchos turnos × muchos tenants) es de forma
+  telemetría, no de forma auditoría — ninguna fila de read tiene
+  `beforeJson`/`afterJson` que justifique el schema. **Ya hay precedente
+  aprobado para esto exacto**: `docs/specs/platform/product-intelligence.spec.md`
+  especifica explícitamente `audit_log: no` para el ingest de telemetría de
+  alto volumen ("volumen; se audita configuración, no cada evento"), con su
+  propio modelo `ProductEvent` de retención corta. F2 sigue ese patrón en vez
+  de inventar uno nuevo: reads van a logging estructurado / un modelo propio
+  de bajo costo, y solo los outcomes bloqueados/con error (el camino
+  `blockedReason`, poco frecuente y significativo) se persisten de forma
+  durable.
+
+### Decisión 4 — Los 5 tools `vision:run` sin cablear: quedan `adapter_pending` en este corte
+
+**Recomendado:** NO cablearlos todavía, aunque mecánicamente sea trivial (~1
+hora, mismos `case` que los 3 ya cableados). Motivo: los 5 pasan por
+`VisionServiceClient` con `fetch()` síncrono real a un microservicio externo
+(hasta 30s de timeout) y **sin ningún rate limit, cost tracker o quota en
+todo el repo** — cablearlos ahora significaría que Prometeo puede disparar
+llamadas externas costosas y lentas **antes** de que F2 termine de construir
+el enforcement de `permissions`/`approvalPolicy`/audit. Eso invierte el
+orden que el propio spec exige (sección 5: "el policy engine se ejecuta
+antes del adapter, nunca dentro"). Se cablean como fast-follow una vez que
+el enforcement exista.
+
+**Hallazgo adicional a registrar (no bloquea F2, es un defecto de catálogo
+separado):** `vision.analyze_image` está declarado `mode: "read"` pero en
+realidad **escribe** — crea y actualiza un `VisionAnalysisRecord`. Corregir
+esta clasificación cuando se cablee.
 
 ## 4. Actores y permisos
 
@@ -179,15 +276,27 @@ Reglas propuestas (a validar en plan.md):
 - cada tool registrada en `PROMETEO_TOOL_REGISTRY` debe tener exactamente un
   adapter registrado bajo `${namespace}.${name}`, o el catálogo la marca
   `adapter_pending` automáticamente (no manualmente por tag, como hoy);
-- el policy engine se ejecuta **antes** del adapter, nunca dentro — el
+- el policy engine (decisión 1, nuevo módulo delgado sobre `hasPermission()`
+  de `@semse/auth`) se ejecuta **antes** del adapter, nunca dentro — el
   adapter no decide si tiene permiso para correr, solo ejecuta;
 - todo adapter recibe `actor` ya autorizado; no vuelve a resolver tenant ni
   roles;
-- `write`/`critical` adapters no ejecutan dentro de la misma llamada si
-  `approvalPolicy` exige aprobación — quedan en estado `pending_approval`
-  hasta que Ops decida (mismo patrón que `ForgeHarness.ensurePendingApproval`
-  / `approve` / `reject`, ya corregido en `packages/forge/src/orchestrator.ts`
-  como parte de este mismo research loop).
+- `write`/`critical` adapters con `approvalPolicy` distinto de `none` no
+  ejecutan dentro de la misma llamada: crean/actualizan un
+  `PrometeoProposedAction` (schema **ya existente**,
+  `prometeoProposedActionSchema` en `packages/schemas/src/
+  prometeo-runtime.schema.ts`, hoy sin consumidor) en estado
+  `awaiting_approval`, y quedan pendientes hasta que Ops decida — mismo
+  patrón que `ForgeHarness.ensurePendingApproval` / `approve` / `reject`
+  (ya corregido en `packages/forge/src/orchestrator.ts` como parte de este
+  mismo research loop: la lección directa es que la decisión de
+  aprobar/rechazar debe mutar estado persistido real, nunca un clon
+  descartable de `getRun()`/equivalente);
+- para `payments.propose_release` específicamente, la aprobación de la
+  `PrometeoProposedAction` NO ejecuta el efecto directamente — dispara la
+  llamada al endpoint existente (`POST /v1/milestones/:milestoneId/escrow/
+  release`), cuyos invariantes de negocio (`PaymentsService.release()`)
+  quedan como el segundo gate, intacto (decisión 2).
 
 ## 6. Contratos API previstos
 
@@ -282,11 +391,19 @@ ENTONCES el catálogo la marca explícitamente no-ejecutable
 ## 9. No objetivos F2
 
 - rediseñar el shape de `PrometeoToolDescriptor`;
-- migrar Forge a la misma policy engine en este corte (solo evaluar si
-  comparten paquete — decisión #1);
+- extraer o unificar los 3 motores de policy existentes (Forge,
+  `@semse/agents`, F2) en un paquete común — decisión #1, queda como riesgo
+  registrado para un ADR futuro, no como trabajo de este corte;
+- cablear los 5 tools `vision:run` pendientes (`analyze_image`,
+  `compare_before_after`, `detect_material`, `classify_space`,
+  `check_safety`) — decisión #4, quedan `adapter_pending` hasta que el
+  enforcement de permisos/audit de F2 exista primero;
 - completar `vision.analyze_video` (pipeline temporal, ya marcado
   `adapter_pending`, sigue fuera de alcance — es su propio ítem en
   `IMPLEMENTATION_STATUS_MATRIX.md`);
+- modificar `PaymentsService.release()` o cualquier invariante de negocio de
+  pagos existente — F2 se conecta como gate previo, no reemplaza el gate
+  financiero (decisión #2);
 - exactly-once ni idempotencia distribuida más allá de lo que ya da
   `agents:run:create` + audit.
 
@@ -303,8 +420,11 @@ ENTONCES el catálogo la marca explícitamente no-ejecutable
 
 - [x] Problema verificado contra el código actual, no contra documentación
       desactualizada (conteos exactos, líneas citadas).
-- [ ] Decisiones bloqueadas (sección 3) resueltas por el owner.
-- [ ] Contrato de adapter validado.
+- [x] Decisiones (sección 3) investigadas línea por línea y recomendadas —
+      **pendiente confirmación explícita del owner**, en particular
+      decisión #2 (pagos, `risk: critical`) por SDD-005.
+- [ ] Contrato de adapter validado (sección 5 ya actualizada con las
+      recomendaciones; falta que el owner lo confirme).
 - [ ] Contratos API confirmados (incluida la ruta de aprobación).
 - [ ] Tests y criterios de aceptación confirmados.
 - [ ] Aprobación explícita para pasar `status: DRAFT -> APPROVED` y habilitar
