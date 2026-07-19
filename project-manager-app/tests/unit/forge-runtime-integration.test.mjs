@@ -308,6 +308,38 @@ test("forge specialized handler simulates patch application through patch writer
   assert.equal(result.payload.patchResult?.results[0]?.newContent, "export class Controller {}");
 });
 
+test("forge specialized handler includes deployment plan for deployment.propose", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-deployment",
+    taskId: "task-runtime-deployment",
+    action: "deployment.propose",
+    task: forgeTask({
+      requestedRole: "devops-release",
+      environment: "staging",
+      targetBranch: "main",
+      riskLevel: "medium",
+      allowedFiles: ["infra/**", ".github/**"]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-deployment",
+      taskId: "task-runtime-deployment"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "require_approval");
+  assert.ok(result.payload.deployment, "payload should include deployment");
+  assert.equal(result.payload.deployment.environment, "staging");
+  assert.equal(result.payload.deployment.decision, "require_approval");
+  assert.ok(result.payload.deployment.steps.includes("deploy:staging"));
+});
+
 test("forge specialized handler skips verification for read-only tasks without proposed files", () => {
   const result = executeSpecializedAgent("forge", {
     forgeRunId: "run-runtime-readonly",

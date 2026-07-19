@@ -92,6 +92,42 @@ test("harness enforces lifecycle transitions", () => {
   assert.equal(current.state, "building");
 });
 
+test("harness can ensure pending approvals", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Approval test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "ops_admin");
+  const first = harness.getRun(run.id);
+  assert.equal(first.approvals.length, 1);
+  assert.equal(first.approvals[0].mode, "ops_admin");
+  assert.equal(first.approvals[0].status, "pending");
+
+  harness.ensurePendingApproval(run.id, "ops_admin");
+  const second = harness.getRun(run.id);
+  assert.equal(second.approvals.length, 1);
+
+  harness.approve(run.id, "ops_admin", "user-001");
+  const approved = harness.getRun(run.id);
+  assert.equal(approved.approvals[0].status, "approved");
+  assert.equal(approved.approvals[0].actor, "user-001");
+});
+
+test("policy allows deployment.propose to target main branch", () => {
+  const result = evaluateForgePolicy({
+    manifest: getForgeAgentManifest("devops-release"),
+    task: task({
+      requestedRole: "devops-release",
+      environment: "production",
+      targetBranch: "main",
+      riskLevel: "high"
+    }),
+    action: "deployment.propose"
+  });
+
+  assert.notEqual(result.decision, "deny");
+  assert.ok(!result.violatedPolicies.includes("policy.no_direct_default_branch"));
+});
+
 test("creator blueprint requires rights and builds task graph", async () => {
   const blueprint = {
     id: "solar-academy",

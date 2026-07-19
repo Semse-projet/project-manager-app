@@ -16,6 +16,7 @@ import {
   resolveAllowedContextEnvelope
 } from "./governance.js";
 import {
+  createDeploymentProvider,
   createPatchPlanner,
   createPatchWriter,
   createPRPackageProvider,
@@ -24,6 +25,7 @@ import {
   createVerificationProvider,
   evaluateForgePolicy,
   getForgeAgentManifest,
+  type ForgeDeploymentPlan,
   type ForgePatchPlan,
   type ForgePatchResult,
   type ForgePRPackage,
@@ -463,6 +465,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let patchResult: ForgePatchResult | undefined;
   let verification: ForgeVerificationMatrix | undefined;
   let prPackage: ForgePRPackage | undefined;
+  let deployment: ForgeDeploymentPlan | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -586,6 +589,17 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     });
   }
 
+  const deploymentActions = new Set(["deployment.propose", "rollback.prepare"]);
+  if (policy.decision !== "deny" && deploymentActions.has(action)) {
+    const deploymentProvider = createDeploymentProvider({ mode: "dry-run" });
+    deployment = deploymentProvider.plan({
+      runId: typeof input.forgeRunId === "string" ? input.forgeRunId : task.id,
+      task,
+      policy,
+      prPackage
+    });
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -605,6 +619,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       patchResult,
       verification,
       prPackage,
+      deployment,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }

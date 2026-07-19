@@ -4,6 +4,7 @@ import { canTransitionForgeRun, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
+  ForgeDeploymentPlan,
   ForgePolicyResult,
   ForgePRPackage,
   ForgeRun,
@@ -17,6 +18,17 @@ import { ForgeAgentAdapterService } from "./forge-agent-adapter.service.js";
 import { ForgeRepository } from "./forge.repository.js";
 
 export type ForgeActor = { tenantId: string; orgId: string; userId: string; roles?: string[] };
+
+function allModesApproved(
+  approvals: ForgeRun["approvals"],
+  modes: ForgeApprovalMode[]
+): boolean {
+  const unique = [...new Set(modes)];
+  if (unique.length === 0) return true;
+  return unique.every((mode) =>
+    approvals.some((approval) => approval.mode === mode && approval.status === "approved")
+  );
+}
 
 @Injectable()
 export class ForgeService {
@@ -295,12 +307,28 @@ export class ForgeService {
     });
 
     const prPackage = payload.prPackage as ForgePRPackage | undefined;
+    const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
+
+    // Ensure any extra approvals required by the PR package or deployment plan are tracked.
+    const extraApprovalModes = new Set<ForgeApprovalMode>();
+    for (const mode of prPackage?.requiredApprovals ?? []) extraApprovalModes.add(mode);
+    for (const mode of deployment?.requiredApprovals ?? []) extraApprovalModes.add(mode);
+    for (const mode of extraApprovalModes) {
+      harness.ensurePendingApproval(current.id, mode);
+    }
+    const runAfterApprovals = harness.getRun(current.id);
 
     let nextState = current.state;
-    if (policy?.decision === "deny" || prPackage?.decision === "deny") {
+    if (policy?.decision === "deny" || prPackage?.decision === "deny" || deployment?.decision === "deny") {
       nextState = "blocked";
     } else if (prPackage) {
       nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
+    } else if (deployment) {
+      nextState =
+        current.state === "merged" &&
+        (deployment.decision === "allow" || allModesApproved(runAfterApprovals.approvals, deployment.requiredApprovals))
+          ? "deployed"
+          : current.state;
     } else if (policy?.decision === "require_approval") {
       nextState = nextState === "building" ? nextState : "ready_for_review";
     }
@@ -407,6 +435,25 @@ export class ForgeService {
       } as const);
     }
 
+    if (deployment) {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_DEPLOYMENT_PROPOSED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          deploymentDecision: deployment.decision,
+          environment: deployment.environment,
+          targetBranch: deployment.targetBranch,
+          stepCount: deployment.steps.length,
+          requiredApprovals: deployment.requiredApprovals
+        }
+      } as const);
+    }
+
     const persisted = await this.repository.update({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
@@ -454,11 +501,23 @@ export class ForgeService {
     }
 
     const updated = harness.getRun(input.runId);
+
+    if (input.decision === "approved" && updated.state === "merged") {
+      const deploymentEvent = [...updated.events]
+        .reverse()
+        .find((event) => event.type === "FORGE_DEPLOYMENT_PROPOSED");
+      const requiredApprovals = (deploymentEvent?.detail?.requiredApprovals as ForgeApprovalMode[]) ?? [];
+      if (requiredApprovals.length > 0 && allModesApproved(updated.approvals, requiredApprovals)) {
+        harness.transition(input.runId, "deployed", input.actor.userId);
+      }
+    }
+
+    const updatedAfterTransition = harness.getRun(input.runId);
     const persisted = await this.repository.update({
       tenantId: input.actor.tenantId,
       orgId: input.actor.orgId,
       userId: input.actor.userId,
-      run: updated
+      run: updatedAfterTransition
     });
 
     await this.auditService.append({

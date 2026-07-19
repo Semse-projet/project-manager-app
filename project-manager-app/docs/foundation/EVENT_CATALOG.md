@@ -211,6 +211,7 @@ Consume:
 - `forge.tools.planned`
 - `forge.verification.completed`
 - `forge.pr.ready`
+- `forge.deployment.proposed`
 - `forge.human_review.requested`
 - `forge.approval.decided`
 - `forge.run.blocked`

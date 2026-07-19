@@ -160,6 +160,21 @@ export class ForgeHarness {
     return structuredClone(run);
   }
 
+  ensurePendingApproval(
+    runId: string,
+    mode: ForgeRun["approvals"][number]["mode"]
+  ): ForgeRun {
+    const run = this.requireRun(runId);
+    if (!run.approvals.some((candidate) => candidate.mode === mode && candidate.status === "pending")) {
+      run.approvals.push({ mode, status: "pending" });
+      run.updatedAt = new Date().toISOString();
+      this.recordEvent(run, "FORGE_HUMAN_REVIEW_REQUESTED", "forge", {
+        approvalMode: mode
+      });
+    }
+    return structuredClone(run);
+  }
+
   private requireRun(runId: string): ForgeRun {
     const run = this.runs.get(runId);
     if (!run) throw new Error(`Forge run not found: ${runId}`);
