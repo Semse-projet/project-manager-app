@@ -29,11 +29,16 @@ Implementé el siguiente componente puro del plano de control de SEMSE Forge: `D
 
 ### `packages/agents`
 
-- `src/runtime.ts`: `buildForge` invoca `createDeploymentProvider` para las acciones `deployment.propose`, `rollback.prepare` y `ci.implement`, y añade `deployment` al payload de resultado.
+- `src/runtime.ts`: `buildForge` invoca `createDeploymentProvider` para las acciones `deployment.propose` y `rollback.prepare`, y añade `deployment` al payload de resultado.
 
 ### `apps/api`
 
-- `src/modules/forge/forge.service.ts`: `applyTaskResult` extrae `payload.deployment`, emite `FORGE_DEPLOYMENT_PROPOSED` y permite transicionar `merged → deployed` cuando `deployment.decision === "allow"`.
+- `src/modules/forge/forge.service.ts`: `applyTaskResult` extrae `payload.deployment`, emite `FORGE_DEPLOYMENT_PROPOSED`, asegura que todas las aprobaciones requeridas por el plan estén registradas, y transiciona `merged → deployed` cuando el plan es `allow` o cuando todas sus aprobaciones requeridas ya están aprobadas.
+- `src/modules/forge/forge.service.ts`: `decideApproval` transiciona `merged → deployed` tras aprobar un modo si todas las aprobaciones requeridas por el evento `FORGE_DEPLOYMENT_PROPOSED` más reciente están satisfechas.
+
+### `packages/forge`
+
+- `src/orchestrator.ts`: nuevo método `ForgeHarness.ensurePendingApproval(runId, mode)` para registrar aprobaciones adicionales (p. ej. `security`) sin duplicar.
 
 ### Documentación
 
@@ -44,6 +49,7 @@ Implementé el siguiente componente puro del plano de control de SEMSE Forge: `D
 
 - `tests/unit/forge-deployment-provider.test.mjs`: 8 casos.
 - `tests/unit/forge-runtime-integration.test.mjs`: añadido caso de integración para `deployment.propose`.
+- `tests/unit/forge-harness.test.mjs`: añadidos casos para `ensurePendingApproval` y para que `deployment.propose` pueda apuntar a `main`.
 
 ## Validación
 
@@ -52,10 +58,11 @@ pnpm --filter @semse/forge build    PASS
 pnpm --filter @semse/agents build   PASS
 pnpm typecheck                       PASS
 pnpm lint                            PASS (54 warnings preexistentes en apps/web, 0 errores)
-pnpm test:unit                       PASS (904 pass / 0 fail)
+pnpm test:unit                       PASS (906 pass / 0 fail)
 pnpm spec:preflight                  PASS
 node scripts/forge-validate.mjs     PASS (Agents 14, States 15, Errors 0)
 pnpm spec:validate:strict            11 errores preexistentes (ninguno nuevo, tampoco relacionado con este cambio)
+GitHub Actions CI (PR #344)         PASS (10/10 checks)
 ```
 
 ## Notas
