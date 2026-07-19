@@ -1,6 +1,6 @@
 ---
 id: "api-sense-workspace"
-title: "Sense Workspace API"
+title: "SEMSE Workspace API"
 domain: "workspace"
 status: "IMPLEMENTED"
 owner: "semse-core"
@@ -28,11 +28,11 @@ related_agents:
 last_verified: "2026-07-18"
 ---
 
-# Spec: Sense Workspace API
+# Spec: SEMSE Workspace API
 
 ## Problem Statement
 
-The Sense Workspace is a three-panel shell (left = navigation, center = active
+The SEMSE Workspace is a three-panel shell (left = navigation, center = active
 mission, right = operational/configuration context). The backend coordinates the
 ephemeral per-user UI state so navigation history, the active mission and the
 right-panel mode stay consistent across reloads within a session.

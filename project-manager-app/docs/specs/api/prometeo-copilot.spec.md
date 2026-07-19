@@ -34,7 +34,7 @@ last_verified: "2026-07-18"
 The Prometeo Copilot is a context-aware floating assistant present across the
 authenticated app. It detects the module/resource from the current route,
 answers in-context, proposes quick actions, and — when a request warrants a
-dedicated workspace — suggests and creates a Sense Workspace mission.
+dedicated workspace — suggests and creates a SEMSE Workspace mission.
 
 ## Scope
 

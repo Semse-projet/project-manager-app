@@ -1,9 +1,9 @@
-# Reporte — Prometeo Copilot & Sense Workspace (2026-07-18)
+# Reporte — Prometeo Copilot & SEMSE Workspace (2026-07-18)
 
 ## Objetivo
 
 1. Verificar/arreglar el build base del monorepo.
-2. Implementar las features aprobadas: Prometeo Orchestrator, Sense Workspace y
+2. Implementar las features aprobadas: Prometeo Orchestrator, SEMSE Workspace y
    Prometeo Copilot.
 
 ## Diagnóstico del build

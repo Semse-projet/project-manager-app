@@ -21,14 +21,14 @@ export class WorkspaceController {
   constructor(private readonly workspace: WorkspaceService) {}
 
   @Get("context")
-  @AuthenticatedAccess("Sense Workspace exposes only the caller's own UI shell state")
+  @AuthenticatedAccess("SEMSE Workspace exposes only the caller's own UI shell state")
   getContext(@Req() req: FastifyRequest) {
     const rid = resolveRequestId(req.headers ?? {});
     return ok(rid, this.workspace.getContext(actorOf(req)));
   }
 
   @Post("navigation")
-  @AuthenticatedAccess("Sense Workspace navigation only mutates the caller's own UI shell state")
+  @AuthenticatedAccess("SEMSE Workspace navigation only mutates the caller's own UI shell state")
   updateNavigation(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = updateNavigationRequestSchema.safeParse(body);
@@ -39,7 +39,7 @@ export class WorkspaceController {
   }
 
   @Post("mission/load")
-  @AuthenticatedAccess("Sense Workspace mission load only affects the caller's own UI shell state")
+  @AuthenticatedAccess("SEMSE Workspace mission load only affects the caller's own UI shell state")
   loadMission(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = loadMissionRequestSchema.safeParse(body);
@@ -50,7 +50,7 @@ export class WorkspaceController {
   }
 
   @Post("mission/unload")
-  @AuthenticatedAccess("Sense Workspace mission unload only affects the caller's own UI shell state")
+  @AuthenticatedAccess("SEMSE Workspace mission unload only affects the caller's own UI shell state")
   unloadMission(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = unloadMissionRequestSchema.safeParse(body);

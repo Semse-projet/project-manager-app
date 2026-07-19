@@ -4,7 +4,7 @@ import type {
 } from "@semse/schemas";
 
 /**
- * Sense Workspace finite-state machine.
+ * SEMSE Workspace finite-state machine.
  *
  * The workspace tracks two orthogonal pieces of state:
  *  - the *mission* lifecycle (none → loaded → none), and
