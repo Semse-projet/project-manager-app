@@ -589,7 +589,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     });
   }
 
-  const deploymentActions = new Set(["deployment.propose", "rollback.prepare", "ci.implement"]);
+  const deploymentActions = new Set(["deployment.propose", "rollback.prepare"]);
   if (policy.decision !== "deny" && deploymentActions.has(action)) {
     const deploymentProvider = createDeploymentProvider({ mode: "dry-run" });
     deployment = deploymentProvider.plan({
