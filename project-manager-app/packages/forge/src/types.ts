@@ -208,6 +208,18 @@ export type ForgePRPackage = {
   auditTags: string[];
 };
 
+export type ForgeDeploymentPlan = {
+  mode: "dry-run" | "live";
+  decision: "allow" | "deny" | "require_approval";
+  reason: string;
+  environment: string;
+  targetBranch: string;
+  steps: string[];
+  requiredApprovals: ForgeApprovalMode[];
+  violations: string[];
+  auditTags: string[];
+};
+
 export type CreatorAppType =
   | "course"
   | "simulator"

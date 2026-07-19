@@ -98,7 +98,8 @@ export function evaluateForgePolicy(input: {
     violations.push("policy.spec.must_be_approved");
   }
 
-  if (task.targetBranch === "main" || task.targetBranch === "master") {
+  const branchAgnosticActions = new Set(["deployment.propose", "rollback.prepare"]);
+  if ((task.targetBranch === "main" || task.targetBranch === "master") && !branchAgnosticActions.has(action)) {
     violations.push("policy.no_direct_default_branch");
   }
 

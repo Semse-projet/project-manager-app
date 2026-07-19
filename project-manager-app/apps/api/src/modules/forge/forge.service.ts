@@ -4,6 +4,7 @@ import { canTransitionForgeRun, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
+  ForgeDeploymentPlan,
   ForgePolicyResult,
   ForgePRPackage,
   ForgeRun,
@@ -295,10 +296,13 @@ export class ForgeService {
     });
 
     const prPackage = payload.prPackage as ForgePRPackage | undefined;
+    const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
 
     let nextState = current.state;
-    if (policy?.decision === "deny" || prPackage?.decision === "deny") {
+    if (policy?.decision === "deny" || prPackage?.decision === "deny" || deployment?.decision === "deny") {
       nextState = "blocked";
+    } else if (deployment) {
+      nextState = deployment.decision === "allow" && current.state === "merged" ? "deployed" : current.state;
     } else if (prPackage) {
       nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
     } else if (policy?.decision === "require_approval") {
@@ -403,6 +407,25 @@ export class ForgeService {
           headBranch: prPackage.headBranch,
           baseBranch: prPackage.baseBranch,
           changedFileCount: prPackage.changedFiles.length
+        }
+      } as const);
+    }
+
+    if (deployment) {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_DEPLOYMENT_PROPOSED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          deploymentDecision: deployment.decision,
+          environment: deployment.environment,
+          targetBranch: deployment.targetBranch,
+          stepCount: deployment.steps.length,
+          requiredApprovals: deployment.requiredApprovals
         }
       } as const);
     }
