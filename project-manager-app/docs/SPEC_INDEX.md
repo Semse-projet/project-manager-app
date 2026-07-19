@@ -70,6 +70,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [communications-communications-rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | missing | yes | no | no | 0 | missing |
 | [core-communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | missing | yes | no | no | 0 | missing |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | high | no | no | yes | 3 | 2026-07-17 |
+| [evidence-evidence-canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | APPROVED | missing | yes | no | no | 0 | missing |
 | [semse-forge-deployment-provider](specs/forge/SEMSE_FORGE_DEPLOYMENT_PROVIDER.spec.md) | forge | APPROVED | medium | no | no | yes | 6 | 2026-07-17 |
 | [semse-forge-observation-provider](specs/forge/SEMSE_FORGE_OBSERVATION_PROVIDER.spec.md) | forge | APPROVED | high | no | no | yes | 7 | 2026-07-17 |
 | [semse-forge-patch-planner](specs/forge/SEMSE_FORGE_PATCH_PLANNER.spec.md) | forge | APPROVED | high | no | no | yes | 6 | 2026-07-17 |

@@ -12,7 +12,7 @@
 |---|---|---|---|
 | Comunicaciones | `CommunicationThread` / `Communication` | `MessageThread` / `Message` eliminadas; `ConversationThread`/`ConversationMessage` renombradas | Fase 1 y 2 completadas; schema, migración y repository actualizados |
 | Tareas | `JobTask` (canónico en Fase 1) | `BuildOpsTask`, `AgroFarmTask` | Fase 1 lista: `JobTask` extendido con campos polimórficos para BuildOps y Agro; Fase 2/3 migrarán BuildOpsTask y AgroFarmTask |
-| Documentos/evidencias | `Evidence` | `AgroEvidenceItem` | Extender `Evidence` con `entityType`/`entityId` para absorver evidencia agro; `PrometeoDocument` se mantiene como `KnowledgeSource` RAG; `MilestoneEvidenceItem` es checklist, no evidencia pura |
+| Documentos/evidencias | `Evidence` | `AgroEvidenceItem` | Fase 1 completada: `Evidence` extiende `tenantId`, `entityType`/`entityId`, `farmId` y campos agro (`mediaType`, `title`, `notes`, `fileUrl`); Fase 2 migrará `AgroEvidenceItem` tras añadir `tenantId` a `AgroFarm` |
 | Tracking de tiempo | `TimeEntry` / `LaborSheet` | `TrackerSession` eliminada; `WorklogEntry` pendiente (diario de campo) | Fase 1 completada: `TrackerSession` migrado a `TimeEntry`; `TimeEntry` extiende `contextEntityType`/`contextEntityId`; adaptador legacy mantiene `/v1/time-tracker` |
 | Ejecuciones de agentes | `AgentRun` | `AlgorithmRun`, `BrowserMission`, `AutonomousPrRun`, `ProductIngestBatch` | Evaluar si `AgentRun` puede absorber `AlgorithmRun` y `BrowserMission` vía `kind`/`contextJson`; `AutonomousPrRun` y `ProductIngestBatch` son casos especiales |
 
@@ -60,7 +60,8 @@
 - `PrometeoDocument` es un documento de conocimiento/RAG; en el futuro puede renombrarse a `KnowledgeSource` o `Document` unificado, pero hoy no es evidencia operativa.
 - `MilestoneEvidenceItem` es un requisito de evidencia por hito (checklist), no el archivo en sí; se mantiene como `MilestoneEvidenceItem`.
 - Justificación: `Evidence` ya centraliza `bucketKey`, `kind`, `validationStatus`, `aiQualityScore`, `metadataJson`, `capturedAt`, `uploadedById`, `promotedFromBuildOps`. Es la entidad documental operativa de SEMSE.
-- Próximo paso: extender `Evidence` con `entityType`/`entityId` y migrar `AgroEvidenceItem`.
+- Fase 1 (completada): extender `Evidence` con `tenantId` (Constitución Art. VII), `entityType`/`entityId`, `farmId`, `mediaType`, `title`, `notes`, `fileUrl` y `capturedById`; relaciones `Tenant` y `AgroFarm`; migration que backfilla `tenantId` desde `Project`; actualizar creadores (`evidence.repository`, `evidence-gateway`, `buildops-legacy-promotion`, `browser-agent`) para escribir `tenantId`.
+- Fase 2 (futura): añadir `tenantId` a `AgroFarm`, hacer `projectId` opcional en `Evidence` y migrar `AgroEvidenceItem` a `Evidence`.
 
 ---
 
