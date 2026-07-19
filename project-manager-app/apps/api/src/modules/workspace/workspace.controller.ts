@@ -22,41 +22,41 @@ export class WorkspaceController {
 
   @Get("context")
   @AuthenticatedAccess("SEMSE Workspace exposes only the caller's own UI shell state")
-  getContext(@Req() req: FastifyRequest) {
+  async getContext(@Req() req: FastifyRequest) {
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, this.workspace.getContext(actorOf(req)));
+    return ok(rid, await this.workspace.getContext(actorOf(req)));
   }
 
   @Post("navigation")
   @AuthenticatedAccess("SEMSE Workspace navigation only mutates the caller's own UI shell state")
-  updateNavigation(@Req() req: FastifyRequest, @Body() body: unknown) {
+  async updateNavigation(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = updateNavigationRequestSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message).join("; "));
     }
-    return ok(rid, this.workspace.updateNavigation(actorOf(req), parsed.data));
+    return ok(rid, await this.workspace.updateNavigation(actorOf(req), parsed.data));
   }
 
   @Post("mission/load")
   @AuthenticatedAccess("SEMSE Workspace mission load only affects the caller's own UI shell state")
-  loadMission(@Req() req: FastifyRequest, @Body() body: unknown) {
+  async loadMission(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = loadMissionRequestSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message).join("; "));
     }
-    return ok(rid, this.workspace.loadMission(actorOf(req), parsed.data));
+    return ok(rid, await this.workspace.loadMission(actorOf(req), parsed.data));
   }
 
   @Post("mission/unload")
   @AuthenticatedAccess("SEMSE Workspace mission unload only affects the caller's own UI shell state")
-  unloadMission(@Req() req: FastifyRequest, @Body() body: unknown) {
+  async unloadMission(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = unloadMissionRequestSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message).join("; "));
     }
-    return ok(rid, this.workspace.unloadMission(actorOf(req), parsed.data.missionId));
+    return ok(rid, await this.workspace.unloadMission(actorOf(req), parsed.data.missionId));
   }
 }

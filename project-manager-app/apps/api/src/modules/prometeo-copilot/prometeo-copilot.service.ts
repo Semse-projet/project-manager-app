@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type {
   ActionExecutionResponse,
@@ -15,6 +15,11 @@ import type {
 } from "@semse/schemas";
 import { OrchestrationService, type OrchestrationActor } from "../orchestration/orchestration.service.js";
 import { WorkspaceService, type WorkspaceActor } from "../workspace/workspace.service.js";
+import {
+  COPILOT_SESSION_REPOSITORY,
+  type CopilotSession,
+  type CopilotSessionRepository,
+} from "./prometeo-copilot.repository.js";
 
 export type CopilotActor = WorkspaceActor & OrchestrationActor;
 
@@ -117,22 +122,15 @@ function detectResourceId(currentUrl: string, moduleName: string): string | null
   return null;
 }
 
-type CopilotSession = {
-  sessionId: string;
-  tenantId: string;
-  userId: string;
-  module: string;
-  lastMissionSuggestion?: CopilotMissionSuggestion;
-};
-
 @Injectable()
 export class PrometeoCopilotService {
   private readonly logger = new Logger(PrometeoCopilotService.name);
-  private readonly sessions = new Map<string, CopilotSession>();
 
   constructor(
     private readonly orchestration: OrchestrationService,
     private readonly workspace: WorkspaceService,
+    @Inject(COPILOT_SESSION_REPOSITORY)
+    private readonly sessions: CopilotSessionRepository,
   ) {}
 
   detectContext(actor: CopilotActor, request: CopilotContextRequest): CopilotContextResponse {
@@ -151,8 +149,16 @@ export class PrometeoCopilotService {
     };
   }
 
-  processMessage(actor: CopilotActor, request: CopilotMessageRequest): CopilotMessageResponse {
-    const sessionId = this.resolveSession(actor, request.sessionId, request.context?.module ?? "dashboard");
+  async processMessage(
+    actor: CopilotActor,
+    request: CopilotMessageRequest,
+  ): Promise<CopilotMessageResponse> {
+    const session = await this.resolveSession(
+      actor,
+      request.sessionId,
+      request.context?.module ?? "dashboard",
+    );
+    const sessionId = session.sessionId;
     const interpretation = this.orchestration.interpret(request.message);
     const requiresWorkspace = interpretation.confidence >= 0.5;
 
@@ -169,10 +175,8 @@ export class PrometeoCopilotService {
         type: profile.missionType,
         reason: `Detecté la intención "${interpretation.intent}" — conviene abrir una misión en el Workspace.`,
       };
-      const session = this.sessions.get(sessionId);
-      if (session) {
-        session.lastMissionSuggestion = missionSuggestion;
-      }
+      session.lastMissionSuggestion = missionSuggestion;
+      await this.sessions.save(session);
     }
 
     this.logger.log(
@@ -188,15 +192,18 @@ export class PrometeoCopilotService {
     };
   }
 
-  createMission(actor: CopilotActor, request: CreateMissionFromCopilotRequest): MissionCreationResponse {
-    const session = this.sessions.get(request.copilotSessionId);
+  async createMission(
+    actor: CopilotActor,
+    request: CreateMissionFromCopilotRequest,
+  ): Promise<MissionCreationResponse> {
+    const session = await this.sessions.find(request.copilotSessionId);
     if (session && session.tenantId !== actor.tenantId) {
       // Never leak another tenant's session; treat as a fresh mission.
       this.logger.warn(`copilot.mission.create cross-tenant session ignored user=${actor.userId}`);
     }
 
     const missionId = randomUUID();
-    const loaded = this.workspace.loadMission(actor, {
+    const loaded = await this.workspace.loadMission(actor, {
       missionId,
       missionType: request.missionType,
       title: request.title,
@@ -215,6 +222,7 @@ export class PrometeoCopilotService {
   }
 
   executeAction(actor: CopilotActor, request: ExecuteCopilotActionRequest): ActionExecutionResponse {
+    // Read-only; no persistence needed, kept synchronous.
     const actionId = randomUUID();
     // Read-only quick actions complete inline; anything that would mutate a
     // protected resource is deferred to the Workspace for governed execution.
@@ -253,17 +261,28 @@ export class PrometeoCopilotService {
     };
   }
 
-  private resolveSession(actor: CopilotActor, sessionId: string | undefined, module: string): string {
+  private async resolveSession(
+    actor: CopilotActor,
+    sessionId: string | undefined,
+    module: string,
+  ): Promise<CopilotSession> {
     if (sessionId) {
-      const existing = this.sessions.get(sessionId);
+      const existing = await this.sessions.find(sessionId);
       if (existing && existing.tenantId === actor.tenantId) {
         existing.module = module;
-        return sessionId;
+        await this.sessions.save(existing);
+        return existing;
       }
     }
     const id = sessionId ?? randomUUID();
-    this.sessions.set(id, { sessionId: id, tenantId: actor.tenantId, userId: actor.userId, module });
-    return id;
+    const session: CopilotSession = {
+      sessionId: id,
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      module,
+    };
+    await this.sessions.save(session);
+    return session;
   }
 
   private titleFromMessage(message: string): string {

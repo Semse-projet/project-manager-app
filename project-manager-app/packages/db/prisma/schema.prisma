@@ -836,7 +836,7 @@ model ForgeRun {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, state, createdAt])
   @@index([tenantId, specId])
@@ -1390,7 +1390,7 @@ model TimeEntry {
   notes              String?
   editedBy           String?
   editReason         String?
-  contextEntityType  String?   // e.g. FieldUnit, Job, Animal, CropLot
+  contextEntityType  String? // e.g. FieldUnit, Job, Animal, CropLot
   contextEntityId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
@@ -1696,39 +1696,39 @@ model ComplianceDoc {
 
 /// Canonical task (jobs, BuildOps, Agro) — Fase 1 extends JobTask to be the unified Task table.
 model JobTask {
-  id                            String    @id @default(cuid())
-  tenantId                      String
-  jobId                         String?   // null for BuildOps/Agro tasks not yet linked to a job
-  milestone                     String?
-  title                         String
-  description                   String?
-  dueDate                       DateTime?
-  priority                      String    @default("medium") // low | medium | high | urgent
-  status                        String    @default("pending") // pending | in_progress | done | blocked | canceled
-  assignedTo                    String? // userId
-  createdBy                     String
+  id          String    @id @default(cuid())
+  tenantId    String
+  jobId       String? // null for BuildOps/Agro tasks not yet linked to a job
+  milestone   String?
+  title       String
+  description String?
+  dueDate     DateTime?
+  priority    String    @default("medium") // low | medium | high | urgent
+  status      String    @default("pending") // pending | in_progress | done | blocked | canceled
+  assignedTo  String? // userId
+  createdBy   String
 
   // BuildOps-specific fields (Fase 2 will migrate BuildOpsTask here)
-  orgId                         String?
-  projectId                     String?
-  templateKey                   String?
-  sourceTool                    String?
-  completion                    Int       @default(0)
-  evidenceRequired              Json?     @db.JsonB
-  assigneeName                  String?
+  orgId            String?
+  projectId        String?
+  templateKey      String?
+  sourceTool       String?
+  completion       Int     @default(0)
+  evidenceRequired Json?   @db.JsonB
+  assigneeName     String?
 
   // Agro-specific fields (Fase 3 will migrate AgroFarmTask here)
-  farmId                        String?
-  targetType                    String? // ANIMAL | ANIMAL_GROUP | FARM_UNIT | INVENTORY | GENERAL
-  targetId                      String?
-  taskType                      String? // FEEDING | VACCINATION | ... | OTHER
-  startedAt                     DateTime?
-  completedAt                   DateTime?
-  blockedAt                     DateTime?
-  canceledAt                    DateTime?
-  blockReason                   String?
-  cancelReason                  String?
-  notes                         String?   @db.Text
+  farmId       String?
+  targetType   String? // ANIMAL | ANIMAL_GROUP | FARM_UNIT | INVENTORY | GENERAL
+  targetId     String?
+  taskType     String? // FEEDING | VACCINATION | ... | OTHER
+  startedAt    DateTime?
+  completedAt  DateTime?
+  blockedAt    DateTime?
+  canceledAt   DateTime?
+  blockReason  String?
+  cancelReason String?
+  notes        String?   @db.Text
 
   // Legacy promotion bridge
   promotedFromBuildOpsProjectId String?
@@ -1737,14 +1737,14 @@ model JobTask {
   promotedByUserId              String?
 
   // Polymorphic context for future verticals
-  domain                        String?   @default("jobs") // jobs | buildops | agro
-  vertical                      String?   // build | field | agro | etc.
-  entityType                    String?   // BuildOpsProject | AgroFarm | Job | etc.
-  entityId                      String?
+  domain     String? @default("jobs") // jobs | buildops | agro
+  vertical   String? // build | field | agro | etc.
+  entityType String? // BuildOpsProject | AgroFarm | Job | etc.
+  entityId   String?
 
-  createdAt                     DateTime  @default(now())
-  updatedAt                     DateTime  @updatedAt
-  deletedAt                     DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -3601,4 +3601,54 @@ model ConsentRecord {
   revokedAt    DateTime?
 
   @@index([tenantId, anonymousId, grantedAt])
+}
+
+// ── Prometeo Memory (persistent session state for Workspace/Copilot/Orchestrator) ──
+
+model PrometeoWorkspaceState {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String
+  userId             String
+  currentScreen      String
+  activeSection      String
+  navigationHistory  String[] @default([])
+  rightPanelMode     String
+  activeMissionId    String?
+  activeMissionType  String?
+  activeMissionTitle String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantId, userId])
+  @@map("prometeo_workspace_state")
+}
+
+model PrometeoCopilotSession {
+  id                    String   @id @db.Uuid
+  tenantId              String
+  userId                String
+  module                String
+  lastMissionSuggestion Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("prometeo_copilot_session")
+}
+
+model PrometeoOrchestration {
+  id               String   @id @db.Uuid
+  tenantId         String
+  userId           String
+  status           String
+  currentStep      String
+  interpretation   Json
+  agentsConsulted  Json
+  plan             Json
+  requiresApproval Boolean
+  errors           Json
+  createdAt        DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("prometeo_orchestration")
 }

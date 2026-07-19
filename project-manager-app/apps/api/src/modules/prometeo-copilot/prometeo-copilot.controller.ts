@@ -34,24 +34,24 @@ export class PrometeoCopilotController {
 
   @Post("message")
   @RequirePermissions("agents:run:create")
-  message(@Req() req: FastifyRequest, @Body() body: unknown) {
+  async message(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = copilotMessageRequestSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message).join("; "));
     }
-    return ok(rid, this.copilot.processMessage(actorOf(req), parsed.data));
+    return ok(rid, await this.copilot.processMessage(actorOf(req), parsed.data));
   }
 
   @Post("mission/create")
   @RequirePermissions("agents:run:create")
-  createMission(@Req() req: FastifyRequest, @Body() body: unknown) {
+  async createMission(@Req() req: FastifyRequest, @Body() body: unknown) {
     const rid = resolveRequestId(req.headers ?? {});
     const parsed = createMissionFromCopilotRequestSchema.safeParse(body);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.issues.map((i) => i.message).join("; "));
     }
-    return ok(rid, this.copilot.createMission(actorOf(req), parsed.data));
+    return ok(rid, await this.copilot.createMission(actorOf(req), parsed.data));
   }
 
   @Post("action/execute")
