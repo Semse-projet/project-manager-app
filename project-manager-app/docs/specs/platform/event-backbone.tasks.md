@@ -85,10 +85,10 @@ date: "2026-07-12"
 ## Fase 7 — Validación y canary
 
 - [ ] **T-070** `pnpm spec:validate:strict`.
-- [ ] **T-071** Tests unitarios/contract/integration del slice.
+- [x] **T-071** Tests unitarios/contract/integration del slice. (suite completa de `@semse/api`: 1907/1908 passing sobre `main` post-merge F1-E; el único fallo — `graphify.service.test.ts` — es preexistente, no relacionado con event-backbone, y falla por una aserción de path POSIX en Windows)
 - [ ] **T-072** `pnpm verify:workspace`.
-- [ ] **T-073** Fault test: Redis OFF durante registro Evidence.
-- [ ] **T-074** Fault test: crash después de enqueue antes de ack.
+- [x] **T-073** Fault test: Redis OFF durante registro Evidence. (`apps/api/test/evidence-outbox-integration.test.ts` — "F1-E fault test (T-073)")
+- [x] **T-074** Fault test: crash después de enqueue antes de ack. (cubierto desde F1-C por `apps/api/test/event-outbox-dispatcher-integration.test.ts` — "an expired lease becomes eligible for a new dispatcher")
 - [ ] **T-075** Deploy con switches OFF y verificar health.
 - [ ] **T-076** Canary allowlist solo `evidence.uploaded.v1`.
 - [ ] **T-077** Verificar SLO, duplicados, DLQ y ausencia de pagos.
