@@ -1,13 +1,32 @@
 ---
+id: "tools.materials-calculator"
+title: "Materials Calculator — calculadora de materiales de obra"
 type: spec
-feature: "materials-calculator"
 domain: "tools"
 version: "1.0"
-status: "APPROVED"
-branch: "devin/materiales-obra-skill"
+status: "VERIFIED"
+owner: "semse-core"
+risk: "low"
 date: "2026-07-17"
 author: "Devin"
+branch: "devin/materiales-obra-skill"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - packages/tools/src/materials/materials-calculator.ts
+  - packages/tools/src/index.ts
+  - apps/api/src/modules/tools/tools.controller.ts
+  - apps/api/src/modules/tools/tools.service.ts
+  - apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts
+  - apps/api/src/modules/prometeo/prometeo-tool-registry.ts
+  - apps/api/skills/materiales-obra/SKILL.md
+related_tests:
+  - tests/unit/materials-calculator.test.mjs
+related_endpoints:
+  - v1/tools/materials
+related_events: []
+related_agents:
+  - prometeo
+last_verified: "2026-07-19"
 ---
 
 # Spec: materials-calculator
