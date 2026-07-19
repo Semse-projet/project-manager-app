@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
 export interface EvidenceValidationInput {
+  tenantId: string;
   projectId: string;
   milestoneId?: string;
   uploadedById: string;
@@ -29,6 +30,7 @@ export class EvidenceGatewayRepository {
   async createEvidence(input: EvidenceValidationInput) {
     return this.prisma.evidence.create({
       data: {
+        tenantId: input.tenantId,
         projectId: input.projectId,
         milestoneId: input.milestoneId,
         uploadedById: input.uploadedById,

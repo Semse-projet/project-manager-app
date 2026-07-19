@@ -5,6 +5,7 @@ import { VisionService } from "../vision/vision.service.js";
 import { StorageService } from "../../infrastructure/storage/storage.service.js";
 
 export interface EvidenceUploadRequest {
+  tenantId: string;
   projectId: string;
   milestoneId?: string;
   uploadedById: string;
@@ -43,6 +44,7 @@ export class EvidenceGatewayService {
 
       // Create evidence record
       const evidence = await this.repository.createEvidence({
+        tenantId: request.tenantId,
         projectId: request.projectId,
         milestoneId: request.milestoneId,
         uploadedById: request.uploadedById,
