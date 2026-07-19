@@ -40,7 +40,7 @@ Gate de salida:
 - el snapshot registra por separado `main`, checkout local, CI, deploy,
   endpoints y configuracion no verificable.
 
-## F1 — Event Backbone (F1-D EN MAIN/DEPLOY; F1-E SIGUIENTE)
+## F1 — Event Backbone (F1-A..F1-E EN MAIN; F1-F canary/deploy SIGUIENTE)
 
 Contrato ejecutable:
 
@@ -71,15 +71,20 @@ Estado del corte:
 - F1-B: producer atomico `Evidence + outbox`, completado;
 - F1-C: dispatcher con leases e ingreso BullMQ, completado;
 - F1-D: worker y consumer `evidence-readiness.v1` idempotente, completado;
-- F1-E: Ops, replay, redaccion, RBAC y trace extendido, pendiente;
-- F1-F: switches OFF, canary, SLO y cierre de produccion, pendiente.
+- F1-E: outbox list/delivery/replay, RBAC (`domain-events:read`/`domain-events:replay`
+  + `OPS_ADMIN`), redaccion y trace extendido, completado en `main`
+  (PR #354, #355; reporte `docs/reportes/F1E_OPS_DLQ_REPLAY_2026-07-19.md`);
+- F1-F: switches OFF, canary, SLO y cierre de produccion, pendiente — requiere
+  acceso a Railway y autorizacion explicita, no intentado todavia.
 - receipt y efecto se confirman en la misma transaccion;
 - duplicados, crash/retry, no-op sin milestone y dead letter fueron probados
   contra PostgreSQL y Redis reales;
 - `Milestone.status`, `paymentReadiness` y Payments no son mutados.
 
-El codigo F1-D fue desplegado en el SHA del corte, pero no se declara activo:
-los switches son default-off y sus valores Railway no pudieron inspeccionarse.
+El codigo F1-D y F1-E fue mergeado en el SHA del corte, pero no se declara
+activo: los switches (`SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED`,
+`SEMSE_EVENT_CONSUMERS_ENABLED`) son default-off y sus valores Railway no
+pudieron inspeccionarse desde este entorno.
 
 Gate de salida:
 

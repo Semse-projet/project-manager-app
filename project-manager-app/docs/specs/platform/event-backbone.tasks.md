@@ -84,7 +84,7 @@ date: "2026-07-12"
 
 ## Fase 7 — Validación y canary
 
-- [ ] **T-070** `pnpm spec:validate:strict`.
+- [x] **T-070** `pnpm spec:validate:strict`. (0 errores, 0 warnings sobre 90 specs tras #357-#360; ver issue #356)
 - [x] **T-071** Tests unitarios/contract/integration del slice. (suite completa de `@semse/api`: 1907/1908 passing sobre `main` post-merge F1-E; el único fallo — `graphify.service.test.ts` — es preexistente, no relacionado con event-backbone, y falla por una aserción de path POSIX en Windows)
 - [ ] **T-072** `pnpm verify:workspace`.
 - [x] **T-073** Fault test: Redis OFF durante registro Evidence. (`apps/api/test/evidence-outbox-integration.test.ts` — "F1-E fault test (T-073)")
@@ -92,8 +92,8 @@ date: "2026-07-12"
 - [ ] **T-075** Deploy con switches OFF y verificar health.
 - [ ] **T-076** Canary allowlist solo `evidence.uploaded.v1`.
 - [ ] **T-077** Verificar SLO, duplicados, DLQ y ausencia de pagos.
-- [ ] **T-078** Crear reporte F1 con research loop y evidencia.
-- [ ] **T-079** Actualizar arquitectura/matriz/roadmap según estado real.
+- [x] **T-078** Crear reporte F1 con research loop y evidencia. (`docs/reportes/F1E_OPS_DLQ_REPLAY_2026-07-19.md`)
+- [x] **T-079** Actualizar arquitectura/matriz/roadmap según estado real. (ver `ROADMAP.md` — sección F1)
 
 ## Criterio de cierre
 
