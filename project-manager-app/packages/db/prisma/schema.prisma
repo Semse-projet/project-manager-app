@@ -179,8 +179,8 @@ model Tenant {
   // Contractor CRM
   contractorLeads               ContractorLead[]
   communicationChannelAccounts  CommunicationChannelAccount[]
-  conversationThreads           ConversationThread[]
-  conversationMessages          ConversationMessage[]
+  communicationThreads           CommunicationThread[]
+  communications          Communication[]
   communicationMessageTemplates CommunicationMessageTemplate[]
   outboundDeliveries            OutboundDelivery[]
   contactIdentities             ContactIdentity[]
@@ -203,7 +203,7 @@ model Org {
   projects                      Project[]
   reservations                  JobReservation[]
   communicationChannelAccounts  CommunicationChannelAccount[]
-  conversationThreads           ConversationThread[]
+  communicationThreads           CommunicationThread[]
   communicationMessageTemplates CommunicationMessageTemplate[]
   contactIdentities             ContactIdentity[]
   clientContracts               Contract[]                     @relation("ContractClientOrg")
@@ -244,9 +244,9 @@ model User {
   auditEvents                         AuditLog[]
   notifications                       Notification[]
   createdCommunicationChannelAccounts CommunicationChannelAccount[] @relation("CommunicationChannelAccountCreatedBy")
-  contactConversationThreads          ConversationThread[]          @relation("CommunicationThreadContactUser")
-  assignedConversationThreads         ConversationThread[]          @relation("CommunicationThreadAssignedUser")
-  sentConversationMessages            ConversationMessage[]         @relation("ConversationMessageSender")
+  contactCommunicationThreads          CommunicationThread[]          @relation("CommunicationThreadContactUser")
+  assignedCommunicationThreads         CommunicationThread[]          @relation("CommunicationThreadAssignedUser")
+  sentCommunications            Communication[]         @relation("CommunicationSender")
   requestedOutboundDeliveries         OutboundDelivery[]            @relation("OutboundDeliveryRequestedBy")
   contactIdentities                   ContactIdentity[]
   passwordResetTokens                 PasswordResetToken[]
@@ -415,7 +415,7 @@ model Job {
   contract            Contract?
   escrow              PaymentEscrow?
   ratings             Rating[]
-  conversationThreads ConversationThread[]
+  communicationThreads CommunicationThread[]
   timeEntries         TimeEntry[]
   travelAssignments   TravelAssignment[]
   buildOpsProject     BuildOpsProject?
@@ -518,7 +518,7 @@ model Project {
   evidence                      Evidence[]
   disputes                      Dispute[]
   escrow                        PaymentEscrow?
-  conversationThreads           ConversationThread[]
+  communicationThreads           CommunicationThread[]
   tenant                        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   job                           Job                  @relation(fields: [jobId], references: [id], onDelete: Restrict)
   assignedProOrg                Org                  @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
@@ -1116,14 +1116,14 @@ model CommunicationChannelAccount {
   tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   org       Org?                 @relation(fields: [orgId], references: [id], onDelete: SetNull)
   createdBy User?                @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  threads   ConversationThread[]
+  threads   CommunicationThread[]
 
   @@unique([tenantId, provider, phoneNumberId])
   @@index([tenantId, provider, status])
   @@index([tenantId, orgId])
 }
 
-model ConversationThread {
+model CommunicationThread {
   id               String                    @id @default(cuid())
   tenantId         String
   orgId            String?
@@ -1153,7 +1153,7 @@ model ConversationThread {
   contractorLead ContractorLead?              @relation(fields: [contractorLeadId], references: [id], onDelete: SetNull)
   job            Job?                         @relation(fields: [jobId], references: [id], onDelete: SetNull)
   project        Project?                     @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  messages       ConversationMessage[]
+  messages       Communication[]
   deliveries     OutboundDelivery[]
 
   @@unique([tenantId, channel, externalThreadId])
@@ -1164,7 +1164,7 @@ model ConversationThread {
   @@index([tenantId, contractorLeadId])
 }
 
-model ConversationMessage {
+model Communication {
   id                String                     @id @default(cuid())
   tenantId          String
   threadId          String
@@ -1183,8 +1183,8 @@ model ConversationMessage {
   createdAt         DateTime                   @default(now())
 
   tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  thread ConversationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender User?              @relation("ConversationMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  thread CommunicationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User?              @relation("CommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, provider, externalMessageId])
   @@index([tenantId, threadId, createdAt])
@@ -1233,7 +1233,7 @@ model OutboundDelivery {
   updatedAt         DateTime                   @updatedAt
 
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  thread       ConversationThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+  thread       CommunicationThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
   notification Notification?       @relation(fields: [notificationId], references: [id], onDelete: SetNull)
   requestedBy  User?               @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
 
@@ -2146,7 +2146,7 @@ model ContractorLead {
   updatedAt DateTime @updatedAt
 
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversationThreads ConversationThread[]
+  communicationThreads CommunicationThread[]
   contactIdentities   ContactIdentity[]
 
   @@index([tenantId, orgId, status, createdAt])
