@@ -114,6 +114,14 @@ test("dry-run observation provider rollback plan has restore steps", () => {
   assert.ok(result.steps.includes("restore_previous_release"));
 });
 
+test("dry-run observation provider returns require_approval with dual_control for devops-release policy", () => {
+  const result = plan({
+    policy: policy("require_approval", ["dual_control"])
+  });
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.requiredApprovals.includes("dual_control"));
+});
+
 test("live observation provider throws not implemented", () => {
   assert.throws(() => {
     const observationProvider = createObservationProvider({ mode: "live" });

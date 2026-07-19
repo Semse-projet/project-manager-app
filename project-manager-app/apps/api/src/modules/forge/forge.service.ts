@@ -347,7 +347,7 @@ export class ForgeService {
         if (observation.decision === "deny") {
           nextState = "rolled_back";
         } else if (
-          observation.decision === "allow" &&
+          current.state === "observing" &&
           allModesApproved(runAfterApprovals.approvals, observation.requiredApprovals)
         ) {
           nextState = "closed";
@@ -363,6 +363,19 @@ export class ForgeService {
     const stateAfterIntermediate = harness.getRun(current.id).state;
     if (nextState !== current.state && canTransitionForgeRun(stateAfterIntermediate, nextState)) {
       harness.transition(current.id, nextState, actor.userId);
+    }
+
+    // If the run is observing after an observation proposal and approvals are already
+    // satisfied, move it to closed in the same handling cycle.
+    if (observation && observation.decision !== "deny") {
+      const runAfterObservation = harness.getRun(current.id);
+      if (
+        runAfterObservation.state === "observing" &&
+        allModesApproved(runAfterObservation.approvals, observation.requiredApprovals) &&
+        canTransitionForgeRun("observing", "closed")
+      ) {
+        harness.transition(current.id, "closed", actor.userId);
+      }
     }
 
     const updated = harness.getRun(current.id);
@@ -590,7 +603,11 @@ export class ForgeService {
         .find((event) => event.type === "FORGE_OBSERVATION_PROPOSED");
       const requiredApprovals = (observationEvent?.detail?.requiredApprovals as ForgeApprovalMode[]) ?? [];
       const observationDecision = observationEvent?.detail?.observationDecision as string | undefined;
-      if (observationDecision === "allow" && allModesApproved(updated.approvals, requiredApprovals)) {
+      if (
+        observationDecision !== "deny" &&
+        requiredApprovals.length > 0 &&
+        allModesApproved(updated.approvals, requiredApprovals)
+      ) {
         harness.transition(input.runId, "closed", input.actor.userId);
       }
     }
