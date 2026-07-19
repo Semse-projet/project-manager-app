@@ -99,6 +99,30 @@ test("dry-run patch planner denies env files", () => {
   assert.ok(result.changes[0].violations.some((v) => v === "patch.secret_file"));
 });
 
+test("dry-run patch planner requires approval for nested railway.json", () => {
+  const result = plan([{ path: "infra/railway/railway.json", operation: "update", content: "{}" }], { allowedFiles: ["infra/**"] });
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.changes[0].violations.some((v) => v === "patch.critical_file"));
+});
+
+test("dry-run patch planner requires approval for nested Dockerfile", () => {
+  const result = plan([{ path: "apps/vision-service/Dockerfile", operation: "update", content: "FROM node" }], { allowedFiles: ["apps/**"] });
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.changes[0].violations.some((v) => v === "patch.critical_file"));
+});
+
+test("dry-run patch planner denies sibling folder with similar prefix", () => {
+  const result = plan([{ path: "packages/api/src2/evil.ts", operation: "update", content: "" }]);
+  assert.equal(result.decision, "deny");
+  assert.ok(result.changes[0].violations.some((v) => v === "patch.file_out_of_scope"));
+});
+
+test("dry-run patch planner denies files on master branch", () => {
+  const result = plan([{ path: "packages/api/src/master.ts", operation: "update", content: "" }], { targetBranch: "master" });
+  assert.equal(result.decision, "deny");
+  assert.ok(result.changes[0].violations.some((v) => v === "patch.no_direct_default_branch"));
+});
+
 test("live patch planner throws not implemented", () => {
   assert.throws(() => {
     const planner = createPatchPlanner({ mode: "live" });

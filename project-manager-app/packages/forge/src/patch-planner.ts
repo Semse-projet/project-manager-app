@@ -43,9 +43,9 @@ const CRITICAL_PATTERNS = [
   "packages/db/prisma/schema.prisma",
   "packages/db/prisma/migrations/**",
   ".github/workflows/**",
-  "railway.json",
-  "Dockerfile*",
-  "docker-compose*"
+  "**/railway.json",
+  "**/Dockerfile*",
+  "**/docker-compose*"
 ];
 
 function isCriticalPath(path: string): boolean {
@@ -62,7 +62,7 @@ function validateChange(change: ProposedFileChange, task: ForgeTaskPacket): Patc
     if (path.includes("..")) violations.push("patch.parent_directory_reference");
     if (ABSOLUTE_OR_HOME.test(path)) violations.push("patch.absolute_or_home_path");
     if (ENV_FILE.test(path)) violations.push("patch.secret_file");
-    if (task.targetBranch === "main") violations.push("patch.no_direct_default_branch");
+    if (task.targetBranch === "main" || task.targetBranch === "master") violations.push("patch.no_direct_default_branch");
 
     const allowedFiles = Array.isArray(task.allowedFiles) ? task.allowedFiles : [];
     const forbiddenFiles = Array.isArray(task.forbiddenFiles) ? task.forbiddenFiles : [];

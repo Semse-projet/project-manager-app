@@ -85,6 +85,42 @@ test("dry-run tool adapter includes audit.record for all actions", () => {
   assert.ok(result.tools.some((t) => t.name === "audit.record" && t.allowed));
 });
 
+test("dry-run tool adapter allows pr.prepare for forge-supervisor", () => {
+  const result = plan("forge-supervisor", "pr.prepare");
+  assert.equal(result.decision, "allow");
+  assert.ok(result.tools.every((t) => t.allowed));
+});
+
+test("dry-run tool adapter allows schema.propose for domain-architect", () => {
+  const result = plan("domain-architect", "schema.propose");
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.tools.every((t) => t.allowed));
+});
+
+test("dry-run tool adapter allows blueprint.create for creator-mentor", () => {
+  const result = plan("creator-mentor", "blueprint.create");
+  assert.equal(result.decision, "allow");
+  assert.ok(result.tools.every((t) => t.allowed));
+});
+
+test("dry-run tool adapter allows publication.propose for creator-mentor", () => {
+  const result = plan("creator-mentor", "publication.propose");
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.tools.every((t) => t.allowed));
+});
+
+test("dry-run tool adapter allows ui.compose for ux-composer", () => {
+  const result = plan("ux-composer", "ui.compose");
+  assert.equal(result.decision, "allow");
+  assert.ok(result.tools.every((t) => t.allowed));
+});
+
+test("dry-run tool adapter allows rollback.plan for data-engineer", () => {
+  const result = plan("data-engineer", "rollback.plan");
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.tools.every((t) => t.allowed));
+});
+
 test("live tool adapter throws not implemented", () => {
   assert.throws(() => {
     const adapter = createToolAdapter({ mode: "live" });
