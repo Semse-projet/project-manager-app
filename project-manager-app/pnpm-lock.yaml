@@ -150,6 +150,9 @@ importers:
       '@semse/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@semse/forge':
+        specifier: workspace:*
+        version: link:../../packages/forge
       '@semse/knowledge':
         specifier: workspace:*
         version: link:../../packages/knowledge
@@ -672,6 +675,9 @@ importers:
 
   packages/agents:
     dependencies:
+      '@semse/forge':
+        specifier: workspace:*
+        version: link:../forge
       '@semse/knowledge':
         specifier: workspace:*
         version: link:../knowledge
@@ -721,6 +727,12 @@ importers:
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
+
+  packages/forge:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
 
   packages/knowledge:
     dependencies:

@@ -59,6 +59,7 @@ import { PrometeoMissionService } from "./prometeo-mission.service.js";
     PlanModeService,
     TechnicalRuntimeService,
     AgentsService,
+    AgentsRepository,
     AgentDelegationService,
     CoordinatorService,
     PlanTemplatesService,

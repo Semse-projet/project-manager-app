@@ -5,6 +5,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./modules/health/health.controller.js";
+import { ForgeModule } from "./modules/forge/forge.module.js";
 import { AuthGuard } from "./common/auth.guard.js";
 import { RbacGuard } from "./common/rbac.guard.js";
 import { validateApiEnv } from "./config/env.schema.js";
@@ -46,6 +47,9 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { MarketplaceModule } from "./modules/marketplace/marketplace.module.js";
 import { SemseAgentsModule } from "./modules/semse-agents/semse-agents.module.js";
 import { PrometeoModule } from "./modules/prometeo/prometeo.module.js";
+import { WorkspaceModule } from "./modules/workspace/workspace.module.js";
+import { OrchestrationModule } from "./modules/orchestration/orchestration.module.js";
+import { PrometeoCopilotModule } from "./modules/prometeo-copilot/prometeo-copilot.module.js";
 import { AiModelsModule } from "./modules/ai-models/ai-models.module.js";
 import { StorageModule } from "./infrastructure/storage/storage.module.js";
 import { SseInfraModule } from "./infrastructure/sse/sse-infra.module.js";
@@ -97,6 +101,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     PdfModule,
     SseInfraModule,
     AuthModule,
+    ForgeModule,
     AgentsModule,
     DomainEventsModule,
     JobsModule,
@@ -132,6 +137,9 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     MarketplaceModule,
     SemseAgentsModule,
     PrometeoModule,
+    WorkspaceModule,
+    OrchestrationModule,
+    PrometeoCopilotModule,
     AiModelsModule,
     StorageModule,
     SseModule,

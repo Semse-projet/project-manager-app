@@ -16,6 +16,24 @@ import {
   resolveAllowedContextEnvelope
 } from "./governance.js";
 import {
+  createPatchPlanner,
+  createPatchWriter,
+  createPRPackageProvider,
+  createSandboxProvider,
+  createToolAdapter,
+  createVerificationProvider,
+  evaluateForgePolicy,
+  getForgeAgentManifest,
+  type ForgePatchPlan,
+  type ForgePatchResult,
+  type ForgePRPackage,
+  type ForgeTaskPacket,
+  type ForgeToolPlan,
+  type ForgeVerificationMatrix,
+  type ProposedFileChange,
+  type SandboxPlan
+} from "@semse/forge";
+import {
   DEFAULT_VERIFICATION_TIMEOUT_MS,
   MISSING_VERIFICATION_BUDGET_REASON,
   clampVerificationBudget,
@@ -405,6 +423,194 @@ function buildEcv(input: RuntimeAgentInput): RuntimeAgentResult {
   };
 }
 
+function asForgeTaskPacket(value: unknown): ForgeTaskPacket | undefined {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (
+      typeof obj.id === "string" &&
+      typeof obj.requestedRole === "string" &&
+      typeof obj.environment === "string" &&
+      Array.isArray(obj.allowedFiles) &&
+      Array.isArray(obj.forbiddenFiles) &&
+      Array.isArray(obj.allowedCommands)
+    ) {
+      return obj as unknown as ForgeTaskPacket;
+    }
+  }
+  return undefined;
+}
+
+function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
+  const task = asForgeTaskPacket(input.task);
+  if (!task) {
+    return {
+      actionType: "alert",
+      summary: "Missing or invalid Forge task packet in agent input",
+      confidence: 1,
+      requiresHumanReview: true,
+      payload: { error: "invalid_task_packet", allowedInputKeys: Object.keys(input) }
+    };
+  }
+
+  const manifest = getForgeAgentManifest(task.requestedRole);
+  const firstCommand = task.allowedCommands[0];
+  const inferredAction = typeof firstCommand === "string" && manifest.allowedActions.includes(firstCommand) ? firstCommand : undefined;
+  const action = typeof input.action === "string" ? input.action : (inferredAction ?? "runtime.execute");
+  let policy = evaluateForgePolicy({ manifest, task, action });
+  let sandboxPlan: SandboxPlan | undefined;
+  let patchPlan: ForgePatchPlan | undefined;
+  let toolPlan: ForgeToolPlan | undefined;
+  let patchResult: ForgePatchResult | undefined;
+  let verification: ForgeVerificationMatrix | undefined;
+  let prPackage: ForgePRPackage | undefined;
+
+  if (policy.decision === "allow") {
+    const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
+    sandboxPlan = sandboxProvider.plan({ task, action, environment: task.environment });
+
+    if (sandboxPlan.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Sandbox validation failed: ${sandboxPlan.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: sandboxPlan.violations.map((violation) => `sandbox.${violation}`),
+        auditTags: [...policy.auditTags, "forge.sandbox.denied"]
+      };
+    } else if (sandboxPlan.decision === "require_approval") {
+      policy = {
+        ...policy,
+        decision: "require_approval",
+        reason: `Sandbox validation requires approval: ${sandboxPlan.reason}`,
+        requiredApprovals: [...new Set([...policy.requiredApprovals, ...sandboxPlan.requiredApprovals])],
+        violatedPolicies: [],
+        auditTags: [...policy.auditTags, "forge.sandbox.approval_required"]
+      };
+    }
+  }
+
+  if (policy.decision !== "deny" && Array.isArray(input.proposedFiles)) {
+    const patchPlanner = createPatchPlanner({ mode: "dry-run" });
+    patchPlan = patchPlanner.plan(task, input.proposedFiles as ProposedFileChange[]);
+
+    if (patchPlan.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Patch plan validation failed: ${patchPlan.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: patchPlan.violations.map((violation) => `patch.${violation}`),
+        auditTags: [...policy.auditTags, "forge.patch.denied"]
+      };
+    } else if (patchPlan.decision === "require_approval") {
+      policy = {
+        ...policy,
+        decision: "require_approval",
+        reason: `Patch plan validation requires approval: ${patchPlan.reason}`,
+        requiredApprovals: [...new Set([...policy.requiredApprovals, ...patchPlan.requiredApprovals])],
+        violatedPolicies: [],
+        auditTags: [...policy.auditTags, "forge.patch.approval_required"]
+      };
+    }
+  }
+
+  if (policy.decision !== "deny") {
+    const toolAdapter = createToolAdapter({ mode: "dry-run" });
+    toolPlan = toolAdapter.plan({ task, action });
+
+    if (toolPlan.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Tool adapter validation failed: ${toolPlan.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: toolPlan.violations.map((violation) => `tool.${violation}`),
+        auditTags: [...policy.auditTags, "forge.tools.denied"]
+      };
+    } else if (toolPlan.decision === "require_approval") {
+      policy = {
+        ...policy,
+        decision: "require_approval",
+        reason: `Tool adapter validation requires approval: ${toolPlan.reason}`,
+        requiredApprovals: [...new Set([...policy.requiredApprovals, ...toolPlan.requiredApprovals])],
+        violatedPolicies: [],
+        auditTags: [...policy.auditTags, "forge.tools.approval_required"]
+      };
+    }
+  }
+
+  if (policy.decision !== "deny" && patchPlan && patchPlan.decision !== "deny") {
+    const patchWriter = createPatchWriter({ mode: "dry-run" });
+    patchResult = patchWriter.apply(patchPlan);
+
+    if (patchResult.decision === "deny") {
+      policy = {
+        ...policy,
+        decision: "deny",
+        reason: `Patch writer simulation failed: ${patchResult.reason}`,
+        requiredApprovals: [],
+        violatedPolicies: patchResult.violations.map((violation) => `patch.${violation}`),
+        auditTags: [...policy.auditTags, "forge.patch.denied"]
+      };
+    }
+  }
+
+  if (policy.decision !== "deny" && patchResult) {
+    const verificationProvider = createVerificationProvider({ mode: "dry-run" });
+    verification = verificationProvider.verify({ task, patchResult, toolPlan });
+
+    if (!verification.passed) {
+      const failedItems = verification.items.filter((item) => item.status === "failed" && item.required);
+      if (failedItems.length > 0) {
+        policy = {
+          ...policy,
+          decision: "deny",
+          reason: `Verification failed for required criteria: ${failedItems.map((item) => item.id).join("; ")}`,
+          requiredApprovals: [],
+          violatedPolicies: failedItems.map((item) => `verification.${item.id}`),
+          auditTags: [...policy.auditTags, "forge.verification.failed"]
+        };
+      }
+    }
+  }
+
+  if (policy.decision !== "deny" && patchResult && verification) {
+    const prPackageProvider = createPRPackageProvider({ mode: "dry-run" });
+    prPackage = prPackageProvider.assemble({
+      runId: typeof input.forgeRunId === "string" ? input.forgeRunId : task.id,
+      task,
+      policy,
+      patchResult,
+      verification,
+      toolPlan
+    });
+  }
+
+  const requiresHumanReview = policy.decision !== "allow";
+
+  return {
+    actionType: "forge.evaluate",
+    summary: `Forge policy for '${task.id}' (${task.requestedRole}): ${policy.decision}`,
+    confidence: requiresHumanReview ? 0.5 : 0.95,
+    requiresHumanReview,
+    payload: {
+      forgeRunId: input.forgeRunId,
+      taskId: task.id,
+      requestedRole: task.requestedRole,
+      action,
+      policy,
+      sandbox: sandboxPlan,
+      patch: patchPlan,
+      tools: toolPlan,
+      patchResult,
+      verification,
+      prPackage,
+      riskLevel: policy.riskLevel,
+      requiredApprovals: policy.requiredApprovals
+    }
+  };
+}
+
 function executeSpecializedHandler(agentType: RuntimeAgentRole, input: RuntimeAgentInput): RuntimeAgentResult {
   switch (agentType) {
     case "pricing":
@@ -423,6 +629,8 @@ function executeSpecializedHandler(agentType: RuntimeAgentRole, input: RuntimeAg
       return buildOrchestrator(input);
     case "ecv":
       return buildEcv(input);
+    case "forge":
+      return buildForge(input);
     // Prometeo agents — handled by specialized worker handlers, not the in-process runtime
     case "field-ops":
     case "project-copilot":

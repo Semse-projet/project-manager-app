@@ -434,6 +434,7 @@ export {
   type AgentToolDefinition,
   type AgentToolPolicyResult,
   type GovernedAgentExecutionResult,
+  type RuntimeAgentInput,
   type RuntimeAgentManifest,
   type RuntimeAgentRole,
   agentPolicyDecisions,

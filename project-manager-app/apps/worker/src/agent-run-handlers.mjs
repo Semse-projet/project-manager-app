@@ -1,3 +1,4 @@
+import { executeGovernedAgentRun } from "@semse/agents";
 import { handleBrowserAgent } from "./browser-agent/browser-agent.runner.mjs";
 
 function asObject(value) {
@@ -1163,6 +1164,44 @@ async function handleQaAgent({ run, requestJson, tenantId, logger }) {
   return { summary, result };
 }
 
+async function handleForge({ run, requestJson, logger, tenantId }) {
+  const input = asObject(run?.input);
+  const forgeRunId = asString(input.forgeRunId);
+  const taskId = asString(input.taskId);
+
+  const result = executeGovernedAgentRun({
+    agentType: "forge",
+    runId: run.id,
+    correlationId: run.correlationId,
+    payload: input,
+    environment: "worker"
+  });
+
+  if (forgeRunId && taskId) {
+    try {
+      await requestJson(
+        `/v1/forge/runs/${encodeURIComponent(forgeRunId)}/tasks/${encodeURIComponent(taskId)}/complete`,
+        {
+          method: "POST",
+          body: JSON.stringify({ agentRunId: run.id, result })
+        },
+        { tenantId }
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn({ runId: run.id, forgeRunId, taskId, error: message }, "forge task completion callback failed");
+    }
+  }
+
+  return {
+    summary: result.summary,
+    result: result.payload ?? {},
+    actionType: result.actionType,
+    confidence: result.confidence,
+    requiresHumanReview: result.requiresHumanReview
+  };
+}
+
 const SPECIALIZED_HANDLERS = {
   "field-ops":       handleFieldOps,
   "trust-match":     handleTrustMatch,
@@ -1176,6 +1215,7 @@ const SPECIALIZED_HANDLERS = {
   "financial-agent": handleFinancialAgent,
   "qa-agent":        handleQaAgent,
   "browser-agent":   handleBrowserAgent,
+  forge:             handleForge,
 };
 
 export function shouldUseSpecializedWorkerHandler(agentType) {

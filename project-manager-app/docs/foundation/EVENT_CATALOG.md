@@ -200,6 +200,22 @@ Consume:
 - `payment.intent_created`
 - `notification.queued`
 
+### Forge
+
+- `forge.run.created`
+- `forge.task.assigned`
+- `forge.task.queued`
+- `forge.sandbox.planned`
+- `forge.patch.proposed`
+- `forge.patch.simulated`
+- `forge.tools.planned`
+- `forge.verification.completed`
+- `forge.pr.ready`
+- `forge.human_review.requested`
+- `forge.approval.decided`
+- `forge.run.blocked`
+- `forge.run.rolled_back`
+
 ## Definition of Done para un evento
 
 Un evento se considera correctamente introducido cuando:
