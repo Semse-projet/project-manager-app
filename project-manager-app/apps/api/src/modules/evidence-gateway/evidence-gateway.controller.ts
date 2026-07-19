@@ -31,6 +31,7 @@ export class EvidenceGatewayController {
     const ctx = actor(req);
 
     const result = await this.service.uploadEvidence({
+      tenantId: ctx.tenantId,
       projectId: String(body.projectId ?? ""),
       milestoneId: body.milestoneId ? String(body.milestoneId) : undefined,
       uploadedById: ctx.userId,

@@ -340,6 +340,7 @@ export class BuildOpsLegacyPromotionService {
 
         await tx.evidence.create({
           data: {
+            tenantId: project.tenantId,
             projectId: project.id,
             milestoneId: null,
             uploadedById,

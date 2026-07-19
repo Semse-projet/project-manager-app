@@ -225,6 +225,7 @@ async function main() {
     if (ms?.projectId) {
       await prisma.evidence.create({ data: {
         id:          uid("ev"),
+        tenantId:    fx.tenantId,
         projectId:   ms.projectId,
         milestoneId: milestoneId,
         uploadedById: fx.proId,

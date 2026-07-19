@@ -100,6 +100,7 @@ export class EvidenceRepository {
       const evidence = await this.prisma.$transaction(async (tx) => {
         const created = await tx.evidence.create({
           data: {
+            tenantId: input.tenantId,
             projectId: scope.projectId,
             milestoneId: scope.milestoneId,
             uploadedById: input.userId,
@@ -204,8 +205,8 @@ export class EvidenceRepository {
     const evidence = await this.prisma.evidence.findFirst({
       where: {
         id: payload.data.evidenceId,
+        tenantId: input.tenantId,
         projectId: scope.projectId,
-        project: { tenantId: input.tenantId },
       },
     });
 
@@ -254,10 +255,8 @@ export class EvidenceRepository {
 
     const rows = (await this.prisma.evidence.findMany({
       where: {
+        tenantId: input.tenantId,
         projectId: input.projectId,
-        project: {
-          tenantId: input.tenantId,
-        },
       },
       orderBy: { createdAt: "desc" },
     })) as EvidenceRow[];
@@ -309,9 +308,7 @@ export class EvidenceRepository {
     const row = (await this.prisma.evidence.findFirst({
       where: {
         id: input.evidenceId,
-        project: {
-          tenantId: input.tenantId,
-        },
+        tenantId: input.tenantId,
       },
       include: {
         project: {

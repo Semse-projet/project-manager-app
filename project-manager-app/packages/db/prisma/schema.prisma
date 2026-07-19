@@ -172,6 +172,8 @@ model Tenant {
   prometeoChunks                DocumentChunk[]
   prometeoAssets                PrometeoAsset[]
   workOrders                    WorkOrder[]
+  // Evidence / Documents
+  evidence                      Evidence[]
   // Finance
   invoices                      Invoice[]
   projectExpenses               ProjectExpense[]
@@ -622,11 +624,22 @@ model PaymentTxn {
 
 model Evidence {
   id                            String       @id @default(cuid())
+  tenantId                      String
   projectId                     String
   milestoneId                   String?
   uploadedById                  String
   kind                          EvidenceKind
   bucketKey                     String
+  // Canonical polymorphic context (Fase 1 de documentos/evidencias)
+  entityType                    String? // PROJECT | JOB | MILESTONE | FARM | FARM_UNIT | ANIMAL | ANIMAL_GROUP | INVENTORY_ITEM | INVENTORY_MOVEMENT | COST_ENTRY | GENERAL
+  entityId                      String?
+  farmId                        String? // Agro context
+  // Agro-specific fields to be fully utilized when AgroEvidenceItem migrates (Fase 2)
+  mediaType                     String? // NOTE | PHOTO | VIDEO | DOCUMENT | EXTERNAL_URL | OTHER
+  title                         String?
+  notes                         String?   @db.Text
+  fileUrl                       String?
+  capturedById                  String?
   promotedFromBuildOpsProjectId String?
   promotedAt                    DateTime?
   promotedByUserId              String?
@@ -639,12 +652,17 @@ model Evidence {
   geoLat                        Decimal?     @db.Decimal(10, 7)
   geoLng                        Decimal?     @db.Decimal(10, 7)
   // ─────────────────────────────────────────────────────────────────────────
+  tenant                        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   project                       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestone                     Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   uploadedBy                    User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  farm                          AgroFarm?    @relation("EvidenceToFarm", fields: [farmId], references: [id], onDelete: SetNull)
   createdAt                     DateTime     @default(now())
 
   @@unique([projectId, promotedFromBuildOpsProjectId, bucketKey])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, farmId])
   @@index([projectId, createdAt])
   @@index([projectId, promotedFromBuildOpsProjectId])
 }
@@ -2964,6 +2982,7 @@ model AgroFarm {
   complianceChecks  AgroComplianceCheck[]
   productionRecords AgroProductionRecord[]
   saleRecords       AgroSaleRecord[]
+  evidenceRecords   Evidence[]            @relation("EvidenceToFarm")
 
   @@index([ownerId])
 }
