@@ -196,9 +196,8 @@ export class ForgeService {
       });
 
       const updated = harness.getRun(input.runId);
-      if (!updated.agentRunIds.includes(agentRun.id)) {
-        updated.agentRunIds.push(agentRun.id);
-      }
+      // `agentRunIds` is intentionally not registered here; `applyTaskResult` adds it
+      // when the worker reports completion, preserving idempotency of `completeTask`.
       updated.events.push({
         id: randomUUID(),
         type: "FORGE_TASK_QUEUED",

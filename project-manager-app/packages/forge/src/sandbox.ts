@@ -152,8 +152,8 @@ function computeDecision(violations: string[], environment: string, riskLevel: F
     (v) =>
       v.startsWith("sandbox.file_") ||
       v === "sandbox.forbidden_shell_characters" ||
-      v === "sandbox.parent_directory_reference" ||
-      v === "sandbox.absolute_or_home_path" ||
+      v.startsWith("sandbox.parent_directory_reference") ||
+      v.startsWith("sandbox.absolute_or_home_path") ||
       v === "sandbox.empty_command"
   );
   if (hasDenyViolation) return "deny";
