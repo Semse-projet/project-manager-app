@@ -31,7 +31,7 @@ const ACTION_TO_TOOLS: Record<string, ForgeToolName[]> = {
   "run.coordinate": ["repo.read", "task.plan", "approval.request", "audit.record"],
   "task.assign": ["repo.read", "task.plan", "audit.record"],
   "review.request": ["repo.read", "approval.request", "audit.record"],
-  "pr.prepare": ["repo.read", "repo.search", "command.run", "pr.prepare", "audit.record"],
+  "pr.prepare": ["repo.read", "repo.search", "pr.prepare", "audit.record"],
 
   "spec.draft": ["repo.read", "repo.search", "spec.read", "spec.write", "audit.record"],
   "spec.refine": ["repo.read", "repo.search", "spec.read", "spec.write", "audit.record"],
@@ -41,10 +41,10 @@ const ACTION_TO_TOOLS: Record<string, ForgeToolName[]> = {
   "domain.map": ["repo.read", "repo.search", "spec.read", "schema.propose", "audit.record"],
   "contract.propose": ["repo.read", "spec.read", "schema.propose", "audit.record"],
   "event.map": ["repo.read", "spec.read", "audit.record"],
-  "schema.propose": ["repo.read", "spec.read", "schema.propose", "test.write", "audit.record"],
+  "schema.propose": ["repo.read", "spec.read", "schema.propose", "audit.record"],
   "migration.propose": ["repo.read", "spec.read", "schema.propose", "migration.propose", "test.write", "audit.record"],
   "data.contract": ["repo.read", "spec.read", "schema.propose", "audit.record"],
-  "rollback.plan": ["repo.read", "spec.read", "deployment.propose", "approval.request", "audit.record"],
+  "rollback.plan": ["repo.read", "spec.read", "migration.propose", "audit.record"],
 
   "creator.interview": ["spec.read", "spec.write", "task.plan", "audit.record"],
   "blueprint.create": ["repo.read", "spec.read", "spec.write", "task.plan", "audit.record"],

@@ -32,8 +32,32 @@ const dualControlActions = new Set([
 
 export function matchesScope(path: string, scope: string): boolean {
   if (scope === "**") return true;
-  if (scope.endsWith("/**")) return path.startsWith(scope.slice(0, -3));
-  if (scope.endsWith("*")) return path.startsWith(scope.slice(0, -1));
+
+  if (scope.startsWith("**/")) {
+    const suffix = scope.slice(3);
+    if (!suffix) return true;
+    if (suffix.includes("*")) {
+      const fileName = path.split("/").pop() ?? "";
+      const starIndex = suffix.indexOf("*");
+      const prefix = suffix.slice(0, starIndex);
+      const rest = suffix.slice(starIndex + 1);
+      if (!fileName.startsWith(prefix)) return false;
+      if (rest && !fileName.endsWith(rest)) return false;
+      return true;
+    }
+    return path === suffix || path.endsWith("/" + suffix);
+  }
+
+  if (scope.endsWith("/**")) {
+    const prefix = scope.slice(0, -3);
+    if (prefix === "") return true;
+    return path === prefix || path.startsWith(prefix + "/");
+  }
+
+  if (scope.endsWith("*")) {
+    return path.startsWith(scope.slice(0, -1));
+  }
+
   return path === scope;
 }
 
