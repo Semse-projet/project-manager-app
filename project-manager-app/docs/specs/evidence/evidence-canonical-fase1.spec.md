@@ -1,13 +1,41 @@
 ---
+id: "evidence.canonical-fase1"
+title: "Evidence canónica — Fase 1 (tenantId, entityType/entityId, farmId)"
 type: spec
 feature: "evidence-canonical-fase1"
 domain: "evidence"
 version: "1.0"
-status: "APPROVED"
+status: "IMPLEMENTED"
+owner: "semse-core"
+risk: "high"
 branch: "devin/documentos-evidencias"
 date: "2026-07-17"
 author: "Devin"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/evidence/evidence.repository.ts
+  - apps/api/src/modules/evidence/evidence.service.ts
+  - apps/api/src/modules/evidence/evidence.controller.ts
+  - apps/api/src/modules/evidence-gateway/evidence-gateway.controller.ts
+  - apps/api/src/modules/evidence-gateway/evidence-gateway.service.ts
+  - apps/api/src/modules/evidence-gateway/evidence-gateway.repository.ts
+  - apps/api/src/modules/buildops/buildops-legacy-promotion.service.ts
+  - apps/api/src/modules/browser-agent/browser-agent.service.ts
+  - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260721000000_evidence_canonical_fase1
+  - packages/db/prisma/seed.ts
+related_tests:
+  - apps/api/test/evidence-gateway.controller.test.ts
+  - apps/api/test/buildops-legacy-promotion.service.test.ts
+  - apps/api/test/buildops-legacy-promotion-integration.test.ts
+related_endpoints:
+  - v1/evidence
+  - v1/evidence/upload
+  - v1/buildops/plans/:buildOpsProjectId/promote-legacy
+related_events:
+  - evidence.uploaded.v1
+related_agents: []
+last_verified: "2026-07-19"
 ---
 
 # Spec: Evidence canónica — Fase 1

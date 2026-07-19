@@ -1,13 +1,31 @@
 ---
+id: "core.communications-canonical-model"
+title: "Modelo canónico de comunicaciones — eliminación de MessageThread/Message legacy"
 type: spec
 feature: "communications-canonical-model"
 domain: "core"
 version: "1.0"
 status: "APPROVED"
+owner: "semse-core"
+risk: "medium"
 branch: "devin/consolidar-comunicaciones-fase1"
 date: "2026-07-17"
 author: "Devin"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/communications/communications.repository.ts
+  - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260717123000_remove_legacy_message_thread
+related_tests: []
+related_endpoints:
+  - v1/communications/threads
+  - v1/communications/threads/:threadId/messages
+  - v1/communications/send
+  - v1/communications/inbound
+  - v1/communications/webhooks/whatsapp
+related_events: []
+related_agents: []
+last_verified: "2026-07-19"
 ---
 
 # Spec: modelo canónico de comunicaciones

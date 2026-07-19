@@ -1,13 +1,34 @@
 ---
+id: "communications.rename-fase2"
+title: "Fase 2 — Renombrar entidades de comunicaciones (ConversationThread/ConversationMessage → CommunicationThread/Communication)"
 type: spec
 feature: "communications-rename-fase2"
 domain: "communications"
 version: "1.0"
 status: "APPROVED"
+owner: "semse-core"
+risk: "medium"
 branch: "devin/comunicaciones-fase2"
 date: "2026-07-17"
 author: "Devin"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - apps/api/src/modules/communications/communications.repository.ts
+  - apps/api/src/modules/communications/communications.controller.ts
+  - apps/api/src/modules/communications/communications.service.ts
+  - apps/api/src/modules/communications/communications.types.ts
+  - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260720000000_rename_communications_entities
+related_tests: []
+related_endpoints:
+  - v1/communications/threads
+  - v1/communications/threads/:threadId/messages
+  - v1/communications/send
+  - v1/communications/inbound
+  - v1/communications/webhooks/whatsapp
+related_events: []
+related_agents: []
+last_verified: "2026-07-19"
 ---
 
 # Spec: renombrar entidades de comunicaciones — Fase 2
