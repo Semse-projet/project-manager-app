@@ -11,3 +11,4 @@ export * from "./tool-adapter.js";
 export * from "./verification-provider.js";
 export * from "./pr-package.js";
 export * from "./deployment-provider.js";
+export * from "./rollback-provider.js";

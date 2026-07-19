@@ -340,6 +340,39 @@ test("forge specialized handler includes deployment plan for deployment.propose"
   assert.ok(result.payload.deployment.steps.includes("deploy:staging"));
 });
 
+test("forge specialized handler includes rollback plan for rollback.prepare", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-rollback",
+    taskId: "task-runtime-rollback",
+    action: "rollback.prepare",
+    task: forgeTask({
+      requestedRole: "devops-release",
+      environment: "staging",
+      targetBranch: "main",
+      riskLevel: "medium",
+      allowedFiles: ["infra/**", ".github/**"]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-rollback",
+      taskId: "task-runtime-rollback"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "require_approval");
+  assert.ok(result.payload.rollback, "payload should include rollback");
+  assert.equal(result.payload.rollback.environment, "staging");
+  assert.equal(result.payload.rollback.decision, "require_approval");
+  assert.ok(result.payload.rollback.steps.includes("restore_release"));
+  assert.ok(result.payload.rollback.steps.includes("verify_health"));
+});
+
 test("forge specialized handler skips verification for read-only tasks without proposed files", () => {
   const result = executeSpecializedAgent("forge", {
     forgeRunId: "run-runtime-readonly",
