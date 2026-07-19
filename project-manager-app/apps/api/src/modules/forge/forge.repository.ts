@@ -120,6 +120,7 @@ export class ForgeRepository {
 
   private toPrismaData(tenantId: string, orgId: string, run: ForgeRun) {
     return {
+      id: run.id,
       tenantId,
       orgId,
       title: run.title,

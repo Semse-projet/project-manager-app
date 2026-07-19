@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  createSandboxProvider,
-  getForgeAgentManifest
-} from "../../packages/forge/dist/index.js";
+import { createSandboxProvider } from "../../packages/forge/dist/index.js";
 
 const approvedSpec = {
   id: "forge-sandbox-spec",
@@ -103,6 +100,27 @@ test("dry-run sandbox validates file extension tokens", () => {
 test("dry-run sandbox allows file extension tokens inside scope", () => {
   const result = plan({ allowedCommands: ["cat docs/specs/forge/sandbox.spec.md"], allowedFiles: ["docs/**"] });
   assert.equal(result.decision, "allow");
+});
+
+test("dry-run sandbox denies parent directory reference even when path matches allowed scope", () => {
+  const result = plan({
+    allowedCommands: ["cat packages/../secret.json"],
+    allowedFiles: ["packages/**"]
+  });
+  assert.equal(result.decision, "deny");
+  assert.ok(result.violations.some((v) => v.startsWith("sandbox.parent_directory_reference")));
+});
+
+test("dry-run sandbox denies absolute path even when all files are allowed", () => {
+  const result = plan({ allowedCommands: ["cat /etc/passwd"], allowedFiles: ["**"] });
+  assert.equal(result.decision, "deny");
+  assert.ok(result.violations.some((v) => v.startsWith("sandbox.absolute_or_home_path")));
+});
+
+test("dry-run sandbox denies home path even when all files are allowed", () => {
+  const result = plan({ allowedCommands: ["cat ~/.ssh/id_rsa"], allowedFiles: ["**"] });
+  assert.equal(result.decision, "deny");
+  assert.ok(result.violations.some((v) => v.startsWith("sandbox.absolute_or_home_path")));
 });
 
 test("dry-run sandbox returns allow for empty command list", () => {
