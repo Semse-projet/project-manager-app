@@ -1,5 +1,5 @@
 ---
- type: spec
+type: spec
 feature: "communications-canonical-model"
 domain: "core"
 version: "1.0"
