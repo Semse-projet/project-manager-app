@@ -109,6 +109,17 @@ test("dry-run security review provider flags infrastructure changes", () => {
   assert.ok(result.findings.some((f) => f.rule === "security.infrastructure"));
 });
 
+test("dry-run security review provider sorts findings by severity, most severe first", () => {
+  const result = review({
+    task: task({ allowedFiles: [".github/workflows/ci.yml", "packages/auth/**"] })
+  });
+  assert.ok(result.findings.length >= 2);
+  assert.equal(result.findings[0].rule, "security.auth_module");
+  assert.equal(result.findings[0].severity, "critical");
+  assert.equal(result.findings.at(-1).rule, "security.ci_workflow");
+  assert.equal(result.findings.at(-1).severity, "medium");
+});
+
 test("dry-run security review provider requires dual control for critical risk", () => {
   const result = review({
     task: task({ riskLevel: "critical", allowedFiles: ["src/**"] })

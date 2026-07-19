@@ -590,15 +590,7 @@ export class ForgeService {
     if (input.decision === "approved") {
       harness.approve(input.runId, input.mode, input.actor.userId);
     } else {
-      const run = harness.getRun(input.runId);
-      const approval = run.approvals.find(
-        (candidate) => candidate.mode === input.mode && candidate.status === "pending"
-      );
-      if (approval) {
-        approval.status = "rejected";
-        approval.actor = input.actor.userId;
-        approval.at = new Date().toISOString();
-      }
+      harness.reject(input.runId, input.mode, input.actor.userId);
     }
 
     const updated = harness.getRun(input.runId);

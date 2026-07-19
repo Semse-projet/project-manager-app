@@ -165,7 +165,9 @@ class DryRunSecurityReviewProvider implements SecurityReviewProvider {
       forbiddenPaths.forEach((path) => violations.push(`security.forbidden_file:${path}`));
     }
 
-    const findings = findFindings(paths);
+    const findings = findFindings(paths).sort(
+      (a, b) => SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity]
+    );
 
     const hasCriticalFinding = findings.some((f) => f.severity === "critical");
     const hasHighFinding = findings.some((f) => f.severity === "high");

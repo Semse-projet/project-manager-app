@@ -162,6 +162,19 @@ export class ForgeHarness {
     return structuredClone(run);
   }
 
+  reject(runId: string, mode: ForgeRun["approvals"][number]["mode"], actor: string): ForgeRun {
+    const run = this.requireRun(runId);
+    const approval = run.approvals.find(
+      (candidate) => candidate.mode === mode && candidate.status === "pending"
+    );
+    if (!approval) throw new Error(`Pending approval not found: ${mode}`);
+    approval.status = "rejected";
+    approval.actor = actor;
+    approval.at = new Date().toISOString();
+    run.updatedAt = approval.at;
+    return structuredClone(run);
+  }
+
   ensurePendingApproval(
     runId: string,
     mode: ForgeRun["approvals"][number]["mode"]
