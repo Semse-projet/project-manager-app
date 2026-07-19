@@ -97,6 +97,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [satellites.protools-embed](specs/satellites/SAT-006-protools-embed.spec.md) | tools | DRAFT | low | yes | no | no | 1 | 2026-07-12 |
 | [satellites.outbound-webhooks](specs/satellites/SAT-007-outbound-webhooks.spec.md) | api | DRAFT | high | yes | no | no | 2 | 2026-07-12 |
 | [satellites.observer-nodes](specs/satellites/SAT-008-observer-satellite-nodes.spec.md) | ops | DRAFT | medium | yes | no | no | 1 | 2026-07-12 |
+| [tasks-task-unification-fase1](specs/tasks/task-unification-fase1.spec.md) | tasks | APPROVED | missing | yes | no | no | 0 | missing |
 | [m1-1-material-pricing](specs/tools/fase-1/m1.1-material-pricing.spec.md) | tools | VERIFIED | medium | yes | no | yes | 4 | 2026-06-09 |
 | [m1-2-regional-costs](specs/tools/fase-1/m1.2-regional-costs.spec.md) | tools | VERIFIED | medium | yes | no | yes | 4 | 2026-06-09 |
 | [m1-3-stripe-escrow](specs/tools/fase-1/m1.3-stripe-escrow.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |

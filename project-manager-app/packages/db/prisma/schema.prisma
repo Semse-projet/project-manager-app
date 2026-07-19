@@ -1694,23 +1694,54 @@ model ComplianceDoc {
   @@index([tenantId])
 }
 
-/// Task within a Job milestone assigned to a professional.
+/// Canonical task (jobs, BuildOps, Agro) — Fase 1 extends JobTask to be the unified Task table.
 model JobTask {
   id                            String    @id @default(cuid())
   tenantId                      String
-  jobId                         String
-  milestone                     String
+  jobId                         String?   // null for BuildOps/Agro tasks not yet linked to a job
+  milestone                     String?
   title                         String
   description                   String?
   dueDate                       DateTime?
-  priority                      String    @default("medium") // low | medium | high
-  status                        String    @default("pending") // pending | in_progress | done | blocked
+  priority                      String    @default("medium") // low | medium | high | urgent
+  status                        String    @default("pending") // pending | in_progress | done | blocked | canceled
   assignedTo                    String? // userId
   createdBy                     String
+
+  // BuildOps-specific fields (Fase 2 will migrate BuildOpsTask here)
+  orgId                         String?
+  projectId                     String?
+  templateKey                   String?
+  sourceTool                    String?
+  completion                    Int       @default(0)
+  evidenceRequired              Json?     @db.JsonB
+  assigneeName                  String?
+
+  // Agro-specific fields (Fase 3 will migrate AgroFarmTask here)
+  farmId                        String?
+  targetType                    String? // ANIMAL | ANIMAL_GROUP | FARM_UNIT | INVENTORY | GENERAL
+  targetId                      String?
+  taskType                      String? // FEEDING | VACCINATION | ... | OTHER
+  startedAt                     DateTime?
+  completedAt                   DateTime?
+  blockedAt                     DateTime?
+  canceledAt                    DateTime?
+  blockReason                   String?
+  cancelReason                  String?
+  notes                         String?   @db.Text
+
+  // Legacy promotion bridge
   promotedFromBuildOpsProjectId String?
   promotedFromBuildOpsTaskId    String?
   promotedAt                    DateTime?
   promotedByUserId              String?
+
+  // Polymorphic context for future verticals
+  domain                        String?   @default("jobs") // jobs | buildops | agro
+  vertical                      String?   // build | field | agro | etc.
+  entityType                    String?   // BuildOpsProject | AgroFarm | Job | etc.
+  entityId                      String?
+
   createdAt                     DateTime  @default(now())
   updatedAt                     DateTime  @updatedAt
   deletedAt                     DateTime?
@@ -1722,6 +1753,11 @@ model JobTask {
   @@index([tenantId, assignedTo, status])
   @@index([tenantId, deletedAt])
   @@index([tenantId, promotedFromBuildOpsProjectId])
+  @@index([tenantId, domain, status])
+  @@index([tenantId, projectId])
+  @@index([tenantId, farmId])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, targetType, targetId])
 }
 
 /// Incident reported during a job (safety, damage, delay, etc.).
