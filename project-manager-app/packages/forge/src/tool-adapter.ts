@@ -78,6 +78,7 @@ const ACTION_TO_TOOLS: Record<string, ForgeToolName[]> = {
   "ci.implement": ["repo.read", "spec.read", "code.write", "command.run", "audit.record"],
   "deployment.propose": ["repo.read", "spec.read", "deployment.propose", "approval.request", "audit.record"],
   "rollback.prepare": ["repo.read", "spec.read", "deployment.propose", "approval.request", "audit.record"],
+  "observation.propose": ["repo.read", "command.run", "audit.record"],
 
   "docs.update": ["repo.read", "spec.read", "spec.write", "audit.record"],
   "changelog.update": ["repo.read", "spec.read", "spec.write", "audit.record"],
@@ -98,6 +99,7 @@ const CRITICAL_ACTIONS = new Set([
   "data.contract",
   "rollback.plan",
   "rollback.prepare",
+  "observation.propose",
   "publication.propose",
   "marketplace.publish.propose",
   "security.review",

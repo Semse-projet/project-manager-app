@@ -142,8 +142,10 @@ export type ForgeEvent = {
     | "FORGE_PR_READY"
     | "FORGE_DEPLOYMENT_PROPOSED"
     | "FORGE_ROLLBACK_PROPOSED"
+    | "FORGE_OBSERVATION_PROPOSED"
     | "FORGE_RUN_BLOCKED"
     | "FORGE_RUN_ROLLED_BACK"
+    | "FORGE_RUN_CLOSED"
     | "CREATOR_BLUEPRINT_CREATED"
     | "CREATOR_APP_PUBLICATION_PROPOSED";
   runId: string;
@@ -222,6 +224,18 @@ export type ForgeDeploymentPlan = {
 };
 
 export type ForgeRollbackPlan = {
+  mode: "dry-run" | "live";
+  decision: "allow" | "deny" | "require_approval";
+  reason: string;
+  environment: string;
+  targetBranch: string;
+  steps: string[];
+  requiredApprovals: ForgeApprovalMode[];
+  violations: string[];
+  auditTags: string[];
+};
+
+export type ForgeObservationPlan = {
   mode: "dry-run" | "live";
   decision: "allow" | "deny" | "require_approval";
   reason: string;

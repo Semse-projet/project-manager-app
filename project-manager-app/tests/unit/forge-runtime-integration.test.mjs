@@ -373,6 +373,40 @@ test("forge specialized handler includes rollback plan for rollback.prepare", ()
   assert.ok(result.payload.rollback.steps.includes("verify_health"));
 });
 
+test("forge specialized handler includes observation plan for observation.propose", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-observation",
+    taskId: "task-runtime-observation",
+    action: "observation.propose",
+    task: forgeTask({
+      requestedRole: "devops-release",
+      environment: "staging",
+      targetBranch: "main",
+      riskLevel: "medium",
+      allowedFiles: ["infra/**"],
+      allowedCommands: ["curl", "pnpm test"]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-observation",
+      taskId: "task-runtime-observation"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "require_approval");
+  assert.ok(result.payload.observation, "payload should include observation");
+  assert.equal(result.payload.observation.environment, "staging");
+  assert.equal(result.payload.observation.decision, "require_approval");
+  assert.ok(result.payload.observation.steps.includes("collect_metrics"));
+  assert.ok(result.payload.observation.steps.includes("verify_health"));
+});
+
 test("forge specialized handler skips verification for read-only tasks without proposed files", () => {
   const result = executeSpecializedAgent("forge", {
     forgeRunId: "run-runtime-readonly",

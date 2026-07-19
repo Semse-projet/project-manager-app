@@ -199,7 +199,7 @@ export const forgeAgentRegistry: Record<ForgeAgentRole, ForgeAgentManifest> = {
     description: "Prepares CI and deployment proposals; never performs unapproved production mutation.",
     owner: "semse-platform",
     allowedTools: ["repo.read", "repo.search", "spec.read", "code.write", "test.write", "command.run", "deployment.propose", "approval.request", ...commonAudit],
-    allowedActions: ["runtime.execute", "ci.implement", "deployment.propose", "rollback.prepare"],
+    allowedActions: ["runtime.execute", "ci.implement", "deployment.propose", "rollback.prepare", "observation.propose"],
     fileScopes: [".github/**", "infra/**", "Dockerfile*", "railway.json", "scripts/**", "docs/runbooks/**"],
     networkScopes: ["railway.app", "github.com"],
     maxRiskLevel: "critical",
