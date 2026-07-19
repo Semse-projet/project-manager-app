@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type {
   AgentConsultationRequest,
@@ -15,6 +15,11 @@ import type {
   PrometeoOrchestrationResponse,
 } from "@semse/schemas";
 import { nextOrchestrationStatus } from "./orchestration.fsm.js";
+import {
+  ORCHESTRATION_REPOSITORY,
+  type OrchestrationRecord,
+  type OrchestrationRepository,
+} from "./orchestration.repository.js";
 
 export type OrchestrationActor = {
   userId: string;
@@ -92,27 +97,17 @@ const AGENTS: Record<PrometeoAgentId, AgentProfile> = {
 
 const ALL_AGENT_IDS = Object.keys(AGENTS) as PrometeoAgentId[];
 
-type OrchestrationRecord = {
-  orchestrationId: string;
-  tenantId: string;
-  userId: string;
-  status: OrchestrationStatus;
-  currentStep: string;
-  interpretation: OrchestrationInterpretation;
-  agentsConsulted: OrchestrationAgentResult[];
-  plan: { steps: OrchestrationStep[] };
-  requiresApproval: boolean;
-  errors: Array<{ message: string; agent?: string }>;
-  createdAt: string;
-};
-
 /** Minimum confidence below which the request is treated as ambiguous. */
 const AMBIGUITY_THRESHOLD = 0.4;
 
 @Injectable()
 export class OrchestrationService {
   private readonly logger = new Logger(OrchestrationService.name);
-  private readonly records = new Map<string, OrchestrationRecord>();
+
+  constructor(
+    @Inject(ORCHESTRATION_REPOSITORY)
+    private readonly repository: OrchestrationRepository,
+  ) {}
 
   interpret(message: string, preferredAgents?: PrometeoAgentId[]): OrchestrationInterpretation {
     const normalized = message.toLowerCase();
@@ -175,7 +170,10 @@ export class OrchestrationService {
     return ["pulse"];
   }
 
-  orchestrate(actor: OrchestrationActor, request: PrometeoOrchestrationRequest): PrometeoOrchestrationResponse {
+  async orchestrate(
+    actor: OrchestrationActor,
+    request: PrometeoOrchestrationRequest,
+  ): Promise<PrometeoOrchestrationResponse> {
     const orchestrationId = randomUUID();
     let status: OrchestrationStatus = "idle";
 
@@ -223,7 +221,7 @@ export class OrchestrationService {
       errors: [],
       createdAt: new Date().toISOString(),
     };
-    this.records.set(orchestrationId, record);
+    await this.repository.save(record);
 
     this.logger.log(
       `prometeo.orchestration.completed id=${orchestrationId} user=${actor.userId} intent=${interpretation.intent} agents=${agentIds.join(",")}`,
@@ -259,8 +257,11 @@ export class OrchestrationService {
     };
   }
 
-  getOrchestration(actor: OrchestrationActor, orchestrationId: string): OrchestrationStatusResponse {
-    const record = this.records.get(orchestrationId);
+  async getOrchestration(
+    actor: OrchestrationActor,
+    orchestrationId: string,
+  ): Promise<OrchestrationStatusResponse> {
+    const record = await this.repository.find(orchestrationId);
     if (!record || record.tenantId !== actor.tenantId) {
       throw new NotFoundException(`Orchestration ${orchestrationId} not found`);
     }

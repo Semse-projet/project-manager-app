@@ -2,12 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PrometeoCopilotService } from "../dist/modules/prometeo-copilot/prometeo-copilot.service.js";
 import { OrchestrationService } from "../dist/modules/orchestration/orchestration.service.js";
+import { InMemoryOrchestrationRepository } from "../dist/modules/orchestration/orchestration.repository.js";
 import { WorkspaceService } from "../dist/modules/workspace/workspace.service.js";
+import { InMemoryWorkspaceStateRepository } from "../dist/modules/workspace/workspace.repository.js";
+import { InMemoryCopilotSessionRepository } from "../dist/modules/prometeo-copilot/prometeo-copilot.repository.js";
 
 const actor = { userId: "u1", tenantId: "t1", orgId: "o1", roles: ["agents:run:create"] };
 
 function build() {
-  return new PrometeoCopilotService(new OrchestrationService(), new WorkspaceService());
+  return new PrometeoCopilotService(
+    new OrchestrationService(new InMemoryOrchestrationRepository()),
+    new WorkspaceService(new InMemoryWorkspaceStateRepository()),
+    new InMemoryCopilotSessionRepository(),
+  );
 }
 
 test("detectContext maps a jobs URL to the jobs module", () => {
@@ -44,9 +51,9 @@ test("detectContext respects additionalContext overrides", () => {
   assert.equal(res.resource.type, "custom");
 });
 
-test("processMessage suggests a mission for high-confidence intent", () => {
+test("processMessage suggests a mission for high-confidence intent", async () => {
   const svc = build();
-  const res = svc.processMessage(actor, {
+  const res = await svc.processMessage(actor, {
     message: "necesito un presupuesto para la obra",
     context: { module: "jobs" },
   });
@@ -56,23 +63,42 @@ test("processMessage suggests a mission for high-confidence intent", () => {
   assert.ok(res.sessionId.length > 0);
 });
 
-test("processMessage on vague input does not require workspace", () => {
+test("processMessage on vague input does not require workspace", async () => {
   const svc = build();
-  const res = svc.processMessage(actor, { message: "hola" });
+  const res = await svc.processMessage(actor, { message: "hola" });
   assert.equal(res.requiresWorkspace, false);
   assert.equal(res.missionSuggestion, undefined);
 });
 
-test("processMessage reuses an existing session id", () => {
+test("processMessage reuses an existing session id", async () => {
   const svc = build();
-  const first = svc.processMessage(actor, { message: "presupuesto" });
-  const second = svc.processMessage(actor, { message: "otra cosa", sessionId: first.sessionId });
+  const first = await svc.processMessage(actor, { message: "presupuesto" });
+  const second = await svc.processMessage(actor, {
+    message: "otra cosa",
+    sessionId: first.sessionId,
+  });
   assert.equal(second.sessionId, first.sessionId);
 });
 
-test("createMission loads a workspace mission and returns a url", () => {
+test("session state persists across service instances sharing a repository", async () => {
+  const sessions = new InMemoryCopilotSessionRepository();
+  const make = () =>
+    new PrometeoCopilotService(
+      new OrchestrationService(new InMemoryOrchestrationRepository()),
+      new WorkspaceService(new InMemoryWorkspaceStateRepository()),
+      sessions,
+    );
+  const first = await make().processMessage(actor, { message: "presupuesto" });
+  const second = await make().processMessage(actor, {
+    message: "otra cosa",
+    sessionId: first.sessionId,
+  });
+  assert.equal(second.sessionId, first.sessionId);
+});
+
+test("createMission loads a workspace mission and returns a url", async () => {
   const svc = build();
-  const res = svc.createMission(actor, {
+  const res = await svc.createMission(actor, {
     copilotSessionId: "sess-1",
     missionType: "budget",
     title: "Presupuesto obra",
