@@ -1,13 +1,29 @@
 ---
+id: "tasks.task-unification-fase1"
+title: "Unificación de tareas — Fase 1 (base canónica JobTask)"
 type: spec
-feature: "task-unification-fase1"
 domain: "tasks"
 version: "1.0"
-status: "APPROVED"
-branch: "devin/consolidar-tareas-fase1"
+status: "IMPLEMENTED"
+owner: "semse-core"
+risk: "medium"
 date: "2026-07-17"
 author: "Devin"
+branch: "devin/consolidar-tareas-fase1"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260719000000_prepare_job_task_canonical
+  - apps/api/src/modules/tasks/tasks.service.ts
+  - apps/api/src/modules/tasks/tasks.controller.ts
+  - apps/api/src/modules/tasks/tasks.module.ts
+related_tests:
+  - apps/api/test/tasks.controller.test.ts
+related_endpoints:
+  - v1/tasks
+related_events: []
+related_agents: []
+last_verified: "2026-07-19"
 ---
 
 # Spec: unificación de tareas — Fase 1 (base canónica)

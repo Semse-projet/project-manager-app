@@ -1,13 +1,35 @@
 ---
+id: "labor.time-tracking-consolidation"
+title: "Consolidación del tracking de tiempo — TrackerSession a TimeEntry"
 type: spec
-feature: "time-tracking-consolidation"
 domain: "labor"
 version: "1.0"
-status: "APPROVED"
-branch: "devin/consolidar-time-tracking-fase1"
+status: "IMPLEMENTED"
+owner: "semse-core"
+risk: "high"
 date: "2026-07-17"
 author: "Devin"
+branch: "devin/consolidar-time-tracking-fase1"
 spec_index: "docs/SPEC_INDEX.md"
+related_files:
+  - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260718000000_consolidate_tracker_session
+  - apps/api/src/modules/field-ops/field-ops.repository.ts
+  - apps/api/src/modules/field-ops/field-ops.controller.ts
+  - apps/api/src/modules/field-ops/tracker-session.ts
+  - apps/api/src/modules/field-ops/time-tracker.controller.ts
+  - apps/api/src/modules/labor-engine/labor-engine.repository.ts
+  - apps/api/src/modules/labor-engine/labor-engine.service.ts
+related_tests:
+  - apps/api/test/field-ops-service.test.ts
+  - apps/api/test/field-ops-tracker.test.ts
+  - apps/api/test/field-ops.controller.test.ts
+  - apps/api/test/labor-engine.service.test.ts
+related_endpoints:
+  - v1/time-tracker
+related_events: []
+related_agents: []
+last_verified: "2026-07-19"
 ---
 
 # Spec: consolidación del tracking de tiempo
