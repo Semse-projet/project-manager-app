@@ -72,7 +72,7 @@ function missionTitleFallback(type: WorkspaceMissionType): string {
 }
 
 /**
- * Sense Workspace state coordination.
+ * SEMSE Workspace state coordination.
  *
  * State is per-user and process-local: it models the ephemeral three-panel UI
  * shell (left = navigation, center = active mission, right = operational vs

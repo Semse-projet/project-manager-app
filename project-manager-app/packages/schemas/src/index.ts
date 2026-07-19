@@ -44,7 +44,7 @@ export * from "./client.types.js";
 export * from "./escrow-view.types.js";
 export * from "./public-sanitizer.js";
 export * from "./public-market.js";
-// Prometeo Copilot & Sense Workspace (ADR: prometeo-orchestrator, sense-workspace)
+// Prometeo Copilot & SEMSE Workspace (ADR: prometeo-orchestrator, sense-workspace)
 export * from "./workspace.schema.js";
 export * from "./prometeo-orchestration.schema.js";
 export * from "./prometeo-copilot.schema.js";
