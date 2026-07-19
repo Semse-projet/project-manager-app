@@ -364,6 +364,7 @@ async function main() {
       update: {},
       create: {
         id: ev.id,
+        tenantId: TENANT_ID,
         projectId: project.id,
         milestoneId: ev.milestoneId,
         kind: ev.kind as any,
