@@ -9,3 +9,4 @@ export * from "./patch-planner.js";
 export * from "./patch-writer.js";
 export * from "./tool-adapter.js";
 export * from "./verification-provider.js";
+export * from "./pr-package.js";

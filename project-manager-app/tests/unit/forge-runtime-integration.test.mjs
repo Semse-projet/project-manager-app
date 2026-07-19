@@ -271,6 +271,10 @@ test("forge specialized handler includes verification matrix in payload", () => 
   assert.ok(result.payload.verification, "payload should include verification");
   assert.equal(result.payload.verification.passed, true);
   assert.equal(result.payload.verification.items[0].status, "passed");
+  assert.ok(result.payload.prPackage, "payload should include prPackage");
+  assert.equal(result.payload.prPackage.decision, "allow");
+  assert.equal(result.payload.prPackage.headBranch, "agent/forge-runtime-docs");
+  assert.equal(result.payload.prPackage.changedFiles.length, 1);
 });
 
 test("forge specialized handler simulates patch application through patch writer", () => {

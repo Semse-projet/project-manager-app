@@ -185,6 +185,29 @@ export type ForgeVerificationMatrix = {
   completedAt?: string;
 };
 
+export type ForgePRPackage = {
+  mode: "dry-run" | "live";
+  decision: "allow" | "deny" | "require_approval";
+  reason: string;
+  title: string;
+  body: string;
+  baseBranch: string;
+  headBranch: string;
+  commits: Array<{
+    message: string;
+    files: string[];
+    body?: string;
+  }>;
+  changedFiles: string[];
+  reviewers: string[];
+  labels: string[];
+  draft: boolean;
+  checklist: string[];
+  requiredApprovals: ForgeApprovalMode[];
+  violations: string[];
+  auditTags: string[];
+};
+
 export type CreatorAppType =
   | "course"
   | "simulator"
