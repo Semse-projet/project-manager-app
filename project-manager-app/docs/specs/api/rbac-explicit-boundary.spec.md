@@ -11,7 +11,6 @@ related_files:
 related_tests:
   - apps/api/test/rbac-explicit-boundary.test.ts
   - apps/api/test/domain-rbac-permissions.test.ts
-  - apps/api/test/legacy-evidence-rbac-permissions.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
