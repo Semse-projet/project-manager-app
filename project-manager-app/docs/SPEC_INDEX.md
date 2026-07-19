@@ -85,6 +85,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
+| [labor-time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | APPROVED | missing | yes | no | no | 0 | missing |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | high | yes | yes | yes | 7 | 2026-07-17 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | high | no | no | no | 3 | 2026-07-12 |

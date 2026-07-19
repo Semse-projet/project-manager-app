@@ -25,6 +25,8 @@ export type TimeEntryRecord = {
   notes: string | null;
   editedBy: string | null;
   editReason: string | null;
+  contextEntityType: string | null;
+  contextEntityId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -65,6 +67,8 @@ export class LaborEngineRepository {
     currency?: string;
     location?: string;
     notes?: string;
+    contextEntityType?: string;
+    contextEntityId?: string;
   }): Promise<TimeEntryRecord> {
     const now = new Date();
     const duration = data.durationMinutes
@@ -92,6 +96,8 @@ export class LaborEngineRepository {
         currency: data.currency ?? "MXN",
         location: data.location ?? null,
         notes: data.notes ?? null,
+        contextEntityType: data.contextEntityType ?? null,
+        contextEntityId: data.contextEntityId ?? null,
         createdAt: now,
         updatedAt: now,
       },
@@ -106,6 +112,8 @@ export class LaborEngineRepository {
     jobId?: string;
     freeProjectId?: string;
     notes?: string;
+    contextEntityType?: string;
+    contextEntityId?: string;
   }): Promise<TimeEntryRecord> {
     return this.createTimeEntry({
       ...data,
