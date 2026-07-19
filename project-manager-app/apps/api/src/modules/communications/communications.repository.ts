@@ -173,7 +173,7 @@ export class CommunicationsRepository {
     limit?: number;
     offset?: number;
   }): Promise<CommunicationThreadRecord[]> {
-    const rows = await this.prisma.conversationThread.findMany({
+    const rows = await this.prisma.communicationThread.findMany({
       where: {
         tenantId: input.tenantId,
         ...(input.orgId ? { orgId: input.orgId } : {}),
@@ -187,7 +187,7 @@ export class CommunicationsRepository {
   }
 
   async getThread(input: { tenantId: string; threadId: string }): Promise<CommunicationThreadRecord> {
-    const row = await this.prisma.conversationThread.findFirst({
+    const row = await this.prisma.communicationThread.findFirst({
       where: { id: input.threadId, tenantId: input.tenantId },
     });
     if (!row) throw new NotFoundException(`Conversation thread '${input.threadId}' not found`);
@@ -201,7 +201,7 @@ export class CommunicationsRepository {
     offset?: number;
   }): Promise<CommunicationMessageRecord[]> {
     await this.getThread({ tenantId: input.tenantId, threadId: input.threadId });
-    const rows = await this.prisma.conversationMessage.findMany({
+    const rows = await this.prisma.communication.findMany({
       where: { tenantId: input.tenantId, threadId: input.threadId },
       orderBy: { createdAt: "asc" },
       take: input.limit ?? 100,
@@ -225,7 +225,7 @@ export class CommunicationsRepository {
 
     if (!input.recipientPhone) return null;
 
-    const row = await this.prisma.conversationThread.findFirst({
+    const row = await this.prisma.communicationThread.findFirst({
       where: {
         tenantId: input.tenantId,
         channel: input.channel,
@@ -248,7 +248,7 @@ export class CommunicationsRepository {
     const externalThreadId = input.externalThreadId ?? normalizedPhone ?? input.contactPhone;
 
     // Also search by normalized phone in case a previous thread used a different format.
-    const existing = await this.prisma.conversationThread.findFirst({
+    const existing = await this.prisma.communicationThread.findFirst({
       where: {
         tenantId: actor.tenantId,
         channel: input.channel,
@@ -273,11 +273,11 @@ export class CommunicationsRepository {
     };
 
     const row = existing
-      ? await this.prisma.conversationThread.update({
+      ? await this.prisma.communicationThread.update({
           where: { id: existing.id },
           data,
         })
-      : await this.prisma.conversationThread.create({
+      : await this.prisma.communicationThread.create({
           data: {
             tenantId: actor.tenantId,
             channel: input.channel,
@@ -295,7 +295,7 @@ export class CommunicationsRepository {
       throw new NotFoundException("recipientPhone is required when threadId is not provided");
     }
 
-    const row = await this.prisma.conversationThread.create({
+    const row = await this.prisma.communicationThread.create({
       data: {
         tenantId: actor.tenantId,
         orgId: actor.orgId,
@@ -320,7 +320,7 @@ export class CommunicationsRepository {
     message: InboundCommunicationMessage;
   }): Promise<CommunicationMessageRecord> {
     if (input.message.externalMessageId) {
-      const existing = await this.prisma.conversationMessage.findUnique({
+      const existing = await this.prisma.communication.findUnique({
         where: {
           tenantId_provider_externalMessageId: {
             tenantId: input.actor.tenantId,
@@ -332,7 +332,7 @@ export class CommunicationsRepository {
       if (existing) return toMessageRecord(existing as MessageRow);
     }
 
-    const row = await this.prisma.conversationMessage.create({
+    const row = await this.prisma.communication.create({
       data: {
         tenantId: input.actor.tenantId,
         threadId: input.threadId,
@@ -347,7 +347,7 @@ export class CommunicationsRepository {
       },
     });
 
-    await this.prisma.conversationThread.update({
+    await this.prisma.communicationThread.update({
       where: { id: input.threadId },
       data: { lastMessageAt: new Date(), updatedAt: new Date() },
     });
@@ -363,7 +363,7 @@ export class CommunicationsRepository {
     status: CommunicationMessageStatus;
   }): Promise<CommunicationMessageRecord> {
     const now = new Date();
-    const row = await this.prisma.conversationMessage.create({
+    const row = await this.prisma.communication.create({
       data: {
         tenantId: input.actor.tenantId,
         threadId: input.threadId,
@@ -379,7 +379,7 @@ export class CommunicationsRepository {
       },
     });
 
-    await this.prisma.conversationThread.update({
+    await this.prisma.communicationThread.update({
       where: { id: input.threadId },
       data: { lastMessageAt: now, updatedAt: now },
     });
@@ -434,7 +434,7 @@ export class CommunicationsRepository {
       where: { providerMessageId: input.providerMessageId },
       data: { status: input.status },
     });
-    await this.prisma.conversationMessage.updateMany({
+    await this.prisma.communication.updateMany({
       where: { externalMessageId: input.providerMessageId },
       data: { status: input.status },
     });
@@ -552,7 +552,7 @@ export class CommunicationsRepository {
     projectId?: string;
     metadataJson?: Record<string, unknown>;
   }): Promise<CommunicationThreadRecord> {
-    const row = await this.prisma.conversationThread.update({
+    const row = await this.prisma.communicationThread.update({
       where: { id: input.threadId },
       data: {
         contractorLeadId: input.contractorLeadId,
@@ -571,7 +571,7 @@ export class CommunicationsRepository {
     assignedToUserId?: string;
     intent?: string;
   }): Promise<CommunicationThreadRecord> {
-    const row = await this.prisma.conversationThread.update({
+    const row = await this.prisma.communicationThread.update({
       where: { id: input.threadId, tenantId: input.tenantId },
       data: {
         ...(input.status !== undefined ? { status: input.status } : {}),

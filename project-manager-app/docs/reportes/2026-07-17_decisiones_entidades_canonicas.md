@@ -10,7 +10,7 @@
 
 | Dominio duplicado | Entidad canónica | Legacy/vertical que se consolida | Próximo paso |
 |---|---|---|---|
-| Comunicaciones | `ConversationThread` / `ConversationMessage` | `MessageThread` / `Message` | **Fase 1 en curso:** eliminar `MessageThread`/`Message` |
+| Comunicaciones | `CommunicationThread` / `Communication` | `MessageThread` / `Message` eliminadas; `ConversationThread`/`ConversationMessage` renombradas | Fase 1 y 2 completadas; schema, migración y repository actualizados |
 | Tareas | `JobTask` (canónico en Fase 1) | `BuildOpsTask`, `AgroFarmTask` | Fase 1 lista: `JobTask` extendido con campos polimórficos para BuildOps y Agro; Fase 2/3 migrarán BuildOpsTask y AgroFarmTask |
 | Documentos/evidencias | `Evidence` | `AgroEvidenceItem` | Extender `Evidence` con `entityType`/`entityId` para absorver evidencia agro; `PrometeoDocument` se mantiene como `KnowledgeSource` RAG; `MilestoneEvidenceItem` es checklist, no evidencia pura |
 | Tracking de tiempo | `TimeEntry` / `LaborSheet` | `TrackerSession` eliminada; `WorklogEntry` pendiente (diario de campo) | Fase 1 completada: `TrackerSession` migrado a `TimeEntry`; `TimeEntry` extiende `contextEntityType`/`contextEntityId`; adaptador legacy mantiene `/v1/time-tracker` |
@@ -20,14 +20,14 @@
 
 ## 1. Comunicaciones
 
-**Tablas:** `MessageThread`/`Message` (legacy) vs `ConversationThread`/`ConversationMessage` (activo).
+**Tablas:** `MessageThread`/`Message` (legacy eliminada), `ConversationThread`/`ConversationMessage` renombradas a `CommunicationThread`/`Communication`.
 
 **Decisión:**
-- Canónico: `ConversationThread` / `ConversationMessage`.
+- Canónico: `CommunicationThread` / `Communication`.
 - Legacy a eliminar: `MessageThread` / `Message`.
-- Justificación: `ConversationThread` ya soporta `tenantId`, `channel` (`WHATSAPP_CLOUD`, `SMS`, `EMAIL`, `WEB_CHAT`), `direction`, `status`, `externalThreadId`, `contactPhone`, `jobId`, `projectId`, `contractorLeadId`. Es la bandeja omnicanal que pide la arquitectura unificada. `MessageThread`/`Message` no tienen `tenantId` ni consumidores en el código.
-- Fase 1 (este PR): eliminar `MessageThread`/`Message` del esquema y la base de datos.
-- Fase 2 (futura): decidir si renombrar `ConversationThread` → `CommunicationThread` y `ConversationMessage` → `Communication` con `@@map` para alinear nombres con la arquitectura unificada.
+- Justificación: `CommunicationThread`/`Communication` soportan `tenantId`, `channel` (`WHATSAPP_CLOUD`, `SMS`, `EMAIL`, `WEB_CHAT`), `direction`, `status`, `externalThreadId`, `contactPhone`, `jobId`, `projectId`, `contractorLeadId`. Es la bandeja omnicanal que pide la arquitectura unificada. `MessageThread`/`Message` no tenían `tenantId` ni consumidores.
+- Fase 1 (completada): eliminar `MessageThread`/`Message` del esquema y la base de datos.
+- Fase 2 (completada): renombrar `ConversationThread` → `CommunicationThread` y `ConversationMessage` → `Communication` mediante `ALTER TABLE ... RENAME TO` y renombrado de constraints/índices, manteniendo DTOs y endpoints públicos sin cambios.
 
 ---
 
