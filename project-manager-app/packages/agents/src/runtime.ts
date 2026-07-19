@@ -23,6 +23,7 @@ import {
   createPRPackageProvider,
   createRollbackProvider,
   createSandboxProvider,
+  createSecurityReviewProvider,
   createToolAdapter,
   createVerificationProvider,
   evaluateForgePolicy,
@@ -31,6 +32,7 @@ import {
   type ForgeObservationPlan,
   type ForgePatchPlan,
   type ForgePatchResult,
+  type ForgeSecurityReport,
   type ForgePRPackage,
   type ForgeRollbackPlan,
   type ForgeTaskPacket,
@@ -472,6 +474,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let deployment: ForgeDeploymentPlan | undefined;
   let rollback: ForgeRollbackPlan | undefined;
   let observation: ForgeObservationPlan | undefined;
+  let securityReport: ForgeSecurityReport | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -627,6 +630,17 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     });
   }
 
+  const securityReviewActions = new Set(["security.review"]);
+  if (policy.decision !== "deny" && securityReviewActions.has(action)) {
+    const securityReviewProvider = createSecurityReviewProvider({ mode: "dry-run" });
+    securityReport = securityReviewProvider.review({
+      runId: typeof input.forgeRunId === "string" ? input.forgeRunId : task.id,
+      task,
+      policy,
+      patchPlan
+    });
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -649,6 +663,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       deployment,
       rollback,
       observation,
+      securityReport,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }

@@ -13,3 +13,4 @@ export * from "./pr-package.js";
 export * from "./deployment-provider.js";
 export * from "./rollback-provider.js";
 export * from "./observation-provider.js";
+export * from "./security-review-provider.js";

@@ -7,6 +7,7 @@ import type {
   ForgeDeploymentPlan,
   ForgeObservationPlan,
   ForgePolicyResult,
+  ForgeSecurityReport,
   ForgePRPackage,
   ForgeRollbackPlan,
   ForgeRun,
@@ -311,20 +312,28 @@ export class ForgeService {
     const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
     const rollback = payload.rollback as ForgeRollbackPlan | undefined;
     const observation = payload.observation as ForgeObservationPlan | undefined;
+    const securityReport = payload.securityReport as ForgeSecurityReport | undefined;
 
-    // Ensure any extra approvals required by the PR package, deployment plan, rollback plan or observation plan are tracked.
+    // Ensure any extra approvals required by the PR package, deployment plan, rollback plan, observation plan or security review are tracked.
     const extraApprovalModes = new Set<ForgeApprovalMode>();
     for (const mode of prPackage?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of deployment?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of rollback?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of observation?.requiredApprovals ?? []) extraApprovalModes.add(mode);
+    for (const mode of securityReport?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of extraApprovalModes) {
       harness.ensurePendingApproval(current.id, mode);
     }
     const runAfterApprovals = harness.getRun(current.id);
 
     let nextState = current.state;
-    if (policy?.decision === "deny" || prPackage?.decision === "deny" || deployment?.decision === "deny" || rollback?.decision === "deny") {
+    if (
+      policy?.decision === "deny" ||
+      prPackage?.decision === "deny" ||
+      deployment?.decision === "deny" ||
+      rollback?.decision === "deny" ||
+      securityReport?.decision === "deny"
+    ) {
       nextState = "blocked";
     } else if (prPackage) {
       nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
@@ -524,6 +533,24 @@ export class ForgeService {
           targetBranch: observation.targetBranch,
           stepCount: observation.steps.length,
           requiredApprovals: observation.requiredApprovals
+        }
+      } as const);
+    }
+
+    if (securityReport) {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_SECURITY_REVIEW_COMPLETED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          securityDecision: securityReport.decision,
+          findingCount: securityReport.findings.length,
+          criticalCount: securityReport.findings.filter((finding) => finding.severity === "critical").length,
+          requiredApprovals: securityReport.requiredApprovals
         }
       } as const);
     }
