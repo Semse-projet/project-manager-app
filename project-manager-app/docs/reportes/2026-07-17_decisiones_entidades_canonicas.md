@@ -1,0 +1,102 @@
+# Decisiones de entidades canónicas — duplicaciones SEMSE
+
+**Fecha:** 2026-07-17  
+**Corte base:** `main` post-merge PR #330  
+**Objetivo:** decidir, por cada duplicación detectada en el reporte de aterrizaje arquitectónico, cuál es el modelo canónico y cuáles son legacy/verticales a consolidar o deprecar.
+
+---
+
+## Resumen ejecutivo
+
+| Dominio duplicado | Entidad canónica | Legacy/vertical que se consolida | Próximo paso |
+|---|---|---|---|
+| Comunicaciones | `ConversationThread` / `ConversationMessage` | `MessageThread` / `Message` | **Fase 1 en curso:** eliminar `MessageThread`/`Message` |
+| Tareas | `JobTask` (núcleo de jobs/hitoss) | `BuildOpsTask`, `AgroFarmTask` | Diseñar `Task` unificado con `domain`/`vertical` discriminator o consolidar gradualmente |
+| Documentos/evidencias | `Evidence` | `AgroEvidenceItem` | Extender `Evidence` con `entityType`/`entityId` para absorver evidencia agro; `PrometeoDocument` se mantiene como `KnowledgeSource` RAG; `MilestoneEvidenceItem` es checklist, no evidencia pura |
+| Tracking de tiempo | `TimeEntry` / `LaborSheet` | `WorklogEntry` / `TrackerSession` | Deprecar field-ops tracker; migrar UI a Labor Engine; extender `TimeEntry` con contexto de field unit |
+| Ejecuciones de agentes | `AgentRun` | `AlgorithmRun`, `BrowserMission`, `AutonomousPrRun`, `ProductIngestBatch` | Evaluar si `AgentRun` puede absorber `AlgorithmRun` y `BrowserMission` vía `kind`/`contextJson`; `AutonomousPrRun` y `ProductIngestBatch` son casos especiales |
+
+---
+
+## 1. Comunicaciones
+
+**Tablas:** `MessageThread`/`Message` (legacy) vs `ConversationThread`/`ConversationMessage` (activo).
+
+**Decisión:**
+- Canónico: `ConversationThread` / `ConversationMessage`.
+- Legacy a eliminar: `MessageThread` / `Message`.
+- Justificación: `ConversationThread` ya soporta `tenantId`, `channel` (`WHATSAPP_CLOUD`, `SMS`, `EMAIL`, `WEB_CHAT`), `direction`, `status`, `externalThreadId`, `contactPhone`, `jobId`, `projectId`, `contractorLeadId`. Es la bandeja omnicanal que pide la arquitectura unificada. `MessageThread`/`Message` no tienen `tenantId` ni consumidores en el código.
+- Fase 1 (este PR): eliminar `MessageThread`/`Message` del esquema y la base de datos.
+- Fase 2 (futura): decidir si renombrar `ConversationThread` → `CommunicationThread` y `ConversationMessage` → `Communication` con `@@map` para alinear nombres con la arquitectura unificada.
+
+---
+
+## 2. Tareas
+
+**Tablas:** `JobTask`, `BuildOpsTask`, `AgroFarmTask`.
+
+**Decisión:**
+- Canónico provisional: `JobTask` es la tarea vinculada al ciclo de vida del job/hitoss.
+- `BuildOpsTask` es una tarea de plan/checklist de proyecto; puede quedar como vertical o convertirse en `Task` con `domain = "buildops"`.
+- `AgroFarmTask` es una tarea operativa agro; puede quedar como vertical o convertirse en `Task` con `domain = "agro"`.
+- Justificación: las tres tablas comparten `title`, `status`, `priority`, `dueDate`, `assignedTo`, pero cada una añade semántica propia (evidenceRequired, templateKey, targetType). El modelo unificado `tasks` debe soportar un `domain`/`vertical` discriminator y referencia polimórfica a `entityType`/`entityId` (job, farm, project).
+- Próximo paso: especificar `Task` unificado en un SDD separado antes de tocar `schema.prisma`.
+
+---
+
+## 3. Documentos / evidencias
+
+**Tablas:** `Evidence`, `PrometeoDocument`, `AgroEvidenceItem`, `MilestoneEvidenceItem`.
+
+**Decisión:**
+- Canónico: `Evidence` para evidencia operativa/auditada (fotos, videos, documentos vinculados a jobs/milestones/projects).
+- `AgroEvidenceItem` debe converger hacia `Evidence` extendido con `entityType`/`entityId` para soportar `Farm`, `FarmUnit`, `Animal`, etc.
+- `PrometeoDocument` es un documento de conocimiento/RAG; en el futuro puede renombrarse a `KnowledgeSource` o `Document` unificado, pero hoy no es evidencia operativa.
+- `MilestoneEvidenceItem` es un requisito de evidencia por hito (checklist), no el archivo en sí; se mantiene como `MilestoneEvidenceItem`.
+- Justificación: `Evidence` ya centraliza `bucketKey`, `kind`, `validationStatus`, `aiQualityScore`, `metadataJson`, `capturedAt`, `uploadedById`, `promotedFromBuildOps`. Es la entidad documental operativa de SEMSE.
+- Próximo paso: extender `Evidence` con `entityType`/`entityId` y migrar `AgroEvidenceItem`.
+
+---
+
+## 4. Tracking de tiempo
+
+**Tablas:** `WorklogEntry`, `TrackerSession`, `TimeEntry`, `LaborSheet`.
+
+**Decisión:**
+- Canónico: `TimeEntry` / `LaborSheet` (Labor Engine).
+- Legacy a deprecar: `WorklogEntry` / `TrackerSession` (field-ops legacy).
+- Justificación: `TimeEntry` soporta modo `realtime`/`manual`, propósito `personal`/`payable`/`job_linked`, breaks, hourly rate, currency, y se integra a resúmenes semanales/mensuales. `TrackerSession` y `WorklogEntry` son anteriores y no tienen todos los campos.
+- Próximo paso:
+  1. Migrar UI field-ops (`/worker/field-ops`, `/admin/field-ops`) a endpoints de Labor Engine.
+  2. Extender `TimeEntry` con `contextEntityType`/`contextEntityId` para soportar `FieldUnit`.
+  3. Eliminar `WorklogEntry` / `TrackerSession` una vez que no tengan consumidores.
+
+---
+
+## 5. Ejecuciones de agentes / runs
+
+**Tablas:** `AgentRun`, `AutonomousPrRun`, `BrowserMission`, `AlgorithmRun`, `ProductIngestBatch`.
+
+**Decisión:**
+- Canónico: `AgentRun` para la mayoría de las ejecuciones de agentes (tiene `agentType`, `triggerType`, `status`, `inputJson`, `outputJson`, `attempts`, `correlationId`, `startedAt`, `endedAt`, `error`).
+- `AlgorithmRun` puede converger a `AgentRun` añadiendo `kind = "algorithm"` y guardando `toolName`/`trade`/`algorithmVersion` en `inputJson` o `contextJson`.
+- `BrowserMission` puede converger a `AgentRun` con `kind = "browser"` y `steps` en `outputJson`.
+- `AutonomousPrRun` y `ProductIngestBatch` son dominios específicos (autonomía de PRs e ingesta de product intelligence); no se tocan en esta fase.
+- Justificación: la arquitectura unificada pide `automation_definitions` → `automation_runs` → `automation_steps`. `AgentRun` es el run más cercano; los demás son especializaciones.
+- Próximo paso: decidir en un SDD si se crea una tabla `Run`/`Execution` polimórfica o si `AgentRun` absorbe los casos comunes.
+
+---
+
+## 6. Congelamiento de nuevas tablas
+
+De aquí en adelante, **no se crean nuevas tablas** llamadas `tasks`, `messages`, `documents`, `time_entries`, `agent_runs` o similares sin aprobar un spec que las aterrice en el modelo canónico correspondiente. Las nuevas features deben extender las entidades canónicas o justificar explícitamente una vertical separada.
+
+---
+
+## Fuentes
+
+- `docs/reportes/2026-07-17_aterrizaje_arquitectura_unificada.md`
+- `packages/db/prisma/schema.prisma`
+- `apps/api/src/modules/communications/`
+- `apps/api/src/modules/labor-engine/`
+- `apps/api/src/modules/field-ops/`
