@@ -109,7 +109,10 @@ export class OutboxDispatcherService
 
     for (const event of claimed) {
       try {
-        await this.queueService.enqueueEvent({ eventId: event.eventId });
+        await this.queueService.enqueueEvent({
+          eventId: event.eventId,
+          generation: event.replayCount,
+        });
         const publishedAt = new Date();
         const acknowledged = await this.outboxRepository.markPublished({
           eventId: event.eventId,

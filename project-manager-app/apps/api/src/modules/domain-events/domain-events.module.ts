@@ -13,6 +13,7 @@ import { DomainEventsService } from "./domain-events.service.js";
 import { DomainEventBus } from "./domain-event-bus.service.js";
 import { OutboxRepository } from "./outbox.repository.js";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
+import { OutboxOpsService } from "./outbox-ops.service.js";
 
 @Module({
   controllers: [DomainEventsController],
@@ -32,6 +33,7 @@ import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
     AgentTriggerRouter,
     OutboxRepository,
     OutboxDispatcherService,
+    OutboxOpsService,
   ],
   exports: [DomainEventBus, DomainEventsService, OutboxRepository],
 })

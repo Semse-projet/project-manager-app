@@ -43,7 +43,10 @@ kill switch/allowlist hasta el canary F1-F:
 
 - `evidence.uploaded.v1`
 
-Reservado y todavía no implementado hasta cerrar Ops/replay F1-E:
+F1-E (Ops/replay) implementado sobre `main`: list/delivery/replay tenant-scoped
+con RBAC (`domain-events:read` / `domain-events:replay` + `OPS_ADMIN`), redaction
+de payload y auditoría con `replayCount`. Se registra como AuditLog
+(`domain.event.emit`, `entityType: DomainEvent`) al ejecutar un replay:
 
 - `ops.event_replay_requested.v1`
 

@@ -132,6 +132,11 @@ export class DomainEventsService {
       ...input,
       runIds: runs.map((run) => run.id)
     });
+    const outboxRows = await this.repository.listOutboxByCorrelationId(input);
+    const consumptionRows = await this.repository.listConsumptionsByEventIds({
+      ...input,
+      eventIds: outboxRows.map((row) => row.eventId)
+    });
 
     const primaryEvent = eventRows[0];
 
@@ -173,6 +178,28 @@ export class DomainEventsService {
         entityId: row.entityId,
         requestId: resolveRequestId(row.afterJson),
         timestamp: row.occurredAt.toISOString()
+      })),
+      outbox: outboxRows.map((row) => ({
+        eventId: row.eventId,
+        eventType: row.eventType,
+        status: row.status,
+        attempts: row.attempts,
+        maxAttempts: row.maxAttempts,
+        replayCount: row.replayCount,
+        recordedAt: row.recordedAt.toISOString(),
+        publishedAt: row.publishedAt?.toISOString() ?? null,
+        lastError: row.lastError,
+        receipts: consumptionRows
+          .filter((consumption) => consumption.eventId === row.eventId)
+          .map((consumption) => ({
+            consumerName: consumption.consumerName,
+            status: consumption.status,
+            attempts: consumption.attempts,
+            maxAttempts: consumption.maxAttempts,
+            replayCount: consumption.replayCount,
+            completedAt: consumption.completedAt?.toISOString() ?? null,
+            lastError: consumption.lastError
+          }))
       }))
     };
   }

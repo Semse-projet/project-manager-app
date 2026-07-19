@@ -18,6 +18,7 @@ const claimedEvent = {
   attempts: 1,
   maxAttempts: 5,
   recordedAt: new Date("2026-07-13T12:00:00.000Z"),
+  replayCount: 0,
 };
 
 test("F1-C queue: eventId produces a deterministic BullMQ jobId and bounded retention", async () => {
@@ -40,10 +41,10 @@ test("F1-C queue: eventId produces a deterministic BullMQ jobId and bounded rete
   await service.enqueueEvent({ eventId: claimedEvent.eventId });
 
   assert.equal(SEMSE_DOMAIN_EVENT_QUEUE, "semse-domain-events");
-  assert.equal(toDomainEventJobId(claimedEvent.eventId), `event-${claimedEvent.eventId}`);
+  assert.equal(toDomainEventJobId(claimedEvent.eventId), `event-${claimedEvent.eventId}-g0`);
   assert.equal(added.length, 1);
   assert.deepEqual(added[0]?.data, { eventId: claimedEvent.eventId });
-  assert.equal(added[0]?.options.jobId, `event-${claimedEvent.eventId}`);
+  assert.equal(added[0]?.options.jobId, `event-${claimedEvent.eventId}-g0`);
   assert.equal(added[0]?.options.attempts, 5);
   assert.deepEqual(added[0]?.options.backoff, {
     type: "exponential",
@@ -77,10 +78,10 @@ test("F1-C dispatcher: successful enqueue acknowledges the same leased event", a
       deadLetterTotal: 0,
     }),
   };
-  const enqueued: string[] = [];
+  const enqueued: Array<{ eventId: string; generation?: number }> = [];
   const queue = {
-    enqueueEvent: async ({ eventId }: { eventId: string }) => {
-      enqueued.push(eventId);
+    enqueueEvent: async (input: { eventId: string; generation?: number }) => {
+      enqueued.push(input);
     },
   };
   const service = new OutboxDispatcherService(
@@ -92,7 +93,7 @@ test("F1-C dispatcher: successful enqueue acknowledges the same leased event", a
   const result = await service.dispatchBatch();
 
   assert.deepEqual(result, { claimed: 1, published: 1, failed: 0 });
-  assert.deepEqual(enqueued, [claimedEvent.eventId]);
+  assert.deepEqual(enqueued, [{ eventId: claimedEvent.eventId, generation: 0 }]);
   assert.equal(acknowledged.length, 1);
   assert.equal(acknowledged[0]?.eventId, claimedEvent.eventId);
   assert.equal(typeof acknowledged[0]?.dispatcherId, "string");

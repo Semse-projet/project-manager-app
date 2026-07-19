@@ -17,6 +17,7 @@ export type ClaimedOutboxEvent = {
   attempts: number;
   maxAttempts: number;
   recordedAt: Date;
+  replayCount: number;
 };
 
 export type OutboxMetricsSnapshot = {
@@ -24,6 +25,71 @@ export type OutboxMetricsSnapshot = {
   oldestPendingAgeSeconds: number;
   deadLetterTotal: number;
 };
+
+export type OutboxStatusName =
+  | "PENDING"
+  | "CLAIMED"
+  | "PUBLISHED"
+  | "FAILED"
+  | "DEAD_LETTER";
+
+export type OutboxListItem = {
+  eventId: string;
+  eventType: string;
+  status: OutboxStatusName;
+  correlationId: string;
+  causationId: string | null;
+  entityType: string;
+  entityId: string;
+  attempts: number;
+  maxAttempts: number;
+  replayCount: number;
+  recordedAt: Date;
+  publishedAt: Date | null;
+  nextAttemptAt: Date;
+  lastError: string | null;
+};
+
+export type OutboxDeliveryDetail = OutboxListItem & {
+  module: string;
+  orgId: string;
+  actorType: string;
+  actorId: string;
+  occurredAt: Date;
+  consumptions: Array<{
+    consumerName: string;
+    status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "DEAD_LETTER";
+    attempts: number;
+    maxAttempts: number;
+    replayCount: number;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    nextAttemptAt: Date;
+    lastError: string | null;
+  }>;
+};
+
+const OUTBOX_LIST_SELECT = {
+  eventId: true,
+  eventType: true,
+  status: true,
+  correlationId: true,
+  causationId: true,
+  entityType: true,
+  entityId: true,
+  attempts: true,
+  maxAttempts: true,
+  replayCount: true,
+  recordedAt: true,
+  publishedAt: true,
+  nextAttemptAt: true,
+  lastError: true,
+} as const;
+
+export type OutboxReplayResult =
+  | { outcome: "not_found" }
+  | { outcome: "conflict"; status: string }
+  | { outcome: "replayed"; replayCount: number; status: "PENDING" };
 
 function boundedInteger(
   value: number,
@@ -142,7 +208,8 @@ export class OutboxRepository {
             event."eventType",
             event."attempts",
             event."maxAttempts",
-            event."recordedAt"
+            event."recordedAt",
+            event."replayCount"
         `,
       );
     });
@@ -205,6 +272,208 @@ export class OutboxRepository {
     });
 
     return result.count === 1 ? { status, attempts: input.attempts } : null;
+  }
+
+  async list(input: {
+    tenantId: string;
+    status?: OutboxStatusName;
+    eventType?: string;
+    correlationId?: string;
+    limit: number;
+    cursor?: { recordedAt: Date; eventId: string };
+  }): Promise<{ items: OutboxListItem[]; nextCursor: string | null }> {
+    const prisma = this.requirePrisma();
+    const rows = await prisma.domainOutboxEvent.findMany({
+      where: {
+        tenantId: input.tenantId,
+        ...(input.status ? { status: input.status } : {}),
+        ...(input.eventType ? { eventType: input.eventType } : {}),
+        ...(input.correlationId ? { correlationId: input.correlationId } : {}),
+        ...(input.cursor
+          ? {
+              OR: [
+                { recordedAt: { gt: input.cursor.recordedAt } },
+                {
+                  recordedAt: input.cursor.recordedAt,
+                  eventId: { gt: input.cursor.eventId },
+                },
+              ],
+            }
+          : {}),
+      },
+      select: OUTBOX_LIST_SELECT,
+      orderBy: [{ recordedAt: "asc" }, { eventId: "asc" }],
+      take: input.limit + 1,
+    });
+
+    const page = rows.slice(0, input.limit);
+    const hasMore = rows.length > input.limit;
+    const last = page[page.length - 1];
+
+    return {
+      items: page as OutboxListItem[],
+      nextCursor:
+        hasMore && last
+          ? Buffer.from(
+              JSON.stringify({
+                recordedAt: last.recordedAt.toISOString(),
+                eventId: last.eventId,
+              }),
+            ).toString("base64url")
+          : null,
+    };
+  }
+
+  async countsByStatus(
+    tenantId: string,
+  ): Promise<Record<OutboxStatusName, number>> {
+    const prisma = this.requirePrisma();
+    const grouped = await prisma.domainOutboxEvent.groupBy({
+      by: ["status"],
+      where: { tenantId },
+      _count: { _all: true },
+    });
+    const counts: Record<OutboxStatusName, number> = {
+      PENDING: 0,
+      CLAIMED: 0,
+      PUBLISHED: 0,
+      FAILED: 0,
+      DEAD_LETTER: 0,
+    };
+    for (const row of grouped) {
+      counts[row.status as OutboxStatusName] = row._count._all;
+    }
+    return counts;
+  }
+
+  async oldestPendingAgeMs(tenantId: string, now = new Date()): Promise<number> {
+    const prisma = this.requirePrisma();
+    const oldest = await prisma.domainOutboxEvent.findFirst({
+      where: { tenantId, status: { in: ["PENDING", "FAILED", "CLAIMED"] } },
+      orderBy: [{ recordedAt: "asc" }, { eventId: "asc" }],
+      select: { recordedAt: true },
+    });
+    return oldest ? Math.max(0, now.getTime() - oldest.recordedAt.getTime()) : 0;
+  }
+
+  async findDeliveryDetail(input: {
+    eventId: string;
+    tenantId: string;
+  }): Promise<OutboxDeliveryDetail | null> {
+    const prisma = this.requirePrisma();
+    const event = await prisma.domainOutboxEvent.findFirst({
+      where: { eventId: input.eventId, tenantId: input.tenantId },
+      select: {
+        ...OUTBOX_LIST_SELECT,
+        module: true,
+        orgId: true,
+        actorType: true,
+        actorId: true,
+        occurredAt: true,
+      },
+    });
+    if (!event) {
+      return null;
+    }
+
+    const consumptions = await prisma.domainEventConsumption.findMany({
+      where: { eventId: input.eventId, tenantId: input.tenantId },
+      select: {
+        consumerName: true,
+        status: true,
+        attempts: true,
+        maxAttempts: true,
+        replayCount: true,
+        startedAt: true,
+        completedAt: true,
+        nextAttemptAt: true,
+        lastError: true,
+      },
+      orderBy: { consumerName: "asc" },
+    });
+
+    return {
+      ...(event as unknown as OutboxListItem),
+      module: event.module,
+      orgId: event.orgId,
+      actorType: event.actorType,
+      actorId: event.actorId,
+      occurredAt: event.occurredAt,
+      consumptions,
+    };
+  }
+
+  async replay(input: {
+    eventId: string;
+    tenantId: string;
+    consumerName?: string;
+    now?: Date;
+  }): Promise<OutboxReplayResult> {
+    const prisma = this.requirePrisma();
+    const now = input.now ?? new Date();
+
+    return prisma.$transaction(async (tx) => {
+      const event = await tx.domainOutboxEvent.findFirst({
+        where: { eventId: input.eventId, tenantId: input.tenantId },
+        select: { eventId: true, status: true, replayCount: true },
+      });
+      if (!event) {
+        return { outcome: "not_found" };
+      }
+
+      if (input.consumerName) {
+        const consumption = await tx.domainEventConsumption.findFirst({
+          where: {
+            eventId: input.eventId,
+            tenantId: input.tenantId,
+            consumerName: input.consumerName,
+          },
+          select: { id: true, status: true },
+        });
+        if (!consumption) {
+          return { outcome: "not_found" };
+        }
+        if (consumption.status !== "DEAD_LETTER") {
+          return { outcome: "conflict", status: consumption.status };
+        }
+
+        const replayCount = event.replayCount + 1;
+        await tx.domainEventConsumption.update({
+          where: { id: consumption.id },
+          data: {
+            status: "PENDING",
+            attempts: 0,
+            startedAt: null,
+            completedAt: null,
+            nextAttemptAt: now,
+          },
+        });
+        await tx.domainOutboxEvent.update({
+          where: { eventId: input.eventId },
+          data: { replayCount },
+        });
+        return { outcome: "replayed", replayCount, status: "PENDING" };
+      }
+
+      if (event.status !== "DEAD_LETTER") {
+        return { outcome: "conflict", status: event.status };
+      }
+
+      const replayCount = event.replayCount + 1;
+      await tx.domainOutboxEvent.update({
+        where: { eventId: input.eventId },
+        data: {
+          status: "PENDING",
+          attempts: 0,
+          nextAttemptAt: now,
+          lockedAt: null,
+          lockExpiresAt: null,
+          lockedBy: null,
+          replayCount,
+        },
+      });
+      return { outcome: "replayed", replayCount, status: "PENDING" };
+    });
   }
 
   async getMetricsSnapshot(now = new Date()): Promise<OutboxMetricsSnapshot> {
