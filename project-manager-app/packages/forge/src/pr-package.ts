@@ -203,7 +203,7 @@ class DryRunPRPackageProvider implements PRPackageProvider {
         {
           message: commitMessage,
           files: changedFiles,
-          body: `Automated proposal for ${task.spec.id}`
+          body: `Automated proposal for ${task.spec.id} (run: ${runId})`
         }
       ],
       changedFiles,
