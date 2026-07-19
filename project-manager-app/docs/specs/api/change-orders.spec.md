@@ -11,7 +11,7 @@ related_files:
   - "packages/db/prisma/schema.prisma"
 related_tests:
   - "apps/api/test/change-order-lifecycle.test.ts"
-  - "apps/api/test/change-orders.controller.test.ts"
+  - "apps/api/test/bloque-z-change-orders.test.ts"
   - "tests/unit/change-order-risk-agent.test.ts"
 related_endpoints:
   - "v1/change-orders"
