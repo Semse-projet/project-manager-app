@@ -20,6 +20,7 @@ import {
   createPatchPlanner,
   createPatchWriter,
   createPRPackageProvider,
+  createRollbackProvider,
   createSandboxProvider,
   createToolAdapter,
   createVerificationProvider,
@@ -29,6 +30,7 @@ import {
   type ForgePatchPlan,
   type ForgePatchResult,
   type ForgePRPackage,
+  type ForgeRollbackPlan,
   type ForgeTaskPacket,
   type ForgeToolPlan,
   type ForgeVerificationMatrix,
@@ -466,6 +468,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let verification: ForgeVerificationMatrix | undefined;
   let prPackage: ForgePRPackage | undefined;
   let deployment: ForgeDeploymentPlan | undefined;
+  let rollback: ForgeRollbackPlan | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -589,7 +592,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     });
   }
 
-  const deploymentActions = new Set(["deployment.propose", "rollback.prepare"]);
+  const deploymentActions = new Set(["deployment.propose"]);
   if (policy.decision !== "deny" && deploymentActions.has(action)) {
     const deploymentProvider = createDeploymentProvider({ mode: "dry-run" });
     deployment = deploymentProvider.plan({
@@ -597,6 +600,17 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       task,
       policy,
       prPackage
+    });
+  }
+
+  const rollbackActions = new Set(["rollback.prepare"]);
+  if (policy.decision !== "deny" && rollbackActions.has(action)) {
+    const rollbackProvider = createRollbackProvider({ mode: "dry-run" });
+    rollback = rollbackProvider.plan({
+      runId: typeof input.forgeRunId === "string" ? input.forgeRunId : task.id,
+      task,
+      policy,
+      deploymentPlan: deployment
     });
   }
 
@@ -620,6 +634,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       verification,
       prPackage,
       deployment,
+      rollback,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }

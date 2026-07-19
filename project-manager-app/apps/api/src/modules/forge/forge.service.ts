@@ -7,6 +7,7 @@ import type {
   ForgeDeploymentPlan,
   ForgePolicyResult,
   ForgePRPackage,
+  ForgeRollbackPlan,
   ForgeRun,
   ForgeRunState,
   ForgeSpecReference,
@@ -308,18 +309,20 @@ export class ForgeService {
 
     const prPackage = payload.prPackage as ForgePRPackage | undefined;
     const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
+    const rollback = payload.rollback as ForgeRollbackPlan | undefined;
 
-    // Ensure any extra approvals required by the PR package or deployment plan are tracked.
+    // Ensure any extra approvals required by the PR package, deployment plan or rollback plan are tracked.
     const extraApprovalModes = new Set<ForgeApprovalMode>();
     for (const mode of prPackage?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of deployment?.requiredApprovals ?? []) extraApprovalModes.add(mode);
+    for (const mode of rollback?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of extraApprovalModes) {
       harness.ensurePendingApproval(current.id, mode);
     }
     const runAfterApprovals = harness.getRun(current.id);
 
     let nextState = current.state;
-    if (policy?.decision === "deny" || prPackage?.decision === "deny" || deployment?.decision === "deny") {
+    if (policy?.decision === "deny" || prPackage?.decision === "deny" || deployment?.decision === "deny" || rollback?.decision === "deny") {
       nextState = "blocked";
     } else if (prPackage) {
       nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
@@ -328,6 +331,12 @@ export class ForgeService {
         current.state === "merged" &&
         (deployment.decision === "allow" || allModesApproved(runAfterApprovals.approvals, deployment.requiredApprovals))
           ? "deployed"
+          : current.state;
+    } else if (rollback) {
+      nextState =
+        (current.state === "deployed" || current.state === "observing") &&
+        (rollback.decision === "allow" || allModesApproved(runAfterApprovals.approvals, rollback.requiredApprovals))
+          ? "rolled_back"
           : current.state;
     } else if (policy?.decision === "require_approval") {
       nextState = nextState === "building" ? nextState : "ready_for_review";
@@ -454,6 +463,25 @@ export class ForgeService {
       } as const);
     }
 
+    if (rollback) {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_ROLLBACK_PROPOSED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          rollbackDecision: rollback.decision,
+          environment: rollback.environment,
+          targetBranch: rollback.targetBranch,
+          stepCount: rollback.steps.length,
+          requiredApprovals: rollback.requiredApprovals
+        }
+      } as const);
+    }
+
     const persisted = await this.repository.update({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
@@ -509,6 +537,16 @@ export class ForgeService {
       const requiredApprovals = (deploymentEvent?.detail?.requiredApprovals as ForgeApprovalMode[]) ?? [];
       if (requiredApprovals.length > 0 && allModesApproved(updated.approvals, requiredApprovals)) {
         harness.transition(input.runId, "deployed", input.actor.userId);
+      }
+    }
+
+    if (input.decision === "approved" && (updated.state === "deployed" || updated.state === "observing")) {
+      const rollbackEvent = [...updated.events]
+        .reverse()
+        .find((event) => event.type === "FORGE_ROLLBACK_PROPOSED");
+      const requiredApprovals = (rollbackEvent?.detail?.requiredApprovals as ForgeApprovalMode[]) ?? [];
+      if (requiredApprovals.length > 0 && allModesApproved(updated.approvals, requiredApprovals)) {
+        harness.transition(input.runId, "rolled_back", input.actor.userId);
       }
     }
 
