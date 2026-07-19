@@ -11,7 +11,7 @@
 | Dominio duplicado | Entidad canónica | Legacy/vertical que se consolida | Próximo paso |
 |---|---|---|---|
 | Comunicaciones | `ConversationThread` / `ConversationMessage` | `MessageThread` / `Message` | **Fase 1 en curso:** eliminar `MessageThread`/`Message` |
-| Tareas | `JobTask` (núcleo de jobs/hitoss) | `BuildOpsTask`, `AgroFarmTask` | Diseñar `Task` unificado con `domain`/`vertical` discriminator o consolidar gradualmente |
+| Tareas | `JobTask` (canónico en Fase 1) | `BuildOpsTask`, `AgroFarmTask` | Fase 1 lista: `JobTask` extendido con campos polimórficos para BuildOps y Agro; Fase 2/3 migrarán BuildOpsTask y AgroFarmTask |
 | Documentos/evidencias | `Evidence` | `AgroEvidenceItem` | Extender `Evidence` con `entityType`/`entityId` para absorver evidencia agro; `PrometeoDocument` se mantiene como `KnowledgeSource` RAG; `MilestoneEvidenceItem` es checklist, no evidencia pura |
 | Tracking de tiempo | `TimeEntry` / `LaborSheet` | `TrackerSession` eliminada; `WorklogEntry` pendiente (diario de campo) | Fase 1 completada: `TrackerSession` migrado a `TimeEntry`; `TimeEntry` extiende `contextEntityType`/`contextEntityId`; adaptador legacy mantiene `/v1/time-tracker` |
 | Ejecuciones de agentes | `AgentRun` | `AlgorithmRun`, `BrowserMission`, `AutonomousPrRun`, `ProductIngestBatch` | Evaluar si `AgentRun` puede absorber `AlgorithmRun` y `BrowserMission` vía `kind`/`contextJson`; `AutonomousPrRun` y `ProductIngestBatch` son casos especiales |
@@ -36,11 +36,17 @@
 **Tablas:** `JobTask`, `BuildOpsTask`, `AgroFarmTask`.
 
 **Decisión:**
-- Canónico provisional: `JobTask` es la tarea vinculada al ciclo de vida del job/hitoss.
-- `BuildOpsTask` es una tarea de plan/checklist de proyecto; puede quedar como vertical o convertirse en `Task` con `domain = "buildops"`.
-- `AgroFarmTask` es una tarea operativa agro; puede quedar como vertical o convertirse en `Task` con `domain = "agro"`.
-- Justificación: las tres tablas comparten `title`, `status`, `priority`, `dueDate`, `assignedTo`, pero cada una añade semántica propia (evidenceRequired, templateKey, targetType). El modelo unificado `tasks` debe soportar un `domain`/`vertical` discriminator y referencia polimórfica a `entityType`/`entityId` (job, farm, project).
-- Próximo paso: especificar `Task` unificado en un SDD separado antes de tocar `schema.prisma`.
+- Canónico: `JobTask` actúa como `Task` canónico en Fase 1.
+- `BuildOpsTask` es una tarea de plan/checklist de proyecto; migrará a `JobTask` con `domain = "buildops"` en Fase 2.
+- `AgroFarmTask` es una tarea operativa agro; migrará a `JobTask` con `domain = "agro"` en Fase 3 (requiere añadir `tenantId` a `AgroFarm` para cumplir la Constitución Art. VII).
+- Justificación: las tres tablas comparten `title`, `status`, `priority`, `dueDate`, `assignedTo`, pero cada una añade semántica propia (`evidenceRequired`, `templateKey`, `targetType`, `taskType`). El modelo unificado `JobTask` ahora soporta `domain`/`vertical`, `entityType`/`entityId`, y columnas específicas de BuildOps (`projectId`, `completion`, `sourceTool`, `evidenceRequired`, `assigneeName`) y Agro (`farmId`, `targetType`/`targetId`, `taskType`, `startedAt`, `completedAt`, `blockedAt`, `canceledAt`, `blockReason`, `cancelReason`, `notes`).
+- Estado (Fase 1):
+  1. `JobTask` se extendió con campos polimórficos y de contexto para absorber `BuildOpsTask` y `AgroFarmTask`.
+  2. `jobId` y `milestone` se hicieron opcionales para permitir tareas no vinculadas a un job.
+  3. Se añadieron índices por `tenantId + domain + status`, `projectId`, `farmId`, `(entityType, entityId)` y `(targetType, targetId)`.
+  4. `TasksService` acepta `jobId` y `milestone` nulos en `TaskRecord`.
+- Próximo paso (Fase 2): migrar `BuildOpsService`, `BuildOpsLegacyPromotionService`, `BuildOpsPlanRerunService` e `IntakeOperationsBridgeService` a leer/escribir `JobTask` con `domain='buildops'`, y migrar datos de `BuildOpsTask`.
+- Próximo paso (Fase 3): añadir `tenantId` a `AgroFarm`, migrar `AgroTaskService`/`AgroTaskRepository` a `JobTask` con `domain='agro'`, y migrar datos de `AgroFarmTask`.
 
 ---
 

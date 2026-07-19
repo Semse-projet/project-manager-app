@@ -5,8 +5,8 @@ import { databaseEnabled } from "../../infrastructure/persistence/persistence-mo
 export interface TaskRecord {
   id: string;
   tenantId: string;
-  jobId: string;
-  milestone: string;
+  jobId: string | null;
+  milestone: string | null;
   title: string;
   description: string | null;
   dueDate: string | null;
@@ -21,8 +21,8 @@ export interface TaskRecord {
 function toTaskRecord(row: {
   id: string;
   tenantId: string;
-  jobId: string;
-  milestone: string;
+  jobId: string | null;
+  milestone: string | null;
   title: string;
   description: string | null;
   dueDate: Date | null;
