@@ -95,6 +95,7 @@ async function createFixture(input: { milestoneId?: string | null } = {}) {
   await prisma.evidence.create({
     data: {
       id: evidenceId,
+      tenantId,
       projectId,
       milestoneId,
       uploadedById: userId,
