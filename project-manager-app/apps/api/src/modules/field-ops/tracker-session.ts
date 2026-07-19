@@ -23,14 +23,19 @@ export type TrackerSessionRecord = {
 };
 
 export function computeTrackerElapsedSeconds(
-  session: Pick<TrackerSessionRecord, "accumulatedSeconds" | "status" | "resumedAt">,
+  session: { accumulatedSeconds: number; status: string; resumedAt?: Date | null; startedAt?: Date | null },
   now: Date
 ): number {
-  if (session.status !== "RUNNING" || !session.resumedAt) {
+  if (session.status.toLowerCase() !== "running") {
     return session.accumulatedSeconds;
   }
 
-  const delta = Math.max(0, Math.floor((now.getTime() - session.resumedAt.getTime()) / 1000));
+  const anchor = session.resumedAt ?? session.startedAt;
+  if (!anchor) {
+    return session.accumulatedSeconds;
+  }
+
+  const delta = Math.max(0, Math.floor((now.getTime() - anchor.getTime()) / 1000));
   return session.accumulatedSeconds + delta;
 }
 

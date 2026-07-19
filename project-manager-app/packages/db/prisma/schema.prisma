@@ -145,7 +145,6 @@ model Tenant {
   // Field Ops
   fieldUnits                    FieldUnit[]
   worklogs                      WorklogEntry[]
-  trackerSessions               TrackerSession[]
   knowledgeFacts                KnowledgeFact[]
   // Labor Engine
   freeProjects                  FreeProject[]
@@ -417,7 +416,6 @@ model Job {
   escrow              PaymentEscrow?
   ratings             Rating[]
   conversationThreads ConversationThread[]
-  trackerSessions     TrackerSession[]
   timeEntries         TimeEntry[]
   travelAssignments   TravelAssignment[]
   buildOpsProject     BuildOpsProject?
@@ -1296,12 +1294,6 @@ enum ComplianceDocStatus {
   EXPIRED
 }
 
-enum TrackerSessionStatus {
-  RUNNING
-  PAUSED
-  STOPPED
-}
-
 /// A discrete physical or logical unit of work within a project (e.g. apartment 110, building wing A).
 model FieldUnit {
   id           String          @id @default(cuid())
@@ -1346,31 +1338,6 @@ model WorklogEntry {
 
   @@index([tenantId, date])
   @@index([fieldUnitId, date])
-}
-
-/// Persistent worker time-tracking session linked to a specific job.
-model TrackerSession {
-  id                 String               @id @default(cuid())
-  tenantId           String
-  orgId              String
-  jobId              String
-  createdBy          String
-  status             TrackerSessionStatus @default(RUNNING)
-  startedAt          DateTime
-  resumedAt          DateTime?
-  pausedAt           DateTime?
-  stoppedAt          DateTime?
-  accumulatedSeconds Int                  @default(0)
-  notes              String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
-
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, createdBy, status])
-  @@index([tenantId, jobId, status])
-  @@index([tenantId, startedAt])
 }
 
 // ─── Labor Engine ─────────────────────────────────────────────────────────────
@@ -1423,6 +1390,8 @@ model TimeEntry {
   notes              String?
   editedBy           String?
   editReason         String?
+  contextEntityType  String?   // e.g. FieldUnit, Job, Animal, CropLot
+  contextEntityId    String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -1436,6 +1405,7 @@ model TimeEntry {
   @@index([tenantId, freeProjectId])
   @@index([tenantId, startedAt])
   @@index([tenantId, createdBy, startedAt])
+  @@index([tenantId, contextEntityType, contextEntityId])
 }
 
 /// Evidence attached to a TimeEntry (photo, receipt, note, location, etc.)

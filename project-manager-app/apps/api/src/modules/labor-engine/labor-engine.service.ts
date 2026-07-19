@@ -70,6 +70,8 @@ export class LaborEngineService {
     jobId?: string;
     freeProjectId?: string;
     notes?: string;
+    contextEntityType?: string;
+    contextEntityId?: string;
   }) {
     const active = await this.repo.getActiveTimeEntry(params.tenantId, params.createdBy);
     if (active) throw new BadRequestException("Already has an active timer. Stop or pause it first.");
@@ -116,6 +118,8 @@ export class LaborEngineService {
     currency?: string;
     location?: string;
     notes?: string;
+    contextEntityType?: string;
+    contextEntityId?: string;
   }) {
     const startedAt = new Date(`${params.date}T${params.startTime}:00`);
     const endedAt = new Date(`${params.date}T${params.endTime}:00`);

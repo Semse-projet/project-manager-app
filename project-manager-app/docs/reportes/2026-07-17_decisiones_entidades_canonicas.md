@@ -13,7 +13,7 @@
 | Comunicaciones | `ConversationThread` / `ConversationMessage` | `MessageThread` / `Message` | **Fase 1 en curso:** eliminar `MessageThread`/`Message` |
 | Tareas | `JobTask` (núcleo de jobs/hitoss) | `BuildOpsTask`, `AgroFarmTask` | Diseñar `Task` unificado con `domain`/`vertical` discriminator o consolidar gradualmente |
 | Documentos/evidencias | `Evidence` | `AgroEvidenceItem` | Extender `Evidence` con `entityType`/`entityId` para absorver evidencia agro; `PrometeoDocument` se mantiene como `KnowledgeSource` RAG; `MilestoneEvidenceItem` es checklist, no evidencia pura |
-| Tracking de tiempo | `TimeEntry` / `LaborSheet` | `WorklogEntry` / `TrackerSession` | Deprecar field-ops tracker; migrar UI a Labor Engine; extender `TimeEntry` con contexto de field unit |
+| Tracking de tiempo | `TimeEntry` / `LaborSheet` | `TrackerSession` eliminada; `WorklogEntry` pendiente (diario de campo) | Fase 1 completada: `TrackerSession` migrado a `TimeEntry`; `TimeEntry` extiende `contextEntityType`/`contextEntityId`; adaptador legacy mantiene `/v1/time-tracker` |
 | Ejecuciones de agentes | `AgentRun` | `AlgorithmRun`, `BrowserMission`, `AutonomousPrRun`, `ProductIngestBatch` | Evaluar si `AgentRun` puede absorber `AlgorithmRun` y `BrowserMission` vía `kind`/`contextJson`; `AutonomousPrRun` y `ProductIngestBatch` son casos especiales |
 
 ---
@@ -66,10 +66,13 @@
 - Canónico: `TimeEntry` / `LaborSheet` (Labor Engine).
 - Legacy a deprecar: `WorklogEntry` / `TrackerSession` (field-ops legacy).
 - Justificación: `TimeEntry` soporta modo `realtime`/`manual`, propósito `personal`/`payable`/`job_linked`, breaks, hourly rate, currency, y se integra a resúmenes semanales/mensuales. `TrackerSession` y `WorklogEntry` son anteriores y no tienen todos los campos.
-- Próximo paso:
-  1. Migrar UI field-ops (`/worker/field-ops`, `/admin/field-ops`) a endpoints de Labor Engine.
-  2. Extender `TimeEntry` con `contextEntityType`/`contextEntityId` para soportar `FieldUnit`.
-  3. Eliminar `WorklogEntry` / `TrackerSession` una vez que no tengan consumidores.
+- Estado (Fase 1):
+  1. `TimeEntry` se extendió con `contextEntityType`/`contextEntityId` y se indexó por `(tenantId, contextEntityType, contextEntityId)`.
+  2. `TrackerSession` se eliminó del schema Prisma, se migraron sus filas a `TimeEntry` y se dropeó la tabla/enum en la migración `20260718000000_consolidate_tracker_session`.
+  3. `FieldOpsRepository` ahora lee/escribe `TimeEntry` con `purpose='job_linked'` y `contextEntityType='Job'`, manteniendo el contrato `TrackerSessionRecord`/`TrackerSessionView` para los endpoints legacy `/v1/time-tracker`.
+- Próximo paso (Fase 2):
+  1. Migrar UI field-ops (`/worker/field-ops`, `/admin/field-ops`) a endpoints de Labor Engine (`/v1/labor/*`) y eliminar el adaptador legacy.
+  2. Eliminar `WorklogEntry` una vez que no tenga consumidores (abordar en consolidación de documentos/evidencias o diarios de campo).
 
 ---
 
