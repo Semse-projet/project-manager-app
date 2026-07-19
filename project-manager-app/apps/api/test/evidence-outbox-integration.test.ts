@@ -151,6 +151,42 @@ dbTest(
 );
 
 dbTest(
+  "F1-E fault test (T-073): Evidence registration commits state+outbox even while Redis is unreachable",
+  async (t) => {
+    const fixture = await createFixture();
+    t.after(async () => cleanupFixture(fixture));
+    const previousRedisUrl = process.env.REDIS_URL;
+    process.env.REDIS_URL = "redis://127.0.0.1:1";
+    t.after(() => {
+      if (previousRedisUrl === undefined) {
+        delete process.env.REDIS_URL;
+      } else {
+        process.env.REDIS_URL = previousRedisUrl;
+      }
+    });
+
+    const repository = makeRepository();
+    const evidence = await repository.create({
+      tenantId: fixture.tenantId,
+      orgId: fixture.proOrgId,
+      userId: fixture.proUserId,
+      roles: ["PRO"],
+      requestId: uniqueId("request"),
+      projectId: fixture.projectId,
+      key: `tenants/${fixture.tenantId}/evidence/f1e-redis-down.jpg`,
+      kind: "PHOTO",
+    });
+
+    assert.ok(evidence.id);
+    const event = await prisma.domainOutboxEvent.findFirst({
+      where: { tenantId: fixture.tenantId, entityId: evidence.id },
+    });
+    assert.ok(event, "Evidence commit must persist its outbox row without any Redis call");
+    assert.equal(event?.status, "PENDING");
+  },
+);
+
+dbTest(
   "F1-B integration: outbox failure rolls back the real Evidence row",
   async (t) => {
     const fixture = await createFixture();
