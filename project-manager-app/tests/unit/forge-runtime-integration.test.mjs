@@ -239,6 +239,40 @@ test("forge specialized handler validates action through tool adapter", () => {
   assert.ok(result.payload.tools?.tools.some((t) => t.name === "code.write" && t.allowed));
 });
 
+test("forge specialized handler includes verification matrix in payload", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-verification",
+    taskId: "task-runtime-verification",
+    action: "code.implement",
+    task: forgeTask({
+      requestedRole: "backend-builder",
+      allowedFiles: ["packages/api/src/**"],
+      acceptanceCriteria: [
+        { id: "ac-spec", statement: "Spec must be indexed", verification: "pnpm spec:index", required: true }
+      ]
+    }),
+    proposedFiles: [
+      { path: "packages/api/src/forge/controller.ts", operation: "create", content: "export class Controller {}" }
+    ],
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-verification",
+      taskId: "task-runtime-verification"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "allow");
+  assert.ok(result.payload.verification, "payload should include verification");
+  assert.equal(result.payload.verification.passed, true);
+  assert.equal(result.payload.verification.items[0].status, "passed");
+});
+
 test("forge specialized handler simulates patch application through patch writer", () => {
   const result = executeSpecializedAgent("forge", {
     forgeRunId: "run-runtime-patchwriter",
@@ -268,4 +302,33 @@ test("forge specialized handler simulates patch application through patch writer
   assert.ok(result.payload.patchResult, "payload should include patchResult");
   assert.equal(result.payload.patchResult?.decision, "allow");
   assert.equal(result.payload.patchResult?.results[0]?.newContent, "export class Controller {}");
+});
+
+test("forge specialized handler skips verification for read-only tasks without proposed files", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-readonly",
+    taskId: "task-runtime-readonly",
+    action: "runtime.execute",
+    task: forgeTask({
+      requestedRole: "documentation-curator",
+      allowedCommands: ["git status"],
+      acceptanceCriteria: [
+        { id: "ac-readonly", statement: "Tests must pass", verification: "pnpm test:unit", required: true }
+      ]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-readonly",
+      taskId: "task-runtime-readonly"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "allow");
+  assert.equal(result.payload.verification, undefined);
 });

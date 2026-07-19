@@ -20,12 +20,14 @@ import {
   createPatchWriter,
   createSandboxProvider,
   createToolAdapter,
+  createVerificationProvider,
   evaluateForgePolicy,
   getForgeAgentManifest,
   type ForgePatchPlan,
   type ForgePatchResult,
   type ForgeTaskPacket,
   type ForgeToolPlan,
+  type ForgeVerificationMatrix,
   type ProposedFileChange,
   type SandboxPlan
 } from "@semse/forge";
@@ -457,6 +459,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let patchPlan: ForgePatchPlan | undefined;
   let toolPlan: ForgeToolPlan | undefined;
   let patchResult: ForgePatchResult | undefined;
+  let verification: ForgeVerificationMatrix | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -549,6 +552,25 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     }
   }
 
+  if (policy.decision !== "deny" && patchResult) {
+    const verificationProvider = createVerificationProvider({ mode: "dry-run" });
+    verification = verificationProvider.verify({ task, patchResult, toolPlan });
+
+    if (!verification.passed) {
+      const failedItems = verification.items.filter((item) => item.status === "failed" && item.required);
+      if (failedItems.length > 0) {
+        policy = {
+          ...policy,
+          decision: "deny",
+          reason: `Verification failed for required criteria: ${failedItems.map((item) => item.id).join("; ")}`,
+          requiredApprovals: [],
+          violatedPolicies: failedItems.map((item) => `verification.${item.id}`),
+          auditTags: [...policy.auditTags, "forge.verification.failed"]
+        };
+      }
+    }
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -566,6 +588,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       patch: patchPlan,
       tools: toolPlan,
       patchResult,
+      verification,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }
