@@ -112,6 +112,31 @@ test("harness can ensure pending approvals", () => {
   assert.equal(approved.approvals[0].actor, "user-001");
 });
 
+test("harness can reject a pending approval and the rejection persists", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Rejection test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "security");
+  harness.reject(run.id, "security", "user-002");
+
+  const rejected = harness.getRun(run.id);
+  assert.equal(rejected.approvals[0].status, "rejected");
+  assert.equal(rejected.approvals[0].actor, "user-002");
+
+  // getRun() always returns a structuredClone; reading it a second time must
+  // still show the rejection, proving it was written to the harness's live
+  // state and not just a detached copy of it.
+  const rejectedAgain = harness.getRun(run.id);
+  assert.equal(rejectedAgain.approvals[0].status, "rejected");
+});
+
+test("harness rejecting a mode with no pending approval throws", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Rejection error test", spec: approvedSpec });
+
+  assert.throws(() => harness.reject(run.id, "security", "user-003"), /Pending approval not found/);
+});
+
 test("policy allows deployment.propose to target main branch", () => {
   const result = evaluateForgePolicy({
     manifest: getForgeAgentManifest("devops-release"),
