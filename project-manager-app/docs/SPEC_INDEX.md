@@ -67,6 +67,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | low | yes | yes | yes | 5 | 2026-07-18 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
+| [core-communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | missing | yes | no | no | 0 | missing |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | high | no | no | yes | 3 | 2026-07-17 |
 | [semse-forge-patch-planner](specs/forge/SEMSE_FORGE_PATCH_PLANNER.spec.md) | forge | APPROVED | high | no | no | yes | 6 | 2026-07-17 |
 | [semse-forge-patch-writer](specs/forge/SEMSE_FORGE_PATCH_WRITER.spec.md) | forge | APPROVED | high | no | no | yes | 6 | 2026-07-17 |

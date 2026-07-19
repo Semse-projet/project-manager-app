@@ -232,7 +232,6 @@ model User {
   // ─────────────────────────────────────────────────────────────────────────
   memberships                         Membership[]
   bidsPlaced                          Bid[]
-  messages                            Message[]
   evidenceUploads                     Evidence[]
   reservations                        JobReservation[]
   contractsSigned                     Contract[]                    @relation("ContractProfessional")
@@ -417,7 +416,6 @@ model Job {
   contract            Contract?
   escrow              PaymentEscrow?
   ratings             Rating[]
-  messages            MessageThread[]
   conversationThreads ConversationThread[]
   trackerSessions     TrackerSession[]
   timeEntries         TimeEntry[]
@@ -522,7 +520,6 @@ model Project {
   evidence                      Evidence[]
   disputes                      Dispute[]
   escrow                        PaymentEscrow?
-  messageThreads                MessageThread[]
   conversationThreads           ConversationThread[]
   tenant                        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   job                           Job                  @relation(fields: [jobId], references: [id], onDelete: Restrict)
@@ -652,27 +649,6 @@ model Evidence {
   @@unique([projectId, promotedFromBuildOpsProjectId, bucketKey])
   @@index([projectId, createdAt])
   @@index([projectId, promotedFromBuildOpsProjectId])
-}
-
-model MessageThread {
-  id        String    @id @default(cuid())
-  jobId     String?
-  projectId String?
-  messages  Message[]
-  job       Job?      @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now())
-}
-
-model Message {
-  id           String        @id @default(cuid())
-  threadId     String
-  senderUserId String
-  body         String
-  attachments  Json?
-  thread       MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender       User          @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
-  createdAt    DateTime      @default(now())
 }
 
 model Dispute {
