@@ -73,6 +73,8 @@ export class ForgeHarness {
       this.recordEvent(run, "FORGE_RUN_BLOCKED", actor, {});
     } else if (next === "rolled_back") {
       this.recordEvent(run, "FORGE_RUN_ROLLED_BACK", actor, {});
+    } else if (next === "closed") {
+      this.recordEvent(run, "FORGE_RUN_CLOSED", actor, {});
     }
 
     return structuredClone(run);

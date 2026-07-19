@@ -17,6 +17,7 @@ import {
 } from "./governance.js";
 import {
   createDeploymentProvider,
+  createObservationProvider,
   createPatchPlanner,
   createPatchWriter,
   createPRPackageProvider,
@@ -27,6 +28,7 @@ import {
   evaluateForgePolicy,
   getForgeAgentManifest,
   type ForgeDeploymentPlan,
+  type ForgeObservationPlan,
   type ForgePatchPlan,
   type ForgePatchResult,
   type ForgePRPackage,
@@ -469,6 +471,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
   let prPackage: ForgePRPackage | undefined;
   let deployment: ForgeDeploymentPlan | undefined;
   let rollback: ForgeRollbackPlan | undefined;
+  let observation: ForgeObservationPlan | undefined;
 
   if (policy.decision === "allow") {
     const sandboxProvider = createSandboxProvider({ mode: "dry-run" });
@@ -614,6 +617,16 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
     });
   }
 
+  const observationActions = new Set(["observation.propose"]);
+  if (policy.decision !== "deny" && observationActions.has(action)) {
+    const observationProvider = createObservationProvider({ mode: "dry-run" });
+    observation = observationProvider.plan({
+      runId: typeof input.forgeRunId === "string" ? input.forgeRunId : task.id,
+      task,
+      policy
+    });
+  }
+
   const requiresHumanReview = policy.decision !== "allow";
 
   return {
@@ -635,6 +648,7 @@ function buildForge(input: RuntimeAgentInput): RuntimeAgentResult {
       prPackage,
       deployment,
       rollback,
+      observation,
       riskLevel: policy.riskLevel,
       requiredApprovals: policy.requiredApprovals
     }
