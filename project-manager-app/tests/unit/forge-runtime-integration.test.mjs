@@ -407,6 +407,38 @@ test("forge specialized handler includes observation plan for observation.propos
   assert.ok(result.payload.observation.steps.includes("verify_health"));
 });
 
+test("forge specialized handler includes security review for security.review", () => {
+  const result = executeSpecializedAgent("forge", {
+    forgeRunId: "run-runtime-security",
+    taskId: "task-runtime-security",
+    action: "security.review",
+    task: forgeTask({
+      requestedRole: "security-reviewer",
+      environment: "sandbox",
+      targetBranch: "main",
+      riskLevel: "high",
+      allowedFiles: ["packages/auth/**"]
+    }),
+    operatorContext: {
+      source: "forge",
+      operatorId: "user-001",
+      tenantId: "tenant-001",
+      orgId: "org-001",
+      roles: ["OPS_ADMIN"],
+      scope: "task",
+      runId: "run-runtime-security",
+      taskId: "task-runtime-security"
+    },
+    environment: "sandbox"
+  });
+
+  assert.equal(result.payload.policy.decision, "require_approval");
+  assert.ok(result.payload.securityReport, "payload should include securityReport");
+  assert.equal(result.payload.securityReport.decision, "require_approval");
+  assert.ok(result.payload.securityReport.findings.some((f) => f.rule === "security.auth_module"));
+  assert.ok(result.payload.securityReport.requiredApprovals.includes("dual_control"));
+});
+
 test("forge specialized handler skips verification for read-only tasks without proposed files", () => {
   const result = executeSpecializedAgent("forge", {
     forgeRunId: "run-runtime-readonly",

@@ -143,6 +143,7 @@ export type ForgeEvent = {
     | "FORGE_DEPLOYMENT_PROPOSED"
     | "FORGE_ROLLBACK_PROPOSED"
     | "FORGE_OBSERVATION_PROPOSED"
+    | "FORGE_SECURITY_REVIEW_COMPLETED"
     | "FORGE_RUN_BLOCKED"
     | "FORGE_RUN_ROLLED_BACK"
     | "FORGE_RUN_CLOSED"
@@ -242,6 +243,24 @@ export type ForgeObservationPlan = {
   environment: string;
   targetBranch: string;
   steps: string[];
+  requiredApprovals: ForgeApprovalMode[];
+  violations: string[];
+  auditTags: string[];
+};
+
+export type ForgeSecurityFinding = {
+  id: string;
+  rule: string;
+  severity: "low" | "medium" | "high" | "critical";
+  path?: string;
+  message: string;
+};
+
+export type ForgeSecurityReport = {
+  mode: "dry-run" | "live";
+  decision: "allow" | "deny" | "require_approval";
+  reason: string;
+  findings: ForgeSecurityFinding[];
   requiredApprovals: ForgeApprovalMode[];
   violations: string[];
   auditTags: string[];
