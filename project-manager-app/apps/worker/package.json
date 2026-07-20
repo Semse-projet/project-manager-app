@@ -12,7 +12,7 @@
     "@semse/agents": "workspace:*",
     "@semse/autonomy": "workspace:*",
     "@semse/shared": "workspace:*",
-    "bullmq": "^5.80.5",
+    "bullmq": "^5.80.9",
     "ioredis": "^5.11.1",
     "pino": "^9.6.0"
   }
