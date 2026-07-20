@@ -52,12 +52,16 @@ existe para cerrar, pero la corrección de qué permiso real debe exigir
 
 ## Fase 3 — Write tools de bajo riesgo (F2-C)
 
-- [ ] **T-030** Implementar `invokeWriteTool` en `PrometeoToolExecutionService`.
-- [ ] **T-031** Decidir y documentar en este archivo (edición posterior) si alguna de las 7 write tools actuales pasa a `approvalPolicy: "none"`, o si F2-C deja el mecanismo listo sin tools activas aún — requiere decisión de producto, no asumir.
-- [ ] **T-032** Implementar creación de `PrometeoProposedAction` para tools `approvalPolicy: "confirm"` (`agro.create_task`, `time_tracker.*`).
-- [ ] **T-033** Endpoint `POST /v1/prometeo/tools/invocations/:id/approve` y `.../reject` — RBAC `OPS_ADMIN` o el actor original según `approvalPolicy` (a definir: `confirm` puede auto-aprobar el propio actor, `human_required`/`dual_approval` no).
-- [ ] **T-034** Test: aprobar ejecuta el efecto y persiste `resultJson`; rechazar deja estado terminal sin ejecutar nada (usar como referencia directa el bug de Forge ya corregido — mutar clon vs. estado vivo).
-- [ ] **T-035** Test: doble aprobación / aprobación de una `PrometeoProposedAction` ya terminal responde 409, no ejecuta dos veces.
+- [x] **T-030** Implementar `invokeWriteTool` en `PrometeoToolExecutionService`. Dispatch: `deny` (403) / `allow` (ejecuta directo, ninguna tool real lo usa hoy) / `require_approval` (crea `PrometeoProposedAction`). `human_required`/`dual_approval` rechazados explícitamente con 400 — esos son F2-D, no esta fase.
+- [x] **T-031** Decisión: **ninguna de las 7 write tools se reclasifica**. Los 6 tools `confirm` (`agro.create_task`, `time_tracker.*`) quedan en Fase 3; `payments.propose_release` (`human_required`) queda explícitamente bloqueado hasta F2-D. F2-C deja el mecanismo listo con 0 tools en `approvalPolicy: none` — no había base para inventar cuál debería bajar de riesgo.
+- [x] **T-032** Implementado — `agro.create_task`/`time_tracker.start|pause|resume|stop|create_manual_entry` crean `PrometeoProposedAction` en `AWAITING_APPROVAL`, no ejecutan hasta aprobar. **Hallazgo adicional**: el `inputSchema` de `agro.create_task` no declaraba `type`, que `AgroTaskService.createTask` exige — se corrigió el descriptor (era un bug real del catálogo, no una decisión de producto).
+- [x] **T-033** `POST /v1/prometeo/tools/invocations/:actionId/approve` y `.../reject` en `prometeo.controller.ts`. RBAC: el actor original (auto-confirmación, coherente con `approvalPolicy: confirm`) u `OPS_ADMIN` pueden decidir; cualquier otro actor recibe 403.
+- [x] **T-034** Aprobar ejecuta el efecto real (usando la identidad del *proponente* original, no la del aprobador) y persiste `resultJson`; rechazar nunca ejecuta nada. Ambas rutas usan `updateMany` con filtro de status (mismo patrón atómico que `OutboxRepository.markPublished`, no el bug de clon detached que tenía Forge).
+- [x] **T-035** Doble aprobación (o aprobar algo ya rechazado, o rechazar algo ya aprobado) responde 409 vía `claimForApproval`/`reject` atómicos; el efecto real solo se ejecuta una vez, verificado con contador de invocaciones en el test.
+
+12/12 tests nuevos (`prometeo-tool-governance.write.test.ts`). Suite completa `@semse/api`: 1936/1937 (mismo fallo preexistente ajeno).
+
+**Fase 3 (F2-C) completa.** Falta Fase 4 (gate híbrido de pagos, F2-D) y Fase 5 (cierre).
 
 ## Fase 4 — Gate híbrido de pagos (F2-D)
 

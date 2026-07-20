@@ -1,14 +1,17 @@
-import { BadRequestException, ForbiddenException, Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import {
   calculateMaterials,
   MaterialsCalculatorError,
 } from "@semse/tools";
 import type {
+  PrometeoToolDescriptor,
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
 } from "@semse/schemas";
 import { randomUUID } from "node:crypto";
+import { normalizeRoles } from "../../common/rbac.js";
 import type { RequestContext } from "../../common/request-context.js";
+import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { AgroAnimalService } from "../agro/agro-animal.service.js";
 import { AgroDashboardService } from "../agro/agro-dashboard.service.js";
 import { AgroFarmService } from "../agro/agro-farm.service.js";
@@ -18,7 +21,7 @@ import { FieldOpsService } from "../field-ops/field-ops.service.js";
 import { VisionService } from "../vision/vision.service.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
-import { ToolGovernanceRepository } from "./tool-governance/tool-governance.repository.js";
+import { ToolGovernanceRepository, type ProposedActionRecord } from "./tool-governance/tool-governance.repository.js";
 
 const TRACKER_RANGES = ["week", "month", "all"] as const;
 const TRACKER_SUMMARY_RANGES = ["week", "month"] as const;
@@ -80,6 +83,7 @@ export class PrometeoToolExecutionService {
     private readonly agroDashboard: AgroDashboardService,
     private readonly vision: VisionService,
     @Optional() private readonly toolGovernance?: ToolGovernanceRepository,
+    @Optional() private readonly auditService?: AuditService,
   ) {}
 
   async invokeReadTool(
@@ -169,6 +173,264 @@ export class PrometeoToolExecutionService {
       startedAt,
       completedAt,
     };
+  }
+
+  async invokeWriteTool(
+    actor: RequestContext,
+    requestId: string,
+    invocation: PrometeoToolInvokeInput,
+  ): Promise<PrometeoToolExecutionResult | ProposedActionRecord> {
+    const descriptor = findPrometeoToolDescriptor(invocation.namespace, invocation.name);
+    if (!descriptor) {
+      throw new BadRequestException(`Unknown Prometeo tool: ${invocation.namespace}.${invocation.name}`);
+    }
+    if (descriptor.mode === "read") {
+      throw new BadRequestException(`${descriptor.namespace}.${descriptor.name} is a read tool; use invokeReadTool.`);
+    }
+    if (descriptor.approvalPolicy === "human_required" || descriptor.approvalPolicy === "dual_approval") {
+      throw new BadRequestException(
+        `${descriptor.namespace}.${descriptor.name} requires the F2-D payments gate, not yet available.`,
+      );
+    }
+
+    const policy = evaluatePrometeoToolPolicy({ actorRoles: actor.roles, descriptor });
+    if (policy.decision === "deny") {
+      await this.toolGovernance?.recordInvocation({
+        tenantId: actor.tenantId,
+        actorId: actor.userId,
+        namespace: descriptor.namespace,
+        name: descriptor.name,
+        mode: descriptor.mode,
+        status: "blocked",
+        blockedReason: `missing permissions: ${policy.missingPermissions.join(", ")}`,
+        requestId,
+      });
+      throw new ForbiddenException({
+        message: `Missing permission for ${descriptor.namespace}.${descriptor.name}`,
+        namespace: descriptor.namespace,
+        tool: descriptor.name,
+        missingPermissions: policy.missingPermissions,
+      });
+    }
+
+    if (policy.decision === "allow") {
+      const startedAt = nowIso();
+      const id = `exec_${randomUUID()}`;
+      const output = await this.executeWriteTool(actor, descriptor, invocation.input ?? {});
+      await this.auditService?.append({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        actorUserId: actor.userId,
+        action: "prometeo.tool.executed",
+        entityType: "PrometeoTool",
+        entityId: `${descriptor.namespace}.${descriptor.name}`,
+        requestId,
+        timestamp: nowIso(),
+        afterJson: { namespace: descriptor.namespace, name: descriptor.name },
+      });
+      return {
+        id,
+        namespace: descriptor.namespace,
+        tool: descriptor.name,
+        status: "succeeded",
+        output: { outputKind: descriptor.outputKind, data: output },
+        auditRef: `prometeo-tool:${requestId}:${id}`,
+        startedAt,
+        completedAt: nowIso(),
+      };
+    }
+
+    // require_approval
+    const proposal = await this.requireToolGovernance().createProposedAction({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      actorId: actor.userId,
+      namespace: descriptor.namespace,
+      name: descriptor.name,
+      approvalPolicy: descriptor.approvalPolicy,
+      inputJson: invocation.input ?? {},
+    });
+    await this.auditService?.append({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      actorUserId: actor.userId,
+      action: "prometeo.tool.proposed",
+      entityType: "PrometeoProposedAction",
+      entityId: proposal.id,
+      requestId,
+      timestamp: nowIso(),
+      afterJson: { namespace: descriptor.namespace, name: descriptor.name },
+    });
+    return proposal;
+  }
+
+  async approveProposedAction(
+    actor: RequestContext,
+    requestId: string,
+    actionId: string,
+  ): Promise<ProposedActionRecord> {
+    const governance = this.requireToolGovernance();
+    const proposal = await governance.findProposedAction({ id: actionId, tenantId: actor.tenantId });
+    if (!proposal) {
+      throw new NotFoundException({ message: "Proposed action not found", actionId });
+    }
+    this.assertCanDecide(actor, proposal);
+
+    const claimed = await governance.claimForApproval({ id: actionId, tenantId: actor.tenantId, approvedBy: actor.userId });
+    if (!claimed) {
+      throw new ConflictException({ message: "Proposed action is not awaiting approval", actionId, status: proposal.status });
+    }
+
+    const descriptor = findPrometeoToolDescriptor(proposal.namespace, proposal.name);
+    if (!descriptor) {
+      throw new BadRequestException(`Unknown Prometeo tool: ${proposal.namespace}.${proposal.name}`);
+    }
+
+    const proposerActor: RequestContext = {
+      tenantId: proposal.tenantId,
+      orgId: proposal.orgId,
+      userId: proposal.actorId,
+      roles: [],
+    };
+    const result = await this.executeWriteTool(proposerActor, descriptor, (proposal.inputJson as Record<string, unknown>) ?? {});
+    await governance.markExecuted({ id: actionId, tenantId: actor.tenantId, resultJson: result as never });
+    await this.auditService?.append({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      actorUserId: actor.userId,
+      action: "prometeo.tool.approved",
+      entityType: "PrometeoProposedAction",
+      entityId: actionId,
+      requestId,
+      timestamp: nowIso(),
+      afterJson: { namespace: proposal.namespace, name: proposal.name },
+    });
+
+    return (await governance.findProposedAction({ id: actionId, tenantId: actor.tenantId })) ?? proposal;
+  }
+
+  async rejectProposedAction(
+    actor: RequestContext,
+    requestId: string,
+    actionId: string,
+    reason: string,
+  ): Promise<ProposedActionRecord> {
+    const governance = this.requireToolGovernance();
+    const proposal = await governance.findProposedAction({ id: actionId, tenantId: actor.tenantId });
+    if (!proposal) {
+      throw new NotFoundException({ message: "Proposed action not found", actionId });
+    }
+    this.assertCanDecide(actor, proposal);
+
+    const rejected = await governance.reject({ id: actionId, tenantId: actor.tenantId, rejectedBy: actor.userId, reason });
+    if (!rejected) {
+      throw new ConflictException({ message: "Proposed action is not awaiting approval", actionId, status: proposal.status });
+    }
+
+    await this.auditService?.append({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      actorUserId: actor.userId,
+      action: "prometeo.tool.rejected",
+      entityType: "PrometeoProposedAction",
+      entityId: actionId,
+      requestId,
+      timestamp: nowIso(),
+      afterJson: { namespace: proposal.namespace, name: proposal.name, reason },
+    });
+
+    return (await governance.findProposedAction({ id: actionId, tenantId: actor.tenantId })) ?? proposal;
+  }
+
+  private assertCanDecide(actor: RequestContext, proposal: ProposedActionRecord): void {
+    const isProposer = actor.userId === proposal.actorId;
+    const isOpsAdmin = normalizeRoles(actor.roles).includes("OPS_ADMIN");
+    if (!isProposer && !isOpsAdmin) {
+      throw new ForbiddenException({
+        message: "Only the original actor or OPS_ADMIN can decide this proposed action",
+        actionId: proposal.id,
+      });
+    }
+  }
+
+  private requireToolGovernance(): ToolGovernanceRepository {
+    if (!this.toolGovernance) {
+      throw new Error("ToolGovernanceRepository is required for write-tool proposed actions");
+    }
+    return this.toolGovernance;
+  }
+
+  private async executeWriteTool(
+    actor: RequestContext,
+    descriptor: PrometeoToolDescriptor,
+    input: Record<string, unknown>,
+  ): Promise<unknown> {
+    const key = `${descriptor.namespace}.${descriptor.name}`;
+
+    switch (key) {
+      case "time_tracker.start":
+        return this.fieldOps.startTrackerSession({
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          createdBy: actor.userId,
+          requestId: randomUUID(),
+          jobId: requiredString(input, "jobId"),
+          notes: optionalString(input, "notes"),
+        });
+
+      case "time_tracker.pause":
+        return this.fieldOps.pauseTrackerSession({
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          createdBy: actor.userId,
+          requestId: randomUUID(),
+          sessionId: requiredString(input, "sessionId"),
+          notes: optionalString(input, "notes"),
+        });
+
+      case "time_tracker.resume":
+        return this.fieldOps.resumeTrackerSession({
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          createdBy: actor.userId,
+          requestId: randomUUID(),
+          sessionId: requiredString(input, "sessionId"),
+          notes: optionalString(input, "notes"),
+        });
+
+      case "time_tracker.stop":
+        return this.fieldOps.stopTrackerSession({
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          createdBy: actor.userId,
+          requestId: randomUUID(),
+          sessionId: requiredString(input, "sessionId"),
+          notes: optionalString(input, "notes"),
+        });
+
+      case "time_tracker.create_manual_entry":
+        return this.fieldOps.createManualTrackerSession({
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          createdBy: actor.userId,
+          requestId: randomUUID(),
+          jobId: requiredString(input, "jobId"),
+          date: requiredString(input, "date"),
+          startTime: requiredString(input, "startTime"),
+          endTime: requiredString(input, "endTime"),
+          notes: optionalString(input, "notes"),
+        });
+
+      case "agro.create_task":
+        return this.agroTasks.createTask(requiredString(input, "farmId"), actor.userId, {
+          title: requiredString(input, "title"),
+          type: requiredString(input, "type"),
+          priority: optionalString(input, "priority"),
+        });
+
+      default:
+        throw new BadRequestException(`${key} has no write adapter yet`);
+    }
   }
 
   private async executeReadTool(actor: RequestContext, invocation: PrometeoToolInvokeInput): Promise<unknown> {

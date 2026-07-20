@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Optional, Param, Patch, Post, Query, Req } from "@nestjs/common";
 import { prometeoToolInvokeSchema } from "@semse/schemas";
+import { z } from "zod";
 import { ok } from "../../common/api-response.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
@@ -8,8 +9,12 @@ import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
-import { listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
+import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
+
+const rejectProposedActionBodySchema = z.object({
+  reason: z.string().trim().min(1),
+}).strict();
 
 @Controller("v1/prometeo")
 export class PrometeoController {
@@ -46,9 +51,51 @@ export class PrometeoController {
       throw new BadRequestException(parsed.error.issues.map((issue) => issue.message).join("; "));
     }
 
+    const descriptor = findPrometeoToolDescriptor(parsed.data.namespace, parsed.data.name);
+    if (!descriptor) {
+      throw new BadRequestException(`Unknown Prometeo tool: ${parsed.data.namespace}.${parsed.data.name}`);
+    }
+
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.toolExecution.invokeReadTool(actor, rid, parsed.data);
+    const result = descriptor.mode === "read"
+      ? await this.toolExecution.invokeReadTool(actor, rid, parsed.data)
+      : await this.toolExecution.invokeWriteTool(actor, rid, parsed.data);
+    return ok(rid, result);
+  }
+
+  @Post("tools/invocations/:actionId/approve")
+  @RequirePermissions("agents:run:create")
+  async approveToolInvocation(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("actionId") actionId: string,
+  ) {
+    if (!this.toolExecution) {
+      throw new BadRequestException("Prometeo tool execution is not available");
+    }
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = await this.toolExecution.approveProposedAction(actor, rid, actionId);
+    return ok(rid, result);
+  }
+
+  @Post("tools/invocations/:actionId/reject")
+  @RequirePermissions("agents:run:create")
+  async rejectToolInvocation(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("actionId") actionId: string,
+    @Body() body: unknown,
+  ) {
+    if (!this.toolExecution) {
+      throw new BadRequestException("Prometeo tool execution is not available");
+    }
+    const parsed = rejectProposedActionBodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues.map((issue) => issue.message).join("; "));
+    }
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = await this.toolExecution.rejectProposedAction(actor, rid, actionId, parsed.data.reason);
     return ok(rid, result);
   }
 
