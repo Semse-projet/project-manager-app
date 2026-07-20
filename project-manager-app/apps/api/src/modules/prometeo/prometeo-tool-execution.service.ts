@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import {
   calculateMaterials,
   MaterialsCalculatorError,
@@ -17,6 +17,7 @@ import { AgroTaskService } from "../agro/agro-task.service.js";
 import { FieldOpsService } from "../field-ops/field-ops.service.js";
 import { VisionService } from "../vision/vision.service.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
+import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
 
 const TRACKER_RANGES = ["week", "month", "all"] as const;
 const TRACKER_SUMMARY_RANGES = ["week", "month"] as const;
@@ -90,6 +91,16 @@ export class PrometeoToolExecutionService {
     }
     if (descriptor.mode !== "read") {
       throw new BadRequestException(`Prometeo P1 can only invoke read tools. ${descriptor.namespace}.${descriptor.name} is ${descriptor.mode}.`);
+    }
+
+    const policy = evaluatePrometeoToolPolicy({ actorRoles: actor.roles, descriptor });
+    if (policy.decision === "deny") {
+      throw new ForbiddenException({
+        message: `Missing permission for ${descriptor.namespace}.${descriptor.name}`,
+        namespace: descriptor.namespace,
+        tool: descriptor.name,
+        missingPermissions: policy.missingPermissions,
+      });
     }
 
     const startedAt = nowIso();

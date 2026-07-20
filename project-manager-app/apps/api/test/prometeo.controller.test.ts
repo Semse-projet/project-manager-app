@@ -253,7 +253,10 @@ test("prometeo tool execution runs only read adapters and blocks pending video p
     agroDashboard,
     vision,
   );
-  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["CLIENT"] };
+  // OPS_ADMIN holds both field-ops:read and agro:read/vision:run — this test exercises
+  // execution routing, not F2's per-tool permission enforcement (covered separately in
+  // prometeo-tool-execution.service.test.ts and prometeo-tool-governance.policy.test.ts).
+  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["OPS_ADMIN"] };
 
   const jobs = await service.invokeReadTool(actor, "req_tool_1", { namespace: "time_tracker", name: "list_jobs", input: {} });
   const animal = await service.invokeReadTool(actor, "req_tool_2", { namespace: "agro", name: "get_animal", input: { animalId: "animal_1" } });
