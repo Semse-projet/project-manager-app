@@ -88,6 +88,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["jobId"], properties: { jobId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -99,6 +100,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["sessionId"], properties: { sessionId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -110,6 +112,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["sessionId"], properties: { sessionId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -121,6 +124,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["sessionId"], properties: { sessionId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -142,6 +146,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -387,9 +392,26 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     description: "Crea una tarea operativa de finca con confirmación del usuario.",
     permissions: ["agro:write"],
     endpoint: { method: "POST", path: "/v1/agro/farms/:farmId/tasks" },
-    inputSchema: { type: "object", required: ["farmId", "title"], properties: { farmId: { type: "string" }, title: { type: "string" }, priority: { type: "string" } } },
+    inputSchema: {
+      type: "object",
+      required: ["farmId", "title", "type"],
+      properties: {
+        farmId: { type: "string" },
+        title: { type: "string" },
+        // Must match VALID_TYPES in agro-task.service.ts — AgroTaskService.createTask
+        // rejects any other value with a 400.
+        type: {
+          enum: [
+            "FEEDING", "VACCINATION", "TREATMENT", "WEIGHING", "MOVEMENT",
+            "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK", "OTHER",
+          ],
+        },
+        priority: { enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
+      },
+    },
     outputKind: "AgroFarmTask",
     tags: ["agro", "tasks", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "payments",

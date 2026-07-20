@@ -31,12 +31,27 @@ test("T-024b: the 3 wired vision read tools are NOT marked adapterPending", () =
   }
 });
 
-test("T-024c: all 7 write tools are adapterPending (no invokeWriteTool exists yet)", () => {
+test("T-030: the 6 low-risk write tools wired in invokeWriteTool are NOT adapterPending", () => {
+  const wiredWriteTools = [
+    ["time_tracker", "start"],
+    ["time_tracker", "pause"],
+    ["time_tracker", "resume"],
+    ["time_tracker", "stop"],
+    ["time_tracker", "create_manual_entry"],
+    ["agro", "create_task"],
+  ];
   const tools = listPrometeoToolRegistry();
-  const writeTools = tools.filter((t) => t.mode === "write" || t.mode === "critical");
 
-  assert.equal(writeTools.length, 7);
-  for (const tool of writeTools) {
-    assert.equal(tool.adapterPending, true, `expected ${tool.namespace}.${tool.name} to be adapterPending (no write execution path exists)`);
+  for (const [namespace, name] of wiredWriteTools) {
+    const tool = tools.find((t) => t.namespace === namespace && t.name === name);
+    assert.ok(tool, `expected ${namespace}.${name} to be registered`);
+    assert.equal(tool?.adapterPending, false, `expected ${namespace}.${name} to be executable`);
   }
+});
+
+test("T-030b: payments.propose_release remains adapterPending — its execution is gated on F2-D (T-041), not this increment", () => {
+  const tools = listPrometeoToolRegistry();
+  const tool = tools.find((t) => t.namespace === "payments" && t.name === "propose_release");
+  assert.ok(tool);
+  assert.equal(tool?.adapterPending, true);
 });
