@@ -75,20 +75,22 @@ existe para cerrar, pero la corrección de qué permiso real debe exigir
 
 ## Fase 5 — Validación y cierre (F2-E)
 
-- [ ] **T-050** `pnpm spec:validate:strict`.
-- [ ] **T-051** Tests unitarios/integration del slice completo.
-- [ ] **T-052** `pnpm verify:workspace`.
-- [ ] **T-053** Actualizar `docs/architecture/SEMSE_API_SURFACE_V1.md` con los endpoints nuevos.
-- [ ] **T-054** Actualizar `docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md` (fila Tool Registry) con conteos reales post-implementación.
-- [ ] **T-055** Actualizar `ROADMAP.md` sección F2 según estado real.
-- [ ] **T-056** Crear reporte F2 con evidencia (mismo formato que `F1E_OPS_DLQ_REPLAY_2026-07-19.md`).
+- [x] **T-050** `pnpm spec:validate:strict` → 91 specs escaneados, 0 errores, 0 warnings.
+- [x] **T-051** Suite completa `@semse/api` tras `pnpm --filter @semse/api build` → 1940/1940 passing, sin regresiones.
+- [x] **T-052** `pnpm verify:workspace` (verify:modules, audit:prisma-usage, check:toolchain, check:dockerfiles, railway:preflight, suite completa) → verde, exit 0.
+- [x] **T-053** `docs/architecture/SEMSE_API_SURFACE_V1.md` actualizado: `tools/invoke` documentado como despacho por `mode`, más los dos endpoints nuevos `tools/invocations/:id/approve|reject`.
+- [x] **T-054** `docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md` fila Tool Registry actualizada con conteos reales (31 descriptors: 24 read/18 wired, 7 write/7 wired) y hallazgo #6 refrescado.
+- [x] **T-055** `ROADMAP.md` sección F2 actualizada: entregables y gate de salida marcados por ítem, adapters `vision:run` explícitamente pendientes.
+- [x] **T-056** Reporte creado: `docs/reportes/F2_PROMETEO_TOOL_REGISTRY_GOVERNANCE_2026-07-20.md`.
+
+**Fase 5 (F2-E) completa.** F2 en conjunto (Fases 0–5, PRs #369/#371/#372) cierra la gobernanza de permisos/audit/aprobación del Tool Registry. `status` de este archivo se mantiene `PENDING` en vez de `IMPLEMENTED`/`VERIFIED`: dos ítems del criterio de cierre original quedan explícitamente abiertos (adapters `vision:run`, "verification status" como campo separado — ver reporte T-056 para el detalle), así que el spec no cumple el criterio completo todavía. Marcar `IMPLEMENTED`/`VERIFIED` requiere o cerrar esos dos ítems, o re-scopearlos formalmente fuera de este spec.
 
 ## Criterio de cierre
 
-- [ ] ninguna tool declarada aparece como ejecutable sin adapter;
-- [ ] `descriptor.permissions` se verifica en el 100% de las invocaciones, no solo `agents:run:create`;
-- [ ] write tools de riesgo medio/alto requieren aprobación registrada antes de ejecutar;
-- [ ] `payments.propose_release` nunca mueve dinero sin pasar por `PaymentsService.release()` intacto;
-- [ ] cada ejecución deja `auditRef`/registro real, no una etiqueta;
-- [ ] CI verde en el SHA de corte;
-- [ ] spec marcado `IMPLEMENTED`/`VERIFIED` solo con evidencia correspondiente.
+- [x] ninguna tool declarada aparece como ejecutable sin adapter (`executable: !adapterPending` real por tool; los 6 `vision.*` sin adapter se declaran correctamente no-ejecutables);
+- [x] `descriptor.permissions` se verifica en el 100% de las invocaciones, no solo `agents:run:create`;
+- [x] write tools de riesgo medio/alto requieren aprobación registrada antes de ejecutar;
+- [x] `payments.propose_release` nunca mueve dinero sin pasar por `PaymentsService.release()` intacto;
+- [x] cada ejecución deja `auditRef`/registro real, no una etiqueta;
+- [x] CI verde en el SHA de corte (`pnpm verify:workspace` + `spec:validate:strict`, ver T-050–T-052);
+- [ ] spec marcado `IMPLEMENTED`/`VERIFIED` solo con evidencia correspondiente — pendiente, ver nota en Fase 5.
