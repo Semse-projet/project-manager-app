@@ -111,7 +111,7 @@ El codigo PI-06 esta desplegado. La activacion de
 `PRODUCT_INTELLIGENCE_ENABLED` y
 `NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` no fue verificada.
 
-## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN 2026-07-20 — PRs #369/#371/#372; adapters vision:run SIGUIENTE)
+## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
 
 Entregables:
 
@@ -121,7 +121,7 @@ Entregables:
 - [x] resultados estructurados y auditables (`PrometeoToolInvocationAudit` por invocacion; `resultJson`/`auditRef` en cada ejecucion);
 - [x] habilitar mutaciones de bajo riesgo gradualmente (6 write tools cableadas: `time_tracker.*`, `agro.create_task` — F2-C);
 - [x] gate hibrido de pagos (`payments.propose_release` -> `PaymentsService.release()` real via aprobacion `human_required` de un `OPS_ADMIN` — F2-D);
-- [ ] completar adapters read declarados: 6 tools `vision.*` siguen `adapter_pending` (requieren pipeline de vision real, incluye video);
+- [x] completar adapters read declarados: 5 de las 6 tools `vision.*` cableadas a `VisionService` real (`analyze_image`, `compare_before_after`, `detect_material`, `classify_space`, `check_safety`); solo `analyze_video` sigue `adapter_pending` — necesita un pipeline temporal que no existe hoy, tratado como capacidad separada ("Video tool" en la matriz), no como deuda de gobernanza;
 - [ ] verification y compensacion explicita (hoy: estado terminal `BLOCKED`/`EXECUTED` + audit trail; no hay un paso de verification/compensacion separado — evaluar si aplica en un incremento futuro).
 
 Gate de salida:

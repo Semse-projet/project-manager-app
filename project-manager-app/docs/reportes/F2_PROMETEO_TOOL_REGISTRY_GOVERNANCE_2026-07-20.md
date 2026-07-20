@@ -126,11 +126,11 @@ T-015 para F2-A/B), luego implementación mínima para pasarlos en verde.
 
 ## Pendiente (fuera de alcance de este spec, o explícitamente diferido)
 
-- **6 adapters `vision:run`** (`analyze_image`, `compare_before_after`,
-  `detect_material`, `classify_space`, `check_safety`, `analyze_video`) —
-  requieren el pipeline de visión real; `analyze_video` además necesita un
-  pipeline temporal que no existe hoy. No estaban en el scope de F2 (que es
-  gobernanza, no cobertura de adapters).
+- ~~**6 adapters `vision:run`**~~ — **resuelto el mismo día, ver Addendum al
+  final de este reporte.** 5 de los 6 (`analyze_image`, `compare_before_after`,
+  `detect_material`, `classify_space`, `check_safety`) ya llaman a
+  `VisionService` real. Solo `analyze_video` sigue pendiente — necesita un
+  pipeline temporal que no existe hoy.
 - **"Verification y compensación" explícita** — el roadmap original (F2)
   la mencionaba como entregable, pero no se tradujo a una tarea concreta en
   `tool-registry-governance.tasks.md`. Hoy el estado terminal
@@ -144,5 +144,42 @@ T-015 para F2-A/B), luego implementación mínima para pasarlos en verde.
   en T-040, no como bug.
 - El spec no se marcó `IMPLEMENTED`/`VERIFIED` en su frontmatter en este
   corte — se deja para una revisión final que confirme que el criterio de
-  cierre completo (incluyendo los adapters `vision:run` pendientes) está
-  satisfecho o formalmente re-scoped.
+  cierre completo (incluyendo `vision.analyze_video`, el único adapter que
+  sigue pendiente tras el addendum) está satisfecho o formalmente re-scoped.
+
+## Addendum 2026-07-20 (mismo día) — adapters `vision:run`
+
+Cerrado el mismo día como incremento separado (fuera del scope de tareas de
+`tool-registry-governance.tasks.md`, que es gobernanza — esto es cobertura de
+adapters, explícitamente diferido en la sección "Pendiente" original de este
+reporte).
+
+`executeReadTool` en `PrometeoToolExecutionService` ahora cablea 5 de los 6
+tools `vision:run` a los métodos reales de `VisionService` — los mismos que
+usa `VisionController`, sin duplicar ni modificar lógica:
+
+- `vision.analyze_image` -> `VisionService.runAnalysis()`;
+- `vision.compare_before_after` -> `VisionService.matchReference()`;
+- `vision.detect_material` -> `VisionService.detectMaterial()`;
+- `vision.classify_space` -> `VisionService.classifySpace()`;
+- `vision.check_safety` -> `VisionService.checkSafetyEnriched()`.
+
+`vision.analyze_video` sigue `adapter_pending` — no hay pipeline temporal de
+video, tratado como capacidad separada (fila "Video tool" en
+`IMPLEMENTATION_STATUS_MATRIX.md`), no como deuda de gobernanza.
+
+**Bug encontrado:** el descriptor de `vision.analyze_image` no declaraba
+`evidenceId` como requerido, pese a que `VisionService.runAnalysis()` lo usa
+para indexar el `VisionAnalysisRecord` persistido — el mismo patrón de bug
+que `agro.create_task` en F2-C (campo real requerido por el service, ausente
+del `inputSchema` del descriptor). Corregido: `evidenceId` ahora es
+requerido en el descriptor.
+
+**Evidencia:**
+- `pnpm spec:validate:strict` → 91 specs, 0 errores, 0 warnings.
+- Suite completa `@semse/api` → 1947/1947, sin regresiones.
+- 7 tests nuevos en `apps/api/test/prometeo-tool-vision-execution.service.test.ts`
+  (uno por tool wireada + `evidenceId` requerido + confirmación de que
+  `analyze_video` sigue bloqueado) + 2 tests de registry actualizados.
+- Conteo real: 23/24 read tools cableados (antes 18/24), 30/31 tools totales
+  ejecutables (antes 25/31) — solo `vision.analyze_video` queda `adapter_pending`.

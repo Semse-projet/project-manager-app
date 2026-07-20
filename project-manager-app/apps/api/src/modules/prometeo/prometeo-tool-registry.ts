@@ -188,10 +188,12 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     description: "Ejecuta análisis visual sobre una imagen o evidencia existente.",
     permissions: ["vision:run"],
     endpoint: { method: "POST", path: "/v1/vision/analyze" },
-    inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
+    // evidenceId is required by VisionService.runAnalysis (it keys the persisted
+    // VisionAnalysisRecord) even though it wasn't in the original descriptor.
+    inputSchema: { type: "object", required: ["evidenceId", "imageUrl"], properties: { evidenceId: { type: "string" }, imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
     outputKind: "VisionAnalysisResult",
     tags: ["vision", "image", "evidence"],
-    adapterPending: true,
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -203,7 +205,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["deliveredImageUrl", "referenceImageUrl"], properties: { deliveredImageUrl: { type: "string" }, referenceImageUrl: { type: "string" } } },
     outputKind: "ReferenceMatchResult",
     tags: ["vision", "comparison", "evidence"],
-    adapterPending: true,
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -215,7 +217,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, expectedMaterial: { type: "string" } } },
     outputKind: "DetectMaterialResult",
     tags: ["vision", "materials"],
-    adapterPending: true,
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -227,7 +229,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" } } },
     outputKind: "ClassifySpaceResult",
     tags: ["vision", "space"],
-    adapterPending: true,
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -239,7 +241,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, trade: { type: "string" } } },
     outputKind: "SafetyCheckResult",
     tags: ["vision", "safety"],
-    adapterPending: true,
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
