@@ -31,7 +31,7 @@ test("T-024b: the 3 wired vision read tools are NOT marked adapterPending", () =
   }
 });
 
-test("T-030: the 6 low-risk write tools wired in invokeWriteTool are NOT adapterPending", () => {
+test("T-030/T-041: all 7 write tools are now wired (none adapterPending)", () => {
   const wiredWriteTools = [
     ["time_tracker", "start"],
     ["time_tracker", "pause"],
@@ -39,6 +39,7 @@ test("T-030: the 6 low-risk write tools wired in invokeWriteTool are NOT adapter
     ["time_tracker", "stop"],
     ["time_tracker", "create_manual_entry"],
     ["agro", "create_task"],
+    ["payments", "propose_release"],
   ];
   const tools = listPrometeoToolRegistry();
 
@@ -49,9 +50,11 @@ test("T-030: the 6 low-risk write tools wired in invokeWriteTool are NOT adapter
   }
 });
 
-test("T-030b: payments.propose_release remains adapterPending — its execution is gated on F2-D (T-041), not this increment", () => {
+test("T-040: payments.propose_release requires finance:write, not the nonexistent payments:write, and stays human_required", () => {
   const tools = listPrometeoToolRegistry();
   const tool = tools.find((t) => t.namespace === "payments" && t.name === "propose_release");
   assert.ok(tool);
-  assert.equal(tool?.adapterPending, true);
+  assert.deepEqual(tool?.permissions, ["finance:write"]);
+  assert.equal(tool?.approvalPolicy, "human_required");
+  assert.equal(tool?.riskLevel, "critical");
 });
