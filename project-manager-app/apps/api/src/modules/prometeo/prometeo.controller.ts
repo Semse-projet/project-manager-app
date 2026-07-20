@@ -28,7 +28,10 @@ export class PrometeoController {
   listTools(@Req() req: { headers?: Record<string, unknown> }) {
     return ok(resolveRequestId(req.headers ?? {}), {
       generatedAt: new Date().toISOString(),
-      tools: listPrometeoToolRegistry(),
+      tools: listPrometeoToolRegistry().map((tool) => ({
+        ...tool,
+        executable: !tool.adapterPending,
+      })),
     });
   }
 

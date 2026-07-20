@@ -145,6 +145,10 @@ test("prometeo controller declares permissions and wraps representative payloads
 
   assert.equal(ingested.requestId, "req_prm_1");
   assert.ok(tools.data.tools.some((tool: { namespace?: string; name?: string }) => tool.namespace === "time_tracker" && tool.name === "get_status"));
+  const trackerStatusTool = tools.data.tools.find((tool: { namespace?: string; name?: string }) => tool.namespace === "time_tracker" && tool.name === "get_status");
+  assert.equal(trackerStatusTool?.executable, true, "T-025: wired tool should report executable: true");
+  const analyzeVideoTool = tools.data.tools.find((tool: { namespace?: string; name?: string }) => tool.namespace === "vision" && tool.name === "analyze_video");
+  assert.equal(analyzeVideoTool?.executable, false, "T-025: adapterPending tool should report executable: false");
   assert.equal(invoked.data.status, "succeeded");
   assert.ok(calls.some((call) => call.method === "invokeReadTool"));
   assert.equal(documents.data[0]?.metadataJson.trade, "electrical");
@@ -253,7 +257,10 @@ test("prometeo tool execution runs only read adapters and blocks pending video p
     agroDashboard,
     vision,
   );
-  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["CLIENT"] };
+  // OPS_ADMIN holds both field-ops:read and agro:read/vision:run — this test exercises
+  // execution routing, not F2's per-tool permission enforcement (covered separately in
+  // prometeo-tool-execution.service.test.ts and prometeo-tool-governance.policy.test.ts).
+  const actor = { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["OPS_ADMIN"] };
 
   const jobs = await service.invokeReadTool(actor, "req_tool_1", { namespace: "time_tracker", name: "list_jobs", input: {} });
   const animal = await service.invokeReadTool(actor, "req_tool_2", { namespace: "agro", name: "get_animal", input: { animalId: "animal_1" } });

@@ -16,28 +16,39 @@ date: "2026-07-20"
 
 ## Fase 0 — Preflight
 
-- [ ] **T-001** Crear `feat/f2-tool-registry-governance` desde `origin/main` limpio.
-- [ ] **T-002** Ejecutar `pnpm spec:validate:strict` y guardar baseline (debe dar 0/0, confirmado 2026-07-20).
-- [ ] **T-003** Revisar Prisma schema/migrations recientes para evitar colisión con `PrometeoProposedAction`/`PrometeoToolInvocationAudit`.
+- [x] **T-001** Crear `feat/f2-tool-registry-governance` desde `origin/main` limpio.
+- [x] **T-002** Ejecutar `pnpm spec:validate:strict` y guardar baseline (0 errores, 0 warnings, confirmado 2026-07-20).
+- [x] **T-003** Revisar Prisma schema/migrations recientes para evitar colisión con `PrometeoProposedAction`/`PrometeoToolInvocationAudit`. Sin colisión; migración `20260722000000_prometeo_tool_governance`.
 
 ## Fase 1 — Tests antes del código (F2-A)
 
-- [ ] **T-010** Test: `evaluatePrometeoToolPolicy` devuelve `allow` cuando el actor tiene todos los `descriptor.permissions`.
-- [ ] **T-011** Test: devuelve `deny` cuando falta al menos uno de los permisos declarados por la tool (aunque el actor tenga `agents:run:create`).
-- [ ] **T-012** Test: devuelve `require_approval` cuando `approvalPolicy !== "none"` y el permiso sí está.
-- [ ] **T-013** Test: `invokeReadTool` responde 403 (no 200 con `__blockedReason`) cuando la policy deniega.
-- [ ] **T-014** Migración Prisma draft (`PrometeoProposedAction`, `PrometeoToolInvocationAudit`) + `prisma migrate diff` estático.
-- [ ] **T-015** Confirmar que T-010..T-013 fallan por ausencia controlada antes de implementar.
+- [x] **T-010** Test: `evaluatePrometeoToolPolicy` devuelve `allow` cuando el actor tiene todos los `descriptor.permissions`. (`apps/api/test/prometeo-tool-governance.policy.test.ts`)
+- [x] **T-011** Test: devuelve `deny` cuando falta al menos uno de los permisos declarados por la tool (aunque el actor tenga `agents:run:create`).
+- [x] **T-012** Test: devuelve `require_approval` cuando `approvalPolicy !== "none"` y el permiso sí está.
+- [x] **T-013** Test: `invokeReadTool` responde 403 (no 200 con `__blockedReason`) cuando la policy deniega. (`apps/api/test/prometeo-tool-execution.service.test.ts`)
+- [x] **T-014** Migración Prisma draft (`PrometeoProposedAction`, `PrometeoToolInvocationAudit`) + `prisma migrate diff` estático. `packages/db/prisma/migrations/20260722000000_prometeo_tool_governance/`, `prisma validate` OK. Sin `DATABASE_URL` real en este entorno no se pudo correr `migrate dev`/`diff` contra una base viva — el SQL se escribió a mano siguiendo el formato exacto que genera Prisma (comparado con migraciones recientes reales); falta que CI/un entorno con DB lo confirme antes de mergear a producción.
+- [x] **T-015** Confirmar que T-010..T-013 fallan por ausencia controlada antes de implementar. (el módulo `tool-governance.policy.ts` no existía; los tests referenciaban un import inexistente)
 
 ## Fase 2 — Enforcement de lectura + audit (F2-B)
 
-- [ ] **T-020** Implementar `tool-governance.policy.ts` (`evaluatePrometeoToolPolicy`).
-- [ ] **T-021** Cablear la policy en `invokeReadTool` antes del switch de ejecución.
-- [ ] **T-022** Implementar `tool-governance.repository.ts` (write path de `PrometeoToolInvocationAudit`).
-- [ ] **T-023** Registrar en `PrometeoToolInvocationAudit` cada invocación de lectura (bloqueada y exitosa) — sin diseñar retención todavía, solo persistir.
-- [ ] **T-024** Añadir campo `adapter_pending: boolean` explícito a `PrometeoToolDescriptor`; marcar los 5 tools `vision:run` sin case.
-- [ ] **T-025** `GET /v1/prometeo/tools` expone `executable` real (no inferido por tag).
-- [ ] **T-026** Pasar T-010..T-013 en verde.
+- [x] **T-020** Implementar `tool-governance.policy.ts` (`evaluatePrometeoToolPolicy`) — consume `hasPermission()` de `@semse/auth`, sin estado propio.
+- [x] **T-021** Cablear la policy en `invokeReadTool` antes del switch de ejecución — deny lanza `ForbiddenException` (403) con `missingPermissions`.
+- [x] **T-022** Implementar `tool-governance.repository.ts` (write path de `PrometeoToolInvocationAudit`). `@Optional()` sobre `PrismaService`, mismo patrón que `OutboxRepository` (no-op si no hay Prisma inyectado).
+- [x] **T-023** Registrar en `PrometeoToolInvocationAudit` cada invocación de lectura (bloqueada por policy, bloqueada por adapter no cableado, y exitosa) — las 3 ramas de `invokeReadTool`.
+- [x] **T-024** Añadir campo `adapterPending: boolean` explícito a `PrometeoToolDescriptor` (schema + registry). Marcados: los 6 tools `vision:run` sin case (5 + `analyze_video`) y los 7 write tools (ninguno tiene `invokeWriteTool` todavía).
+- [x] **T-025** `GET /v1/prometeo/tools` expone `executable: !adapterPending` real por tool.
+- [x] **T-026** Pasar T-010..T-013 en verde. 19/19 tests nuevos de F2 pasan; suite completa `@semse/api` 1924/1925 (único fallo preexistente ajeno en `graphify.service.test.ts`, no relacionado).
+
+**Fase 2 (F2-B) completa.** Siguiente: Fase 3 (write tools + proposed actions) y Fase 4 (gate híbrido de pagos) quedan para incrementos posteriores.
+
+**Hallazgo adicional durante la implementación:** el permiso `payments:write`
+que declara `payments.propose_release` no existe en ningún rol de
+`packages/auth/src/rbac.ts` — ni siquiera `OPS_ADMIN` lo tiene. Con el
+enforcement de T-021 ya activo, esa tool sería hoy inejecutable por
+cualquier actor. Esto es exactamente el tipo de brecha silenciosa que F2
+existe para cerrar, pero la corrección de qué permiso real debe exigir
+`payments.propose_release` es una decisión de producto/seguridad para F2-D
+(T-040), no algo que este commit decida unilateralmente.
 
 ## Fase 3 — Write tools de bajo riesgo (F2-C)
 

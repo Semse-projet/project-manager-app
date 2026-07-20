@@ -1,24 +1,30 @@
 import type { PrometeoToolDescriptor } from "@semse/schemas";
 
-function readTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy">): PrometeoToolDescriptor {
+function readTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy" | "adapterPending"> & {
+  adapterPending?: boolean;
+}): PrometeoToolDescriptor {
+  const { adapterPending, ...rest } = input;
   return {
-    ...input,
+    ...rest,
     mode: "read",
     riskLevel: "low",
     approvalPolicy: "none",
+    adapterPending: adapterPending ?? false,
   };
 }
 
-function writeTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy"> & {
+function writeTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy" | "adapterPending"> & {
   riskLevel?: PrometeoToolDescriptor["riskLevel"];
   approvalPolicy?: PrometeoToolDescriptor["approvalPolicy"];
+  adapterPending?: boolean;
 }): PrometeoToolDescriptor {
-  const { riskLevel, approvalPolicy, ...rest } = input;
+  const { riskLevel, approvalPolicy, adapterPending, ...rest } = input;
   return {
     ...rest,
     mode: riskLevel === "critical" ? "critical" : "write",
     riskLevel: riskLevel ?? "medium",
     approvalPolicy: approvalPolicy ?? "confirm",
+    adapterPending: adapterPending ?? true,
   };
 }
 
@@ -180,6 +186,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
     outputKind: "VisionAnalysisResult",
     tags: ["vision", "image", "evidence"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "vision",
@@ -191,6 +198,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["deliveredImageUrl", "referenceImageUrl"], properties: { deliveredImageUrl: { type: "string" }, referenceImageUrl: { type: "string" } } },
     outputKind: "ReferenceMatchResult",
     tags: ["vision", "comparison", "evidence"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "vision",
@@ -202,6 +210,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, expectedMaterial: { type: "string" } } },
     outputKind: "DetectMaterialResult",
     tags: ["vision", "materials"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "vision",
@@ -213,6 +222,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" } } },
     outputKind: "ClassifySpaceResult",
     tags: ["vision", "space"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "vision",
@@ -224,6 +234,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, trade: { type: "string" } } },
     outputKind: "SafetyCheckResult",
     tags: ["vision", "safety"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "vision",
@@ -234,6 +245,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["videoFileId"], properties: { videoFileId: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
     outputKind: "VideoTimelineAnalysis",
     tags: ["vision", "video", "adapter_pending"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "agro",
