@@ -145,6 +145,10 @@ test("prometeo controller declares permissions and wraps representative payloads
 
   assert.equal(ingested.requestId, "req_prm_1");
   assert.ok(tools.data.tools.some((tool: { namespace?: string; name?: string }) => tool.namespace === "time_tracker" && tool.name === "get_status"));
+  const trackerStatusTool = tools.data.tools.find((tool: { namespace?: string; name?: string }) => tool.namespace === "time_tracker" && tool.name === "get_status");
+  assert.equal(trackerStatusTool?.executable, true, "T-025: wired tool should report executable: true");
+  const analyzeVideoTool = tools.data.tools.find((tool: { namespace?: string; name?: string }) => tool.namespace === "vision" && tool.name === "analyze_video");
+  assert.equal(analyzeVideoTool?.executable, false, "T-025: adapterPending tool should report executable: false");
   assert.equal(invoked.data.status, "succeeded");
   assert.ok(calls.some((call) => call.method === "invokeReadTool"));
   assert.equal(documents.data[0]?.metadataJson.trade, "electrical");

@@ -18,7 +18,7 @@ date: "2026-07-20"
 
 - [x] **T-001** Crear `feat/f2-tool-registry-governance` desde `origin/main` limpio.
 - [x] **T-002** Ejecutar `pnpm spec:validate:strict` y guardar baseline (0 errores, 0 warnings, confirmado 2026-07-20).
-- [ ] **T-003** Revisar Prisma schema/migrations recientes para evitar colisión con `PrometeoProposedAction`/`PrometeoToolInvocationAudit`. (revisado manualmente al crear la rama; falta el draft real, ver T-014)
+- [x] **T-003** Revisar Prisma schema/migrations recientes para evitar colisión con `PrometeoProposedAction`/`PrometeoToolInvocationAudit`. Sin colisión; migración `20260722000000_prometeo_tool_governance`.
 
 ## Fase 1 — Tests antes del código (F2-A)
 
@@ -26,18 +26,20 @@ date: "2026-07-20"
 - [x] **T-011** Test: devuelve `deny` cuando falta al menos uno de los permisos declarados por la tool (aunque el actor tenga `agents:run:create`).
 - [x] **T-012** Test: devuelve `require_approval` cuando `approvalPolicy !== "none"` y el permiso sí está.
 - [x] **T-013** Test: `invokeReadTool` responde 403 (no 200 con `__blockedReason`) cuando la policy deniega. (`apps/api/test/prometeo-tool-execution.service.test.ts`)
-- [ ] **T-014** Migración Prisma draft (`PrometeoProposedAction`, `PrometeoToolInvocationAudit`) + `prisma migrate diff` estático. (pendiente — necesaria para Fase 2 audit y Fase 3/4 proposed actions)
+- [x] **T-014** Migración Prisma draft (`PrometeoProposedAction`, `PrometeoToolInvocationAudit`) + `prisma migrate diff` estático. `packages/db/prisma/migrations/20260722000000_prometeo_tool_governance/`, `prisma validate` OK. Sin `DATABASE_URL` real en este entorno no se pudo correr `migrate dev`/`diff` contra una base viva — el SQL se escribió a mano siguiendo el formato exacto que genera Prisma (comparado con migraciones recientes reales); falta que CI/un entorno con DB lo confirme antes de mergear a producción.
 - [x] **T-015** Confirmar que T-010..T-013 fallan por ausencia controlada antes de implementar. (el módulo `tool-governance.policy.ts` no existía; los tests referenciaban un import inexistente)
 
 ## Fase 2 — Enforcement de lectura + audit (F2-B)
 
 - [x] **T-020** Implementar `tool-governance.policy.ts` (`evaluatePrometeoToolPolicy`) — consume `hasPermission()` de `@semse/auth`, sin estado propio.
 - [x] **T-021** Cablear la policy en `invokeReadTool` antes del switch de ejecución — deny lanza `ForbiddenException` (403) con `missingPermissions`.
-- [ ] **T-022** Implementar `tool-governance.repository.ts` (write path de `PrometeoToolInvocationAudit`). (pendiente — requiere T-014 primero)
-- [ ] **T-023** Registrar en `PrometeoToolInvocationAudit` cada invocación de lectura (bloqueada y exitosa).
-- [ ] **T-024** Añadir campo `adapter_pending: boolean` explícito a `PrometeoToolDescriptor`; marcar los 5 tools `vision:run` sin case.
-- [ ] **T-025** `GET /v1/prometeo/tools` expone `executable` real (no inferido por tag).
-- [x] **T-026** Pasar T-010..T-013 en verde. (11/11 tests nuevos pasan; suite completa `@semse/api` 1916/1917, único fallo preexistente ajeno en `graphify.service.test.ts`)
+- [x] **T-022** Implementar `tool-governance.repository.ts` (write path de `PrometeoToolInvocationAudit`). `@Optional()` sobre `PrismaService`, mismo patrón que `OutboxRepository` (no-op si no hay Prisma inyectado).
+- [x] **T-023** Registrar en `PrometeoToolInvocationAudit` cada invocación de lectura (bloqueada por policy, bloqueada por adapter no cableado, y exitosa) — las 3 ramas de `invokeReadTool`.
+- [x] **T-024** Añadir campo `adapterPending: boolean` explícito a `PrometeoToolDescriptor` (schema + registry). Marcados: los 6 tools `vision:run` sin case (5 + `analyze_video`) y los 7 write tools (ninguno tiene `invokeWriteTool` todavía).
+- [x] **T-025** `GET /v1/prometeo/tools` expone `executable: !adapterPending` real por tool.
+- [x] **T-026** Pasar T-010..T-013 en verde. 19/19 tests nuevos de F2 pasan; suite completa `@semse/api` 1924/1925 (único fallo preexistente ajeno en `graphify.service.test.ts`, no relacionado).
+
+**Fase 2 (F2-B) completa.** Siguiente: Fase 3 (write tools + proposed actions) y Fase 4 (gate híbrido de pagos) quedan para incrementos posteriores.
 
 **Hallazgo adicional durante la implementación:** el permiso `payments:write`
 que declara `payments.propose_release` no existe en ningún rol de

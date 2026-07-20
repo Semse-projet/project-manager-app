@@ -212,6 +212,7 @@ export const prometeoToolDescriptorSchema = z.object({
   inputSchema: z.record(z.unknown()).optional(),
   outputKind: z.string().trim().min(1).optional(),
   tags: z.array(z.string().trim().min(1)).default([]),
+  adapterPending: z.boolean().default(false),
 });
 
 export type PrometeoAttachmentType = z.infer<typeof prometeoAttachmentTypeSchema>;

@@ -12,7 +12,7 @@ function actor(overrides: Partial<{ roles: string[] }> = {}) {
   };
 }
 
-function makeService() {
+function makeService(toolGovernance?: { recordInvocation: (input: Record<string, unknown>) => Promise<void> }) {
   // None of the injected collaborators are exercised when the policy denies
   // before reaching the execution switch.
   return new PrometeoToolExecutionService(
@@ -23,6 +23,7 @@ function makeService() {
     {} as never,
     {} as never,
     {} as never,
+    toolGovernance as never,
   );
 }
 
@@ -64,4 +65,83 @@ test("T-013c: invokeReadTool still rejects write/critical tools before the polic
     }),
     /Prometeo P1 can only invoke read tools/,
   );
+});
+
+test("T-023: invokeReadTool records a blocked audit entry when the policy denies, before throwing", async () => {
+  const recorded: Array<Record<string, unknown>> = [];
+  const service = makeService({
+    recordInvocation: async (input) => {
+      recorded.push(input);
+    },
+  });
+
+  await assert.rejects(
+    () => service.invokeReadTool(actor({ roles: ["CLIENT"] }) as never, "req_1", {
+      namespace: "time_tracker",
+      name: "get_status",
+      input: {},
+    }),
+    ForbiddenException,
+  );
+
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0]?.status, "blocked");
+  assert.equal(recorded[0]?.namespace, "time_tracker");
+  assert.match(String(recorded[0]?.blockedReason), /field-ops:read/);
+});
+
+test("T-023b: invokeReadTool records a succeeded audit entry for a wired, authorized read tool", async () => {
+  const recorded: Array<Record<string, unknown>> = [];
+  const fieldOps = {
+    async getTrackerBootstrap() {
+      return { activeSession: null, recentSessions: [], jobs: [], summaries: {} };
+    },
+  };
+  const service = new PrometeoToolExecutionService(
+    fieldOps as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { recordInvocation: async (input: Record<string, unknown>) => { recorded.push(input); } } as never,
+  );
+
+  const result = await service.invokeReadTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
+    namespace: "time_tracker",
+    name: "get_status",
+    input: {},
+  });
+
+  assert.equal(result.status, "succeeded");
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0]?.status, "succeeded");
+});
+
+test("T-023c: invokeReadTool records a blocked audit entry for a registered-but-unwired tool", async () => {
+  const recorded: Array<Record<string, unknown>> = [];
+  const vision = {
+    // analyze_image has no case in executeReadTool's switch yet — it's adapterPending.
+  };
+  const service = new PrometeoToolExecutionService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    vision as never,
+    { recordInvocation: async (input: Record<string, unknown>) => { recorded.push(input); } } as never,
+  );
+
+  const result = await service.invokeReadTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
+    namespace: "vision",
+    name: "analyze_image",
+    input: { imageUrl: "https://example.com/a.jpg" },
+  });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0]?.status, "blocked");
 });

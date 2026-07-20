@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Optional } from "@nestjs/common";
 import {
   calculateMaterials,
   MaterialsCalculatorError,
@@ -18,6 +18,7 @@ import { FieldOpsService } from "../field-ops/field-ops.service.js";
 import { VisionService } from "../vision/vision.service.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
+import { ToolGovernanceRepository } from "./tool-governance/tool-governance.repository.js";
 
 const TRACKER_RANGES = ["week", "month", "all"] as const;
 const TRACKER_SUMMARY_RANGES = ["week", "month"] as const;
@@ -78,6 +79,7 @@ export class PrometeoToolExecutionService {
     private readonly agroInventory: AgroInventoryService,
     private readonly agroDashboard: AgroDashboardService,
     private readonly vision: VisionService,
+    @Optional() private readonly toolGovernance?: ToolGovernanceRepository,
   ) {}
 
   async invokeReadTool(
@@ -95,6 +97,16 @@ export class PrometeoToolExecutionService {
 
     const policy = evaluatePrometeoToolPolicy({ actorRoles: actor.roles, descriptor });
     if (policy.decision === "deny") {
+      await this.toolGovernance?.recordInvocation({
+        tenantId: actor.tenantId,
+        actorId: actor.userId,
+        namespace: descriptor.namespace,
+        name: descriptor.name,
+        mode: descriptor.mode,
+        status: "blocked",
+        blockedReason: `missing permissions: ${policy.missingPermissions.join(", ")}`,
+        requestId,
+      });
       throw new ForbiddenException({
         message: `Missing permission for ${descriptor.namespace}.${descriptor.name}`,
         namespace: descriptor.namespace,
@@ -112,6 +124,16 @@ export class PrometeoToolExecutionService {
       : null;
 
     if (blockedReason) {
+      await this.toolGovernance?.recordInvocation({
+        tenantId: actor.tenantId,
+        actorId: actor.userId,
+        namespace: descriptor.namespace,
+        name: descriptor.name,
+        mode: descriptor.mode,
+        status: "blocked",
+        blockedReason,
+        requestId,
+      });
       return {
         id,
         namespace: descriptor.namespace,
@@ -123,6 +145,16 @@ export class PrometeoToolExecutionService {
         completedAt,
       };
     }
+
+    await this.toolGovernance?.recordInvocation({
+      tenantId: actor.tenantId,
+      actorId: actor.userId,
+      namespace: descriptor.namespace,
+      name: descriptor.name,
+      mode: descriptor.mode,
+      status: "succeeded",
+      requestId,
+    });
 
     return {
       id,
