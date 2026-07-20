@@ -418,13 +418,20 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     name: "propose_release",
     label: "Proponer liberación de pago",
     description: "Prepara una propuesta de liberación; la ejecución financiera exige aprobación humana.",
-    permissions: ["payments:write"],
+    // F2-D (T-040): "payments:write" does not exist in rbac.ts — confirmed with
+    // product that this reuses "finance:write" (held by CLIENT/PRO/OPS_ADMIN)
+    // rather than introducing a new dedicated permission. Note this is a looser
+    // gate than the REST endpoint's own "projects:financials:write", but that's
+    // fine here: the tool only lets an actor *propose*, and approvalPolicy
+    // "human_required" below means only OPS_ADMIN can ever make it execute.
+    permissions: ["finance:write"],
     endpoint: { method: "POST", path: "/v1/milestones/:milestoneId/escrow/release" },
     inputSchema: { type: "object", required: ["milestoneId"], properties: { milestoneId: { type: "string" }, amount: { type: "number" } } },
     outputKind: "EscrowView",
     tags: ["payments", "escrow", "critical"],
     riskLevel: "critical",
     approvalPolicy: "human_required",
+    adapterPending: false,
   }),
   readTool({
     namespace: "materials",
