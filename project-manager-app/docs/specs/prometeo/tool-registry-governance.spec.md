@@ -4,7 +4,7 @@ title: "F2 — Prometeo Tool Registry gobernado"
 type: spec
 domain: "prometeo"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-19"
@@ -34,12 +34,14 @@ related_endpoints:
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-19"
+last_verified: "2026-07-20"
 ---
 
 # Spec: F2 — Prometeo Tool Registry gobernado
 
-> Borrador. No autoriza código. Requiere aprobación explícita antes de crear
+> **APPROVED 2026-07-20.** El owner confirmó explícitamente la decisión 2
+> (gate híbrido de pagos, sección 3) — la única marcada `risk: critical` que
+> exigía sign-off humano antes de aprobar (SDD-005). Autoriza crear
 > `tool-registry-governance.plan.md` y `.tasks.md` (SDD-001).
 
 ## 1. Qué resuelve
@@ -132,14 +134,14 @@ nombre de quién y con qué evidencia de resultado.
   `vision.analyze_video`) si no se van a completar en este corte;
 - contrato de adapter por tool que reemplace el switch monolítico.
 
-## 3. Decisiones — investigadas y recomendadas (pendiente confirmación del owner)
+## 3. Decisiones — resueltas y confirmadas por el owner
 
 > Las 4 quedaron abiertas en el borrador inicial. Se investigaron línea por
-> línea contra el código real (no contra suposiciones) el 2026-07-19. Las
-> recomendaciones abajo son eso — recomendaciones, no aprobaciones. Dado que
-> este spec es `risk: critical` y toca `payments`, la decisión #2 en
-> particular exige confirmación explícita del owner antes de `APPROVED`
-> (SDD-005 — human-in-the-loop proporcional al riesgo).
+> línea contra el código real (no contra suposiciones) el 2026-07-19. El
+> owner confirmó explícitamente la decisión 2 (gate híbrido de pagos) el
+> 2026-07-20 — la única `risk: critical` que exigía sign-off humano antes de
+> `APPROVED` (SDD-005). Las 4 quedan como base ejecutable para
+> `tool-registry-governance.plan.md`.
 
 ### Decisión 1 — Policy engine: nueva y delgada, NO extraída de Forge
 
@@ -420,12 +422,13 @@ ENTONCES el catálogo la marca explícitamente no-ejecutable
 
 - [x] Problema verificado contra el código actual, no contra documentación
       desactualizada (conteos exactos, líneas citadas).
-- [x] Decisiones (sección 3) investigadas línea por línea y recomendadas —
-      **pendiente confirmación explícita del owner**, en particular
-      decisión #2 (pagos, `risk: critical`) por SDD-005.
-- [ ] Contrato de adapter validado (sección 5 ya actualizada con las
-      recomendaciones; falta que el owner lo confirme).
-- [ ] Contratos API confirmados (incluida la ruta de aprobación).
-- [ ] Tests y criterios de aceptación confirmados.
-- [ ] Aprobación explícita para pasar `status: DRAFT -> APPROVED` y habilitar
-      `tool-registry-governance.plan.md`.
+- [x] Decisiones (sección 3) investigadas línea por línea y confirmadas por
+      el owner — decisión #2 (pagos, `risk: critical`) confirmada
+      explícitamente 2026-07-20 (SDD-005).
+- [x] Contrato de adapter validado (sección 5, gate híbrido de
+      `PrometeoProposedAction` sobre el endpoint de escrow existente sin
+      modificarlo).
+- [x] Contratos API confirmados (incluida la ruta de aprobación, sección 6).
+- [x] Tests y criterios de aceptación confirmados (sección 8).
+- [x] Aprobación explícita recibida — `status: DRAFT -> APPROVED` 2026-07-20.
+      Habilita `tool-registry-governance.plan.md`.
