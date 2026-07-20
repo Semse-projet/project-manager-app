@@ -405,7 +405,12 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     name: "propose_release",
     label: "Proponer liberación de pago",
     description: "Prepara una propuesta de liberación; la ejecución financiera exige aprobación humana.",
-    permissions: ["payments:write"],
+    // "payments:write" does not exist in packages/auth/src/rbac.ts — no role
+    // ever granted it, so this tool was unreachable by anyone. The real
+    // release endpoint (PaymentsController.release) already gates on
+    // "projects:financials:write" (CLIENT, OPS_ADMIN); reuse that instead of
+    // inventing a new permission.
+    permissions: ["projects:financials:write"],
     endpoint: { method: "POST", path: "/v1/milestones/:milestoneId/escrow/release" },
     inputSchema: { type: "object", required: ["milestoneId"], properties: { milestoneId: { type: "string" }, amount: { type: "number" } } },
     outputKind: "EscrowView",

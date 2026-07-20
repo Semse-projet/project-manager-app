@@ -134,17 +134,23 @@ test("T-033: invokeWriteTool denies when the actor lacks the tool's declared per
   );
 });
 
-test("T-033b: invokeWriteTool rejects payments.propose_release as not yet available (F2-D scope)", async () => {
-  const service = makeService();
+test("T-033b: invokeWriteTool creates an AWAITING_APPROVAL proposal for payments.propose_release now that F2-D is wired (was: rejected as not yet available)", async () => {
+  // Superseded by F2-D: this used to assert a hard BadRequestException because
+  // neither the permission (payments:write, granted by no role) nor the
+  // execution path existed yet. Both are implemented now — see
+  // prometeo-tool-governance.payments-gate.test.ts for the approve/reject/
+  // fault-test coverage of what happens after this proposal exists.
+  const governance = makeGovernanceMock();
+  const service = makeService({ governance });
 
-  await assert.rejects(
-    () => service.invokeWriteTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
-      namespace: "payments",
-      name: "propose_release",
-      input: { milestoneId: "m_1" },
-    }),
-    BadRequestException,
-  );
+  const result = await service.invokeWriteTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
+    namespace: "payments",
+    name: "propose_release",
+    input: { milestoneId: "m_1" },
+  }) as { status?: string; approvalPolicy?: string };
+
+  assert.equal(result.status, "AWAITING_APPROVAL");
+  assert.equal(result.approvalPolicy, "human_required");
 });
 
 test("T-033c: invokeWriteTool rejects read tools routed here by mistake", async () => {

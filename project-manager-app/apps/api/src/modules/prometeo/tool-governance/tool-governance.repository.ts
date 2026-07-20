@@ -17,6 +17,7 @@ export type ProposedActionRecord = {
   tenantId: string;
   orgId: string;
   actorId: string;
+  actorRoles: string[];
   namespace: string;
   name: string;
   approvalPolicy: string;
@@ -38,6 +39,7 @@ export type CreateProposedActionInput = {
   tenantId: string;
   orgId: string;
   actorId: string;
+  actorRoles: string[];
   namespace: string;
   name: string;
   approvalPolicy: string;
@@ -73,6 +75,7 @@ export class ToolGovernanceRepository {
         tenantId: input.tenantId,
         orgId: input.orgId,
         actorId: input.actorId,
+        actorRoles: input.actorRoles,
         namespace: input.namespace,
         name: input.name,
         approvalPolicy: input.approvalPolicy,
@@ -101,6 +104,17 @@ export class ToolGovernanceRepository {
     await this.requirePrisma().prometeoProposedAction.update({
       where: { id: input.id },
       data: { status: "EXECUTED", executedAt: new Date(), resultJson: input.resultJson as never },
+    });
+  }
+
+  /** Terminal state for a claimed (APPROVED) proposal whose execution failed — e.g. the
+   * financial gate's own invariants (contract, milestone status, dispute, balance) rejected
+   * it between propose and approve. Leaves a durable record instead of stranding the
+   * proposal in APPROVED forever with no outcome. */
+  async markBlocked(input: { id: string; tenantId: string; reason: string }): Promise<void> {
+    await this.requirePrisma().prometeoProposedAction.update({
+      where: { id: input.id },
+      data: { status: "BLOCKED", resultJson: { error: input.reason } as never },
     });
   }
 

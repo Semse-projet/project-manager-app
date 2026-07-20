@@ -3686,6 +3686,7 @@ model PrometeoProposedAction {
   tenantId          String
   orgId             String
   actorId           String
+  actorRoles        String[]                      @default([])
   namespace         String
   name              String
   approvalPolicy    String

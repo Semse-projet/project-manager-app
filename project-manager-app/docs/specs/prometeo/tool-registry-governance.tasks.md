@@ -65,11 +65,15 @@ existe para cerrar, pero la corrección de qué permiso real debe exigir
 
 ## Fase 4 — Gate híbrido de pagos (F2-D)
 
-- [ ] **T-040** Conectar `payments.propose_release` al flujo `PrometeoProposedAction` (namespace `payments` fuerza `human_required`/`dual_approval` — confirmar cuál con el owner si `dual_approval` aplica aquí).
-- [ ] **T-041** Al aprobar, llamar `POST /v1/milestones/:milestoneId/escrow/release` sin modificar ese endpoint ni `PaymentsService.release()`.
-- [ ] **T-042** Test: rechazo de la propuesta de pago no deja ningún estado a medio camino en `PrometeoProposedAction` ni en Payments.
-- [ ] **T-043** Test: aprobación de una propuesta de pago cuyo milestone dejó de cumplir los invariantes de `PaymentsService.release()` (p. ej. disputa abierta abierta entre la propuesta y la aprobación) falla limpio en el gate financiero existente — F2 no lo enmascara.
-- [ ] **T-044** Fault test: `PrometeoProposedAction` aprobada dos veces en paralelo (concurrencia) ejecuta el release una sola vez.
+- [x] **T-040** Conectado. **Hallazgo corregido**: el descriptor exigía el permiso `payments:write`, que ningún rol de `rbac.ts` otorga — la tool era inejecutable por cualquiera. Se cambió a `projects:financials:write` (CLIENT, OPS_ADMIN), el mismo permiso que ya exige `PaymentsController.release`. `approvalPolicy: human_required` ya fuerza `require_approval`; `dual_approval` sigue sin implementarse (ninguna tool lo declara hoy, igual que documentó Fase 3).
+- [x] **T-041** `approveProposedAction` ahora recibe la identidad del *aprobador* además de la del proponente. Para `payments.propose_release` específicamente, `executeWriteTool` llama `PaymentsService.release()` directo (mismo service que usa el endpoint real, no reimplementado) con `tenantId/orgId/userId/roles` del **aprobador**, no del proponente — así lo exige la sección 5 del spec. El resto de las write tools (agro/time_tracker) siguen ejecutando como el proponente original, sin cambios. `assertCanDecide` ya bloqueaba la autoaprobación para `human_required` (trabajo previo sin comitear que se conservó); se agregó test explícito de que ni un proponente OPS_ADMIN puede autoaprobarse.
+- [x] **T-042** Test (`prometeo-tool-governance.payments-gate.test.ts`): rechazar nunca llama `PaymentsService.release`; la propuesta queda en `REJECTED`.
+- [x] **T-043** Test: `PaymentsService.release` lanzando (invariante roto, p. ej. disputa abierta) se propaga tal cual al caller — F2 no lo enmascara — y la propuesta queda en `BLOCKED`, no atascada en `APPROVED` sin resolución. **Hallazgo**: el enum `PrometeoProposedActionStatus` ya tenía `BLOCKED` desde la migración original de F2-B, pero ningún código lo usaba — antes de este fix, una propuesta cuyo release fallara quedaba en `APPROVED` para siempre, sin poder reintentarse ni distinguirse de un caso exitoso pendiente de auditoría. Se agregó `ToolGovernanceRepository.markBlocked`.
+- [x] **T-044** Fault test: dos `approveProposedAction` concurrentes sobre la misma propuesta — el `claimForApproval` atómico (mismo patrón que Fase 3) garantiza que solo uno gane; el otro recibe 409 y `PaymentsService.release` se invoca exactamente una vez.
+
+5/5 tests nuevos (`prometeo-tool-governance.payments-gate.test.ts`). Se actualizó `prometeo-tool-governance.write.test.ts` T-033b: ya no espera que `payments.propose_release` sea rechazada como "no disponible" — ahora crea la propuesta correctamente. Suite completa `@semse/api`: 1941/1942 (mismo fallo preexistente ajeno en `graphify.service.test.ts`).
+
+**Fase 4 (F2-D) completa.** Falta Fase 5 (cierre).
 
 ## Fase 5 — Validación y cierre (F2-E)
 

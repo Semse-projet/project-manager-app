@@ -18,6 +18,7 @@ import { AgroFarmService } from "../agro/agro-farm.service.js";
 import { AgroInventoryService } from "../agro/agro-inventory.service.js";
 import { AgroTaskService } from "../agro/agro-task.service.js";
 import { FieldOpsService } from "../field-ops/field-ops.service.js";
+import { PaymentsService } from "../payments/payments.service.js";
 import { VisionService } from "../vision/vision.service.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
@@ -58,6 +59,16 @@ function optionalInteger(input: Record<string, unknown>, key: string, min: numbe
   return Math.min(Math.max(Math.trunc(numberValue), min), max);
 }
 
+function optionalNumber(input: Record<string, unknown>, key: string): number | undefined {
+  const value = input[key];
+  if (value === undefined || value === null || value === "") return undefined;
+  const numberValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numberValue)) {
+    throw new BadRequestException(`${key} must be a number`);
+  }
+  return numberValue;
+}
+
 function optionalEnum<T extends string>(
   input: Record<string, unknown>,
   key: string,
@@ -84,6 +95,7 @@ export class PrometeoToolExecutionService {
     private readonly vision: VisionService,
     @Optional() private readonly toolGovernance?: ToolGovernanceRepository,
     @Optional() private readonly auditService?: AuditService,
+    @Optional() private readonly payments?: PaymentsService,
   ) {}
 
   async invokeReadTool(
@@ -187,9 +199,11 @@ export class PrometeoToolExecutionService {
     if (descriptor.mode === "read") {
       throw new BadRequestException(`${descriptor.namespace}.${descriptor.name} is a read tool; use invokeReadTool.`);
     }
-    if (descriptor.approvalPolicy === "human_required" || descriptor.approvalPolicy === "dual_approval") {
+    if (descriptor.approvalPolicy === "dual_approval") {
+      // No tool in the registry declares dual_approval today; the approval
+      // flow below only implements a single distinct approver.
       throw new BadRequestException(
-        `${descriptor.namespace}.${descriptor.name} requires the F2-D payments gate, not yet available.`,
+        `${descriptor.namespace}.${descriptor.name} declares dual_approval, which is not implemented yet.`,
       );
     }
 
@@ -245,6 +259,7 @@ export class PrometeoToolExecutionService {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       actorId: actor.userId,
+      actorRoles: actor.roles,
       namespace: descriptor.namespace,
       name: descriptor.name,
       approvalPolicy: descriptor.approvalPolicy,
@@ -290,9 +305,24 @@ export class PrometeoToolExecutionService {
       tenantId: proposal.tenantId,
       orgId: proposal.orgId,
       userId: proposal.actorId,
-      roles: [],
+      roles: proposal.actorRoles,
     };
-    const result = await this.executeWriteTool(proposerActor, descriptor, (proposal.inputJson as Record<string, unknown>) ?? {});
+    // approverActor (not proposerActor) is who actually executes namespace
+    // "payments" tools — see executeWriteTool's payments.propose_release
+    // case. Everything else still runs as the original proposer.
+    let result: unknown;
+    try {
+      result = await this.executeWriteTool(proposerActor, descriptor, (proposal.inputJson as Record<string, unknown>) ?? {}, actor);
+    } catch (error) {
+      // The proposal was already claimed (status: APPROVED) above, so it
+      // can never be re-approved. Leaving it there on failure would strand
+      // it forever with no visible outcome. BLOCKED records that the
+      // downstream gate (e.g. PaymentsService.release()'s own invariants)
+      // refused to execute it — F2 doesn't mask or retry that failure.
+      const reason = error instanceof Error ? error.message : String(error);
+      await governance.markBlocked({ id: actionId, tenantId: actor.tenantId, reason });
+      throw error;
+    }
     await governance.markExecuted({ id: actionId, tenantId: actor.tenantId, resultJson: result as never });
     await this.auditService?.append({
       tenantId: actor.tenantId,
@@ -345,6 +375,25 @@ export class PrometeoToolExecutionService {
   private assertCanDecide(actor: RequestContext, proposal: ProposedActionRecord): void {
     const isProposer = actor.userId === proposal.actorId;
     const isOpsAdmin = normalizeRoles(actor.roles).includes("OPS_ADMIN");
+
+    if (proposal.approvalPolicy === "human_required" || proposal.approvalPolicy === "dual_approval") {
+      // Critical-risk proposals (payments today) require a distinct human
+      // approver — self-approval would make "human_required" meaningless.
+      if (!isOpsAdmin) {
+        throw new ForbiddenException({
+          message: "This proposal requires an OPS_ADMIN approver",
+          actionId: proposal.id,
+        });
+      }
+      if (isProposer) {
+        throw new ForbiddenException({
+          message: "A human_required/dual_approval proposal cannot be approved or rejected by its own proposer",
+          actionId: proposal.id,
+        });
+      }
+      return;
+    }
+
     if (!isProposer && !isOpsAdmin) {
       throw new ForbiddenException({
         message: "Only the original actor or OPS_ADMIN can decide this proposed action",
@@ -360,14 +409,46 @@ export class PrometeoToolExecutionService {
     return this.toolGovernance;
   }
 
+  private requirePayments(): PaymentsService {
+    if (!this.payments) {
+      throw new Error("PaymentsService is required to execute payments tools");
+    }
+    return this.payments;
+  }
+
   private async executeWriteTool(
     actor: RequestContext,
     descriptor: PrometeoToolDescriptor,
     input: Record<string, unknown>,
+    approverActor?: RequestContext,
   ): Promise<unknown> {
     const key = `${descriptor.namespace}.${descriptor.name}`;
 
     switch (key) {
+      case "payments.propose_release": {
+        // Spec decision 2 (hybrid gate): the proposal only records intent.
+        // Approving it calls the real release endpoint's service directly
+        // (same PaymentsService.release(), not re-implemented) under the
+        // *approver's* identity — assertCanDecide already required this to
+        // be a distinct OPS_ADMIN, never the original proposer — so the
+        // person whose approval authorized the money is who moves it.
+        // PaymentsService.release() keeps every one of its own invariant
+        // checks (signed contract, milestone APPROVED, no open dispute,
+        // sufficient balance); nothing here bypasses or duplicates them.
+        if (!approverActor) {
+          throw new Error("payments.propose_release can only execute via an approved proposed action");
+        }
+        const result = await this.requirePayments().release({
+          tenantId: approverActor.tenantId,
+          orgId: approverActor.orgId,
+          userId: approverActor.userId,
+          roles: approverActor.roles,
+          milestoneId: requiredString(input, "milestoneId"),
+          amount: optionalNumber(input, "amount"),
+          requestId: randomUUID(),
+        });
+        return result;
+      }
       case "time_tracker.start":
         return this.fieldOps.startTrackerSession({
           tenantId: actor.tenantId,

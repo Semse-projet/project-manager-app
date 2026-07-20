@@ -7,6 +7,7 @@ CREATE TABLE "prometeo_proposed_action" (
     "tenantId" TEXT NOT NULL,
     "orgId" TEXT NOT NULL,
     "actorId" TEXT NOT NULL,
+    "actorRoles" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "namespace" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "approvalPolicy" TEXT NOT NULL,
