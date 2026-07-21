@@ -283,7 +283,7 @@ export default function WorkerPaymentsPage() {
                 setConnectLoading(true); setConnectError(null);
                 try {
                   const r = await createOnboardingLink();
-                  window.open(r.onboardingUrl, "_blank");
+                  window.open(r.onboardingUrl, "_blank", "noopener,noreferrer");
                 } catch (e) { setConnectError(e instanceof Error ? e.message : "Error"); }
                 setConnectLoading(false);
               }}

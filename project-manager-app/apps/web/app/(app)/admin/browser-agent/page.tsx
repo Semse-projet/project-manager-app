@@ -322,7 +322,7 @@ export default function BrowserAgentPage() {
                 </div>
                 <div className="overflow-hidden">
                   <div className="text-xs font-bold text-zinc-500 uppercase">URL Final</div>
-                  <div className="text-sm font-bold text-blue-400 truncate hover:underline cursor-pointer" onClick={() => window.open(result.finalUrl, "_blank")}>{result.finalUrl}</div>
+                  <a href={result.finalUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-400 truncate hover:underline block">{result.finalUrl}</a>
                 </div>
               </div>
 
