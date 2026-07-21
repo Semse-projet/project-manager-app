@@ -5,7 +5,7 @@ type: spec
 feature: "Client UI Flows"
 domain: "ui"
 version: "1.0"
-status: "VERIFIED"
+status: "DEPRECATED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -32,6 +32,8 @@ last_verified: 2026-06-09
 ---
 
 # Spec: Client UI Flows
+
+> **DEPRECATED 2026-07-20.** Los flujos documentados aquí (`/jobs/new`, `/jobs/:jobId`, `/jobs/:jobId/payments`) describen una implementación que ya no tiene ningún enlace de navegación en producción — quedó huérfana cuando el flujo real migró a `/client/*`. Ver `docs/specs/ui/client-flows-remediation.spec.md` para el contrato vigente. Se conserva este archivo como referencia histórica de esa ruta, no como fuente de verdad.
 
 > Flujos de interfaz para el rol CLIENT en SEMSE OS (apps/web).
 > Cada flujo especifica: qué datos carga, qué acciones expone y qué estados visuales existen.
