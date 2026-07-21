@@ -4,6 +4,7 @@ export const rolePermissions: Record<string, string[]> = {
   CLIENT: [
     "jobs:read",
     "jobs:create",
+    "travel:manage",
     "jobs:archive",
     "jobs:restore",
     "bids:read",
@@ -57,6 +58,7 @@ export const rolePermissions: Record<string, string[]> = {
   ],
   PRO: [
     "jobs:read",
+    "travel:manage",
     "bids:read",
     "bids:create",
     "milestones:read",
@@ -87,6 +89,7 @@ export const rolePermissions: Record<string, string[]> = {
     "projects:financials:read",
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:create",
     "matching:read",
     "governance:read",
     "governance:vote",
@@ -104,6 +107,8 @@ export const rolePermissions: Record<string, string[]> = {
   WORKER: [
     "agents:run:worker",
     "agents:run:manage",
+    "agents:run:create",
+    "travel:manage",
     "bids:read",
     "field-ops:read",
     "field-ops:write",
@@ -120,6 +125,7 @@ export const rolePermissions: Record<string, string[]> = {
   OPS_ADMIN: [
     "jobs:read",
     "jobs:create",
+    "travel:manage",
     "jobs:archive",
     "jobs:restore",
     "bids:read",

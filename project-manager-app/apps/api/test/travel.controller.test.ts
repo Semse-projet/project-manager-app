@@ -41,19 +41,23 @@ const STUB_EXPENSE = {
 // ── Permission declarations ───────────────────────────────────────────────────
 
 test("travel controller declares correct @RequirePermissions", () => {
+  // Write endpoints use "travel:manage" (not "jobs:create") so that granting
+  // it to PRO/WORKER doesn't also unlock unrelated jobs:create-gated actions
+  // (creating job listings, tasks, materials, incidents) — see
+  // docs/AUDIT_REMEDIATION_PLAN.md G-PRO-10/2.31.
   const expectations: Array<[string, string]> = [
     ["listAssignments",  "jobs:read"],
-    ["createAssignment", "jobs:create"],
+    ["createAssignment", "travel:manage"],
     ["getAssignment",    "jobs:read"],
-    ["updateStatus",     "jobs:create"],
+    ["updateStatus",     "travel:manage"],
     ["listExpenses",     "jobs:read"],
-    ["createExpense",    "jobs:create"],
+    ["createExpense",    "travel:manage"],
     ["listLodging",      "jobs:read"],
-    ["createLodging",    "jobs:create"],
+    ["createLodging",    "travel:manage"],
     ["listAdvances",     "jobs:read"],
-    ["createAdvance",    "jobs:create"],
+    ["createAdvance",    "travel:manage"],
     ["getSettlement",    "jobs:read"],
-    ["closeSettlement",  "jobs:create"],
+    ["closeSettlement",  "travel:manage"],
   ];
 
   for (const [method, permission] of expectations) {

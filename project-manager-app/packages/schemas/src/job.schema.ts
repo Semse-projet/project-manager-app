@@ -74,6 +74,18 @@ export const bidSchema = z.object({
   note: z.string().max(1000).optional(),
 });
 
+/**
+ * The Prisma `JobStatus` enum is uppercase and NestJS's `toVisibleJob` mapper
+ * returns it uppercase too — but `jobRecordStatusSchema` (and every frontend
+ * consumer of `JobRecordView`) has always expected lowercase. Apply this at
+ * every BFF boundary that forwards a job record from the API to the browser,
+ * so `status` actually matches the schema it's typed against.
+ */
+export function normalizeJobRecordStatus<T extends { status?: unknown }>(record: T): T {
+  if (typeof record?.status !== "string") return record;
+  return { ...record, status: record.status.toLowerCase() };
+}
+
 export type JobRecordStatus = z.infer<typeof jobRecordStatusSchema>;
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 export type CreateRuntimeJobInput = z.infer<typeof createRuntimeJobSchema>;

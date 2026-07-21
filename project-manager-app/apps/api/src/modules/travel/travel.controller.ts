@@ -99,7 +99,7 @@ export class TravelController {
   }
 
   @Post()
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createAssignment(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: unknown,
@@ -125,7 +125,7 @@ export class TravelController {
   }
 
   @Patch(":travelId/status")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async updateStatus(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -155,7 +155,7 @@ export class TravelController {
   }
 
   @Post(":travelId/expenses")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createExpense(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -184,7 +184,7 @@ export class TravelController {
   }
 
   @Post(":travelId/lodging")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createLodging(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -213,7 +213,7 @@ export class TravelController {
   }
 
   @Post(":travelId/advances")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createAdvance(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -242,7 +242,7 @@ export class TravelController {
   }
 
   @Post(":travelId/settlement/close")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async closeSettlement(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
