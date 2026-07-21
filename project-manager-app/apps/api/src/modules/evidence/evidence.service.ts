@@ -24,6 +24,7 @@ export class EvidenceService {
     milestoneId?: string;
     key: string;
     kind: "PHOTO" | "VIDEO" | "DOCUMENT";
+    filename?: string;
   }) {
     const evidence = await this.evidenceRepository.create(input);
 

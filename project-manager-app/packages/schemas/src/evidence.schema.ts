@@ -40,7 +40,8 @@ export const registerEvidenceSchema = z
     jobId: z.string().min(1).optional(),
     milestoneId: z.string().min(1).optional(),
     key: z.string().min(1),
-    kind: evidenceKindSchema
+    kind: evidenceKindSchema,
+    filename: z.string().min(1).max(300).optional()
   })
   .refine((input) => Boolean(input.projectId || input.jobId || input.milestoneId), {
     message: "One of projectId, jobId or milestoneId is required",
