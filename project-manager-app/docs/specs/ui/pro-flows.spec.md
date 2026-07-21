@@ -5,7 +5,7 @@ type: spec
 feature: "Pro (Contractor) UI Flows"
 domain: "ui"
 version: "1.0"
-status: "VERIFIED"
+status: "REVIEW"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -31,6 +31,8 @@ last_verified: 2026-06-09
 ---
 
 # Spec: Pro UI Flows
+
+> **REVIEW 2026-07-20.** `related_files`/`related_tests` muestran que este spec cubre específicamente el catálogo ProTools, no la app completa del rol PRO (`/worker/*`), que nunca tuvo spec propio — ver `docs/specs/ui/pro-flows-remediation.spec.md`. Además, la auditoría del 2026-07-20 confirmó en producción que `POST /api/semse/agents/protools/estimate` responde 404 — contradice el `status: VERIFIED` anterior de este archivo. Requiere re-verificación antes de volver a `VERIFIED`.
 
 > Flujos de interfaz para el rol PRO (contratista) en SEMSE OS.
 

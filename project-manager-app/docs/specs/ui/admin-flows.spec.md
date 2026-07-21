@@ -5,7 +5,7 @@ type: spec
 feature: "Admin / OPS UI Flows"
 domain: "ui"
 version: "1.0"
-status: "VERIFIED"
+status: "REVIEW"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -32,6 +32,8 @@ last_verified: 2026-06-09
 ---
 
 # Spec: Admin / OPS UI Flows
+
+> **REVIEW 2026-07-20.** La auditoría del 2026-07-20 (código únicamente — sin credencial OPS_ADMIN disponible) encontró varios gaps sobre esta superficie (navegación incompleta, confirmaciones faltantes en acciones financieras, permisos de lectura de arquitectura interna otorgados a todos los roles). Ver `docs/specs/ui/admin-flows-remediation.spec.md`. Ninguno de estos hallazgos se confirmó en pantalla todavía — este spec vuelve a `VERIFIED` solo después de esa verificación en vivo.
 
 > Flujos de interfaz para OPS_ADMIN en `/admin` de SEMSE OS.
 
