@@ -12,6 +12,42 @@ import { ProjectsService } from "../projects/projects.service.js";
 import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { StripeConnectService } from "./stripe-connect.service.js";
+
+/**
+ * Maps a provider webhook event to the PaymentTxn status it confirms.
+ * Covers the event types this codebase's Stripe integration actually
+ * produces (see providers/stripe.provider.ts): PaymentIntents (deposits,
+ * and the sandbox-simulate payout fallback), Refunds, and Transfer
+ * reversals. Not verified against a live Stripe webhook subscription in
+ * this session — confirm the configured event types match before relying
+ * on this in production.
+ */
+function mapProviderEventToStatus(
+  eventType: string,
+  objectStatus: string | undefined
+): "SUCCEEDED" | "FAILED" | "REVERSED" | undefined {
+  switch (eventType) {
+    case "payment_intent.succeeded":
+    case "charge.succeeded":
+      return "SUCCEEDED";
+    case "payment_intent.payment_failed":
+    case "payment_intent.canceled":
+    case "charge.failed":
+      return "FAILED";
+    case "refund.updated":
+    case "charge.refund.updated":
+      if (objectStatus === "succeeded") return "SUCCEEDED";
+      if (objectStatus === "failed") return "FAILED";
+      return undefined;
+    case "charge.refunded":
+      return "SUCCEEDED";
+    case "transfer.reversed":
+      return "REVERSED";
+    default:
+      return undefined;
+  }
+}
 
 @Injectable()
 export class PaymentsService {
@@ -24,6 +60,7 @@ export class PaymentsService {
     private readonly reservationsRepository: ReservationsRepository,
     private readonly workspaceMemory: WorkspaceMemoryRepository,
     @Optional() private readonly sse?: SseEventBusService,
+    @Optional() private readonly stripeConnect?: StripeConnectService,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -325,6 +362,20 @@ export class PaymentsService {
     const methodType = input.methodType ?? "bank_transfer";
     const paymentProvider = this.paymentProviderRegistry.resolve(provider);
 
+    // Reserve first with a placeholder providerRef, call the provider
+    // second, finalize third — money must never move before the escrow
+    // bookkeeping exists to receive it. See release()/refund() below for
+    // the same pattern and the fuller explanation.
+    const reservationRef = `pending_deposit_${project.id}_${Date.now()}`;
+    const { escrow, transaction: reservation } = await this.paymentsRepository.depositFunds({
+      projectId: input.projectId,
+      jobId: project.jobId,
+      contractId: input.contractId,
+      currency,
+      amount: input.amount,
+      providerRef: reservationRef
+    });
+
     const fundingIntent = await paymentProvider.createFundingIntent({
       tenantId: input.tenantId,
       projectId: input.projectId,
@@ -337,12 +388,17 @@ export class PaymentsService {
       externalRef: `deposit_${project.id}_${Date.now()}`
     });
 
-    const { escrow, transaction } = await this.paymentsRepository.depositFunds({
-      projectId: input.projectId,
-      jobId: project.jobId,
-      contractId: input.contractId,
-      currency,
-      amount: input.amount,
+    // A funding intent almost always needs client-side confirmation (card
+    // entry, 3DS) before Stripe reports it captured, so this typically stays
+    // PENDING here and is finalized later by the webhook. "captured" only
+    // happens synchronously for providers that don't require that step
+    // (e.g. the mock provider used outside production).
+    const finalStatus = fundingIntent.status === "captured" ? "SUCCEEDED" as const
+      : fundingIntent.status === "failed" || fundingIntent.status === "cancelled" ? "FAILED" as const
+      : undefined; // still in flight — stays PENDING, the webhook finalizes it later
+    const transaction = await this.paymentsRepository.finalizeDeposit({
+      transactionId: reservation.id,
+      status: finalStatus,
       providerRef: fundingIntent.providerRef
     });
 
@@ -581,33 +637,62 @@ export class PaymentsService {
         })
       : null;
 
-    const payoutIntent = await paymentProvider.createPayoutIntent({
-      tenantId: input.tenantId,
-      projectId: milestone.projectId,
-      milestoneId: milestone.id,
-      recipientUserId: recipient?.userId,
-      provider,
-      methodType,
-      money: {
-        amount,
-        currency: escrow.currency
-      },
-      externalRef: `release_${milestone.id}_${Date.now()}`,
-      metadata: {
-        recipientEmail: recipient?.email,
-        payoutMethodType: payoutMethod?.type,
-        paypalEmail: payoutMethod?.type === "paypal" ? payoutMethod.email : undefined,
-        zelleHandle: payoutMethod?.type === "zelle" ? payoutMethod.email : undefined,
-        cashAppTag: payoutMethod?.type === "cashapp" ? payoutMethod.email : undefined,
-        bankName: payoutMethod?.type === "bank_account" ? payoutMethod.bankName : undefined,
-        last4: payoutMethod?.last4
-      }
-    });
-
-    const transaction = await this.paymentsRepository.releaseFunds({
+    // Reserve first (atomically re-checks + holds the balance), call the
+    // payment provider second, finalize the real outcome third. Previously
+    // the provider call happened before any DB reservation existed, so two
+    // concurrent releases could both trigger a real Stripe transfer and only
+    // one would end up with a matching DB row — see 0.14 in
+    // docs/AUDIT_REMEDIATION_PLAN.md for the full incident shape.
+    const reservationRef = `pending_release_${milestone.id}_${Date.now()}`;
+    const reservation = await this.paymentsRepository.releaseFunds({
       escrowId: escrow.id,
       milestoneId: milestone.id,
       amount,
+      providerRef: reservationRef
+    });
+
+    let payoutIntent;
+    try {
+      payoutIntent = await paymentProvider.createPayoutIntent({
+        tenantId: input.tenantId,
+        projectId: milestone.projectId,
+        milestoneId: milestone.id,
+        recipientUserId: recipient?.userId,
+        provider,
+        methodType,
+        money: {
+          amount,
+          currency: escrow.currency
+        },
+        externalRef: reservationRef,
+        metadata: {
+          recipientEmail: recipient?.email,
+          payoutMethodType: payoutMethod?.type,
+          paypalEmail: payoutMethod?.type === "paypal" ? payoutMethod.email : undefined,
+          zelleHandle: payoutMethod?.type === "zelle" ? payoutMethod.email : undefined,
+          cashAppTag: payoutMethod?.type === "cashapp" ? payoutMethod.email : undefined,
+          bankName: payoutMethod?.type === "bank_account" ? payoutMethod.bankName : undefined,
+          last4: payoutMethod?.last4
+        }
+      });
+    } catch (err) {
+      await this.paymentsRepository.finalizeRelease({
+        transactionId: reservation.id,
+        milestoneId: milestone.id,
+        status: "FAILED"
+      });
+      throw err;
+    }
+
+    // "paid"/synchronous providers finalize now; anything still in flight
+    // ("processing"/"pending") stays reserved until the webhook confirms it.
+    const finalStatus = payoutIntent.status === "paid" ? "SUCCEEDED" as const
+      : payoutIntent.status === "failed" || payoutIntent.status === "cancelled" ? "FAILED" as const
+      : undefined; // still processing — stays PENDING, the webhook finalizes it later
+    const transaction = await this.paymentsRepository.finalizeRelease({
+      transactionId: reservation.id,
+      milestoneId: milestone.id,
+      status: finalStatus,
       providerRef: payoutIntent.providerRef
     });
 
@@ -688,26 +773,48 @@ export class PaymentsService {
     const methodType = input.methodType ?? "bank_transfer";
     const paymentProvider = this.paymentProviderRegistry.resolve(provider);
 
-    const refundIntent = await paymentProvider.createRefundIntent({
-      tenantId: input.tenantId,
-      projectId: context.projectId,
-      provider,
-      methodType,
-      money: {
-        amount: input.amount,
-        currency: context.currency
-      },
-      externalRef: `refund_${context.escrowId}_${Date.now()}`,
-      originalProviderRef: context.originalProviderRef,
-      metadata: {
-        escrowId: context.escrowId,
-        reason: input.reason
-      }
-    });
-
-    const transaction = await this.paymentsRepository.refundFunds({
+    // Same reserve-then-call-then-finalize ordering as release() above.
+    const reservationRef = `pending_refund_${context.escrowId}_${Date.now()}`;
+    const reservation = await this.paymentsRepository.refundFunds({
       escrowId: context.escrowId,
       amount: input.amount,
+      providerRef: reservationRef
+    });
+
+    let refundIntent;
+    try {
+      refundIntent = await paymentProvider.createRefundIntent({
+        tenantId: input.tenantId,
+        projectId: context.projectId,
+        provider,
+        methodType,
+        money: {
+          amount: input.amount,
+          currency: context.currency
+        },
+        externalRef: reservationRef,
+        originalProviderRef: context.originalProviderRef,
+        metadata: {
+          escrowId: context.escrowId,
+          reason: input.reason
+        }
+      });
+    } catch (err) {
+      await this.paymentsRepository.finalizeRefund({
+        transactionId: reservation.id,
+        escrowId: context.escrowId,
+        status: "FAILED"
+      });
+      throw err;
+    }
+
+    const finalStatus = refundIntent.status === "succeeded" ? "SUCCEEDED" as const
+      : refundIntent.status === "failed" || refundIntent.status === "cancelled" ? "FAILED" as const
+      : undefined; // still processing — stays PENDING, the webhook finalizes it later
+    const transaction = await this.paymentsRepository.finalizeRefund({
+      transactionId: reservation.id,
+      escrowId: context.escrowId,
+      status: finalStatus,
       providerRef: refundIntent.providerRef
     });
 
@@ -767,12 +874,48 @@ export class PaymentsService {
     };
   }
 
-  webhook(input: { event?: string; providerRef?: string; requestId: string }) {
+  /**
+   * Reconciles a PaymentTxn against its provider's confirmed outcome. Was a
+   * pure no-op before (0.13 in docs/AUDIT_REMEDIATION_PLAN.md) — verified
+   * the signature and threw the payload away. Now looks the transaction up
+   * by providerRef and applies the real status via
+   * PaymentsRepository.reconcileTransactionStatus(), which is itself
+   * idempotent (only updates rows still PENDING).
+   */
+  async webhook(input: {
+    event?: string;
+    providerRef?: string;
+    type?: string;
+    data?: { object?: { id?: string; status?: string } };
+    requestId: string;
+  }) {
+    const eventType = input.type ?? input.event ?? "unknown";
+    const providerRef = input.data?.object?.id ?? input.providerRef;
+    const objectStatus = input.data?.object?.status;
+
+    if (!providerRef) {
+      return { accepted: true, event: eventType, providerRef: "n/a", requestId: input.requestId, reconciled: false };
+    }
+
+    // Stripe Connect account activation — previously only synced when
+    // someone opened Connect settings and triggered it manually.
+    if (eventType === "account.updated") {
+      const synced = await this.stripeConnect?.syncAccountStatusByStripeAccountId(providerRef).catch(() => null);
+      return { accepted: true, event: eventType, providerRef, requestId: input.requestId, reconciled: Boolean(synced) };
+    }
+
+    const targetStatus = mapProviderEventToStatus(eventType, objectStatus);
+    if (!targetStatus) {
+      return { accepted: true, event: eventType, providerRef, requestId: input.requestId, reconciled: false };
+    }
+
+    const result = await this.paymentsRepository.reconcileTransactionStatus({ providerRef, status: targetStatus });
     return {
       accepted: true,
-      event: input.event ?? "unknown",
-      providerRef: input.providerRef ?? "n/a",
-      requestId: input.requestId
+      event: eventType,
+      providerRef,
+      requestId: input.requestId,
+      reconciled: result.reconciled
     };
   }
 

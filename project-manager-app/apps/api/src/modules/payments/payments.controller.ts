@@ -253,7 +253,7 @@ export class PaymentsController {
 
   @Post("v1/payments/webhook")
   @Public()
-  webhook(
+  async webhook(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: Record<string, unknown>,
     @RawBody() rawBody?: Buffer,
@@ -293,6 +293,6 @@ export class PaymentsController {
       throw new BadRequestException(parsed.error.flatten());
     }
 
-    return ok(requestId, this.paymentsService.webhook({ ...parsed.data, requestId }));
+    return ok(requestId, await this.paymentsService.webhook({ ...parsed.data, requestId }));
   }
 }

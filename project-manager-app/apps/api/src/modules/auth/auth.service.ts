@@ -8,6 +8,7 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { EmailService } from "../../infrastructure/email/email.service.js";
 import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../../common/auth-password.js";
 import { signToken, verifyToken } from "../../common/auth-token.js";
 import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
@@ -41,7 +42,8 @@ export class AuthService {
 
   constructor(
     private readonly authRepository: AuthRepository,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly emailService: EmailService
   ) {}
 
   private requireSecret(): string {
@@ -328,6 +330,30 @@ export class AuthService {
       requestId: input.requestId,
       timestamp: new Date().toISOString()
     });
+
+    const webBaseUrl = (process.env.SEMSE_WEB_BASE_URL?.trim() || "https://semseproject.com").replace(/\/+$/, "");
+    const resetLink = `${webBaseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+    const emailResult = await this.emailService.send({
+      to: input.email,
+      subject: "Restablece tu contraseña de SEMSE",
+      html: `
+        <p>Recibimos una solicitud para restablecer tu contraseña de SEMSE.</p>
+        <p><a href="${resetLink}">Restablecer contraseña</a></p>
+        <p>Este enlace expira en 30 minutos. Si no solicitaste esto, ignora este correo.</p>
+      `.trim(),
+      text: `Restablece tu contraseña de SEMSE: ${resetLink} (expira en 30 minutos, ignora este correo si no lo solicitaste)`
+    });
+
+    // Never let a send failure change the response shape — the "accepted"
+    // response must stay identical whether the email exists or not (already
+    // verified as correct behavior elsewhere in this file) and whether the
+    // send succeeded or not. Log loudly instead, so this is visible to ops
+    // rather than repeating 0.32's original silent-failure shape.
+    if (!emailResult.sent) {
+      this.logger.error(
+        `[auth] Password reset email failed to send for userId=${user.id}: ${emailResult.error ?? "unknown error"}`
+      );
+    }
 
     return {
       status: "accepted" as const,

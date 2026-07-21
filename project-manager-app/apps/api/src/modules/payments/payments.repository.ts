@@ -310,7 +310,7 @@ export class PaymentsRepository {
           type: "DEPOSIT",
           amount: input.amount,
           providerRef: input.providerRef,
-          status: "SUCCEEDED"
+          status: "PENDING"
         },
         include: {
           escrow: {
@@ -326,6 +326,26 @@ export class PaymentsRepository {
         transaction: this.toRecord(transaction)
       };
     });
+  }
+
+  /**
+   * Finalizes a reserved deposit. In practice a real Stripe PaymentIntent
+   * almost never resolves "captured" synchronously (it needs the client to
+   * complete card/3DS confirmation), so most deposits stay PENDING here and
+   * get finalized later by reconcileTransactionStatus() from the webhook.
+   */
+  async finalizeDeposit(input: {
+    transactionId: string;
+    /** Omit to leave PENDING (still awaiting the provider's async confirmation) — only swaps in the real providerRef. */
+    status?: "SUCCEEDED" | "FAILED";
+    providerRef?: string;
+  }): Promise<PaymentTxnRecord> {
+    const transaction = await this.prisma.paymentTxn.update({
+      where: { id: input.transactionId },
+      data: { ...(input.status ? { status: input.status } : {}), ...(input.providerRef ? { providerRef: input.providerRef } : {}) },
+      include: { escrow: { include: { project: true } } }
+    });
+    return this.toRecord(transaction);
   }
 
   async releaseFunds(input: {
@@ -345,11 +365,14 @@ export class PaymentsRepository {
           throw new NotFoundException(`Escrow '${input.escrowId}' not found`);
         }
 
+        // Count PENDING alongside SUCCEEDED — a reservation must hold its funds
+        // immediately, or a second concurrent release could pass this same
+        // check before the first one's provider call resolves.
         const released = await db.paymentTxn.aggregate({
           where: {
             escrowId: input.escrowId,
             type: "RELEASE",
-            status: "SUCCEEDED"
+            status: { in: ["SUCCEEDED", "PENDING"] }
           },
           _sum: {
             amount: true
@@ -359,7 +382,7 @@ export class PaymentsRepository {
           where: {
             escrowId: input.escrowId,
             type: "REFUND",
-            status: "SUCCEEDED"
+            status: { in: ["SUCCEEDED", "PENDING"] }
           },
           _sum: {
             amount: true
@@ -374,6 +397,11 @@ export class PaymentsRepository {
           throw new ConflictException("insufficient escrow funds for release");
         }
 
+        // Reserve only — status stays PENDING until the caller confirms the
+        // real provider outcome via finalizeRelease(). The milestone is not
+        // marked PAID here: it must wait for confirmed success, otherwise a
+        // failed provider call would leave a milestone marked paid with no
+        // money actually released.
         const transaction = await db.paymentTxn.create({
           data: {
             escrowId: input.escrowId,
@@ -381,7 +409,7 @@ export class PaymentsRepository {
             type: "RELEASE",
             amount: input.amount,
             providerRef: input.providerRef,
-            status: "SUCCEEDED"
+            status: "PENDING"
           },
           include: {
             escrow: {
@@ -392,17 +420,45 @@ export class PaymentsRepository {
           }
         });
 
-        await db.milestone.update({
-          where: { id: input.milestoneId },
-          data: { status: "PAID" }
-        });
-
         return this.toRecord(transaction);
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       }
     );
+  }
+
+  /**
+   * Finalizes a reserved release after the payment provider call resolves.
+   * SUCCEEDED marks the milestone PAID (moved here from releaseFunds() so a
+   * provider failure never leaves a milestone marked paid with no real
+   * transfer). FAILED just settles the transaction — the reserved amount
+   * naturally drops out of the PENDING/SUCCEEDED sum future releases check.
+   */
+  async finalizeRelease(input: {
+    transactionId: string;
+    milestoneId: string;
+    /** Omit to leave PENDING (still in flight) — only swaps in the real providerRef. */
+    status?: "SUCCEEDED" | "FAILED";
+    providerRef?: string;
+  }): Promise<PaymentTxnRecord> {
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as PaymentTx;
+      const transaction = await db.paymentTxn.update({
+        where: { id: input.transactionId },
+        data: { ...(input.status ? { status: input.status } : {}), ...(input.providerRef ? { providerRef: input.providerRef } : {}) },
+        include: { escrow: { include: { project: true } } }
+      });
+
+      if (input.status === "SUCCEEDED") {
+        await db.milestone.update({
+          where: { id: input.milestoneId },
+          data: { status: "PAID" }
+        });
+      }
+
+      return this.toRecord(transaction);
+    });
   }
 
   async refundFunds(input: {
@@ -432,22 +488,26 @@ export class PaymentsRepository {
           throw new NotFoundException(`Escrow '${input.escrowId}' not found`);
         }
 
-        const totalDeposited = this.sumTransactions(escrow.transactions, "DEPOSIT");
-        const totalReleased = this.sumTransactions(escrow.transactions, "RELEASE");
-        const totalRefunded = this.sumTransactions(escrow.transactions, "REFUND");
+        // PENDING counts as already-committed here too — same reasoning as
+        // releaseFunds()'s balance check above.
+        const totalDeposited = this.sumTransactions(escrow.transactions, "DEPOSIT", ["SUCCEEDED"]);
+        const totalReleased = this.sumTransactions(escrow.transactions, "RELEASE", ["SUCCEEDED", "PENDING"]);
+        const totalRefunded = this.sumTransactions(escrow.transactions, "REFUND", ["SUCCEEDED", "PENDING"]);
         const refundable = totalDeposited - totalReleased - totalRefunded;
 
         if (input.amount > refundable) {
           throw new ConflictException("insufficient escrow funds for refund");
         }
 
+        // Reserve only — see finalizeRefund() for the status update and the
+        // escrow-close side effect, which now only happens on confirmed success.
         const transaction = await db.paymentTxn.create({
           data: {
             escrowId: input.escrowId,
             type: "REFUND",
             amount: input.amount,
             providerRef: input.providerRef,
-            status: "SUCCEEDED"
+            status: "PENDING"
           },
           include: {
             escrow: {
@@ -458,19 +518,60 @@ export class PaymentsRepository {
           }
         });
 
-        if (refundable - input.amount <= 0) {
-          await db.paymentEscrow.update({
-            where: { id: input.escrowId },
-            data: { status: EscrowStatus.CLOSED }
-          });
-        }
-
         return this.toRecord(transaction);
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       }
     );
+  }
+
+  /**
+   * Finalizes a reserved refund after the payment provider call resolves.
+   * SUCCEEDED closes the escrow once nothing refundable remains (moved here
+   * from refundFunds() — closing on a reservation that later fails would
+   * lock the escrow with funds that were never actually returned).
+   */
+  async finalizeRefund(input: {
+    transactionId: string;
+    escrowId: string;
+    /** Omit to leave PENDING (still in flight) — only swaps in the real providerRef. */
+    status?: "SUCCEEDED" | "FAILED";
+    providerRef?: string;
+  }): Promise<PaymentTxnRecord> {
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as PaymentTx;
+      const transaction = await db.paymentTxn.update({
+        where: { id: input.transactionId },
+        data: { ...(input.status ? { status: input.status } : {}), ...(input.providerRef ? { providerRef: input.providerRef } : {}) },
+        include: { escrow: { include: { project: true } } }
+      });
+
+      if (input.status === "SUCCEEDED") {
+        const escrow = (await db.paymentEscrow.findUnique({
+          where: { id: input.escrowId },
+          include: {
+            transactions: {
+              select: { type: true, status: true, amount: true, providerRef: true, createdAt: true }
+            }
+          }
+        })) as (RefundEscrowContextRow & { transactions: RefundEscrowContextRow["transactions"] }) | null;
+
+        if (escrow) {
+          const totalDeposited = this.sumTransactions(escrow.transactions, "DEPOSIT", ["SUCCEEDED"]);
+          const totalReleased = this.sumTransactions(escrow.transactions, "RELEASE", ["SUCCEEDED", "PENDING"]);
+          const totalRefunded = this.sumTransactions(escrow.transactions, "REFUND", ["SUCCEEDED"]);
+          if (totalDeposited - totalReleased - totalRefunded <= 0) {
+            await db.paymentEscrow.update({
+              where: { id: input.escrowId },
+              data: { status: EscrowStatus.CLOSED }
+            });
+          }
+        }
+      }
+
+      return this.toRecord(transaction);
+    });
   }
 
   private toRecord(transaction: {
@@ -521,9 +622,60 @@ export class PaymentsRepository {
     };
   }
 
-  private sumTransactions(transactions: Array<{ type: string; status: string; amount: { toNumber(): number } }>, type: string): number {
+  private sumTransactions(
+    transactions: Array<{ type: string; status: string; amount: { toNumber(): number } }>,
+    type: string,
+    statuses: string[] = ["SUCCEEDED"]
+  ): number {
     return transactions
-      .filter((transaction) => transaction.type === type && transaction.status === "SUCCEEDED")
+      .filter((transaction) => transaction.type === type && statuses.includes(transaction.status))
       .reduce((sum, transaction) => sum + transaction.amount.toNumber(), 0);
+  }
+
+  /**
+   * Applies a payment-provider webhook's confirmed status to the matching
+   * PaymentTxn (looked up by providerRef). Idempotent by construction: the
+   * WHERE clause only matches rows still PENDING, so a duplicate or
+   * out-of-order webhook delivery for an already-finalized transaction is a
+   * safe no-op instead of flipping a settled status back and forth.
+   */
+  async reconcileTransactionStatus(input: {
+    providerRef: string;
+    status: "SUCCEEDED" | "FAILED" | "REVERSED";
+  }): Promise<{ reconciled: boolean; transaction?: PaymentTxnRecord }> {
+    const existing = await this.prisma.paymentTxn.findUnique({
+      where: { providerRef: input.providerRef },
+      include: { escrow: { include: { project: true } } }
+    });
+    if (!existing || existing.status !== "PENDING") {
+      return { reconciled: false };
+    }
+
+    if (existing.type === "RELEASE" && input.status === "SUCCEEDED" && existing.milestoneId) {
+      const record = await this.finalizeRelease({
+        transactionId: existing.id,
+        milestoneId: existing.milestoneId,
+        status: "SUCCEEDED"
+      });
+      return { reconciled: true, transaction: record };
+    }
+
+    if (existing.type === "REFUND" && input.status === "SUCCEEDED") {
+      const record = await this.finalizeRefund({
+        transactionId: existing.id,
+        escrowId: existing.escrowId,
+        status: "SUCCEEDED"
+      });
+      return { reconciled: true, transaction: record };
+    }
+
+    // DEPOSIT success, or any FAILED/REVERSED outcome — plain status update,
+    // no milestone/escrow side effect to apply.
+    const updated = await this.prisma.paymentTxn.update({
+      where: { id: existing.id },
+      data: { status: input.status },
+      include: { escrow: { include: { project: true } } }
+    });
+    return { reconciled: true, transaction: this.toRecord(updated) };
   }
 }

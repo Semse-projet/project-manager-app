@@ -69,17 +69,31 @@ export class StripePaymentProvider implements PaymentProviderPort {
   async createPayoutIntent(input: CreatePayoutIntentInput): Promise<PayoutIntentRecord> {
     const amountInCents = Math.round(input.money.amount * 100);
 
-    // Prefer per-contractor Connect account (1.3.A), fall back to legacy env var
-    let stripeAccountId = process.env.STRIPE_CONNECT_ACCOUNT_ID?.trim();
+    // A known recipient MUST pay out to their own active Connect account —
+    // never silently fall back to the shared legacy account for a payout
+    // that has a specific, identified destination. That fallback used to
+    // apply whenever the recipient's Connect account wasn't active yet,
+    // sending their money to the platform's shared account instead
+    // (0.16 in docs/AUDIT_REMEDIATION_PLAN.md). The shared-account fallback
+    // now only applies when there is genuinely no specific recipient at all.
+    let stripeAccountId: string | undefined;
     let platformFeeCents = 0;
 
-    if (input.recipientUserId && this.connectService) {
-      const perAccountId = await this.connectService.getStripeAccountId(input.recipientUserId);
-      if (perAccountId) {
-        stripeAccountId = perAccountId;
-        // 1.3.D: Deduct platform fee from the transferred amount
-        platformFeeCents = this.connectService.platformFeeForPayout(input.money.amount);
+    if (input.recipientUserId) {
+      const perAccountId = this.connectService
+        ? await this.connectService.getStripeAccountId(input.recipientUserId)
+        : null;
+      if (!perAccountId) {
+        throw new Error(
+          `Cannot pay out to recipient '${input.recipientUserId}': no active Stripe Connect account. ` +
+          `Refusing to fall back to the shared platform account.`
+        );
       }
+      stripeAccountId = perAccountId;
+      // 1.3.D: Deduct platform fee from the transferred amount
+      platformFeeCents = this.connectService!.platformFeeForPayout(input.money.amount);
+    } else {
+      stripeAccountId = process.env.STRIPE_CONNECT_ACCOUNT_ID?.trim();
     }
 
     let providerRef: string;
