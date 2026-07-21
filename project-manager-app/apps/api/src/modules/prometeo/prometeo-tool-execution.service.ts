@@ -75,6 +75,15 @@ function optionalInteger(input: Record<string, unknown>, key: string, min: numbe
   return Math.min(Math.max(Math.trunc(numberValue), min), max);
 }
 
+function optionalBoolean(input: Record<string, unknown>, key: string): boolean | undefined {
+  const value = input[key];
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new BadRequestException(`${key} must be a boolean`);
+}
+
 function optionalEnum<T extends string>(
   input: Record<string, unknown>,
   key: string,
@@ -714,6 +723,39 @@ export class PrometeoToolExecutionService {
 
       case "vision.get_milestone_analyses":
         return this.vision.getByMilestone(requiredString(input, "milestoneId"));
+
+      case "vision.analyze_image":
+        return this.vision.runAnalysis({
+          evidenceId: requiredString(input, "evidenceId"),
+          imageUrl: requiredString(input, "imageUrl"),
+          jobId: optionalString(input, "jobId"),
+          milestoneId: optionalString(input, "milestoneId"),
+        });
+
+      case "vision.compare_before_after":
+        return this.vision.matchReference(
+          requiredString(input, "deliveredImageUrl"),
+          requiredString(input, "referenceImageUrl"),
+        );
+
+      case "vision.detect_material":
+        return this.vision.detectMaterial(
+          requiredString(input, "imageUrl"),
+          optionalString(input, "expectedMaterial"),
+          optionalBoolean(input, "enrich"),
+        );
+
+      case "vision.classify_space":
+        return this.vision.classifySpace(
+          requiredString(input, "imageUrl"),
+          optionalBoolean(input, "enrich"),
+        );
+
+      case "vision.check_safety":
+        return this.vision.checkSafetyEnriched(
+          requiredString(input, "imageUrl"),
+          optionalString(input, "trade"),
+        );
 
       case "materials.calculate":
         try {
