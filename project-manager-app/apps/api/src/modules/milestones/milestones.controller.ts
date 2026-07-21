@@ -239,6 +239,7 @@ export class MilestonesController {
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const item = await this.milestonesRepository.updateEvidenceItemStatus({
+      tenantId:     actor.tenantId,
       milestoneId,
       itemId,
       status:       body.status,
@@ -247,6 +248,10 @@ export class MilestonesController {
       auditReason:  body.auditReason,
       reviewedById: actor.userId,
     });
+    if (!item) {
+      const { NotFoundException } = await import("@nestjs/common");
+      throw new NotFoundException(`Evidence item '${itemId}' not found`);
+    }
 
     void this.intelligenceAgent?.evaluateMilestone({
       tenantId: actor.tenantId,

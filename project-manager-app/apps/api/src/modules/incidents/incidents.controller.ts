@@ -36,7 +36,7 @@ export class IncidentsController {
     @Param("jobId") jobId: string
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.incidentsService.listByJob({ tenantId: actor.tenantId, jobId });
+    const data = await this.incidentsService.listByJob({ tenantId: actor.tenantId, jobId, orgId: actor.orgId, roles: actor.roles });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -61,7 +61,13 @@ export class IncidentsController {
     const parsed = createIncidentSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
-    const data = await this.incidentsService.create({ ...parsed.data, tenantId: actor.tenantId, reportedBy: actor.userId });
+    const data = await this.incidentsService.create({
+      ...parsed.data,
+      tenantId: actor.tenantId,
+      reportedBy: actor.userId,
+      orgId: actor.orgId,
+      roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 

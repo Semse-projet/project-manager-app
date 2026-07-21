@@ -120,10 +120,15 @@ export class FieldOpsRepository {
   }
 
   async updateUnitStatus(input: { tenantId: string; fieldUnitId: string; status: string }) {
-    return this.client.fieldUnit.update({
-      where: { id: input.fieldUnitId },
+    // update() only accepts unique fields in `where`, so tenant-scoping requires
+    // updateMany() + a re-fetch — same pattern findUnitById already uses for reads.
+    const { count } = await this.client.fieldUnit.updateMany({
+      where: { id: input.fieldUnitId, tenantId: input.tenantId },
       data: { status: input.status as Prisma.EnumFieldUnitStatusFilter["equals"] },
     });
+    if (count === 0) throw new NotFoundException(`FieldUnit ${input.fieldUnitId} not found`);
+
+    return this.findUnitById(input);
   }
 
   // ── WorklogEntry ──────────────────────────────────────────────────────────

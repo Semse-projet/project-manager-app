@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
@@ -266,19 +266,49 @@ export class TravelService {
     return rows.map(toAssignment);
   }
 
+  /**
+   * Fetches a travel assignment scoped by tenant AND verifies the caller is
+   * either the assigned worker, OPS_ADMIN, or the client org that owns the
+   * underlying job — not just "anyone in the same tenant with jobs:read".
+   * Every method below that operates on a specific travelId calls this first.
+   */
   async getAssignment(input: {
-    tenantId: string; travelId: string;
+    tenantId: string; travelId: string; actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelAssignmentRecord> {
     if (!databaseEnabled()) {
       const a = MOCK_ASSIGNMENTS.find(x => x.id === input.travelId);
       if (!a) throw new NotFoundException("Travel assignment not found");
+      await this.assertTravelAccess(a, input);
       return a;
     }
     const row = await this.prisma.travelAssignment.findFirst({
       where: { id: input.travelId, tenantId: input.tenantId },
     });
     if (!row) throw new NotFoundException("Travel assignment not found");
-    return toAssignment(row);
+    const assignment = toAssignment(row);
+    await this.assertTravelAccess(assignment, input);
+    return assignment;
+  }
+
+  private async assertTravelAccess(
+    assignment: TravelAssignmentRecord,
+    actor: { actorUserId: string; orgId: string; roles: string[] },
+  ): Promise<void> {
+    if (actor.roles.includes("OPS_ADMIN")) return;
+    if (assignment.assignedTo === actor.actorUserId) return;
+
+    if (!databaseEnabled()) {
+      // No job/org lookup available in mock mode — worker/admin checks above are all we can do.
+      throw new ForbiddenException("actor is not assigned to this travel");
+    }
+
+    const job = await this.prisma.job.findFirst({
+      where: { id: assignment.jobId, tenantId: assignment.tenantId },
+      select: { clientOrgId: true },
+    });
+    if (job && actor.orgId === job.clientOrgId) return;
+
+    throw new ForbiddenException("actor is not assigned to this travel");
   }
 
   async createAssignment(input: {
@@ -334,9 +364,11 @@ export class TravelService {
 
   async updateAssignmentStatus(input: {
     tenantId: string; travelId: string; status: string;
+    actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelAssignmentRecord> {
     const allowed = ["DRAFT","PLANNED","ACTIVE","PENDING_SETTLEMENT","CLOSED","CANCELLED"];
     if (!allowed.includes(input.status)) throw new BadRequestException(`Invalid status: ${input.status}`);
+    await this.getAssignment(input);
 
     if (!databaseEnabled()) {
       const a = MOCK_ASSIGNMENTS.find(x => x.id === input.travelId);
@@ -383,7 +415,9 @@ export class TravelService {
 
   async listExpenses(input: {
     tenantId: string; travelId: string; category?: string;
+    actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelExpenseRecord[]> {
+    await this.getAssignment(input);
     if (!databaseEnabled()) return MOCK_EXPENSES.filter(e =>
       e.travelId === input.travelId && (!input.category || e.category === input.category)
     );
@@ -403,10 +437,12 @@ export class TravelService {
     amount: number; currency?: string; expenseDate: string;
     city?: string; origin?: string; destination?: string; vendor?: string;
     odometer?: number; gallons?: number; receiptUrl?: string; notes?: string;
+    actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelExpenseRecord> {
     const allowedCats = ["meal","transport","other"];
     if (!allowedCats.includes(input.category)) throw new BadRequestException("Invalid category");
     if (!(input.amount > 0)) throw new BadRequestException("amount must be positive");
+    await this.getAssignment(input);
 
     if (!databaseEnabled()) {
       const rec: TravelExpenseRecord = {
@@ -443,7 +479,10 @@ export class TravelService {
 
   // ── LodgingBooking ─────────────────────────────────────────────────────────
 
-  async listLodging(input: { tenantId: string; travelId: string }): Promise<LodgingBookingRecord[]> {
+  async listLodging(input: {
+    tenantId: string; travelId: string; actorUserId: string; orgId: string; roles: string[];
+  }): Promise<LodgingBookingRecord[]> {
+    await this.getAssignment(input);
     if (!databaseEnabled()) return MOCK_LODGINGS.filter(l => l.travelId === input.travelId);
     const rows = await this.prisma.lodgingBooking.findMany({
       where: { tenantId: input.tenantId, travelId: input.travelId },
@@ -458,8 +497,10 @@ export class TravelService {
     latitude?: number; longitude?: number; checkIn: string; checkOut: string;
     costPerNight?: number; estimatedTotal?: number; confirmationCode?: string;
     paidBy?: string; receiptUrl?: string; notes?: string;
+    actorUserId: string; orgId: string; roles: string[];
   }): Promise<LodgingBookingRecord> {
     if (!input.name?.trim()) throw new BadRequestException("name required");
+    await this.getAssignment(input);
 
     if (!databaseEnabled()) {
       const rec: LodgingBookingRecord = {
@@ -496,7 +537,10 @@ export class TravelService {
 
   // ── TravelAdvance ──────────────────────────────────────────────────────────
 
-  async listAdvances(input: { tenantId: string; travelId: string }): Promise<TravelAdvanceRecord[]> {
+  async listAdvances(input: {
+    tenantId: string; travelId: string; actorUserId: string; orgId: string; roles: string[];
+  }): Promise<TravelAdvanceRecord[]> {
+    await this.getAssignment(input);
     if (!databaseEnabled()) return MOCK_ADVANCES.filter(a => a.travelId === input.travelId);
     const rows = await this.prisma.travelAdvance.findMany({
       where: { tenantId: input.tenantId, travelId: input.travelId },
@@ -509,8 +553,10 @@ export class TravelService {
     tenantId: string; travelId: string; issuedTo: string;
     amount: number; currency?: string; method?: string;
     approvedBy?: string; purpose?: string;
+    actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelAdvanceRecord> {
     if (!(input.amount > 0)) throw new BadRequestException("amount must be positive");
+    await this.getAssignment(input);
 
     if (!databaseEnabled()) {
       const rec: TravelAdvanceRecord = {
@@ -538,10 +584,10 @@ export class TravelService {
   // ── TravelSettlement ───────────────────────────────────────────────────────
 
   async computeSettlement(input: {
-    tenantId: string; travelId: string;
+    tenantId: string; travelId: string; actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelSettlementRecord> {
-    // Load travel to get approvedBudget
-    const travel = await this.getAssignment({ tenantId: input.tenantId, travelId: input.travelId });
+    // Load travel to get approvedBudget (also enforces access — see getAssignment)
+    const travel = await this.getAssignment(input);
 
     if (!databaseEnabled()) {
       const expenses = MOCK_EXPENSES.filter(e => e.travelId === input.travelId && e.status !== "REJECTED");
@@ -586,13 +632,14 @@ export class TravelService {
 
   async closeSettlement(input: {
     tenantId: string; travelId: string; closedBy: string; notes?: string;
+    actorUserId: string; orgId: string; roles: string[];
   }): Promise<TravelSettlementRecord> {
-    // Recompute first
-    await this.computeSettlement({ tenantId: input.tenantId, travelId: input.travelId });
+    // Recompute first (also enforces access — see getAssignment)
+    await this.computeSettlement(input);
 
     if (!databaseEnabled()) {
       let s = MOCK_SETTLEMENTS.find(x => x.travelId === input.travelId);
-      if (!s) { s = await this.computeSettlement({ tenantId: input.tenantId, travelId: input.travelId }); }
+      if (!s) { s = await this.computeSettlement(input); }
       s.status = "CLOSED"; s.closedBy = input.closedBy;
       s.closedAt = new Date().toISOString(); s.notes = input.notes ?? s.notes;
       // Also close the travel assignment

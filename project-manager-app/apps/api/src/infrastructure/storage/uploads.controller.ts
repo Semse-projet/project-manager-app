@@ -18,6 +18,7 @@ import { StorageService } from "./storage.service.js";
 import { buildTenantStorageKey, normalizeStorageDomain, normalizeStorageKey } from "./storage-key.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
+import { resolveRequestContext } from "../../common/request-context.js";
 
 const ALLOWED_CONTENT_TYPES = new Set([
   "image/jpeg",
@@ -144,11 +145,6 @@ function validateUploadStream(
   return Readable.from(chunks());
 }
 
-function headerValue(headers: Record<string, string | string[] | undefined>, name: string): string | undefined {
-  const value = headers[name];
-  return Array.isArray(value) ? value[0] : value;
-}
-
 @Controller("v1/uploads")
 export class UploadsController {
   constructor(private readonly storageService: StorageService) {}
@@ -172,7 +168,10 @@ export class UploadsController {
     }
 
     const domain = normalizeStorageDomain(typeof req.query?.domain === "string" ? req.query.domain : "evidence");
-    const tenantId = headerValue(req.headers ?? {}, "x-tenant-id") ?? "tenant_default";
+    // Use the verified session tenant, not the client-controlled x-tenant-id
+    // header — that header used to decide which tenant's storage namespace
+    // a file got written into.
+    const { tenantId } = resolveRequestContext(req);
     const key = buildTenantStorageKey({
       tenantId,
       domain,
