@@ -13,10 +13,19 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }>
   rejected:  { label: "Rechazada", bg: "rgba(239,68,68,.12)",   color: "#ef4444" },
 };
 
+// Was missing posted/reserved/review/dispute (2.30 in
+// docs/AUDIT_REMEDIATION_PLAN.md) — fell back to the raw lowercase status
+// string for any of those. Covers all real JobStatus values.
 const JOB_STATUS_STYLE: Record<string, { label: string; color: string }> = {
+  draft:       { label: "Borrador",    color: "#64748b" },
+  posted:      { label: "Publicado",   color: "#94a3b8" },
   published:   { label: "Publicado",   color: "#94a3b8" },
+  reserved:    { label: "Reservado",   color: "#f59e0b" },
   accepted:    { label: "Adjudicado",  color: "#10b981" },
+  awarded:     { label: "Adjudicado",  color: "#10b981" },
   in_progress: { label: "En progreso", color: "#f59e0b" },
+  review:      { label: "En revisión", color: "#f59e0b" },
+  dispute:     { label: "En disputa",  color: "#ef4444" },
   completed:   { label: "Completado",  color: "#10b981" },
   cancelled:   { label: "Cancelado",   color: "#ef4444" },
 };

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
-import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
+import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchProjects, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type PayRow = {
@@ -45,9 +45,30 @@ export default function WorkerPaymentsPage() {
   const loadPayments = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobs, disputes] = await Promise.all([fetchMyJobs(), fetchDisputes().catch(() => [])]);
+      const [jobs, disputes, projects] = await Promise.all([
+        fetchMyJobs(),
+        fetchDisputes().catch(() => []),
+        fetchProjects().catch(() => [] as Record<string, unknown>[]),
+      ]);
+      // GET /v1/disputes never returns jobId (only projectId) — cross-referencing
+      // d.jobId directly always misses, so "En disputa" here was permanent dead
+      // code (2.42 in docs/AUDIT_REMEDIATION_PLAN.md). Join through projects,
+      // same pattern worker/disputes/page.tsx already uses correctly.
+      const jobIdByProjectId = new Map<string, string>();
+      for (const project of projects) {
+        const p = project as Record<string, unknown>;
+        const projectId = typeof p.id === "string" ? p.id : undefined;
+        const jobId = typeof p.jobId === "string" ? p.jobId : undefined;
+        if (projectId && jobId) jobIdByProjectId.set(projectId, jobId);
+      }
       const dJobIds = new Set<string>(
-        disputes.map(d => String((d as Record<string, unknown>).jobId ?? "")).filter(Boolean)
+        disputes
+          .map(d => {
+            const row = d as Record<string, unknown>;
+            const projectId = typeof row.projectId === "string" ? row.projectId : "";
+            return jobIdByProjectId.get(projectId) ?? "";
+          })
+          .filter(Boolean)
       );
       setDisputedJobIds(dJobIds);
       setJobTitles(jobs.map(j => ({ id: j.id, title: j.title })));

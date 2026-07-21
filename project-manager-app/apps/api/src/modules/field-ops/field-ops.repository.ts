@@ -515,22 +515,30 @@ export class FieldOpsRepository {
     expiresAt?: Date;
     notes?: string;
   }) {
-    return this.client.complianceDoc.upsert({
-      where: { id: `${input.vendorId}_${input.type}` }, // fallback; handled by create/update pattern
-      create: {
+    // ComplianceDoc has no unique constraint on [vendorId, type] (only an
+    // index) — `id` is a real cuid(), so `upsert({ where: { id:
+    // `${vendorId}_${type}` } })` never matched an existing row and every
+    // call silently created a duplicate row instead of updating status
+    // (2.33 in docs/AUDIT_REMEDIATION_PLAN.md). Resolve the target row by
+    // its real lookup fields first.
+    const existing = await this.client.complianceDoc.findFirst({
+      where: { tenantId: input.tenantId, vendorId: input.vendorId, type: input.type },
+    });
+    const data = {
+      status: input.status as Prisma.EnumComplianceDocStatusFilter["equals"],
+      fileUrl: input.fileUrl,
+      expiresAt: input.expiresAt,
+      notes: input.notes,
+    };
+    if (existing) {
+      return this.client.complianceDoc.update({ where: { id: existing.id }, data });
+    }
+    return this.client.complianceDoc.create({
+      data: {
         tenantId: input.tenantId,
         vendorId: input.vendorId,
         type: input.type,
-        status: input.status as Prisma.EnumComplianceDocStatusFilter["equals"],
-        fileUrl: input.fileUrl,
-        expiresAt: input.expiresAt,
-        notes: input.notes,
-      },
-      update: {
-        status: input.status as Prisma.EnumComplianceDocStatusFilter["equals"],
-        fileUrl: input.fileUrl,
-        expiresAt: input.expiresAt,
-        notes: input.notes,
+        ...data,
       },
     });
   }

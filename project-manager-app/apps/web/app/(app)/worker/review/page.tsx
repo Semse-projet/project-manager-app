@@ -50,6 +50,7 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 export default function WorkerReviewPage() {
   const [jobs, setJobs] = useState<ReviewableJob[]>([]);
   const [myReviews, setMyReviews] = useState<RatingListItem[]>([]);
+  const [receivedReviews, setReceivedReviews] = useState<RatingListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,17 +82,19 @@ export default function WorkerReviewPage() {
         .map((j: JobRecordView) => ({
           id: j.id,
           title: j.title,
-          clientUserId: (j as any).clientUserId ?? null,
-          clientEmail: (j as any).clientEmail ?? null,
+          clientUserId: j.clientUserId ?? null,
+          clientEmail: j.clientEmail ?? null,
           status: j.status,
-          completedAt: (j as any).completedAt ?? null,
+          completedAt: null,
           alreadyReviewed: reviewedJobIds.has(j.id),
         }));
 
       const given = ratingsData.items.filter((r) => r.fromUser.id === myUserId);
+      const received = ratingsData.items.filter((r) => r.toUser.id === myUserId);
 
       setJobs(reviewable);
       setMyReviews(given);
+      setReceivedReviews(received);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar datos");
     } finally {
@@ -243,18 +246,40 @@ export default function WorkerReviewPage() {
             </section>
           )}
 
-          {/* Reviews I received */}
-          {myReviews.filter((r) => !jobs.find((j) => j.id === r.jobId && r.fromUser.id !== r.toUser.id)).length > 0 || (
-            <section>
-              <h2 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 12 }}>
-                Reseñas recibidas
-              </h2>
+          {/* Reviews I received — this section previously always filtered
+              over `myReviews` (reviews I *gave*), so it could never show a
+              received review under any circumstance and was permanently
+              hardcoded to a placeholder message (2.23 in
+              docs/AUDIT_REMEDIATION_PLAN.md). */}
+          <section>
+            <h2 style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 12 }}>
+              Reseñas recibidas ({receivedReviews.length})
+            </h2>
+            {receivedReviews.length === 0 ? (
               <div style={{ ...card, display: "flex", alignItems: "center", gap: 8 }}>
                 <MessageSquare size={16} color="var(--muted)" />
-                <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>Las reseñas recibidas se muestran en tu perfil.</p>
+                <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>Aún no tienes reseñas recibidas de clientes.</p>
               </div>
-            </section>
-          )}
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {receivedReviews.map((rev) => (
+                  <div key={rev.id} style={{ ...card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", margin: "0 0 2px" }}>
+                        {rev.job?.title ?? rev.jobId}
+                      </p>
+                      <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>{rev.comment ?? "Sin comentario"}</p>
+                    </div>
+                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <Star key={i} size={14} fill={i <= rev.score ? "#fbbf24" : "none"} color={i <= rev.score ? "#fbbf24" : "var(--border)"} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
     </div>

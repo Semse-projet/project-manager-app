@@ -146,18 +146,25 @@ export default function WorkerOpportunitiesPage() {
     setCategory(""); setBudgetMin(""); setBudgetMax("");
   }
 
-  async function submitBid() {
-    if (!bidForm) return;
+  // Accepts the form explicitly instead of only reading the `bidForm` state
+  // closure. The submit button used to call setBidForm(...) (async, batched)
+  // and submitBid() (sync) in the same click — submitBid read the stale
+  // pre-click value of `bidForm`, so the very first click on a job whose
+  // form was still null did nothing visible (2.47 in
+  // docs/AUDIT_REMEDIATION_PLAN.md). Passing the just-computed form removes
+  // the dependency on React's state-update timing entirely.
+  async function submitBid(form: BidForm | null) {
+    if (!form) return;
     setBidSubmitting(true);
     try {
-      const amount  = Number(bidForm.amount);
-      const etaDays = Number(bidForm.etaDays);
+      const amount  = Number(form.amount);
+      const etaDays = Number(form.etaDays);
       if (!amount || amount <= 0 || !etaDays || etaDays <= 0) {
-        setBidResult(prev => ({ ...prev, [bidForm.jobId]: { success: false, message: "Monto y días son requeridos" } }));
+        setBidResult(prev => ({ ...prev, [form.jobId]: { success: false, message: "Monto y días son requeridos" } }));
         return;
       }
-      const payload: Record<string, unknown> = { jobId: bidForm.jobId, amount, etaDays };
-      if (bidForm.note.trim()) payload.note = bidForm.note.trim();
+      const payload: Record<string, unknown> = { jobId: form.jobId, amount, etaDays };
+      if (form.note.trim()) payload.note = form.note.trim();
       const res = await fetch("/api/semse/bids", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -165,10 +172,10 @@ export default function WorkerOpportunitiesPage() {
       });
       const json = await res.json() as { data?: unknown; error?: unknown };
       if (!res.ok) throw new Error(normalizeErrorMessage(json.error) ?? "No se pudo enviar la propuesta");
-      setBidResult(prev => ({ ...prev, [bidForm.jobId]: { success: true, message: "¡Propuesta enviada!" } }));
+      setBidResult(prev => ({ ...prev, [form.jobId]: { success: true, message: "¡Propuesta enviada!" } }));
       setBidForm(null);
     } catch (e) {
-      setBidResult(prev => ({ ...prev, [bidForm!.jobId]: { success: false, message: e instanceof Error ? e.message : "Error" } }));
+      setBidResult(prev => ({ ...prev, [form.jobId]: { success: false, message: e instanceof Error ? e.message : "Error" } }));
     } finally {
       setBidSubmitting(false);
     }
@@ -364,7 +371,11 @@ export default function WorkerOpportunitiesPage() {
                             />
                           </div>
                           <button
-                            onClick={() => { setBidForm(f => f?.jobId === job.id ? f : { jobId: job.id, amount: "", etaDays: "", note: "" }); void submitBid(); }}
+                            onClick={() => {
+                              const effective: BidForm = bidForm?.jobId === job.id ? bidForm : { jobId: job.id, amount: "", etaDays: "", note: "" };
+                              setBidForm(effective);
+                              void submitBid(effective);
+                            }}
                             disabled={bidSubmitting}
                             style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "10px 20px", borderRadius: 9, border: "none", background: bidSubmitting ? "var(--muted)" : "#6366f1", color: "#fff", fontSize: 13, fontWeight: 700, cursor: bidSubmitting ? "not-allowed" : "pointer" }}
                           >

@@ -323,7 +323,12 @@ export default function WorkerDashboardPage() {
               },
               {
                 label: "Aceptados o reservados",
-                value: metrics.active.filter((job) => ["accepted", "reserved"].includes(job.status)).length,
+                // Was reading job.status (a bid, always "accepted" here since
+                // `active` is already pre-filtered to accepted bids) instead
+                // of job.jobStatus (the real job lifecycle status) — the KPI
+                // was structurally identical to "Trabajos activos" (2.29 in
+                // docs/AUDIT_REMEDIATION_PLAN.md).
+                value: metrics.active.filter((job) => ["accepted", "reserved"].includes(job.jobStatus)).length,
                 tone: "rgba(16,185,129,.12)",
                 color: "#34d399",
               },

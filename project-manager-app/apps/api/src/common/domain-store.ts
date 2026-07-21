@@ -80,6 +80,8 @@ export type BidRecord = {
   jobBudgetMin?: number;
   jobBudgetMax?: number;
   jobStatus?: string;
+  clientUserId?: string;
+  clientEmail?: string;
   createdAt?: string;
   avgRating?: number;
   ratingCount?: number;

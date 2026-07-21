@@ -64,6 +64,12 @@ export const jobRecordSchema = z.object({
   urgency: z.string().min(1).optional(),
   deadline: z.string().min(1).optional(),
   preferredProfessional: preferredProfessionalSchema.optional(),
+  // Populated only where the source query resolves it (currently
+  // bids.repository.ts listByWorker, via Contract.clientUserId — Job
+  // itself only has clientOrgId, not a specific user). See
+  // G-PRO-07/2.17 in docs/AUDIT_REMEDIATION_PLAN.md.
+  clientUserId: z.string().min(1).optional(),
+  clientEmail: z.string().min(1).optional(),
 });
 
 export const bidSchema = z.object({

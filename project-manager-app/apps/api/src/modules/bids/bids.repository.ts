@@ -94,7 +94,18 @@ export class BidsRepository {
             budgetMin: true,
             budgetMax: true,
             status: true,
-            clientOrgId: true
+            clientOrgId: true,
+            // Job only tracks clientOrgId (an org can have multiple members)
+            // — Contract.clientUserId is the one place that identifies the
+            // specific client user who actually signed, which is what a
+            // review needs to attribute to a person. See G-PRO-07/2.17 in
+            // docs/AUDIT_REMEDIATION_PLAN.md.
+            contract: {
+              select: {
+                clientUserId: true,
+                clientUser: { select: { email: true } }
+              }
+            }
           }
         }
       },
@@ -118,6 +129,8 @@ export class BidsRepository {
       jobBudgetMin: bid.job.budgetMin?.toNumber() ?? undefined,
       jobBudgetMax: bid.job.budgetMax?.toNumber() ?? undefined,
       jobStatus: bid.job.status.toLowerCase(),
+      clientUserId: bid.job.contract?.clientUserId ?? undefined,
+      clientEmail: bid.job.contract?.clientUser?.email ?? undefined,
       createdAt: bid.createdAt.toISOString(),
     }));
   }

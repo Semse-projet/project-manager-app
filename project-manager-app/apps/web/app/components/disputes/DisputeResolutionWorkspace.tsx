@@ -27,7 +27,7 @@ type DisputeWorkspaceRow = {
   id: string;
   projectId: string;
   reason: string;
-  status: "open" | "assigned" | "resolved";
+  status: "open" | "assigned" | "resolved" | "under_review" | "rejected";
   resolution?: string;
   jobId?: string;
   jobTitle: string;
@@ -221,7 +221,7 @@ export function DisputeResolutionWorkspace({
   }
 
   const playbook = useMemo(() => {
-    if (dispute.status === "resolved") {
+    if (dispute.status === "resolved" || dispute.status === "rejected") {
       return {
         title: "Disputa cerrada",
         detail: "Verifica la resolución acordada y conserva el paquete de evidencia por trazabilidad.",
