@@ -25,7 +25,7 @@ Railway/GitHub; flags, allowlists y servicios privados no fueron inspeccionados.
 | Worker/BullMQ | IMPLEMENTADO | `apps/worker`, queues, scheduled jobs, autonomy loops | Consola comun de retries/DLQ y event lag |
 | Nueve dominios | IMPLEMENTADO/DESPLEGADO como superficies canónicas | `pnpm verify:modules`; 9 probes API protegidos + 9 páginas web verdes en Production Health `29599005110` | Mantener ownership, profundidad honesta y gate 9/9 |
 | Prometeo Runtime P2 | IMPLEMENTADO/DESPLEGADO | `PrometeoMissionService`, `AgentWorkPlan`, controllers/BFF; PR #289 | Verify/learn, budgets, timeout y compensacion |
-| Tool Registry | PARCIAL | 23 descriptors read, 7 write; 17 casos read cableados | Adapter por tool, policy central, audit y verification; write gradual |
+| Tool Registry | PARCIAL | 31 descriptors (24 read + 7 write). Gobernanza F2 completa y en `main` (PRs #369/#371/#372): `evaluatePrometeoToolPolicy` gatea el 100% de invocaciones (no solo `agents:run:create`), `PrometeoToolInvocationAudit` registra cada intento, `PrometeoProposedAction` exige aprobacion humana antes de ejecutar escritura de riesgo medio/alto/critico. 23/24 read cableados (los 5 `vision.*` restantes se cablearon post-F2, llaman a `VisionService.runAnalysis/matchReference/detectMaterial/classifySpace/checkSafetyEnriched` reales), 7/7 write cableados (incluye `payments.propose_release` -> `PaymentsService.release()` real via aprobacion) | Solo `vision.analyze_video` queda `adapter_pending` — requiere un pipeline temporal que no existe hoy |
 | Video tool | PENDIENTE | Descriptor `vision.analyze_video` marcado `adapter_pending` | Pipeline temporal, storage, limits y review humano |
 | Domain Event schema | IMPLEMENTADO para slice Evidence | `domain-events-v2.schema.ts`, envelope v2 y `evidence.uploaded.v1` | Ampliar catalogo versionado dominio por dominio |
 | Domain Event bus | PARCIAL (F1-D); DESPLEGADO; ACTIVACION NO VERIFICADA | Evidence state+outbox, dispatcher BullMQ, worker y receipt/efecto atomico | Ops/replay, trace extendido, canary y adopcion multi-dominio |
@@ -69,8 +69,10 @@ Railway/GitHub; flags, allowlists y servicios privados no fueron inspeccionados.
    outbox de plataforma.
 5. `PaymentTxn` registra movimientos de pago, pero no implementa contabilidad
    double-entry compartida.
-6. Prometeo tiene registry real; la brecha es gobernanza y ejecucion completa,
-   no la ausencia total de catalogo.
+6. Prometeo tiene registry real; a partir de F2 (PRs #369/#371/#372, 2026-07-20)
+   la gobernanza (policy, audit, aprobacion humana para escritura) esta
+   cerrada — la brecha restante es cobertura de adapters (vision:run) y
+   ejecucion completa, no gobernanza ni catalogo.
 7. Product Intelligence ya no es solo analytics disperso: PI-00..PI-06 tienen
    SDK, persistencia, ingesta e interfaces. Su activacion en Railway no fue
    verificada.

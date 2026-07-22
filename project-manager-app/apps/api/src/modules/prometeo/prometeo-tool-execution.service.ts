@@ -17,6 +17,7 @@ import { AgroFarmService } from "../agro/agro-farm.service.js";
 import { AgroInventoryService } from "../agro/agro-inventory.service.js";
 import { AgroTaskService } from "../agro/agro-task.service.js";
 import { FieldOpsService } from "../field-ops/field-ops.service.js";
+import { PaymentsService } from "../payments/payments.service.js";
 import { VisionService } from "../vision/vision.service.js";
 import { findPrometeoToolDescriptor } from "./prometeo-tool-registry.js";
 import { evaluatePrometeoToolPolicy } from "./tool-governance/tool-governance.policy.js";
@@ -54,6 +55,16 @@ function optionalString(input: Record<string, unknown>, key: string): string | u
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
+function optionalNumber(input: Record<string, unknown>, key: string): number | undefined {
+  const value = input[key];
+  if (value === undefined || value === null || value === "") return undefined;
+  const numberValue = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numberValue)) {
+    throw new BadRequestException(`${key} must be a number`);
+  }
+  return numberValue;
+}
+
 function optionalInteger(input: Record<string, unknown>, key: string, min: number, max: number): number | undefined {
   const value = input[key];
   if (value === undefined || value === null || value === "") return undefined;
@@ -62,6 +73,15 @@ function optionalInteger(input: Record<string, unknown>, key: string, min: numbe
     throw new BadRequestException(`${key} must be a number`);
   }
   return Math.min(Math.max(Math.trunc(numberValue), min), max);
+}
+
+function optionalBoolean(input: Record<string, unknown>, key: string): boolean | undefined {
+  const value = input[key];
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new BadRequestException(`${key} must be a boolean`);
 }
 
 function optionalEnum<T extends string>(
@@ -89,6 +109,7 @@ export class PrometeoToolExecutionService {
     private readonly agroDashboard: AgroDashboardService,
     private readonly vision: VisionService,
     @Optional() private readonly toolGovernance?: ToolGovernanceRepository,
+    @Optional() private readonly payments?: PaymentsService,
   ) {}
 
   async invokeReadTool(
@@ -218,7 +239,7 @@ export class PrometeoToolExecutionService {
 
     if (policy.decision === "allow") {
       const output = await this.executeWriteEffect(
-        { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId },
+        { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles },
         invocation,
         requestId,
       );
@@ -302,14 +323,57 @@ export class PrometeoToolExecutionService {
     }
 
     const startedAt = nowIso();
-    const output = await this.executeWriteEffect(
-      { tenantId: action.tenantId, orgId: action.orgId, userId: action.actorId },
-      { namespace: action.namespace, name: action.name, input: action.inputJson },
-      requestId,
-    );
-    const completedAt = nowIso();
     const id = `exec_${randomUUID()}`;
     const descriptor = findPrometeoToolDescriptor(action.namespace, action.name);
+
+    // For self-service policies ("confirm") the effect runs as the proposer —
+    // it's their own timer/task. For human_required/dual_approval, the effect
+    // runs as the approving actor: their authority is what makes it happen,
+    // and the audit trail should show who actually pulled the trigger
+    // (matters for payments — see PaymentsService.release()'s own auditService.append).
+    const runsAsApprover = action.approvalPolicy === "human_required" || action.approvalPolicy === "dual_approval";
+    const effectActor = runsAsApprover
+      ? { tenantId: actor.tenantId, orgId: actor.orgId, userId: actor.userId, roles: actor.roles }
+      : { tenantId: action.tenantId, orgId: action.orgId, userId: action.actorId };
+
+    let output: unknown;
+    let executionError: unknown;
+    try {
+      output = await this.executeWriteEffect(
+        effectActor,
+        { namespace: action.namespace, name: action.name, input: action.inputJson },
+        requestId,
+      );
+    } catch (error) {
+      executionError = error;
+    }
+    const completedAt = nowIso();
+
+    // The effect threw (e.g. PaymentsService.release() rejecting because the
+    // milestone's invariants no longer hold) rather than returning the
+    // __blockedReason sentinel. Finalize to a terminal state — never leave the
+    // action stuck APPROVED-but-unfinished — and let the real exception (with
+    // its real HTTP status) surface instead of masking it as a generic 200 blocked result.
+    if (executionError) {
+      const message = executionError instanceof Error ? executionError.message : String(executionError);
+      await this.toolGovernance.finalizeProposedAction({
+        id: actionId,
+        status: "BLOCKED",
+        resultJson: { error: message },
+      });
+      await this.toolGovernance.recordInvocation({
+        tenantId: action.tenantId,
+        actorId: actor.userId,
+        namespace: action.namespace,
+        name: action.name,
+        mode: descriptor?.mode ?? "write",
+        status: "blocked",
+        blockedReason: message,
+        requestId,
+      });
+      throw executionError;
+    }
+
     const blockedReason = extractBlockedReason(output);
 
     if (blockedReason) {
@@ -472,7 +536,7 @@ export class PrometeoToolExecutionService {
 
   /** Executes the real side-effect for a write tool. Mirrors executeReadTool's shape but for state-changing calls. */
   private async executeWriteEffect(
-    actor: { tenantId: string; orgId: string; userId: string },
+    actor: { tenantId: string; orgId: string; userId: string; roles?: string[] },
     invocation: { namespace: string; name: string; input?: unknown },
     requestId: string,
   ): Promise<unknown> {
@@ -538,6 +602,24 @@ export class PrometeoToolExecutionService {
           title: requiredString(input, "title"),
           type: requiredString(input, "type"),
           priority: optionalString(input, "priority"),
+        });
+
+      case "payments.propose_release":
+        if (!this.payments) {
+          return { __blockedReason: "PaymentsService is not available." };
+        }
+        // Calls the exact same PaymentsService.release() the REST escrow-release
+        // endpoint uses (apps/api/src/modules/payments/payments.controller.ts) —
+        // same financial invariants (contract signed, milestone approved, no open
+        // dispute, sufficient escrow), never bypassed or re-implemented here.
+        return this.payments.release({
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          userId: actor.userId,
+          roles: actor.roles ?? [],
+          milestoneId: requiredString(input, "milestoneId"),
+          amount: optionalNumber(input, "amount"),
+          requestId,
         });
 
       default:
@@ -641,6 +723,39 @@ export class PrometeoToolExecutionService {
 
       case "vision.get_milestone_analyses":
         return this.vision.getByMilestone(requiredString(input, "milestoneId"));
+
+      case "vision.analyze_image":
+        return this.vision.runAnalysis({
+          evidenceId: requiredString(input, "evidenceId"),
+          imageUrl: requiredString(input, "imageUrl"),
+          jobId: optionalString(input, "jobId"),
+          milestoneId: optionalString(input, "milestoneId"),
+        });
+
+      case "vision.compare_before_after":
+        return this.vision.matchReference(
+          requiredString(input, "deliveredImageUrl"),
+          requiredString(input, "referenceImageUrl"),
+        );
+
+      case "vision.detect_material":
+        return this.vision.detectMaterial(
+          requiredString(input, "imageUrl"),
+          optionalString(input, "expectedMaterial"),
+          optionalBoolean(input, "enrich"),
+        );
+
+      case "vision.classify_space":
+        return this.vision.classifySpace(
+          requiredString(input, "imageUrl"),
+          optionalBoolean(input, "enrich"),
+        );
+
+      case "vision.check_safety":
+        return this.vision.checkSafetyEnriched(
+          requiredString(input, "imageUrl"),
+          optionalString(input, "trade"),
+        );
 
       case "materials.calculate":
         try {

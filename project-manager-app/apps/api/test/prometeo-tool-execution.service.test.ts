@@ -122,7 +122,9 @@ test("T-023b: invokeReadTool records a succeeded audit entry for a wired, author
 test("T-023c: invokeReadTool records a blocked audit entry for a registered-but-unwired tool", async () => {
   const recorded: Array<Record<string, unknown>> = [];
   const vision = {
-    // analyze_image has no case in executeReadTool's switch yet — it's adapterPending.
+    // analyze_video has no case in executeReadTool's switch — it's still adapterPending
+    // (no temporal pipeline exists). The other 5 vision:run read tools were wired up
+    // in the vision:run adapters increment; this is the only one left.
   };
   const service = new PrometeoToolExecutionService(
     {} as never,
@@ -137,8 +139,8 @@ test("T-023c: invokeReadTool records a blocked audit entry for a registered-but-
 
   const result = await service.invokeReadTool(actor({ roles: ["OPS_ADMIN"] }) as never, "req_1", {
     namespace: "vision",
-    name: "analyze_image",
-    input: { imageUrl: "https://example.com/a.jpg" },
+    name: "analyze_video",
+    input: { videoFileId: "vid_1" },
   });
 
   assert.equal(result.status, "blocked");

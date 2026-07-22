@@ -62,6 +62,7 @@ function makeService(overrides: {
   fieldOps?: Record<string, unknown>;
   agroTasks?: Record<string, unknown>;
   toolGovernance?: ReturnType<typeof makeFakeGovernance>;
+  payments?: Record<string, unknown>;
 } = {}) {
   return new PrometeoToolExecutionService(
     (overrides.fieldOps ?? {}) as never,
@@ -72,6 +73,7 @@ function makeService(overrides: {
     {} as never,
     {} as never,
     overrides.toolGovernance as never,
+    overrides.payments as never,
   );
 }
 
@@ -322,4 +324,103 @@ test("T-035b: two concurrent approvals of the same proposed action execute the e
   assert.equal(rejected.length, 1);
   assert.ok((rejected[0] as PromiseRejectedResult).reason instanceof ConflictException);
   assert.equal(calls, 1, "the underlying effect must run exactly once");
+});
+
+function paymentsProposedAction(overrides: FakeRow = {}): FakeRow {
+  return {
+    id: "action_pay_1",
+    tenantId: "tenant_1",
+    orgId: "org_1",
+    actorId: "usr_1",
+    namespace: "payments",
+    name: "propose_release",
+    approvalPolicy: "human_required",
+    status: "AWAITING_APPROVAL",
+    inputJson: { milestoneId: "m_1" },
+    ...overrides,
+  };
+}
+
+test("T-040: approving a payment release proposal runs as the OPS_ADMIN approver's identity, not the original proposer's", async () => {
+  let calledWith: Record<string, unknown> | null = null;
+  const payments = {
+    async release(input: Record<string, unknown>) {
+      calledWith = input;
+      return { transaction: { id: "txn_1" }, payoutIntent: { providerRef: "ref_1" } };
+    },
+  };
+  const governance = makeFakeGovernance([paymentsProposedAction()]);
+  const service = makeService({ payments, toolGovernance: governance });
+
+  const result = await service.approveProposedAction(actor({ userId: "admin_1", roles: ["OPS_ADMIN"] }) as never, "req_1", "action_pay_1");
+
+  assert.equal(result.status, "succeeded");
+  assert.equal(calledWith?.userId, "admin_1", "release() must run as the approver, not the proposer (usr_1)");
+  assert.deepEqual(calledWith?.roles, ["OPS_ADMIN"]);
+  assert.equal(calledWith?.milestoneId, "m_1");
+  assert.equal(governance.store.get("action_pay_1")?.status, "EXECUTED");
+});
+
+test("T-042: rejecting a payment release proposal never calls PaymentsService.release() and leaves it REJECTED", async () => {
+  let calls = 0;
+  const payments = {
+    async release() {
+      calls += 1;
+      return { transaction: { id: "txn_1" } };
+    },
+  };
+  const governance = makeFakeGovernance([paymentsProposedAction()]);
+  const service = makeService({ payments, toolGovernance: governance });
+
+  const result = await service.rejectProposedAction(actor({ userId: "admin_1", roles: ["OPS_ADMIN"] }) as never, "req_1", "action_pay_1", "amount looks wrong");
+
+  assert.equal(result.status, "skipped");
+  assert.equal(calls, 0);
+  assert.equal(governance.store.get("action_pay_1")?.status, "REJECTED");
+  assert.equal(governance.store.get("action_pay_1")?.rejectionReason, "amount looks wrong");
+});
+
+test("T-043: approving a payment proposal whose milestone no longer satisfies release()'s invariants fails clean — the real error surfaces, the action lands BLOCKED, not stuck", async () => {
+  const payments = {
+    async release() {
+      throw new ConflictException("escrow release is blocked while an open dispute exists");
+    },
+  };
+  const governance = makeFakeGovernance([paymentsProposedAction()]);
+  const service = makeService({ payments, toolGovernance: governance });
+
+  await assert.rejects(
+    () => service.approveProposedAction(actor({ userId: "admin_1", roles: ["OPS_ADMIN"] }) as never, "req_1", "action_pay_1"),
+    (error: unknown) => error instanceof ConflictException && (error as ConflictException).message.includes("open dispute"),
+  );
+
+  const row = governance.store.get("action_pay_1");
+  assert.equal(row?.status, "BLOCKED", "must reach a terminal state, never stay stuck APPROVED");
+  assert.equal(governance.finalized.length, 1);
+  assert.match(String((governance.finalized[0]?.resultJson as Record<string, unknown>)?.error), /open dispute/);
+});
+
+test("T-044: two concurrent approvals of the same payment release proposal call PaymentsService.release() exactly once", async () => {
+  let calls = 0;
+  const payments = {
+    async release(input: Record<string, unknown>) {
+      calls += 1;
+      return { transaction: { id: "txn_1" }, milestoneId: input.milestoneId };
+    },
+  };
+  const governance = makeFakeGovernance([paymentsProposedAction()]);
+  const service = makeService({ payments, toolGovernance: governance });
+  const admin = actor({ userId: "admin_1", roles: ["OPS_ADMIN"] });
+
+  const outcomes = await Promise.allSettled([
+    service.approveProposedAction(admin as never, "req_a", "action_pay_1"),
+    service.approveProposedAction(admin as never, "req_b", "action_pay_1"),
+  ]);
+
+  const fulfilled = outcomes.filter((o) => o.status === "fulfilled");
+  const rejected = outcomes.filter((o) => o.status === "rejected");
+  assert.equal(fulfilled.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.ok((rejected[0] as PromiseRejectedResult).reason instanceof ConflictException);
+  assert.equal(calls, 1, "PaymentsService.release() must run exactly once — never a double payout");
 });
