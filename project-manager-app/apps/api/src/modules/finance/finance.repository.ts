@@ -356,11 +356,21 @@ export class FinanceRepository {
       expensesByCategory[e.category] = (expensesByCategory[e.category] ?? 0) + toDecimal(e.amount);
     }
 
-    const escrowFunded = toDecimal(escrow?.totalAmount);
-    const releasedTxns = (escrow?.transactions ?? []) as TxnRow[];
-    const released = releasedTxns.filter((t: TxnRow) => t.type === "RELEASE" && t.status === "COMPLETED");
+    // escrow.totalAmount is bumped optimistically when a deposit is reserved
+    // and never reversed if that deposit later fails, and the real
+    // PaymentTxnStatus enum is PENDING/SUCCEEDED/FAILED/REVERSED (never
+    // "COMPLETED") — the previous version of this summary always showed
+    // escrowReleased as 0 and overstated escrowFunded/pendingRelease by any
+    // failed deposit attempt. Derive both from confirmed (SUCCEEDED) txns only.
+    const allTxns = (escrow?.transactions ?? []) as TxnRow[];
+    const escrowFunded = allTxns
+      .filter((t: TxnRow) => t.type === "DEPOSIT" && t.status === "SUCCEEDED")
+      .reduce((s: number, t: TxnRow) => s + toDecimal(t.amount), 0);
+    const released = allTxns.filter((t: TxnRow) => t.type === "RELEASE" && t.status === "SUCCEEDED");
     const escrowReleased = released.reduce((s: number, t: TxnRow) => s + toDecimal(t.amount), 0);
-    const pendingRelease = Math.max(0, escrowFunded - escrowReleased);
+    const refunded = allTxns.filter((t: TxnRow) => t.type === "REFUND" && t.status === "SUCCEEDED");
+    const escrowRefunded = refunded.reduce((s: number, t: TxnRow) => s + toDecimal(t.amount), 0);
+    const pendingRelease = Math.max(0, escrowFunded - escrowReleased - escrowRefunded);
 
     const margin = totalInvoiced > 0 ? ((totalInvoiced - totalExpenses) / totalInvoiced) * 100 : null;
 

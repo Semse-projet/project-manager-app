@@ -616,11 +616,18 @@ export class PaymentsService {
       throw new BadRequestException(`Escrow for project '${milestone.projectId}' not found`);
     }
 
-    const [releasedSoFar, refundedSoFar] = await Promise.all([
+    const [depositedSoFar, releasedSoFar, refundedSoFar] = await Promise.all([
+      this.paymentsRepository.getDepositedAmount(escrow.id),
       this.paymentsRepository.getReleasedAmount(escrow.id),
       this.paymentsRepository.getRefundedAmount(escrow.id)
     ]);
-    const available = Number(escrow.totalAmount) - releasedSoFar - refundedSoFar;
+    // escrow.totalAmount is bumped optimistically at deposit reservation time
+    // and never reversed if that deposit later fails — counting only
+    // SUCCEEDED deposits here (same as getRefundContext()) avoids releasing
+    // against money that was never actually confirmed as deposited. This is
+    // a fast pre-check only; the authoritative, race-safe check happens
+    // inside releaseFunds()'s own transaction below.
+    const available = depositedSoFar - releasedSoFar - refundedSoFar;
     if (amount > available) {
       throw new ConflictException("insufficient escrow funds for release");
     }

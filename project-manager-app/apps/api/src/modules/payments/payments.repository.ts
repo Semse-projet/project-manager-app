@@ -153,6 +153,21 @@ export class PaymentsRepository {
     return Boolean(dispute);
   }
 
+  async getDepositedAmount(escrowId: string): Promise<number> {
+    const result = await this.prisma.paymentTxn.aggregate({
+      where: {
+        escrowId,
+        type: "DEPOSIT",
+        status: "SUCCEEDED"
+      },
+      _sum: {
+        amount: true
+      }
+    });
+
+    return result._sum.amount?.toNumber() ?? 0;
+  }
+
   async getReleasedAmount(escrowId: string): Promise<number> {
     const result = await this.prisma.paymentTxn.aggregate({
       where: {
@@ -365,6 +380,22 @@ export class PaymentsRepository {
           throw new NotFoundException(`Escrow '${input.escrowId}' not found`);
         }
 
+        // `escrow.totalAmount` is bumped optimistically at deposit reservation
+        // time (see depositFunds) and is never decremented if that deposit
+        // later finalizes to FAILED — using it directly here would let a
+        // release draw against money that was never actually confirmed as
+        // deposited. Count only SUCCEEDED deposits instead, same as
+        // getRefundContext()/refundFunds() already do below.
+        const deposited = await db.paymentTxn.aggregate({
+          where: {
+            escrowId: input.escrowId,
+            type: "DEPOSIT",
+            status: "SUCCEEDED"
+          },
+          _sum: {
+            amount: true
+          }
+        });
         // Count PENDING alongside SUCCEEDED — a reservation must hold its funds
         // immediately, or a second concurrent release could pass this same
         // check before the first one's provider call resolves.
@@ -389,9 +420,10 @@ export class PaymentsRepository {
           }
         });
 
+        const depositedAmount = deposited._sum.amount?.toNumber() ?? 0;
         const releasedAmount = released._sum.amount?.toNumber() ?? 0;
         const refundedAmount = refunded._sum.amount?.toNumber() ?? 0;
-        const available = Number(escrow.totalAmount) - releasedAmount - refundedAmount;
+        const available = depositedAmount - releasedAmount - refundedAmount;
 
         if (input.amount > available) {
           throw new ConflictException("insufficient escrow funds for release");
