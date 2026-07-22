@@ -53,6 +53,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     children: [
       { id: "jobs", label: "Jobs", href: "/admin/jobs" },
       { id: "field-ops", label: "Field Ops", href: "/admin/field-ops" },
+      { id: "labor-engine", label: "Labor Engine", href: "/admin/labor-engine", description: "Multi-worker active timers, team hours, cost estimates, and QualityGuard alerts." },
       { id: "worker", label: "Workers", href: "/admin/worker" },
       { id: "contractors", label: "Contractors", href: "/admin/contractors" },
       { id: "change-orders", label: "Change Orders", href: "/admin/change-orders" },
