@@ -8,7 +8,7 @@ import { LLMOrchestrator } from "../../infrastructure/llm/orchestrator.js";
 import { getAgentProfile } from "../../infrastructure/llm/agent-profiles.js";
 import { PrometeoService } from "./prometeo.service.js";
 import { PrometeoToolExecutionService } from "./prometeo-tool-execution.service.js";
-import { listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
+import { findPrometeoToolDescriptor, listPrometeoToolRegistry } from "./prometeo-tool-registry.js";
 import { TradeGuideService } from "./trade-guide.service.js";
 
 @Controller("v1/prometeo")
@@ -28,7 +28,10 @@ export class PrometeoController {
   listTools(@Req() req: { headers?: Record<string, unknown> }) {
     return ok(resolveRequestId(req.headers ?? {}), {
       generatedAt: new Date().toISOString(),
-      tools: listPrometeoToolRegistry(),
+      tools: listPrometeoToolRegistry().map((tool) => ({
+        ...tool,
+        executable: !tool.adapterPending,
+      })),
     });
   }
 
@@ -43,9 +46,42 @@ export class PrometeoController {
       throw new BadRequestException(parsed.error.issues.map((issue) => issue.message).join("; "));
     }
 
+    const descriptor = findPrometeoToolDescriptor(parsed.data.namespace, parsed.data.name);
+    if (!descriptor) {
+      throw new BadRequestException(`Unknown Prometeo tool: ${parsed.data.namespace}.${parsed.data.name}`);
+    }
+
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.toolExecution.invokeReadTool(actor, rid, parsed.data);
+    const result = descriptor.mode === "read"
+      ? await this.toolExecution.invokeReadTool(actor, rid, parsed.data)
+      : await this.toolExecution.invokeWriteTool(actor, rid, parsed.data);
+    return ok(rid, result);
+  }
+
+  @Post("tools/invocations/:id/approve")
+  @RequirePermissions("agents:run:create")
+  async approveToolInvocation(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
+    if (!this.toolExecution) {
+      throw new BadRequestException("Prometeo tool execution is not available");
+    }
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = await this.toolExecution.approveProposedAction(actor, rid, id);
+    return ok(rid, result);
+  }
+
+  @Post("tools/invocations/:id/reject")
+  @RequirePermissions("agents:run:create")
+  async rejectToolInvocation(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string, @Body() body: unknown) {
+    if (!this.toolExecution) {
+      throw new BadRequestException("Prometeo tool execution is not available");
+    }
+    const b = (body ?? {}) as Record<string, unknown>;
+    const reason = typeof b.reason === "string" ? b.reason : undefined;
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const result = await this.toolExecution.rejectProposedAction(actor, rid, id, reason);
     return ok(rid, result);
   }
 

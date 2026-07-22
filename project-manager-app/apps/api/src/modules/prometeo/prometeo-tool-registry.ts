@@ -1,24 +1,30 @@
 import type { PrometeoToolDescriptor } from "@semse/schemas";
 
-function readTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy">): PrometeoToolDescriptor {
+function readTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy" | "adapterPending"> & {
+  adapterPending?: boolean;
+}): PrometeoToolDescriptor {
+  const { adapterPending, ...rest } = input;
   return {
-    ...input,
+    ...rest,
     mode: "read",
     riskLevel: "low",
     approvalPolicy: "none",
+    adapterPending: adapterPending ?? false,
   };
 }
 
-function writeTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy"> & {
+function writeTool(input: Omit<PrometeoToolDescriptor, "mode" | "riskLevel" | "approvalPolicy" | "adapterPending"> & {
   riskLevel?: PrometeoToolDescriptor["riskLevel"];
   approvalPolicy?: PrometeoToolDescriptor["approvalPolicy"];
+  adapterPending?: boolean;
 }): PrometeoToolDescriptor {
-  const { riskLevel, approvalPolicy, ...rest } = input;
+  const { riskLevel, approvalPolicy, adapterPending, ...rest } = input;
   return {
     ...rest,
     mode: riskLevel === "critical" ? "critical" : "write",
     riskLevel: riskLevel ?? "medium",
     approvalPolicy: approvalPolicy ?? "confirm",
+    adapterPending: adapterPending ?? true,
   };
 }
 
@@ -82,6 +88,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["jobId"], properties: { jobId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -93,6 +100,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["sessionId"], properties: { sessionId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -104,6 +112,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["sessionId"], properties: { sessionId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -115,6 +124,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["sessionId"], properties: { sessionId: { type: "string" }, notes: { type: "string" } } },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "time_tracker",
@@ -136,6 +146,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     },
     outputKind: "TrackerSessionView",
     tags: ["time-tracker", "write"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -177,9 +188,12 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     description: "Ejecuta análisis visual sobre una imagen o evidencia existente.",
     permissions: ["vision:run"],
     endpoint: { method: "POST", path: "/v1/vision/analyze" },
-    inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
+    // evidenceId is required by VisionService.runAnalysis (it keys the persisted
+    // VisionAnalysisRecord) even though it wasn't in the original descriptor.
+    inputSchema: { type: "object", required: ["evidenceId", "imageUrl"], properties: { evidenceId: { type: "string" }, imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
     outputKind: "VisionAnalysisResult",
     tags: ["vision", "image", "evidence"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -191,6 +205,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["deliveredImageUrl", "referenceImageUrl"], properties: { deliveredImageUrl: { type: "string" }, referenceImageUrl: { type: "string" } } },
     outputKind: "ReferenceMatchResult",
     tags: ["vision", "comparison", "evidence"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -202,6 +217,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, expectedMaterial: { type: "string" } } },
     outputKind: "DetectMaterialResult",
     tags: ["vision", "materials"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -213,6 +229,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" } } },
     outputKind: "ClassifySpaceResult",
     tags: ["vision", "space"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -224,6 +241,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["imageUrl"], properties: { imageUrl: { type: "string" }, trade: { type: "string" } } },
     outputKind: "SafetyCheckResult",
     tags: ["vision", "safety"],
+    adapterPending: false,
   }),
   readTool({
     namespace: "vision",
@@ -234,6 +252,7 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     inputSchema: { type: "object", required: ["videoFileId"], properties: { videoFileId: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
     outputKind: "VideoTimelineAnalysis",
     tags: ["vision", "video", "adapter_pending"],
+    adapterPending: true,
   }),
   readTool({
     namespace: "agro",
@@ -375,22 +394,46 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     description: "Crea una tarea operativa de finca con confirmación del usuario.",
     permissions: ["agro:write"],
     endpoint: { method: "POST", path: "/v1/agro/farms/:farmId/tasks" },
-    inputSchema: { type: "object", required: ["farmId", "title"], properties: { farmId: { type: "string" }, title: { type: "string" }, priority: { type: "string" } } },
+    inputSchema: {
+      type: "object",
+      required: ["farmId", "title", "type"],
+      properties: {
+        farmId: { type: "string" },
+        title: { type: "string" },
+        // Must match VALID_TYPES in agro-task.service.ts — AgroTaskService.createTask
+        // rejects any other value with a 400.
+        type: {
+          enum: [
+            "FEEDING", "VACCINATION", "TREATMENT", "WEIGHING", "MOVEMENT",
+            "CLEANING", "INSPECTION", "INVENTORY", "SALE", "WATER_CHECK", "OTHER",
+          ],
+        },
+        priority: { enum: ["LOW", "MEDIUM", "HIGH", "URGENT"] },
+      },
+    },
     outputKind: "AgroFarmTask",
     tags: ["agro", "tasks", "write"],
+    adapterPending: false,
   }),
   writeTool({
     namespace: "payments",
     name: "propose_release",
     label: "Proponer liberación de pago",
     description: "Prepara una propuesta de liberación; la ejecución financiera exige aprobación humana.",
-    permissions: ["payments:write"],
+    // F2-D (T-040): "payments:write" does not exist in rbac.ts — confirmed with
+    // product that this reuses "finance:write" (held by CLIENT/PRO/OPS_ADMIN)
+    // rather than introducing a new dedicated permission. Note this is a looser
+    // gate than the REST endpoint's own "projects:financials:write", but that's
+    // fine here: the tool only lets an actor *propose*, and approvalPolicy
+    // "human_required" below means only OPS_ADMIN can ever make it execute.
+    permissions: ["finance:write"],
     endpoint: { method: "POST", path: "/v1/milestones/:milestoneId/escrow/release" },
     inputSchema: { type: "object", required: ["milestoneId"], properties: { milestoneId: { type: "string" }, amount: { type: "number" } } },
     outputKind: "EscrowView",
     tags: ["payments", "escrow", "critical"],
     riskLevel: "critical",
     approvalPolicy: "human_required",
+    adapterPending: false,
   }),
   readTool({
     namespace: "materials",

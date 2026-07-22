@@ -3671,3 +3671,54 @@ model PrometeoOrchestration {
   @@index([tenantId])
   @@map("prometeo_orchestration")
 }
+
+enum PrometeoProposedActionStatus {
+  PROPOSED
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  BLOCKED
+  EXECUTED
+}
+
+model PrometeoProposedAction {
+  id                String                        @id @default(cuid())
+  tenantId          String
+  orgId             String
+  actorId           String
+  namespace         String
+  name              String
+  approvalPolicy    String
+  status            PrometeoProposedActionStatus  @default(PROPOSED)
+  inputJson         Json
+  requiredApprovals String[]                      @default([])
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectedBy        String?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  executedAt        DateTime?
+  resultJson        Json?
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+
+  @@index([tenantId, status, createdAt])
+  @@map("prometeo_proposed_action")
+}
+
+model PrometeoToolInvocationAudit {
+  id            String   @id @default(cuid())
+  tenantId      String
+  actorId       String
+  namespace     String
+  name          String
+  mode          String
+  status        String
+  blockedReason String?
+  requestId     String
+  occurredAt    DateTime @default(now())
+
+  @@index([tenantId, occurredAt])
+  @@index([tenantId, status, occurredAt])
+  @@map("prometeo_tool_invocation_audit")
+}

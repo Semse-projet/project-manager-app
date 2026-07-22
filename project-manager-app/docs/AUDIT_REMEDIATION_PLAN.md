@@ -1,0 +1,437 @@
+# Plan de remediación — Auditoría SEMSE 2026-07
+
+> Documento vivo. Se actualiza a medida que se audita cada módulo (Cliente → Worker → Admin) y a medida que se corrige cada hallazgo. No es un reporte de una sola sesión — es el backlog de trabajo.
+
+## Cómo usar este documento
+
+- Cada hallazgo tiene: severidad, estado (`[ ]` pendiente / `[x]` corregido), archivo:línea, qué está mal, y hacia dónde apunta el fix.
+- El narrativo completo (por qué importa, cómo se verificó, capturas de pantalla en vivo) está en el reporte original: artefacto **"SEMSE — Auditoría de UI/UX y backend"**, publicado en esta cuenta de Claude — pídele a Claude que lo busque con `action: "list"` si necesitas el contexto largo de un hallazgo específico. Este documento es el resumen accionable, no el reemplazo.
+- Orden de trabajo sugerido: **Sección 0 (seguridad transversal) primero**, sin importar en qué módulo estés — son los hallazgos más graves y no son específicos de una sola pantalla. Después, módulo por módulo: Cliente (ya auditado) → Worker (pendiente) → Admin (pendiente).
+- Al corregir un hallazgo: márcalo `[x]`, y si vale la pena, anota el commit/PR al final de la línea.
+
+**Estado de auditoría por módulo:**
+
+| Módulo | Código estático | En vivo (producción) | Fecha |
+| --- | --- | --- | --- |
+| Backend transversal (auth, pagos, Forge, SSE, algoritmos) | ✅ Completo | Parcial (solo lo alcanzable desde el rol Cliente) | 2026-07-20 |
+| Cliente | ✅ Completo | ✅ Completo | 2026-07-20 |
+| Worker / Profesional (rol real: `PRO`) | ✅ Completo (ronda de 5 agentes en paralelo sobre `apps/web/app/(app)/worker/**`, 2026-07-21) | 🟡 Parcial (todas las pantallas del sidebar recorridas; falta OPS_ADMIN para comparar contraparte admin) | 2026-07-21 |
+| Admin | 🟡 Parcial (via los agentes de UX/backend) | ❌ Pendiente — falta credencial de OPS_ADMIN | — |
+
+---
+
+## Sección 0 — Seguridad transversal (hacer esto primero, sin importar el módulo)
+
+### 0.0 — CRÍTICO — CAUSA RAÍZ CONFIRMADA del bug de "estado en cero/incorrecto" que se repite en Cliente, Worker y Admin
+
+- **Qué exactamente:** el enum real `JobStatus` en `packages/db/prisma/schema.prisma:11-23` está en **MAYÚSCULAS** (`DRAFT`, `POSTED`, `PUBLISHED`, `RESERVED`, `ACCEPTED`, `IN_PROGRESS`, `REVIEW`, `DISPUTE`, `COMPLETED`, `AWARDED`, `CANCELLED`) — así lo escribe el backend (confirmado en `bids.repository.ts:362-367`, `db.job.update({ data: { status: "ACCEPTED" } } )`). Pero el frontend, en **8 archivos**, compara ese valor contra arrays/objetos escritos en **minúsculas**, sin ninguna normalización real:
+  - `apps/web/app/(app)/client/dashboard/page.tsx:119` — `jobs.filter(j => ["in_progress","reserved","accepted","review"].includes(j.status))` → nunca hace match → **"Trabajos activos" siempre 0**, sin importar cuántos jobs reales estén aceptados.
+  - `apps/web/app/(app)/client/jobs/page.tsx:22-24,113` — mismo filtro para la pestaña "Activos" (siempre vacía) + un mapa de colores/labels de badge (`reserved`, `accepted`, `in_progress`) que tampoco hace match → los jobs reales caen al badge por defecto.
+  - `apps/web/app/(app)/client/jobs/[jobId]/page.tsx` — mismo patrón.
+  - `apps/web/app/(app)/worker/jobs/[jobId]/page.tsx:150-151` — la variable se llama `normalizedStatus` pero **nunca se normaliza de verdad**: `const normalizedStatus = asString(job?.status) ?? "posted";` toma el valor crudo (`"ACCEPTED"`) tal cual, sin `.toLowerCase()`. La búsqueda `JOB_STATUS_META["ACCEPTED"]` falla (el mapa solo tiene claves minúsculas) y cae al fallback `JOB_STATUS_META.posted` → **por eso el profesional ve "Publicado" en un trabajo que está realmente `ACCEPTED`**, y además recibe el "próximo paso" equivocado (`WORKER_NEXT_ACTION[normalizedStatus]` también falla).
+  - `apps/web/app/(app)/worker/dashboard/page.tsx`, `apps/web/app/(app)/worker/agenda/page.tsx:149,154,160`, `apps/web/app/(app)/admin/dashboard/page.tsx`, `apps/web/app/dashboard/dashboard-client.tsx` — mismo patrón de código copiado (`ACTIVE_STATUSES` en minúsculas comparado con `.has(j.status)`, sin normalizar). **Matiz importante, confirmado en vivo el 2026-07-20:** en `/worker/agenda`, con el mismo job real (`ACCEPTED`), la pestaña "Activos" **sí mostró correctamente** "1 trabajo" con badge "Aceptado" — a pesar de tener el código idéntico al roto. Esto indica que el bug **no es uniforme**: probablemente la ruta/BFF que alimenta `/worker/agenda` ya normaliza el status a minúsculas antes de llegar al frontend, mientras que las rutas que sí fallan (`client/dashboard`, `client/jobs`, `worker/jobs/[jobId]`) reciben el enum crudo de Prisma. **Antes de tocar código:** identificar exactamente qué endpoint/BFF alimenta cada pantalla y si ya normaliza, en vez de asumir que las 8 están rotas igual — el fix correcto podría ser normalizar en un solo punto (el BFF o el mapper compartido) en vez de tocar 8 componentes por separado.
+  - **CAUSA EXACTA DEL MATIZ, RESUELTA 2026-07-21 (ronda de agentes de código):** el backend tiene **dos convenciones de casing coexistiendo para el mismo campo `Job.status`, sin que nada las reconcilie**. `apps/api/src/common/visible-response.ts` (`toVisibleJob`) **mayúsculiza intencionalmente** el status para las respuestas de `GET /v1/jobs` y `GET /v1/jobs/:id` (`posted→"POSTED"`, etc.) — esta es la ruta que alimenta `worker/jobs/[jobId]/page.tsx` (vía `fetchJob`) y `worker/dashboard/page.tsx` (vía `fetch("/api/semse/jobs")` directo), por eso ahí llega en mayúsculas y el filtro lowercase nunca matchea. En cambio, `apps/api/src/modules/bids/bids.repository.ts:120` (`listByWorker`, usado por `fetchMyBids()` → `/v1/my-bids`) hace `jobStatus: bid.job.status.toLowerCase()` manualmente y **nunca pasa por `toVisibleJob`** — por eso `/worker/agenda` y `/worker/bids` (que consumen `fetchMyBids`) reciben el valor ya en minúsculas y el mismo patrón de filtro sí funciona ahí. No es que una ruta "normalice mejor" que otra por diseño — son dos code paths independientes con convenciones opuestas para el mismo dato.
+- **Por qué se ve como "varios bugs distintos":** no lo es. Es una sola línea de patrón (comparar un enum real en mayúsculas contra literales en minúsculas) copiada y pegada en 8 lugares durante el desarrollo — probablemente escrita contra una versión anterior del schema que sí usaba minúsculas, y nunca actualizada cuando el enum canónico pasó a mayúsculas. Explica de una sola vez: **1.4** (cliente, "cero en 5 pantallas"), **2.1b** (worker, badge "Publicado" incorrecto), y muy probablemente el equivalente en Admin en cuanto se pueda verificar en vivo.
+- **Fix:** no inventar una capa de normalización nueva — alinear los 8 archivos para comparar/mapear contra los valores reales del enum `JobStatus` (mayúsculas), que es la fuente de verdad según el propio schema de Prisma. Buscar además si `packages/schemas` ya expone un tipo/const compartido para `JobStatus` que se pueda importar en vez de siete copias locales del mismo mapa.
+- **Estado:** [ ] Pendiente — **este es el fix de mayor impacto por esfuerzo de todo el documento: una corrección de comparación de strings en 8 archivos resuelve el hallazgo más repetido de toda la auditoría**
+
+### 0.1 — CRÍTICO — Bypass de login vía spoofing de headers en el BFF
+- **Qué:** `apps/web/middleware.ts` no descarta los headers `x-semse-user-id/tenant-id/org-id/roles` cuando no hay sesión, en rutas públicas como `/api/semse/auth/login`. El BFF usa esos headers atacante-controlados para pedir un token real al backend con el secreto `SEMSE_BOOTSTRAP_TOKEN` propio del servidor.
+- **Dónde:** `apps/web/middleware.ts:43-55,84-86` · `apps/web/lib/semse-api-auth.ts:6` · `apps/web/app/api/semse/_server.ts:141-159,201-224` · `_access-token-bootstrap.ts:74-80`
+- **Fix:** el middleware debe descartar/sobrescribir los headers `x-semse-*` entrantes SIEMPRE que no haya sesión válida, antes de evaluar si la ruta es pública — no solo cuando sí hay sesión.
+- **Estado:** [ ] Pendiente
+
+### 0.2 — CRÍTICO — `SEMSE_BOOTSTRAP_TOKEN` no se exige en código
+- **Qué:** a diferencia de `AUTH_SECRET` (obligatorio en producción), esta variable es opcional en el código — si faltara, `POST /v1/auth/token` firma tokens para cualquiera. Hoy SÍ está configurada en Railway (verificado 2026-07-20), pero el código no lo garantiza.
+- **Dónde:** `apps/api/src/modules/auth/auth.controller.ts:31-50,69-88`
+- **Fix:** hacer que el arranque del servicio truene si la variable no está seteada en producción, igual que `AUTH_SECRET`.
+- **Estado:** [ ] Pendiente
+
+### 0.3 — CRÍTICO — Ni logout ni cambio de rol invalidan el token
+- **Qué:** el JWT es stateless, solo se verifica firma/expiración. `logout()` y el reset de contraseña solo marcan la sesión en BD como revocada, nunca invalidan el token en sí. TTL real: 8 horas.
+- **Dónde:** `apps/api/src/modules/auth/auth.service.ts:127-137,233-255` · TTL: `358,383,299`
+- **Fix:** verificar el estado de la sesión en BD en cada request (no solo la firma), o reducir el TTL agresivamente y aceptar el trade-off, o implementar una lista de revocación real.
+- **Estado:** [ ] Pendiente
+
+### 0.4 — CRÍTICO (seguridad) — IDOR cross-tenant en aprobación de evidencia de milestones
+- **Qué:** `updateEvidenceItemStatus` filtra por `id`/`milestoneId`, nunca por `tenantId` — a diferencia de sus funciones vecinas en el mismo archivo. Afecta directo la auto-liberación de escrow. `itemId` es predecible (timestamp + 4 chars).
+- **Dónde:** `apps/api/src/modules/milestones/milestones.repository.ts:714-738` · controller: `milestones.controller.ts:220-266`
+- **Fix:** agregar el filtro `tenantId` (o `milestone: { project: { tenantId } }`, el patrón que ya usan `archiveEvidenceItem`/`replaceEvidenceItem` dos funciones al lado).
+- **Estado:** [ ] Pendiente
+
+### 0.5 — CRÍTICO (seguridad) — IDOR cross-org en change-orders
+- **Qué:** `findOwned()` filtra solo por `id` + `tenantId`, nunca verifica que el actor pertenezca a la org cliente o profesional del job. Aprobar/rechazar/aplicar confían en ese lookup sin capa adicional.
+- **Dónde:** `apps/api/src/modules/change-orders/change-orders.service.ts:378-386`
+- **Fix:** agregar verificación de org-ownership antes de cualquier mutación.
+- **Estado:** [ ] Pendiente
+
+### 0.6 — CRÍTICO (seguridad) — Cross-tenant en canal SSE del copiloto (explotable en vivo)
+- **Qué:** `planStream`/`delegationsStream` filtran por tenant solo en el snapshot inicial — el canal de push en vivo se suscribe directo a `plan:${planId}`/`delegations:${projectId}` sin revalidar tenant. Los 8 endpoints SSE además son `@Public()` sin verificación de sesión propia.
+- **Dónde:** `apps/api/src/infrastructure/sse/sse.controller.ts:31-84`
+- **Fix:** revalidar ownership del `planId`/`projectId` contra el tenant conectado antes de abrir la suscripción push; considerar quitar `@Public()` y verificar sesión también a nivel API, no solo confiar en el header que pone el BFF.
+- **Estado:** [ ] Pendiente
+
+### 0.7 — CRÍTICO (seguridad) — Un header del cliente decide en qué tenant se escribe un archivo
+- **Qué:** el emisor de planes de subida lee `tenantId` de `x-tenant-id` (header del cliente) en vez de `resolveRequestContext(req)`. La ruta de descarga es pública sin firma/expiración.
+- **Dónde:** `apps/api/src/infrastructure/storage/uploads.controller.ts:174-175,237-238`
+- **Fix:** usar la sesión verificada, no el header.
+- **Estado:** [ ] Pendiente
+
+### 0.8 — CRÍTICO (seguridad) — Descargar un archivo por el BFF no manda identidad al backend
+- **Qué:** el handler `GET` de `uploads/files/[...key]` no adjunta headers autorizados a la petición saliente (el `PUT` en el mismo archivo sí). El backend recibe la descarga como anónima.
+- **Dónde:** `apps/web/app/api/semse/uploads/files/[...key]/route.ts` — PUT:15-39 vs GET:60-78
+- **Fix:** aplicar el mismo `buildAuthorizedHeaders` que ya usa el PUT.
+- **Estado:** [ ] Pendiente
+
+### 0.9 — CRÍTICO (confianza) — Verificación de identidad del worker (firma DID) es un stub
+- **Qué:** el código literalmente comenta "for now, return synthetic verification" y solo valida que las strings no estén vacías. Cero criptografía real.
+- **Dónde:** `apps/api/src/modules/worker-verification/worker-verification.repository.ts:115-135`
+- **Fix:** implementar verificación criptográfica real (crypto.subtle o tweetnacl, como el propio comentario del código sugiere), o dejar de exponer "verificado" en el producto hasta que exista.
+- **Estado:** [ ] Pendiente
+
+### 0.10 — CRÍTICO (seguridad) — vision-service sin autenticación, expuesto públicamente
+- **Qué:** ningún endpoint verifica API-key/firma. CORS con `allow_origins=["*"]` + `allow_credentials=True`. Cualquiera con la URL pública puede llamar endpoints costosos (análisis en lote) gratis.
+- **Dónde:** `apps/vision-service/app/main.py:13-19` · `app/routes/evidence.py`
+- **Fix:** agregar autenticación (API-key compartida entre `apps/api` y `apps/vision-service` como mínimo), corregir CORS.
+- **Estado:** [ ] Pendiente
+
+### 0.11 — CRÍTICO (seguridad) — Bypass del SSRF-guard de vision-service por nombre de archivo
+- **Qué:** el gate real es `if "localhost" in url or "127.0.0.1" in url` — substring sobre la URL completa, no el hostname. Una URL de S3 legítima que contenga esas palabras en el nombre del archivo activa el bypass y la "verificación" devuelve una imagen mock fija, sin analizar la foto real.
+- **Dónde:** `apps/vision-service/app/services/image_loader.py:51-79` · duplicado en `app/routes/evidence.py:86`
+- **Fix:** parsear la URL y comparar el hostname exacto, no un substring de la URL completa.
+- **Estado:** [ ] Pendiente
+
+### 0.12 — CRÍTICO (dinero) — Estado de transacción marcado SUCCEEDED sin verificar al proveedor real
+- **Qué:** `depositFunds`/`releaseFunds`/`refundFunds` escriben `status: "SUCCEEDED"` siempre, sin leer el estado real (pending/processing/authorized) que devuelven Stripe/PayPal/transferencia bancaria.
+- **Dónde:** `apps/api/src/modules/payments/payments.repository.ts` — depositFunds:307-314 · releaseFunds:377-385 · refundFunds:444-451
+- **Fix:** leer y persistir el estado real del provider intent; solo marcar SUCCEEDED cuando el provider confirme.
+- **Estado:** [ ] Pendiente
+
+### 0.13 — CRÍTICO (dinero) — El webhook de pagos es un no-op total
+- **Qué:** verifica la firma correctamente y descarta el payload — no busca la transacción, no actualiza estado, no hay idempotencia.
+- **Dónde:** `apps/api/src/modules/payments/payments.service.ts:770-777`
+- **Fix:** implementar reconciliación real por `providerRef`.
+- **Estado:** [ ] Pendiente
+
+### 0.14 — CRÍTICO (dinero) — El dinero se mueve en el proveedor antes de la verificación atómica de saldo
+- **Qué:** `release()`/`refund()` llaman al proveedor real (el payout/transfer se dispara) y solo después intentan escribir la transacción dentro del chequeo atómico que puede rechazar por saldo insuficiente. Dos releases concurrentes pueden ambas disparar pago real y una perder la carrera sin dejar registro.
+- **Dónde:** `apps/api/src/modules/payments/payments.service.ts` — release:563-611 · refund:682-712
+- **Fix:** invertir el orden — verificar/reservar el saldo atómicamente primero, llamar al proveedor después.
+- **Estado:** [ ] Pendiente
+
+### 0.15 — CRÍTICO (dinero) — Mismo patrón en escrow-release.service.ts (auto-release)
+- **Qué:** la transferencia real a Stripe se dispara antes de la transacción de BD. Si la BD falla después de que Stripe ya aceptó, un reintento puede pagar dos veces. Además es fire-and-forget desde `milestones.service.ts` (`.catch(() => undefined)`).
+- **Dónde:** `apps/api/src/modules/payments/escrow-release.service.ts:69-122` · disparo: `milestones.service.ts:292`
+- **Fix:** mismo fix que 0.14, aplicado a este servicio; no descartar el error en el caller.
+- **Estado:** [ ] Pendiente
+
+### 0.16 — CRÍTICO (dinero) — Stripe Connect: payout a cuenta compartida si el worker no está "activo"
+- **Qué:** `createPayoutIntent` arranca con `STRIPE_CONNECT_ACCOUNT_ID` (cuenta legacy fija) y solo la reemplaza si la cuenta del worker está `active`. Sin error/bloqueo si no lo está.
+- **Dónde:** `apps/api/.../payments/providers/stripe.provider.ts:73-83`
+- **Fix:** bloquear el payout (no caer a la cuenta compartida) si la cuenta Connect del worker no está activa.
+- **Estado:** [ ] Pendiente
+
+### 0.17 — ALTO (dinero) — Webhook de Stripe Connect también es no-op
+- **Qué:** no hay ruta dedicada; el estado de la cuenta Connect solo se actualiza con un sync manual.
+- **Dónde:** `payments.service.ts:770-777` · `stripe-connect.service.ts:119-142`
+- **Estado:** [ ] Pendiente
+
+### 0.18 — CRÍTICO (integridad, Forge) — `completeTask` acepta un resultado fabricado
+- **Qué:** el payload de `.../tasks/:taskId/complete` no está validado, incluye `policy.decision`, y el harness le cree para avanzar el run — nunca vuelve a llamar la verificación real. `manifest.fileScopes` es código muerto (nunca se pasa `changedFiles`).
+- **Dónde:** `apps/api/.../forge.controller.ts:151-171` · `forge.service.ts:293-309` · `packages/forge/src/policy.ts:86-122`
+- **Fix:** derivar la decisión de política server-side a partir de datos reales, no del payload del caller; pasar `changedFiles` real a `evaluateForgePolicy`.
+- **Estado:** [ ] Pendiente
+
+### 0.19 — CRÍTICO (cumplimiento laboral) — No existe multiplicador de horas extra
+- **Qué:** `(minutos/60) * tarifa` flat, sin ningún umbral semanal. Solo existe una alerta de QualityGuard para que un admin lo vea — nunca toca el pago real.
+- **Dónde:** `apps/api/.../labor-engine.repository.ts:253`
+- **Fix:** implementar el multiplicador real (1.5x u otra regla, según la política laboral de SEMSE) en el cálculo de pago, no solo en la alerta.
+- **Estado:** [ ] Pendiente
+
+### 0.20 — ALTO — Labor Engine sin idempotencia real (duplica horas pagables)
+- **Qué:** el `event.id` del cliente nunca se manda al backend; `createTimeEntry` siempre inserta con UUID nuevo. Al fallar la sync a medio lote, el arreglo de reintento conserva TODOS los eventos, incluidos los ya exitosos.
+- **Dónde:** `apps/web/.../worker/tracker/page.tsx` — syncPendingEvents:367-434 · `apps/api/.../labor-engine.repository.ts:79-104`
+- **Fix:** mandar `event.id` como clave de idempotencia al backend; podar del arreglo de reintento los eventos ya confirmados.
+- **Estado:** [ ] Pendiente — **es del módulo Worker, ver sección Worker también**
+
+### 0.21 — ALTO — Herramientas internas abiertas a cualquier rol
+- **Qué:** `/anatomy`, `/knowledge`, `/repo-map`, `/runtime-map` están gateadas por `knowledge:read`, permiso que `rbac.ts` otorga a TODOS los roles.
+- **Dónde:** `apps/api/.../{anatomy,knowledge,repo-knowledge,runtime-knowledge}/*.controller.ts` · `packages/auth/src/rbac.ts:47,94,110,191`
+- **Fix:** crear un permiso `internal:architecture:read` exclusivo de roles internos/admin, o gatear por rol directamente.
+- **Estado:** [ ] Pendiente
+
+### 0.22 — ALTO — Barridos programados pueden revertir un estado ya cambiado legítimamente
+- **Qué:** `sweepExpired()` (reservas) y `reclaimStale()` (agent runs) hacen `findMany` + `update` sin repetir el filtro de estado en el WHERE, sin transacción — a diferencia de sus métodos hermanos.
+- **Dónde:** `apps/api/.../reservations.repository.ts:380-403` · `agents.repository.ts:157-204`
+- **Fix:** envolver en transacción y repetir el filtro de estado original en el WHERE del update (mismo patrón que `accept`/`release`/`expire`).
+- **Estado:** [ ] Pendiente
+
+### 0.23 — ALTO — Aprobar change-order nunca valida contra el escrow restante
+- **Dónde:** `change-orders.service.ts:158-169,229-233,251-312`
+- **Fix:** consultar el módulo de pagos/escrow antes de aprobar/aplicar un aumento de presupuesto.
+- **Estado:** [ ] Pendiente
+
+### 0.24 — ALTO — Una entrada manual no puede representar un turno que cruza medianoche
+- **Dónde:** `apps/api/.../labor-engine.service.ts:124-131`
+- **Fix:** permitir `endedAt` en el día siguiente cuando `startTime > endTime`.
+- **Estado:** [ ] Pendiente — **módulo Worker**
+
+### 0.25 — ALTO — El esquema de evidencia diseñó una banda de "revisión manual" que la decisión real ignora
+- **Qué:** `ValidationScore.status` distingue 3 bandas, pero `validateEvidenceAsync` calcula su propio estado, ignora `score.status`, y usa un corte binario duro en 0.65.
+- **Dónde:** `apps/api/.../evidence-gateway.service.ts:136,295`
+- **Fix:** usar `score.status` (que ya tiene la banda de revisión manual) en `validateEvidenceAsync` en vez de recalcular con un binario propio.
+- **Estado:** [ ] Pendiente
+
+### 0.26 — ALTO — El score de calidad de evidencia no verifica el sujeto de la foto
+- **Qué:** solo combina nitidez/luz/contraste. El comparador de referencia y el detector de oficio existen pero no alimentan el score numérico.
+- **Dónde:** `apps/vision-service/app/services/scoring.py:37`
+- **Fix:** considerar (a mediano plazo) blender la señal de `reference_match`/`trade_detector` al score numérico, no solo a metadata.
+- **Estado:** [ ] Pendiente
+
+### 0.27 — ALTO (algoritmo) — Matching penaliza sistemáticamente a profesionales experimentados
+- **Dónde:** `apps/api/.../matching/matching.algorithm.ts:67-75` (Jaccard) · pesos: `20-25`
+- **Fix:** cambiar a una métrica de cobertura (`intersección / palabras del job`) en vez de Jaccard simétrico.
+- **Estado:** [ ] Pendiente
+
+### 0.28 — ALTO (algoritmo) — Cold-start: profesional nuevo entierra en 0 real, no neutral
+- **Dónde:** `packages/db/prisma/schema.prisma:230` (`trustScore` default 0) · `matching.service.ts:65-67`
+- **Fix:** definir un prior neutral en vez de 0, o una rampa de arranque para profesionales nuevos.
+- **Estado:** [ ] Pendiente
+
+### 0.29 — ALTO (algoritmo) — Estimador de presupuesto no usa área ni ubicación; fallback mezcla trabajos sin relación
+- **Qué:** confirmado en vivo — un job de "reparación de fugas" (referencia $80) recibió sugerencia de $2,074–$4,839, auto-aplicada sin confirmar.
+- **Dónde:** `apps/api/.../budget-intelligence.service.ts:39-45,65-101,122-140`
+- **Fix:** incorporar área/sqft y el multiplicador de `LocationCostService` (ya existe, no está conectado); no promediar categorías no relacionadas en el fallback de pocos datos.
+- **Estado:** [ ] Pendiente
+
+### 0.30 — ALTO (algoritmo) — Calculadora de madera usa espaciado no estándar (18" en vez de 16" o.c.)
+- **Dónde:** `packages/tools/src/materials/materials-calculator.ts:305`
+- **Fix:** cambiar `lengthFt / 1.5` a `lengthFt / 1.333` (16" on-center).
+- **Estado:** [ ] Pendiente
+
+### 0.31 — CRÍTICO — Función caída: "Calcular estimado" de ProTools da 404 en cada intento
+- **Qué:** confirmado en vivo — `POST /api/semse/agents/protools/estimate` → 404. El frontend muestra el error crudo de parseo JSON al usuario.
+- **Dónde:** `/client/protools` (frontend) — falta encontrar/crear la ruta backend correspondiente
+- **Fix:** implementar o corregir la ruta del BFF/backend para ese endpoint; agregar manejo de error decente en el frontend para cuando la respuesta no sea JSON válido.
+- **Estado:** [ ] Pendiente
+
+### 0.34 — CRÍTICO — El flujo de subida "single_put" (la ruta normal para fotos/archivos livianos) nunca sube el archivo real a storage — confirmado en `/worker/evidence` y `/worker/travel`
+
+- **Qué exactamente, confirmado en vivo:** subí una foto de evidencia real (JPEG) en `/worker/evidence` para el job `cmqvqsol40023k101j9fh81mq`. Traza de red completa capturada: `POST /api/semse/uploads/plan` → `200` (presign correcto, entrega `key` real + `uploadUrl` real hacia `/v1/uploads/files/:key`), **cero peticiones `PUT` en toda la sesión** (verificado sobre el log completo de red, no solo filtrado), luego `POST /api/semse/jobs/:jobId/evidence` → `400`. El archivo nunca llegó al storage — solo se intentó "registrar" una evidencia fantasma.
+- **Causa raíz exacta (confirmada por código):** `apps/web/app/(app)/worker/evidence/page.tsx:120-154` (`handleUpload`). Para `recommendedStrategy !== "multipart"` (el caso normal — `"single_put"`, cualquier archivo bajo 25MB, es decir prácticamente toda foto/documento real) el código:
+  1. Nunca usa `plan.uploadUrl` (el endpoint real de subida que devuelve el backend, `apps/api/src/modules/evidence/evidence.controller.ts:107`) — ninguna llamada `fetch`/`PUT` a esa URL en ninguna parte del bloque `single_put`.
+  2. Nunca usa `plan.key` (la key real generada por `buildTenantStorageKey` en el backend) — en su lugar fabrica una key completamente distinta y local: `` `jobs/${selectedJobId}/evidence/${Date.now()}_${file.name}` `` (línea 131), que no corresponde a ningún objeto real en storage.
+  3. Llama directo a `registerJobEvidence(jobId, { key: bucketKey, kind, ... })` (línea 150) con esa key fabricada — de ahí el 400, y en un escenario donde el backend no valide la existencia de la key, se registrarían evidencias apuntando a archivos que nunca existieron.
+  4. Solo la rama `multipart` (archivos >25MB) sí hace `uploadMultipartPart` real — es decir, la ruta menos común es la única que funciona.
+- **Mismo bug, mismo patrón, módulo distinto:** `apps/web/app/(app)/worker/travel/[travelId]/page.tsx:261-295` (`prepareReceiptUpload`, usado por comprobantes de viaje/hospedaje). Para la rama no-multipart, la función retorna directamente `planned.uploadUrl` (o `planned.key`) **como si fuera el `receiptUrl` final** (línea 273) y lo guarda tal cual en el formulario de gasto/hospedaje (líneas 302-307) — sin jamás hacer el `PUT` que subiría el archivo a esa URL. El campo `receiptUrl` que termina persistido apunta a un endpoint de subida vacío, no a un comprobante real. `missingReceipts` (page.tsx:422-424) solo valida que `receiptUrl` sea un string no vacío, así que esta URL falsa satisface igual la condición para poder cerrar la liquidación del viaje — la prueba del gasto se pierde en silencio, siempre, sin bloquear el cierre.
+- **ACTUALIZACIÓN 2026-07-21 (ronda de 5 agentes de código sobre `apps/web/app/(app)/worker/**`) — la causa raíz exacta y el alcance real son peores de lo documentado originalmente:**
+  1. **Causa raíz exacta del 400 en evidencia:** el backend (`apps/api/.../evidence.repository.ts:485-511`, `normalizeEvidenceBucketKey`) exige que la key cumpla `isTenantScopedStorageKey` (`tenants/{tenantId}/.../evidence/...`) o, solo fuera de producción, `isLegacyDomainStorageKey` (debe empezar literal con `evidence/`). La key fabricada por el frontend (`jobs/${selectedJobId}/evidence/...`) no cumple ninguno de los dos patrones **en ningún ambiente** — no es una falla específica de producción, el registro de un solo archivo fallará siempre, en cualquier entorno.
+  2. **La rama "multipart" (que el documento original describía como la única que sí funciona) es igual de falsa, en ambos lados:** el frontend `uploadMultipartPart` (`apps/web/app/semse-api.ts:626-640`) hace `PUT` con solo un header `x-part-size` — **nunca adjunta el archivo real** (ni `.arrayBuffer()` ni `body`). Y el backend (`apps/api/.../evidence.controller.ts:282-319`) tampoco lee el cuerpo de la petición — solo marca la parte como `"uploaded"` y fabrica un `etag` a partir del header, sin escribir ningún byte a ningún lado. `completeMultipartSession` (`evidence.controller.ts:321-353`) ni siquiera devuelve `key`/`bucketKey`, así que el frontend vuelve a caer en la misma key fabricada del punto 1. **Conclusión: no existe ninguna ruta funcional para subir evidencia en `/worker/evidence`, ni pequeña ni grande — 0% de las subidas llegan a storage.**
+  3. **El mismo patrón de "PUT falso" en la rama multipart se confirmó también en `/worker/travel/[travelId]`** (mismas funciones `uploadMultipartPart`/`completeMultipartUploadSession` compartidas) — igual, cero bytes reales en ningún caso, ni single-put ni multipart.
+  4. **Contraste importante — SÍ existe una implementación correcta en el mismo repo:** `apps/web/app/semse-api.ts:720-764` (`uploadEvidenceFile`, usada correctamente por `apps/web/app/jobs/[jobId]/page.tsx:213`) hace el `PUT` real con el archivo, contra un endpoint (`POST v1/uploads/files/:key`, `apps/api/.../uploads.controller.ts:191-229`) que sí valida y guarda el archivo en disco. El endpoint funcional existe — las pantallas de worker simplemente nunca lo llaman.
+  5. **Efecto en la vista de historial:** como el backend nunca devuelve `previewUrl`/`url`/`signedUrl`/`filename` en la respuesta de evidencia (`evidence.repository.ts` — `toEvidenceView`/`listByProject`/`findById` reconstruyen el objeto solo con `{id, tenantId, projectId, jobId, milestoneId, uploadedById, kind, key, metadata, createdAt}`), el link "Ver" nunca se renderiza para ninguna evidencia (ni siquiera una subida correctamente por otra pantalla) y el nombre mostrado es la key cruda de storage, no el nombre de archivo original. Además, `validationStatus`/`aiQualityScore` (columnas reales, usadas internamente por scoring/milestones) también se descartan en esa misma respuesta — el badge de estado de evidencia queda structuralmente pegado en "Pendiente" para siempre, sin importar qué diga la IA de calidad.
+  6. **El "no hay evidencias registradas" que enmascaró un 500 real no es incidental — está garantizado estructuralmente:** `apps/web/app/(app)/worker/evidence/page.tsx:96-98` tiene un `.catch(() => [])` en `fetchJobEvidence` (convierte CUALQUIER error, incluido 500, en lista vacía) y además un `try{...} catch { /* keep empty */ }` exterior en la línea 105 sin ningún estado de error para el feed — no hay forma estructural de que un fallo del backend llegue nunca al usuario en esta pantalla.
+- **Impacto real (revisado y ampliado):** la función de subir evidencia — el mecanismo que sustenta directamente la aprobación de milestones y la liberación de escrow — **no sube ningún archivo real bajo ninguna circunstancia** desde `/worker/evidence` ni desde `/worker/travel`. No se pudo confirmar en esta pasada si el módulo Cliente tiene un flujo de subida propio con el mismo patrón (no se encontró un `planUpload` client-side ahí en esta auditoría — a confirmar), pero si un cliente sube evidencia por `apps/web/app/jobs/[jobId]/page.tsx` (que sí usa el flujo correcto `uploadEvidenceFile`/`presignEvidence`), esa ruta específica no está afectada.
+- **Fix esperado:** en `worker/evidence/page.tsx` y `worker/travel/[travelId]/page.tsx`, para la rama no-multipart, hacer `fetch(plan.uploadUrl, { method: "PUT", body: file, headers: { "content-type": contentType } })` antes de registrar/guardar, y usar `plan.key` real (no una key fabricada) — o, más simple, reusar directamente `uploadEvidenceFile`/`presignEvidence` de `semse-api.ts`, que ya funciona correctamente en el flujo de Cliente. Para la rama multipart, además, el backend (`evidence.controller.ts:282-353`) necesita leer y persistir el cuerpo real de cada parte, no solo simular el estado. Devolver `key`/`bucketKey` en `completeMultipartSession`. Agregar `previewUrl`/`filename`/`validationStatus`/`aiQualityScore` a la respuesta de `GET .../evidence`. Reemplazar el `.catch(() => [])` silencioso por un estado de error visible.
+- **Estado:** [ ] Pendiente
+
+### 0.32 — CRÍTICO — El flujo de "olvidé mi contraseña" nunca envía el correo (confirmado en producción, bloqueó a un usuario real)
+- **Qué:** `requestPasswordReset` genera el token, lo guarda en `PasswordResetToken`, registra el audit log — y ahí termina. No hay ninguna llamada a un servicio de correo/notificación en toda la función ni en ningún import de `auth.service.ts`. Confirmado contra la base de datos real: 4 tokens `ACTIVE`/`consumedAt: null` creados para una cuenta real (`jhonnymembers403@gmail.com`, rol PRO) en un lapso de 9 minutos, ninguno llegó nunca por correo. **Confirmado de nuevo el 2026-07-21** contra la misma cuenta: 4 solicitudes más en 9 minutos, otra vez ninguna consumida — el bug sigue vivo y ya bloqueó a este mismo usuario real dos veces en menos de 24 horas.
+- **Dónde:** `apps/api/src/modules/auth/auth.service.ts:304-336` (`requestPasswordReset`)
+- **Impacto real:** un usuario real quedó completamente bloqueado de su cuenta — sin contraseña correcta y sin forma de resetearla por la vía normal del producto. Se le desbloqueó manualmente escribiendo un hash de contraseña temporal directo en la base de datos (2026-07-20, y de nuevo 2026-07-21) como parche de emergencia, no como fix.
+- **Fix:** conectar `requestPasswordReset` a un servicio de envío de correo real (revisar si `apps/api/src/modules/notifications` ya tiene un canal de email reutilizable) que mande el link con el `rawToken` (el mismo que hoy se descarta al no ser producción `resetTokenPreview`).
+- **Estado:** [ ] Pendiente — **la contraseña temporal debe revocarse/reemplazarse por el usuario en cuanto este flujo funcione**
+
+### 0.33 — CRÍTICO — El chat de Prometeo y de los 16 agentes especializados está roto para los roles PRO y WORKER (permiso RBAC que ningún endpoint de chat acepta)
+
+- **Qué exactamente:** confirmado en vivo y 100% reproducible — en `/worker/dashboard`, enviar cualquier mensaje a Prometeo o a Felix desde el widget flotante devuelve siempre `⚠ Insufficient permissions` (string cruda en inglés, sin traducir). El mensaje del usuario ni se agrega como enviado.
+- **Causa raíz exacta:** `POST /v1/ai-models/prometeo/chat` (`apps/api/src/modules/ai-models/ai-models.controller.ts:213-214`) exige `@RequirePermissions("agents:run:create")`. La matriz de roles (`packages/auth/src/rbac.ts:3-103`) da ese permiso a `CLIENT` (línea 41) y `OPS_ADMIN` (línea 184), pero **no a `PRO`** (líneas 58-103) **ni a `WORKER`** (líneas 104-116) — esos dos roles reciben en cambio `"agents:run:worker"`/`"agents:run:manage"`, permisos distintos que el guard de este endpoint nunca compara.
+- **Alcance — mismo decorador, mismo bloqueo, en TODOS estos controladores:** `agents.controller.ts` (`/agents/chat` y lectura de threads), `prometeo.controller.ts` (14 endpoints), `prometeo-copilot.controller.ts` (el módulo "Prometeo Copilot" backend), `forge.controller.ts` (chat con el agente Forge/dev), `browser-agent.controller.ts`, `orchestration.controller.ts`, y el resto de `ai-models.controller.ts`. Los 16 agentes listados en `/agents` ("Conversacionales") comparten el mismo endpoint con `agentId` como parámetro — no hay ninguna rama por agente antes del guard, así que los 16 fallan igual para PRO/WORKER.
+- **Confirmado de nuevo en otra ubicación (ronda de agentes de código, 2026-07-21):** los dos botones principales de autogestión de `/worker/disputes` ("Pedir criterio" y "Pedir tercero humano", `DisputeResolutionWorkspace.tsx:352-448`) llaman `POST /v1/agents/copilot`, gateado por el mismo `agents:run:create` — fallan siempre para cualquier PRO, en un flujo que la propia pantalla describe como su herramienta central de autogestión ("evidencia, criterio del copiloto y escalación asistida"). Ver 2.46.
+- **Efecto colateral de UX:** el ítem de sidebar "Asistente IA" (`apps/web/app/(app)/layout.tsx:90`, `labelKey: nav.aiSettings`) en realidad enlaza a `/worker/settings` (configuración de tono del asistente), no a un chat — la traducción española de esa clave dice "Asistente IA" mientras la inglesa dice, correctamente, "AI Settings" (`apps/web/lib/language-context.tsx:81` vs `:739`). Generó confusión real durante la auditoría.
+- **Impacto:** todo profesional real en producción que use el botón de ayuda de Prometeo (visible de forma permanente en toda la UI de `/worker/*`) recibe un error técnico sin explicación — la función de IA conversacional no funciona en absoluto para el rol que más la usaría en campo.
+- **Fix:** agregar `"agents:run:create"` al array de `PRO` y de `WORKER` en `packages/auth/src/rbac.ts` (fix mínimo de una línea cada uno). A mediano plazo, extender `RbacGuard`/`@RequirePermissions` para aceptar alternativas (OR) en vez de solo AND, y que el frontend traduzca/oculte errores 403 crudos. Corregir además la traducción de `nav.aiSettings` en español.
+- **Detalle completo:** ver `docs/specs/ui/pro-flows-remediation.spec.md` → G-PRO-05.
+- **Estado:** [ ] Pendiente
+
+---
+
+## Sección 1 — Módulo Cliente (auditado completo, código + en vivo, 2026-07-20)
+
+### Dinero sin confirmación (UI)
+- **1.1 CRÍTICO** — Fondear escrow / liberar pago sin confirmación ni monto visible. `apps/web/app/(app)/client/jobs/[jobId]/page.tsx` — handleFundEscrow:288-301 · handleRelease:333-350 · botones:728-745,923-930. [ ] Pendiente
+- **1.2 CRÍTICO** — Mismo patrón en `apps/web/app/jobs/[jobId]/escrow/page.tsx:75-94` y `packages/ui/src/components/EscrowTimeline.tsx:256-264` — el modal seguro (`EscrowFundModal`) ya existe pero solo está cableado en `client/payments`. [ ] Pendiente
+- **1.3 CRÍTICO** — "Resolver disputa" del cliente fijo a `pro_favor`, sin opción ni confirmación. `apps/web/app/jobs/[jobId]/page.tsx:276-293`. [ ] Pendiente
+
+### Navegación y datos desconectados (confirmado en vivo)
+- **1.4 CRÍTICO — patrón sistémico, CAUSA RAÍZ CONFIRMADA (ver 0.0)** — Dashboard y Trabajos→Activos muestran "0" mientras la cuenta tiene jobs reales `ACCEPTED`: confirmado que es el bug de comparación mayúsculas/minúsculas de **0.0** (`client/dashboard/page.tsx:119`, `client/jobs/page.tsx:113`). Mis hitos/Proyectos/Pagos en cero es un caso aparte y legítimo — no hay milestones creados todavía para este job, eso sí parece dato real, no bug (verificar si acaso hay una segunda causa ahí antes de cerrar). [ ] Pendiente — fix en 0.0
+- **1.5 ALTO** — El rol "Cliente" mezcla dos personas (dueño que contrata vs. contratista con CRM propio) — `/client/leads`, `/client/bids` (copy de "aplica a trabajos"), `/client/marketplace` (cliente ve su propio job con botón "Aplicar"). [ ] Pendiente — **decisión de producto, no solo código**
+- **1.6 ALTO** — `/dashboard` (ruta huérfana) carga con todo en cero y expone un banner de migración interna ("Mission Control") a cualquier cliente. [ ] Pendiente
+- **1.7 MEDIO** — `/field-ops` (tercera implementación huérfana) carga sin nav, callejón sin salida. [ ] Pendiente
+- **1.8 MEDIO** — Error de hidratación de React (`#418`) en `/client/milestones`, zona vacía sin estado vacío real. [ ] Pendiente
+
+### Interacción / usabilidad (confirmado en vivo)
+- **1.9 MEDIO** — Tema claro/oscuro no sobrevive un refresh/URL directa (solo persiste en navegación SPA). [ ] Pendiente
+- **1.10 MEDIO** — FAB de asistente tapa el monto de una propuesta en mobile (~390-500px) en `/client/jobs/[jobId]`. [ ] Pendiente
+- **1.11 MEDIO** — Catálogo de 24 agentes en `/agents`: la mayoría de las tarjetas no hacen nada al clic (sin `aria-label`); el FAB que sí abre chat ignora cuál tarjeta se clickeó y siempre abre Prometeo; solo 6 de 24 agentes son alcanzables. [ ] Pendiente
+- **1.11b CRÍTICO** — El chat de Prometeo (real, vía Anthropic) confirma el bug de "cero" por una tercera vía: preguntado directo, responde "Tienes 0 trabajos activos" para una cuenta con jobs `Aceptado`/`ACCEPTED` reales. Además, sin que se le pida, menciona un **"nivel de confianza del sistema: 26/100, nivel crítico"** ligado a "1 hito activo" — una métrica que no aparece en NINGUNA otra pantalla del producto (ni Dashboard, ni Hitos). Hay que averiguar de dónde saca Prometeo ese número y por qué no se muestra en la UI normal. [ ] Pendiente — **investigar de dónde viene el "nivel de confianza" antes de decidir el fix**
+- **1.11c ALTO** — El segundo widget flotante "Abrir Prometeo Copilot" (distinto del chat principal de Prometeo, que sí funciona) está roto: su botón de acción rápida "Preguntar a Prometeo" es un stub que solo responde `Acción "Preguntar a Prometeo" ejecutada.` sin hacer nada real; escribir una pregunta real en su chat devuelve el error crudo del backend `Authentication required for SEMSE API route`, mostrado tal cual al usuario. [ ] Pendiente
+- **1.12 ALTO — patrón repetido, CAUSA RAÍZ CONFIRMADA 2026-07-21, y es peor de lo que parecía** — Breadcrumb duplicado "Dashboard > Dashboard" en `/client/professionals` **y también en `/worker/agenda`** (confirmado en vivo el 2026-07-20). Causa exacta: `apps/web/app/components/client/ClientBreadcrumbs.tsx:12-21` — el componente compartido siempre antepone su propio crumb `{ label: "Dashboard", href: CLIENT_ROUTES.dashboard }` (`includeDashboard` por defecto `true`, nunca sobreescrito fuera de `/client/*`), y `CLIENT_ROUTES.dashboard` está hardcodeado a `"/client/dashboard"` (`apps/web/app/lib/client-routes.ts:13`). `worker/agenda/page.tsx:182-186` ya pasa su propio crumb "Dashboard" → `/worker/dashboard`, así que el componente termina agregando un segundo "Dashboard" **que además apunta a la ruta equivocada** (`/client/dashboard`, no `/worker/dashboard`). No es solo un duplicado visual: **un PRO que hace clic en el primer breadcrumb "Dashboard" es enviado al dashboard del rol Cliente** — bug de navegación cross-rol, no solo cosmético. Sube de MEDIO a ALTO por esto. [ ] Pendiente — fix: `includeDashboard={false}` en cualquier uso de `ClientBreadcrumbs`/`ClientPageHeader` fuera de `/client/*`, o hacer el href del crumb inyectado consciente del rol actual.
+- **1.13 MEDIO** — Nombre interno del algoritmo ("matching Jaccard + trust") expuesto en UI de cliente. [ ] Pendiente
+- **1.14 MEDIO** — Wizard de "Publicar trabajo" pierde el 100% del progreso al refrescar, sin guardado de borrador (`client/jobs/new`). [ ] Pendiente
+
+### Sistema de diseño / consistencia (código)
+- **1.15 ALTO** — Dos librerías de componentes paralelas sin solaparse (`@semse/ui` vs `apps/web/components/ui/`), 22 archivos reinventan su propio spinner. [ ] Pendiente
+- **1.16 MEDIO** — 3,306 colores hardcodeados que duplican tokens ya existentes (`#10b981`×290, `#3b82f6`×190, `#ef4444`×232). [ ] Pendiente
+- **1.17 MEDIO** — Shell de navegación duplicado: `AppShell` (desktop, Tailwind) vs `Sidebar` (mobile, estilos inline) para el mismo dato de nav. `apps/web/app/(app)/layout.tsx`:145-304. [ ] Pendiente
+- **1.18 MEDIO** — 24 `<div onClick>` sin `role`/`tabIndex`; solo 22 archivos usan `aria-label` en toda la app. [ ] Pendiente
+- **1.19 MEDIO** — Dos sistemas de notificación: `NotificationBanner` (46 archivos) vs toasts a mano en `client/finance/page.tsx:199-210`. [ ] Pendiente
+- **1.20 BAJO** — `BookingCard`/`AgentBubble` exportados desde `packages/ui`, cero referencias en `apps/web` — código muerto. [ ] Pendiente
+
+### Marca / identidad (confirmado en vivo)
+- **1.21 ALTO** — Landing dice "SEMSE Project" (tema claro), app autenticada dice "SEMSE OS" (tema oscuro) — dos identidades de marca, logos distintos. [ ] Pendiente — **decisión de producto**
+
+---
+
+## Sección 2 — Módulo Worker / Profesional (PRO)
+
+> **Nota de nomenclatura:** el rol interno en la base de datos es `PRO`, no `WORKER`. La UI vive bajo `/worker/*` y se etiqueta a sí misma "Profesional" en el sidebar. Es la misma confusión de identidad de persona que ya documentamos del lado Cliente — aquí es al revés (una sola etiqueta de rol, dos nombres distintos usados sin criterio).
+
+Auditado con código + navegación en vivo el 2026-07-20, usando una cuenta profesional real (`jhonnymembers403@gmail.com`, la que estaba bloqueada por el bug 0.32 — se desbloqueó a mano para poder auditar).
+
+- **2.1 CRÍTICO — confirmado en vivo** — Dos trackers de tiempo desconectados bajo el mismo menú Worker: `/worker/tracker` (real, Labor Engine, 6 tabs correctas) vs `/worker/field-ops` → pestaña "Tracker" (legacy `FieldOpsService`/`TrackerSession`, completamente funcional — cronómetro propio con "Iniciar nueva sesión" real). `apps/web/app/(app)/worker/field-ops/page.tsx:895-1120`. [ ] Pendiente
+- **2.1b CRÍTICO — confirmado en vivo, CAUSA RAÍZ CONFIRMADA (ver 0.0)** — El mismo trabajo (`cmqvqsol40023k101j9fh81mq`) que el cliente ve `Aceptado`, el profesional asignado lo ve `Publicado` en `/worker/jobs/[id]`. Causa exacta: `worker/jobs/[jobId]/page.tsx:150-151` — la variable `normalizedStatus` nunca aplica `.toLowerCase()`, así que `JOB_STATUS_META["ACCEPTED"]` no matchea nada y cae al fallback `posted`. Mismo bug de fondo que 1.4/0.0, en un archivo distinto. [ ] Pendiente — fix en 0.0
+- **2.1c ALTO — confirmado en vivo** — Esta cuenta profesional real no tiene cuenta Stripe Connect conectada (`/worker/payments` → "Método de cobro": "Sin cuenta conectada"). Conecta directo con **0.16**: si el escrow de su trabajo se liberara hoy, el pago caería en la cuenta legacy compartida en vez de llegar a este profesional. Ya no es un riesgo teórico — es el estado real de una cuenta real hoy. [ ] Pendiente — ver 0.16
+- **2.1d MEDIO — confirmado en vivo** — El perfil del profesional muestra "Trust 0%" sin ningún contexto ni explicación (`/worker/profile`). Efecto directo del sesgo de cold-start del algoritmo de matching (ver 0.28) sobre una persona real. [ ] Pendiente — ver 0.28
+- **2.1e CRÍTICO — confirmado en vivo, causa raíz confirmada (ver 0.33)** — El chat de Prometeo y los 16 agentes especializados (widget flotante, siempre visible en toda la UI de `/worker/*`) no funcionan en absoluto para esta cuenta: cualquier mensaje devuelve `⚠ Insufficient permissions` crudo. Probado con Prometeo y con Felix, 100% reproducible. Causa: el rol `PRO` no tiene el permiso `agents:run:create` que exige el endpoint de chat. [ ] Pendiente — ver 0.33
+- **2.1f CRÍTICO — confirmado en vivo subiendo un archivo real, causa raíz confirmada (ver 0.34)** — `/worker/evidence`: subir una foto real completa el presign (200) pero nunca dispara el `PUT` real a storage (0 peticiones PUT en toda la sesión de red) y el registro de evidencia falla (400). Causa: `handleUpload` en `worker/evidence/page.tsx:120-154` nunca usa `plan.uploadUrl` ni `plan.key` en la rama `single_put` (el caso normal). Mismo patrón confirmado por código en `/worker/travel/[travelId]` (comprobantes). [ ] Pendiente — ver 0.34
+- **2.2 ALTO** — `fetchActiveTimer()` sin `.catch()` en el `Promise.all` de carga — un solo request inestable tumba todo el tracker. `apps/web/app/(app)/worker/tracker/page.tsx` — loadTracker:341-347. [ ] Pendiente
+- **2.3 ALTO** — Registros/Resumen/Reportes no leen `trackerLocalStore` — totales se subcuentan en silencio mientras el trabajador está offline. [ ] Pendiente
+- **2.4 MEDIO** — Timer tab no es responsive como sus hermanas (grid fijo vs. `auto-fit/minmax`). `page.tsx:1269,1276,1336`. [ ] Pendiente
+- **2.5 MEDIO** — Dos formularios de "Entrada manual" con offline-fallback distinto (uno lo tiene, el otro no). [ ] Pendiente
+- **2.6 MEDIO** — Visual language split: `/worker/tracker` claro/CSS-var vs. `/worker/field-ops` oscuro/Tailwind — dos productos distintos bajo un nav. [ ] Pendiente
+- **2.7 MEDIO** — `apps/web/app/field-ops/page.tsx` (top-level, huérfano) ~90% idéntico a `/worker/field-ops`, sin back-link, error handling divergente. **Detalle ampliado 2026-07-21:** también le falta por completo la pestaña Tracker (solo tiene 4 de las 5 tabs del canónico), usa extracción de error distinta (`json?.error?.message` crudo vs. `normalizeErrorMessage` en el canónico — puede mostrar `undefined`/`[object Object]`), **esconde por completo** los errores que contienen "not configured" en vez de mostrarlos (`if (message.includes("not configured")) return null;`), no tiene i18n (título hardcodeado "Field Ops"), no tiene `NotificationBanner`, y usa un wrapper de renderizado distinto (`HtmlInCanvasPanel` de `@semse/ui` vs. `div`s planos) — es una superficie visual y funcionalmente distinta, no un simple duplicado con path distinto. [ ] Pendiente
+- Ver también **0.19, 0.20, 0.24** (nómina/idempotencia — comparten causa raíz con el módulo worker).
+
+### Ronda de 5 agentes de código en paralelo sobre `apps/web/app/(app)/worker/**` (2026-07-21)
+
+> Auditoría estática de código (sin ejecutar), la misma metodología de 5 agentes en paralelo ya aplicada al módulo Cliente. Cada agente cubrió una franja del módulo con instrucciones explícitas de no repetir hallazgos ya documentados y de profundizar en los patrones sistémicos ya confirmados (mayúsculas/minúsculas de `JobStatus`, el bug de subida `planUpload`, y el RBAC roto de `agents:run:create`). 42 hallazgos nuevos, organizados por franja.
+
+#### Time Tracker / Labor Engine (`/worker/tracker`)
+
+- **2.8 CRÍTICO** — Minutos de descanso negativos permiten fabricar horas pagables por encima del rango real fichado. El preview en pantalla clampa correctamente (`manualDurationSeconds`, `page.tsx:204-213`, `Math.max(0, breakMinutes)`), pero el valor crudo sin clamp es lo que realmente se envía (`page.tsx:873,885`) y el backend nunca lo valida tampoco: `labor-engine.repository.ts:74-77` solo hace `Math.max(0, ...)` sobre el resultado final, no sobre `breakMinutes` en sí — un descanso de `-30` en una sesión de 4h se guarda como `270 min` (4.5h) con `breakMinutes: -30`, invisible en la lista porque el chip de descanso solo se muestra si `breakMinutes > 0`. Explotable por cualquier PRO contra sus propias horas pagables/job-linked. [ ] Pendiente
+- **2.9 ALTO** — `jobId`/`freeProjectId` en inicio de timer y entradas manuales nunca se validan contra quien hace la llamada. `labor-engine.service.ts:65-82` (`startTimer`) y `:106-148` (`createManualEntry`) aceptan estos IDs directo del cliente sin verificar que el job esté asignado a este worker o pertenezca a su tenant — solo hay FK a nivel DB (`onDelete: SetNull`). Un PRO que conoce/adivina el `id` de cualquier job puede registrar tiempo `job_linked` pagable contra un trabajo que nunca le fue asignado. [ ] Pendiente
+- **2.10 ALTO** — `hourlyRate`/`currency` en entradas manuales son 100% controlados por el cliente, sin ningún límite. `labor-engine.controller.ts:204-205` acepta cualquier número/string sin mínimo, máximo, ni verificación de signo — alimenta directo `knownCost` en `getTeamSummary` (`repository.ts:252-253`), el KPI de costo estimado que ve un supervisor en `/admin/labor-engine`. Un worker puede declararse una tarifa absurda (o negativa) y contaminar esa cifra. [ ] Pendiente
+- **2.11 ALTO** — Las horas "Personal" (explícitamente marcadas como privadas en la UI: *"Estas horas quedan solo para tu control personal... No se asocian a jobs ni pagos"*, `page.tsx:1203,1405`) sí se filtran hacia la vista de equipo del admin. `labor-engine.repository.ts:233-263` (`getTeamSummary`, detrás de `getAdminOverview`) no filtra por `purpose` — cuenta horas personales en el costo estimado y puede disparar alertas falsas de "overtime" visibles al supervisor, contradiciendo directamente lo que la UI le prometió al worker que registró esas horas. [ ] Pendiente
+- **2.12 ALTO** — Los filtros "7 días"/"30 días" son ventanas de calendario fijas (mes/semana actual), no ventanas móviles reales, pese a que la UI los etiqueta como "Últimos 7 días"/"Últimos 30 días" en varios lugares (`page.tsx:1507`, `RegistrosTab.tsx:203-204`). `labor-engine.service.ts:4-21` (`weekBounds`/`monthBounds`) calcula lunes-domingo / día 1-fin de mes calendario. El día 1-2 de cada mes, "Últimos 30 días" devuelve solo 1-2 días reales de datos — sub-reporta horas/costo en KPIs, CSV, tendencias, y hasta en el contexto que usa el chat de Cronos (`labor-chat.service.ts:135`, que llega a decir "sin registros en los últimos 30 días" cuando en realidad solo consultó el mes calendario actual). [ ] Pendiente
+- **2.13 MEDIO** — En Reportes, los gráficos/CSV por semana quedan vacíos para cualquier semana fuera del mes calendario actual, mientras el KPI card justo arriba (misma semana) sí muestra números reales — porque `weekEntries` filtra sobre `entries`, que solo se cargó con `range:"month"` una vez al montar (mismo root cause que 2.12). Sin ningún aviso visible más allá de un tooltip al pasar el mouse. [ ] Pendiente
+- **2.14 MEDIO** — Los totales de costo suman entradas de distintas monedas y siempre se muestran con `$` (USD por defecto), sin importar la moneda real. `fmtMoney()` (`trackerUi.tsx:61-63`) no recibe argumento de moneda en ninguna de sus 6+ llamadas. Es explotable en la práctica: el formulario inline del Timer no tiene campo de moneda y termina siempre en MXN server-side (`repository.ts:96`), mientras el formulario de Registros sí lo tiene y por defecto usa USD (`RegistrosTab.tsx:65`) — un worker que usa ambos formularios termina con entradas MXN y USD sumadas bajo un solo número etiquetado `$`. [ ] Pendiente
+- **2.15 BAJO** — Código muerto/inalcanzable en el selector de trabajo del formulario manual (`page.tsx:1100-1128`) — la rama `jobs.length === 0` dentro del `<select>` nunca puede ejecutarse porque el branch externo ya maneja ese caso. [ ] Pendiente
+- **2.16 BAJO** — `PATCH` de proyecto libre acepta cualquier string en `status`, incluido `"converted"`, sin exigir `convertedJobId` ni pasar por el flujo dedicado `/convert` (`labor-engine.controller.ts:57-73`) — puede dejar un estado inconsistente "convertido sin job destino" que la UI renderiza igual como "Convertido a job" sin referencia real. [ ] Pendiente
+
+#### Evidencia / Incidencias / Materiales / Reseñas / Tareas
+
+- **2.17 CRÍTICO** — La función de reseñas del profesional está 100% rota, para todos los workers, siempre. `worker/review/page.tsx:84-85,104-108` depende de `job.clientUserId`, un campo que **no existe** en ningún lado del tipo `JobRecordView`/`jobRecordSchema` (`packages/schemas/src/job.schema.ts:53-67`) ni en la función que puebla la lista (`fetchMyJobs`, `semse-api.ts:363-378`) — de ahí el cast `(j as any)`, señal de que TypeScript ya sabía que el campo no existe. Resultado: `handleSubmit` siempre corta con "No se encontró el ID del cliente para este trabajo" — ningún worker puede enviar una reseña de cliente jamás, pese a que la UI (selector de estrellas, caja de comentario, botón enviar) se ve completamente funcional. [ ] Pendiente
+- **2.18 CRÍTICO** — La respuesta de `GET /v1/jobs/:jobId/evidence` descarta los campos `validationStatus`/`aiQualityScore` (columnas reales, alimentadas por `evidence-gateway.service.ts:142-143` y consumidas internamente por scoring/milestones) — `EvidenceRepository.toEvidenceView`/`listByProject`/`findById` (`evidence.repository.ts:222-245,264-275,350-361`) reconstruyen la respuesta con solo `{id, tenantId, projectId, jobId, milestoneId, uploadedById, kind, key, metadata, createdAt}`. El badge de estado en `/worker/evidence` queda pegado en "Pendiente" para siempre, sin importar el resultado real de la validación por IA — la promesa en pantalla ("El agente valida cobertura y calidad antes de permitir la aprobación") nunca puede cumplirse visualmente. Relacionado directo con **0.34**. [ ] Pendiente
+- **2.19 ALTO (seguridad, IDOR)** — Incidencias y solicitudes de material se pueden crear y leer contra cualquier job del tenant, sin verificar asignación. `POST /v1/incidents` y `POST /v1/materials` (`incidents.controller.ts:32-41`, `materials.controller.ts:34-43`) escriben el `jobId` que manda el cliente directo a la BD, solo gateado por el permiso genérico `jobs:create` — sin chequear que el actor esté asignado a ese job. `GET .../by-job/:jobId` tiene el mismo hueco (filtra solo por tenant+jobId). Cualquier worker del tenant que conozca/adivine el `jobId` de otro puede leer sus incidencias/materiales (incluidos montos en $) e inyectar registros falsos. Contraste: `ratings` sí valida participación real y estado `COMPLETED` antes de aceptar — este patrón no se replicó aquí. [ ] Pendiente
+- **2.20 ALTO (seguridad, IDOR)** — Cualquier worker puede cambiar el estado de la tarea de otro worker. `PATCH /v1/tasks/:taskId/status` (`tasks.controller.ts:67-80`, `tasks.service.ts:124-140`) actualiza `where: { id: input.taskId, tenantId: input.tenantId }` sin verificar `assignedTo === actor.userId` — gateado solo por el permiso amplio `jobs:update`. Un `taskId` de otro worker (visto en URL, chat, captura de pantalla) es suficiente para marcarla "hecha"/"bloqueada" desde otra cuenta. [ ] Pendiente
+- **2.21 MEDIO** — El link "Ver" de cada evidencia nunca se renderiza, para ninguna evidencia, ni siquiera las subidas correctamente por otras pantallas — consecuencia directa de 2.18: `previewUrl`/`url`/`signedUrl` tampoco existen en la respuesta del backend, así que `evidence/page.tsx:343` siempre calcula `previewUrl = undefined`. [ ] Pendiente
+- **2.22 MEDIO** — El historial de evidencias muestra la key cruda de storage (p. ej. `tenants/t_abc/evidence/1755-xyz.jpg`) como "nombre de archivo", nunca el nombre original — mismo root cause, `filename`/`originalFilename` tampoco existen en la respuesta (`evidence/page.tsx:340`). [ ] Pendiente
+- **2.23 MEDIO** — La sección "Reseñas recibidas" de `/worker/review` es código muerto/mal etiquetado: filtra sobre `myReviews` (reseñas que el worker **dio**, no las que recibió — `review/page.tsx:94`, `given = ...filter(r => r.fromUser.id === myUserId)`), así que una sección titulada "reseñas que recibí" nunca puede mostrar una reseña recibida bajo ninguna circunstancia — queda hardcodeada al mensaje "Las reseñas recibidas se muestran en tu perfil". [ ] Pendiente
+- **2.24 MEDIO** — El formulario "Solicitar material" solo valida que la cantidad no esté vacía (`materials/page.tsx:82`), no que sea positiva — el backend sí rechaza `0`/negativos (`z.number().positive()`) pero sin ningún aviso inline antes de enviar, solo un error genérico post-submit. [ ] Pendiente
+- **2.25 BAJO** — El badge de material "Rechazado" usa una variante neutral/gris en vez de un color de error, inconsistente con el esquema de colores ya usado en Incidencias (`materials/page.tsx:28`). [ ] Pendiente
+
+#### Trabajos / Dashboard / Perfil / Agenda / Propuestas
+
+- **2.26 CRÍTICO** — "Oportunidades abiertas" en `/worker/dashboard` ("Mi Panel", la pantalla de aterrizaje principal) está siempre vacía, sin importar cuántos jobs reales estén publicados. `dashboard/page.tsx:155` filtra `["posted","published"].includes(job.status)`, pero `job.status` llega en **mayúsculas** porque esta pantalla usa `fetch("/api/semse/jobs")` directo (no `fetchJobs()`), cuya respuesta pasa por `toVisibleJob()` (`apps/api/src/common/visible-response.ts:71-73`), que mayúsculiza intencionalmente el status. Mismo patrón que **0.0**, pero en una ubicación nueva y más dañina: es el descubrimiento principal de trabajo del PRO, siempre mostrando cero oportunidades. [ ] Pendiente — mismo fix que 0.0
+- **2.27 ALTO (seguridad, exposición de datos cross-org)** — La misma llamada de 2.26 (`fetch("/api/semse/jobs")` sin `?status=`) trae **todos los jobs del tenant**, de **todas las organizaciones cliente**, en **cualquier estado incluido `DRAFT`** (aún sin publicar) — `JobsRepository.listByTenant` (`jobs.repository.ts:62-69`) solo filtra por `tenantId + deletedAt: null`, sin filtro de status ni de org. Aunque la UI solo *muestra* los que pasan el filtro roto de 2.26, el payload completo (títulos, presupuestos, ubicaciones de jobs privados/borrador de otros clientes) ya llegó al navegador del PRO y es inspeccionable vía devtools — un tenant puede alojar múltiples organizaciones cliente no relacionadas entre sí. [ ] Pendiente
+- **2.28 CRÍTICO** — Los botones "Verificar" en `/worker/profile` (Documento de identidad, Antecedentes, Teléfono) siempre fallan con 403, para cualquier PRO. `profile/page.tsx:134-153` llama `POST /v1/users/:userId/verify`, gateado por `@RequirePermissions("users:verify")` (`users.controller.ts:96-98`) — permiso que **solo tiene `OPS_ADMIN`** (`rbac.ts:165`), ausente en `PRO`. Además `users.policy.ts:16-18` (`canVerifyUser`) también exige `OPS_ADMIN` explícitamente. Distinto del stub DID ya documentado (G-PRO-04): aquí la petición ni siquiera llega a esa lógica, muere en el guard RBAC — el botón de "solicitar verificación" está conectado por error a un endpoint exclusivo de administración. [ ] Pendiente
+- **2.29 MEDIO** — El KPI "Aceptados o reservados" del dashboard siempre es idéntico a "Trabajos activos" — usa el campo equivocado. `dashboard/page.tsx:324-329` filtra `["accepted","reserved"].includes(job.status)` sobre `metrics.active`, pero ese array ya viene pre-filtrado por **estado de bid** (`b.status === "accepted"`), no por estado de job — el filtro es siempre verdadero para cada elemento, así que el KPI nunca refleja realmente cuántos jobs están `in_progress`/`review` vs. recién aceptados. [ ] Pendiente
+- **2.30 MEDIO** — El badge secundario de estado de job en `/worker/bids` ("Mis propuestas") solo reconoce 5 de los ~9 valores reales de `JobStatus` (`bids/page.tsx:16-22` — le falta `posted`, `reserved`, `review`, `dispute`) — para esos casos cae a mostrar el string crudo en minúsculas sin traducir (p. ej. literal `reserved`) en vez de una etiqueta en español. No afecta el badge principal de estado del bid, que ya está confirmado correcto. [ ] Pendiente
+
+#### Field-ops / Movilidad (Travel)
+
+- **2.31 CRÍTICO** — El módulo de Movilidad y Estancia es completamente inalcanzable para cualquier PRO real — no es un bug de subida, es que **ningún profesional puede siquiera crear un viaje**. Todos los endpoints de escritura (`POST /v1/travel`, `PATCH .../status`, `POST .../expenses`, `.../lodging`, `.../advances`, `POST .../settlement/close`) exigen el permiso `jobs:create` (`travel.controller.ts`) — permiso que ni `PRO` ni `WORKER` tienen en `packages/auth/src/rbac.ts` (solo `CLIENT`/`OPS_ADMIN`). El botón "+ Nuevo viaje" siempre responde 403. El propio test del backend (`apps/api/test/travel.controller.test.ts`) usa un actor `roles: ["PRO"]` pero llama al controller directo, sin pasar por `RbacGuard` — por eso nunca se detectó este mismatch. [ ] Pendiente
+- **2.32 CRÍTICO (seguridad, IDOR cross-tenant)** — El estado de cualquier `FieldUnit` de **cualquier tenant** se puede sobreescribir. `field-ops.repository.ts:122-127` (`updateUnitStatus`) recibe `tenantId` como parámetro pero **nunca lo usa** en el `where` del `update` (a diferencia de `findUnitById`, que sí lo hace) — cualquier usuario con `field-ops:write` (PRO o WORKER) puede cambiar el estado de una unidad de campo de otra organización con solo conocer/adivinar su `id`. [ ] Pendiente
+- **2.33 ALTO** — Los cambios de estado de cumplimiento de proveedores (`ComplianceDoc`) nunca actualizan el registro existente — siempre crean uno nuevo. `field-ops.repository.ts:504-531` (`upsertComplianceDoc`) usa `where: { id: \`${vendorId}_${type}\` }` como key del upsert, pero `ComplianceDoc.id` es un `cuid()` real y no existe restricción `@@unique([vendorId, type])` en el schema — el `where` nunca matchea, así que cada cambio de estado (`MISSING→PENDING→APPROVED`) crea una fila nueva en vez de reemplazar la anterior. La UI (`VendorsTab`) toma la primera que encuentra sin `orderBy` garantizado — puede mostrar un estado de cumplimiento legal/de seguro obsoleto o incorrecto. [ ] Pendiente
+- **2.34 ALTO (seguridad)** — Los endpoints de detalle de viaje (`getAssignment`, `listExpenses`, `listLodging`, `listAdvances`, `computeSettlement`, `closeSettlement`, `createExpense`, etc. en `travel.service.ts`) solo filtran por `tenantId`, nunca verifican `assignedTo === actor.userId` — cualquier persona del mismo tenant con permiso `jobs:read` que conozca un `travelId` ajeno (compartido en chat, URL, captura) puede ver el gasto/anticipos/saldo privado de otro worker; quien además tenga `jobs:create` (CLIENT/OPS_ADMIN) puede agregar gastos o cerrar la liquidación de un viaje que no es suyo. [ ] Pendiente
+- **2.35 MEDIO** — `createAssignment` (crear viaje) confía en el `jobId` que manda el cliente sin verificar que exista, pertenezca al tenant, o esté asignado al solicitante (`travel.service.ts:284-333`) — el único intento de validación (`job.updateMany` con filtro de tenant) hace no-op silencioso en vez de bloquear la creación. Impacto bajo hoy porque PRO no puede llegar aquí (ver 2.31), pero CLIENT/OPS_ADMIN sí podrían crear asignaciones de viaje apuntando a jobs ajenos/inexistentes. [ ] Pendiente
+- **2.36 MEDIO (performance)** — `/worker/travel` dispara una tormenta N+1: por cada viaje en la lista hace 3 llamadas adicionales (`fetchTravelSettlement`, `fetchTravelExpenses`, `fetchTravelLodging`) solo para calcular contadores de badge — y por un bug de dependencias en `useCallback`/`useEffect` (`travel/page.tsx:125-170`), la carga completa (lista + todas las sub-llamadas) se dispara **dos veces** en el primer montaje. Para 15 viajes son ~180 llamadas HTTP solo para abrir la pantalla. [ ] Pendiente
+- **2.37 BAJO** — El tab Tracker de `/worker/field-ops` mezcla dos prefijos de ruta BFF distintos para la misma función (`/api/semse/tracker/...` en pausa/resume vs. `/api/semse/time-tracker/...` en el resto) — ambos existen y funcionan hoy, pero es una inconsistencia sin explicación entre dos familias de rutas paralelas para lo mismo. [ ] Pendiente
+- **2.38 BAJO** — Texto confuso en el bloqueo de liquidación de viaje: `"sin hospedaje requerido"` se usa quiere decir "falta el hospedaje que sí es requerido", pero se lee como "el hospedaje no es requerido" — el significado literal es el opuesto del intencionado (`worker/travel/page.tsx:96-97`, `[travelId]/page.tsx:432-434`). [ ] Pendiente
+
+#### Disputas / Pagos / Oportunidades / Configuración / Tarifas
+
+- **2.39 CRÍTICO (dinero)** — El estado visual de cada movimiento de pago en `/worker/payments` se calcula solo a partir de `type`, ignorando el campo `status` real (`PENDING|SUCCEEDED|FAILED|REVERSED`) que el backend ya envía. `payments/page.tsx:58-61`: cualquier `RELEASE` se pinta "Liberado" (verde) y suma a `totalReleased` **aunque su `status` real sea `FAILED` o `REVERSED`**; cualquier `DEPOSIT` se pinta "En escrow" **aunque haya fallado** (tarjeta rechazada). Un worker puede creer que ya le pagaron, o que hay fondos en escrow a su favor, cuando en realidad no. [ ] Pendiente
+- **2.40 CRÍTICO** — "Mis Tarifas" (`/worker/rates`) le promete al profesional *"Tus tarifas reales reemplazan los promedios BLS en cada estimado"* y *"Se usarán en todos los estimados futuros"* — pero la tarifa guardada **nunca llega a ningún estimado real**. El único lugar que lee `ContractorRateService.getOverride()` es `protools.agent.ts:139-158`, invocado solo desde `POST /v1/semse-agents/protools/estimate`, cuya **única** UI consumidora es `client/protools/page.tsx` — del lado **cliente**, usando el `userId` del cliente (no del profesional asignado). El guardado/carga/borrado de la tarifa sí funciona técnicamente, pero la funcionalidad prometida (afectar estimados reales) no existe en ningún flujo alcanzable — ni por el worker ni por el cliente que vería ese estimado. [ ] Pendiente
+- **2.41 ALTO** — 3 de los 5 controles de "Configuración del asistente" (`/worker/settings`, la pantalla mal etiquetada "Asistente IA" en el sidebar) son adornos sin efecto real. `buildSystemPrompt()` (`prometeo-orchestrator.service.ts:324-337`) solo lee `assistantTone` y `expertMode` — `assistantLanguage` y `assistantVerbosity` solo se interpolan en una línea de log interno de debug, nunca cambian ningún prompt/respuesta; `unifiedMode` se persiste de punta a punta pero jamás se lee como condición en ningún `if`/ternario de todo el repo (confirmado por grep completo). Los 5 muestran igual "✓ Configuración guardada." [ ] Pendiente
+- **2.42 ALTO** — El aviso "En disputa" de `/worker/payments` es código muerto permanente — nunca se activa aunque el job sí tenga una disputa real. `payments/page.tsx:47-51` intenta cruzar pagos con disputas usando `d.jobId`, pero `GET /v1/disputes` **nunca devuelve `jobId`** (`disputes.repository.ts:431-453` solo emite `projectId`) — el `Set` de jobs en disputa siempre queda vacío. `disputes/page.tsx` sí resuelve este mismo hueco de la API cruzando por `fetchProjects()`; `payments/page.tsx` no hace ese join. [ ] Pendiente
+- **2.43 ALTO** — `/worker/disputes` solo reconoce 2 de los 5 estados reales de disputa (`open`/`assigned`/`resolved` esperados, pero el código de `disputes/page.tsx:37-42` solo mapea `resolved` y `assigned` explícitos, todo lo demás cae a `"open"`). Una disputa marcada **`REJECTED`** (cerrada, decidida en contra del worker) se muestra para siempre como "Abierta" — contada en el stat card "Abiertas" y visible bajo ese filtro, sin ninguna forma de que el worker se entere de que ya se cerró. `under_review` sufre el mismo problema, perdiendo la distinción "alguien la está revisando" vs. "nada ha pasado". [ ] Pendiente
+- **2.44 ALTO (seguridad/cumplimiento, PCI-DSS)** — El formulario de "Método de cobro" (`PayoutMethodForm.tsx`) recolecta número de tarjeta completo y número de cuenta/routing bancario completo en inputs de texto plano propios (no Stripe Elements ni Plaid, pese a que la misma pantalla ya integra Stripe Connect para el otro riel de pago) y los envía sin tokenizar como JSON crudo desde el navegador → BFF Next.js → backend NestJS. El backend sí descarta los números completos y solo guarda `last4` (`payments.service.ts:145-154`), pero el PAN/routing completo igual transita en texto plano por toda la cadena — alcance PCI-DSS real independientemente de qué se guarde al final. [ ] Pendiente — **requiere decisión de producto/cumplimiento, no solo código**
+- **2.45 MEDIO** — El flujo de "paquete de evidencia" en la resolución de disputas del worker es enteramente simulado — no hay ningún archivo real de por medio. `DisputeResolutionWorkspace.tsx:171-178` usa un input de texto libre + un número (nombre y tamaño en MB "declarados"), no un `<input type="file">` real; "Preparar paquete" llama `planUpload` con un `fileSizeBytes` inventado, y para `external_transfer` corre una sesión multipart completa que nunca envía bytes (mismo patrón de PUT falso que 0.34/2.18) mostrando "Sesión multipart completada" como si algo se hubiera subido. Más grave que 0.34 porque aquí ni siquiera hay un archivo real que el usuario haya elegido — y ocurre justo en el flujo que debería sustentar una disputa con evidencia real. [ ] Pendiente
+- **2.46 MEDIO — confirma 0.33 en una ubicación nueva** — Las dos acciones principales de autogestión de disputa en el worker ("Pedir criterio" y "Pedir tercero humano", `DisputeResolutionWorkspace.tsx:352-448`) llaman `POST /v1/agents/copilot`, que exige `agents:run:create` — el permiso que **0.33** ya documentó como ausente para PRO. Ambos botones fallan siempre para cualquier profesional; la pantalla de disputas promete literalmente *"evidencia, criterio del copiloto y escalación asistida"* como las herramientas de autogestión del worker. [ ] Pendiente — ver 0.33
+- **2.47 MEDIO** — El primer clic en "Enviar propuesta" (`/worker/opportunities`) no hace nada visible, sin error ni feedback. `opportunities/page.tsx:367` dispara `setBidForm(...)` (async) y `submitBid()` (síncrono) en el mismo click — `submitBid` corre contra el `bidForm` todavía `null` de un closure viejo y corta en silencio (`if (!bidForm) return;`). Se necesita un segundo clic para que aparezca siquiera la validación real ("Monto y días son requeridos"). [ ] Pendiente
+- **2.48 BAJO** — `window.open(r.onboardingUrl, "_blank")` en el botón de onboarding de Stripe (`payments/page.tsx:258`) no usa `noopener,noreferrer` — reverse tabnabbing, deja `window.opener` accesible a la página abierta. [ ] Pendiente
+
+**Pantallas recorridas en vivo (2026-07-20 y 2026-07-21):** Dashboard ("Mi Panel"), Oportunidades, Mis trabajos (+ detalle de trabajo), Time Tracker, Operaciones de campo (+ pestaña Tracker), Mi perfil, Mis pagos (+ Método de cobro), **Mis propuestas** (correcta — badge "Aceptada" bien mostrado, usa `BidStatus` no `JobStatus`), **Agenda** (badge "Aceptado" correcto pese a tener el mismo código roto que otras pantallas — ver nota en 0.0 sobre por qué esta sí funciona; breadcrumb duplicado igual que en cliente, ver 1.12), **"Asistente IA"** (en realidad `/worker/settings`, configuración de tono — no es un chat, ver 0.33), **widget flotante de Prometeo/agentes** (roto para este rol, ver 0.33 y 2.1e), **catálogo `/agents`** (16 conversacionales + 8 especializados backend-only, revisado completo), **Tareas** (`/worker/tasks` — correcta, estado vacío bien explicado: "las tareas aparecen cuando un cliente asigna un milestone"), **Evidencia** (`/worker/evidence` — subida real de una foto confirma bug crítico, ver 0.34/2.1f), **Materiales** (`/worker/materials` — correcta, formulario "Solicitar material" abre bien, no se envió para no ensuciar datos reales), **Incidencias** (`/worker/incidents` — correcta, todo en cero legítimo), **Movilidad** (`/worker/travel` — lista correcta, sin viajes activos para forzar la repro en vivo del bug de comprobantes, confirmado por código, ver 0.34), **Reseñas** (`/worker/review` — correcta, estado vacío claro; le falta el link "← Dashboard" que sí tienen las demás pantallas, inconsistencia menor). No se activó el cronómetro legacy ni se creó cuenta Stripe Connect real para no generar datos falsos en producción. **Nota transversal confirmada de nuevo en esta ronda:** el selector de Tema (claro/oscuro) cambia solo entre pantallas sin acción del usuario (Materiales/Movilidad/Reseñas en "Claro", Incidencias en "Oscuro", todo en la misma sesión) — refuerza 1.9.
+
+**Cobertura en vivo y de código del módulo Worker: completa.** Pendiente para cerrar del todo:
+- [x] ~~Lanzar la ronda de agentes de código (bugs + inconsistencias) enfocada exclusivamente en `apps/web/app/(app)/worker/**`~~ — hecho 2026-07-21, 5 agentes en paralelo (Tracker/Labor Engine; Field-ops+Movilidad; Trabajos/Dashboard/Perfil/Agenda/Propuestas; Disputas/Pagos/Oportunidades/Configuración/Tarifas; Evidencia/Incidencias/Materiales/Reseñas/Tareas). 42 hallazgos nuevos, ver ítems **2.8 a 2.48** arriba y actualizaciones a **0.0, 0.33, 0.34, 1.12**.
+- [ ] Verificar en vivo el bug de duplicación de horas (2.1/0.20) forzando un corte de red a medio sync en el Time Tracker real.
+- [x] ~~Investigar la causa raíz compartida entre 1.4 (cliente) y 2.1b (worker)~~ — resuelto, ver **0.0**: comparación mayúsculas/minúsculas contra `JobStatus`, repetida en 8 archivos incluido Admin (pendiente de confirmar en vivo del lado Admin).
+- [x] ~~Probar el chat de Prometeo y los agentes especializados como se hizo con Cliente~~ — hecho 2026-07-21: roto para PRO, causa raíz confirmada, ver **0.33** y **2.1e**.
+- [x] ~~Recorrer las pantallas que faltaron: Tareas, Evidencia, Materiales, Incidencias, Movilidad, Reseñas~~ — hecho 2026-07-21, ver arriba. Evidencia reveló el bug crítico **0.34**.
+
+---
+
+## Sección 3 — Módulo Admin (pendiente de auditoría dedicada)
+
+Lo que ya sabemos, encontrado en la ronda inicial de UX (solo análisis de código — nunca se vio funcionando, falta acceso admin):
+
+- **3.0 CRÍTICO — mismo patrón que 0.0, sin confirmar en vivo todavía** — `apps/web/app/(app)/admin/dashboard/page.tsx` tiene el mismo patrón de comparación de `JobStatus` en minúsculas contra el enum real en mayúsculas (ver **0.0**). Por código se ve idéntico al bug de Cliente/Worker; falta credencial de OPS_ADMIN para confirmarlo en pantalla. Si se corrige 0.0, revisar si este archivo queda cubierto por el mismo fix o necesita su propio ajuste. [ ] Pendiente
+
+- **3.1 ALTO** — `/admin/labor-engine` (pantalla insignia) invisible en el menú de Admin — ni en `navigation-registry.ts` ni en `ADMIN_MODULES`. Solo alcanzable vía tarjeta enterrada en `/admin/workops`. [ ] Pendiente
+- **3.2 ALTO** — Resolución de disputas en Admin: un clic, sin confirmación, notifica de inmediato. `apps/web/app/(app)/admin/disputes/page.tsx` — RESOLVE_OPTIONS:658-673 · handleApprovalDecide:351. [ ] Pendiente
+- **3.3 ALTO** — Falla parcial de carga en labor-engine deja el KPI de costo estimado silenciosamente incompleto. `admin/labor-engine/page.tsx:139-157`. [ ] Pendiente
+- **3.4 MEDIO** — Alertas de QualityGuard son de solo lectura — sin botón para actuar desde la misma pantalla. `admin/labor-engine/page.tsx:246-267`. [ ] Pendiente
+- **3.5 MEDIO** — IDs crudos (UUID) en vez de nombres; ninguna lista de Admin revisada tiene paginación. [ ] Pendiente
+- **3.6 MEDIO** — Solo 4 de ~55 páginas de Admin usan `ModuleShell` — el resto arma su propio header a mano. [ ] Pendiente
+
+**Pendiente antes de poder cerrar este módulo:**
+- [ ] Conseguir credencial de OPS_ADMIN para repetir la navegación en vivo completa.
+- [ ] Lanzar la misma ronda de agentes enfocada en `apps/web/app/(app)/admin/**` (58 páginas — probablemente necesite más de una ronda, dividir por sub-área: WorkOps, Trust/Finance, Intelligence/AI, Tool Hub, Verticals).
+- [ ] Verificar en vivo el bug de "cero en 5 pantallas" (1.4) desde el lado admin — ¿el admin ve los mismos trabajos en cero, o solo el cliente?
+
+---
+
+## Cosas ya confirmadas que funcionan bien (no perder tiempo re-revisando)
+
+- RBAC guard deny-by-default — sólido, todos los endpoints mutantes revisados tienen guardia.
+- Rate limiting en auth — bien aplicado (throttler global + límites específicos por endpoint).
+- Enumeración de credenciales — mensajes de error genéricos, confirmado en vivo.
+- Password reset — no filtra si un email existe.
+- Contratos (`sign()`) — valida identidad correcta por slot de firma, idempotente.
+- Reservas `create()` — race-safe vía índice único parcial en Postgres.
+- Outbox v2 (ruta de evidencia) — transaccional, `FOR UPDATE SKIP LOCKED`, idempotente.
+- Notificaciones — bien desacopladas, un fallo de envío no corrompe la transacción de negocio.
+- SQL crudo y secretos hardcodeados — sweep completo del repo, limpio.
+- XSS / `dangerouslySetInnerHTML` con contenido de usuario — no encontrado.
+- Token de sesión — nunca toca `localStorage`, cookie `HttpOnly` firmada.
+- Redirect `?from=` tras login — validado en cliente y servidor.
+- Vinculación de cuentas Stripe Connect — no hay path de secuestro vía callback.
+- Path traversal en storage — bloqueado correctamente.
+- Vision-service — timeout/retry del lado cliente bien manejado (aunque el servicio en sí no tiene auth, ver 0.10).
+- Fórmulas de materiales (pintura, drywall, piso, mulch) — estándar de construcción real, redondeo correcto (excepto madera, ver 0.30).
+- Worker: tenant-scoping en los handlers de jobs — limpio.
+- SSE: los 4 canales que no son `planStream`/`delegationsStream` sí derivan el tenant correctamente.
+- `/admin/product-intelligence` — correctamente gateado (OPS_ADMIN + kill switch).
+- autonomy-server — herramienta interna pura, sin superficie de ataque real.
+
+---
+
+## Notas de contexto (por si se pierde el hilo entre sesiones)
+
+- La sesión de auditoría se hizo con una cuenta de prueba en el rol **Cliente**, contra `https://semse-web-production.up.railway.app` (producción real). No se disparó ningún botón que mueva dinero real ni resuelva disputas reales — esos hallazgos están confirmados solo por lectura de código.
+- El proyecto Railway es **SEMSEproject** (id `95ad1b14-d1d9-467d-82d8-5354619ba873`), ambiente `production`, servicio API es **semse-API** (id `2bd1bd3f-9aa1-4fc3-a714-4cf90c52c770`).
+- Paralelamente a esta auditoría, en la misma sesión se completó y mergeó a `main` el trabajo de **F2 — Prometeo Tool Registry gobernado** (gate híbrido de pagos), que no tiene relación con estos hallazgos.
+- La cuenta profesional real `jhonnymembers403@gmail.com` (rol `PRO`) quedó bloqueada por el bug **0.32** (reset de contraseña no envía correo) y se desbloqueó a mano el 2026-07-20 escribiendo un hash de contraseña temporal directo en la base de datos de producción, como parche de emergencia — no como fix del bug real. **Se repitió el mismo bloqueo el 2026-07-21** (el usuario volvió a intentar "olvidé mi contraseña" varias veces, sin éxito por la misma causa) y se desbloqueó otra vez de la misma forma — evidencia de que 0.32 sigue activo y no es un evento aislado. Cada contraseña temporal se le dio al dueño de la cuenta una sola vez en el chat y no quedó guardada en ningún archivo (los scripts usados para generarla/escribirla se borraron después de cada uso). Debe revocarse/reemplazarse por un cambio real en cuanto el flujo de recuperación funcione.

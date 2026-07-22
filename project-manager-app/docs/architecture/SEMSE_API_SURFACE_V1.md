@@ -84,7 +84,9 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 ## Prometeo
 - `POST /v1/ai-models/prometeo/chat` (acepta `PrometeoRequest` multimodal legacy-compatible)
 - `GET /v1/prometeo/tools`
-- `POST /v1/prometeo/tools/invoke` (P1: ejecución solo lectura contra registry)
+- `POST /v1/prometeo/tools/invoke` (F2: despacha por `descriptor.mode` — lectura ejecuta directo; escritura evalúa `evaluatePrometeoToolPolicy` y, si `approvalPolicy` no es `none`, crea una `PrometeoProposedAction` en vez de ejecutar)
+- `POST /v1/prometeo/tools/invocations/:id/approve` (F2-C/D: aprueba una `PrometeoProposedAction` — `OPS_ADMIN` siempre, o el actor proponente solo si `approvalPolicy: "confirm"`; ejecuta el efecto real y persiste `resultJson`)
+- `POST /v1/prometeo/tools/invocations/:id/reject` (F2-C/D: rechaza sin ejecutar nada; misma RBAC que approve)
 - BFF web: `GET /api/semse/prometeo/tools` y `POST /api/semse/prometeo/tools/invoke`
 - `POST /v1/prometeo/missions` (P2: crea misión durable sobre `AgentWorkPlan`)
 - `GET /v1/prometeo/missions/:missionId`
