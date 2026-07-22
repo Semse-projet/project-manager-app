@@ -39,6 +39,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "ecosystem", label: "Ecosystem", href: "/admin/ecosystem" },
       { id: "consciousness", label: "Consciousness", href: "/admin/consciousness" },
       { id: "ops", label: "Ops", href: "/admin/ops" },
+      { id: "ops-loops", label: "Permanent Loops", href: "/admin/ops/loops", description: "Pause/resume background autonomous agent loops and review their proposals." },
       { id: "domain-events", label: "Domain Events", href: "/admin/domain-events" },
       { id: "reports", label: "Reports", href: "/admin/reports" },
     ],
@@ -59,6 +60,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "change-orders", label: "Change Orders", href: "/admin/change-orders" },
       { id: "pmo", label: "PMO", href: "/admin/pmo" },
       { id: "qa", label: "QA", href: "/admin/qa" },
+      { id: "travel", label: "Travel", href: "/admin/travel", description: "Worker travel assignments, expenses, lodging, advances, and settlements." },
     ],
   },
   {
@@ -100,6 +102,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "compliance", label: "Compliance", href: "/admin/compliance" },
       { id: "reputation", label: "Reputation", href: "/admin/reputation" },
       { id: "users", label: "Users", href: "/admin/users" },
+      { id: "communications", label: "Communications", href: "/admin/communications", description: "SEMSE Inbox — customer WhatsApp/SMS conversations." },
     ],
   },
   {
@@ -119,6 +122,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "memory", label: "Memory", href: "/admin/memory" },
       { id: "intelligence-rooms", label: "Intelligence Rooms", href: "/admin/intelligence-rooms" },
       { id: "browser-agent", label: "Browser Agent", href: "/admin/browser-agent" },
+      { id: "product-intelligence", label: "Product Intelligence", href: "/admin/product-intelligence" },
     ],
   },
   {

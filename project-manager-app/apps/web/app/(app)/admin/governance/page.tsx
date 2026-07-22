@@ -107,6 +107,7 @@ function ProposalCard({ proposal, tenantId }: { proposal: Proposal; tenantId: st
   const [loadingTally, setLoadingTally] = useState(false);
   const [voting, setVoting] = useState(false);
   const [voteChoice, setVoteChoice] = useState<"for" | "against" | "abstain" | null>(null);
+  const [voteError, setVoteError] = useState<string | null>(null);
 
   const loadTally = useCallback(async () => {
     setLoadingTally(true);
@@ -121,14 +122,20 @@ function ProposalCard({ proposal, tenantId }: { proposal: Proposal; tenantId: st
     if (voting) return;
     setVoting(true);
     setVoteChoice(choice);
+    setVoteError(null);
     try {
+      // voterId is never sent — the backend always derives it from the real
+      // session (see docs/AUDIT_REMEDIATION_PLAN.md 3.13); a client-supplied
+      // value here would be ignored server-side even if present.
       const res = await fetch(`/api/semse/governance/proposals/${proposal.id}/vote`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tenantId, voterId: "me", choice, units: 1 }),
+        body: JSON.stringify({ tenantId, choice, units: 1 }),
       });
-      if (res.ok) await loadTally();
-    } catch { /* silent */ } finally { setVoting(false); }
+      if (res.ok) { await loadTally(); }
+      else { const j = await res.json().catch(() => null) as { error?: { message?: string } } | null; setVoteError(j?.error?.message ?? "No se pudo registrar el voto"); }
+    } catch (e) { setVoteError(e instanceof Error ? e.message : "No se pudo registrar el voto"); }
+    finally { setVoting(false); }
   }, [proposal.id, tenantId, voting, loadTally]);
 
   useEffect(() => { if (open) void loadTally(); }, [open, loadTally]);
@@ -223,6 +230,7 @@ function ProposalCard({ proposal, tenantId }: { proposal: Proposal; tenantId: st
               ))}
             </div>
           )}
+          {voteError && <div style={{ fontSize: 11, color: "#fca5a5" }}>{voteError}</div>}
 
           {/* Meta */}
           <div style={{ display: "flex", gap: 12, fontSize: 10, color: "var(--muted)", paddingTop: 4, borderTop: "1px solid var(--border)" }}>

@@ -71,6 +71,38 @@ export class BidsRepository {
     return bids.map((bid) => this.toRecord(bid));
   }
 
+  /** Tenant-wide bid feed for admin oversight — not scoped to a job or a
+   * professional, unlike listByJob/listByWorker above. Gated at the
+   * controller by an OPS_ADMIN-only permission (bids:read:tenant), never
+   * bids:read, since that permission is also granted to CLIENT/PRO/WORKER. */
+  async listByTenant(input: { tenantId: string }): Promise<BidRecord[]> {
+    const bids = (await this.prisma.bid.findMany({
+      where: {
+        job: { tenantId: input.tenantId }
+      },
+      include: {
+        job: {
+          select: {
+            id: true,
+            tenantId: true,
+            status: true,
+            clientOrgId: true
+          }
+        },
+        professional: {
+          select: {
+            email: true,
+            ratingsReceived: { select: { score: true }, take: 100 }
+          }
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 200
+    })) as StoredBid[];
+
+    return bids.map((bid) => this.toRecord(bid));
+  }
+
   async listByWorker(input: {
     tenantId: string;
     userId: string;

@@ -34,12 +34,13 @@ export class GovernanceController {
     const closesAt = new Date(closesAtRaw);
     if (isNaN(closesAt.getTime())) throw new BadRequestException("closesAt must be a valid ISO date");
 
+    // authorId must always be the real caller — never trust a client-supplied
+    // value here, or any actor could author a DAO proposal under someone
+    // else's identity. See docs/AUDIT_REMEDIATION_PLAN.md 3.13.
     const tenantId = typeof body.tenantId === "string" && body.tenantId.trim()
       ? body.tenantId.trim()
       : ctx.tenantId;
-    const authorId = typeof body.authorId === "string" && body.authorId.trim()
-      ? body.authorId.trim()
-      : ctx.userId;
+    const authorId = ctx.userId;
 
     const data = await this.governance.createProposal({ tenantId, authorId, title, description, category, closesAt });
     return ok(resolveRequestId(req.headers ?? {}), data);
@@ -92,9 +93,11 @@ export class GovernanceController {
     const tenantId = typeof body.tenantId === "string" && body.tenantId.trim()
       ? body.tenantId.trim()
       : ctx.tenantId;
-    const voterId = typeof body.voterId === "string" && body.voterId.trim()
-      ? body.voterId.trim()
-      : ctx.userId;
+    // voterId must always be the real caller — a client-supplied voterId let
+    // any actor with ops:dashboard:read cast a vote as an arbitrary user,
+    // directly impersonating them in a reputation-weighted tally. See
+    // docs/AUDIT_REMEDIATION_PLAN.md 3.13.
+    const voterId = ctx.userId;
 
     const data = await this.governance.castVote({ proposalId, tenantId, voterId, choice, units, reason });
     return ok(resolveRequestId(req.headers ?? {}), data);
