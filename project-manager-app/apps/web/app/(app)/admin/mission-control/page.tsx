@@ -267,7 +267,14 @@ function SignalCard({
         )}
         {signal.status !== "resolved" && (
           <button
-            onClick={() => onResolve(signal.id)}
+            onClick={() => {
+              // resolve() only flips status server-side — it never checks
+              // the real condition (payment released, evidence delivered)
+              // was actually fixed. See docs/AUDIT_REMEDIATION_PLAN.md 3.17.
+              if (window.confirm(`¿Confirmas que la condición real detrás de "${signal.title}" ya se corrigió? Esto solo marca la señal como resuelta, no verifica nada por sí mismo.`)) {
+                onResolve(signal.id);
+              }
+            }}
             disabled={isLoading}
             style={{
               padding: "4px 10px",
@@ -284,7 +291,11 @@ function SignalCard({
         )}
         {signal.status !== "dismissed" && signal.status !== "resolved" && (
           <button
-            onClick={() => onDismiss(signal.id)}
+            onClick={() => {
+              if (window.confirm(`¿Descartar "${signal.title}" sin resolverla? Esto la oculta de la vista activa.`)) {
+                onDismiss(signal.id);
+              }
+            }}
             disabled={isLoading}
             style={{
               padding: "4px 10px",

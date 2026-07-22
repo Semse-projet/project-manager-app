@@ -393,17 +393,17 @@ export default function AdminUsersPage() {
                         ◈ Ver perfil
                       </Link>
                       {!u.verified && (
-                        <button onClick={() => void applyAction(u.id, "verify")} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+                        <button onClick={() => { if (window.confirm(`¿Marcar a ${u.name || u.email} como verificado? Esta pantalla no muestra ningún documento/evidencia de respaldo — confirma que ya la revisaste por otro medio.`)) void applyAction(u.id, "verify"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ✓ Verificar
                         </button>
                       )}
                       {u.status !== "suspended" && (
-                        <button onClick={() => void applyAction(u.id, "suspend")} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#ef4444", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+                        <button onClick={() => { if (window.confirm(`¿Suspender la cuenta de ${u.name || u.email}? Esto bloquea su acceso de inmediato.`)) void applyAction(u.id, "suspend"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#ef4444", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ⊘ Suspender
                         </button>
                       )}
                       {u.status === "suspended" && (
-                        <button onClick={() => void applyAction(u.id, "activate")} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+                        <button onClick={() => { if (window.confirm(`¿Reactivar la cuenta de ${u.name || u.email}?`)) void applyAction(u.id, "activate"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ↑ Activar
                         </button>
                       )}

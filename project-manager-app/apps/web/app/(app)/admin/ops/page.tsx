@@ -1352,7 +1352,15 @@ export default function AdminOpsPage() {
 
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
-                        onClick={() => void handleApprovalDecision(approval.id, "approved")}
+                        onClick={() => {
+                          // Approving here can execute the pending action for
+                          // real (e.g. copilot:* correlationIds run through
+                          // executeApprovedAction), not just flip a status —
+                          // see docs/AUDIT_REMEDIATION_PLAN.md 3.16.
+                          if (window.confirm("Esto ejecuta la acción pendiente de verdad, no solo cambia su estado. ¿Confirmas la aprobación?")) {
+                            void handleApprovalDecision(approval.id, "approved");
+                          }
+                        }}
                         disabled={isBusy}
                         style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,0.3)", background: "rgba(16,185,129,0.1)", color: "#34d399", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: isBusy ? 0.5 : 1 }}
                       >

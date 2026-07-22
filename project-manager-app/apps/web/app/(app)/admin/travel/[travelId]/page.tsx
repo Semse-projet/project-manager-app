@@ -389,7 +389,7 @@ export default function AdminTravelDetailPage() {
         )}
         {status === "PENDING_SETTLEMENT" && (
           <>
-            <button onClick={() => void handleClose()} disabled={busy || missingReceipts > 0} style={{ padding: "9px 14px", borderRadius: "10px", border: "none", background: missingReceipts > 0 ? "#94a3b8" : "#2563eb", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: busy || missingReceipts > 0 ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
+            <button onClick={() => { if (window.confirm("¿Cerrar la liquidación de este viaje? Esto finaliza el saldo de reembolso de gastos del profesional de forma permanente.")) void handleClose(); }} disabled={busy || missingReceipts > 0} style={{ padding: "9px 14px", borderRadius: "10px", border: "none", background: missingReceipts > 0 ? "#94a3b8" : "#2563eb", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: busy || missingReceipts > 0 ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
               Cerrar liquidación
             </button>
             {missingReceipts > 0 && (
