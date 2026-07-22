@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleServerError, isApiBaseConfigured, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../_server";
-import type { JobRecordView } from "@semse/schemas";
+import { normalizeJobRecordStatus, type JobRecordView } from "@semse/schemas";
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 
 export async function GET(request: NextRequest) {
@@ -14,6 +14,9 @@ export async function GET(request: NextRequest) {
       headers: (await buildAuthorizedHeaders(cfg)),
     });
     const json = await resp.json() as { requestId: string; data: JobRecordView[] };
+    if (Array.isArray(json.data)) {
+      json.data = json.data.map(normalizeJobRecordStatus);
+    }
     return NextResponse.json(json, { status: resp.status });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) return runtimeDisabledResponse();

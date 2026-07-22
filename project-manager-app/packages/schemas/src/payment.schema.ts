@@ -37,9 +37,18 @@ export const refundEscrowSchema = z.object({
 });
 
 export const paymentsWebhookSchema = z.object({
+  // Legacy/simple shape (mock provider, existing tests).
   event: z.string().min(1).optional(),
-  providerRef: z.string().min(1).optional()
-});
+  providerRef: z.string().min(1).optional(),
+  // Real Stripe webhook envelope shape: { type, data: { object: { id, status } } }.
+  type: z.string().min(1).optional(),
+  data: z.object({
+    object: z.object({
+      id: z.string().min(1).optional(),
+      status: z.string().min(1).optional()
+    }).passthrough().optional()
+  }).passthrough().optional()
+}).passthrough();
 
 export type PaymentProvider = z.infer<typeof paymentProviderSchema>;
 export type PaymentMethodType = z.infer<typeof paymentMethodTypeSchema>;

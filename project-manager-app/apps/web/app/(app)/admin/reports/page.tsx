@@ -7,7 +7,12 @@ import { HtmlInCanvasPanel } from "@semse/ui";
 import { fetchJobs, fetchJobPayments, fetchAutonomyRuns, fetchDisputes } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
-const PERIODS = ["Último mes", "Último trimestre", "Último año", "Personalizado"] as const;
+// Only "Todo" reflects reality — none of the fetch calls below take a date
+// range, so a period selector that claimed to filter by month/quarter/year
+// would silently show the exact same numbers under a different label. See
+// docs/AUDIT_REMEDIATION_PLAN.md 3.43. Real range filtering needs backend
+// query-param support before more options can be added honestly.
+const PERIODS = ["Todo"] as const;
 type Period = typeof PERIODS[number];
 
 const REPORT_TYPES = [
@@ -23,14 +28,14 @@ type ReportRow = Record<string, string | number>;
 const DEFAULT_METRICS: Metric[] = [
   { label: "Trabajos totales", value: "—", change: "—", up: true },
   { label: "Volumen escrow", value: "—", change: "—", up: true },
-  { label: "Tiempo promedio cierre", value: "6.2 días", change: "-1.1d", up: true },
+  { label: "Tiempo promedio cierre", value: "—", change: "—", up: true },
   { label: "Disputas abiertas", value: "—", change: "—", up: false },
   { label: "Trabajos en curso", value: "—", change: "—", up: true },
   { label: "Runs de agentes", value: "—", change: "—", up: true },
 ];
 
 export default function AdminReportsPage() {
-  const [period, setPeriod] = useState<Period>("Último mes");
+  const [period] = useState<Period>("Todo");
   const [selected, setSelected] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Metric[]>(DEFAULT_METRICS);
   const [reportRows, setReportRows] = useState<Record<string, ReportRow[]>>({
@@ -49,10 +54,16 @@ export default function AdminReportsPage() {
           fetchAutonomyRuns().catch(() => ({ runs: [] }))
         ]);
         const completed = jobs.filter(j => j.status === "completed").length;
+        // Only SUCCEEDED transactions represent money that actually moved —
+        // summing every transaction regardless of status (PENDING/FAILED/
+        // REVERSED) overstates escrow volume. Same fix as 0.35/3.8 (finance)
+        // and 2.39/G-PRO-12 (worker payments), recurring here since this
+        // page reads the same PaymentTxn rows independently.
         const totalEscrow = (await Promise.all(jobs.map(j => fetchJobPayments(j.id).catch(() => []))))
           .flat()
           .reduce((sum, t) => {
             const row = t as Record<string, unknown>;
+            if (row.status !== "SUCCEEDED") return sum;
             return sum + (typeof row.amount === "number" ? row.amount : Number(row.amount ?? 0));
           }, 0);
         const runCount = Array.isArray((runsView as Record<string, unknown>).runs)
@@ -106,7 +117,7 @@ export default function AdminReportsPage() {
         setMetrics([
           { label: "Trabajos totales", value: String(jobs.length), change: `${completed} completados`, up: true },
           { label: "Volumen escrow", value: `$${totalEscrow.toLocaleString()}`, change: "acumulado", up: true },
-          { label: "Tiempo promedio cierre", value: "6.2 días", change: "-1.1d", up: true },
+          { label: "Tiempo promedio cierre", value: "—", change: "—", up: true },
           { label: "Disputas abiertas", value: String(openDisputes), change: "activas", up: false },
           { label: "Trabajos en curso", value: String(jobs.filter(j => j.status === "in_progress").length), change: "activos", up: true },
           { label: "Runs de agentes", value: runCount > 0 ? String(runCount) : "—", change: "total", up: true },
@@ -155,11 +166,9 @@ export default function AdminReportsPage() {
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
           <NotificationBanner audience="admin" />
-          <div style={{ display: "flex", gap: "4px", background: "var(--surface)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-            {PERIODS.map(p => (
-              <button key={p} onClick={() => setPeriod(p)} style={{ padding: "6px 12px", borderRadius: "7px", border: "none", background: period === p ? "var(--brand)" : "transparent", color: period === p ? "#fff" : "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>{p}</button>
-            ))}
-          </div>
+          <span style={{ padding: "6px 12px", borderRadius: "10px", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap" }}>
+            Histórico completo
+          </span>
         </div>
       </HtmlInCanvasPanel>
 

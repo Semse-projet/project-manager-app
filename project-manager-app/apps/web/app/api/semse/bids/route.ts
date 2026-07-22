@@ -3,6 +3,17 @@ import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } 
 
 const SAFE_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
+// Tenant-wide bid feed, admin-only (gated server-side by bids:read:tenant).
+export async function GET(request: NextRequest) {
+  try {
+    const data = await fetchSemseDataForRequest("/v1/bids", request);
+    return NextResponse.json({ data });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("not configured")) return runtimeDisabledResponse();
+    return handleServerError(error);
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json() as { jobId: string; amount?: number; etaDays?: number; note?: string; proOrgId?: string };

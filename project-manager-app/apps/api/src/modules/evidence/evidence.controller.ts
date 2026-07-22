@@ -372,7 +372,8 @@ export class EvidenceController {
       jobId: parsed.data.jobId,
       milestoneId: parsed.data.milestoneId,
       key: parsed.data.key,
-      kind: parsed.data.kind
+      kind: parsed.data.kind,
+      filename: parsed.data.filename
     });
 
     return ok(requestId, toVisibleEvidence(evidence));

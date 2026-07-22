@@ -349,9 +349,14 @@ ${result.visibleTextSample || "(None extracted)"}
     return { missionId: mission.id, runId: run.id, stepsCount: steps.length };
   }
 
-  async getMission(id: string) {
-    const mission = await this.prisma.browserMission.findUnique({
-      where: { id },
+  // tenantId is required on all three methods below — createMission always
+  // stamps it, but these lookups/updates previously didn't filter by it,
+  // letting any authenticated actor (agents:run:create is shared by
+  // CLIENT/PRO/WORKER/OPS_ADMIN) read or overwrite another tenant's mission
+  // by guessing/enumerating its id. See docs/AUDIT_REMEDIATION_PLAN.md 3.12.
+  async getMission(id: string, tenantId: string) {
+    const mission = await this.prisma.browserMission.findFirst({
+      where: { id, tenantId },
       // Las sesiones de navegador viven en memoria (BrowserSessionPool),
       // no hay modelo persistido de sesión que incluir.
       include: { steps: true }
@@ -360,21 +365,25 @@ ${result.visibleTextSample || "(None extracted)"}
     return mission;
   }
 
-  async updateMission(id: string, body: any) {
-    return this.prisma.browserMission.update({
-      where: { id },
+  async updateMission(id: string, tenantId: string, body: any) {
+    const { count } = await this.prisma.browserMission.updateMany({
+      where: { id, tenantId },
       data: { status: body.status }
     });
+    if (count === 0) throw new NotFoundException("Mission not found");
+    return this.prisma.browserMission.findUnique({ where: { id } });
   }
 
-  async updateStep(stepId: string, body: any) {
-    return this.prisma.browserMissionStep.update({
-      where: { id: stepId },
+  async updateStep(stepId: string, tenantId: string, body: any) {
+    const { count } = await this.prisma.browserMissionStep.updateMany({
+      where: { id: stepId, mission: { tenantId } },
       data: {
         status: body.status,
         error: body.error,
         evidenceRef: body.evidenceRef
       }
     });
+    if (count === 0) throw new NotFoundException("Mission step not found");
+    return this.prisma.browserMissionStep.findUnique({ where: { id: stepId } });
   }
 }

@@ -1,6 +1,18 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
+import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
+
+async function assertJobAccess(
+  prisma: PrismaService,
+  input: { tenantId: string; jobId: string; orgId: string; roles: string[] },
+): Promise<void> {
+  if (input.roles.includes("OPS_ADMIN")) return;
+  const project = await findProjectLinkByJobIdOrThrow(prisma, { tenantId: input.tenantId, jobId: input.jobId });
+  if (input.orgId !== project.job.clientOrgId && input.orgId !== project.assignedProOrgId) {
+    throw new ForbiddenException("actor is not assigned to this job");
+  }
+}
 
 export interface MaterialRequestRecord {
   id: string;
@@ -56,8 +68,9 @@ export class MaterialsService {
     return rows.map(toRecord);
   }
 
-  async listByJob(input: { tenantId: string; jobId: string }): Promise<MaterialRequestRecord[]> {
+  async listByJob(input: { tenantId: string; jobId: string; orgId: string; roles: string[] }): Promise<MaterialRequestRecord[]> {
     if (!databaseEnabled()) return MOCK_REQUESTS;
+    await assertJobAccess(this.prisma, input);
     const rows = await this.prisma.materialRequest.findMany({
       where: { tenantId: input.tenantId, jobId: input.jobId },
       orderBy: { createdAt: "desc" },
@@ -78,12 +91,19 @@ export class MaterialsService {
     tenantId: string; jobId: string; requestedBy: string;
     milestone?: string; item: string; quantity: number;
     unit: string; estimatedCost?: number; notes?: string;
+    orgId: string; roles: string[];
   }): Promise<MaterialRequestRecord> {
     if (!input.item.trim()) throw new BadRequestException("item required");
 
     if (!databaseEnabled()) {
       const mock: MaterialRequestRecord = {
         id: `mat_${Date.now()}`,
+        tenantId: input.tenantId,
+        jobId: input.jobId,
+        requestedBy: input.requestedBy,
+        item: input.item,
+        quantity: input.quantity,
+        unit: input.unit,
         status: "pending",
         approvedBy: null, approvedAt: null,
         milestone: input.milestone ?? null,
@@ -91,13 +111,12 @@ export class MaterialsService {
         notes: input.notes ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        ...input,
-        quantity: input.quantity,
-        unit: input.unit,
       };
       MOCK_REQUESTS.push(mock);
       return mock;
     }
+
+    await assertJobAccess(this.prisma, input);
 
     const row = await this.prisma.materialRequest.create({
       data: {

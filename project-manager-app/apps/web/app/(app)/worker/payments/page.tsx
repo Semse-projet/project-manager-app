@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
-import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
+import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchProjects, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type PayRow = {
@@ -14,14 +14,15 @@ type PayRow = {
   description: string;
   amount: number;
   date: string;
-  status: "released" | "in_escrow" | "pending";
+  status: "released" | "in_escrow" | "pending" | "failed";
   jobId: string;
 };
 
-const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info"; label: string; icon: typeof CheckCircle }> = {
+const STATUS_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "error"; label: string; icon: typeof CheckCircle }> = {
   released:  { variant: "success", label: "Liberado",  icon: CheckCircle   },
   in_escrow: { variant: "info",    label: "En escrow", icon: Clock         },
   pending:   { variant: "warning", label: "Pendiente", icon: AlertTriangle },
+  failed:    { variant: "error",   label: "Fallido / revertido", icon: AlertTriangle },
 };
 
 export default function WorkerPaymentsPage() {
@@ -44,9 +45,30 @@ export default function WorkerPaymentsPage() {
   const loadPayments = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobs, disputes] = await Promise.all([fetchMyJobs(), fetchDisputes().catch(() => [])]);
+      const [jobs, disputes, projects] = await Promise.all([
+        fetchMyJobs(),
+        fetchDisputes().catch(() => []),
+        fetchProjects().catch(() => [] as Record<string, unknown>[]),
+      ]);
+      // GET /v1/disputes never returns jobId (only projectId) — cross-referencing
+      // d.jobId directly always misses, so "En disputa" here was permanent dead
+      // code (2.42 in docs/AUDIT_REMEDIATION_PLAN.md). Join through projects,
+      // same pattern worker/disputes/page.tsx already uses correctly.
+      const jobIdByProjectId = new Map<string, string>();
+      for (const project of projects) {
+        const p = project as Record<string, unknown>;
+        const projectId = typeof p.id === "string" ? p.id : undefined;
+        const jobId = typeof p.jobId === "string" ? p.jobId : undefined;
+        if (projectId && jobId) jobIdByProjectId.set(projectId, jobId);
+      }
       const dJobIds = new Set<string>(
-        disputes.map(d => String((d as Record<string, unknown>).jobId ?? "")).filter(Boolean)
+        disputes
+          .map(d => {
+            const row = d as Record<string, unknown>;
+            const projectId = typeof row.projectId === "string" ? row.projectId : "";
+            return jobIdByProjectId.get(projectId) ?? "";
+          })
+          .filter(Boolean)
       );
       setDisputedJobIds(dJobIds);
       setJobTitles(jobs.map(j => ({ id: j.id, title: j.title })));
@@ -56,9 +78,15 @@ export default function WorkerPaymentsPage() {
         for (const t of txns) {
           const row = t as Record<string, unknown>;
           const txType = String(row.type ?? "DEPOSIT");
+          // status must be read from the real provider status (PENDING/SUCCEEDED/
+          // FAILED/REVERSED), not derived from type alone — a FAILED/REVERSED
+          // transaction must never render as "Liberado"/"En escrow".
+          const txStatus = String(row.status ?? "PENDING").toUpperCase();
           const status: PayRow["status"] =
-            txType === "RELEASE" ? "released" :
-            txType === "DEPOSIT" ? "in_escrow" : "pending";
+            txStatus === "FAILED" || txStatus === "REVERSED" ? "failed" :
+            txType === "RELEASE" && txStatus === "SUCCEEDED" ? "released" :
+            txType === "DEPOSIT" && txStatus === "SUCCEEDED" ? "in_escrow" :
+            "pending";
           rows.push({
             id: String(row.id ?? Math.random()),
             description: `${job.title} – ${txType === "RELEASE" ? "Liberación" : txType === "DEPOSIT" ? "Escrow depositado" : txType}`,
@@ -255,7 +283,7 @@ export default function WorkerPaymentsPage() {
                 setConnectLoading(true); setConnectError(null);
                 try {
                   const r = await createOnboardingLink();
-                  window.open(r.onboardingUrl, "_blank");
+                  window.open(r.onboardingUrl, "_blank", "noopener,noreferrer");
                 } catch (e) { setConnectError(e instanceof Error ? e.message : "Error"); }
                 setConnectLoading(false);
               }}
@@ -341,8 +369,8 @@ export default function WorkerPaymentsPage() {
               const isDisputed = p.status === "in_escrow" && disputedJobIds.has(p.jobId);
               return (
                 <div data-testid={`worker-payments-row-${p.id}`} key={p.id} style={{ ...card, display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px", borderColor: isDisputed ? "rgba(239,68,68,.28)" : "var(--border)", background: isDisputed ? "rgba(239,68,68,.03)" : "var(--surface)" }}>
-                  <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDisputed ? "rgba(239,68,68,.12)" : p.status === "released" ? "rgba(16,185,129,.12)" : p.status === "in_escrow" ? "rgba(59,130,246,.12)" : "rgba(251,191,36,.12)" }}>
-                    {isDisputed ? <Scale size={16} color="#ef4444" /> : <Icon size={16} color={p.status === "released" ? "#10b981" : p.status === "in_escrow" ? "#3b82f6" : "#fbbf24"} />}
+                  <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDisputed || p.status === "failed" ? "rgba(239,68,68,.12)" : p.status === "released" ? "rgba(16,185,129,.12)" : p.status === "in_escrow" ? "rgba(59,130,246,.12)" : "rgba(251,191,36,.12)" }}>
+                    {isDisputed ? <Scale size={16} color="#ef4444" /> : <Icon size={16} color={p.status === "failed" ? "#ef4444" : p.status === "released" ? "#10b981" : p.status === "in_escrow" ? "#3b82f6" : "#fbbf24"} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.description}</p>
@@ -351,7 +379,7 @@ export default function WorkerPaymentsPage() {
                     </p>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "5px" }}>
-                    <p style={{ fontSize: "15px", fontWeight: 800, color: p.status === "released" ? "#10b981" : isDisputed ? "#ef4444" : "var(--ink)", margin: 0 }}>
+                    <p style={{ fontSize: "15px", fontWeight: 800, color: p.status === "released" ? "#10b981" : (isDisputed || p.status === "failed") ? "#ef4444" : "var(--ink)", margin: 0 }}>
                       ${p.amount.toLocaleString()}
                     </p>
                     {isDisputed ? (

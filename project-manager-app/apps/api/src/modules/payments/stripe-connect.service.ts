@@ -142,6 +142,20 @@ export class StripeConnectService {
     return this.toView(updated as StripeConnectRow);
   }
 
+  /**
+   * Resolves the internal userId for a Stripe Connect account and re-syncs
+   * its status from Stripe. Used by the payments webhook (account.updated)
+   * so a professional's account activation is reflected without waiting for
+   * someone to open the Connect settings screen and trigger a manual sync
+   * (0.17 in docs/AUDIT_REMEDIATION_PLAN.md — previously there was no
+   * webhook-driven path for Connect account status at all).
+   */
+  async syncAccountStatusByStripeAccountId(stripeAccountId: string): Promise<ConnectAccountView | null> {
+    const row = await this.prisma.stripeConnectAccount.findFirst({ where: { stripeAccountId } });
+    if (!row) return null;
+    return this.syncAccountStatus(row.userId);
+  }
+
   // ── 1.3.D: Platform fee calculation ──────────────────────────────────────
 
   /** Returns the application fee amount in cents for a given payout amount. */

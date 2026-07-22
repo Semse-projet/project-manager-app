@@ -12,6 +12,8 @@ type MyBid = {
   jobBudgetMin?: number;
   jobBudgetMax?: number;
   jobStatus?: string;
+  clientUserId?: string;
+  clientEmail?: string;
   amount: number;
   etaDays: number;
   status: string;
@@ -29,6 +31,8 @@ function toClientBid(bid: MyBid) {
     jobBudgetMin: bid.jobBudgetMin,
     jobBudgetMax: bid.jobBudgetMax,
     jobStatus: bid.jobStatus ?? "accepted",
+    clientUserId: bid.clientUserId,
+    clientEmail: bid.clientEmail,
     amount: bid.amount,
     etaDays: bid.etaDays,
     status: bid.status,

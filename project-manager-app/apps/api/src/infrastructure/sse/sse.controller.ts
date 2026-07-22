@@ -1,11 +1,12 @@
 import { Controller, Headers, MessageEvent, Param, Query, Sse } from "@nestjs/common";
 import { Observable, from, interval, merge, of } from "rxjs";
-import { catchError, filter, map, startWith } from "rxjs/operators";
+import { catchError, filter, map, startWith, switchMap } from "rxjs/operators";
 import { Public } from "../../common/public.decorator.js";
 import { SseEventBusService } from "./sse-event-bus.service.js";
 import { HealthService } from "../../modules/health/health.service.js";
 import { AgentWorkPlanService } from "../../modules/agents/agent-work-plan.service.js";
 import { AgentDelegationService } from "../../modules/agents/agent-delegation.service.js";
+import { PrismaService } from "../prisma/prisma.service.js";
 
 const KEEPALIVE_MS = 20_000;
 
@@ -26,36 +27,37 @@ export class SseController {
     private readonly health: HealthService,
     private readonly plans: AgentWorkPlanService,
     private readonly delegations: AgentDelegationService,
+    private readonly prisma: PrismaService,
   ) {}
 
+  /**
+   * planStream/delegationsStream used to merge in the live push$ channel
+   * unconditionally — even when the initial tenant-ownership lookup failed
+   * or no tenantId header was sent at all. Since the push channel key
+   * (`plan:${planId}` / `delegations:${projectId}`) doesn't itself embed a
+   * tenant, that meant any caller who knew/guessed a planId or projectId
+   * got live cross-tenant events regardless of the snapshot check's result.
+   * Both streams below now gate the push$ subscription behind the ownership
+   * check succeeding — no ownership, no push channel, keepalive-only.
+   */
   @Sse("plans/:planId")
   @Public()
   planStream(
     @Param("planId") planId: string,
     @Headers("x-tenant-id") tenantId: string,
   ): Observable<MessageEvent> {
-    const push$ = this.bus.on<unknown>(`plan:${planId}`).pipe(
-      map(e => toMsgEvent(e.data, e.event)),
+    if (!tenantId) return keepalive$();
+
+    return from(this.plans.findById(tenantId, planId).catch(() => null)).pipe(
+      switchMap(plan => {
+        if (!plan) return keepalive$();
+        const push$ = this.bus.on<unknown>(`plan:${planId}`).pipe(
+          map(e => toMsgEvent(e.data, e.event)),
+        );
+        return merge(of(toMsgEvent(plan, "plan-update")), push$, keepalive$());
+      }),
+      catchError(() => keepalive$()),
     );
-
-    const initial$ = from(
-      tenantId
-        ? this.plans.findById(tenantId, planId).catch(() => null)
-        : Promise.resolve(null),
-    ).pipe(
-      map(plan => plan ? toMsgEvent(plan, "plan-update") : null),
-      catchError(() => of(null)),
-    ) as Observable<MessageEvent | null>;
-
-    const nonNull$ = new Observable<MessageEvent>(sub => {
-      initial$.subscribe({
-        next(v) { if (v) sub.next(v); },
-        error() { sub.complete(); },
-        complete() { sub.complete(); },
-      });
-    });
-
-    return merge(nonNull$, push$, keepalive$());
   }
 
   @Sse("delegations")
@@ -64,23 +66,35 @@ export class SseController {
     @Query("projectId") projectId: string | undefined,
     @Headers("x-tenant-id") tenantId: string,
   ): Observable<MessageEvent> {
-    const channel = projectId ? `delegations:${projectId}` : `delegations:${tenantId}`;
+    if (!tenantId) return keepalive$();
 
-    const push$ = this.bus.on<unknown>(channel).pipe(
-      map(e => toMsgEvent(e.data, e.event)),
+    // No projectId → the channel is keyed by the caller's own tenantId, already safe.
+    if (!projectId) {
+      const push$ = this.bus.on<unknown>(`delegations:${tenantId}`).pipe(
+        map(e => toMsgEvent(e.data, e.event)),
+      );
+      return merge(push$, keepalive$());
+    }
+
+    // projectId given → verify it actually belongs to this tenant before
+    // opening the push channel. An empty delegations list isn't a safe
+    // signal on its own (a legitimate new project has no delegations yet),
+    // so check project ownership directly instead.
+    return from(
+      this.prisma.project.findFirst({ where: { id: projectId, tenantId }, select: { id: true } }),
+    ).pipe(
+      switchMap(project => {
+        if (!project) return keepalive$();
+        const push$ = this.bus.on<unknown>(`delegations:${projectId}`).pipe(
+          map(e => toMsgEvent(e.data, e.event)),
+        );
+        const initial$ = from(this.delegations.listByProject({ tenantId, projectId }).catch(() => [])).pipe(
+          map(list => toMsgEvent(list, "delegations-update")),
+        );
+        return merge(initial$, push$, keepalive$());
+      }),
+      catchError(() => keepalive$()),
     );
-
-    const initial$ = new Observable<MessageEvent>(sub => {
-      if (!tenantId) { sub.complete(); return; }
-      this.delegations.listByProject({ tenantId, projectId: projectId ?? "" })
-        .then(list => {
-          sub.next(toMsgEvent(list, "delegations-update"));
-          sub.complete();
-        })
-        .catch(() => sub.complete());
-    });
-
-    return merge(initial$, push$, keepalive$());
   }
 
   @Sse("health")

@@ -32,6 +32,17 @@ export class BidsMineController {
 export class BidsController {
   constructor(private readonly bidsService: BidsService) {}
 
+  // Tenant-wide bid feed for admin oversight, distinct from bids:read (also
+  // granted to CLIENT/PRO/WORKER for their own scoped views) — see
+  // docs/AUDIT_REMEDIATION_PLAN.md 3.10.
+  @Get()
+  @RequirePermissions("bids:read:tenant")
+  async listAll(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const data = await this.bidsService.listAll({ tenantId: actor.tenantId });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Post(":bidId/accept")
   @RequirePermissions("bids:accept")
   async accept(@Req() req: { headers?: Record<string, unknown> }, @Param("bidId") bidId: string) {

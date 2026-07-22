@@ -54,9 +54,11 @@ export default function AdminQAPage() {
   const [checks, setChecks]   = useState<QACheck[]>(FALLBACK_CHECKS);
   const [running, setRunning] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<string>("—");
+  const [error, setError] = useState<string | null>(null);
 
   const runChecks = useCallback(async () => {
     setRunning(true);
+    setError(null);
     const now = new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     try {
       const [jobs, runtimeData, disputes] = await Promise.all([
@@ -160,11 +162,14 @@ export default function AdminQAPage() {
       });
 
       setChecks(results);
-    } catch {
-      // Update last run time even on error
-      setChecks(prev => prev.map(c => ({ ...c, lastRun: now })));
+      setLastRefresh(now);
+    } catch (e) {
+      // Previously stamped lastRun with the current time on failure, making
+      // stale/fallback data look freshly verified. Leave checks and
+      // lastRefresh untouched and surface the real error instead — see
+      // docs/AUDIT_REMEDIATION_PLAN.md 3.27.
+      setError(e instanceof Error ? e.message : "No se pudo ejecutar el pipeline de QA");
     }
-    setLastRefresh(now);
     setRunning(false);
   }, []);
 
@@ -196,6 +201,12 @@ export default function AdminQAPage() {
           </button>
         </div>
       </HtmlInCanvasPanel>
+
+      {error && (
+        <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "10px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", color: "#fca5a5", fontSize: "13px" }}>
+          No se pudo ejecutar el pipeline de QA: {error}. Los checks mostrados abajo son de la última corrida exitosa (o datos de respaldo si nunca corrió con éxito) — no confirmados ahora.
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "20px" }}>
         {[

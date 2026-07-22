@@ -134,9 +134,22 @@ export class WorkerVerificationRepository {
     }
   }
 
-  async getUnverifiedWorkers(_tenantId: string) {
+  // Both methods previously ignored tenantId entirely and returned/counted
+  // every User row in the database — every tenant's admin saw the same
+  // global list, and it wasn't even filtered to workers or to "unverified".
+  // See docs/AUDIT_REMEDIATION_PLAN.md 3.11.
+  async getUnverifiedWorkers(tenantId: string) {
     try {
       return await this.prisma.user.findMany({
+        where: {
+          verificationStatus: { not: "verified" },
+          memberships: {
+            some: {
+              org: { tenantId },
+              role: { key: { in: ["PRO", "WORKER"] } }
+            }
+          }
+        },
         select: {
           id: true,
           email: true,
@@ -152,9 +165,19 @@ export class WorkerVerificationRepository {
     }
   }
 
-  async countVerifiedWorkers(_tenantId: string) {
+  async countVerifiedWorkers(tenantId: string) {
     try {
-      return await this.prisma.user.count();
+      return await this.prisma.user.count({
+        where: {
+          verificationStatus: "verified",
+          memberships: {
+            some: {
+              org: { tenantId },
+              role: { key: { in: ["PRO", "WORKER"] } }
+            }
+          }
+        }
+      });
     } catch (error) {
       this.logger.error(
         `Failed to count verified workers: ${error instanceof Error ? error.message : String(error)}`,

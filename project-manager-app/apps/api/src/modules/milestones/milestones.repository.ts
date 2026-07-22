@@ -712,6 +712,7 @@ export class MilestonesRepository {
   }
 
   async updateEvidenceItemStatus(input: {
+    tenantId:     string;
     milestoneId:  string;
     itemId:       string;
     status:       "submitted" | "approved" | "rejected" | "needs_reupload" | "missing";
@@ -724,8 +725,15 @@ export class MilestonesRepository {
     const reviewNote = input.reviewNote
       ?? (input.auditReason ? JSON.stringify({ adminReview: { status: input.status, reason: input.auditReason, reviewedAt: new Date().toISOString() } }) : undefined);
 
-    return this.prisma.milestoneEvidenceItem.update({
-      where: { id: input.itemId, milestoneId: input.milestoneId },
+    // update() only accepts unique fields in `where`, so tenant-scoping requires
+    // updateMany() + a re-fetch — same pattern as archiveEvidenceItem/replaceEvidenceItem
+    // above, which already scope their lookup by tenant.
+    const { count } = await this.prisma.milestoneEvidenceItem.updateMany({
+      where: {
+        id: input.itemId,
+        milestoneId: input.milestoneId,
+        milestone: { project: { tenantId: input.tenantId } },
+      },
       data: {
         status:       input.status,
         evidenceId:   input.evidenceId ?? undefined,
@@ -735,6 +743,9 @@ export class MilestonesRepository {
         updatedAt:    new Date(),
       },
     });
+    if (count === 0) return null;
+
+    return this.prisma.milestoneEvidenceItem.findUnique({ where: { id: input.itemId } });
   }
 
   // ── Payment Readiness ────────────────────────────────────────────────────────

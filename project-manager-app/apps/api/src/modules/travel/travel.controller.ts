@@ -99,7 +99,7 @@ export class TravelController {
   }
 
   @Post()
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createAssignment(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: unknown,
@@ -120,12 +120,14 @@ export class TravelController {
     @Param("travelId") travelId: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.travelService.getAssignment({ tenantId: actor.tenantId, travelId });
+    const data = await this.travelService.getAssignment({
+      tenantId: actor.tenantId, travelId, actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Patch(":travelId/status")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async updateStatus(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -136,6 +138,7 @@ export class TravelController {
     const actor = resolveRequestContext(req);
     const data = await this.travelService.updateAssignmentStatus({
       tenantId: actor.tenantId, travelId, status: parsed.data.status,
+      actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -150,12 +153,14 @@ export class TravelController {
     @Query("category") category?: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.travelService.listExpenses({ tenantId: actor.tenantId, travelId, category });
+    const data = await this.travelService.listExpenses({
+      tenantId: actor.tenantId, travelId, category, actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post(":travelId/expenses")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createExpense(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -166,6 +171,7 @@ export class TravelController {
     const actor = resolveRequestContext(req);
     const data = await this.travelService.createExpense({
       tenantId: actor.tenantId, travelId, submittedBy: actor.userId, ...parsed.data,
+      actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -179,12 +185,14 @@ export class TravelController {
     @Param("travelId") travelId: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.travelService.listLodging({ tenantId: actor.tenantId, travelId });
+    const data = await this.travelService.listLodging({
+      tenantId: actor.tenantId, travelId, actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post(":travelId/lodging")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createLodging(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -195,6 +203,7 @@ export class TravelController {
     const actor = resolveRequestContext(req);
     const data = await this.travelService.createLodging({
       tenantId: actor.tenantId, travelId, ...parsed.data,
+      actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -208,12 +217,14 @@ export class TravelController {
     @Param("travelId") travelId: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.travelService.listAdvances({ tenantId: actor.tenantId, travelId });
+    const data = await this.travelService.listAdvances({
+      tenantId: actor.tenantId, travelId, actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post(":travelId/advances")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async createAdvance(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -224,6 +235,7 @@ export class TravelController {
     const actor = resolveRequestContext(req);
     const data = await this.travelService.createAdvance({
       tenantId: actor.tenantId, travelId, issuedTo: actor.userId, ...parsed.data,
+      actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
@@ -237,12 +249,14 @@ export class TravelController {
     @Param("travelId") travelId: string,
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.travelService.computeSettlement({ tenantId: actor.tenantId, travelId });
+    const data = await this.travelService.computeSettlement({
+      tenantId: actor.tenantId, travelId, actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
   @Post(":travelId/settlement/close")
-  @RequirePermissions("jobs:create")
+  @RequirePermissions("travel:manage")
   async closeSettlement(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("travelId") travelId: string,
@@ -253,6 +267,7 @@ export class TravelController {
     const actor = resolveRequestContext(req);
     const data = await this.travelService.closeSettlement({
       tenantId: actor.tenantId, travelId, closedBy: actor.userId, notes: parsed.data.notes,
+      actorUserId: actor.userId, orgId: actor.orgId, roles: actor.roles,
     });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }

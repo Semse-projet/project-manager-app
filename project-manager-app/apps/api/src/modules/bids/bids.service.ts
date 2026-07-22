@@ -33,6 +33,10 @@ export class BidsService {
     return this.bidsRepository.listByWorker(input);
   }
 
+  async listAll(input: { tenantId: string }): Promise<BidRecord[]> {
+    return this.bidsRepository.listByTenant(input);
+  }
+
   async create(input: {
     tenantId: string;
     jobId: string;

@@ -11,9 +11,6 @@ import {
   fetchJobEvidence,
   registerJobEvidence,
   planUpload,
-  createMultipartUploadSession,
-  uploadMultipartPart,
-  completeMultipartUploadSession,
   sendNotification,
   type JobRecordView,
 } from "../../../semse-api";
@@ -76,6 +73,7 @@ export default function WorkerEvidencePage() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadNote, setUploadNote] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [evidenceLoadError, setEvidenceLoadError] = useState<string | null>(null);
 
   const loadJobs = useCallback(async () => {
     setLoadingJobs(true);
@@ -92,17 +90,23 @@ export default function WorkerEvidencePage() {
   const loadMilestonesAndEvidence = useCallback(async (jobId: string) => {
     if (!jobId) return;
     setLoadingEvidence(true);
+    setEvidenceLoadError(null);
     try {
       const [ms, ev] = await Promise.all([
         fetchJobMilestones(jobId).catch(() => []),
-        fetchJobEvidence(jobId).catch(() => []),
+        fetchJobEvidence(jobId).catch((e) => {
+          setEvidenceLoadError(e instanceof Error ? e.message : "No se pudo cargar el historial de evidencias.");
+          return [];
+        }),
       ]);
       setMilestones(ms as MilestoneRow[]);
       setEvidenceFeed(ev as EvidenceRow[]);
       if (ms.length > 0 && !selectedMilestoneId) {
         setSelectedMilestoneId(asString((ms[0] as MilestoneRow).id) ?? "");
       }
-    } catch { /* keep empty */ }
+    } catch (e) {
+      setEvidenceLoadError(e instanceof Error ? e.message : "No se pudo cargar el historial de evidencias.");
+    }
     setLoadingEvidence(false);
   }, [selectedMilestoneId]);
 
@@ -128,28 +132,31 @@ export default function WorkerEvidencePage() {
 
         const plan = await planUpload({ domain: "evidence", filename: file.name, contentType, fileSizeBytes: file.size, source: "local_device" });
         const strategy = asString(plan.recommendedStrategy) ?? "single_put";
-        let bucketKey = `jobs/${selectedJobId}/evidence/${Date.now()}_${file.name}`;
+        const key = asString(plan.key);
+        if (!key) {
+          throw new Error(`No se pudo preparar el almacenamiento para "${file.name}".`);
+        }
 
-        if (strategy === "multipart") {
-          const session = await createMultipartUploadSession({
-            domain: "evidence", filename: file.name, contentType, fileSizeBytes: file.size, source: "local_device",
-          });
-          const sessionId = asString(session.sessionId) ?? "";
-          const rawParts = Array.isArray(session.parts) ? session.parts as Record<string, unknown>[] : [];
-          const completedParts: { partNumber: number; etag: string }[] = [];
-          for (const part of rawParts.slice(0, 10)) {
-            const partNumber = typeof part.partNumber === "number" ? part.partNumber : 1;
-            const result = await uploadMultipartPart({ sessionId, partNumber, contentLength: file.size });
-            const etag = asString(result.etag) ?? String(partNumber);
-            completedParts.push({ partNumber, etag });
-          }
-          const completed = await completeMultipartUploadSession({ sessionId, parts: completedParts });
-          bucketKey = asString(completed.key) ?? asString(completed.bucketKey) ?? bucketKey;
+        if (strategy === "external_transfer") {
+          // Files over the single-PUT limit (~25MB) don't have a working upload
+          // path yet — fail clearly instead of silently registering a fake key.
+          throw new Error(`"${file.name}" es demasiado grande para subir aquí todavía (límite temporal ~25MB). Usa un archivo más pequeño o divídelo.`);
+        }
+
+        const uploadRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
+          method: "PUT",
+          headers: { "content-type": contentType, "content-length": String(file.size) },
+          body: file,
+        });
+        if (!uploadRes.ok) {
+          const text = await uploadRes.text().catch(() => "");
+          throw new Error(`No se pudo subir "${file.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
         }
 
         await registerJobEvidence(selectedJobId, {
-          key: bucketKey,
+          key,
           kind: fileKind,
+          filename: file.name,
           ...(selectedMilestoneId ? { milestoneId: selectedMilestoneId } : {}),
         });
       }
@@ -321,6 +328,12 @@ export default function WorkerEvidencePage() {
         <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", marginBottom: "12px" }}>
           Historial de evidencias {selectedJobId && `— ${jobs.find(j => j.id === selectedJobId)?.title ?? ""}`}
         </h2>
+        {evidenceLoadError && (
+          <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
+            <AlertTriangle size={14} color="#ef4444" />
+            <span style={{ fontSize: "12px", color: "#ef4444", fontWeight: 700 }}>{evidenceLoadError}</span>
+          </div>
+        )}
         {loadingEvidence ? (
           <div style={{ display: "grid", gap: "8px" }}>
             {[1,2,3].map(i => <div key={i} style={{ height: "64px", borderRadius: "10px", background: "var(--raised)", animation: "pulse 1.5s ease-in-out infinite" }} />)}
@@ -340,7 +353,9 @@ export default function WorkerEvidencePage() {
                 const name = asString(ev.filename) ?? asString(ev.originalFilename) ?? asString(ev.key) ?? `Evidencia ${idx + 1}`;
                 const msTitle = milestones.find(m => asString(m.id) === asString(ev.milestoneId))
                   ? asString((milestones.find(m => asString(m.id) === asString(ev.milestoneId)) as MilestoneRow).title) : undefined;
-                const previewUrl = asString(ev.previewUrl) ?? asString(ev.url) ?? asString(ev.signedUrl);
+                const evKey = asString(ev.key);
+                const previewUrl = asString(ev.previewUrl) ?? asString(ev.url) ?? asString(ev.signedUrl)
+                  ?? (evKey ? `/api/semse/uploads/files/${encodeURIComponent(evKey)}` : undefined);
                 return (
                   <div key={asString(ev.id) ?? idx} style={{ ...card, display: "flex", alignItems: "center", gap: "14px", padding: "12px 16px" }}>
                     <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, background: isImage ? "rgba(59,130,246,.12)" : "rgba(139,92,246,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>

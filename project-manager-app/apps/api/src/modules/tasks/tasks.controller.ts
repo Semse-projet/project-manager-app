@@ -75,7 +75,13 @@ export class TasksController {
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
 
     const actor = resolveRequestContext(req);
-    const data = await this.tasksService.updateStatus({ tenantId: actor.tenantId, taskId, status: parsed.data.status });
+    const data = await this.tasksService.updateStatus({
+      tenantId: actor.tenantId,
+      taskId,
+      status: parsed.data.status,
+      actorUserId: actor.userId,
+      roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 }

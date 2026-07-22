@@ -63,7 +63,8 @@ export class BrowserAgentController {
   @RequirePermissions("agents:run:create")
   async getMission(@Req() req: FastifyRequest, @Param("id") id: string) {
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.service.getMission(id);
+    const { tenantId } = resolveRequestContext(req);
+    const result = await this.service.getMission(id, tenantId);
     return ok(rid, result);
   }
 
@@ -71,7 +72,8 @@ export class BrowserAgentController {
   @RequirePermissions("agents:run:create")
   async updateMission(@Req() req: FastifyRequest, @Param("id") id: string, @Body() body: any) {
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.service.updateMission(id, body);
+    const { tenantId } = resolveRequestContext(req);
+    const result = await this.service.updateMission(id, tenantId, body);
     return ok(rid, result);
   }
 
@@ -79,7 +81,8 @@ export class BrowserAgentController {
   @RequirePermissions("agents:run:create")
   async updateStep(@Req() req: FastifyRequest, @Param("id") id: string, @Param("stepId") stepId: string, @Body() body: any) {
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.service.updateStep(stepId, body);
+    const { tenantId } = resolveRequestContext(req);
+    const result = await this.service.updateStep(stepId, tenantId, body);
     return ok(rid, result);
   }
 }

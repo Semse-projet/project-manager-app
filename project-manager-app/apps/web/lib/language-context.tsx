@@ -78,7 +78,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.payments": "Pagos",
     "nav.travel": "Movilidad",
     "nav.myProfile": "Mi perfil",
-    "nav.aiSettings": "Asistente IA",
+    "nav.aiSettings": "Configuración del asistente",
     "nav.leads": "Leads & Clientes",
     "nav.postJob": "Publicar trabajo",
     "nav.myProjects": "Mis proyectos",

@@ -675,7 +675,15 @@ export default function AdminAutonomyPage() {
           </label>
 
           <button
-            onClick={runTask}
+            onClick={() => {
+              // The UI never shows whether this run targets the sandbox repo
+              // or a real one (SEMSE_AUTONOMY_GITHUB_TOKEN/REPO_NAME
+              // configured server-side) — see docs/AUDIT_REMEDIATION_PLAN.md
+              // 3.20.
+              if (window.confirm(`¿Ejecutar hasta la etapa "${activeStageMeta.label}"? Si el repo real de GitHub está configurado en el servidor, esto puede crear branches/commits reales, no solo en el sandbox.`)) {
+                runTask();
+              }
+            }}
             disabled={!canCreateRun}
             style={{
               marginTop: "16px",
@@ -699,7 +707,11 @@ export default function AdminAutonomyPage() {
           </button>
 
           <button
-            onClick={continueSelectedRun}
+            onClick={() => {
+              if (window.confirm(`¿Continuar hasta "${nextStage ? stageLabel(nextStage) : "la siguiente etapa"}"? Si el repo real de GitHub está configurado en el servidor, esto puede tocar el repo real, no solo el sandbox.`)) {
+                continueSelectedRun();
+              }
+            }}
             disabled={!selected || !nextStage || continuing || smokeRunning}
             style={{
               marginTop: "12px",
@@ -723,7 +735,11 @@ export default function AdminAutonomyPage() {
           </button>
 
           <button
-            onClick={rerunSmoke}
+            onClick={() => {
+              if (window.confirm("¿Rehacer smoke staged? Esto encadena automáticamente change → commit → push → PR en una sola llamada. Si el repo real de GitHub está configurado en el servidor, hace push y abre un PR real, no solo en el sandbox.")) {
+                rerunSmoke();
+              }
+            }}
             disabled={!enabled || smokeRunning || running || continuing}
             style={{
               marginTop: "12px",

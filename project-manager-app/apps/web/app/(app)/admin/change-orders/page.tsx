@@ -111,16 +111,17 @@ export default function AdminChangeOrdersPage() {
 
   async function action(id: string, act: "submit" | "approve" | "reject", body?: Record<string, unknown>) {
     setBusyId(`${act}:${id}`);
+    setError(null);
     try {
       const res = await fetch(`/api/semse/change-orders/${id}/${act}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body ?? {}),
       });
-      if (res.ok) await load();
-    } finally {
-      setBusyId(null);
-    }
+      if (res.ok) { await load(); }
+      else { const j = await res.json().catch(() => null) as { error?: { message?: string } } | null; setError(j?.error?.message ?? `No se pudo ${act === "approve" ? "aprobar" : act === "reject" ? "rechazar" : "enviar"} el change order`); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Error de red"); }
+    finally { setBusyId(null); }
   }
 
   async function requestChanges(id: string) {
@@ -154,13 +155,13 @@ export default function AdminChangeOrdersPage() {
 
   async function applyToBuildOps(id: string) {
     setBusyId(`apply:${id}`);
+    setError(null);
     try {
-      await fetch(`/api/semse/change-orders/${id}/apply-to-buildops`, { method: "POST" });
-      await load();
-      setImpactRefreshKey((k) => k + 1);
-    } finally {
-      setBusyId(null);
-    }
+      const res = await fetch(`/api/semse/change-orders/${id}/apply-to-buildops`, { method: "POST" });
+      if (res.ok) { await load(); setImpactRefreshKey((k) => k + 1); }
+      else { const j = await res.json().catch(() => null) as { error?: { message?: string } } | null; setError(j?.error?.message ?? "No se pudo aplicar el change order a BuildOps"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "Error de red"); }
+    finally { setBusyId(null); }
   }
 
   const filtered = items.filter((co) => filterAllows(co, filter));
@@ -313,7 +314,7 @@ export default function AdminChangeOrdersPage() {
                           <>
                             <button
                               disabled={!!busyId}
-                              onClick={() => action(co.id, "approve", { clientNote: noteById[co.id] })}
+                              onClick={() => { if (window.confirm(`¿Aprobar el change order "${co.title}"? Esto afecta el presupuesto/alcance del proyecto.`)) void action(co.id, "approve", { clientNote: noteById[co.id] }); }}
                               style={btn("#22c55e", !!busyId)}
                             >
                               <CheckCircle size={11} style={{ display: "inline", marginRight: 4 }} />
@@ -321,7 +322,7 @@ export default function AdminChangeOrdersPage() {
                             </button>
                             <button
                               disabled={!!busyId}
-                              onClick={() => action(co.id, "reject", { clientNote: noteById[co.id], reason: noteById[co.id] })}
+                              onClick={() => { if (window.confirm(`¿Rechazar el change order "${co.title}"?`)) void action(co.id, "reject", { clientNote: noteById[co.id], reason: noteById[co.id] }); }}
                               style={btn("#ef4444", !!busyId)}
                             >
                               <XCircle size={11} style={{ display: "inline", marginRight: 4 }} />
@@ -332,7 +333,7 @@ export default function AdminChangeOrdersPage() {
                         {co.status === "approved" && (
                           <button
                             disabled={busyId === `apply:${co.id}`}
-                            onClick={() => applyToBuildOps(co.id)}
+                            onClick={() => { if (window.confirm(`¿Aplicar el change order "${co.title}" a BuildOps? Esto actualiza el proyecto real.`)) void applyToBuildOps(co.id); }}
                             style={btn("#818cf8", busyId === `apply:${co.id}`)}
                           >
                             <Zap size={11} style={{ display: "inline", marginRight: 4 }} />
