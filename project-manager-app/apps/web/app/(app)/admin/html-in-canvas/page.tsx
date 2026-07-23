@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HtmlInCanvasPanel, useHtmlInCanvasSupport, type HtmlInCanvasPanelHandle } from "@semse/ui";
 import { CheckCircle, Copy, Layers } from "lucide-react";
-import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 function CodeBlock({ code }: { code: string }) {

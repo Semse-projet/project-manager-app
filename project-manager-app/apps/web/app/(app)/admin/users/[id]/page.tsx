@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import {
   Clock, ExternalLink, Fingerprint, Globe, Image, RefreshCw, Shield, User,
 } from "lucide-react";
-import { AdminPageHeader } from "../../../../../components/admin/AdminPageHeader";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { TrustPassportCard } from "../../../../../components/semse/TrustPassportCard";
 import { GovernanceTierBadge, type GovernanceTier } from "../../../../../components/semse/GovernanceTierBadge";
 import { analyzePortfolio } from "../../../../semse-api";
