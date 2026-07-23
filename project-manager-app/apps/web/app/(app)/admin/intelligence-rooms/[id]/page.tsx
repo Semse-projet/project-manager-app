@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { Brain } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -212,11 +214,9 @@ export default function IntelligenceRoomPage() {
           <p style={{ color: "var(--muted, #94a3b8)", fontSize: "14px" }}>Cargando proyecto…</p>
         ) : (
           <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "8px" }}>
-              <div>
-                <h1 style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink, #f1f5f9)", margin: "0 0 4px" }}>
-                  {project?.title ?? projectId}
-                </h1>
+            <AdminPageHeader
+              title={project?.title ?? projectId}
+              subtitle={
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   {project?.trade && (
                     <span style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", background: "var(--raised, #111827)", padding: "2px 8px", borderRadius: "4px" }}>
@@ -234,19 +234,25 @@ export default function IntelligenceRoomPage() {
                     </span>
                   )}
                 </div>
-              </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <Link
-                  href={`/buildops/projects/${projectId}`}
-                  style={{ fontSize: "11px", color: "#93c5fd", textDecoration: "none", padding: "6px 12px", border: "1px solid rgba(59,130,246,.3)", borderRadius: "7px" }}
-                >
-                  Ver en BuildOps →
-                </Link>
-                <button onClick={() => void fetchData()} style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", padding: "6px 12px", border: "1px solid var(--border, #1f2d3d)", borderRadius: "7px", background: "transparent", cursor: "pointer" }}>
-                  ↻
-                </button>
-              </div>
-            </div>
+              }
+              icon={Brain}
+              iconColor="#a78bfa"
+              iconBg="rgba(139,92,246,.15)"
+              showBack={false}
+              actions={
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <Link
+                    href={`/buildops/projects/${projectId}`}
+                    style={{ fontSize: "11px", color: "#93c5fd", textDecoration: "none", padding: "6px 12px", border: "1px solid rgba(59,130,246,.3)", borderRadius: "7px" }}
+                  >
+                    Ver en BuildOps →
+                  </Link>
+                  <button onClick={() => void fetchData()} style={{ fontSize: "11px", color: "var(--muted, #94a3b8)", padding: "6px 12px", border: "1px solid var(--border, #1f2d3d)", borderRadius: "7px", background: "transparent", cursor: "pointer" }}>
+                    ↻
+                  </button>
+                </div>
+              }
+            />
             {(project?.clientName || project?.professionalName) && (
               <div style={{ display: "flex", gap: "16px", fontSize: "12px", color: "var(--muted, #94a3b8)" }}>
                 {project.clientName && <span>Cliente: {project.clientName}</span>}
