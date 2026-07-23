@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Brain, Filter, RefreshCw, Tag } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   fetchAgentMemories,
   type AgentMemoryEntry,
@@ -75,34 +76,30 @@ export default function AdminMemoryPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", display: "grid", gap: 24 }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: "rgba(192,132,252,.15)", display: "grid", placeItems: "center" }}>
-            <Brain size={20} color="#c084fc" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>Agent Memory</h1>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-              Entradas de workspace memory del proyecto activo
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => void load()}
-          disabled={loading}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "9px 16px", borderRadius: 10, border: "none",
-            background: "rgba(129,140,248,.15)", color: "#818cf8",
-            fontWeight: 700, fontSize: 13, cursor: loading ? "not-allowed" : "pointer",
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          {loading ? "Cargando…" : "Actualizar"}
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Agent Memory"
+        subtitle="Entradas de workspace memory del proyecto activo"
+        icon={Brain}
+        iconColor="#c084fc"
+        iconBg="rgba(192,132,252,.15)"
+        showBack={false}
+        actions={
+          <button
+            onClick={() => void load()}
+            disabled={loading}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "9px 16px", borderRadius: 10, border: "none",
+              background: "rgba(129,140,248,.15)", color: "#818cf8",
+              fontWeight: 700, fontSize: 13, cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            {loading ? "Cargando…" : "Actualizar"}
+          </button>
+        }
+      />
 
       {/* Filters */}
       <div style={{

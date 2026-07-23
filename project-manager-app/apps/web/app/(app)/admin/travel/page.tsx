@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlaneTakeoff, RefreshCw, Inbox, Wallet, AlertTriangle, Clock3, ChevronRight, ChevronDown } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { fetchJobs, fetchTravelAdvances, fetchTravelAssignments, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type TravelStatus = "DRAFT" | "PLANNED" | "ACTIVE" | "PENDING_SETTLEMENT" | "CLOSED" | "CANCELLED";
@@ -379,21 +380,22 @@ export default function AdminTravelPage() {
 
   return (
     <div style={{ maxWidth: "980px", margin: "0 auto" }}>
-      <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: "24px", flexWrap: "wrap" }} canvasClassName="rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.travelOps")}</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>{t("page.travelOps.sub")}</p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <NotificationBanner audience="admin" />
-          <button onClick={() => void load()} disabled={loading} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }} title="Recargar">
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          </button>
-        </div>
-      </HtmlInCanvasPanel>
+      <AdminPageHeader
+        title={t("page.travelOps")}
+        subtitle={t("page.travelOps.sub")}
+        icon={PlaneTakeoff}
+        iconColor="#8b5cf6"
+        iconBg="rgba(139,92,246,0.15)"
+        panel
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <button onClick={() => void load()} disabled={loading} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }} title="Recargar">
+              <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: "12px", marginBottom: "20px" }}>
         <StatCard label="Viajes totales" value={items.length} icon={PlaneTakeoff} color="violet" loading={loading} />
