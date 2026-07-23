@@ -2,6 +2,22 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { randomUUID } from "node:crypto";
 
+// FLSA-style weekly overtime: hours beyond 40/week pay 1.5x. This is
+// deliberately separate from QUALITY_GUARD.overtimeWeekMinutes (48h) in
+// labor-engine.service.ts, which is an unrelated overwork-risk alert
+// threshold, not a pay rule — see docs/AUDIT_REMEDIATION_PLAN.md 0.19.
+const OVERTIME_WEEKLY_THRESHOLD_MINUTES = 40 * 60;
+const OVERTIME_MULTIPLIER = 1.5;
+
+/** Monday (UTC) of the calendar week containing `date`, as a YYYY-MM-DD key. */
+function weekKeyOf(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayOfWeek = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  return d.toISOString().slice(0, 10);
+}
+
 export type TimeEntryRecord = {
   id: string;
   tenantId: string;
@@ -229,7 +245,15 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord[];
   }
 
-  /** Horas completadas por worker en un rango (vista admin de equipo). */
+  /**
+   * Horas completadas por worker en un rango (vista admin de equipo).
+   * `knownCost` ahora aplica 1.5x sobre las horas que exceden 40h/semana por
+   * worker (antes era tarifa plana sin importar cuántas horas semanales se
+   * trabajaran — ver docs/AUDIT_REMEDIATION_PLAN.md 0.19). Las entradas se
+   * procesan en orden cronológico por worker y se acumulan minutos por
+   * semana calendario (lunes-domingo, UTC); una entrada que cruza el umbral
+   * de 40h se divide proporcionalmente entre horas regulares y extra.
+   */
   async getTeamSummary(params: { tenantId: string; from: Date; to: Date }): Promise<
     Array<{ workerId: string; totalMinutes: number; totalEntries: number; knownCost: number; minutesWithoutRate: number }>
   > {
@@ -239,18 +263,34 @@ export class LaborEngineRepository {
         status: "completed",
         startedAt: { gte: params.from, lte: params.to },
       },
-      select: { createdBy: true, durationMinutes: true, hourlyRate: true },
+      select: { createdBy: true, durationMinutes: true, hourlyRate: true, startedAt: true },
+      orderBy: { startedAt: "asc" },
     });
 
     const byWorker = new Map<string, { totalMinutes: number; totalEntries: number; knownCost: number; minutesWithoutRate: number }>();
-    for (const entry of entries as Array<{ createdBy: string; durationMinutes: number | null; hourlyRate: unknown }>) {
+    const weekMinutesSoFar = new Map<string, number>();
+
+    for (const entry of entries as Array<{ createdBy: string; durationMinutes: number | null; hourlyRate: unknown; startedAt: Date }>) {
       const minutes = entry.durationMinutes ?? 0;
       const rate = entry.hourlyRate != null ? parseFloat(String(entry.hourlyRate)) : null;
+
+      const bucketKey = `${entry.createdBy}::${weekKeyOf(entry.startedAt)}`;
+      const priorWeekMinutes = weekMinutesSoFar.get(bucketKey) ?? 0;
+      const newWeekMinutes = priorWeekMinutes + minutes;
+      weekMinutesSoFar.set(bucketKey, newWeekMinutes);
+
       const current = byWorker.get(entry.createdBy) ?? { totalMinutes: 0, totalEntries: 0, knownCost: 0, minutesWithoutRate: 0 };
       current.totalMinutes += minutes;
       current.totalEntries += 1;
+
       if (rate != null && Number.isFinite(rate)) {
-        current.knownCost += (minutes / 60) * rate;
+        const regularMinutesBefore = Math.min(priorWeekMinutes, OVERTIME_WEEKLY_THRESHOLD_MINUTES);
+        const regularMinutesAfter = Math.min(newWeekMinutes, OVERTIME_WEEKLY_THRESHOLD_MINUTES);
+        const regularMinutesThisEntry = Math.max(0, regularMinutesAfter - regularMinutesBefore);
+        const overtimeMinutesThisEntry = minutes - regularMinutesThisEntry;
+        current.knownCost +=
+          (regularMinutesThisEntry / 60) * rate +
+          (overtimeMinutesThisEntry / 60) * rate * OVERTIME_MULTIPLIER;
       } else {
         current.minutesWithoutRate += minutes;
       }

@@ -149,7 +149,7 @@
 - **Qué:** `(minutos/60) * tarifa` flat, sin ningún umbral semanal. Solo existe una alerta de QualityGuard para que un admin lo vea — nunca toca el pago real.
 - **Dónde:** `apps/api/.../labor-engine.repository.ts:253`
 - **Fix:** implementar el multiplicador real (1.5x u otra regla, según la política laboral de SEMSE) en el cálculo de pago, no solo en la alerta.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — **política confirmada explícitamente por el usuario: 1.5x sobre 40h/semana (estándar FLSA US).** `getTeamSummary()` en `labor-engine.repository.ts` ahora procesa las entradas de cada worker en orden cronológico, acumula minutos por semana calendario (lunes-domingo, UTC) y aplica 1.5x a los minutos que exceden el umbral de 40h — una entrada que cruza el umbral se divide proporcionalmente entre horas regulares y extra dentro de sí misma. Se usó un umbral nuevo y separado (`OVERTIME_WEEKLY_THRESHOLD_MINUTES = 40*60`) del ya existente `QUALITY_GUARD.overtimeWeekMinutes` (48h) en `labor-engine.service.ts` — ese sigue siendo solo una alerta de sobre-trabajo, no la regla de pago. `knownCost` (que ya alimenta directamente `estimatedCost` en `admin/labor-engine/page.tsx`) ahora refleja el pago real con el recargo — no se necesitó ningún cambio de UI. Pendiente verificación en vivo.
 
 ### 0.20 — ALTO — Labor Engine sin idempotencia real (duplica horas pagables)
 - **Qué:** el `event.id` del cliente nunca se manda al backend; `createTimeEntry` siempre inserta con UUID nuevo. Al fallar la sync a medio lote, el arreglo de reintento conserva TODOS los eventos, incluidos los ya exitosos.
