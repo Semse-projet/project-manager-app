@@ -3,7 +3,7 @@ id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-20"
@@ -49,7 +49,7 @@ El panel de Admin comparte la causa raíz de estado incorrecto de los otros dos 
 
 ## Non-Goals
 
-- No aprueba ningún fix de código todavía — este spec, mientras siga `DRAFT` y sin verificación en vivo, solo autoriza *investigar y confirmar*, no implementar (regla de oro SDD: ningún agente genera código hasta `APPROVED`).
+- Aprobado para la implementación controlada de fixes de UX/UI Admin documentados en `docs/AUDIT_REMEDIATION_PLAN.md` que no toquen dinero, auth ni datos cross-tenant. La verificación en vivo con credencial `OPS_ADMIN` sigue siendo requisito antes de marcar cualquier hallazgo como `VERIFIED`.
 
 ## Gaps encontrados (código únicamente — pendiente confirmación en vivo)
 
@@ -115,6 +115,7 @@ required_behavior:
 - [ ] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
 - [x] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
 - [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
+- [x] Las alertas QualityGuard en `/admin/labor-engine` muestran un acción visible (perfil del worker; pausar/detener timers olvidados) y confirman antes de mutar
 
 ## Implementation Map
 
