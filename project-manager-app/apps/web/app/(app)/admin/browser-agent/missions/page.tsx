@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { createBrowserMission, fetchBrowserMission, BrowserMission, BrowserMissionStep } from "../../../../semse-api";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { useLanguage } from "../../../../../lib/language-context";
 
 export default function BrowserMissionsPage() {
@@ -120,27 +121,22 @@ export default function BrowserMissionsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header Panel */}
-      <HtmlInCanvasPanel as="section" className="flex items-center justify-between mb-8 flex-wrap gap-4 p-6 bg-zinc-900 border border-zinc-800 rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/admin/dashboard" className="inline-flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 text-xs font-semibold no-underline mb-2 transition-colors">
-            <span>←</span> Dashboard
-          </Link>
-          <h1 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-2">
-            <Layers className="text-blue-500" size={24} />
-            Misiones Autónomas de Navegación
-          </h1>
-          <p className="text-sm text-zinc-400">Automatiza flujos interactivos de múltiples pasos bajo gobernanza de riesgo</p>
-        </div>
-        <div className="flex gap-3">
-          <Link 
-            href="/admin/browser-agent" 
+      <AdminPageHeader
+        title="Misiones Autónomas de Navegación"
+        subtitle="Automatiza flujos interactivos de múltiples pasos bajo gobernanza de riesgo"
+        icon={Layers}
+        iconColor="#3b82f6"
+        iconBg="rgba(59,130,246,.15)"
+        panel={true}
+        actions={
+          <Link
+            href="/admin/browser-agent"
             className="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-semibold text-xs px-4 py-2 rounded-xl transition-colors no-underline border border-zinc-700 hover:text-white"
           >
             Inspección Simple
           </Link>
-        </div>
-      </HtmlInCanvasPanel>
+        }
+      />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

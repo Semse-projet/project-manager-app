@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { HtmlInCanvasPanel, useHtmlInCanvasSupport, type HtmlInCanvasPanelHandle } from "@semse/ui";
 import { CheckCircle, Copy, Layers } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 function CodeBlock({ code }: { code: string }) {
@@ -415,32 +416,20 @@ export default function AdminHtmlInCanvasPage() {
 
   return (
     <main style={{ padding: "32px", color: "var(--ink)", maxWidth: "860px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "28px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px" }}>
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              background: "rgba(167,139,250,0.15)",
-              display: "grid",
-              placeItems: "center"
-            }}
-          >
-            <Layers size={20} color="#a78bfa" />
+      <AdminPageHeader
+        title="HTML-in-Canvas Demo"
+        subtitle="Consola de pruebas aislada — WICG spec · Chromium 147+"
+        icon={Layers}
+        iconColor="#a78bfa"
+        iconBg="rgba(167,139,250,.15)"
+        showBack={false}
+        actions={
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <NotificationBanner audience="admin" />
+            <SupportBanner supported={supported} />
           </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.3rem", fontWeight: 800 }}>HTML-in-Canvas Demo</h1>
-            <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>
-              Consola de pruebas aislada — WICG spec · Chromium 147+
-            </p>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <NotificationBanner audience="admin" />
-          <SupportBanner supported={supported} />
-        </div>
-      </div>
+        }
+      />
 
       <div style={{ display: "grid", gap: "32px" }}>
         <section

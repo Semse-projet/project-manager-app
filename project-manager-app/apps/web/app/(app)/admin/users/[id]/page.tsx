@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 import {
-  ArrowLeft, ChevronLeft, Clock, ExternalLink, Fingerprint, Globe, Image, RefreshCw, Shield, User,
+  Clock, ExternalLink, Fingerprint, Globe, Image, RefreshCw, Shield, User,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../../../components/admin/AdminPageHeader";
 import { TrustPassportCard } from "../../../../../components/semse/TrustPassportCard";
 import { GovernanceTierBadge, type GovernanceTier } from "../../../../../components/semse/GovernanceTierBadge";
 import { analyzePortfolio } from "../../../../semse-api";
@@ -156,30 +156,26 @@ export default function CitizenProfilePage() {
   return (
     <div style={{ maxWidth: 860, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
 
-      {/* Back link */}
-      <Link href="/admin/users"
-        style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", textDecoration: "none", marginBottom: 20, fontWeight: 600 }}>
-        <ChevronLeft size={14} />
-        Volver a Usuarios
-      </Link>
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
-        <div style={{ width: 52, height: 52, borderRadius: 16, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-          <User size={22} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Perfil Ciudadano</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)", fontFamily: "monospace" }}>
+      <AdminPageHeader
+        title="Perfil Ciudadano"
+        subtitle={
+          <span style={{ fontFamily: "monospace", fontSize: 12 }}>
             {userId}
-          </p>
-        </div>
-        <button onClick={() => void load()} disabled={loading}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(99,102,241,.12)", border: "none", cursor: loading ? "wait" : "pointer", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          Actualizar
-        </button>
-      </div>
+          </span>
+        }
+        icon={User}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        backHref="/admin/users"
+        backLabel="Volver a Usuarios"
+        actions={
+          <button onClick={() => void load()} disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(99,102,241,.12)", border: "none", cursor: loading ? "wait" : "pointer", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>
+            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            Actualizar
+          </button>
+        }
+      />
 
       {error && (
         <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, fontSize: 12, color: "#fca5a5", marginBottom: 20 }}>
