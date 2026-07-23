@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Pause, Play, RefreshCw, Repeat } from "lucide-react";
-import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 type LoopState = {
   paused: boolean;
