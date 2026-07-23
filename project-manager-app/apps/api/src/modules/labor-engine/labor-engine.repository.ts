@@ -168,12 +168,22 @@ export class LaborEngineRepository {
   async pauseTimeEntry(id: string, tenantId: string, createdBy: string): Promise<TimeEntryRecord> {
     const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId, createdBy } });
     if (!entry) throw new NotFoundException("TimeEntry not found");
+    return this.pauseTimeEntryInternal(entry);
+  }
+
+  async adminPauseTimeEntry(id: string, tenantId: string): Promise<TimeEntryRecord> {
+    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId } });
+    if (!entry) throw new NotFoundException("TimeEntry not found");
+    return this.pauseTimeEntryInternal(entry);
+  }
+
+  private async pauseTimeEntryInternal(entry: { id: string; status: string; resumedAt: Date | null; startedAt: Date; accumulatedSeconds: number }): Promise<TimeEntryRecord> {
     const now = new Date();
     const elapsed = entry.status === "running"
       ? Math.max(0, Math.floor((now.getTime() - (entry.resumedAt ?? entry.startedAt).getTime()) / 1000))
       : 0;
     return this.prisma.timeEntry.update({
-      where: { id },
+      where: { id: entry.id },
       data: {
         status: "paused",
         pausedAt: now,
@@ -205,6 +215,16 @@ export class LaborEngineRepository {
   async stopTimeEntry(id: string, tenantId: string, createdBy: string, notes?: string): Promise<TimeEntryRecord> {
     const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId, createdBy } });
     if (!entry) throw new NotFoundException("TimeEntry not found");
+    return this.stopTimeEntryInternal(entry, notes);
+  }
+
+  async adminStopTimeEntry(id: string, tenantId: string, notes?: string): Promise<TimeEntryRecord> {
+    const entry = await this.prisma.timeEntry.findFirst({ where: { id, tenantId } });
+    if (!entry) throw new NotFoundException("TimeEntry not found");
+    return this.stopTimeEntryInternal(entry, notes);
+  }
+
+  private async stopTimeEntryInternal(entry: { id: string; status: string; resumedAt: Date | null; startedAt: Date; accumulatedSeconds: number; notes: string | null }, notes?: string): Promise<TimeEntryRecord> {
     const now = new Date();
     const lastResume = entry.resumedAt ?? entry.startedAt;
     const additionalSeconds = entry.status === "running"
@@ -212,7 +232,7 @@ export class LaborEngineRepository {
       : 0;
     const totalSeconds = entry.accumulatedSeconds + additionalSeconds;
     return this.prisma.timeEntry.update({
-      where: { id },
+      where: { id: entry.id },
       data: {
         status: "completed",
         endedAt: now,

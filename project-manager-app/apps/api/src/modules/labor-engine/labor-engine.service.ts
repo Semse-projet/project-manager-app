@@ -102,6 +102,14 @@ export class LaborEngineService {
     return this.repo.stopTimeEntry(id, tenantId, createdBy, notes);
   }
 
+  async adminPauseTimer(id: string, tenantId: string) {
+    return this.repo.adminPauseTimeEntry(id, tenantId);
+  }
+
+  async adminStopTimer(id: string, tenantId: string, notes?: string) {
+    return this.repo.adminStopTimeEntry(id, tenantId, notes);
+  }
+
   async updateTimerNotes(id: string, tenantId: string, createdBy: string, notes: string) {
     return this.repo.updateTimeEntryNotes(id, tenantId, createdBy, notes);
   }

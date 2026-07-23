@@ -115,6 +115,7 @@ required_behavior:
 - [ ] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
 - [x] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
 - [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
+- [x] Las alertas QualityGuard en `/admin/labor-engine` muestran un acción visible (perfil del worker; pausar/detener timers olvidados) y confirman antes de mutar
 
 ## Implementation Map
 

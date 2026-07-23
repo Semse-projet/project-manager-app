@@ -179,6 +179,34 @@ export class LaborEngineController {
     return ok(rid(req), data);
   }
 
+  // ── Admin overrides (QualityGuard actions) ─────────────────────────────────
+
+  @Post("admin/timer/:id/pause")
+  @Patch("admin/timer/:id/pause")
+  @RequirePermissions("ops:dashboard:write")
+  async adminPauseTimer(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+  ) {
+    const a = actor(req);
+    const data = await this.svc.adminPauseTimer(id, a.tenantId);
+    return ok(rid(req), data);
+  }
+
+  @Post("admin/timer/:id/stop")
+  @Patch("admin/timer/:id/stop")
+  @RequirePermissions("ops:dashboard:write")
+  async adminStopTimer(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("id") id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    const a = actor(req);
+    const notes = typeof body["notes"] === "string" ? body["notes"] : undefined;
+    const data = await this.svc.adminStopTimer(id, a.tenantId, notes);
+    return ok(rid(req), data);
+  }
+
   // ── Manual entries ────────────────────────────────────────────────────────
 
   @Post("entries/manual")

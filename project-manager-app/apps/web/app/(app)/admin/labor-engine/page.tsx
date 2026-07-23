@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, Pause, Play,
   RefreshCw, Search, ShieldAlert, Timer, Users,
@@ -135,6 +136,8 @@ export default function AdminLaborEnginePage() {
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -168,6 +171,48 @@ export default function AdminLaborEnginePage() {
       setLoading(false);
     }
   }, []);
+
+  async function handleAlertPause(entryId: string, workerLabel: string) {
+    if (typeof window !== "undefined" && !window.confirm(`¿Pausar el timer de ${workerLabel}?`)) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/semse/labor/admin/timer/${encodeURIComponent(entryId)}/pause`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({ error: { message: "No se pudo pausar el timer." } }));
+        throw new Error(d.error?.message ?? "No se pudo pausar el timer.");
+      }
+      await load();
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "No se pudo pausar el timer.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleAlertStop(entryId: string, workerLabel: string) {
+    if (typeof window !== "undefined" && !window.confirm(`¿Detener el timer de ${workerLabel}?`)) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/semse/labor/admin/timer/${encodeURIComponent(entryId)}/stop`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({ error: { message: "No se pudo detener el timer." } }));
+        throw new Error(d.error?.message ?? "No se pudo detener el timer.");
+      }
+      await load();
+    } catch (caught) {
+      setActionError(caught instanceof Error ? caught.message : "No se pudo detener el timer.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   useEffect(() => {
     void load();
@@ -255,6 +300,10 @@ export default function AdminLaborEnginePage() {
         ))}
       </div>
 
+      {actionError ? (
+        <div role="alert" style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 10, fontSize: 12, color: "#fca5a5", marginBottom: 16 }}>{actionError}</div>
+      ) : null}
+
       {/* QualityGuard alerts */}
       {overview && overview.alerts.length > 0 ? (
         <div style={{ background: "var(--surface)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 14, overflow: "hidden", marginBottom: 22 }}>
@@ -265,14 +314,39 @@ export default function AdminLaborEnginePage() {
           {overview.alerts.map((alert, index) => {
             const meta = ALERT_META[alert.type];
             const color = alert.severity === "critical" ? "#ef4444" : "#f59e0b";
+            const workerLabel = alert.workerId.slice(0, 14);
+            const canAct = Boolean(alert.entryId);
             return (
               <div key={`${alert.type}-${alert.entryId ?? alert.workerId}-${index}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderBottom: "1px solid var(--border)" }}>
                 <meta.icon size={14} color={color} />
                 <span style={{ fontSize: 10, fontWeight: 800, color, background: `${color}18`, padding: "2px 8px", borderRadius: 99, flexShrink: 0 }}>
                   {meta.label}
                 </span>
-                <span style={{ fontSize: 12, color: "var(--ink)", fontWeight: 600 }}>{alert.workerId.slice(0, 14)}…</span>
+                <span style={{ fontSize: 12, color: "var(--ink)", fontWeight: 600 }}>{workerLabel}…</span>
                 <span style={{ fontSize: 12, color: "var(--muted)", flex: 1 }}>{alert.detail}</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {canAct && alert.type === "stale_timer" && (
+                    <>
+                      <button
+                        onClick={() => void handleAlertPause(alert.entryId!, `worker ${workerLabel}`)}
+                        disabled={actionLoading}
+                        style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "rgba(251,191,36,.1)", color: "#fbbf24", fontSize: 11, fontWeight: 700, cursor: actionLoading ? "not-allowed" : "pointer", opacity: actionLoading ? 0.6 : 1 }}
+                      >
+                        Pausar
+                      </button>
+                      <button
+                        onClick={() => void handleAlertStop(alert.entryId!, `worker ${workerLabel}`)}
+                        disabled={actionLoading}
+                        style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "rgba(239,68,68,.1)", color: "#fca5a5", fontSize: 11, fontWeight: 700, cursor: actionLoading ? "not-allowed" : "pointer", opacity: actionLoading ? 0.6 : 1 }}
+                      >
+                        Detener
+                      </button>
+                    </>
+                  )}
+                  <Link href={`/admin/users/${alert.workerId}`} style={{ padding: "4px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "rgba(255,255,255,.05)", color: "var(--muted)", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+                    Ver perfil
+                  </Link>
+                </div>
               </div>
             );
           })}
