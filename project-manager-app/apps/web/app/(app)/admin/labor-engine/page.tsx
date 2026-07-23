@@ -6,6 +6,8 @@ import {
   Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, Pause, Play,
   RefreshCw, Search, ShieldAlert, Timer, Users,
 } from "lucide-react";
+import { Pagination } from "../../../components/admin/Pagination";
+import { fetchUsers, type UserView } from "../../../semse-api";
 
 // ── Types (contrato del labor-engine admin overview) ─────────────────────────
 
@@ -110,8 +112,11 @@ function fmtElapsed(seconds: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function entryTarget(entry: AdminTimeEntry) {
-  if (entry.jobId) return { label: `Job ${entry.jobId.slice(0, 10)}…`, color: "#3b82f6" };
+function entryTarget(entry: AdminTimeEntry, jobById: Map<string, JobOption>) {
+  if (entry.jobId) {
+    const job = jobById.get(entry.jobId);
+    return { label: job ? job.title : `Job ${entry.jobId.slice(0, 10)}…`, color: "#3b82f6" };
+  }
   if (entry.freeProjectId) return { label: "Proyecto libre", color: "#f59e0b" };
   return { label: "Personal", color: "#94a3b8" };
 }
@@ -138,17 +143,22 @@ export default function AdminLaborEnginePage() {
   const [matchError, setMatchError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserView[]>([]);
+  const [timersPage, setTimersPage] = useState(0);
+  const [teamPage, setTeamPage] = useState(0);
+  const pageSize = 8;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [overviewRes, ratesRes, jobsRes] = await Promise.allSettled([
+      const [overviewRes, ratesRes, jobsRes, usersRes] = await Promise.allSettled([
         fetchJson<AdminOverview>("/api/semse/labor/admin/overview"),
         fetchJson<LaborRates>("/api/semse/pricing/labor-rates"),
         fetchJson<JobOption[]>("/api/semse/jobs"),
+        fetchUsers(),
       ]);
-      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value);
+      if (overviewRes.status === "fulfilled") { setOverview(overviewRes.value); setTimersPage(0); setTeamPage(0); }
       else setOverview(null);
       if (ratesRes.status === "fulfilled") setRates(ratesRes.value);
       else setRates(null);
@@ -158,10 +168,13 @@ export default function AdminLaborEnginePage() {
       } else {
         setJobs([]);
       }
+      if (usersRes.status === "fulfilled") setUsers(usersRes.value);
+      else setUsers([]);
       const failed: string[] = [];
       if (overviewRes.status === "rejected") failed.push("resumen");
       if (ratesRes.status === "rejected") failed.push("tarifas");
       if (jobsRes.status === "rejected") failed.push("jobs");
+      if (usersRes.status === "rejected") failed.push("usuarios");
       if (failed.length > 0) {
         setError(`Falla parcial de carga: ${failed.join(", ")}.`);
       }
@@ -239,6 +252,37 @@ export default function AdminLaborEnginePage() {
   const totalTeamMinutes = teamWithCost.reduce((sum, member) => sum + member.totalMinutes, 0);
   const totalTeamCost = teamWithCost.reduce((sum, member) => sum + member.estimatedCost, 0);
 
+  const userById = useMemo(() => {
+    const map = new Map<string, UserView>();
+    for (const user of users) map.set(user.id, user);
+    return map;
+  }, [users]);
+
+  const jobById = useMemo(() => {
+    const map = new Map<string, JobOption>();
+    for (const job of jobs) map.set(job.id, job);
+    return map;
+  }, [jobs]);
+
+  function displayName(userId: string) {
+    const user = userById.get(userId);
+    if (user) {
+      const local = user.email.split("@")[0];
+      return local ? local.charAt(0).toUpperCase() + local.slice(1) : user.email;
+    }
+    return userId.slice(0, 12);
+  }
+
+  const pagedTimers = useMemo(() => {
+    const start = timersPage * pageSize;
+    return (overview?.activeTimers ?? []).slice(start, start + pageSize);
+  }, [overview?.activeTimers, timersPage, pageSize]);
+
+  const pagedTeam = useMemo(() => {
+    const start = teamPage * pageSize;
+    return teamWithCost.slice(start, start + pageSize);
+  }, [teamWithCost, teamPage, pageSize]);
+
   const runMatch = useCallback(async () => {
     if (!matchJobId) return;
     setMatchLoading(true);
@@ -314,7 +358,7 @@ export default function AdminLaborEnginePage() {
           {overview.alerts.map((alert, index) => {
             const meta = ALERT_META[alert.type];
             const color = alert.severity === "critical" ? "#ef4444" : "#f59e0b";
-            const workerLabel = alert.workerId.slice(0, 14);
+            const workerLabel = displayName(alert.workerId);
             const canAct = Boolean(alert.entryId);
             return (
               <div key={`${alert.type}-${alert.entryId ?? alert.workerId}-${index}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderBottom: "1px solid var(--border)" }}>
@@ -365,15 +409,15 @@ export default function AdminLaborEnginePage() {
               {overview ? "Nadie está trackeando tiempo ahora." : "Cargando…"}
             </div>
           ) : (
-            overview.activeTimers.map((entry) => {
-              const target = entryTarget(entry);
+            pagedTimers.map((entry) => {
+              const target = entryTarget(entry, jobById);
               const running = entry.status === "running";
               return (
                 <div key={entry.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)" }}>
                   {running ? <Play size={13} color="#10b981" /> : <Pause size={13} color="#f59e0b" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {entry.createdBy}
+                      {displayName(entry.createdBy)}
                     </p>
                     <p style={{ margin: 0, fontSize: 10, color: target.color, fontWeight: 700 }}>{target.label}</p>
                   </div>
@@ -384,6 +428,7 @@ export default function AdminLaborEnginePage() {
               );
             })
           )}
+          <Pagination page={timersPage} pageSize={pageSize} total={overview?.activeTimers.length ?? 0} onPageChange={setTimersPage} />
         </div>
 
         {/* Team hours + cost */}
@@ -402,11 +447,11 @@ export default function AdminLaborEnginePage() {
               {overview ? "Sin horas completadas esta semana." : "Cargando…"}
             </div>
           ) : (
-            teamWithCost.map((member) => (
+            pagedTeam.map((member) => (
               <div key={member.workerId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {member.workerId}
+                    {displayName(member.workerId)}
                   </p>
                   <p style={{ margin: 0, fontSize: 10, color: "var(--muted)" }}>{member.totalEntries} entrada(s)</p>
                 </div>
@@ -417,6 +462,7 @@ export default function AdminLaborEnginePage() {
               </div>
             ))
           )}
+          <Pagination page={teamPage} pageSize={pageSize} total={teamWithCost.length} onPageChange={setTeamPage} />
         </div>
       </div>
 

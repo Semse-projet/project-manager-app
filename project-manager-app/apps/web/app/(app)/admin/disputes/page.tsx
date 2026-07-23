@@ -25,8 +25,11 @@ import {
   sendNotification,
   planUpload,
   uploadMultipartPart,
-  type AgentApprovalItem
+  fetchUsers,
+  type AgentApprovalItem,
+  type UserView
 } from "../../../semse-api";
+import { Pagination } from "../../../components/admin/Pagination";
 import { DisputeResolutionWorkspace } from "../../../components/disputes/DisputeResolutionWorkspace";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
@@ -123,6 +126,9 @@ export default function AdminDisputesPage() {
   const [workspaceDisputeId, setWorkspaceDisputeId] = useState<string | null>(() => searchParams?.get("workspaceId") ?? null);
   const [pendingApprovals, setPendingApprovals] = useState<AgentApprovalItem[]>([]);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [users, setUsers] = useState<UserView[]>([]);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
 
   // Resolve panel state
   const [customResolution, setCustomResolution] = useState("");
@@ -147,6 +153,7 @@ export default function AdminDisputesPage() {
       const rows = d.data ?? [];
       setDisputes(rows);
       setLastUpdated(new Date());
+      void fetchUsers().then(setUsers).catch(() => {});
 
       // Cargar approvals pendientes y contadores de comentarios en paralelo
       void fetchPendingApprovals().then(setPendingApprovals).catch(() => {});
@@ -213,6 +220,30 @@ export default function AdminDisputesPage() {
       return true;
     });
   }, [disputes, tab, priorityFilter, disputeIdsWithPendingApproval, commentCounts]);
+
+  useEffect(() => { setPage(0); }, [tab, priorityFilter]);
+
+  const userById = useMemo(() => {
+    const map = new Map<string, UserView>();
+    for (const user of users) map.set(user.id, user);
+    return map;
+  }, [users]);
+
+  function displayName(userId?: string, fallback?: string) {
+    if (fallback) return fallback;
+    if (!userId) return "—";
+    const user = userById.get(userId);
+    if (user) {
+      const local = user.email.split("@")[0];
+      return local ? local.charAt(0).toUpperCase() + local.slice(1) : user.email;
+    }
+    return userId.slice(0, 12);
+  }
+
+  const pagedDisputes = useMemo(() => {
+    const start = page * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   const selectedDispute = disputes.find(d => d.id === selected);
 
@@ -500,7 +531,7 @@ export default function AdminDisputesPage() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {filtered.map(d => {
+              {pagedDisputes.map(d => {
                 const s = STATUS_CONFIG[d.status] ?? { variant: "neutral" as const, label: d.status };
                 const severityColor = SEVERITY_COLOR[d.severity ?? "medium"] ?? "#f59e0b";
                 return (
@@ -538,9 +569,9 @@ export default function AdminDisputesPage() {
                         {d.reason}
                       </p>
                       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                        {(d.client || d.worker) && (
+                        {(d.client || d.worker || d.clientId || d.workerId) && (
                           <span style={{ fontSize: "11px", color: "var(--faint)", display: "flex", alignItems: "center", gap: "3px" }}>
-                            <User size={10} /> {d.client ?? "—"} vs {d.worker ?? "—"}
+                            <User size={10} /> {displayName(d.clientId, d.client)} vs {displayName(d.workerId, d.worker)}
                           </span>
                         )}
                         {d.amount != null && d.amount > 0 && (
@@ -573,6 +604,7 @@ export default function AdminDisputesPage() {
               })}
             </div>
           )}
+          <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
         </div>
 
         {/* Workspace panel para admin */}
