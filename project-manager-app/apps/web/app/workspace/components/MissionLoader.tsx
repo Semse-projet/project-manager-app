@@ -23,11 +23,7 @@ export function MissionLoader({
   function submit() {
     const trimmed = title.trim();
     if (!trimmed) return;
-    const missionId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `mission-${Date.now()}`;
-    onLoad(missionId, type, trimmed);
+    onLoad(crypto.randomUUID(), type, trimmed);
     setTitle("");
   }
 

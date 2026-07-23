@@ -47,7 +47,7 @@ export const copilotMessageRequestSchema = z.object({
       permissions: z.array(z.string()).optional(),
     })
     .optional(),
-  sessionId: z.string().optional(),
+  sessionId: z.string().uuid().optional(),
 });
 export type CopilotMessageRequest = z.infer<typeof copilotMessageRequestSchema>;
 
@@ -59,7 +59,7 @@ export const copilotMissionSuggestionSchema = z.object({
 export type CopilotMissionSuggestion = z.infer<typeof copilotMissionSuggestionSchema>;
 
 export const copilotMessageResponseSchema = z.object({
-  sessionId: z.string(),
+  sessionId: z.string().uuid(),
   response: z.string(),
   suggestedActions: z.array(copilotSuggestedActionSchema),
   requiresWorkspace: z.boolean(),
@@ -70,14 +70,14 @@ export type CopilotMessageResponse = z.infer<typeof copilotMessageResponseSchema
 // ── POST /v1/prometeo/copilot/mission/create ─────────────────────────────────
 
 export const createMissionFromCopilotRequestSchema = z.object({
-  copilotSessionId: z.string().min(1),
+  copilotSessionId: z.string().uuid(),
   missionType: workspaceMissionTypeSchema,
   title: z.string().min(1).max(200),
 });
 export type CreateMissionFromCopilotRequest = z.infer<typeof createMissionFromCopilotRequestSchema>;
 
 export const missionCreationResponseSchema = z.object({
-  missionId: z.string(),
+  missionId: z.string().uuid(),
   title: z.string(),
   type: workspaceMissionTypeSchema,
   workspaceUrl: z.string(),
@@ -97,7 +97,7 @@ export const executeCopilotActionRequestSchema = z.object({
 export type ExecuteCopilotActionRequest = z.infer<typeof executeCopilotActionRequestSchema>;
 
 export const actionExecutionResponseSchema = z.object({
-  actionId: z.string(),
+  actionId: z.string().uuid(),
   status: z.enum(["pending", "completed", "failed"]),
   result: z.unknown().nullable(),
   requiresWorkspace: z.boolean(),

@@ -22,7 +22,7 @@ export const getWorkspaceContextRequestSchema = z.object({
 export type GetWorkspaceContextRequest = z.infer<typeof getWorkspaceContextRequestSchema>;
 
 export const workspaceActiveMissionSchema = z.object({
-  missionId: z.string(),
+  missionId: z.string().uuid(),
   missionType: workspaceMissionTypeSchema,
   title: z.string(),
 });
@@ -83,14 +83,14 @@ export type NavigationUpdateResponse = z.infer<typeof navigationUpdateResponseSc
 // ── POST /v1/workspace/mission/load ──────────────────────────────────────────
 
 export const loadMissionRequestSchema = z.object({
-  missionId: z.string().min(1),
+  missionId: z.string().uuid(),
   missionType: workspaceMissionTypeSchema,
   title: z.string().min(1).max(200).optional(),
 });
 export type LoadMissionRequest = z.infer<typeof loadMissionRequestSchema>;
 
 export const missionLoadResponseSchema = z.object({
-  missionId: z.string(),
+  missionId: z.string().uuid(),
   missionType: workspaceMissionTypeSchema,
   title: z.string(),
   content: z.unknown().nullable(),
@@ -102,12 +102,12 @@ export type MissionLoadResponse = z.infer<typeof missionLoadResponseSchema>;
 // ── POST /v1/workspace/mission/unload ────────────────────────────────────────
 
 export const unloadMissionRequestSchema = z.object({
-  missionId: z.string().min(1),
+  missionId: z.string().uuid(),
 });
 export type UnloadMissionRequest = z.infer<typeof unloadMissionRequestSchema>;
 
 export const missionUnloadResponseSchema = z.object({
-  missionId: z.string(),
+  missionId: z.string().uuid(),
   unloadedAt: z.string(),
 });
 export type MissionUnloadResponse = z.infer<typeof missionUnloadResponseSchema>;

@@ -62,7 +62,7 @@ export const orchestrationStepSchema = z.object({
 export type OrchestrationStep = z.infer<typeof orchestrationStepSchema>;
 
 export const prometeoOrchestrationResponseSchema = z.object({
-  orchestrationId: z.string(),
+  orchestrationId: z.string().uuid(),
   interpretation: orchestrationInterpretationSchema,
   agentsConsulted: z.array(orchestrationAgentResultSchema),
   plan: z.object({
@@ -93,7 +93,7 @@ export const orchestrationSuggestedActionSchema = z.object({
 export type OrchestrationSuggestedAction = z.infer<typeof orchestrationSuggestedActionSchema>;
 
 export const agentConsultationResponseSchema = z.object({
-  consultationId: z.string(),
+  consultationId: z.string().uuid(),
   agentId: prometeoAgentIdSchema,
   agentResponse: z.string(),
   requiresAction: z.boolean(),
@@ -104,7 +104,7 @@ export type AgentConsultationResponse = z.infer<typeof agentConsultationResponse
 // ── GET /v1/prometeo/orchestration/:orchestrationId ──────────────────────────
 
 export const orchestrationStatusResponseSchema = z.object({
-  orchestrationId: z.string(),
+  orchestrationId: z.string().uuid(),
   status: orchestrationStatusSchema,
   currentStep: z.string(),
   agentsStatus: z.record(z.string(), z.string()),
