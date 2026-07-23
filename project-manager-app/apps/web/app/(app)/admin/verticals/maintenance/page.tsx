@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Wrench, Zap, Droplets, Thermometer, Wind, Shield, Calendar, TrendingUp, Activity, ClipboardList } from "lucide-react";
+import { Wrench, Zap, Droplets, Thermometer, Wind, Shield, Calendar, TrendingUp, Activity, ClipboardList } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 interface MaintenanceStats {
   openWorkOrders?: number;
@@ -54,25 +55,16 @@ export default function AdminMaintenanceVerticalPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Link href="/admin/verticals" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-          <ArrowLeft size={12} /> Verticals
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <span style={{ fontSize: 24 }}>🔧</span>
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.03em" }}>Maintenance</h1>
-              <span className="badge badge-amber" style={{ fontSize: 10 }}>Beta</span>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Mantenimiento preventivo y correctivo de propiedades — eléctrico, plomería, HVAC, techos</p>
-          </div>
-          <Link href="/admin/field-ops" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <Wrench size={12} /> Work Orders
-          </Link>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Maintenance"
+        subtitle="Mantenimiento preventivo y correctivo de propiedades — eléctrico, plomería, HVAC, techos"
+        icon={Wrench}
+        iconColor="#fbbf24"
+        iconBg="rgba(251,191,36,.12)"
+        backHref="/admin/verticals"
+        backLabel="Verticals"
+        actions={<span className="badge badge-amber" style={{ fontSize: 10 }}>Beta</span>}
+      />
 
       {/* KPI strip */}
       <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", marginBottom: 24 }}>
