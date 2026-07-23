@@ -5,11 +5,12 @@
  * Gestión de clientes y profesionales: verificación, estado, KPIs
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Inbox, Scale } from "lucide-react";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { Pagination } from "../../../components/admin/Pagination";
 import { StatusBadge } from "@semse/ui";
 import {
   fetchDisputes,
@@ -86,6 +87,8 @@ export default function AdminUsersPage() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [actingUserId, setActingUserId] = useState<string | null>(null);
   const [disputesByUserId, setDisputesByUserId] = useState<Record<string, number>>({});
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const loadUsers = useCallback(async () => {
@@ -204,6 +207,13 @@ export default function AdminUsersPage() {
 
   const pendingVerification = users.filter(u => !u.verified && u.status === "pending").length;
 
+  useEffect(() => { setPage(0); }, [query, roleFilter, statusFilter]);
+
+  const pagedUsers = useMemo(() => {
+    const start = page * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
+
   const card: React.CSSProperties = {
     background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px",
   };
@@ -307,7 +317,7 @@ export default function AdminUsersPage() {
             ))}
           </div>
           {/* Rows */}
-          {filtered.map((u, i) => {
+          {pagedUsers.map((u, i) => {
             const s = STATUS_CONFIG[u.status];
             const r = ROLE_CONFIG[u.role];
             return (
@@ -316,7 +326,7 @@ export default function AdminUsersPage() {
                 style={{
                   display: "grid", gridTemplateColumns: "220px 100px 110px 80px 100px 70px 80px 80px",
                   gap: "0", padding: "12px 16px", alignItems: "center",
-                  borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none",
+                  borderBottom: i < pagedUsers.length - 1 ? "1px solid var(--border)" : "none",
                   position: "relative",
                 }}
                 onMouseOver={e => (e.currentTarget.style.background = "var(--bg)")}
@@ -413,6 +423,7 @@ export default function AdminUsersPage() {
               </div>
             );
           })}
+          <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
         </div>
       )}
     </div>
