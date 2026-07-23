@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BarChart2, Download, Calendar, TrendingUp, Users, Briefcase, DollarSign } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
-import { fetchJobs, fetchJobPayments, fetchAutonomyRuns, fetchDisputes } from "../../../semse-api";
+import { fetchJobs, fetchJobPayments, fetchAutonomyRuns, fetchDisputes, type JobRecordView } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 // Only "Todo" reflects reality — none of the fetch calls below take a date
@@ -44,28 +44,46 @@ export default function AdminReportsPage() {
     agents: [],
     users: []
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
+      setError(null);
       try {
-        const [jobs, disputes, runsView] = await Promise.all([
+        const [jobsRes, disputesRes, runsRes] = await Promise.allSettled([
           fetchJobs(),
-          fetchDisputes().catch(() => []),
-          fetchAutonomyRuns().catch(() => ({ runs: [] }))
+          fetchDisputes(),
+          fetchAutonomyRuns()
         ]);
+        if (jobsRes.status === "rejected") {
+          throw jobsRes.reason;
+        }
+        const jobs = jobsRes.value;
+        const disputes = disputesRes.status === "fulfilled" ? disputesRes.value : [];
+        const runsView = runsRes.status === "fulfilled" ? runsRes.value : { runs: [] };
+        const warnings: string[] = [];
+        if (disputesRes.status === "rejected") warnings.push("disputas");
+        if (runsRes.status === "rejected") warnings.push("autonomy runs");
+
         const completed = jobs.filter(j => j.status === "completed").length;
-        // Only SUCCEEDED transactions represent money that actually moved —
-        // summing every transaction regardless of status (PENDING/FAILED/
-        // REVERSED) overstates escrow volume. Same fix as 0.35/3.8 (finance)
-        // and 2.39/G-PRO-12 (worker payments), recurring here since this
-        // page reads the same PaymentTxn rows independently.
-        const totalEscrow = (await Promise.all(jobs.map(j => fetchJobPayments(j.id).catch(() => []))))
-          .flat()
+
+        const paymentResults = await Promise.allSettled(
+          jobs.map(async (job) => ({ job, txns: await fetchJobPayments(job.id) }))
+        );
+        const successfulPayments = paymentResults
+          .filter((r): r is PromiseFulfilledResult<{ job: JobRecordView; txns: Record<string, unknown>[] }> => r.status === "fulfilled")
+          .map(r => r.value);
+        const failedPayments = paymentResults.filter(r => r.status === "rejected").length;
+        if (failedPayments > 0) warnings.push(`${failedPayments} jobs sin pagos`);
+
+        const totalEscrow = successfulPayments
+          .flatMap(({ txns }) => txns)
           .reduce((sum, t) => {
-            const row = t as Record<string, unknown>;
+            const row = t;
             if (row.status !== "SUCCEEDED") return sum;
             return sum + (typeof row.amount === "number" ? row.amount : Number(row.amount ?? 0));
           }, 0);
+
         const runCount = Array.isArray((runsView as Record<string, unknown>).runs)
           ? ((runsView as Record<string, unknown>).runs as unknown[]).length
           : 0;
@@ -73,10 +91,10 @@ export default function AdminReportsPage() {
           const row = item as Record<string, unknown>;
           return String(row.status ?? "").toUpperCase() === "OPEN";
         }).length;
-        const financeRows = (await Promise.all(jobs.map(async (job) => {
-          const txns = await fetchJobPayments(job.id).catch(() => []);
-          return txns.map((txn) => {
-            const row = txn as Record<string, unknown>;
+
+        const financeRows = successfulPayments.flatMap(({ job, txns }) =>
+          txns.map((txn) => {
+            const row = txn;
             return {
               job: job.title,
               type: String(row.type ?? "UNKNOWN"),
@@ -84,8 +102,9 @@ export default function AdminReportsPage() {
               amount: typeof row.amount === "number" ? row.amount : Number(row.amount ?? 0),
               createdAt: typeof row.createdAt === "string" ? row.createdAt.slice(0, 10) : "—"
             } satisfies ReportRow;
-          });
-        }))).flat();
+          })
+        );
+
         const runs = Array.isArray((runsView as Record<string, unknown>).runs)
           ? ((runsView as Record<string, unknown>).runs as Record<string, unknown>[])
           : [];
@@ -122,7 +141,12 @@ export default function AdminReportsPage() {
           { label: "Trabajos en curso", value: String(jobs.filter(j => j.status === "in_progress").length), change: "activos", up: true },
           { label: "Runs de agentes", value: runCount > 0 ? String(runCount) : "—", change: "total", up: true },
         ]);
-      } catch { /* keep defaults */ }
+        if (warnings.length > 0) {
+          setError(`Falla parcial de carga: ${warnings.join(", ")}.`);
+        }
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "No se pudieron cargar los reportes.");
+      }
     })();
   }, []);
 
@@ -171,6 +195,12 @@ export default function AdminReportsPage() {
           </span>
         </div>
       </HtmlInCanvasPanel>
+
+      {error ? (
+        <div role="alert" style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: "10px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
+          {error}
+        </div>
+      ) : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "12px", marginBottom: "24px" }}>
         {metrics.map(m => (
