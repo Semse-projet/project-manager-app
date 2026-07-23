@@ -5,6 +5,7 @@ import {
   AlertCircle, Building2, CheckCircle2, Phone, Plus, RefreshCw,
   Search, Star, TrendingUp, Users, XCircle,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -143,25 +144,26 @@ export default function ContractorsPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-          <Building2 size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Contractors / CRM</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Gestión de leads y contratistas</p>
-        </div>
-        <button onClick={() => setShowForm((p) => !p)}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
-          <Plus size={13} /> Nuevo lead
-        </button>
-        <button onClick={loadLeads} disabled={loading}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Contractors / CRM"
+        subtitle="Gestión de leads y contratistas"
+        icon={Building2}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <>
+            <button onClick={() => setShowForm((p) => !p)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
+              <Plus size={13} /> Nuevo lead
+            </button>
+            <button onClick={loadLeads} disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
+              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {/* Stats */}
       {stats && (
