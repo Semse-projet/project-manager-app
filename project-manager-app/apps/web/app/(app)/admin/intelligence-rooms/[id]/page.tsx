@@ -101,6 +101,7 @@ export default function IntelligenceRoomPage() {
   const [activity, setActivity] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!projectId) return;
@@ -143,25 +144,37 @@ export default function IntelligenceRoomPage() {
 
   async function handleAcknowledge(id: string) {
     setActionLoading(id);
+    setActionError(null);
     try {
-      await fetch(`/api/semse/operational-signals/${id}/acknowledge`, { method: "PATCH", credentials: "include" });
+      const res = await fetch(`/api/semse/operational-signals/${id}/acknowledge`, { method: "PATCH", credentials: "include" });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "acknowledged" as const } : s));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "No se pudo reconocer la señal");
     } finally { setActionLoading(null); }
   }
 
   async function handleResolve(id: string) {
     setActionLoading(id);
+    setActionError(null);
     try {
-      await fetch(`/api/semse/operational-signals/${id}/resolve`, { method: "PATCH", credentials: "include" });
+      const res = await fetch(`/api/semse/operational-signals/${id}/resolve`, { method: "PATCH", credentials: "include" });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "resolved" as const } : s));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "No se pudo resolver la señal");
     } finally { setActionLoading(null); }
   }
 
   async function handleDismiss(id: string) {
     setActionLoading(id);
+    setActionError(null);
     try {
-      await fetch(`/api/semse/operational-signals/${id}/dismiss`, { method: "PATCH", credentials: "include" });
+      const res = await fetch(`/api/semse/operational-signals/${id}/dismiss`, { method: "PATCH", credentials: "include" });
+      if (!res.ok) throw new Error(`Error ${res.status}`);
       setSignals((prev) => prev.map((s) => s.id === id ? { ...s, status: "dismissed" as const } : s));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "No se pudo descartar la señal");
     } finally { setActionLoading(null); }
   }
 
@@ -180,6 +193,12 @@ export default function IntelligenceRoomPage() {
         <span>›</span>
         <span>Intelligence Room</span>
       </div>
+
+      {actionError && (
+        <div role="alert" style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: "8px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
+          {actionError}
+        </div>
+      )}
 
       {/* Project Header */}
       <div style={{

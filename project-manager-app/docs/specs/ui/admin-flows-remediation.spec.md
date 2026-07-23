@@ -113,8 +113,8 @@ required_behavior:
 
 - [ ] Un actor con rol CLIENT o PRO recibe 403 al intentar `GET /v1/anatomy` o `GET /v1/knowledge` (regresión directa de G-ADM-07)
 - [ ] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
-- [ ] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
-- [ ] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
+- [x] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
+- [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
 
 ## Implementation Map
 

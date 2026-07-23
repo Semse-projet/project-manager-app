@@ -151,6 +151,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "agro", label: "Agro / FarmOps", href: "/admin/verticals/agro", description: "Full farm management: animals, groups, tasks, inventory, health, feeding, costs, analytics, and reproduction.", status: "operational" },
       { id: "construction", label: "Construction", href: "/admin/verticals/construction", description: "Field operations, crews, evidence, milestones, and change orders.", status: "operational" },
       { id: "vision-ai", label: "Vision AI", href: "/admin/verticals/vision", description: "Material and safety analysis powered by OpenCV and Ollama — 6 analyzers.", status: "operational" },
+      { id: "vision", label: "Vision Console", href: "/admin/vision", description: "Live visual analysis console for construction and safety checks.", status: "operational" },
       { id: "cleaning", label: "Cleaning & Turnovers", href: "/admin/verticals/cleaning", description: "Residential and commercial cleaning, move-in/out workflows, and quality checklists.", status: "planned" },
       { id: "maintenance", label: "Maintenance", href: "/admin/verticals/maintenance", description: "Preventive and corrective property maintenance — electrical, plumbing, HVAC, roofing.", status: "planned" },
     ],

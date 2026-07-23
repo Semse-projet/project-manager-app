@@ -219,6 +219,8 @@ export default function AdminDisputesPage() {
   const handleResolve = async (resolution: string, resolutionType: DisputeResolutionType) => {
     const targetId = workspaceDisputeId ?? selected;
     if (!targetId || !resolution.trim()) return;
+    const confirmMessage = `¿Confirmar resolución de la disputa? Esta acción notificará a ambas partes: "${resolution.trim()}"`;
+    if (typeof window !== "undefined" && !window.confirm(confirmMessage)) return;
     setResolving(true);
     setResolveError(null);
     try {
@@ -349,6 +351,8 @@ export default function AdminDisputesPage() {
   }, [disputes, workspaceDisputeId]);
 
   async function handleApprovalDecide(approvalId: string, decision: "approved" | "rejected") {
+    const confirmMessage = `¿Confirmar la decisión de ops (${decision === "approved" ? "aprobar" : "rechazar"})? Esta acción notificará a ambas partes.`;
+    if (typeof window !== "undefined" && !window.confirm(confirmMessage)) return;
     await decideAgentApproval(approvalId, decision);
     if (workspaceDisputeId) {
       const text = decision === "approved"
