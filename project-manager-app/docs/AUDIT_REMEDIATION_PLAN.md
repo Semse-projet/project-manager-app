@@ -143,7 +143,7 @@
 - **Qué:** el payload de `.../tasks/:taskId/complete` no está validado, incluye `policy.decision`, y el harness le cree para avanzar el run — nunca vuelve a llamar la verificación real. `manifest.fileScopes` es código muerto (nunca se pasa `changedFiles`).
 - **Dónde:** `apps/api/.../forge.controller.ts:151-171` · `forge.service.ts:293-309` · `packages/forge/src/policy.ts:86-122`
 - **Fix:** derivar la decisión de política server-side a partir de datos reales, no del payload del caller; pasar `changedFiles` real a `evaluateForgePolicy`.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — `applyTaskResult` ya no lee `policy` del payload del caller; ahora usa directamente el `ForgePolicyResult` real que devuelve `harness.authorizeTaskAction()` (que internamente llama `evaluateForgePolicy()`) — antes ese valor de retorno se calculaba y se descartaba. `changedFiles` ahora se pasa desde `prPackage.changedFiles` del resultado, activando el scoping de `manifest.fileScopes`/`task.allowedFiles` que antes era código muerto. **Alcance:** los campos `.decision` de `prPackage`/`deployment`/`rollback`/`securityReport` (hallazgos de sub-dominios distintos: PR, deployment, rollback, security review) siguen viniendo del payload del caller sin verificación independiente — eso queda fuera del alcance de este hallazgo específico, no se tocó. Pendiente verificación en vivo.
 
 ### 0.19 — CRÍTICO (cumplimiento laboral) — No existe multiplicador de horas extra
 - **Qué:** `(minutos/60) * tarifa` flat, sin ningún umbral semanal. Solo existe una alerta de QualityGuard para que un admin lo vea — nunca toca el pago real.
@@ -216,7 +216,7 @@
 - **Qué:** confirmado en vivo — `POST /api/semse/agents/protools/estimate` → 404. El frontend muestra el error crudo de parseo JSON al usuario.
 - **Dónde:** `/client/protools` (frontend) — falta encontrar/crear la ruta backend correspondiente
 - **Fix:** implementar o corregir la ruta del BFF/backend para ese endpoint; agregar manejo de error decente en el frontend para cuando la respuesta no sea JSON válido.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — causa real: el backend (`SemseAgentsController @Post("protools/estimate")` bajo `v1/agents/semse`) siempre existió y estaba bien; el 404 era puramente del BFF de Next.js — el archivo de ruta vivía en `agents/protools/route.ts`, que solo matchea `/api/semse/agents/protools` (sin `/estimate`), mientras el frontend pedía `/api/semse/agents/protools/estimate`. Se movió el handler a `agents/protools/estimate/route.ts` (ruta anidada correcta); no había otro caller usando la ruta vieja. También se agregó chequeo de `content-type` antes de parsear JSON en `/client/protools/page.tsx`, para no mostrar el error crudo de parseo si el backend responde algo no-JSON. Pendiente verificación en vivo.
 
 ### 0.34 — CRÍTICO — El flujo de subida "single_put" (la ruta normal para fotos/archivos livianos) nunca sube el archivo real a storage — confirmado en `/worker/evidence` y `/worker/travel`
 

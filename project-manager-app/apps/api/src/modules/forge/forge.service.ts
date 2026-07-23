@@ -293,22 +293,31 @@ export class ForgeService {
     const payload = typeof result.payload === "object" && result.payload !== null
       ? (result.payload as Record<string, unknown>)
       : {};
-    const resultPolicy = payload.policy ?? (result as Record<string, unknown>).policy;
-    const policy = typeof resultPolicy === "object" && resultPolicy !== null
-      ? (resultPolicy as ForgePolicyResult)
-      : undefined;
     const action = typeof payload.action === "string"
       ? payload.action
       : (input.task.allowedCommands[0] ?? "runtime.execute");
+    const prPackage = payload.prPackage as ForgePRPackage | undefined;
 
-    harness.authorizeTaskAction({
+    // The policy decision must come from the server's own evaluation, never
+    // from the caller's payload — a caller could otherwise submit
+    // `{ result: { payload: { policy: { decision: "allow" } } } }` and skip
+    // whatever the real policy would have denied, since nothing re-ran the
+    // check before. authorizeTaskAction() already calls evaluateForgePolicy()
+    // internally; its return value was computed and thrown away previously.
+    // changedFiles now comes from the submitted PR package (previously never
+    // passed, so manifest.fileScopes/task file scoping was dead code — see
+    // docs/AUDIT_REMEDIATION_PLAN.md 0.18). Note this doesn't (and can't,
+    // without a real diff-of-record) verify changedFiles itself is honest —
+    // only that the scope/risk/action policy is re-derived server-side
+    // instead of trusted from the caller.
+    const policy: ForgePolicyResult = harness.authorizeTaskAction({
       runId: current.id,
       taskId: task.id,
       role: task.requestedRole,
-      action
+      action,
+      changedFiles: prPackage?.changedFiles
     });
 
-    const prPackage = payload.prPackage as ForgePRPackage | undefined;
     const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
     const rollback = payload.rollback as ForgeRollbackPlan | undefined;
     const observation = payload.observation as ForgeObservationPlan | undefined;
