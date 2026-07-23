@@ -199,6 +199,8 @@ export const rolePermissions: Record<string, string[]> = {
     "finance:write",
     "knowledge:read",
     "knowledge:write",
+    "knowledge:manage",
+    "ops:coordinator:read",
     "tools:read",
     "tools:run",
     "vision:read",

@@ -624,7 +624,7 @@ export class AgentsController {
   // ── Coordinator / Delegations ────────────────────────────────────────────
 
   @Get("delegations")
-  @RequirePermissions("agents:run:create")
+  @RequirePermissions("ops:coordinator:read")
   async listDelegations(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const headers = req.headers ?? {};
@@ -640,7 +640,7 @@ export class AgentsController {
   }
 
   @Get("delegations/:delegationId")
-  @RequirePermissions("agents:run:create")
+  @RequirePermissions("ops:coordinator:read")
   async getDelegation(
     @Req() req: { headers?: Record<string, unknown> },
     @Param("delegationId") delegationId: string,
@@ -651,7 +651,7 @@ export class AgentsController {
   }
 
   @Get("coordinator/snapshot")
-  @RequirePermissions("agents:run:create")
+  @RequirePermissions("ops:coordinator:read")
   async coordinatorSnapshot(@Req() req: { headers?: Record<string, unknown> }) {
     const actor = resolveRequestContext(req);
     const headers = req.headers ?? {};

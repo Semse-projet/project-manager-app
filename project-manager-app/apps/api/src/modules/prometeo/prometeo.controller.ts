@@ -86,7 +86,7 @@ export class PrometeoController {
   }
 
   @Post("ingest")
-  @RequirePermissions("agents:run:create")
+  @RequirePermissions("knowledge:manage")
   async ingest(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
@@ -107,7 +107,7 @@ export class PrometeoController {
 
   /** Ingest a file (PDF/DOCX/TXT/Markdown) as base64 payload */
   @Post("ingest-file")
-  @RequirePermissions("agents:run:create")
+  @RequirePermissions("knowledge:manage")
   async ingestFile(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
@@ -168,7 +168,7 @@ export class PrometeoController {
   }
 
   @Delete("documents/:id")
-  @RequirePermissions("agents:run:create")
+  @RequirePermissions("knowledge:manage")
   async deleteDocument(@Req() req: { headers?: Record<string, unknown> }, @Param("id") id: string) {
     const actor = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
