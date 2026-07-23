@@ -5,6 +5,7 @@ import {
   Activity, ArrowRight, Bot, Brain, CheckCircle2, DollarSign, Eye,
   Layers, RefreshCw, Send, Shield, Zap,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -326,29 +327,28 @@ export default function AgentsPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-          <Bot size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>SEMSE Agents</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            6 agentes especializados · Message bus · {lastAt ?? "cargando…"}
-          </p>
-        </div>
-        {/* SSE status indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, background: sseOk ? "rgba(134,239,172,.1)" : "rgba(100,116,139,.1)", border: `1px solid ${sseOk ? "rgba(134,239,172,.3)" : "rgba(100,116,139,.3)"}` }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: sseOk ? "#86efac" : "#475569", animation: sseOk ? "pulse 2s infinite" : "none" }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: sseOk ? "#86efac" : "#475569" }}>
-            SSE {sseOk ? "live" : "standby"}
-          </span>
-        </div>
-        <button onClick={load} disabled={loading}
-          style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+      <AdminPageHeader
+        title="SEMSE Agents"
+        subtitle={`6 agentes especializados · Message bus · ${lastAt ?? "cargando…"}`}
+        icon={Bot}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, background: sseOk ? "rgba(134,239,172,.1)" : "rgba(100,116,139,.1)", border: `1px solid ${sseOk ? "rgba(134,239,172,.3)" : "rgba(100,116,139,.3)"}` }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: sseOk ? "#86efac" : "#475569", animation: sseOk ? "pulse 2s infinite" : "none" }} />
+              <span style={{ fontSize: 10, fontWeight: 700, color: sseOk ? "#86efac" : "#475569" }}>
+                SSE {sseOk ? "live" : "standby"}
+              </span>
+            </div>
+            <button onClick={load} disabled={loading}
+              style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
+              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {/* Summary */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>

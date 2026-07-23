@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle, Clock, FilePlus, RefreshCw, Sparkles, XCircle, Zap } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ChangeOrderImpactCard } from "../../../../components/change-orders/ChangeOrderImpactCard";
 import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 
@@ -182,21 +183,20 @@ export default function AdminChangeOrdersPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1400, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", margin: 0 }}>
-            📋 Change Orders
-          </h1>
-          <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>
-            Gestión completa del ciclo de vida de cambios de alcance
-          </p>
-        </div>
-        <button onClick={() => void load()} style={{ marginLeft: "auto", ...btn("#818cf8") }}>
-          <RefreshCw size={12} style={{ display: "inline", marginRight: 4 }} />
-          Actualizar
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Change Orders"
+        subtitle="Gestión completa del ciclo de vida de cambios de alcance"
+        icon={FilePlus}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,0.15)"
+        showBack={false}
+        actions={
+          <button onClick={() => void load()} style={btn("#818cf8")}>
+            <RefreshCw size={12} style={{ display: "inline", marginRight: 4 }} />
+            Actualizar
+          </button>
+        }
+      />
 
       {/* Status filter tabs */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
