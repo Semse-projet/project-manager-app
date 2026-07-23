@@ -22,16 +22,32 @@ function classAuthenticatedAccess(controller: Function): string | undefined {
   return Reflect.getMetadata(AUTHENTICATED_ACCESS_KEY, controller);
 }
 
-test("domain RBAC: knowledge graph controllers require knowledge:read", () => {
+test("domain RBAC: knowledge graph controllers require internal:architecture:read (0.21)", () => {
+  // Estos tres controllers son 100% herramientas de arquitectura interna (árbol
+  // del repo, runtime, anatomía del dominio) — nunca datos de negocio de un
+  // tenant — así que quedan exclusivos de roles internos/admin, no de
+  // `knowledge:read` (que todos los roles reciben).
   for (const controller of [AnatomyController, RepoKnowledgeController, RuntimeKnowledgeController]) {
-    assert.deepEqual(classPermission(controller), ["knowledge:read"]);
+    assert.deepEqual(classPermission(controller), ["internal:architecture:read"]);
     assert.equal(classAuthenticatedAccess(controller), undefined);
   }
 });
 
-test("domain RBAC: knowledge management separates read and write", () => {
+test("domain RBAC: knowledge management separates architecture-only, read and write", () => {
+  // El controller mezcla endpoints de arquitectura (domains/overview) con
+  // endpoints funcionales multi-rol (workspace-memory, skills, curate) — solo
+  // los primeros se restringen a internal:architecture:read; el resto sigue
+  // en knowledge:read/knowledge:write a nivel de clase.
   assert.deepEqual(classPermission(KnowledgeController), ["knowledge:read"]);
   assert.equal(classAuthenticatedAccess(KnowledgeController), undefined);
+
+  for (const method of ["domains", "overview"]) {
+    assert.deepEqual(
+      methodPermission(KnowledgeController, method),
+      ["internal:architecture:read"],
+      `${method} should require internal:architecture:read`
+    );
+  }
 
   for (const method of ["createSkill", "updateSkillProcedure", "recordSkillUse", "runCuration"]) {
     assert.deepEqual(methodPermission(KnowledgeController, method), ["knowledge:write"], `${method} should require knowledge:write`);

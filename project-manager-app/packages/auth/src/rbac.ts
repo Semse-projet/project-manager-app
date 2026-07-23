@@ -181,6 +181,7 @@ export const rolePermissions: Record<string, string[]> = {
     "ops:dashboard:read",
     "ops:dashboard:write",
     "ops:risk:read",
+    "internal:architecture:read",
     "ops:alerts:ack",
     "ops:runbooks:execute",
     "ops:incidents:create",
