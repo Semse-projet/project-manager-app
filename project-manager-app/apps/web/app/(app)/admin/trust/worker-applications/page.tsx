@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft, BadgeCheck, Briefcase, CheckCircle2, Clock, Mail, MapPin,
+  BadgeCheck, Briefcase, CheckCircle2, Clock, Mail, MapPin,
   Phone, RefreshCw, ShieldCheck, UserCheck, UserPlus, Users, XCircle,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -266,25 +266,21 @@ export default function WorkerApplicationsAdminPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      {/* Header */}
-      <Link href="/admin/trust" style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--muted)", fontSize: 12, fontWeight: 700, textDecoration: "none", marginBottom: 14 }}>
-        <ArrowLeft size={13} /> Trust Scores
-      </Link>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(16,185,129,.15)", display: "grid", placeItems: "center" }}>
-          <UserPlus size={20} color="#10b981" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Workers — Aplicaciones y Verificación</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Aplicaciones públicas de /worker/apply y verificación de identidad de la red
-          </p>
-        </div>
-        <button onClick={() => void load()} disabled={loading}
-          style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Workers — Aplicaciones y Verificación"
+        subtitle="Aplicaciones públicas de /worker/apply y verificación de identidad de la red"
+        icon={UserPlus}
+        iconColor="#10b981"
+        iconBg="rgba(16,185,129,.15)"
+        backHref="/admin/trust"
+        backLabel="Trust Scores"
+        actions={
+          <button onClick={() => void load()} disabled={loading}
+            style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          </button>
+        }
+      />
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 20 }}>
