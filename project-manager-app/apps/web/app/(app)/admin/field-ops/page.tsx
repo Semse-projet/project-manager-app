@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
-import Link from "next/link";
 import {
   Wrench,
   ClipboardList,
@@ -27,6 +26,7 @@ import {
   fetchFieldVendors,
   fetchFieldWorklogs
 } from "../../../semse-api";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -1089,23 +1089,14 @@ export default function FieldOpsPage() {
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1300, margin: "0 auto" }}>
-      <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "16px" }}>
-        <span style={{ fontSize: "14px" }}>←</span> Dashboard
-      </Link>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Wrench size={20} style={{ color: "#10b981" }} />
-            </div>
-            <div>
-              <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>{t("page.fieldOps")}</h1>
-              <div style={{ fontSize: 13, color: "var(--muted)" }}>Unidades, registros de campo, conocimiento y proveedores</div>
-            </div>
-          </div>
-          <NotificationBanner audience="admin" />
-        </div>
-      </div>
+      <AdminPageHeader
+        title={t("page.fieldOps")}
+        subtitle="Unidades, registros de campo, conocimiento y proveedores"
+        icon={Wrench}
+        iconColor="#10b981"
+        iconBg="#f0fdf4"
+        actions={<NotificationBanner audience="admin" />}
+      />
 
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)", marginBottom: 24 }}>
         {TAB_CONFIG.map(({ id, label, Icon }) => (

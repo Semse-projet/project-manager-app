@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, AlertTriangle, CheckCircle, Clock, GitBranch, RefreshCw, XCircle, Zap } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   fetchDelegations,
   type DelegationRecord,
@@ -240,49 +241,44 @@ export default function CoordinatorDashboardPage() {
 
   return (
     <div style={{ maxWidth: "880px", margin: "0 auto", display: "grid", gap: 16 }}>
-
-      {/* Header */}
-      <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-            <GitBranch size={20} color="#818cf8" />
+      <AdminPageHeader
+        title="Coordinator Dashboard"
+        subtitle={`${liveMode ? "🔴 Live" : "Delegaciones"} · actualizado ${lastRefresh.toLocaleTimeString("es-MX")}`}
+        icon={GitBranch}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setLiveMode((v) => !v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "9px 14px", borderRadius: 10, border: "none",
+                background: liveMode ? "rgba(16,185,129,.15)" : "rgba(148,163,184,.1)",
+                color: liveMode ? "#10b981" : "var(--muted)",
+                fontSize: 12, fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              {liveMode ? "Live ON" : "Live OFF"}
+            </button>
+            <button
+              onClick={() => void load()}
+              disabled={loading}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "9px 14px", borderRadius: 10, border: "none",
+                background: "rgba(99,102,241,.15)", color: "#818cf8",
+                fontSize: 12, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              {loading ? "Cargando…" : "Actualizar"}
+            </button>
           </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>Coordinator Dashboard</h1>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-              {liveMode ? "🔴 Live" : "Delegaciones"} · actualizado {lastRefresh.toLocaleTimeString("es-MX")}
-            </p>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => setLiveMode((v) => !v)}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "9px 14px", borderRadius: 10, border: "none",
-              background: liveMode ? "rgba(16,185,129,.15)" : "rgba(148,163,184,.1)",
-              color: liveMode ? "#10b981" : "var(--muted)",
-              fontSize: 12, fontWeight: 700, cursor: "pointer",
-            }}
-          >
-            {liveMode ? "Live ON" : "Live OFF"}
-          </button>
-          <button
-            onClick={() => void load()}
-            disabled={loading}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "9px 14px", borderRadius: 10, border: "none",
-              background: "rgba(99,102,241,.15)", color: "#818cf8",
-              fontSize: 12, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-              opacity: loading ? 0.6 : 1,
-            }}
-          >
-            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            {loading ? "Cargando…" : "Actualizar"}
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* KPI row */}
       <HtmlInCanvasPanel style={{ border: "1px solid var(--border)", borderRadius: 16, background: "var(--surface)", padding: "14px 18px" }} minHeight={60}>

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
-import Link from "next/link";
 import { Settings, Bell, Shield, Globe, Database, Key } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type SettingSection = "general" | "notifications" | "security" | "integrations";
@@ -21,21 +21,14 @@ export default function AdminSettingsPage() {
 
   return (
     <main style={{ padding: "32px", color: "var(--ink)" }}>
-      <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "16px" }}>
-        <span style={{ fontSize: "14px" }}>←</span> Dashboard
-      </Link>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", marginBottom: "28px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,0.15)", display: "grid", placeItems: "center" }}>
-            <Settings size={20} color="#818cf8" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800 }}>{t("page.settings")}</h1>
-            <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.9rem" }}>Ajustes del sistema SEMSE OS</p>
-          </div>
-        </div>
-        <NotificationBanner audience="admin" />
-      </div>
+      <AdminPageHeader
+        title={t("page.settings")}
+        subtitle="Ajustes del sistema SEMSE OS"
+        icon={Settings}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,0.15)"
+        actions={<NotificationBanner audience="admin" />}
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: "24px", alignItems: "start" }}>
         {/* Sidebar */}
