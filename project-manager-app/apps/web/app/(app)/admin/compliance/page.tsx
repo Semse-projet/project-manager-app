@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Shield, AlertTriangle, CheckCircle, Clock, ExternalLink, RefreshCw } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { fetchJobs, fetchDisputes, fetchOrganizations, fetchOrganizationMembers, fetchRatings, fetchTravelAssignments } from "../../../semse-api";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type ComplianceStatus = "compliant" | "warning" | "violation" | "pending";
@@ -180,27 +181,27 @@ export default function AdminCompliancePage() {
 
   return (
     <div style={{ maxWidth: "960px", margin: "0 auto" }}>
-      {/* Header */}
-      <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: "24px", flexWrap: "wrap" }} canvasClassName="rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.compliance")}</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>Estado regulatorio y legal del ecosistema SEMSE</p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <NotificationBanner audience="admin" />
-          <button
-            onClick={() => void load()}
-            disabled={loading}
-            style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
-            title="Recargar"
-          >
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          </button>
-        </div>
-      </HtmlInCanvasPanel>
+      <AdminPageHeader
+        title={t("page.compliance")}
+        subtitle="Estado regulatorio y legal del ecosistema SEMSE"
+        icon={Shield}
+        iconColor="#10b981"
+        iconBg="rgba(16,185,129,0.12)"
+        panel
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <button
+              onClick={() => void load()}
+              disabled={loading}
+              style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
+              title="Recargar"
+            >
+              <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {/* Score cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "12px", marginBottom: "20px" }}>
