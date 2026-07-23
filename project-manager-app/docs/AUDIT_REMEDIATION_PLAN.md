@@ -177,7 +177,7 @@
 ### 0.24 — ALTO — Una entrada manual no puede representar un turno que cruza medianoche
 - **Dónde:** `apps/api/.../labor-engine.service.ts:124-131`
 - **Fix:** permitir `endedAt` en el día siguiente cuando `startTime > endTime`.
-- **Estado:** [ ] Pendiente — **módulo Worker**
+- **Estado:** [x] Corregido (2026-07-22) — ver detalle completo en 0.20 (mismo commit/módulo). **Corrección posterior (CI, 2026-07-23):** el fix inicial rolaba `endedAt` al día siguiente para *cualquier* `startTime > endTime` sin límite, lo que rompió el test preexistente `labor-engine.service.test.ts:109` (`13:00`→`09:00` = turno de 20h, que ese test espera que siga siendo rechazado como entrada invertida/typo, no como turno real). Se agregó un tope `MAX_ROLLOVER_HOURS = 16`: solo se interpreta como turno nocturno legítimo si el resultado, tras cruzar medianoche, dura 16h o menos (cubre casos reales como 22:00-06:00 = 8h); por encima de eso sigue lanzando `BadRequestException`. Se agregó además el test positivo que faltaba (`22:00`→`06:00` rola correctamente al día siguiente) — el commit original no incluía ningún test para el caso que arreglaba. Pendiente verificación en vivo.
 
 ### 0.25 — ALTO — El esquema de evidencia diseñó una banda de "revisión manual" que la decisión real ignora
 - **Qué:** `ValidationScore.status` distingue 3 bandas, pero `validateEvidenceAsync` calcula su propio estado, ignora `score.status`, y usa un corte binario duro en 0.65.

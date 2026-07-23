@@ -123,6 +123,27 @@ void test("createManualEntry rejects invalid time ranges", async () => {
   );
 });
 
+void test("createManualEntry rolls endedAt to the next day for a real overnight shift", async () => {
+  const { service, repo } = createService();
+
+  const entry = await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "personal",
+    date: "2026-07-08",
+    startTime: "22:00",
+    endTime: "06:00",
+  });
+
+  assert.ok(entry);
+  const createCall = repo.calls.find((c) => c.method === "createTimeEntry");
+  assert.ok(createCall);
+  const input = createCall!.args[0] as { startedAt: Date; endedAt: Date };
+  assert.equal(input.startedAt.toISOString(), new Date("2026-07-08T22:00:00").toISOString());
+  assert.equal(input.endedAt.toISOString(), new Date("2026-07-09T06:00:00").toISOString());
+});
+
 void test("createManualEntry creates a manual entry with break minutes", async () => {
   const { service, repo } = createService();
 

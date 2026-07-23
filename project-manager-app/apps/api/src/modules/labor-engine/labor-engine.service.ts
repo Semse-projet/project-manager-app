@@ -142,8 +142,16 @@ export class LaborEngineService {
       // startTime on the same calendar day, and startTime is later in the
       // day than endTime, treat endedAt as landing on the next calendar day
       // instead of rejecting it or silently producing a negative duration.
-      if (params.startTime > params.endTime) {
-        endedAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000);
+      // Cap how long a rolled-over shift may be: a real overnight shift is a
+      // handful of hours (22:00-06:00 = 8h); anything past MAX_ROLLOVER_HOURS
+      // (e.g. 13:00-09:00 = 20h) is far more likely a reversed/typo'd entry
+      // than a real single shift, so it's still rejected rather than silently
+      // accepted as a day-long-plus shift.
+      const MAX_ROLLOVER_HOURS = 16;
+      const rolledOver = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000);
+      const rolledOverHours = (rolledOver.getTime() - startedAt.getTime()) / (60 * 60 * 1000);
+      if (params.startTime > params.endTime && rolledOverHours <= MAX_ROLLOVER_HOURS) {
+        endedAt = rolledOver;
       } else {
         throw new BadRequestException("endTime must be after startTime");
       }
