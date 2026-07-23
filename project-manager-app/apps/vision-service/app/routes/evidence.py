@@ -95,34 +95,39 @@ def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
     blur_score = detect_blur(image)
     brightness_score = analyze_lighting(image)
     contrast_score = analyze_contrast(image)
-    
+
     # 3. Calculate perceptual hash
     img_hash = calculate_dhash(image)
-    
-    # 4. Evaluate quality
-    quality_score, usable = evaluate_quality(blur_score, brightness_score, contrast_score)
-    
-    # 5. Handle duplicate checks if existing hashes are provided in metadata
+
+    # 4. Optional trade detection — run before quality scoring so a subject
+    # mismatch (audit 0.26) can feed into the numeric quality score below,
+    # not just into rawResult/metadata as before.
+    trade_match_result = None
+    if request.trade:
+        trade_match_result = detect_trade(image, request.trade)
+
+    # 5. Evaluate quality (blends in the trade-match penalty, if any — see
+    # scoring.evaluate_quality for the weighting rationale)
+    quality_score, usable = evaluate_quality(
+        blur_score, brightness_score, contrast_score, trade_match=trade_match_result
+    )
+
+    # 6. Handle duplicate checks if existing hashes are provided in metadata
     duplicate_risk = 0.0
     matched_idx = None
     existing_hashes = []
-    
+
     if request.metadata and "existingHashes" in request.metadata:
         existing_hashes = request.metadata["existingHashes"]
         duplicate_risk, matched_idx = check_duplicate(img_hash, existing_hashes)
-        
-    # 6. Map to governance recommendation
+
+    # 7. Map to governance recommendation
     action, requires_review, auto_approve, reason = map_governance_rules(
         usable=usable,
         blur=blur_score,
         lighting=brightness_score,
         duplicate_risk=duplicate_risk
     )
-    
-    # 7. Optional trade detection
-    trade_match_result = None
-    if request.trade:
-        trade_match_result = detect_trade(image, request.trade)
 
     # 8. Collect reasons for risk
     reasons = []

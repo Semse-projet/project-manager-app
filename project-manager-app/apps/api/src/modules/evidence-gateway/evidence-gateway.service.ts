@@ -132,8 +132,11 @@ export class EvidenceGatewayService {
         });
       }
 
-      // Determine validation status
-      const status = score.overall >= 0.65 ? "passed" : "failed";
+      // Determine validation status — use the 3-band status already computed by
+      // scoreAgainstRequirements (passed/manual_review/failed) instead of recomputing
+      // a hard binary cutoff here, which used to silently collapse the "manual review"
+      // band into "failed".
+      const status = score.status;
 
       // Update evidence with validation result
       await this.repository.updateEvidenceValidation(evidenceId, {
@@ -199,6 +202,7 @@ export class EvidenceGatewayService {
         passedCount: status.passed,
         failedCount: status.failed,
         pendingCount: status.pending,
+        manualReviewCount: status.manualReview,
         averageScore: status.avgScore,
         isValidationComplete: status.isComplete,
         isReadyForPayment: status.isReady,
