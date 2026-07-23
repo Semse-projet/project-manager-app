@@ -15,6 +15,7 @@ import {
   CheckCircle, XCircle, Scale, RefreshCw, ShieldAlert,
 } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   completeMultipartUploadSession,
   createMultipartUploadSession,
@@ -414,35 +415,36 @@ export default function AdminDisputesPage() {
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "24px", gap: "12px", flexWrap: "wrap" }}>
-        <div>
-          <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.disputes")}</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>
+      <AdminPageHeader
+        title={t("page.disputes")}
+        subtitle={
+          <>
             Resolución de conflictos entre clientes y profesionales
             {lastUpdated && <span> · actualizado {lastUpdated.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</span>}
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <NotificationBanner audience="admin" />
-          <button
-            onClick={loadDisputes}
-            disabled={loading}
-            style={{
-              display: "flex", alignItems: "center", gap: "6px",
-              padding: "8px 14px", borderRadius: "8px",
-              border: "1px solid var(--border)", background: "var(--surface)",
-              color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-            }}
-          >
-            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            Refrescar
-          </button>
-        </div>
-      </div>
+          </>
+        }
+        icon={Scale}
+        iconColor="#f59e0b"
+        iconBg="rgba(245,158,11,.15)"
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <button
+              onClick={loadDisputes}
+              disabled={loading}
+              style={{
+                display: "flex", alignItems: "center", gap: "6px",
+                padding: "8px 14px", borderRadius: "8px",
+                border: "1px solid var(--border)", background: "var(--surface)",
+                color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              Refrescar
+            </button>
+          </>
+        }
+      />
 
       {/* API Error */}
       {apiError && (

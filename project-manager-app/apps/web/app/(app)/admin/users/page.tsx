@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
-import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Inbox, Scale } from "lucide-react";
+import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Inbox, Scale, Users } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { Pagination } from "../../../components/admin/Pagination";
 import { StatusBadge } from "@semse/ui";
@@ -220,26 +221,26 @@ export default function AdminUsersPage() {
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "24px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-        <div>
-          <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.users")}</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>Gestión de clientes y profesionales del marketplace</p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: "24px" }}>
-          <NotificationBanner audience="admin" />
-          <button
-            onClick={() => void loadUsers()}
-            disabled={loading}
-            style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
-            title="Recargar"
-          >
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title={t("page.users")}
+        subtitle="Gestión de clientes y profesionales del marketplace"
+        icon={Users}
+        iconColor="#8b5cf6"
+        iconBg="rgba(139,92,246,.15)"
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <button
+              onClick={() => void loadUsers()}
+              disabled={loading}
+              style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
+              title="Recargar"
+            >
+              <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "20px" }}>

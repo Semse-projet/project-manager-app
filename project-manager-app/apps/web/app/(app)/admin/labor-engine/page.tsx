@@ -6,6 +6,7 @@ import {
   Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, Pause, Play,
   RefreshCw, Search, ShieldAlert, Timer, Users,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { Pagination } from "../../../components/admin/Pagination";
 import { fetchUsers, type UserView } from "../../../semse-api";
 
@@ -303,23 +304,24 @@ export default function AdminLaborEnginePage() {
 
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(59,130,246,.15)", display: "grid", placeItems: "center" }}>
-          <Activity size={20} color="#3b82f6" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Labor Engine — Supervisión</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
+      <AdminPageHeader
+        title="Labor Engine — Supervisión"
+        subtitle={
+          <>
             Timers del equipo en tiempo real, QualityGuard, costos y SmartMatch
             {overview ? ` · actualizado ${new Date(overview.generatedAt).toLocaleTimeString("es-MX")}` : ""}
-          </p>
-        </div>
-        <button onClick={() => void load()} disabled={loading}
-          style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+          </>
+        }
+        icon={Activity}
+        iconColor="#3b82f6"
+        iconBg="rgba(59,130,246,.15)"
+        actions={
+          <button onClick={() => void load()} disabled={loading}
+            style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
+            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          </button>
+        }
+      />
 
       {error ? (
         <div style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 10, fontSize: 12, color: "#fca5a5", marginBottom: 14 }}>{error}</div>
