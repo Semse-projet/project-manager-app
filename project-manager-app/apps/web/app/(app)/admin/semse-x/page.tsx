@@ -81,8 +81,8 @@ function GlowDot({ color = "#22d3ee", ping = false }: { color?: string; ping?: b
   );
 }
 
-function MetricCard({ label, value, sub, color = "#22d3ee", icon: Icon }: {
-  label: string; value: string | number; sub?: string; color?: string; icon: typeof Brain;
+function MetricCard({ label, value, sub, color = "#22d3ee", icon: Icon, synthetic = false }: {
+  label: string; value: string | number; sub?: string; color?: string; icon: typeof Brain; synthetic?: boolean;
 }) {
   return (
     <div style={{
@@ -93,6 +93,9 @@ function MetricCard({ label, value, sub, color = "#22d3ee", icon: Icon }: {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Icon size={14} color={color} />
         <span style={{ fontSize: 9, fontWeight: 900, color: "#475569", letterSpacing: "0.2em", textTransform: "uppercase" }}>{label}</span>
+        {synthetic ? (
+          <span style={{ marginLeft: "auto", fontSize: 8, color: "#64748b", border: "1px solid #1e293b", borderRadius: 99, padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>simulado</span>
+        ) : null}
       </div>
       <div style={{ fontSize: 28, fontWeight: 900, color: "white", fontStyle: "italic", marginBottom: 4 }}>{value}</div>
       {sub && <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>{sub}</div>}
@@ -134,23 +137,37 @@ export default function SemseXPage() {
   const [syntheticLogs, setSyntheticLogs] = useState<SyntheticLog[]>([]);
   const [evolutionPct, setEvolutionPct] = useState(0);
   const [liveDecisions, setLiveDecisions] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const loopRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    const [s, l, c, snap] = await Promise.all([
-      fetchAiModelLogStats().catch(() => null),
-      fetchAiModelLogs(20).catch(() => [] as AiModelInteractionLog[]),
-      fetchPrometeoOperationalContext().catch(() => null),
-      fetchCoordinatorSnapshot().catch(() => null),
+    setError(null);
+    const [statsRes, logsRes, ctxRes, snapRes] = await Promise.allSettled([
+      fetchAiModelLogStats(),
+      fetchAiModelLogs(20),
+      fetchPrometeoOperationalContext(),
+      fetchCoordinatorSnapshot(),
     ]);
-    if (s) setStats(s);
-    if (l) setLogs(l);
-    if (c) setCtx(c);
-    if (snap) setSnapshot(snap);
-    if (s) {
-      setLiveDecisions(s.total);
-      setEvolutionPct(Math.min(100, (s.total / 100) * 100));
+    const failed: string[] = [];
+    if (statsRes.status === "fulfilled") {
+      setStats(statsRes.value);
+      setLiveDecisions(statsRes.value.total);
+      setEvolutionPct(Math.min(100, (statsRes.value.total / 100) * 100));
+    } else {
+      failed.push("stats");
+      setStats(null);
+      setLiveDecisions(0);
+      setEvolutionPct(0);
+    }
+    if (logsRes.status === "fulfilled") setLogs(logsRes.value);
+    else { failed.push("logs"); setLogs([]); }
+    if (ctxRes.status === "fulfilled") setCtx(ctxRes.value);
+    else { failed.push("contexto"); setCtx(null); }
+    if (snapRes.status === "fulfilled") setSnapshot(snapRes.value);
+    else { failed.push("coordinator"); setSnapshot(null); }
+    if (failed.length > 0) {
+      setError(`Falla parcial de carga: ${failed.join(", ")}.`);
     }
   }, []);
 
@@ -276,6 +293,11 @@ export default function SemseXPage() {
 
       {/* ── MAIN ─────────────────────────────────────────────────────────────── */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        {error ? (
+          <div role="alert" style={{ background: "#450a0a", borderBottom: "1px solid #ef4444", padding: "10px 40px", color: "#fecaca", fontSize: "12px" }}>
+            {error}
+          </div>
+        ) : null}
 
         {/* Grid bg */}
         <div style={{
@@ -293,7 +315,7 @@ export default function SemseXPage() {
         }}>
           <div style={{ display: "flex", gap: 40 }}>
             <div>
-              <p style={{ fontSize: 8, fontWeight: 900, color: "#334155", textTransform: "uppercase", marginBottom: 4 }}>Nodos Cognitivos</p>
+              <p style={{ fontSize: 8, fontWeight: 900, color: "#334155", textTransform: "uppercase", marginBottom: 4 }}>Nodos Cognitivos <span style={{ color: "#64748b", fontWeight: 700 }}>(simulado)</span></p>
               <p style={{ fontSize: 20, fontWeight: 900, color: "white", margin: 0 }}>{totalNodes.toLocaleString()}</p>
             </div>
             <div>
@@ -438,7 +460,7 @@ export default function SemseXPage() {
                 {/* Threats neutralized */}
                 <div style={{ padding: 24, background: "rgba(15,23,42,0.5)", border: "1px solid #1e293b", borderRadius: 24 }}>
                   <h4 style={{ fontSize: 9, fontWeight: 900, color: "#475569", textTransform: "uppercase", marginBottom: 16, fontStyle: "italic" }}>
-                    Amenazas Neutralizadas
+                    Amenazas Neutralizadas <span style={{ color: "#64748b", fontWeight: 700 }}>(simulado)</span>
                   </h4>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div style={{ display: "flex" }}>
@@ -547,10 +569,10 @@ export default function SemseXPage() {
                 {[
                   { label: "Planes Generados", val: "5 Templates", icon: FileCode, color: "#22d3ee" },
                   { label: "Auto-Delegaciones", val: `${snapshot?.totalDelegations ?? 3}`, icon: Shield, color: "#10b981" },
-                  { label: "Memoria Comprimida", val: "-84%", icon: TrendingDown, color: "#a78bfa" },
-                  { label: "API en Evolución", val: "v2.0", icon: Workflow, color: "#fb923c" },
+                  { label: "Memoria Comprimida", val: "-84%", icon: TrendingDown, color: "#a78bfa", synthetic: true },
+                  { label: "API en Evolución", val: "v2.0", icon: Workflow, color: "#fb923c", synthetic: true },
                 ].map((stat) => (
-                  <MetricCard key={stat.label} label={stat.label} value={stat.val} icon={stat.icon} color={stat.color} />
+                  <MetricCard key={stat.label} label={stat.label} value={stat.val} icon={stat.icon} color={stat.color} synthetic={stat.synthetic} />
                 ))}
               </div>
 

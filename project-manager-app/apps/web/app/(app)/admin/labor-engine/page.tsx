@@ -140,15 +140,28 @@ export default function AdminLaborEnginePage() {
     setLoading(true);
     setError(null);
     try {
-      const [nextOverview, nextRates, nextJobs] = await Promise.all([
+      const [overviewRes, ratesRes, jobsRes] = await Promise.allSettled([
         fetchJson<AdminOverview>("/api/semse/labor/admin/overview"),
-        fetchJson<LaborRates>("/api/semse/pricing/labor-rates").catch(() => null),
-        fetchJson<JobOption[]>("/api/semse/jobs").catch(() => [] as JobOption[]),
+        fetchJson<LaborRates>("/api/semse/pricing/labor-rates"),
+        fetchJson<JobOption[]>("/api/semse/jobs"),
       ]);
-      setOverview(nextOverview);
-      setRates(nextRates);
-      setJobs(nextJobs);
-      setMatchJobId((prev) => prev || nextJobs[0]?.id || "");
+      if (overviewRes.status === "fulfilled") setOverview(overviewRes.value);
+      else setOverview(null);
+      if (ratesRes.status === "fulfilled") setRates(ratesRes.value);
+      else setRates(null);
+      if (jobsRes.status === "fulfilled") {
+        setJobs(jobsRes.value);
+        setMatchJobId((prev) => prev || jobsRes.value[0]?.id || "");
+      } else {
+        setJobs([]);
+      }
+      const failed: string[] = [];
+      if (overviewRes.status === "rejected") failed.push("resumen");
+      if (ratesRes.status === "rejected") failed.push("tarifas");
+      if (jobsRes.status === "rejected") failed.push("jobs");
+      if (failed.length > 0) {
+        setError(`Falla parcial de carga: ${failed.join(", ")}.`);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo cargar el Labor Engine.");
     } finally {

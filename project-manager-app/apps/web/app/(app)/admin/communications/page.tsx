@@ -275,6 +275,7 @@ export default function AdminCommunicationsPage() {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualFeedback, setManualFeedback] = useState<{ kind: "ok" | "error"; message: string } | null>(null);
   const [statusChanging, setStatusChanging] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const replyRef = useRef<HTMLTextAreaElement>(null);
 
@@ -447,11 +448,12 @@ export default function AdminCommunicationsPage() {
   async function handleStatusChange(newStatus: CommunicationThreadStatus) {
     if (!selectedThread || statusChanging) return;
     setStatusChanging(true);
+    setStatusError(null);
     try {
       const updated = await updateCommunicationThread(selectedThread.id, { status: newStatus });
       setThreads((prev) => prev.map((t) => t.id === updated.id ? { ...t, status: updated.status } : t));
-    } catch {
-      // silent — UI reflects old state
+    } catch (reason) {
+      setStatusError(reason instanceof Error ? reason.message : "No se pudo cambiar el estado de la conversación.");
     } finally {
       setStatusChanging(false);
     }
@@ -703,6 +705,7 @@ export default function AdminCommunicationsPage() {
                       <button onClick={() => void handleStatusChange("CLOSED")} disabled={statusChanging} style={actionBtnStyle("#94a3b8", statusChanging)}>Cerrar</button>
                     )}
                   </div>
+                  {statusError ? <div role="alert" style={{ color: "#fca5a5", fontSize: "12px", marginTop: "8px" }}>{statusError}</div> : null}
                 </div>
                 <div style={{ color: "var(--muted)", fontSize: "12px", textAlign: "right" }}>
                   <p style={{ margin: 0 }}>Thread {shortId(selectedThread.id)}</p>
