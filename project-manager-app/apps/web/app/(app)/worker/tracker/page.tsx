@@ -182,6 +182,24 @@ function ensureLocalStateForEntry(state: TrackerLocalState, entry: TimeEntryView
   };
 }
 
+/**
+ * Resolves the real backend TimeEntry id for a queued pause/resume/stop/update_note
+ * event during sync. Prefers the id just learned in this same sync pass
+ * (sessionIdMap, populated when the matching "start" event is processed above it in
+ * the same batch); falls back to the id persisted on the local active session (set once
+ * a "start" event is confirmed — see syncPendingEvents), which covers a retry that starts
+ * a brand-new batch without the original "start" event in it anymore. Falls back to the
+ * raw local session id only if neither is known yet (event ordering issue, or the
+ * corresponding "start" never synced).
+ */
+function resolveSyncedEntryId(sessionId: string, sessionIdMap: Map<string, string>, state: TrackerLocalState): string {
+  return (
+    sessionIdMap.get(sessionId) ??
+    (state.activeSession?.id === sessionId ? state.activeSession.backendSessionId : undefined) ??
+    sessionId
+  );
+}
+
 function isLikelyConnectionError(caught: unknown) {
   return (
     typeof navigator !== "undefined" && !navigator.onLine
@@ -203,9 +221,18 @@ function shouldPreserveLocalEvent(caught: unknown) {
 
 function manualDurationSeconds(date: string, startTime: string, endTime: string, breakMinutes: number): number | null {
   const startedAt = new Date(`${date}T${startTime}:00`);
-  const endedAt = new Date(`${date}T${endTime}:00`);
-  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime()) || endedAt <= startedAt) {
+  let endedAt = new Date(`${date}T${endTime}:00`);
+  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime())) {
     return null;
+  }
+  if (endedAt <= startedAt) {
+    // Overnight shift (e.g. 22:00-06:00): mirror the backend's rule (labor-engine.service.ts)
+    // and treat endTime as landing on the next calendar day instead of flagging it invalid.
+    if (startTime > endTime) {
+      endedAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000);
+    } else {
+      return null;
+    }
   }
   const gross = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
   const net = gross - Math.max(0, breakMinutes) * 60;
@@ -373,6 +400,10 @@ export default function WorkerTrackerPage() {
     setSyncNotice("Sincronizando horas guardadas localmente...");
 
     const sessionIdMap = new Map<string, string>();
+    // Remaining (unconfirmed) local state, updated after each event succeeds.
+    // A failure partway through the batch persists THIS, not the original
+    // syncingState — so already-confirmed events are never resent on retry.
+    let remainingState = syncingState;
 
     try {
       for (const event of syncingState.pendingEvents) {
@@ -383,27 +414,28 @@ export default function WorkerTrackerPage() {
               jobId: event.jobId,
               freeProjectId: event.freeProjectId,
               notes: event.notes,
+              clientEventId: event.id,
             });
             sessionIdMap.set(event.localSessionId, entry.id);
             break;
           }
           case "pause": {
-            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            const entryId = resolveSyncedEntryId(event.sessionId, sessionIdMap, remainingState);
             await pauseLaborTimer(entryId);
             break;
           }
           case "resume": {
-            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            const entryId = resolveSyncedEntryId(event.sessionId, sessionIdMap, remainingState);
             await resumeLaborTimer(entryId);
             break;
           }
           case "stop": {
-            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            const entryId = resolveSyncedEntryId(event.sessionId, sessionIdMap, remainingState);
             await stopLaborTimer(entryId, event.notes);
             break;
           }
           case "update_note": {
-            const entryId = sessionIdMap.get(event.sessionId) ?? event.sessionId;
+            const entryId = resolveSyncedEntryId(event.sessionId, sessionIdMap, remainingState);
             await updateLaborTimerNotes(entryId, event.notes);
             break;
           }
@@ -417,17 +449,33 @@ export default function WorkerTrackerPage() {
               endTime: event.endTime,
               breakMinutes: event.breakMinutes,
               notes: event.notes,
+              clientEventId: event.id,
             });
             break;
         }
+
+        // This event is now confirmed on the backend — prune it from the retry
+        // queue right away. If it was the "start" event, also persist the real
+        // backend session id onto the local active session so a later retry
+        // (a fresh call, with an empty sessionIdMap) can still resolve
+        // pause/resume/stop/update_note events for this same session even
+        // though the "start" event itself is no longer in the queue to replay.
+        remainingState = {
+          ...remainingState,
+          pendingEvents: remainingState.pendingEvents.filter((pending) => pending.id !== event.id),
+          activeSession: event.type === "start" && remainingState.activeSession?.id === event.localSessionId
+            ? { ...remainingState.activeSession, backendSessionId: sessionIdMap.get(event.localSessionId) }
+            : remainingState.activeSession,
+        };
+        persistTrackerLocalState(remainingState);
       }
 
-      const syncedState = markTrackerSynced(syncingState);
+      const syncedState = markTrackerSynced(remainingState);
       persistTrackerLocalState(syncedState);
       setSyncNotice("Sincronización completada. Tus horas ya están protegidas en SEMSE.");
       await loadTracker();
     } catch (caught) {
-      const failedState = markTrackerSyncFailed(syncingState, caught instanceof Error ? caught.message : "No se pudo sincronizar el tracker.");
+      const failedState = markTrackerSyncFailed(remainingState, caught instanceof Error ? caught.message : "No se pudo sincronizar el tracker.");
       persistTrackerLocalState(failedState);
       setSyncNotice("No pudimos sincronizar ahora. Seguiremos intentando automáticamente.");
     }
@@ -693,7 +741,7 @@ export default function WorkerTrackerPage() {
     setActiveEntry(localSessionToEntry(localStart.localSession));
     setElapsed(0);
     try {
-      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined });
+      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, clientEventId: localStart.event.id });
       const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
       persistTrackerLocalState({
         ...localStart.state,
@@ -884,6 +932,7 @@ export default function WorkerTrackerPage() {
         endTime: manualEnd,
         breakMinutes: manualBreakMinutes,
         notes: manualNotes.trim() || undefined,
+        clientEventId: event.id,
       });
       await refreshAfterMutation();
     } catch (caught) {

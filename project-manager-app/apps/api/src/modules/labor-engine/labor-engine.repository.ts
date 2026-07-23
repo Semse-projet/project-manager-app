@@ -43,6 +43,7 @@ export type TimeEntryRecord = {
   editReason: string | null;
   contextEntityType: string | null;
   contextEntityId: string | null;
+  clientEventId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -85,6 +86,8 @@ export class LaborEngineRepository {
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
+    /** Idempotency key from the client's offline-safe event queue (Time Tracker). */
+    clientEventId?: string;
   }): Promise<TimeEntryRecord> {
     const now = new Date();
     const duration = data.durationMinutes
@@ -92,32 +95,55 @@ export class LaborEngineRepository {
         ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - (data.breakMinutes ?? 0))
         : null);
 
-    return this.prisma.timeEntry.create({
-      data: {
-        id: randomUUID(),
-        tenantId: data.tenantId,
-        orgId: data.orgId,
-        createdBy: data.createdBy,
-        mode: data.mode,
-        purpose: data.purpose,
-        jobId: data.jobId ?? null,
-        freeProjectId: data.freeProjectId ?? null,
-        status: data.endedAt ? "completed" : "running",
-        startedAt: data.startedAt,
-        endedAt: data.endedAt ?? null,
-        breakMinutes: data.breakMinutes ?? 0,
-        durationMinutes: duration,
-        accumulatedSeconds: duration ? duration * 60 : 0,
-        hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,
-        currency: data.currency ?? "MXN",
-        location: data.location ?? null,
-        notes: data.notes ?? null,
-        contextEntityType: data.contextEntityType ?? null,
-        contextEntityId: data.contextEntityId ?? null,
-        createdAt: now,
-        updatedAt: now,
-      },
-    }) as unknown as TimeEntryRecord;
+    const createData = {
+      id: randomUUID(),
+      tenantId: data.tenantId,
+      orgId: data.orgId,
+      createdBy: data.createdBy,
+      mode: data.mode,
+      purpose: data.purpose,
+      jobId: data.jobId ?? null,
+      freeProjectId: data.freeProjectId ?? null,
+      status: data.endedAt ? "completed" : "running",
+      startedAt: data.startedAt,
+      endedAt: data.endedAt ?? null,
+      breakMinutes: data.breakMinutes ?? 0,
+      durationMinutes: duration,
+      accumulatedSeconds: duration ? duration * 60 : 0,
+      hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,
+      currency: data.currency ?? "MXN",
+      location: data.location ?? null,
+      notes: data.notes ?? null,
+      contextEntityType: data.contextEntityType ?? null,
+      contextEntityId: data.contextEntityId ?? null,
+      clientEventId: data.clientEventId ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    if (!data.clientEventId) {
+      return this.prisma.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+    }
+
+    // Idempotent insert: a client-supplied event id is unique per (tenant, worker).
+    // If this exact event already produced a row (retried sync after a partial-batch
+    // failure, or the success response never reached the client), return that row
+    // instead of inserting a duplicate payable time entry.
+    try {
+      return await this.prisma.timeEntry.create({ data: createData }) as unknown as TimeEntryRecord;
+    } catch (error) {
+      if (isUniqueConstraintError(error)) {
+        const existing = await this.findTimeEntryByClientEventId(data.tenantId, data.createdBy, data.clientEventId);
+        if (existing) return existing;
+      }
+      throw error;
+    }
+  }
+
+  async findTimeEntryByClientEventId(tenantId: string, createdBy: string, clientEventId: string): Promise<TimeEntryRecord | null> {
+    return this.prisma.timeEntry.findFirst({
+      where: { tenantId, createdBy, clientEventId },
+    }) as unknown as TimeEntryRecord | null;
   }
 
   async startRealtimeEntry(data: {
@@ -130,6 +156,7 @@ export class LaborEngineRepository {
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
+    clientEventId?: string;
   }): Promise<TimeEntryRecord> {
     return this.createTimeEntry({
       ...data,
@@ -401,4 +428,13 @@ export class LaborEngineRepository {
   async archiveFreeProject(id: string, tenantId: string): Promise<FreeProjectRecord> {
     return this.updateFreeProject(id, tenantId, { status: "archived" });
   }
+}
+
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "P2002"
+  );
 }

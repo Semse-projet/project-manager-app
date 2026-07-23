@@ -122,6 +122,7 @@ export class LaborEngineController {
       jobId: typeof body["jobId"] === "string" ? body["jobId"] : undefined,
       freeProjectId: typeof body["freeProjectId"] === "string" ? body["freeProjectId"] : undefined,
       notes: typeof body["notes"] === "string" ? body["notes"] : undefined,
+      clientEventId: typeof body["clientEventId"] === "string" ? body["clientEventId"] : undefined,
     });
     return ok(rid(req), data);
   }
@@ -205,6 +206,7 @@ export class LaborEngineController {
       currency: typeof body["currency"] === "string" ? body["currency"] : undefined,
       location: typeof body["location"] === "string" ? body["location"] : undefined,
       notes: typeof body["notes"] === "string" ? body["notes"] : undefined,
+      clientEventId: typeof body["clientEventId"] === "string" ? body["clientEventId"] : undefined,
     });
     return ok(rid(req), data);
   }
