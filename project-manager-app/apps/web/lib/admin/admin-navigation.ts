@@ -137,7 +137,7 @@ export const ADMIN_MODULES: AdminModule[] = [
       { id: "developer-runtime", label: "Developer Runtime", href: "/admin/developer-runtime", description: "Live execution environment for custom operators." },
       { id: "coordinator", label: "Coordinator", href: "/admin/coordinator", description: "Multi-agent task coordination and scheduling." },
       { id: "semse-x", label: "SEMSE X", href: "/admin/semse-x", description: "Experimental and next-gen features sandbox." },
-      { id: "html-in-canvas", label: "HTML Canvas", href: "/admin/html-in-canvas", description: "Render and test custom HTML in isolated canvas." },
+      { id: "html-in-canvas", label: "HTML-in-Canvas Demos", href: "/admin/html-in-canvas", description: "4 demos fijos del spec WICG; aún no permite ingresar HTML propio." },
     ],
   },
   {
