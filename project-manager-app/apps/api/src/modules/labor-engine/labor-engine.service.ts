@@ -72,7 +72,16 @@ export class LaborEngineService {
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
+    clientEventId?: string;
   }) {
+    // Idempotent replay: if this exact client event already produced a TimeEntry
+    // (e.g. the tracker's offline sync retried a "start" whose response was lost,
+    // or a previously-confirmed batch item got resent), return that entry instead
+    // of re-checking "already has an active timer" against a session that IS this one.
+    if (params.clientEventId) {
+      const existing = await this.repo.findTimeEntryByClientEventId(params.tenantId, params.createdBy, params.clientEventId);
+      if (existing) return existing;
+    }
     const active = await this.repo.getActiveTimeEntry(params.tenantId, params.createdBy);
     if (active) throw new BadRequestException("Already has an active timer. Stop or pause it first.");
     if (!params.jobId && !params.freeProjectId && params.purpose === "job_linked") {
@@ -120,14 +129,24 @@ export class LaborEngineService {
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
+    clientEventId?: string;
   }) {
     const startedAt = new Date(`${params.date}T${params.startTime}:00`);
-    const endedAt = new Date(`${params.date}T${params.endTime}:00`);
+    let endedAt = new Date(`${params.date}T${params.endTime}:00`);
     if (isNaN(startedAt.getTime()) || isNaN(endedAt.getTime())) {
       throw new BadRequestException("Invalid date/time format");
     }
     if (endedAt <= startedAt) {
-      throw new BadRequestException("endTime must be after startTime");
+      // A shift can legitimately cross midnight (e.g. 22:00-06:00). When the
+      // clock time alone makes it look like endTime is before/equal to
+      // startTime on the same calendar day, and startTime is later in the
+      // day than endTime, treat endedAt as landing on the next calendar day
+      // instead of rejecting it or silently producing a negative duration.
+      if (params.startTime > params.endTime) {
+        endedAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000);
+      } else {
+        throw new BadRequestException("endTime must be after startTime");
+      }
     }
     return this.repo.createTimeEntry({
       tenantId: params.tenantId,
@@ -144,6 +163,7 @@ export class LaborEngineService {
       currency: params.currency,
       location: params.location,
       notes: params.notes,
+      clientEventId: params.clientEventId,
     });
   }
 

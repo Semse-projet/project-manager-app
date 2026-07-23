@@ -129,6 +129,8 @@ export async function startLaborTimer(input: {
   jobId?: string;
   freeProjectId?: string;
   notes?: string;
+  /** Idempotency key (Time Tracker local queue event id) — lets a retried sync resolve to the same entry instead of creating a duplicate. */
+  clientEventId?: string;
 }): Promise<TimeEntryView> {
   return mutateLabor<TimeEntryView>("/api/semse/labor/timer/start", input);
 }
@@ -163,6 +165,8 @@ export async function createManualEntry(input: {
   currency?: string;
   location?: string;
   notes?: string;
+  /** Idempotency key (Time Tracker local queue event id) — lets a retried sync resolve to the same entry instead of creating a duplicate. */
+  clientEventId?: string;
 }): Promise<TimeEntryView> {
   return mutateLabor<TimeEntryView>("/api/semse/labor/entries/manual", input);
 }

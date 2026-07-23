@@ -119,8 +119,17 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
 
   const durationPreview = useMemo(() => {
     const start = new Date(`${formDate}T${formStart}:00`);
-    const end = new Date(`${formDate}T${formEnd}:00`);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null;
+    let end = new Date(`${formDate}T${formEnd}:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+    if (end <= start) {
+      // Overnight shift (e.g. 22:00-06:00): mirror the backend's rule (labor-engine.service.ts)
+      // and treat endTime as landing on the next calendar day instead of flagging it invalid.
+      if (formStart > formEnd) {
+        end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+      } else {
+        return null;
+      }
+    }
     const breakMinutes = Math.max(0, Number(formBreak) || 0);
     const seconds = Math.floor((end.getTime() - start.getTime()) / 1000) - breakMinutes * 60;
     return seconds > 0 ? seconds : null;

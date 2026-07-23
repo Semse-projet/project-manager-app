@@ -1410,6 +1410,11 @@ model TimeEntry {
   editReason         String?
   contextEntityType  String? // e.g. FieldUnit, Job, Animal, CropLot
   contextEntityId    String?
+  /// Idempotency key supplied by the client (Time Tracker local queue event id).
+  /// Lets a retried "start timer" / "manual entry" sync resolve to the same
+  /// row instead of inserting a duplicate payable time entry. Null for entries
+  /// created through paths that don't originate from the offline-safe queue.
+  clientEventId      String?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -1418,6 +1423,7 @@ model TimeEntry {
   freeProject FreeProject?   @relation(fields: [freeProjectId], references: [id], onDelete: SetNull)
   evidence    TimeEvidence[]
 
+  @@unique([tenantId, createdBy, clientEventId])
   @@index([tenantId, createdBy, status])
   @@index([tenantId, jobId])
   @@index([tenantId, freeProjectId])
