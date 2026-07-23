@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { Activity, AlertTriangle, CheckCircle, Clock, RefreshCw, Zap, XCircle, MinusCircle, Inbox, BarChart2 } from "lucide-react";
+import { Activity, AlertTriangle, BarChart2, CheckCircle, Clock, RefreshCw, Zap, XCircle, MinusCircle, Inbox } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { fetchLLMMetrics, type LLMProviderMetric } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -124,38 +124,27 @@ export default function AdminLLMMetricsPage() {
 
   return (
     <div style={{ maxWidth: "1100px", margin: "0 auto" }}>
-      {/* Header */}
-      <HtmlInCanvasPanel
-        as="section"
-        style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 24 }}
-        canvasClassName="rounded-2xl"
-        minHeight={82}
-      >
-        <div>
-          <Link
-            href="/admin/dashboard"
-            style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--muted)", fontSize: 12, fontWeight: 600, textDecoration: "none", marginBottom: 8 }}
-          >
-            <span style={{ fontSize: 14 }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", marginBottom: 4 }}>LLM Metrics</h1>
-          <p style={{ fontSize: 13, color: "var(--muted)" }}>
-            Rendimiento en vivo por provider × taskType — actualización cada {REFRESH_INTERVAL_MS / 1000}s
-            {lastRefresh ? ` · última: ${lastRefresh.toLocaleTimeString("es-MX")}` : ""}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <NotificationBanner audience="admin" />
-          <button
-            onClick={() => void load()}
-            disabled={loading}
-            style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
-            title="Recargar"
-          >
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          </button>
-        </div>
-      </HtmlInCanvasPanel>
+      <AdminPageHeader
+        title="LLM Metrics"
+        subtitle={`Rendimiento en vivo por provider × taskType — actualización cada ${REFRESH_INTERVAL_MS / 1000}s${lastRefresh ? ` · última: ${lastRefresh.toLocaleTimeString("es-MX")}` : ""}`}
+        icon={BarChart2}
+        iconColor="#22d3ee"
+        iconBg="rgba(34,211,238,.12)"
+        panel={true}
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <button
+              onClick={() => void load()}
+              disabled={loading}
+              style={{ padding: 8, borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
+              title="Recargar"
+            >
+              <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {/* KPI row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>

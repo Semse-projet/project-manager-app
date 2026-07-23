@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Activity, AlertTriangle, ArrowRight, Brain, RefreshCw, Shield } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 type BuildOpsProject = {
   id: string;
@@ -51,26 +52,23 @@ export default function IntelligenceRoomsPage() {
 
   return (
     <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-            <Brain size={20} color="#818cf8" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Intelligence Rooms</h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-              Vista de inteligencia operativa por proyecto — señales, risk score y brief de Prometeo.
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={load}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-        >
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-          Actualizar
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Intelligence Rooms"
+        subtitle="Vista de inteligencia operativa por proyecto — señales, risk score y brief de Prometeo."
+        icon={Brain}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <button
+            onClick={load}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+          >
+            <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+            Actualizar
+          </button>
+        }
+      />
 
       {error && (
         <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", marginBottom: 20, fontSize: 13, color: "#fca5a5" }}>
