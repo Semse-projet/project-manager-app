@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, Database, FileText, Layers, Loader, Plus, Search, Trash2, Upload, Zap } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -294,23 +295,21 @@ export default function PrometeoPage() {
     <HtmlInCanvasPanel>
       <div style={{ maxWidth: 900, margin: "0 auto", display: "grid", gap: 16 }}>
 
-        {/* Header */}
-        <div style={{ ...card, display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 46, height: 46, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-            <BookOpen size={22} color="#818cf8" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>Prometeo Engine</h1>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-              RAG · Base documental · Activos · Órdenes de trabajo
-            </p>
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 12, fontSize: 12, color: "var(--muted)" }}>
-            <span><strong style={{ color: "var(--ink)" }}>{docs.filter((d) => d.status === "indexed").length}</strong> indexados</span>
-            <span><strong style={{ color: "var(--ink)" }}>{assets.length}</strong> activos</span>
-            <span><strong style={{ color: "var(--ink)" }}>{workOrders.length}</strong> OTs</span>
-          </div>
-        </div>
+        <AdminPageHeader
+          title="Prometeo Engine"
+          subtitle="RAG · Base documental · Activos · Órdenes de trabajo"
+          icon={BookOpen}
+          iconColor="#818cf8"
+          iconBg="rgba(99,102,241,.15)"
+          showBack={false}
+          actions={
+            <div style={{ display: "flex", gap: 12, fontSize: 12, color: "var(--muted)" }}>
+              <span><strong style={{ color: "var(--ink)" }}>{docs.filter((d) => d.status === "indexed").length}</strong> indexados</span>
+              <span><strong style={{ color: "var(--ink)" }}>{assets.length}</strong> activos</span>
+              <span><strong style={{ color: "var(--ink)" }}>{workOrders.length}</strong> OTs</span>
+            </div>
+          }
+        />
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8 }}>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, Bot, BrainCircuit, Cpu, RefreshCw, Route, ShieldAlert } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ObserverPanel } from "@/components/semse/ObserverPanel";
 import {
   fetchAiModelLogs,
@@ -204,24 +205,25 @@ export default function AiMissionControlPage() {
   return (
     <HtmlInCanvasPanel>
       <div style={{ maxWidth: 1180, margin: "0 auto", display: "grid", gap: 18 }}>
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: 22, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>AI Mission Control</h1>
-            <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>
-              Prometeo operativo, routing multi-modelo y contexto real del sistema.
-              {lastRefresh ? ` Actualizado ${lastRefresh}.` : ""}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void load("manual")}
-            disabled={loading}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
-          >
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            {loading ? "Cargando..." : "Actualizar"}
-          </button>
-        </div>
+        <AdminPageHeader
+          title="AI Mission Control"
+          subtitle={`Prometeo operativo, routing multi-modelo y contexto real del sistema.${lastRefresh ? ` Actualizado ${lastRefresh}.` : ""}`}
+          icon={BrainCircuit}
+          iconColor="#818cf8"
+          iconBg="rgba(99,102,241,.15)"
+          showBack={false}
+          actions={
+            <button
+              type="button"
+              onClick={() => void load("manual")}
+              disabled={loading}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
+            >
+              <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              {loading ? "Cargando..." : "Actualizar"}
+            </button>
+          }
+        />
 
         {liveIncident && (
           <div style={{ background: `${alertColor(liveIncident.severity)}12`, border: `1px solid ${alertColor(liveIncident.severity)}44`, borderRadius: 14, padding: 14 }}>
