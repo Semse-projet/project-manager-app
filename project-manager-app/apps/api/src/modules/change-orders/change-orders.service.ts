@@ -1,8 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
+import { PaymentsRepository } from "../payments/payments.repository.js";
 import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
 
 type ActorContext = {
@@ -66,6 +67,7 @@ export class ChangeOrdersService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly paymentsRepository: PaymentsRepository,
     @Optional() private readonly signals?: OperationalSignalsService,
     @Optional() private readonly sse?: SseEventBusService,
   ) {}
@@ -161,6 +163,7 @@ export class ChangeOrdersService {
     if (candidate.status !== "submitted") {
       throw new BadRequestException("Only submitted change orders can be approved");
     }
+    await this.assertEscrowCoversIncrease(actor, candidate);
     const updated = await this.prisma.changeOrderCandidate.update({
       where: { id },
       data: { status: "approved", reviewedById: actor.userId, reviewedAt: new Date(), clientNote: clientNote?.trim() || null },
@@ -261,6 +264,11 @@ export class ChangeOrdersService {
     if (candidate.status !== "approved") {
       throw new BadRequestException(`Only approved change orders can be applied to BuildOps (current status: ${candidate.status})`);
     }
+
+    // Re-check escrow at apply time too, not just at approve time: funds can
+    // be released/refunded on the same escrow in between approval and apply,
+    // so a check that only ran once at approve() could go stale.
+    await this.assertEscrowCoversIncrease(actor, candidate);
 
     const impact = await this.computeImpact(actor, id);
 
@@ -374,6 +382,71 @@ export class ChangeOrdersService {
       confidence: Math.max(0.6, 1 - (flags.length * 0.05)),
       analyzedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * 0.23 remediation: a change order that increases cost must not be
+   * approved or applied unless the project's escrow can actually absorb the
+   * increase. Reuses PaymentsRepository's existing balance-aggregation
+   * methods (getDepositedAmount/getReleasedAmount/getRefundedAmount) — the
+   * same "deposited - released - refunded" math PaymentsService.release()
+   * already runs as its fast pre-check before releaseFunds(), and the same
+   * ConflictException-on-insufficient-funds style used by
+   * releaseFunds()/refundFunds() — rather than reimplementing escrow balance
+   * logic here.
+   *
+   * Only enforced when:
+   *  - the candidate has a positive cost delta (a real budget increase —
+   *    decrease/neutral change orders are left untouched), and
+   *  - the candidate carries a jobId. buildOpsProjectId/milestoneId-only
+   *    candidates predate the Project/PaymentEscrow migration and can't be
+   *    reliably resolved to an escrow (see findOwned()'s ownership-check
+   *    comment for the same caveat) — those are skipped rather than guessed.
+   */
+  private async assertEscrowCoversIncrease(
+    actor: ActorContext,
+    candidate: {
+      jobId: string | null;
+      title: string;
+      estimatedMin: Prisma.Decimal | null;
+      estimatedMax: Prisma.Decimal | null;
+    },
+  ): Promise<void> {
+    const costMin = Number(candidate.estimatedMin ?? 0);
+    const costMax = Number(candidate.estimatedMax ?? 0);
+    const costDeltaAvg = costMin > 0 || costMax > 0 ? (costMin + costMax) / 2 : 0;
+
+    if (costDeltaAvg <= 0) {
+      return;
+    }
+    if (!candidate.jobId) {
+      return;
+    }
+
+    let project;
+    try {
+      project = await findProjectLinkByJobIdOrThrow(this.prisma, { tenantId: actor.tenantId, jobId: candidate.jobId });
+    } catch {
+      throw new ConflictException(
+        `Cannot approve change order '${candidate.title}': no project/escrow exists yet for its job, so the $${costDeltaAvg.toFixed(2)} increase cannot be verified against funded escrow`,
+      );
+    }
+
+    const escrow = await this.paymentsRepository.findEscrowByProject(project.id);
+    const [deposited, released, refunded] = escrow
+      ? await Promise.all([
+          this.paymentsRepository.getDepositedAmount(escrow.id),
+          this.paymentsRepository.getReleasedAmount(escrow.id),
+          this.paymentsRepository.getRefundedAmount(escrow.id),
+        ])
+      : [0, 0, 0];
+    const available = deposited - released - refunded;
+
+    if (costDeltaAvg > available) {
+      throw new ConflictException(
+        `insufficient escrow funds to approve change order '${candidate.title}' — needs $${costDeltaAvg.toFixed(2)}, only $${available.toFixed(2)} available in escrow`,
+      );
+    }
   }
 
   private async findOwned(actor: ActorContext, id: string) {
