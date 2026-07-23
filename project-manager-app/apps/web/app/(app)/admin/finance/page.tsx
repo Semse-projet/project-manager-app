@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   AlertTriangle, CheckCircle, Clock, DollarSign,
   FileText, Receipt, RefreshCw, TrendingDown,
@@ -181,19 +182,23 @@ export default function AdminFinancePage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "24px 20px", display: "grid", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>Finance Admin</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>Vista financiera cross-org</p>
-        </div>
-        <button onClick={() => void load()} disabled={loading} style={{
-          display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px",
-          borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: "pointer",
-        }}>
-          <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          {loading ? "Cargando..." : "Actualizar"}
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Finance Admin"
+        subtitle="Vista financiera cross-org"
+        icon={DollarSign}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <button onClick={() => void load()} disabled={loading} style={{
+            display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px",
+            borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: "pointer",
+          }}>
+            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            {loading ? "Cargando..." : "Actualizar"}
+          </button>
+        }
+      />
 
       {error && <div style={{ background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", borderRadius: 12, padding: 12, color: "#fca5a5", fontSize: 13 }}>{error}</div>}
 

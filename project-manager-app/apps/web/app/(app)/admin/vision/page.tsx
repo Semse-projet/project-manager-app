@@ -7,6 +7,7 @@ import {
   Zap, TrendingUp, FlaskConical, Package, ScanSearch, UserCheck, Brain,
 } from "lucide-react";
 import { StatusBadge } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { fetchJobs, fetchVisionByJob, detectMaterial, classifySpace, analyzePortfolio, safetyCheckEnriched } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
@@ -427,17 +428,15 @@ export default function VisionAdminPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 900, margin: "0 auto", color: "#f9fafb" }}>
-      <NotificationBanner audience="admin" />
-
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <Eye size={24} color="#3b82f6" />
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Vision AI — Análisis de Evidencias</h1>
-          <p style={{ margin: 0, fontSize: 13, color: "#9ca3af" }}>
-            Calidad, seguridad PPE, duplicados y consistencia de ubicación por trabajo
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Vision AI — Análisis de Evidencias"
+        subtitle="Calidad, seguridad PPE, duplicados y consistencia de ubicación por trabajo"
+        icon={Eye}
+        iconColor="#3b82f6"
+        iconBg="rgba(59,130,246,.15)"
+        showBack={false}
+        actions={<NotificationBanner audience="admin" />}
+      />
 
       {/* Job selector */}
       <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
