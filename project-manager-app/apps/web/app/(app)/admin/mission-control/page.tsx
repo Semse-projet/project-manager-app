@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Activity } from "lucide-react";
-import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ModuleCard } from "../../../../components/admin/module-card";
 import { ADMIN_MODULES } from "../../../../lib/admin/admin-navigation";
 
