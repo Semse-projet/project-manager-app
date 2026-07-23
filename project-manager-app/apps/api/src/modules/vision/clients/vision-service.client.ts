@@ -35,6 +35,11 @@ import { parsePositiveInt } from "../../../common/parse-query.js";
 export class VisionServiceClient {
   private readonly logger = new Logger(VisionServiceClient.name);
 
+  private authHeaders(): Record<string, string> {
+    const apiKey = process.env.VISION_SERVICE_API_KEY?.trim();
+    return apiKey ? { "X-Vision-Api-Key": apiKey } : {};
+  }
+
   async analyzeEvidence(payload: AnalyzeEvidenceDto): Promise<VisionResultDto> {
     const baseUrl = process.env.VISION_SERVICE_URL || "http://localhost:8080";
     const url = `${baseUrl}/v1/evidence/analyze`;
@@ -49,6 +54,7 @@ export class VisionServiceClient {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...this.authHeaders(),
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -133,7 +139,7 @@ export class VisionServiceClient {
     try {
       const response = await fetch(`${baseUrl}${path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...this.authHeaders() },
         body: JSON.stringify(body),
         signal: controller.signal,
       });

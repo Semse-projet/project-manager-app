@@ -112,26 +112,27 @@ export class WorkerVerificationRepository {
     }
   }
 
+  /**
+   * No real DID crypto is wired up anywhere in this product yet — there is
+   * no client (web or otherwise) that generates a keypair and signs a
+   * challenge, so any `didSignature`/`didPublicKey` reaching this method
+   * cannot be trusted to actually prove control over a real DID. This used
+   * to just check the strings were non-empty and return true, which let
+   * anyone mark a worker "verified" by POSTing two arbitrary non-empty
+   * strings. Fails closed until real signature verification (crypto.subtle
+   * or tweetnacl, per the original TODO) and an actual signing client both
+   * exist — see docs/AUDIT_REMEDIATION_PLAN.md 0.9.
+   */
   async verifyDidSignature(
     workerId: string,
-    signature: string,
-    publicKey: string,
-    message: string,
+    _signature: string,
+    _publicKey: string,
+    _message: string,
   ): Promise<boolean> {
-    try {
-      // In a real implementation, use crypto library to verify
-      // For now, return synthetic verification
-      const isValid = signature && publicKey && message;
-      this.logger.log(
-        `[DID] Signature verification: worker=${workerId}, valid=${isValid}`,
-      );
-      return !!isValid;
-    } catch (error) {
-      this.logger.error(
-        `DID verification failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return false;
-    }
+    this.logger.warn(
+      `[DID] Signature verification requested for worker=${workerId} but no real DID crypto is implemented — failing closed.`,
+    );
+    return false;
   }
 
   // Both methods previously ignored tenantId entirely and returned/counted

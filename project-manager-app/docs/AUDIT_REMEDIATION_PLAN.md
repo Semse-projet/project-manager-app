@@ -84,25 +84,25 @@
 - **Qué:** el handler `GET` de `uploads/files/[...key]` no adjunta headers autorizados a la petición saliente (el `PUT` en el mismo archivo sí). El backend recibe la descarga como anónima.
 - **Dónde:** `apps/web/app/api/semse/uploads/files/[...key]/route.ts` — PUT:15-39 vs GET:60-78
 - **Fix:** aplicar el mismo `buildAuthorizedHeaders` que ya usa el PUT.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — el `GET` ahora arma `authorizedHeaders` con `buildAuthorizedHeaders(config)` y los adjunta a la petición saliente, igual que el `PUT`. Pendiente verificación en vivo.
 
 ### 0.9 — CRÍTICO (confianza) — Verificación de identidad del worker (firma DID) es un stub
 - **Qué:** el código literalmente comenta "for now, return synthetic verification" y solo valida que las strings no estén vacías. Cero criptografía real.
 - **Dónde:** `apps/api/src/modules/worker-verification/worker-verification.repository.ts:115-135`
 - **Fix:** implementar verificación criptográfica real (crypto.subtle o tweetnacl, como el propio comentario del código sugiere), o dejar de exponer "verificado" en el producto hasta que exista.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — se tomó la segunda opción del fix: no existe ningún cliente (web ni de otro tipo) en todo el producto que genere un keypair y firme un challenge — se verificó explícitamente que no hay ninguna ruta ni componente en `apps/web` que llame `POST /v1/workers/:workerId/sign` ni maneje `didSignature`/`didPublicKey`. Implementar "verificación real" contra un encoding inventado habría sido teatro de seguridad (nada produce esas firmas). `verifyDidSignature` ahora falla cerrado siempre (`return false` explícito con log de advertencia) en vez de aprobar con un chequeo de truthy — cierra el hueco donde cualquiera podía marcar a un worker "verificado" mandando dos strings no vacíos por API directa. Queda documentado en el propio método que se requiere criptografía real + un cliente de firma antes de poder reactivar este flujo.
 
 ### 0.10 — CRÍTICO (seguridad) — vision-service sin autenticación, expuesto públicamente
 - **Qué:** ningún endpoint verifica API-key/firma. CORS con `allow_origins=["*"]` + `allow_credentials=True`. Cualquiera con la URL pública puede llamar endpoints costosos (análisis en lote) gratis.
 - **Dónde:** `apps/vision-service/app/main.py:13-19` · `app/routes/evidence.py`
 - **Fix:** agregar autenticación (API-key compartida entre `apps/api` y `apps/vision-service` como mínimo), corregir CORS.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — `evidence_router` ahora exige el header `X-Vision-Api-Key` (dependency `require_api_key` en `main.py`) comparado contra `VISION_SERVICE_API_KEY`; `/health` queda público a propósito para monitoring/Railway. Falla cerrado solo cuando `RAILWAY_ENVIRONMENT`/`RAILWAY_ENVIRONMENT_NAME` está presente y la key no está seteada (mismo patrón que `SEMSE_BOOTSTRAP_TOKEN`), permisivo en dev local. `VisionServiceClient` (`apps/api`) ahora manda ese header en todas sus llamadas si `VISION_SERVICE_API_KEY` está seteada en el lado del API. CORS: se quitó `allow_credentials=True` combinado con `allow_origins=["*"]` (ese combo hacía que FastAPI reflejara el Origin real del llamador); ahora `allow_credentials=False` y los orígenes vienen de `VISION_CORS_ALLOWED_ORIGINS` (vacío por defecto — este servicio solo debería recibir tráfico server-to-server). **Requiere acción del usuario fuera de este código:** configurar `VISION_SERVICE_API_KEY` como variable de servicio en Railway tanto para `apps/api` como para `apps/vision-service` (mismo valor en ambos). Pendiente verificación en vivo.
 
 ### 0.11 — CRÍTICO (seguridad) — Bypass del SSRF-guard de vision-service por nombre de archivo
 - **Qué:** el gate real es `if "localhost" in url or "127.0.0.1" in url` — substring sobre la URL completa, no el hostname. Una URL de S3 legítima que contenga esas palabras en el nombre del archivo activa el bypass y la "verificación" devuelve una imagen mock fija, sin analizar la foto real.
 - **Dónde:** `apps/vision-service/app/services/image_loader.py:51-79` · duplicado en `app/routes/evidence.py:86`
 - **Fix:** parsear la URL y comparar el hostname exacto, no un substring de la URL completa.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-22) — nueva función `is_mock_or_local_url()` en `image_loader.py` que parsea la URL con `urlparse` y compara el hostname exacto contra `localhost`/`127.0.0.1` (o el esquema `mock://`), reemplazando el `"localhost" in url` original. Reutilizada en `evidence.py:86` (el duplicado exacto del mismo bug) importándola en vez de repetir la lógica. El `_assert_safe_url` real (hostname + resolución de IP contra rangos bloqueados) no se tocó — ya estaba bien implementado; el bug era solo en el atajo de mock/local que lo precede. Pendiente verificación en vivo.
 
 ### 0.12 — CRÍTICO (dinero) — Estado de transacción marcado SUCCEEDED sin verificar al proveedor real
 - **Qué:** `depositFunds`/`releaseFunds`/`refundFunds` escriben `status: "SUCCEEDED"` siempre, sin leer el estado real (pending/processing/authorized) que devuelven Stripe/PayPal/transferencia bancaria.
