@@ -134,23 +134,37 @@ export default function SemseXPage() {
   const [syntheticLogs, setSyntheticLogs] = useState<SyntheticLog[]>([]);
   const [evolutionPct, setEvolutionPct] = useState(0);
   const [liveDecisions, setLiveDecisions] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const loopRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    const [s, l, c, snap] = await Promise.all([
-      fetchAiModelLogStats().catch(() => null),
-      fetchAiModelLogs(20).catch(() => [] as AiModelInteractionLog[]),
-      fetchPrometeoOperationalContext().catch(() => null),
-      fetchCoordinatorSnapshot().catch(() => null),
+    setError(null);
+    const [statsRes, logsRes, ctxRes, snapRes] = await Promise.allSettled([
+      fetchAiModelLogStats(),
+      fetchAiModelLogs(20),
+      fetchPrometeoOperationalContext(),
+      fetchCoordinatorSnapshot(),
     ]);
-    if (s) setStats(s);
-    if (l) setLogs(l);
-    if (c) setCtx(c);
-    if (snap) setSnapshot(snap);
-    if (s) {
-      setLiveDecisions(s.total);
-      setEvolutionPct(Math.min(100, (s.total / 100) * 100));
+    const failed: string[] = [];
+    if (statsRes.status === "fulfilled") {
+      setStats(statsRes.value);
+      setLiveDecisions(statsRes.value.total);
+      setEvolutionPct(Math.min(100, (statsRes.value.total / 100) * 100));
+    } else {
+      failed.push("stats");
+      setStats(null);
+      setLiveDecisions(0);
+      setEvolutionPct(0);
+    }
+    if (logsRes.status === "fulfilled") setLogs(logsRes.value);
+    else { failed.push("logs"); setLogs([]); }
+    if (ctxRes.status === "fulfilled") setCtx(ctxRes.value);
+    else { failed.push("contexto"); setCtx(null); }
+    if (snapRes.status === "fulfilled") setSnapshot(snapRes.value);
+    else { failed.push("coordinator"); setSnapshot(null); }
+    if (failed.length > 0) {
+      setError(`Falla parcial de carga: ${failed.join(", ")}.`);
     }
   }, []);
 
@@ -276,6 +290,11 @@ export default function SemseXPage() {
 
       {/* ── MAIN ─────────────────────────────────────────────────────────────── */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        {error ? (
+          <div role="alert" style={{ background: "#450a0a", borderBottom: "1px solid #ef4444", padding: "10px 40px", color: "#fecaca", fontSize: "12px" }}>
+            {error}
+          </div>
+        ) : null}
 
         {/* Grid bg */}
         <div style={{

@@ -334,28 +334,51 @@ export default function MissionControlPage() {
     setLoading(true);
     setError(null);
     try {
-      const [sigRes, runRes, ovRes, briefRes, mcRes] = await Promise.all([
+      const [sigRes, runRes, ovRes, briefRes, mcRes] = await Promise.allSettled([
         fetch("/api/semse/operational-signals?limit=100", { credentials: "include" }),
         fetch("/api/semse/intelligence-runs?limit=10", { credentials: "include" }),
-        fetch("/api/semse/buildops/overview", { credentials: "include" }).catch(() => null),
-        fetch("/api/semse/prometeo-brief", { credentials: "include" }).catch(() => null),
-        fetch("/api/semse/ops/mission-control/summary", { credentials: "include" }).catch(() => null),
+        fetch("/api/semse/buildops/overview", { credentials: "include" }),
+        fetch("/api/semse/prometeo-brief", { credentials: "include" }),
+        fetch("/api/semse/ops/mission-control/summary", { credentials: "include" }),
       ]);
-      const sigData = (await sigRes.json()) as { data?: OperationalSignal[] };
-      const runData = (await runRes.json()) as { data?: IntelligenceRun[] };
-      setSignals(sigData.data ?? []);
-      setRuns(runData.data ?? []);
-      if (ovRes?.ok) {
-        const ovData = (await ovRes.json()) as { data?: BuildOpsOverview };
+      const failed: string[] = [];
+      if (sigRes.status === "fulfilled" && sigRes.value.ok) {
+        const sigData = (await sigRes.value.json()) as { data?: OperationalSignal[] };
+        setSignals(sigData.data ?? []);
+      } else {
+        failed.push("señales");
+        setSignals([]);
+      }
+      if (runRes.status === "fulfilled" && runRes.value.ok) {
+        const runData = (await runRes.value.json()) as { data?: IntelligenceRun[] };
+        setRuns(runData.data ?? []);
+      } else {
+        failed.push("runs");
+        setRuns([]);
+      }
+      if (ovRes.status === "fulfilled" && ovRes.value.ok) {
+        const ovData = (await ovRes.value.json()) as { data?: BuildOpsOverview };
         setOverview(ovData.data ?? null);
+      } else {
+        failed.push("buildops overview");
+        setOverview(null);
       }
-      if (briefRes?.ok) {
-        const briefData = (await briefRes.json()) as { data?: PrometeoBrief };
+      if (briefRes.status === "fulfilled" && briefRes.value.ok) {
+        const briefData = (await briefRes.value.json()) as { data?: PrometeoBrief };
         setBrief(briefData.data ?? null);
+      } else {
+        failed.push("prometeo brief");
+        setBrief(null);
       }
-      if (mcRes?.ok) {
-        const mcData = (await mcRes.json()) as { data?: MissionControlSummary };
+      if (mcRes.status === "fulfilled" && mcRes.value.ok) {
+        const mcData = (await mcRes.value.json()) as { data?: MissionControlSummary };
         setMcSummary(mcData.data ?? null);
+      } else {
+        failed.push("mission control summary");
+        setMcSummary(null);
+      }
+      if (failed.length > 0) {
+        setError(`Falla parcial de carga: ${failed.join(", ")}.`);
       }
     } catch {
       setError("No se pudieron cargar las señales operacionales.");

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, AlertTriangle, Briefcase, CheckSquare, Clock, FileText, Users, Wrench } from "lucide-react";
+import { Activity, AlertTriangle, Briefcase, CheckSquare, Clock, Cpu, FileText, Users, Wrench } from "lucide-react";
 import { ModuleShell } from "../../../../components/admin/module-shell";
 import { getAdminModuleById } from "../../../../lib/admin/admin-navigation";
 
@@ -14,7 +14,7 @@ interface WorkOpsMetrics {
 const QUICK_LINKS = [
   { href: "/admin/jobs",          icon: Briefcase,   label: "Jobs",          desc: "Browse y filtrado de todos los jobs del sistema" },
   { href: "/admin/field-ops",     icon: Wrench,      label: "Field Ops",     desc: "Unidades, worklogs y operaciones de campo" },
-  { href: "/admin/worker",        icon: Users,       label: "Workers",        desc: "Perfiles, asignaciones y disponibilidad" },
+  { href: "/admin/worker",        icon: Cpu,         label: "Worker Queue",   desc: "Monitor de cola BullMQ, handlers y ejecuciones de agentes" },
   { href: "/admin/contractors",   icon: Briefcase,   label: "Contractors",    desc: "Empresas contratistas y su historial" },
   { href: "/admin/change-orders", icon: FileText,    label: "Change Orders",  desc: "Solicitudes de cambio pendientes de aprobación" },
   { href: "/admin/labor-engine",  icon: Clock,       label: "Labor Engine",   desc: "Timers del equipo, QualityGuard, costos y SmartMatch" },
