@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowLeft, RefreshCw, MapPin, Building2, Utensils, Wallet, CheckCircle2, AlertTriangle, Clock3,
+  RefreshCw, MapPin, Building2, Utensils, Wallet, CheckCircle2, AlertTriangle, Clock3,
 } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import {
   closeTravelSettlement,
   fetchTravelAdvances,
@@ -234,29 +235,37 @@ export default function AdminTravelDetailPage() {
 
   return (
     <div style={{ maxWidth: "1040px", margin: "0 auto", display: "grid", gap: "18px" }}>
-      <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }} canvasClassName="rounded-2xl" minHeight={90}>
-        <div>
-          <Link href="/admin/travel" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <ArrowLeft size={14} /> Travel Ops
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{fmt(travel.destinationCity)}</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>
+      <AdminPageHeader
+        title={fmt(travel.destinationCity)}
+        subtitle={
+          <>
             {fmt(travel.jobTitle ?? travel.jobId)} · worker {fmt(travel.assignedTo)}
-          </p>
-          {String(travel.jobId ?? "").trim() && (
-            <Link href={`/jobs/${String(travel.jobId)}`} style={{ display: "inline-flex", marginTop: "6px", fontSize: "12px", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
-              Abrir job
-            </Link>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
-          <NotificationBanner audience="admin" />
-          <StatusBadge variant={STATUS_VARIANT[status] ?? "neutral"} text={STATUS_LABEL[status] ?? status} size="sm" />
-          <button onClick={() => void load()} disabled={busy} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
-            <RefreshCw size={15} style={{ animation: busy ? "spin 1s linear infinite" : "none" }} />
-          </button>
-        </div>
-      </HtmlInCanvasPanel>
+            {String(travel.jobId ?? "").trim() && (
+              <>
+                {" · "}
+                <Link href={`/jobs/${String(travel.jobId)}`} style={{ fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+                  Abrir job
+                </Link>
+              </>
+            )}
+          </>
+        }
+        icon={MapPin}
+        iconColor="#60a5fa"
+        iconBg="rgba(59,130,246,.15)"
+        backHref="/admin/travel"
+        backLabel="Travel Ops"
+        panel={true}
+        actions={
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            <NotificationBanner audience="admin" />
+            <StatusBadge variant={STATUS_VARIANT[status] ?? "neutral"} text={STATUS_LABEL[status] ?? status} size="sm" />
+            <button onClick={() => void load()} disabled={busy} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
+              <RefreshCw size={15} style={{ animation: busy ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </div>
+        }
+      />
 
       {error && (
         <div style={{ padding: "12px 14px", border: "1px solid #fecaca", background: "#fef2f2", color: "#b91c1c", borderRadius: "12px", fontSize: "13px" }}>

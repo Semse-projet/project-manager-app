@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Activity } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { ModuleCard } from "../../../../components/admin/module-card";
 import { ADMIN_MODULES } from "../../../../lib/admin/admin-navigation";
 
@@ -450,36 +452,31 @@ export default function MissionControlPage() {
   return (
     <div style={{ padding: "24px", maxWidth: "1200px", margin: "0 auto" }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-          <div style={{
-            width: "10px", height: "10px", borderRadius: "50%",
-            background: systemHealthColor,
-            boxShadow: criticalOpen.length > 0 ? `0 0 8px ${systemHealthColor}` : "none",
-          }} />
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink, #f1f5f9)", margin: 0 }}>
-            Mission Control
-          </h1>
-          <span style={{
-            fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
-            color: systemHealthColor, padding: "2px 7px",
-            background: `${systemHealthColor}15`, border: `1px solid ${systemHealthColor}30`,
-            borderRadius: "4px",
-          }}>
-            {systemHealthLabel}
-          </span>
-          <div style={{ flex: 1 }} />
-          <button onClick={() => void fetchData()} style={{
-            padding: "6px 12px", borderRadius: "7px",
-            border: "1px solid var(--border, #1f2d3d)", background: "transparent",
-            color: "var(--muted, #94a3b8)", fontSize: "12px", cursor: "pointer",
-          }}>↻ Refresh</button>
-        </div>
-        <p style={{ fontSize: "12px", color: "var(--faint, #4b6280)", margin: 0 }}>
-          Monitorea proyectos, evidencia, pagos, bloqueos y riesgos operativos en tiempo real.
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Mission Control"
+        subtitle="Monitorea proyectos, evidencia, pagos, bloqueos y riesgos operativos en tiempo real."
+        icon={Activity}
+        iconColor={systemHealthColor}
+        iconBg={`${systemHealthColor}15`}
+        showBack={false}
+        actions={
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{
+              fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em",
+              color: systemHealthColor, padding: "2px 7px",
+              background: `${systemHealthColor}15`, border: `1px solid ${systemHealthColor}30`,
+              borderRadius: "4px",
+            }}>
+              {systemHealthLabel}
+            </span>
+            <button onClick={() => void fetchData()} style={{
+              padding: "6px 12px", borderRadius: "7px",
+              border: "1px solid var(--border, #1f2d3d)", background: "transparent",
+              color: "var(--muted, #94a3b8)", fontSize: "12px", cursor: "pointer",
+            }}>↻ Refresh</button>
+          </div>
+        }
+      />
 
       <section className="mb-6">
         <div className="mb-3 flex items-center justify-between gap-4">

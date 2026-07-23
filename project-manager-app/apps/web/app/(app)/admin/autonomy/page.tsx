@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { Bot, Copy, GitBranch, Link as LinkIcon, Play, RefreshCw, SkipForward, TerminalSquare } from "lucide-react";
 import { HtmlInCanvasPanel, useHtmlInCanvasSupport } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   continueAutonomyRun,
   createAutonomyRun,
@@ -516,54 +517,53 @@ export default function AdminAutonomyPage() {
           canvasClassName="rounded-[24px]"
           minHeight={520}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "18px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(59,130,246,0.15)", display: "grid", placeItems: "center" }}>
-                <Bot size={20} color="#60a5fa" />
+          <AdminPageHeader
+            title="Autonomous PR Core"
+            subtitle="Branch → change → commit → push → PR"
+            icon={Bot}
+            iconColor="#60a5fa"
+            iconBg="rgba(59,130,246,0.15)"
+            showBack={false}
+            actions={
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span
+                  title={canvasSupported ? "Canvas nativo activo" : "DOM fallback — activa chrome://flags/#canvas-draw-element"}
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    background: canvasSupported ? "rgba(52,211,153,0.12)" : "rgba(148,163,184,0.1)",
+                    color: canvasSupported ? "#34d399" : "#64748b",
+                    border: `1px solid ${canvasSupported ? "rgba(52,211,153,0.25)" : "rgba(148,163,184,0.15)"}`,
+                    cursor: "default"
+                  }}
+                >
+                  {canvasSupported ? "canvas" : "DOM"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void reload(selected?.id)}
+                  disabled={!enabled || refreshing}
+                  style={{
+                    border: "1px solid var(--border)",
+                    borderRadius: "14px",
+                    background: "var(--panel)",
+                    color: "var(--ink)",
+                    padding: "10px 12px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    cursor: enabled ? "pointer" : "not-allowed",
+                    opacity: enabled ? 1 : 0.6
+                  }}
+                >
+                  <RefreshCw size={15} />
+                  {refreshing ? "Refrescando" : "Refrescar"}
+                </button>
               </div>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <h1 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800 }}>Autonomous PR Core</h1>
-                  <span
-                    title={canvasSupported ? "Canvas nativo activo" : "DOM fallback — activa chrome://flags/#canvas-draw-element"}
-                    style={{
-                      padding: "2px 8px",
-                      borderRadius: "999px",
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      background: canvasSupported ? "rgba(52,211,153,0.12)" : "rgba(148,163,184,0.1)",
-                      color: canvasSupported ? "#34d399" : "#64748b",
-                      border: `1px solid ${canvasSupported ? "rgba(52,211,153,0.25)" : "rgba(148,163,184,0.15)"}`,
-                      cursor: "default"
-                    }}
-                  >
-                    {canvasSupported ? "canvas" : "DOM"}
-                  </span>
-                </div>
-                <p style={{ margin: "4px 0 0", color: "var(--muted)" }}>Branch → change → commit → push → PR</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void reload(selected?.id)}
-              disabled={!enabled || refreshing}
-              style={{
-                border: "1px solid var(--border)",
-                borderRadius: "14px",
-                background: "var(--panel)",
-                color: "var(--ink)",
-                padding: "10px 12px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                cursor: enabled ? "pointer" : "not-allowed",
-                opacity: enabled ? 1 : 0.6
-              }}
-            >
-              <RefreshCw size={15} />
-              {refreshing ? "Refrescando" : "Refrescar"}
-            </button>
-          </div>
+            }
+          />
 
           {provider && (
             <div
