@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Pause, Play, RefreshCw, Repeat } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 type LoopState = {
   paused: boolean;
@@ -117,16 +118,19 @@ export default function PermanentLoopsPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 960 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-        <Repeat size={22} />
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Permanent Loops</h1>
-        <button onClick={() => void load()} title="Refrescar" style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "inherit" }}>
-          <RefreshCw size={18} />
-        </button>
-      </div>
-      <p style={{ opacity: 0.7, marginBottom: 4 }}>
-        Agentes de fondo que detectan problemas y proponen — nunca mergean (ADR-021 P4).
-      </p>
+      <AdminPageHeader
+        title="Permanent Loops"
+        subtitle="Agentes de fondo que detectan problemas y proponen — nunca mergean (ADR-021 P4)."
+        icon={Repeat}
+        iconColor="#22d3ee"
+        iconBg="rgba(34,211,238,.12)"
+        showBack={false}
+        actions={
+          <button onClick={() => void load()} title="Refrescar" style={{ background: "none", border: "none", cursor: "pointer", color: "inherit" }}>
+            <RefreshCw size={18} />
+          </button>
+        }
+      />
       <p style={{ marginBottom: 20 }}>
         Kill switch global:{" "}
         <strong style={{ color: enabled ? "#34d399" : "#fbbf24" }}>

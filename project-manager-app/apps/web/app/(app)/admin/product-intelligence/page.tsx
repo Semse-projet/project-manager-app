@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { TrendingUp } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 /**
  * PI-05.2 — Funnel de Product Intelligence.
@@ -89,13 +91,14 @@ export default function ProductIntelligencePage() {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
-      <header className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-cyan-500">Product Intelligence</p>
-        <h1 className="mt-1 text-3xl font-bold">Funnel auth → wizard → publicación</h1>
-        <p className="mt-2 max-w-2xl text-sm text-slate-400">
-          Telemetría de recorrido (PI-05). Datos redactados en cliente y servidor; retención 30 días.
-        </p>
-      </header>
+      <AdminPageHeader
+        title="Funnel auth → wizard → publicación"
+        subtitle="Telemetría de recorrido (PI-05). Datos redactados en cliente y servidor; retención 30 días."
+        icon={TrendingUp}
+        iconColor="#22d3ee"
+        iconBg="rgba(34,211,238,.12)"
+        showBack={false}
+      />
 
       <div className="mb-6 flex items-center gap-2">
         {[7, 14, 30].map((option) => (
