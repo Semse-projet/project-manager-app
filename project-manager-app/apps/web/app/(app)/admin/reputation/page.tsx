@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Star } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -228,23 +230,21 @@ export default function ReputationPage() {
   return (
     <div style={{ padding: "24px", maxWidth: "1100px", margin: "0 auto" }}>
 
-      {/* Header */}
-      <div style={{ marginBottom: "24px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink, #f1f5f9)", margin: 0 }}>
-            ⭐ Reputación
-          </h1>
-          <div style={{ flex: 1 }} />
+      <AdminPageHeader
+        title="Reputación"
+        subtitle="Score de reputación multi-señal: ratings (×0.4) + completión (×0.3) + disputas (×0.2) + verificación (×0.1)"
+        icon={Star}
+        iconColor="#fbbf24"
+        iconBg="rgba(251,191,36,.15)"
+        showBack={false}
+        actions={
           <button onClick={() => void fetchData()} style={{
             padding: "6px 12px", borderRadius: "7px",
             border: "1px solid var(--border, #1f2d3d)", background: "transparent",
             color: "var(--muted, #94a3b8)", fontSize: "12px", cursor: "pointer",
           }}>↻ Refresh</button>
-        </div>
-        <p style={{ fontSize: "12px", color: "var(--faint, #4b6280)", margin: 0 }}>
-          Score de reputación multi-señal: ratings (×0.4) + completión (×0.3) + disputas (×0.2) + verificación (×0.1)
-        </p>
-      </div>
+        }
+      />
 
       {/* Platform summary */}
       {!loading && reputations.length > 0 && (

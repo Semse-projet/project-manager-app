@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, RefreshCw, Shield, ShieldCheck, Star, TrendingUp, UserPlus,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { TrustPassportCard } from "../../../../components/semse/TrustPassportCard";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -144,27 +145,26 @@ export default function TrustPage() {
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-          <Shield size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Trust Scores</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Reputación y confianza de profesionales y proyectos
-            {lastAt && <> · {lastAt} · auto-refresh 30s</>}
-          </p>
-        </div>
-        <Link href="/admin/trust/worker-applications"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "#10b981", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
-          <UserPlus size={13} /> Aplicaciones de workers
-        </Link>
-        <button onClick={load} disabled={loading}
-          style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Trust Scores"
+        subtitle={`Reputación y confianza de profesionales y proyectos${lastAt ? ` · ${lastAt} · auto-refresh 30s` : ""}`}
+        icon={Shield}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <>
+            <Link href="/admin/trust/worker-applications"
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "#10b981", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
+              <UserPlus size={13} /> Aplicaciones de workers
+            </Link>
+            <button onClick={load} disabled={loading}
+              style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
+              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {/* Stats */}
       {data && (

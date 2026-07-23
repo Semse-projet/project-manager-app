@@ -117,7 +117,7 @@ required_behavior:
 - [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
 - [x] Las alertas QualityGuard en `/admin/labor-engine` muestran un acción visible (perfil del worker; pausar/detener timers olvidados) y confirman antes de mutar
 - [x] `/admin/labor-engine`, `/admin/disputes` y `/admin/users` reemplazan IDs crudos por nombres legibles y paginan listas largas
-- [x] `/admin/labor-engine`, `/admin/disputes`, `/admin/users`, `/admin/settings`, `/admin/coordinator`, `/admin/field-ops`, `/admin/change-orders`, `/admin/contractors`, `/admin/agents`, `/admin/qa`, `/admin/reports`, `/admin/dashboard`, `/admin/compliance`, `/admin/travel`, `/admin/memory`, `/admin/algorithm-engine`, `/admin/prometeo` y `/admin/ai-mission-control` usan un `AdminPageHeader` compartido en vez de header propio
+- [x] `/admin/labor-engine`, `/admin/disputes`, `/admin/users`, `/admin/settings`, `/admin/coordinator`, `/admin/field-ops`, `/admin/change-orders`, `/admin/contractors`, `/admin/agents`, `/admin/qa`, `/admin/reports`, `/admin/dashboard`, `/admin/compliance`, `/admin/travel`, `/admin/memory`, `/admin/algorithm-engine`, `/admin/prometeo`, `/admin/ai-mission-control`, `/admin/trust`, `/admin/reputation` y `/admin/governance` usan un `AdminPageHeader` compartido en vez de header propio
 
 ## Implementation Map
 
