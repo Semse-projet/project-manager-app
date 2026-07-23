@@ -122,7 +122,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | low | yes | no | yes | 7 | 2026-07-19 |
-| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | DRAFT | critical | yes | yes | no | 11 | 2026-07-20 |
+| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 12 | 2026-07-23 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | DRAFT | critical | yes | yes | no | 12 | 2026-07-20 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | high | yes | yes | yes | 4 | 2026-06-09 |
