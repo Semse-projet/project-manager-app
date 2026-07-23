@@ -13,7 +13,13 @@ import { OrchestrationService, type OrchestrationActor } from "./orchestration.s
 
 function actorOf(req: FastifyRequest): OrchestrationActor {
   const c = resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
-  return { userId: c.userId, tenantId: c.tenantId, orgId: c.orgId, roles: c.roles };
+  return {
+    userId: c.userId,
+    tenantId: c.tenantId,
+    orgId: c.orgId,
+    roles: c.roles,
+    requestId: resolveRequestId(req.headers ?? {}),
+  };
 }
 
 @Controller("v1/prometeo")

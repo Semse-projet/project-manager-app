@@ -1,5 +1,6 @@
-import { Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Inject, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import type {
   AgentConsultationRequest,
   AgentConsultationResponse,
@@ -26,7 +27,13 @@ export type OrchestrationActor = {
   tenantId: string;
   orgId: string;
   roles: string[];
+  requestId: string;
 };
+
+function summarize(text: string, max = 140): string {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  return normalized.length > max ? `${normalized.slice(0, max - 3)}...` : normalized;
+}
 
 type AgentProfile = {
   id: PrometeoAgentId;
@@ -107,6 +114,8 @@ export class OrchestrationService {
   constructor(
     @Inject(ORCHESTRATION_REPOSITORY)
     private readonly repository: OrchestrationRepository,
+    @Optional()
+    private readonly domainEventBus?: DomainEventBus,
   ) {}
 
   interpret(message: string, preferredAgents?: PrometeoAgentId[]): OrchestrationInterpretation {
@@ -227,6 +236,16 @@ export class OrchestrationService {
       `prometeo.orchestration.completed id=${orchestrationId} user=${actor.userId} intent=${interpretation.intent} agents=${agentIds.join(",")}`,
     );
 
+    await this.emitOrchestrationEvents(actor, {
+      orchestrationId,
+      interpretation,
+      agentIds,
+      stepCount: steps.length,
+      requiresApproval,
+      ambiguous,
+      message: request.message,
+    });
+
     return {
       orchestrationId,
       interpretation,
@@ -235,6 +254,100 @@ export class OrchestrationService {
       status,
       requiresApproval,
     };
+  }
+
+  /**
+   * Emit canonical agent domain events for a completed orchestration. Uses only
+   * catalog events (`agent.action_logged`, `agent.human_review_requested`).
+   * Best-effort: a bus failure never breaks the orchestration response.
+   */
+  private async emitOrchestrationEvents(
+    actor: OrchestrationActor,
+    input: {
+      orchestrationId: string;
+      interpretation: OrchestrationInterpretation;
+      agentIds: PrometeoAgentId[];
+      stepCount: number;
+      requiresApproval: boolean;
+      ambiguous: boolean;
+      message: string;
+    },
+  ): Promise<void> {
+    if (!this.domainEventBus) {
+      return;
+    }
+    const context = {
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      requestId: actor.requestId,
+    };
+    const occurredAt = new Date().toISOString();
+
+    await this.domainEventBus
+      .emit(
+        {
+          type: "agent.action_logged",
+          meta: {
+            tenantId: actor.tenantId,
+            correlationId: input.orchestrationId,
+            actorId: actor.userId,
+            actorType: "agent",
+            occurredAt,
+            version: 1,
+          },
+          payload: {
+            agentRunId: input.orchestrationId,
+            agentType: "prometeo-orchestrator",
+            actionType: "generate",
+            targetType: "orchestration",
+            targetId: input.orchestrationId,
+            inputSummary: summarize(input.message),
+            outputSummary: `intent=${input.interpretation.intent} agents=${input.agentIds.join(",")} steps=${input.stepCount}`,
+            confidence: input.interpretation.confidence,
+            requiresHumanReview: input.requiresApproval,
+          },
+          triggers: ["audit"],
+        },
+        context,
+      )
+      .catch((err) =>
+        this.logger.warn(
+          `prometeo.orchestration action event failed: ${String((err as Error)?.message ?? err)}`,
+        ),
+      );
+
+    if (input.requiresApproval) {
+      await this.domainEventBus
+        .emit(
+          {
+            type: "agent.human_review_requested",
+            meta: {
+              tenantId: actor.tenantId,
+              correlationId: input.orchestrationId,
+              actorId: actor.userId,
+              actorType: "agent",
+              occurredAt,
+              version: 1,
+            },
+            payload: {
+              agentRunId: input.orchestrationId,
+              agentType: "prometeo-orchestrator",
+              targetType: "orchestration",
+              targetId: input.orchestrationId,
+              reason: input.ambiguous ? "ambiguous_intent" : "plan_requires_approval",
+              urgency: "medium",
+            },
+            triggers: ["notification", "audit"],
+          },
+          context,
+        )
+        .catch((err) =>
+          this.logger.warn(
+            `prometeo.orchestration review event failed: ${String((err as Error)?.message ?? err)}`,
+          ),
+        );
+    }
   }
 
   consultAgent(
