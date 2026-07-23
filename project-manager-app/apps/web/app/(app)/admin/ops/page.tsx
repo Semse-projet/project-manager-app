@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
-import Link from "next/link";
 import {
   Activity,
   Bot,
@@ -16,6 +15,7 @@ import {
   Workflow,
   XCircle,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   fetchDomainEventTrace,
   fetchDomainEvents,
@@ -858,48 +858,43 @@ export default function AdminOpsPage() {
           padding: "22px",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div>
-            <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#7dd3fc", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px", opacity: 0.7 }}>
-              <span style={{ fontSize: "14px" }}>←</span> Dashboard
-            </Link>
-            <p style={{ fontSize: "11px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#7dd3fc", fontWeight: 700, marginBottom: "8px" }}>
-              Ops Runtime
-            </p>
-            <h1 style={{ fontSize: "28px", fontWeight: 800, color: "var(--ink)", marginBottom: "6px" }}>
-              {t("page.operations")}
-            </h1>
-            <p style={{ fontSize: "14px", color: "var(--muted)", maxWidth: "760px" }}>
-              Seguimiento vivo de eventos, disparos de agentes y auditoría por correlationId. El enfoque visual toma ideas del `web-assistant-portal`: layout modular, foco en selección rápida y lectura limpia del detalle.
-            </p>
-            {error ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>{error}</p> : null}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
-            <NotificationBanner audience="admin" />
-            <div
-              style={{
-                display: "grid",
-                gap: "8px",
-                minWidth: "220px",
-                padding: "14px 16px",
-                borderRadius: "14px",
-                background: "rgba(15,23,42,0.68)",
-                border: "1px solid rgba(125,211,252,0.16)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#7dd3fc" }}>
-                <Radar size={14} />
-                <span style={{ fontSize: "12px", fontWeight: 700 }}>
-                  {runtimeEnabled ? "Runtime activo" : "Modo desconectado"}
+        <AdminPageHeader
+          title={t("page.operations")}
+          subtitle="Seguimiento vivo de eventos, disparos de agentes y auditoría por correlationId. El enfoque visual toma ideas del web-assistant-portal: layout modular, foco en selección rápida y lectura limpia del detalle."
+          icon={Radar}
+          iconColor="#7dd3fc"
+          iconBg="rgba(15,23,42,0.68)"
+          backHref="/admin/dashboard"
+          backLabel="Dashboard"
+          showBack={true}
+          actions={
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", alignItems: "flex-end" }}>
+              <NotificationBanner audience="admin" />
+              <div
+                style={{
+                  display: "grid",
+                  gap: "8px",
+                  minWidth: "220px",
+                  padding: "14px 16px",
+                  borderRadius: "14px",
+                  background: "rgba(15,23,42,0.68)",
+                  border: "1px solid rgba(125,211,252,0.16)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#7dd3fc" }}>
+                  <Radar size={14} />
+                  <span style={{ fontSize: "12px", fontWeight: 700 }}>
+                    {runtimeEnabled ? "Runtime activo" : "Modo desconectado"}
+                  </span>
+                </div>
+                <span style={{ fontSize: "12px", color: "var(--muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
+                  {selectedCorrelationId ? selectedCorrelationId : "Selecciona una corrida para inspeccionar trace."}
                 </span>
               </div>
-              <span style={{ fontSize: "12px", color: "var(--muted)", wordBreak: "break-all", fontFamily: "monospace" }}>
-                {selectedCorrelationId ? selectedCorrelationId : "Selecciona una corrida para inspeccionar trace."}
-              </span>
             </div>
-          </div>
-        </div>
+          }
+        />
+        {error ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>{error}</p> : null}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", marginTop: "18px" }}>
           {[

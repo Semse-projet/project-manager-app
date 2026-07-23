@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Terminal } from "lucide-react";
 import type {
   DeveloperRuntimeCreateMissionInput,
   DeveloperRuntimeRiskLevel,
   DeveloperRuntimeTaskCategory,
 } from "@semse/schemas";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   createDeveloperRuntimeMission,
   createDeveloperRuntimeSession,
@@ -423,14 +425,14 @@ export default function AdminDeveloperRuntimePage() {
     : diffArtifacts.filter((artifact) => (artifact.stepId ?? "global") === selectedStepFilter);
   return (
     <div style={{ maxWidth: "1280px", margin: "0 auto", display: "grid", gap: "16px" }}>
-      <div>
-        <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>
-          Developer Runtime
-        </h1>
-        <p style={{ fontSize: "13px", color: "var(--muted)", lineHeight: 1.5 }}>
-          Capa operativa agentiva: intención, plan, agentes, validación y evidencia en un solo flujo.
-        </p>
-      </div>
+      <AdminPageHeader
+        title="Developer Runtime"
+        subtitle="Capa operativa agentiva: intención, plan, agentes, validación y evidencia en un solo flujo."
+        icon={Terminal}
+        iconColor="#fbbf24"
+        iconBg="rgba(245,158,11,.12)"
+        showBack={false}
+      />
 
       {!runtimeEnabled ? (
         <div style={{ padding: "16px", borderRadius: "14px", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.28)", color: "#fbbf24" }}>

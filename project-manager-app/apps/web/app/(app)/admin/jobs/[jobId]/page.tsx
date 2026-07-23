@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, AlertTriangle, Bot, Briefcase, CheckCircle2, Clock,
+  AlertTriangle, Bot, Briefcase, CheckCircle2, Clock,
   DollarSign, Eye, FileText, RefreshCw, ShieldCheck, Zap,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import {
   fetchJob, fetchJobAgentSignals, fetchJobBids, fetchJobEscrow,
   fetchJobEvidence, fetchJobMilestones, transitionJobStatus,
@@ -128,19 +129,6 @@ export default function AdminJobDetailPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1100, margin: "0 auto" }}>
-      {/* Breadcrumb */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <Link href="/admin/jobs" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <ArrowLeft size={12} /> Admin Jobs
-        </Link>
-        {job && (
-          <>
-            <span style={{ color: "var(--border)", fontSize: 12 }}>/</span>
-            <span style={{ fontSize: 12, color: "var(--ink)", fontWeight: 600 }}>{job.title}</span>
-          </>
-        )}
-      </div>
-
       {error && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{error}</div>}
       {txError && <div className="alert-banner alert-critical" style={{ marginBottom: 16 }}>{txError}</div>}
 
@@ -155,23 +143,26 @@ export default function AdminJobDetailPage() {
             borderRadius: 14, border: "1px solid var(--border)", background: "var(--surface)",
             padding: "20px 24px", marginBottom: 20,
           }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16 }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", letterSpacing: "-0.02em" }}>{job.title}</h1>
+            <AdminPageHeader
+              title={job.title}
+              subtitle={<span style={{ fontFamily: "monospace", fontSize: 12 }}>{job.id}</span>}
+              icon={Briefcase}
+              iconColor="#60a5fa"
+              iconBg="rgba(59,130,246,.15)"
+              backHref="/admin/jobs"
+              backLabel="Volver a Jobs"
+              actions={
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <StatusBadge status={job.status} />
+                  <button onClick={() => void load()} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }} disabled={loading}>
+                    <RefreshCw size={11} /> Refresh
+                  </button>
+                  <Link href={`/client/jobs/${job.id}`} className="btn-ghost" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
+                    <Eye size={11} /> View as Client
+                  </Link>
                 </div>
-                <p style={{ fontSize: 12, color: "var(--faint)", fontFamily: "monospace" }}>{job.id}</p>
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <button onClick={() => void load()} className="btn-ghost" style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }} disabled={loading}>
-                  <RefreshCw size={11} /> Refresh
-                </button>
-                <Link href={`/client/jobs/${job.id}`} className="btn-ghost" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
-                  <Eye size={11} /> View as Client
-                </Link>
-              </div>
-            </div>
+              }
+            />
 
             <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
               <KV label="Categoría"  value={job.category} />

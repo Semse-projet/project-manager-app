@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import {
-  ArrowLeft,
   Bot,
   CheckCircle2,
   Clock3,
@@ -20,6 +19,7 @@ import {
   Wifi,
   XCircle,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   semseRuntimeEnabled,
 } from "../../../semse-api";
@@ -507,49 +507,46 @@ export default function AdminCommunicationsPage() {
           padding: "18px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "14px", flexWrap: "wrap" }}>
-          <div>
-            <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "#7dd3fc", fontSize: "12px", fontWeight: 700, textDecoration: "none", marginBottom: "8px" }}>
-              <ArrowLeft size={13} />
-              Dashboard
-            </Link>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <h1 style={{ fontSize: "24px", fontWeight: 850, color: "var(--ink)", margin: 0 }}>SEMSE Inbox</h1>
+        <AdminPageHeader
+          title="SEMSE Inbox"
+          subtitle="Conversaciones, leads, mensajes salientes y puente operativo para WhatsApp Cloud."
+          icon={Inbox}
+          iconColor="#7dd3fc"
+          iconBg="rgba(14,165,233,0.12)"
+          backHref="/admin/dashboard"
+          backLabel="Dashboard"
+          showBack={true}
+          actions={
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <StatusPill value={runtimeEnabled ? "RUNTIME" : "OFFLINE"} />
+              <NotificationBanner audience="admin" />
+              <button
+                onClick={() => setRefreshToken((current) => current + 1)}
+                disabled={loading}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  minHeight: "36px",
+                  padding: "0 12px",
+                  borderRadius: "8px",
+                  border: "1px solid rgba(125,211,252,0.26)",
+                  background: "rgba(14,165,233,0.12)",
+                  color: "#bae6fd",
+                  fontSize: "12px",
+                  fontWeight: 800,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  opacity: loading ? 0.65 : 1,
+                }}
+              >
+                <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+                Refrescar
+              </button>
             </div>
-            <p style={{ marginTop: "6px", color: "var(--muted)", fontSize: "13px", maxWidth: "760px" }}>
-              Conversaciones, leads, mensajes salientes y puente operativo para WhatsApp Cloud.
-            </p>
-            {!runtimeEnabled ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>Runtime SEMSE deshabilitado para esta sesion.</p> : null}
-            {error ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>{error}</p> : null}
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-            <NotificationBanner audience="admin" />
-            <button
-              onClick={() => setRefreshToken((current) => current + 1)}
-              disabled={loading}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "7px",
-                minHeight: "36px",
-                padding: "0 12px",
-                borderRadius: "8px",
-                border: "1px solid rgba(125,211,252,0.26)",
-                background: "rgba(14,165,233,0.12)",
-                color: "#bae6fd",
-                fontSize: "12px",
-                fontWeight: 800,
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.65 : 1,
-              }}
-            >
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-              Refrescar
-            </button>
-          </div>
-        </div>
+          }
+        />
+        {!runtimeEnabled ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>Runtime SEMSE deshabilitado para esta sesion.</p> : null}
+        {error ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>{error}</p> : null}
       </section>
 
       <section className="communications-stats" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "10px" }}>

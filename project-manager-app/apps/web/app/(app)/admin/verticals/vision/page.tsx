@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Eye, Camera, ScanSearch, ShieldCheck, Layers, Brain, TrendingUp, Activity, FlaskConical } from "lucide-react";
+import { Eye, Camera, ScanSearch, ShieldCheck, Layers, Brain, TrendingUp, Activity, FlaskConical } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 interface VisionStats {
   totalAnalyses?: number;
@@ -55,25 +56,23 @@ export default function AdminVisionVerticalPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Link href="/admin/verticals" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-          <ArrowLeft size={12} /> Verticals
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <span style={{ fontSize: 24 }}>👁️</span>
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.03em" }}>Vision AI</h1>
-              <span className="badge badge-green" style={{ fontSize: 10 }}>Live</span>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Pipeline de análisis visual con OpenCV + Ollama — calidad, materiales, seguridad, espacios y portfolio</p>
-          </div>
-          <Link href="/admin/vision" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <Eye size={12} /> Vision Console
-          </Link>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Vision AI"
+        subtitle="Pipeline de análisis visual con OpenCV + Ollama — calidad, materiales, seguridad, espacios y portfolio"
+        icon={Eye}
+        iconColor="#67e8f9"
+        iconBg="rgba(103,232,249,.15)"
+        backHref="/admin/verticals"
+        backLabel="Verticals"
+        actions={
+          <>
+            <span className="badge badge-green" style={{ fontSize: 10 }}>Live</span>
+            <Link href="/admin/vision" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <Eye size={12} /> Vision Console
+            </Link>
+          </>
+        }
+      />
 
       {/* KPI strip */}
       <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", marginBottom: 24 }}>

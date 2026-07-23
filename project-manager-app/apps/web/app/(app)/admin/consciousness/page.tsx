@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AlertTriangle, BookOpen, Brain, CheckCircle2, ChevronDown, ChevronUp,
-  Clock, Cpu, Eye, GitBranch, RefreshCw, Shield, Sparkles, Zap,
+  Clock, Cpu, GitBranch, RefreshCw, Shield, Sparkles, Zap,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { RecommendationsPanel } from "@/components/semse/RecommendationsPanel";
 import { SimulationPanel } from "@/components/semse/SimulationPanel";
 
@@ -166,24 +167,26 @@ export default function ConsciousnessPage() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 28 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-          <Eye size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>SEMSE Consciousness</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>
+      <AdminPageHeader
+        title="SEMSE Consciousness"
+        subtitle={
+          <>
             {data?.identity.autonomyDescription ?? "Cargando…"}
             {lastAt && <> · {lastAt}</>}
-          </p>
-        </div>
-        <button onClick={load} disabled={loading}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-          Actualizar
-        </button>
-      </div>
+          </>
+        }
+        icon={Brain}
+        iconColor="#a78bfa"
+        iconBg="rgba(167,139,250,.15)"
+        showBack={false}
+        actions={
+          <button onClick={load} disabled={loading}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(167,139,250,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#a78bfa", fontWeight: 700 }}>
+            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            Actualizar
+          </button>
+        }
+      />
 
       {error && (
         <div style={{ padding: "14px 18px", background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.3)", borderRadius: 12, fontSize: 13, color: "#fca5a5", marginBottom: 20 }}>

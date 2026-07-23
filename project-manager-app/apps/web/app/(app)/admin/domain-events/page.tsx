@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Bell, Clock3, Radar, Search, Send, Sparkles } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import {
   emitDomainEvent,
   fetchDomainEventManualCatalog,
@@ -187,38 +188,33 @@ export default function AdminDomainEventsPage() {
           padding: "22px"
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ position: "absolute", top: "22px", right: "22px" }}><NotificationBanner audience="admin" /></div>
-          <div>
-            <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "#c4b5fd", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px", opacity: 0.7 }}>
-              <span style={{ fontSize: "14px" }}>←</span> Dashboard
-            </Link>
-            <p style={{ fontSize: "11px", letterSpacing: "0.14em", textTransform: "uppercase", color: "#c4b5fd", fontWeight: 700, marginBottom: "8px" }}>
-              Domain Events
-            </p>
-            <h1 style={{ fontSize: "28px", fontWeight: 800, color: "var(--ink)", marginBottom: "6px" }}>
-              Plano causal del ecosistema
-            </h1>
-            <p style={{ fontSize: "14px", color: "var(--muted)", maxWidth: "760px" }}>
-              Vista dedicada para inspeccionar eventos emitidos, seguir su timeline por `correlationId` y emitir eventos manuales permitidos por policy.
-            </p>
-            {!runtimeEnabled ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>Runtime SEMSE deshabilitado para esta sesión.</p> : null}
-            {error ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>{error}</p> : null}
-          </div>
-
-          <div style={{ display: "grid", gap: "8px", minWidth: "260px", padding: "14px 16px", borderRadius: "14px", background: "rgba(15,23,42,0.68)", border: "1px solid rgba(196,181,253,0.18)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#c4b5fd" }}>
-              <Radar size={14} />
-              <span style={{ fontSize: "12px", fontWeight: 700 }}>{runtimeEnabled ? "Runtime activo" : "Modo desconectado"}</span>
+        <AdminPageHeader
+          title="Plano causal del ecosistema"
+          subtitle="Vista dedicada para inspeccionar eventos emitidos, seguir su timeline por correlationId y emitir eventos manuales permitidos por policy."
+          icon={Radar}
+          iconColor="#c4b5fd"
+          iconBg="rgba(15,23,42,0.68)"
+          backHref="/admin/dashboard"
+          backLabel="Dashboard"
+          showBack={true}
+          actions={
+            <div style={{ display: "grid", gap: "8px", minWidth: "260px", padding: "14px 16px", borderRadius: "14px", background: "rgba(15,23,42,0.68)", border: "1px solid rgba(196,181,253,0.18)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#c4b5fd" }}>
+                <Radar size={14} />
+                <span style={{ fontSize: "12px", fontWeight: 700 }}>{runtimeEnabled ? "Runtime activo" : "Modo desconectado"}</span>
+              </div>
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>
+                {selectedCorrelationId ?? "Selecciona un evento para abrir el trace."}
+              </span>
+              <Link href="/admin/ops" style={{ fontSize: "12px", color: "#7dd3fc", textDecoration: "none" }}>
+                Volver a Operaciones
+              </Link>
+              <NotificationBanner audience="admin" />
             </div>
-            <span style={{ fontSize: "12px", color: "var(--muted)" }}>
-              {selectedCorrelationId ?? "Selecciona un evento para abrir el trace."}
-            </span>
-            <Link href="/admin/ops" style={{ fontSize: "12px", color: "#7dd3fc", textDecoration: "none" }}>
-              Volver a Operaciones
-            </Link>
-          </div>
-        </div>
+          }
+        />
+        {!runtimeEnabled ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>Runtime SEMSE deshabilitado para esta sesión.</p> : null}
+        {error ? <p style={{ fontSize: "12px", color: "#fca5a5", marginTop: "10px" }}>{error}</p> : null}
       </section>
 
       <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 0.95fr) minmax(0, 1.05fr)", gap: "14px" }}>
