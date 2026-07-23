@@ -329,12 +329,34 @@ Trabajos disponibles: ${ctx.jobs.recent.slice(0, 3).map((j) => `"${j.title}" (${
       ? "Sé muy conciso. Bullet points con los puntos clave y recomendación al final."
       : "Sé conversacional y directo, como un colega que conoce bien el proyecto.";
 
+    // assistantLanguage/assistantVerbosity/unifiedMode were persisted and
+    // threaded all the way into assistantSettings but never actually read
+    // here — 3 of 5 "Configuración del asistente" toggles had no real
+    // effect (2.41 in docs/AUDIT_REMEDIATION_PLAN.md). Wired in the same
+    // way assistantTone/expertMode already are.
+    const languageInstruction = ctx.assistantSettings.assistantLanguage === "en"
+      ? "Responde siempre en inglés (English), sin importar el idioma del mensaje del usuario."
+      : "Responde siempre en español.";
+
+    const verbosityInstruction = ctx.assistantSettings.assistantVerbosity === "short"
+      ? "Sé breve: 2-3 oraciones o una lista corta como máximo, sin rodeos."
+      : ctx.assistantSettings.assistantVerbosity === "detailed"
+      ? "Da el detalle completo: pasos intermedios, justificaciones y contexto relevante, no solo la conclusión."
+      : "Mantén un nivel de detalle equilibrado — ni telegráfico ni exhaustivo.";
+
+    const unifiedModeInstruction = ctx.assistantSettings.unifiedMode
+      ? "MODO UNIFICADO: el usuario activó este modo para que combines contexto de TODOS sus proyectos activos, no solo el proyecto actualmente seleccionado. Si la pregunta puede beneficiarse de otros proyectos, menciónalo explícitamente."
+      : "";
+
     return `${persona}
 
 ${selectionInstruction}
 
 ESTILO DE RESPUESTA: ${assistantStyle}
+IDIOMA: ${languageInstruction}
+NIVEL DE DETALLE: ${verbosityInstruction}
 ${ctx.assistantSettings.expertMode ? "MODO EXPERTO: incluye IDs, timestamps, y datos técnicos cuando sean relevantes." : ""}
+${unifiedModeInstruction}
 
 ${noContextResponse}`;
   }

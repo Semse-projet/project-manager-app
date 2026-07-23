@@ -374,6 +374,10 @@ export async function fetchMyJobs(): Promise<JobRecordView[]> {
       budgetMin: b.jobBudgetMin,
       budgetMax: b.jobBudgetMax,
       status: (b.jobStatus ?? "accepted") as JobRecordView["status"],
+      // Real, from Contract.clientUserId via bids.repository.ts — not a
+      // guess. See G-PRO-07/2.17 in docs/AUDIT_REMEDIATION_PLAN.md.
+      clientUserId: b.clientUserId,
+      clientEmail: b.clientEmail,
     }));
 }
 
@@ -519,6 +523,8 @@ export type MyBidView = {
   jobBudgetMin?: number;
   jobBudgetMax?: number;
   jobStatus: string;
+  clientUserId?: string;
+  clientEmail?: string;
   amount: number;
   etaDays: number;
   note?: string | null;
@@ -641,7 +647,7 @@ export async function uploadMultipartPart(input: {
 
 export async function registerJobEvidence(
   jobId: string,
-  input: { key: string; kind: "PHOTO" | "VIDEO" | "DOCUMENT"; milestoneId?: string }
+  input: { key: string; kind: "PHOTO" | "VIDEO" | "DOCUMENT"; milestoneId?: string; filename?: string }
 ): Promise<Record<string, unknown>> {
   return mutateSemse<Record<string, unknown>>(`/api/semse/jobs/${jobId}/evidence`, input);
 }

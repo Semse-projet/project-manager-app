@@ -170,10 +170,6 @@ export default function AdminCompliancePage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  function acknowledge(id: string) {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, status: "compliant" as const } : i));
-  }
-
   const compliant = items.filter(i => i.status === "compliant").length;
   const issues    = items.filter(i => i.status !== "compliant").length;
   const rate      = items.length > 0 ? Math.round((compliant / items.length) * 100) : 0;
@@ -235,7 +231,6 @@ export default function AdminCompliancePage() {
         ) : items.map(item => {
           const s = STATUS_MAP[item.status];
           const color = CAT_COLOR[item.category];
-          const needsAction = item.status !== "compliant";
           return (
             <div key={item.id} style={{ ...card, padding: "16px 18px", display: "flex", alignItems: "flex-start", gap: "14px" }}>
               <div style={{ marginTop: "1px", flexShrink: 0 }}>{s.icon}</div>
@@ -256,14 +251,6 @@ export default function AdminCompliancePage() {
                 )}
               </div>
               <div style={{ display: "flex", gap: "6px", flexShrink: 0, alignItems: "center" }}>
-                {needsAction && (
-                  <button
-                    onClick={() => acknowledge(item.id)}
-                    style={{ padding: "5px 10px", borderRadius: "7px", border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.08)", color: "#10b981", fontSize: "11px", fontWeight: 700, cursor: "pointer" }}
-                  >
-                    ✓ Resolver
-                  </button>
-                )}
                 <Link
                   href={item.actionLink}
                   style={{ padding: "6px", borderRadius: "7px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex" }}

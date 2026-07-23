@@ -1,6 +1,18 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
+import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
+
+async function assertJobAccess(
+  prisma: PrismaService,
+  input: { tenantId: string; jobId: string; orgId: string; roles: string[] },
+): Promise<void> {
+  if (input.roles.includes("OPS_ADMIN")) return;
+  const project = await findProjectLinkByJobIdOrThrow(prisma, { tenantId: input.tenantId, jobId: input.jobId });
+  if (input.orgId !== project.job.clientOrgId && input.orgId !== project.assignedProOrgId) {
+    throw new ForbiddenException("actor is not assigned to this job");
+  }
+}
 
 export interface IncidentRecord {
   id: string;
@@ -46,8 +58,9 @@ export class IncidentsService {
     return rows.map(toIncidentRecord);
   }
 
-  async listByJob(input: { tenantId: string; jobId: string }): Promise<IncidentRecord[]> {
+  async listByJob(input: { tenantId: string; jobId: string; orgId: string; roles: string[] }): Promise<IncidentRecord[]> {
     if (!databaseEnabled()) return MOCK_INCIDENTS;
+    await assertJobAccess(this.prisma, input);
     const rows = await this.prisma.jobIncident.findMany({
       where: { tenantId: input.tenantId, jobId: input.jobId },
       orderBy: { createdAt: "desc" },
@@ -71,22 +84,30 @@ export class IncidentsService {
   async create(input: {
     tenantId: string; jobId: string; reportedBy: string;
     type: string; severity: string; title: string; description?: string;
+    orgId: string; roles: string[];
   }): Promise<IncidentRecord> {
     if (!input.title.trim()) throw new BadRequestException("title required");
 
     if (!databaseEnabled()) {
       const mock: IncidentRecord = {
         id: `inc_${Date.now()}`,
+        tenantId: input.tenantId,
+        jobId: input.jobId,
+        reportedBy: input.reportedBy,
+        type: input.type,
+        severity: input.severity,
+        title: input.title,
         status: "open",
         resolvedAt: null,
         description: input.description ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        ...input,
       };
       MOCK_INCIDENTS.push(mock);
       return mock;
     }
+
+    await assertJobAccess(this.prisma, input);
 
     const row = await this.prisma.jobIncident.create({
       data: {

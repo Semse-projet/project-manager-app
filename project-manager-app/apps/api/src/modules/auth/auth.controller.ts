@@ -31,6 +31,11 @@ type AuthenticatedRequest = {
 function requireBootstrapToken(headers: Record<string, unknown> | undefined): void {
   const expected = process.env.SEMSE_BOOTSTRAP_TOKEN?.trim();
   if (!expected) {
+    if (process.env.NODE_ENV === "production") {
+      // Fail closed, not open: an unset token used to mean "mint a session
+      // for any userId/tenantId/orgId/roles the caller asks for" in prod.
+      throw new ForbiddenException("Server misconfiguration: bootstrap token is not set");
+    }
     return;
   }
 

@@ -37,16 +37,21 @@ export default function WorkOpsHubPage() {
         const bj = br.ok ? await br.json() : null;
         const jobs: { status: string }[] = jj?.data ?? [];
         const bids: { status: string }[] = bj?.data ?? [];
+        // /api/semse/jobs already normalizes status to lowercase (see 0.0);
+        // /api/semse/bids returns the real JobStatus/BidStatus contracts,
+        // also lowercase (bids.repository.ts toRecord()). Real JobStatus
+        // values (packages/db/prisma/schema.prisma) have no "active"/"open" —
+        // "in_progress"/"posted"/"published" are the closest equivalents.
         setMetrics({
           jobs: {
             total:     jobs.length,
-            active:    jobs.filter(j => j.status === "ACTIVE").length,
-            pending:   jobs.filter(j => ["PENDING","OPEN"].includes(j.status)).length,
-            completed: jobs.filter(j => j.status === "COMPLETED").length,
+            active:    jobs.filter(j => j.status === "in_progress").length,
+            pending:   jobs.filter(j => ["posted","published"].includes(j.status)).length,
+            completed: jobs.filter(j => j.status === "completed").length,
           },
           bids: {
             total:   bids.length,
-            pending: bids.filter(b => b.status === "PENDING").length,
+            pending: bids.filter(b => b.status === "submitted").length,
           },
         });
       } catch { /* best-effort */ }

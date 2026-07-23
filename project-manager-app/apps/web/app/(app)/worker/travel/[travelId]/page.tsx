@@ -23,9 +23,6 @@ import {
   fetchTravelPlaceDetail,
   geocodeTravelAddress,
   planUpload,
-  createMultipartUploadSession,
-  uploadMultipartPart,
-  completeMultipartUploadSession,
   type TravelPlaceSearchItem,
 } from "../../../../semse-api";
 import { NotificationBanner } from "../../../../components/notifications/NotificationBanner";
@@ -269,29 +266,32 @@ export default function TravelDetailPage() {
     });
 
     const strategy = String(planned.recommendedStrategy ?? "single_put");
-    if (strategy !== "external_transfer") {
-      return String(planned.uploadUrl ?? `https://minio.local/upload/${String(planned.key ?? `travel/${Date.now()}-${file.name}`)}`);
+    const key = typeof planned.key === "string" ? planned.key : "";
+    if (!key) {
+      throw new Error(`No se pudo preparar el almacenamiento para "${file.name}".`);
     }
 
-    const session = await createMultipartUploadSession({
-      domain: "travel",
-      filename: file.name,
-      contentType,
-      fileSizeBytes: file.size,
-      source: "field_ops",
+    if (strategy === "external_transfer") {
+      // Files over the single-PUT limit (~25MB) don't have a working upload
+      // path yet — fail clearly instead of returning a URL that was never PUT.
+      throw new Error(`"${file.name}" es demasiado grande para subir aquí todavía (límite temporal ~25MB). Usa un archivo más pequeño o divídelo.`);
+    }
+
+    const uploadRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
+      method: "PUT",
+      headers: { "content-type": contentType, "content-length": String(file.size) },
+      body: file,
     });
-    const sessionId = String(session.sessionId ?? "");
-    const parts = Array.isArray(session.parts) ? session.parts as Record<string, unknown>[] : [];
-    const completedParts: Array<{ partNumber: number; etag: string }> = [];
-
-    for (const part of parts.slice(0, 10)) {
-      const partNumber = typeof part.partNumber === "number" ? part.partNumber : 1;
-      const result = await uploadMultipartPart({ sessionId, partNumber, contentLength: file.size });
-      completedParts.push({ partNumber, etag: String(result.etag ?? `etag-${partNumber}`) });
+    if (!uploadRes.ok) {
+      const text = await uploadRes.text().catch(() => "");
+      throw new Error(`No se pudo subir "${file.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
     }
 
-    await completeMultipartUploadSession({ sessionId, parts: completedParts });
-    return String(session.uploadUrl ?? `https://minio.local/upload/${String(session.key ?? `travel/${sessionId}/${file.name}`)}`);
+    // receiptUrl must be a real, absolute, browser-fetchable URL (the backend
+    // validates it with z.string().url() and the UI renders it as <a href>).
+    // GET on this proxy is intentionally public (tenant-scoped random keys),
+    // so this link works when opened directly, no auth header needed.
+    return `${window.location.origin}/api/semse/uploads/files/${encodeURIComponent(key)}`;
   }, []);
 
   const handleReceiptFile = useCallback(async (kind: "expense" | "lodging", file?: File | null) => {

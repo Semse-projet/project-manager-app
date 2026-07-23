@@ -1,5 +1,5 @@
 import { DashboardClient } from "./dashboard-client";
-import type { JobRecordView } from "@semse/schemas";
+import { normalizeJobRecordStatus, type JobRecordView } from "@semse/schemas";
 import { buildIdentityHeaders, parseRoleList, trimToUndefined } from "@semse/shared";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,9 @@ async function getJobs(): Promise<JobRecordView[]> {
     });
     if (!res.ok) return [];
     const payload = (await res.json()) as { data?: unknown };
-    return Array.isArray(payload.data) ? (payload.data as JobRecordView[]) : [];
+    return Array.isArray(payload.data)
+      ? (payload.data as JobRecordView[]).map(normalizeJobRecordStatus)
+      : [];
   } catch {
     return [];
   }

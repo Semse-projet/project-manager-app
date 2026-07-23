@@ -45,6 +45,7 @@ type ScopeInput = ActorInput & {
 type CreateEvidenceInput = ScopeInput & {
   key: string;
   kind: "PHOTO" | "VIDEO" | "DOCUMENT";
+  filename?: string;
 };
 
 export type EvidenceView = {
@@ -56,6 +57,9 @@ export type EvidenceView = {
   uploadedById: string;
   kind: string;
   key: string;
+  filename?: string;
+  validationStatus: string;
+  aiQualityScore: number | null;
   metadata?: Record<string, unknown>;
   createdAt: string;
 };
@@ -68,8 +72,16 @@ type EvidenceRow = {
   kind: string;
   bucketKey: string;
   metadataJson: unknown;
+  validationStatus: string;
+  aiQualityScore: unknown;
   createdAt: Date;
 };
+
+function toAiQualityScoreNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
 
 @Injectable()
 export class EvidenceRepository {
@@ -108,6 +120,7 @@ export class EvidenceRepository {
             bucketKey,
             metadataJson: {
               jobId: scope.jobId,
+              ...(input.filename ? { filename: input.filename } : {}),
             },
           },
         });
@@ -145,7 +158,7 @@ export class EvidenceRepository {
         return created;
       });
 
-      return this.toEvidenceView(input.tenantId, scope, evidence);
+      return this.toEvidenceView(input.tenantId, scope, evidence, input.filename);
     } catch (error) {
       if (!isUniqueConstraintError(error)) {
         throw error;
@@ -216,7 +229,7 @@ export class EvidenceRepository {
       );
     }
 
-    return this.toEvidenceView(input.tenantId, scope, evidence);
+    return this.toEvidenceView(input.tenantId, scope, evidence, input.filename);
   }
 
   private toEvidenceView(
@@ -227,8 +240,11 @@ export class EvidenceRepository {
       uploadedById: string;
       kind: string;
       bucketKey: string;
+      validationStatus?: string;
+      aiQualityScore?: unknown;
       createdAt: Date;
     },
+    filename?: string,
   ): EvidenceView {
     return {
       id: evidence.id,
@@ -239,7 +255,10 @@ export class EvidenceRepository {
       uploadedById: evidence.uploadedById,
       kind: evidence.kind.toLowerCase(),
       key: evidence.bucketKey,
-      metadata: { jobId: scope.jobId },
+      filename,
+      validationStatus: evidence.validationStatus ?? "pending",
+      aiQualityScore: toAiQualityScoreNumber(evidence.aiQualityScore),
+      metadata: { jobId: scope.jobId, ...(filename ? { filename } : {}) },
       createdAt: evidence.createdAt.toISOString(),
     };
   }
@@ -261,18 +280,25 @@ export class EvidenceRepository {
       orderBy: { createdAt: "desc" },
     })) as EvidenceRow[];
 
-    return rows.map((row: EvidenceRow) => ({
-      id: row.id,
-      tenantId: input.tenantId,
-      projectId: row.projectId,
-      jobId: project.jobId,
-      milestoneId: row.milestoneId ?? undefined,
-      uploadedById: row.uploadedById,
-      kind: row.kind.toLowerCase(),
-      key: row.bucketKey,
-      metadata: toRecord(row.metadataJson),
-      createdAt: row.createdAt.toISOString(),
-    }));
+    return rows.map((row: EvidenceRow) => {
+      const metadata = toRecord(row.metadataJson);
+      const filename = typeof metadata?.filename === "string" ? metadata.filename : undefined;
+      return {
+        id: row.id,
+        tenantId: input.tenantId,
+        projectId: row.projectId,
+        jobId: project.jobId,
+        milestoneId: row.milestoneId ?? undefined,
+        uploadedById: row.uploadedById,
+        kind: row.kind.toLowerCase(),
+        key: row.bucketKey,
+        filename,
+        validationStatus: row.validationStatus ?? "pending",
+        aiQualityScore: toAiQualityScoreNumber(row.aiQualityScore),
+        metadata,
+        createdAt: row.createdAt.toISOString(),
+      };
+    });
   }
 
   async listByJob(
@@ -331,6 +357,8 @@ export class EvidenceRepository {
       kind: string;
       bucketKey: string;
       metadataJson: unknown;
+      validationStatus: string;
+      aiQualityScore: unknown;
       createdAt: Date;
       project: {
         jobId: string;
@@ -347,6 +375,9 @@ export class EvidenceRepository {
 
     assertEvidenceReadable(this.toActor(input), this.toOwnership(row.project));
 
+    const metadata = toRecord(row.metadataJson);
+    const filename = typeof metadata?.filename === "string" ? metadata.filename : undefined;
+
     return {
       id: row.id,
       tenantId: input.tenantId,
@@ -356,7 +387,10 @@ export class EvidenceRepository {
       uploadedById: row.uploadedById,
       kind: row.kind.toLowerCase(),
       key: row.bucketKey,
-      metadata: toRecord(row.metadataJson),
+      filename,
+      validationStatus: row.validationStatus ?? "pending",
+      aiQualityScore: toAiQualityScoreNumber(row.aiQualityScore),
+      metadata,
       createdAt: row.createdAt.toISOString(),
     };
   }

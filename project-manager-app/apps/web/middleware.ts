@@ -40,16 +40,23 @@ function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix));
 }
 
-function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof decodeSession>>) {
-  if (!session) {
-    return NextResponse.next();
-  }
+const SEMSE_IDENTITY_HEADERS = ["x-semse-user-id", "x-semse-tenant-id", "x-semse-org-id", "x-semse-roles"];
 
+function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof decodeSession>>) {
   const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-semse-user-id", session.userId);
-  requestHeaders.set("x-semse-tenant-id", session.tenantId);
-  requestHeaders.set("x-semse-org-id", session.orgId);
-  requestHeaders.set("x-semse-roles", session.roles.join(","));
+
+  // Always strip caller-supplied identity headers first — regardless of
+  // whether there's a valid session. Previously these were only overwritten
+  // in the `session` branch, so a request with no/invalid session forwarded
+  // whatever x-semse-* headers the caller sent, unexamined.
+  for (const name of SEMSE_IDENTITY_HEADERS) requestHeaders.delete(name);
+
+  if (session) {
+    requestHeaders.set("x-semse-user-id", session.userId);
+    requestHeaders.set("x-semse-tenant-id", session.tenantId);
+    requestHeaders.set("x-semse-org-id", session.orgId);
+    requestHeaders.set("x-semse-roles", session.roles.join(","));
+  }
 
   return NextResponse.next({ request: { headers: requestHeaders } });
 }

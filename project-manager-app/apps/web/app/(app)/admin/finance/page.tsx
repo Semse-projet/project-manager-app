@@ -28,6 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
   paid: "#10b981", overdue: "#f87171", cancelled: "#64748b",
   pending: "#fbbf24", rejected: "#f87171", reimbursed: "#34d399", archived: "#64748b",
   deposit: "#3b82f6", release: "#10b981", refund: "#fbbf24", active: "#3b82f6", funded: "#3b82f6", partial: "#a78bfa",
+  succeeded: "#10b981", failed: "#f87171", reversed: "#f87171",
 };
 
 function fmt(n: number) {
@@ -300,13 +301,18 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
   const [refundOk, setRefundOk] = useState<string | null>(null);
+  const [releaseTarget, setReleaseTarget] = useState<JobEscrowInfo | null>(null);
   const [releaseBusy, setReleaseBusy] = useState<string | null>(null);
   const [releaseOk, setReleaseOk] = useState<string | null>(null);
   const [releaseError, setReleaseError] = useState<string | null>(null);
 
-  const totalEscrow = txns.filter(t => t.type === "DEPOSIT" && t.status === "PENDING").reduce((s, t) => s + t.amount, 0);
-  const totalReleased = txns.filter(t => t.type === "RELEASE").reduce((s, t) => s + t.amount, 0);
-  const totalRefunded = txns.filter(t => t.type === "REFUND").reduce((s, t) => s + Math.abs(t.amount), 0);
+  // Only SUCCEEDED transactions represent money that actually moved — PENDING
+  // is still in flight and FAILED/REVERSED never completed. Same fix as
+  // 2.39/G-PRO-12 (worker/payments), recurring here since this panel reads
+  // the same PaymentTxn rows independently.
+  const totalEscrow = txns.filter(t => t.type === "DEPOSIT" && t.status === "SUCCEEDED").reduce((s, t) => s + t.amount, 0);
+  const totalReleased = txns.filter(t => t.type === "RELEASE" && t.status === "SUCCEEDED").reduce((s, t) => s + t.amount, 0);
+  const totalRefunded = txns.filter(t => t.type === "REFUND" && t.status === "SUCCEEDED").reduce((s, t) => s + Math.abs(t.amount), 0);
   const refundableEscrows = escrows.filter(e => ["PENDING", "ACTIVE", "FUNDED", "PARTIAL"].includes(e.status.toUpperCase()));
 
   async function submitRefund() {
@@ -324,7 +330,9 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
     finally { setRefundBusy(false); }
   }
 
-  async function submitRelease(e: JobEscrowInfo) {
+  async function submitRelease() {
+    if (!releaseTarget) return;
+    const e = releaseTarget;
     setReleaseBusy(e.escrowId); setReleaseOk(null); setReleaseError(null);
     try {
       const res = await fetch("/api/semse/payment-governance/release", {
@@ -335,6 +343,7 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
       });
       if (!res.ok) throw new Error((await res.json() as { error?: { message?: string } }).error?.message ?? "Error");
       setReleaseOk(`Liberación de ${fmt(e.amount)} emitida para "${e.jobTitle}"`);
+      setReleaseTarget(null);
       onRefresh();
     } catch (err) { setReleaseError(err instanceof Error ? err.message : "Error al liberar"); }
     finally { setReleaseBusy(null); }
@@ -370,21 +379,40 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
                 <Badge status={e.status.toLowerCase()} />
                 <div style={{ fontWeight: 800, fontSize: 14 }}>{fmt(e.amount)}</div>
                 <button
+                  data-testid={`admin-escrow-release-${e.escrowId}`}
                   disabled={releaseBusy === e.escrowId}
-                  onClick={() => { void submitRelease(e); }}
+                  onClick={() => { setReleaseTarget(e); setReleaseError(null); setReleaseOk(null); setRefundOk(null); setRefundTarget(null); }}
                   style={smBtn("rgba(16,185,129,.15)", "#10b981")}
                 >
-                  {releaseBusy === e.escrowId ? "Liberando…" : "Liberar"}
+                  Liberar
                 </button>
                 <button
                   data-testid={`admin-escrow-refund-${e.escrowId}`}
-                  onClick={() => { setRefundTarget(e); setRefundAmount(String(e.amount || "")); setRefundReason(""); setRefundError(null); setRefundOk(null); setReleaseOk(null); }}
+                  onClick={() => { setRefundTarget(e); setRefundAmount(String(e.amount || "")); setRefundReason(""); setRefundError(null); setRefundOk(null); setReleaseOk(null); setReleaseTarget(null); }}
                   style={smBtn("rgba(251,191,36,.15)", "#fbbf24")}
                 >
                   Reembolsar
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {releaseTarget && (
+        <div data-testid="admin-escrow-release-form" style={{ background: "var(--surface)", borderRadius: 14, padding: 18, border: "1px solid rgba(16,185,129,.35)" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", marginBottom: 4 }}>Liberar escrow — {releaseTarget.jobTitle}</div>
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>
+            Se liberará <strong>{fmt(releaseTarget.amount)}</strong> al profesional asignado. Esta acción mueve dinero real y no se puede deshacer desde este panel.
+          </p>
+          {releaseError && <div style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{releaseError}</div>}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <button disabled={releaseBusy === releaseTarget.escrowId} onClick={() => void submitRelease()} style={smBtn("#10b981", "#04120c")}>
+              {releaseBusy === releaseTarget.escrowId ? "Liberando…" : `Confirmar liberación de ${fmt(releaseTarget.amount)}`}
+            </button>
+            <button disabled={releaseBusy === releaseTarget.escrowId} onClick={() => setReleaseTarget(null)} style={smBtn("transparent", "var(--muted)")}>
+              Cancelar
+            </button>
           </div>
         </div>
       )}
@@ -427,10 +455,11 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
                 <span style={{ fontWeight: 700, fontSize: 13 }}>{t.jobTitle}</span>
                 <Badge status={t.type.toLowerCase()} />
+                <Badge status={t.status.toLowerCase()} />
               </div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>{t.jobId.slice(-8)} · {t.status}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>{t.jobId.slice(-8)}</div>
             </div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: t.type === "RELEASE" ? "#10b981" : t.type === "REFUND" ? "#fbbf24" : "var(--ink)" }}>{fmt(Math.abs(t.amount))}</div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: t.status !== "SUCCEEDED" ? "var(--muted)" : t.type === "RELEASE" ? "#10b981" : t.type === "REFUND" ? "#fbbf24" : "var(--ink)", textDecoration: t.status === "FAILED" || t.status === "REVERSED" ? "line-through" : "none" }}>{fmt(Math.abs(t.amount))}</div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.date ? new Date(t.date).toLocaleDateString("es-MX") : "—"}</div>
             <div />
           </div>
@@ -442,6 +471,20 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
 
 function InvoiceRow({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true); setRowError(null);
+    try {
+      await action();
+      onRefresh();
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{
       background: "var(--surface)", borderRadius: 14, padding: "12px 18px",
@@ -458,6 +501,7 @@ function InvoiceRow({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =>
           {invoice.dueDate ? ` · vence ${new Date(invoice.dueDate).toLocaleDateString("es-MX")}` : ""}
           {invoice.projectId ? ` · ${invoice.projectId.slice(-8)}` : ""}
         </div>
+        {rowError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 3 }}>{rowError}</div>}
       </div>
       <div style={{ textAlign: "right" }}>
         <div style={{ fontWeight: 800, fontSize: 15, color: invoice.status === "overdue" ? "#fca5a5" : "var(--ink)" }}>{fmt(invoice.total)}</div>
@@ -466,10 +510,10 @@ function InvoiceRow({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =>
       <div style={{ fontSize: 11, color: "var(--muted)" }}>{new Date(invoice.createdAt).toLocaleDateString("es-MX")}</div>
       <div style={{ display: "flex", gap: 6 }}>
         {invoice.status === "draft" && (
-          <button disabled={busy} onClick={async () => { setBusy(true); await sendInvoice(invoice.id).catch(() => null); onRefresh(); setBusy(false); }} style={smBtn("#4f46e5", "white")}>Enviar</button>
+          <button disabled={busy} onClick={() => void run(() => sendInvoice(invoice.id))} style={smBtn("#4f46e5", "white")}>Enviar</button>
         )}
         {["sent", "viewed", "approved", "overdue"].includes(invoice.status) && (
-          <button disabled={busy} onClick={async () => { setBusy(true); await markInvoicePaid(invoice.id).catch(() => null); onRefresh(); setBusy(false); }} style={smBtn("#10b981", "white")}>Cobrada</button>
+          <button disabled={busy} onClick={() => void run(() => markInvoicePaid(invoice.id))} style={smBtn("#10b981", "white")}>Cobrada</button>
         )}
       </div>
     </div>
@@ -478,6 +522,20 @@ function InvoiceRow({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =>
 
 function ExpenseRow({ expense, onRefresh }: { expense: ProjectExpense; onRefresh: () => void }) {
   const [busy, setBusy] = useState(false);
+  const [rowError, setRowError] = useState<string | null>(null);
+
+  async function run(action: () => Promise<unknown>) {
+    setBusy(true); setRowError(null);
+    try {
+      await action();
+      onRefresh();
+    } catch (e) {
+      setRowError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{
       background: "var(--surface)", borderRadius: 14, padding: "12px 18px",
@@ -495,6 +553,7 @@ function ExpenseRow({ expense, onRefresh }: { expense: ProjectExpense; onRefresh
           {expense.projectId ? ` · ${expense.projectId.slice(-8)}` : ""}
           {" · "}{new Date(expense.expenseDate).toLocaleDateString("es-MX")}
         </div>
+        {rowError && <div style={{ fontSize: 11, color: "#f87171", marginTop: 3 }}>{rowError}</div>}
       </div>
       <div style={{ textAlign: "right" }}>
         <div style={{ fontWeight: 800, fontSize: 15, color: expense.isDuplicate ? "#fca5a5" : "var(--ink)" }}>{fmt(expense.amount)}</div>
@@ -502,8 +561,8 @@ function ExpenseRow({ expense, onRefresh }: { expense: ProjectExpense; onRefresh
       <div style={{ fontSize: 11, color: "var(--muted)" }}>{expense.submittedBy.slice(-8)}</div>
       {expense.status === "pending" ? (
         <div style={{ display: "flex", gap: 6 }}>
-          <button disabled={busy} onClick={async () => { setBusy(true); await approveExpense(expense.id).catch(() => null); onRefresh(); setBusy(false); }} style={smBtn("#10b981", "white")}>✓</button>
-          <button disabled={busy} onClick={async () => { setBusy(true); await rejectExpense(expense.id).catch(() => null); onRefresh(); setBusy(false); }} style={smBtn("#ef4444", "white")}>✗</button>
+          <button disabled={busy} onClick={() => void run(() => approveExpense(expense.id))} style={smBtn("#10b981", "white")}>✓</button>
+          <button disabled={busy} onClick={() => void run(() => rejectExpense(expense.id))} style={smBtn("#ef4444", "white")}>✗</button>
         </div>
       ) : <div />}
     </div>

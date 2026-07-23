@@ -154,7 +154,7 @@ function ApplicationRow({ application, onReview, busy }: {
           <button
             type="button"
             disabled={busy}
-            onClick={() => void onReview(application.id, "approved", notes.trim() || undefined)}
+            onClick={() => { if (window.confirm(`¿Aprobar la postulación de ${application.email}? Esto la admite al marketplace de profesionales.`)) void onReview(application.id, "approved", notes.trim() || undefined); }}
             style={actionButton("#10b981")}
           >
             <CheckCircle2 size={12} /> Aprobar
@@ -162,7 +162,7 @@ function ApplicationRow({ application, onReview, busy }: {
           <button
             type="button"
             disabled={busy}
-            onClick={() => void onReview(application.id, "rejected", notes.trim() || undefined)}
+            onClick={() => { if (window.confirm(`¿Rechazar la postulación de ${application.email}? Esto la marca como resuelta de forma terminal.`)) void onReview(application.id, "rejected", notes.trim() || undefined); }}
             style={actionButton("#ef4444")}
           >
             <XCircle size={12} /> Rechazar

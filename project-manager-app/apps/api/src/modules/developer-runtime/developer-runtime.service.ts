@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import type {
   DeveloperRuntimeApprovalRecord,
   DeveloperRuntimeApprovalResponseInput,
@@ -435,12 +435,37 @@ export class DeveloperRuntimeService {
     return { ok: true };
   }
 
+  // completeWorkerExecution/failWorkerExecution previously persisted
+  // input.session/input.mission verbatim from the request body via an
+  // upsert, with no check that sessionId corresponds to a real session
+  // created through the gated create-session flow — any actor with
+  // agents:run:manage/agents:run:worker (PRO and WORKER, not just
+  // OPS_ADMIN — see packages/auth/src/rbac.ts) could fabricate an entirely
+  // fake "mission completed" record with forged diffs/validations. This
+  // requires the target session to already exist and match the URL param
+  // before allowing the callback through. See
+  // docs/AUDIT_REMEDIATION_PLAN.md 3.14.
+  private async assertWorkerCallbackTargetsRealSession(
+    sessionId: string,
+    bodySessionId: string,
+    actor: { tenantId: string; orgId: string; userId: string },
+  ): Promise<void> {
+    if (bodySessionId !== sessionId) {
+      throw new BadRequestException("session.id in body must match the sessionId in the URL");
+    }
+    const { session } = await this.repository.getSession({ actor, sessionId });
+    if (!session) {
+      throw new NotFoundException(`Developer runtime session '${sessionId}' not found`);
+    }
+  }
+
   async completeWorkerExecution(
     sessionId: string,
     input: DeveloperRuntimeWorkerCompleteInput,
     actor: { tenantId: string; orgId: string; userId: string },
     requestId: string,
   ) {
+    await this.assertWorkerCallbackTargetsRealSession(sessionId, input.session.id, actor);
     return this.repository.saveExecutionUpdate({
       actor,
       requestId,
@@ -460,6 +485,7 @@ export class DeveloperRuntimeService {
     actor: { tenantId: string; orgId: string; userId: string },
     requestId: string,
   ) {
+    await this.assertWorkerCallbackTargetsRealSession(sessionId, input.session.id, actor);
     const failureLog: DeveloperRuntimeSessionLog = {
       id: randomUUID(),
       sessionId,

@@ -38,7 +38,7 @@ export class MaterialsController {
     @Param("jobId") jobId: string
   ) {
     const actor = resolveRequestContext(req);
-    const data = await this.materialsService.listByJob({ tenantId: actor.tenantId, jobId });
+    const data = await this.materialsService.listByJob({ tenantId: actor.tenantId, jobId, orgId: actor.orgId, roles: actor.roles });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -62,7 +62,13 @@ export class MaterialsController {
     const parsed = createMaterialSchema.safeParse(body);
     if (!parsed.success) throw new BadRequestException(parsed.error.flatten());
     const actor = resolveRequestContext(req);
-    const data = await this.materialsService.create({ ...parsed.data, tenantId: actor.tenantId, requestedBy: actor.userId });
+    const data = await this.materialsService.create({
+      ...parsed.data,
+      tenantId: actor.tenantId,
+      requestedBy: actor.userId,
+      orgId: actor.orgId,
+      roles: actor.roles,
+    });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 

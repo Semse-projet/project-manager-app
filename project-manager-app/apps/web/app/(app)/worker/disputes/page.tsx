@@ -17,11 +17,15 @@ import {
 
 type DisputesFilter = "all" | "open" | "resolved";
 
+// Real DisputeStatus enum (packages/db/prisma/schema.prisma) has 5 values —
+// this used to only recognize "resolved"/"assigned" and folded everything
+// else (including the terminal REJECTED) into "open" forever (2.43 in
+// docs/AUDIT_REMEDIATION_PLAN.md).
 type DisputeRow = {
   id: string;
   projectId: string;
   reason: string;
-  status: "open" | "assigned" | "resolved";
+  status: "open" | "assigned" | "under_review" | "resolved" | "rejected";
   resolution?: string;
   jobId?: string;
   jobTitle: string;
@@ -31,13 +35,22 @@ type DisputeRow = {
 const STATUS_META: Record<DisputeRow["status"], { variant: "error" | "warning" | "success"; label: string; tone: string }> = {
   open: { variant: "error", label: "Abierta", tone: "#ef4444" },
   assigned: { variant: "warning", label: "Asignada", tone: "#f59e0b" },
-  resolved: { variant: "success", label: "Resuelta", tone: "#10b981" }
+  under_review: { variant: "warning", label: "En revisión", tone: "#f59e0b" },
+  resolved: { variant: "success", label: "Resuelta", tone: "#10b981" },
+  rejected: { variant: "error", label: "Rechazada", tone: "#94a3b8" }
 };
+
+// A dispute is still "active" (counted/shown under the "open" filter) while
+// it's open/assigned/under_review. resolved and rejected are both terminal —
+// rejected just means it closed against the worker, not that it's still open.
+const ACTIVE_DISPUTE_STATUSES: DisputeRow["status"][] = ["open", "assigned", "under_review"];
 
 function normalizeDisputeStatus(value: unknown): DisputeRow["status"] {
   const lower = typeof value === "string" ? value.toLowerCase() : "";
   if (lower === "resolved") return "resolved";
+  if (lower === "rejected") return "rejected";
   if (lower === "assigned") return "assigned";
+  if (lower === "under_review") return "under_review";
   return "open";
 }
 
@@ -152,15 +165,15 @@ export default function WorkerDisputesPage() {
   );
 
   const activeDisputes = useMemo(
-    () => disputes.filter((item) => item.status !== "resolved"),
+    () => disputes.filter((item) => ACTIVE_DISPUTE_STATUSES.includes(item.status)),
     [disputes]
   );
 
   const filteredDisputes = useMemo(() => {
     return disputes.filter((item) => {
       if (selectedProjectId && item.projectId !== selectedProjectId) return false;
-      if (filter === "open") return item.status !== "resolved";
-      if (filter === "resolved") return item.status === "resolved";
+      if (filter === "open") return ACTIVE_DISPUTE_STATUSES.includes(item.status);
+      if (filter === "resolved") return item.status === "resolved" || item.status === "rejected";
       return true;
     });
   }, [disputes, filter, selectedProjectId]);
@@ -229,7 +242,7 @@ export default function WorkerDisputesPage() {
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }} canvasClassName="rounded-2xl" minHeight={120}>
         {[
           { label: "Abiertas", value: activeDisputes.length, color: "#ef4444", icon: AlertTriangle },
-          { label: "Resueltas", value: disputes.filter((item) => item.status === "resolved").length, color: "#10b981", icon: ShieldAlert },
+          { label: "Resueltas", value: disputes.filter((item) => item.status === "resolved" || item.status === "rejected").length, color: "#10b981", icon: ShieldAlert },
           { label: "Trabajos elegibles", value: eligibleJobs.length, color: "#6366f1", icon: MessageSquare }
         ].map((item) => {
           const Icon = item.icon;

@@ -197,7 +197,11 @@ export default function AdminJobDetailPage() {
                   <Zap size={10} style={{ verticalAlign: "middle", marginRight: 4 }} />Admin override:
                 </span>
                 {availableTransitions.map(ts => (
-                  <button key={ts} onClick={() => void handleTransition(ts)} disabled={transitioning}
+                  <button key={ts} onClick={() => {
+                      if (window.confirm(`¿Forzar el estado de este job a "${STATUS[ts]?.label ?? ts}"? Esto es un override manual de admin, no el flujo normal.`)) {
+                        void handleTransition(ts);
+                      }
+                    }} disabled={transitioning}
                     className="btn-ghost"
                     style={{ fontSize: 11, padding: "4px 10px", opacity: transitioning ? 0.5 : 1 }}>
                     → {STATUS[ts]?.label ?? ts}

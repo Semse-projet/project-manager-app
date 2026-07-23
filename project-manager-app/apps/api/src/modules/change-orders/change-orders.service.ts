@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { OperationalSignalsService } from "../operational-intelligence/operational-signals.service.js";
+import { findProjectLinkByJobIdOrThrow } from "../projects/project-link.repository.js";
 
 type ActorContext = {
   tenantId: string;
@@ -382,6 +383,21 @@ export class ChangeOrdersService {
     if (!candidate) {
       throw new NotFoundException("Change order not found");
     }
+
+    // Being in the same tenant isn't enough — verify the actor's org actually
+    // owns this change order (the client or the assigned pro org for its job).
+    // Only enforceable when jobId is set; buildOpsProjectId-only candidates
+    // (a separate, pre-migration linkage) keep tenant-only scoping for now.
+    if (candidate.jobId && !actor.roles.includes("OPS_ADMIN")) {
+      const project = await findProjectLinkByJobIdOrThrow(this.prisma, {
+        tenantId: actor.tenantId,
+        jobId: candidate.jobId,
+      });
+      if (actor.orgId !== project.job.clientOrgId && actor.orgId !== project.assignedProOrgId) {
+        throw new ForbiddenException("actor does not have access to this change order");
+      }
+    }
+
     return candidate;
   }
 }

@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Param, Query, Req } from "@nestjs/common";
+import { Controller, ForbiddenException, Get, Patch, Post, Param, Query, Req } from "@nestjs/common";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { parseHeaderRequestContext } from "../../common/request-context.js";
@@ -97,6 +97,13 @@ export class OperationalIntelligenceController {
   @Post("seed-test")
   @RequirePermissions("ops:dashboard:write")
   async seedTestSignals(@Req() req: { headers?: Record<string, unknown> }) {
+    // Writes real rows into the production OperationalSignal table with no
+    // other guard — see docs/AUDIT_REMEDIATION_PLAN.md 3.42. Same
+    // NODE_ENV-gated pattern already used for requireBootstrapToken/
+    // resetTokenPreview in auth.controller.ts.
+    if (process.env.NODE_ENV === "production") {
+      throw new ForbiddenException("seed-test signals are disabled in production");
+    }
     const requestId = resolveRequestId(req.headers ?? {});
     const ctx = parseHeaderRequestContext(req);
 

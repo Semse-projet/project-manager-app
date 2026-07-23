@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
 
@@ -121,7 +121,7 @@ export class TasksService {
     return toTaskRecord(row);
   }
 
-  async updateStatus(input: { tenantId: string; taskId: string; status: string }): Promise<TaskRecord> {
+  async updateStatus(input: { tenantId: string; taskId: string; status: string; actorUserId: string; roles: string[] }): Promise<TaskRecord> {
     const allowed = ["pending", "in_progress", "done", "blocked"];
     if (!allowed.includes(input.status)) throw new BadRequestException("invalid status");
 
@@ -130,6 +130,16 @@ export class TasksService {
       if (!t) throw new NotFoundException("task not found");
       t.status = input.status;
       return t;
+    }
+
+    const existing = await this.prisma.jobTask.findFirst({
+      where: { id: input.taskId, tenantId: input.tenantId },
+    });
+    if (!existing) throw new NotFoundException("task not found");
+
+    const isPrivileged = input.roles.includes("OPS_ADMIN");
+    if (!isPrivileged && existing.assignedTo && existing.assignedTo !== input.actorUserId) {
+      throw new ForbiddenException("You can only update the status of tasks assigned to you");
     }
 
     const row = await this.prisma.jobTask.update({

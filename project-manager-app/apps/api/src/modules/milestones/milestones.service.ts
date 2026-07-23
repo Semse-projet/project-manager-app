@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
@@ -20,6 +20,8 @@ import {
 
 @Injectable()
 export class MilestonesService {
+  private readonly logger = new Logger(MilestonesService.name);
+
   constructor(
     private readonly milestonesRepository: MilestonesRepository,
     private readonly auditService: AuditService,
@@ -288,8 +290,22 @@ export class MilestonesService {
       triggerEvent: "milestone.approved",
     }).catch(() => undefined);
 
-    // 1.3.B/C: Try automatic escrow release after approval (non-blocking)
-    void this.escrowRelease?.tryAutoRelease(milestone.id, input.tenantId).catch(() => undefined);
+    // 1.3.B/C: Try automatic escrow release after approval (non-blocking).
+    // Never swallow this silently — tryAutoRelease can return released:true
+    // with a reconciliation blocker (money moved, DB write failed) or throw
+    // after a real Stripe transfer already happened. Both must be logged
+    // loudly, not discarded (0.15 in docs/AUDIT_REMEDIATION_PLAN.md).
+    void this.escrowRelease?.tryAutoRelease(milestone.id, input.tenantId)
+      .then((result) => {
+        if (!result.released && result.blockers.length > 0) {
+          this.logger.warn(`[MilestonesService] Auto-release blocked for ${milestone.id}: ${result.blockers.join(", ")}`);
+        } else if (result.released && result.blockers.length > 0) {
+          this.logger.error(`[MilestonesService] Auto-release for ${milestone.id} needs manual reconciliation: ${result.blockers.join(", ")}`);
+        }
+      })
+      .catch((err) => {
+        this.logger.error(`[MilestonesService] Auto-release threw for ${milestone.id}: ${(err as Error).message}`);
+      });
 
     // Auto-complete job when all milestones are approved (non-blocking)
     if (context.jobId) {

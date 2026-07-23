@@ -64,6 +64,12 @@ export const jobRecordSchema = z.object({
   urgency: z.string().min(1).optional(),
   deadline: z.string().min(1).optional(),
   preferredProfessional: preferredProfessionalSchema.optional(),
+  // Populated only where the source query resolves it (currently
+  // bids.repository.ts listByWorker, via Contract.clientUserId — Job
+  // itself only has clientOrgId, not a specific user). See
+  // G-PRO-07/2.17 in docs/AUDIT_REMEDIATION_PLAN.md.
+  clientUserId: z.string().min(1).optional(),
+  clientEmail: z.string().min(1).optional(),
 });
 
 export const bidSchema = z.object({
@@ -73,6 +79,18 @@ export const bidSchema = z.object({
   etaDays: z.number().int().positive(),
   note: z.string().max(1000).optional(),
 });
+
+/**
+ * The Prisma `JobStatus` enum is uppercase and NestJS's `toVisibleJob` mapper
+ * returns it uppercase too — but `jobRecordStatusSchema` (and every frontend
+ * consumer of `JobRecordView`) has always expected lowercase. Apply this at
+ * every BFF boundary that forwards a job record from the API to the browser,
+ * so `status` actually matches the schema it's typed against.
+ */
+export function normalizeJobRecordStatus<T extends { status?: unknown }>(record: T): T {
+  if (typeof record?.status !== "string") return record;
+  return { ...record, status: record.status.toLowerCase() };
+}
 
 export type JobRecordStatus = z.infer<typeof jobRecordStatusSchema>;
 export type CreateJobInput = z.infer<typeof createJobSchema>;

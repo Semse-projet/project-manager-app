@@ -419,7 +419,7 @@ export default function PrometeoPage() {
                         {d.errorMsg && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 2 }}>{d.errorMsg}</div>}
                       </div>
                       <StatusBadge status={d.status} />
-                      <button onClick={() => void handleDeleteDoc(d.id)}
+                      <button onClick={() => { if (window.confirm(`¿Borrar "${d.title}" de la base de conocimiento? Esta acción es permanente.`)) void handleDeleteDoc(d.id); }}
                         style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: 4 }}>
                         <Trash2 size={14} />
                       </button>
