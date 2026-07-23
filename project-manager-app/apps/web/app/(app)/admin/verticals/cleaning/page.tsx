@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Sparkles, CheckSquare, Home, MoveRight, Building2, Star, ClipboardList, TrendingUp, Activity } from "lucide-react";
+import { Sparkles, CheckSquare, Home, MoveRight, Building2, Star, ClipboardList, TrendingUp, Activity } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 interface CleaningStats {
   totalJobs?: number;
@@ -53,25 +54,23 @@ export default function AdminCleaningVerticalPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Link href="/admin/verticals" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-          <ArrowLeft size={12} /> Verticals
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <span style={{ fontSize: 24 }}>🧹</span>
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.03em" }}>Cleaning &amp; Turnovers</h1>
-              <span className="badge badge-amber" style={{ fontSize: 10 }}>Beta</span>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Gestión de limpieza residencial, comercial y cambios de turno de propiedades</p>
-          </div>
-          <Link href="/admin/field-ops?category=cleaning" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <ClipboardList size={12} /> Ver WorkOrders
-          </Link>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Cleaning & Turnovers"
+        subtitle="Gestión de limpieza residencial, comercial y cambios de turno de propiedades"
+        icon={Sparkles}
+        iconColor="#22d3ee"
+        iconBg="rgba(34,211,238,.12)"
+        backHref="/admin/verticals"
+        backLabel="Verticals"
+        actions={
+          <>
+            <span className="badge badge-amber" style={{ fontSize: 10 }}>Beta</span>
+            <Link href="/admin/field-ops?category=cleaning" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <ClipboardList size={12} /> Ver WorkOrders
+            </Link>
+          </>
+        }
+      />
 
       {/* KPI strip */}
       <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", marginBottom: 24 }}>
