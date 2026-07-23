@@ -76,6 +76,7 @@ import { WorkerVerificationModule } from "./modules/worker-verification/worker-v
 import { BrowserAgentModule } from "./modules/browser-agent/browser-agent.module.js";
 import { VisionModule } from "./modules/vision/vision.module.js";
 import { SatellitesModule } from "./modules/satellites/satellites.module.js";
+import { AdminModule } from "./modules/admin/admin.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -164,6 +165,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     BrowserAgentModule,
     VisionModule,
     SatellitesModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [
