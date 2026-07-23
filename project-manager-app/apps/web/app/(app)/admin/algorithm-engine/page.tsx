@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BarChart2, TrendingUp, AlertTriangle, CheckCircle, Activity, RefreshCw, RotateCw, X } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { Badge, Card } from "@/components/ui";
 
 type TradeStats = {
@@ -176,24 +177,23 @@ export default function AlgorithmEngineDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2">
-            <Activity size={24} className="text-cyan-400" />
-            Algorithm Engine Dashboard
-          </h1>
-          <p className="text-sm text-muted mt-1">
-            Every ProTools calculation is recorded here for auditing and learning.
-          </p>
-        </div>
-        <button
-          onClick={loadStats}
-          className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2 text-sm text-muted hover:text-ink transition"
-        >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Algorithm Engine Dashboard"
+        subtitle="Every ProTools calculation is recorded here for auditing and learning."
+        icon={Activity}
+        iconColor="#22d3ee"
+        iconBg="rgba(34,211,238,0.12)"
+        showBack={false}
+        actions={
+          <button
+            onClick={loadStats}
+            className="flex items-center gap-2 rounded-xl border border-white/[0.08] px-3 py-2 text-sm text-muted hover:text-ink transition"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        }
+      />
 
       {/* Summary metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
