@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
+import { HtmlInCanvasPanel } from "@semse/ui";
 
 interface AdminPageHeaderProps {
   title: string;
@@ -14,6 +15,7 @@ interface AdminPageHeaderProps {
   backLabel?: string;
   showBack?: boolean;
   actions?: ReactNode;
+  panel?: boolean;
 }
 
 export function AdminPageHeader({
@@ -26,9 +28,10 @@ export function AdminPageHeader({
   backLabel = "Dashboard",
   showBack = true,
   actions,
+  panel = false,
 }: AdminPageHeaderProps) {
-  return (
-    <div style={{ marginBottom: 24 }}>
+  const inner = (
+    <>
       {showBack && backHref ? (
         <Link
           href={backHref}
@@ -70,6 +73,16 @@ export function AdminPageHeader({
         </div>
         {actions ? <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{actions}</div> : null}
       </div>
+    </>
+  );
+
+  return panel ? (
+    <HtmlInCanvasPanel as="section" canvasClassName="rounded-2xl" minHeight={82} style={{ marginBottom: 24 }}>
+      {inner}
+    </HtmlInCanvasPanel>
+  ) : (
+    <div style={{ marginBottom: 24 }}>
+      {inner}
     </div>
   );
 }

@@ -7,9 +7,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Activity, Users, AlertTriangle, Briefcase, DollarSign, CheckSquare, TrendingUp, RefreshCw, FileText, Shield, Bot, BarChart2, Settings, Wrench, MessageSquare } from "lucide-react";
+import { Activity, Users, AlertTriangle, Briefcase, DollarSign, CheckSquare, TrendingUp, RefreshCw, FileText, Shield, Bot, BarChart2, Settings, Wrench, MessageSquare, LayoutDashboard } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge, useHtmlInCanvasSupport } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { useLanguage } from "../../../../lib/language-context";
 import { normalizeErrorMessage } from "../../../semse-api";
@@ -131,11 +132,20 @@ export default function AdminDashboardPage() {
         </Link>
       </div>
 
-      {/* Header */}
-      <div style={{ marginBottom: "28px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <h1 style={{ fontSize: "24px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Panel de Operaciones</h1>
+      <AdminPageHeader
+        title="Panel de Operaciones"
+        subtitle={
+          <span>
+            Estado del sistema en tiempo real
+            {!loading && <span style={{ color: "var(--faint)", marginLeft: "8px" }}>· Actualizado {lastRefresh.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}</span>}
+          </span>
+        }
+        icon={LayoutDashboard}
+        iconColor="#6366f1"
+        iconBg="rgba(99,102,241,0.15)"
+        showBack={false}
+        actions={
+          <>
             <span
               title={canvasSupported ? "Canvas nativo activo" : "DOM fallback"}
               style={{
@@ -153,26 +163,20 @@ export default function AdminDashboardPage() {
             >
               {canvasSupported ? "canvas" : "DOM"}
             </span>
-          </div>
-          <p style={{ color: "var(--muted)", fontSize: "14px" }}>
-            Estado del sistema en tiempo real
-            {!loading && <span style={{ color: "var(--faint)", marginLeft: "8px" }}>· Actualizado {lastRefresh.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}</span>}
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <NotificationBanner audience="admin" />
-          <button
-            onClick={() => {
-              void loadData();
-            }}
-            disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
-          >
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            Refrescar
-          </button>
-        </div>
-      </div>
+            <NotificationBanner audience="admin" />
+            <button
+              onClick={() => {
+                void loadData();
+              }}
+              disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
+            >
+              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              Refrescar
+            </button>
+          </>
+        }
+      />
 
       {/* Stats from real API */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "12px", marginBottom: "28px" }}>

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { BarChart2, Download, Calendar, TrendingUp, Users, Briefcase, DollarSign } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { fetchJobs, fetchJobPayments, fetchAutonomyRuns, fetchDisputes, type JobRecordView } from "../../../semse-api";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 // Only "Todo" reflects reality — none of the fetch calls below take a date
@@ -180,21 +180,22 @@ export default function AdminReportsPage() {
 
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-      <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>Reportes</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>Métricas consolidadas del ecosistema SEMSE</p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-          <NotificationBanner audience="admin" />
-          <span style={{ padding: "6px 12px", borderRadius: "10px", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap" }}>
-            Histórico completo
-          </span>
-        </div>
-      </HtmlInCanvasPanel>
+      <AdminPageHeader
+        title="Reportes"
+        subtitle="Métricas consolidadas del ecosistema SEMSE"
+        icon={BarChart2}
+        iconColor="#6366f1"
+        iconBg="rgba(99,102,241,0.15)"
+        panel
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <span style={{ padding: "6px 12px", borderRadius: "10px", background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted)", fontSize: "12px", fontWeight: 600, whiteSpace: "nowrap" }}>
+              Histórico completo
+            </span>
+          </>
+        }
+      />
 
       {error ? (
         <div role="alert" style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: "10px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
