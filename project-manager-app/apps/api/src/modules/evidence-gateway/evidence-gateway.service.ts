@@ -202,6 +202,7 @@ export class EvidenceGatewayService {
         passedCount: status.passed,
         failedCount: status.failed,
         pendingCount: status.pending,
+        manualReviewCount: status.manualReview,
         averageScore: status.avgScore,
         isValidationComplete: status.isComplete,
         isReadyForPayment: status.isReady,

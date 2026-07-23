@@ -84,6 +84,7 @@ export class EvidenceGatewayRepository {
     const passed = evidence.filter((e) => e.validationStatus === "passed").length;
     const failed = evidence.filter((e) => e.validationStatus === "failed").length;
     const pending = evidence.filter((e) => e.validationStatus === "pending").length;
+    const manualReview = evidence.filter((e) => e.validationStatus === "manual_review").length;
     const avgScore = evidence.length > 0
       ? evidence.reduce((sum, e) => sum + (Number(e.aiQualityScore) || 0), 0) /
         evidence.length
@@ -94,9 +95,16 @@ export class EvidenceGatewayRepository {
       passed,
       failed,
       pending,
+      manualReview,
       avgScore: parseFloat(avgScore.toFixed(3)),
-      isComplete: failed === 0 && pending === 0,
-      isReady: passed >= Math.ceil(total * 0.8) && failed === 0,
+      // manual_review only became reachable once validateEvidenceAsync started
+      // honoring score.status's 3-band result (0.25) instead of a hard binary
+      // cutoff — before that it was a dead enum value nothing ever assigned.
+      // Neither "failed" nor "pending" cover it, so isComplete/isReady must
+      // check it explicitly or a milestone with an unresolved manual-review
+      // photo would silently read as complete/ready for payment.
+      isComplete: failed === 0 && pending === 0 && manualReview === 0,
+      isReady: passed >= Math.ceil(total * 0.8) && failed === 0 && manualReview === 0,
     };
   }
 
