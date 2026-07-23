@@ -1,7 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PUBLIC_MARKET_CURRENCY } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
+import { LocationCostService } from "../pricing/location-cost.service.js";
 
 export type BudgetSuggestion = {
   min: number;
@@ -51,6 +52,7 @@ export class BudgetIntelligenceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: AiModelGatewayService,
+    @Optional() private readonly locationCost?: LocationCostService,
   ) {}
 
   async suggestBudget(input: {
@@ -60,6 +62,10 @@ export class BudgetIntelligenceService {
     scope: string;
     category?: string;
     location?: string;
+    /** Approximate project area in square feet, when known (e.g. from smart-intake). */
+    areaSqft?: number;
+    /** ZIP code for regional cost adjustment. Falls back to a 5-digit ZIP found in `location`. */
+    zipCode?: string;
   }): Promise<BudgetSuggestion> {
     // 1. Load historical jobs with budgets
     const historicalJobs = await this.prisma.job.findMany({
@@ -119,28 +125,89 @@ export class BudgetIntelligenceService {
       budgetMedian = Math.round(percentile(mids, 50));
       confidence = mids.length >= 8 ? "high" : "medium";
       basisNote = `Basado en ${similar.length} trabajos similares en el historial del sistema`;
-    } else if (referenceJobs.length > 0) {
-      // Broader average
-      const allMins = referenceJobs.map(j => toNum(j.budgetMin)).filter(v => v > 0);
-      const allMaxs = referenceJobs.map(j => toNum(j.budgetMax ?? j.budgetMin)).filter(v => v > 0);
-      const avg = (allMins.reduce((s, v) => s + v, 0) + allMaxs.reduce((s, v) => s + v, 0)) / (allMins.length + allMaxs.length);
-      budgetMin = Math.round(avg * 0.6);
-      budgetMax = Math.round(avg * 1.4);
-      budgetMedian = Math.round(avg);
-      confidence = "low";
-      similarJobsFound = referenceJobs.length;
-      basisNote = `Sin trabajos directamente similares — estimado del promedio general del sistema (${referenceJobs.length} trabajos)`;
     } else {
-      // No historical data — use AI only
-      budgetMin = 0;
-      budgetMax = 0;
-      budgetMedian = 0;
-      confidence = "low";
-      basisNote = "Sin datos históricos — estimación basada en análisis de IA";
+      // Not enough directly-similar jobs. Previously this fell back to averaging
+      // ALL reference jobs regardless of category — a "reparación de fugas" (leak
+      // repair, reference ~$80) could get blended with unrelated large remodel
+      // jobs and come out as $2,000+. Never mix unrelated categories: only widen
+      // to a same-category average, and if there isn't one, don't fabricate a
+      // number at all (see 0.29 in AUDIT_REMEDIATION_PLAN.md).
+      const sameCategoryJobs = input.category
+        ? referenceJobs.filter(j => (j.category ?? "").toLowerCase() === input.category!.toLowerCase())
+        : [];
+
+      if (sameCategoryJobs.length > 0) {
+        const catMins = sameCategoryJobs.map(j => toNum(j.budgetMin)).filter(v => v > 0);
+        const catMaxs = sameCategoryJobs.map(j => toNum(j.budgetMax ?? j.budgetMin)).filter(v => v > 0);
+        const avg = (catMins.reduce((s, v) => s + v, 0) + catMaxs.reduce((s, v) => s + v, 0)) / (catMins.length + catMaxs.length);
+        budgetMin = Math.round(avg * 0.6);
+        budgetMax = Math.round(avg * 1.4);
+        budgetMedian = Math.round(avg);
+        confidence = "low";
+        similarJobsFound = sameCategoryJobs.length;
+        basisNote = `Sin trabajos directamente similares — estimado del promedio de la categoría "${input.category}" (${sameCategoryJobs.length} trabajos), sin mezclar con otras categorías`;
+      } else {
+        // No same-category history either — do not guess. Same shape as the
+        // "no historical data at all" case: no auto-applied number, explicit
+        // low-confidence signal, AI narrative recommends manual quotes instead.
+        budgetMin = 0;
+        budgetMax = 0;
+        budgetMedian = 0;
+        confidence = "low";
+        similarJobsFound = 0;
+        basisNote = input.category
+          ? `Sin trabajos de la categoría "${input.category}" en el historial — no hay base confiable para un rango automático; se recomienda revisión manual o cotizaciones directas`
+          : "Sin categoría ni trabajos directamente similares — no hay base confiable para un rango automático; se recomienda revisión manual o cotizaciones directas";
+      }
     }
 
-    // 6. Factors analysis
+    // 6. Regional cost adjustment (LocationCostService) — applied to whatever
+    // range was computed above, skipped for the explicit "no data" zero-state.
     const factors: BudgetSuggestion["factors"] = [];
+    const resolvedZip = input.zipCode ?? input.location?.match(/\b\d{5}\b/)?.[0];
+    if (resolvedZip && this.locationCost && (budgetMin > 0 || budgetMax > 0)) {
+      try {
+        const multipliers = await this.locationCost.getMultipliers(resolvedZip);
+        const locationMultiplier = (multipliers.materialMultiplier + multipliers.laborMultiplier) / 2;
+        if (Math.abs(locationMultiplier - 1) > 0.02) {
+          budgetMin = Math.round(budgetMin * locationMultiplier);
+          budgetMax = Math.round(budgetMax * locationMultiplier);
+          budgetMedian = Math.round(budgetMedian * locationMultiplier);
+          factors.push({
+            name: "Ajuste regional de costos",
+            impact: locationMultiplier > 1 ? "increases" : "decreases",
+            note: `Costos en ${multipliers.stateCode} ${locationMultiplier > 1 ? "por encima" : "por debajo"} del promedio nacional (×${locationMultiplier.toFixed(2)}, fuente: ${multipliers.source})`,
+          });
+        }
+      } catch (err) {
+        this.logger.debug(`[budget] locationCost.getMultipliers failed for zip=${resolvedZip}: ${(err as Error).message}`);
+      }
+    }
+
+    // 6b. Area/sqft signal. Note: Job records don't persist area/sqft today (no
+    // such column exists on the schema), so there is no historical $/sqft basis
+    // to compute a numeric adjustment from — that would need a schema change,
+    // out of scope here. When the caller does supply an area, use it as an
+    // honest qualitative bound instead of fabricating a price: flag when the
+    // reported area looks too small for a full remodel-sized range, or too
+    // large for it, rather than silently trusting the historical range.
+    if (input.areaSqft && input.areaSqft > 0) {
+      if (input.areaSqft <= 50) {
+        factors.push({
+          name: "Alcance pequeño (área)",
+          impact: "decreases",
+          note: `Área reportada de ${input.areaSqft} sqft es típica de una reparación puntual, no de una remodelación — verifica que el rango sugerido no esté sobreestimado para este alcance`,
+        });
+      } else if (input.areaSqft >= 1500) {
+        factors.push({
+          name: "Alcance amplio (área)",
+          impact: "increases",
+          note: `Área reportada de ${input.areaSqft} sqft es mayor al trabajo promedio de esta categoría — el costo probablemente supere la mediana histórica`,
+        });
+      }
+    }
+
+    // 8. Factors analysis (text-based signals)
     const scopeWords = input.scope.toLowerCase();
     if (scopeWords.includes("urgente") || scopeWords.includes("inmediato") || scopeWords.includes("express")) {
       factors.push({ name: "Urgencia", impact: "increases", note: "Trabajos urgentes tienen sobrecosto del 15-25%" });
@@ -158,7 +225,7 @@ export class BudgetIntelligenceService {
       factors.push({ name: "Alcance estándar", impact: "neutral", note: "Sin factores especiales detectados en la descripción" });
     }
 
-    // 7. AI narrative
+    // 9. AI narrative
     const aiNarrative = await this.buildAiNarrative(input, budgetMin, budgetMax, budgetMedian, similar.length, confidence);
 
     this.logger.log(`[budget] suggest tenantId=${input.tenantId} min=${budgetMin} max=${budgetMax} similar=${similar.length} confidence=${confidence}`);

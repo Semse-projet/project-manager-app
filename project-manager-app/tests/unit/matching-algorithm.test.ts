@@ -17,19 +17,21 @@ function tokenize(text: string): Set<string> {
   );
 }
 
-function jaccard(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 && b.size === 0) return 0;
+// Asymmetric coverage: |job ∩ candidate| / |job| — see 0.27 in AUDIT_REMEDIATION_PLAN.md.
+// Replaced symmetric Jaccard (intersection/union), which penalized candidates with
+// large token sets (long, detailed historical-job text) for words the job never asked for.
+function coverage(job: Set<string>, candidate: Set<string>): number {
+  if (job.size === 0) return 0;
   let inter = 0;
-  for (const t of a) if (b.has(t)) inter++;
-  const union = a.size + b.size - inter;
-  return union === 0 ? 0 : inter / union;
+  for (const t of job) if (candidate.has(t)) inter++;
+  return inter / job.size;
 }
 
 type CandidateInput = { userId: string; email: string; trustScore: number; verificationStatus: string; avgRating: number; totalRatings: number; completedJobs: number; historicalJobText: string };
 
 function scoreCandidate(jobTokens: Set<string>, c: CandidateInput) {
   const candidateTokens = tokenize(c.historicalJobText);
-  const textSimilarity = jaccard(jobTokens, candidateTokens);
+  const textSimilarity = coverage(jobTokens, candidateTokens);
   const trustSignal = Math.min(1, Math.max(0, c.trustScore));
   const verificationSignal = VERIFICATION_SCORE[c.verificationStatus] ?? 0;
   const ratingSignal = c.totalRatings > 0 ? Math.min(1, c.avgRating / 5) : 0;
@@ -51,28 +53,43 @@ test("tokenize: empty string returns empty set", () => {
   assert.equal(tokenize("").size, 0);
 });
 
-test("jaccard: identical sets → 1.0", () => {
+test("coverage: identical sets → 1.0", () => {
   const a = new Set(["drywall", "pintura", "instalacion"]);
-  assert.equal(jaccard(a, new Set([...a])), 1.0);
+  assert.equal(coverage(a, new Set([...a])), 1.0);
 });
 
-test("jaccard: disjoint sets → 0.0", () => {
+test("coverage: disjoint sets → 0.0", () => {
   const a = new Set(["drywall"]);
   const b = new Set(["plomeria"]);
-  assert.equal(jaccard(a, b), 0.0);
+  assert.equal(coverage(a, b), 0.0);
 });
 
-test("jaccard: partial overlap → value between 0 and 1", () => {
-  const a = new Set(["drywall", "pintura", "reparacion"]);
-  const b = new Set(["drywall", "instalacion"]);
-  const score = jaccard(a, b);
+test("coverage: partial overlap → value between 0 and 1", () => {
+  const job = new Set(["drywall", "pintura", "reparacion"]);
+  const candidate = new Set(["drywall", "instalacion"]);
+  const score = coverage(job, candidate);
   assert.ok(score > 0 && score < 1, `Expected 0 < ${score} < 1`);
-  // intersection={drywall} → 1, union={drywall,pintura,reparacion,instalacion} → 4
-  assert.ok(Math.abs(score - 0.25) < 0.001, `Expected ~0.25 but got ${score}`);
+  // intersection={drywall} → 1, |job| → 3
+  assert.ok(Math.abs(score - 1 / 3) < 0.001, `Expected ~0.333 but got ${score}`);
 });
 
-test("jaccard: both empty sets → 0", () => {
-  assert.equal(jaccard(new Set(), new Set()), 0);
+test("coverage: both empty sets → 0", () => {
+  assert.equal(coverage(new Set(), new Set()), 0);
+});
+
+test("coverage: large candidate vocabulary does not penalize full job coverage", () => {
+  // Regression for 0.27 — an experienced pro with a long, detailed historical-job
+  // text (large token set) must not score lower than a pro with a small, exact-match
+  // vocabulary purely because of set size, the way symmetric Jaccard did.
+  const job = new Set(["drywall", "reparacion"]);
+  const experiencedCandidate = new Set([
+    "drywall", "reparacion", "pintura", "instalacion", "electricidad", "plomeria",
+    "carpinteria", "techos", "pisos", "ventanas",
+  ]);
+  const sparseCandidate = new Set(["drywall", "reparacion"]);
+  assert.equal(coverage(job, experiencedCandidate), 1.0);
+  assert.equal(coverage(job, sparseCandidate), 1.0);
+  assert.equal(coverage(job, experiencedCandidate), coverage(job, sparseCandidate));
 });
 
 const baseCandidate: CandidateInput = {

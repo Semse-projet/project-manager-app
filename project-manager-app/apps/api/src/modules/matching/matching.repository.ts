@@ -77,6 +77,21 @@ function toNum(value: unknown): number {
   return parseFloat(String(value ?? 0)) || 0;
 }
 
+/**
+ * Cold-start neutral prior for trustScore (0-1 scale).
+ *
+ * `User.trustScore` defaults to 0 in the schema and nothing in the codebase
+ * ever writes a different value for a brand-new professional — 0 means "no
+ * signal yet", not "actively distrusted". Feeding that raw 0 into the matching
+ * composite (see matching.algorithm.ts) buries every new professional under
+ * anyone with any positive score at all, no matter how strong their other
+ * signals (verification, rating) are. Applying a neutral midpoint prior only
+ * for professionals with zero completed jobs in this tenant (the actual
+ * cold-start population) avoids that, without touching the stored value or
+ * its meaning anywhere else trustScore is read (risk scoring, admin views).
+ */
+const COLD_START_TRUST_PRIOR = 0.5;
+
 function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
@@ -176,9 +191,18 @@ export class MatchingRepository {
 
     return users.map((u) => {
       const rating = ratingByUser.get(u.id) ?? { avg: 0, total: 0 };
-      const trustScore = typeof u.trustScore === "object"
+      const rawTrustScore = typeof u.trustScore === "object"
         ? u.trustScore.toNumber()
         : (u.trustScore as number);
+      const completedJobs = completedByUser.get(u.id) ?? 0;
+      // Cold-start ramp: a professional with no completed jobs in this tenant
+      // has never had a chance to earn a real trustScore. Treat their untouched
+      // 0 default as "no data" (neutral prior) instead of "distrusted". Once
+      // they've completed at least one job, any trustScore on record — including
+      // a genuine 0 — reflects real signal and is passed through unmodified.
+      const trustScore = completedJobs === 0 && rawTrustScore === 0
+        ? COLD_START_TRUST_PRIOR
+        : rawTrustScore;
       return {
         userId: u.id,
         email: u.email,
@@ -186,7 +210,7 @@ export class MatchingRepository {
         verificationStatus: u.verificationStatus,
         avgRating: rating.avg,
         totalRatings: rating.total,
-        completedJobs: completedByUser.get(u.id) ?? 0,
+        completedJobs,
         historicalJobText: (historyByUser.get(u.id) ?? []).join(" ")
       };
     });
