@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Hammer, ClipboardList, Users, DollarSign, FileText, Camera, TrendingUp, Package, Shield } from "lucide-react";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 interface BuildOpsProject {
   id: string;
@@ -68,27 +69,23 @@ export default function AdminConstructionPage() {
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <Link href="/admin/verticals" style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-          <ArrowLeft size={12} /> Verticals
-        </Link>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <span style={{ fontSize: 24 }}>🏗️</span>
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.03em" }}>Construction / BuildOps</h1>
-              <span className="badge badge-green" style={{ fontSize: 10 }}>Live</span>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--muted)" }}>Gestión de proyectos de construcción, milestones, crews y evidencia</p>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link href="/admin/field-ops" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+      <AdminPageHeader
+        title="Construction / BuildOps"
+        subtitle="Gestión de proyectos de construcción, milestones, crews y evidencia"
+        icon={Hammer}
+        iconColor="#93c5fd"
+        iconBg="rgba(147,197,253,.12)"
+        backHref="/admin/verticals"
+        backLabel="Verticals"
+        actions={
+          <>
+            <span className="badge badge-green" style={{ fontSize: 10 }}>Live</span>
+            <Link href="/admin/field-ops" className="btn-accent" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(99,102,241,.25)", border: "1px solid rgba(99,102,241,.4)", color: "#818cf8", fontWeight: 800, textDecoration: "none" }}>
               <ExternalLink size={12} /> Field Ops
             </Link>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {error && <div className="alert-banner alert-warning" style={{ marginBottom: 20 }}>{error}</div>}
 

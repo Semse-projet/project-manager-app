@@ -19,7 +19,8 @@ import {
   Save,
   Code
 } from "lucide-react";
-import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
+import { StatusBadge } from "@semse/ui";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { startBrowserInspection, fetchBrowserInspectionResult, BrowserInspectionResult } from "../../../semse-api";
 import { useLanguage } from "../../../../lib/language-context";
 
@@ -110,19 +111,14 @@ export default function BrowserAgentPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header Panel */}
-      <HtmlInCanvasPanel as="section" className="flex items-center justify-between mb-8 flex-wrap gap-4 p-6 bg-zinc-900 border border-zinc-800 rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/admin/dashboard" className="inline-flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 text-xs font-semibold no-underline mb-2 transition-colors">
-            <span>←</span> Dashboard
-          </Link>
-          <h1 className="text-2xl font-extrabold text-white mb-1 flex items-center gap-2">
-            <Globe className="text-blue-500" size={24} />
-            Sense Browser Agent
-          </h1>
-          <p className="text-sm text-zinc-400">Inspección web visual y técnica impulsada por Chromium y AI</p>
-        </div>
-      </HtmlInCanvasPanel>
+      <AdminPageHeader
+        title="Sense Browser Agent"
+        subtitle="Inspección web visual y técnica impulsada por Chromium y AI"
+        icon={Globe}
+        iconColor="#3b82f6"
+        iconBg="rgba(59,130,246,.12)"
+        panel={true}
+      />
 
       {/* Main Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

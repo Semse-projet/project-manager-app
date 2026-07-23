@@ -5,6 +5,7 @@ import {
   Activity, CheckCircle2, Clock, Cpu, RefreshCw,
   AlertTriangle, Layers, XCircle, Zap,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -88,28 +89,28 @@ export default function WorkerPage() {
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-          <Cpu size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Worker — BullMQ</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Cola de jobs IA · {lastAt ? `actualizado ${lastAt}` : "cargando…"}
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 99, background: metrics?.connected ? "rgba(134,239,172,.1)" : "rgba(239,68,68,.1)", border: `1px solid ${metrics?.connected ? "rgba(134,239,172,.3)" : "rgba(239,68,68,.3)"}` }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: metrics?.connected ? "#86efac" : "#fca5a5" }} />
-          <span style={{ fontSize: 11, fontWeight: 700, color: metrics?.connected ? "#86efac" : "#fca5a5" }}>
-            {metrics?.connected ? "Redis conectado" : "Redis desconectado"}
-          </span>
-        </div>
-        <button onClick={load} disabled={loading}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Worker — BullMQ"
+        subtitle={`Cola de jobs IA · ${lastAt ? `actualizado ${lastAt}` : "cargando…"}`}
+        icon={Cpu}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 99, background: metrics?.connected ? "rgba(134,239,172,.1)" : "rgba(239,68,68,.1)", border: `1px solid ${metrics?.connected ? "rgba(134,239,172,.3)" : "rgba(239,68,68,.3)"}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: metrics?.connected ? "#86efac" : "#fca5a5" }} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: metrics?.connected ? "#86efac" : "#fca5a5" }}>
+                {metrics?.connected ? "Redis conectado" : "Redis desconectado"}
+              </span>
+            </div>
+            <button onClick={load} disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
+              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 10, fontSize: 12, color: "#fca5a5", marginBottom: 16 }}>{error}</div>
