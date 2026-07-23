@@ -5,6 +5,7 @@ import {
   AlertTriangle, ChevronDown, ChevronUp, Clock,
   RefreshCw, Scale, Shield, ThumbsDown, ThumbsUp, Vote,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { GovernanceTierBadge, type GovernanceTier } from "@/components/semse/GovernanceTierBadge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -482,30 +483,27 @@ export default function GovernancePage() {
   return (
     <div style={{ maxWidth: 920, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 24 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-          <Scale size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>DAO Governance</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--muted)" }}>
-            Propuestas de la plataforma — votación ponderada por reputación
-            {lastAt && <> · actualizado {lastAt}</>}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setShowModal(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.25)", border: "1px solid rgba(99,102,241,.4)", cursor: "pointer", fontSize: 12, color: "#818cf8", fontWeight: 800 }}>
-            + Nueva propuesta
-          </button>
-          <button onClick={load} disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-            Actualizar
-          </button>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="DAO Governance"
+        subtitle={`Propuestas de la plataforma — votación ponderada por reputación${lastAt ? ` · actualizado ${lastAt}` : ""}`}
+        icon={Scale}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <>
+            <button onClick={() => setShowModal(true)}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.25)", border: "1px solid rgba(99,102,241,.4)", cursor: "pointer", fontSize: 12, color: "#818cf8", fontWeight: 800 }}>
+              + Nueva propuesta
+            </button>
+            <button onClick={load} disabled={loading}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
+              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              Actualizar
+            </button>
+          </>
+        }
+      />
 
       {/* Stats row */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
