@@ -71,8 +71,20 @@ def _assert_safe_url(url: str) -> None:
             raise HTTPException(status_code=400, detail="Image URL resolves to a private/internal address.")
 
 
+def is_mock_or_local_url(url: str) -> bool:
+    """True only when the URL's scheme/hostname is actually the mock shortcut
+    or a local dev host — not merely a substring match on the whole URL, which
+    let an attacker-chosen filename like ".../127.0.0.1-photo.jpg" on a real
+    external host redirect to the fixed mock image and skip real analysis.
+    """
+    if url.startswith("mock://"):
+        return True
+    hostname = (urlparse(url).hostname or "").lower()
+    return hostname in ("localhost", "127.0.0.1")
+
+
 def load_image_from_url(url: str) -> np.ndarray:
-    if url.startswith("mock://") or "localhost" in url or "127.0.0.1" in url:
+    if is_mock_or_local_url(url):
         image = np.ones((512, 512, 3), dtype=np.uint8) * 128
         cv2.putText(image, "SEMSE Vision Mock", (50, 250), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         cv2.line(image, (0, 0), (512, 512), (0, 0, 255), 3)

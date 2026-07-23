@@ -41,7 +41,7 @@ from app.schemas.evidence import (
     AnalyzePortfolioRequest,
     PortfolioForensicsResult,
 )
-from app.services.image_loader import load_image_from_url
+from app.services.image_loader import load_image_from_url, is_mock_or_local_url
 from app.analyzers.blur import detect_blur
 from app.analyzers.lighting import analyze_lighting
 from app.analyzers.contrast import analyze_contrast
@@ -83,7 +83,7 @@ def analyze_evidence_endpoint(request: EvidenceAnalyzeRequest):
     
     # Only fetch remote bytes if it's not a local or mock URL
     url = request.imageUrl
-    if not (url.startswith("mock://") or "localhost" in url or "127.0.0.1" in url):
+    if not is_mock_or_local_url(url):
         try:
             res = requests.get(url, timeout=10)  # lgtm[py/full-ssrf]
             if res.status_code == 200:

@@ -69,8 +69,11 @@ export async function GET(
       return NextResponse.json({ error: { status: 503, message: "SEMSE runtime not configured" } }, { status: 503 });
     }
 
+    const authorizedHeaders = await buildAuthorizedHeaders(config);
+
     const apiRes = await fetch(`${config.apiBaseUrl}/v1/uploads/files/${encodeURIComponent(keyStr)}`, {
       method: "GET",
+      headers: authorizedHeaders,
     });
 
     if (!apiRes.ok) {
