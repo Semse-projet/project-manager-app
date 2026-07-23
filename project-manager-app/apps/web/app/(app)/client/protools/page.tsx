@@ -89,6 +89,14 @@ export default function ProToolsPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ trade, description, area: Number(area), rooms: Number(rooms) }),
       });
+      // A non-JSON body (e.g. a 404/502 HTML page) previously crashed
+      // resp.json() with a raw parse error ("Unexpected token < ...")
+      // that surfaced to the user verbatim — check content-type first.
+      const isJson = resp.headers.get("content-type")?.includes("application/json");
+      if (!isJson) {
+        setError(`No se pudo generar el estimado (error ${resp.status} del servidor).`);
+        return;
+      }
       const json = await resp.json() as { data: EstimateResult };
       if (resp.ok && json.data) setResult(json.data);
       else setError("No se pudo generar el estimado");

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { handleServerError, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../../_server";
+import { handleServerError, runtimeDisabledResponse, buildAuthorizedHeaders, getServerConfig } from "../../../_server";
 const API = process.env.SEMSE_API_BASE_URL ?? "http://localhost:4000";
 export async function POST(request: NextRequest) {
   try {
