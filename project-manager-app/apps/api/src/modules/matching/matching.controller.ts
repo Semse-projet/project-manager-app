@@ -13,7 +13,7 @@ export class MatchingController {
 
   /**
    * POST /v1/matching/jobs
-   * Returns ranked candidates for a job using the Jaccard + trust composite algorithm.
+   * Returns ranked candidates for a job using the coverage + trust composite algorithm.
    */
   @Post("jobs")
   @RequirePermissions("matching:read")

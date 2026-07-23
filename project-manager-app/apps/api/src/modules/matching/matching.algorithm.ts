@@ -2,10 +2,19 @@
  * Matching algorithm — pure functions, no I/O.
  *
  * Score formula (weights sum to 1.0):
- *   textSimilarity   × 0.40  — Jaccard on bag-of-words tokens
+ *   textSimilarity   × 0.40  — job-coverage on bag-of-words tokens
  *   trustSignal      × 0.25  — User.trustScore (0-1)
  *   verificationSignal × 0.15 — verified=1, pending=0.5, unverified=0
  *   ratingSignal     × 0.20  — avgRating/5
+ *
+ * textSimilarity is an asymmetric coverage metric — |jobTokens ∩ candidateTokens| /
+ * |jobTokens| — i.e. what fraction of the job's required words the candidate's
+ * historical-job text covers. This intentionally replaced a symmetric Jaccard
+ * (intersection / union) that penalized candidates with long, detailed job
+ * histories: a bigger candidate token set inflates the union denominator under
+ * Jaccard even when every job token is covered, so experienced professionals with
+ * verbose histories scored lower than a sparse candidate with a small, exact-match
+ * vocabulary. Coverage only cares whether the job's own words are present.
  *
  * Complexity: O(|T|) tokenize target + O(n × |H|) score n candidates
  * where |H| is average historical job text length per candidate.
@@ -63,15 +72,22 @@ export function tokenize(text: string): Set<string> {
   );
 }
 
-/** Jaccard similarity between two token sets. O(|a| + |b|). */
-export function jaccard(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 && b.size === 0) return 0;
+/**
+ * Coverage of `job` tokens by `candidate` tokens — |job ∩ candidate| / |job|.
+ * Asymmetric on purpose: only the job's required words count toward the
+ * denominator, so a candidate with a large token set (a long, detailed job
+ * history) is never penalized for words the job doesn't ask for. Contrast with
+ * symmetric Jaccard (intersection / union), which shrinks as the candidate's
+ * set grows even when 100% of the job's words are covered.
+ * O(|job| + |candidate|).
+ */
+export function coverage(job: Set<string>, candidate: Set<string>): number {
+  if (job.size === 0) return 0;
   let intersectionCount = 0;
-  for (const token of a) {
-    if (b.has(token)) intersectionCount++;
+  for (const token of job) {
+    if (candidate.has(token)) intersectionCount++;
   }
-  const unionSize = a.size + b.size - intersectionCount;
-  return unionSize === 0 ? 0 : intersectionCount / unionSize;
+  return intersectionCount / job.size;
 }
 
 /** Score a single candidate against a job token set. */
@@ -80,7 +96,7 @@ export function scoreCandidate(
   candidate: CandidateInput
 ): MatchScoreBreakdown & { composite: number } {
   const candidateTokens = tokenize(candidate.historicalJobText);
-  const textSimilarity = jaccard(jobTokens, candidateTokens);
+  const textSimilarity = coverage(jobTokens, candidateTokens);
   const trustSignal = Math.min(1, Math.max(0, candidate.trustScore));
   const verificationSignal = VERIFICATION_SCORE[candidate.verificationStatus] ?? 0;
   const ratingSignal = candidate.totalRatings > 0 ? Math.min(1, candidate.avgRating / 5) : 0;

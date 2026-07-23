@@ -207,6 +207,8 @@ export class IntelligenceController {
       scope: String(body.scope ?? ""),
       category: body.category as string | undefined,
       location: body.location as string | undefined,
+      areaSqft: typeof body.areaSqft === "number" ? body.areaSqft : undefined,
+      zipCode: body.zipCode as string | undefined,
     }));
   }
 
@@ -226,6 +228,8 @@ export class IntelligenceController {
       scope: String(body.scope ?? ""),
       category: body.category as string | undefined,
       location: body.location as string | undefined,
+      areaSqft: typeof body.areaSqft === "number" ? body.areaSqft : undefined,
+      zipCode: body.zipCode as string | undefined,
     }));
   }
 

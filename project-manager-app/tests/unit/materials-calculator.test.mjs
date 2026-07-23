@@ -86,14 +86,16 @@ test("concrete: 10x20 slab at 4in depth yields 2.7 cubic yards", () => {
   assert.equal(result.items[0].quantity, 2.7);
 });
 
-test("lumber: 16ft wall with 1 corner yields 14 studs", () => {
+test("lumber: 16ft wall with 1 corner yields 16 studs (16in o.c. spacing)", () => {
   const result = calculateMaterials({
     category: "lumber",
     lengthFt: 16,
     corners: 1,
   });
   const studs = result.items.find((i) => i.name === "Studs 2x4x8")?.quantity;
-  assert.equal(studs, Math.ceil(16 / 1.5) + 3);
+  // 16" on-center (US framing standard) = 1 stud every 1.333 ft, not the old
+  // non-standard 1.5 ft (18") spacing — see 0.30 in AUDIT_REMEDIATION_PLAN.md.
+  assert.equal(studs, Math.ceil(16 / 1.333) + 3);
 });
 
 test("lumber: plywood subfloor for 10x10 with 10% waste", () => {

@@ -302,8 +302,10 @@ function estimateConcrete(input: MaterialsConcreteInput): MaterialsEstimate {
 }
 
 function estimateLumber(input: MaterialsLumberInput): MaterialsEstimate {
-  const studs = Math.max(0, Math.ceil(input.lengthFt / 1.5)) + 3 * ((input.corners ?? 1) + (input.openings ?? 0));
-  const items: MaterialQuantity[] = [{ name: "Studs 2x4x8", quantity: studs, unit: "stud", notes: "1 stud cada 1.5 ft + 3 por esquina/apertura" }];
+  // 16" on-center is the US framing standard (1 stud every 16" = 1.333 ft).
+  // Was 1.5 ft (18" spacing) — non-standard and under-counts studs vs. code.
+  const studs = Math.max(0, Math.ceil(input.lengthFt / 1.333)) + 3 * ((input.corners ?? 1) + (input.openings ?? 0));
+  const items: MaterialQuantity[] = [{ name: "Studs 2x4x8", quantity: studs, unit: "stud", notes: "1 stud cada 1.333 ft (16\" o.c.) + 3 por esquina/apertura" }];
 
   if (input.widthFt) {
     const area = input.lengthFt * input.widthFt;
