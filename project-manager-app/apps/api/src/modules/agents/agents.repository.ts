@@ -154,29 +154,32 @@ export class AgentsRepository {
   }): Promise<AgentRunRecord[]> {
     await this.actorContextService.ensureActorContext(input);
 
-    const candidates = (await this.prisma.agentRun.findMany({
-      where: {
-        tenantId: input.tenantId,
-        status: "RUNNING"
-      },
-      orderBy: { updatedAt: "asc" },
-      take: input.maxItems ?? 50
-    })) as StoredAgentRun[];
+    const limit = input.maxItems ?? 50;
 
-    const now = Date.now();
-    const reclaimed: AgentRunRecord[] = [];
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as AgentRunTx;
 
-    for (const run of candidates) {
-      const lastSignal = run.heartbeatAt ?? run.startedAt ?? run.updatedAt ?? run.createdAt;
-      const ageMs = now - lastSignal.getTime();
+      const candidates = (await db.agentRun.findMany({
+        where: {
+          tenantId: input.tenantId,
+          status: "RUNNING"
+        },
+        orderBy: { updatedAt: "asc" },
+        take: limit
+      })) as StoredAgentRun[];
 
-      if (Number.isNaN(ageMs) || ageMs < input.staleAfterMs) {
-        continue;
-      }
+      const now = Date.now();
+      const reclaimed: AgentRunRecord[] = [];
 
-      const updated = (await this.prisma.agentRun.update({
-        where: { id: run.id },
-        data:
+      for (const run of candidates) {
+        const lastSignal = run.heartbeatAt ?? run.startedAt ?? run.updatedAt ?? run.createdAt;
+        const ageMs = now - lastSignal.getTime();
+
+        if (Number.isNaN(ageMs) || ageMs < input.staleAfterMs) {
+          continue;
+        }
+
+        const patch: PrismaTypes.AgentRunUpdateManyMutationInput =
           run.attempts >= run.maxAttempts
             ? {
                 status: "FAILED",
@@ -193,17 +196,29 @@ export class AgentsRepository {
                 startedAt: null,
                 heartbeatAt: null,
                 endedAt: null
-              }
-      })) as StoredAgentRun;
+              };
 
-      reclaimed.push(this.toRecord(updated));
+        // Repetir `status: "RUNNING"` en el WHERE del update (no solo en el
+        // findMany previo) evita que el barrido reclame un run que un worker
+        // real ya completó/falló/canceló entre el find y el update.
+        const updateResult = await db.agentRun.updateMany({
+          where: { id: run.id, status: "RUNNING" },
+          data: patch
+        });
 
-      if (reclaimed.length >= (input.maxItems ?? 50)) {
-        break;
+        if (updateResult.count === 0) {
+          continue;
+        }
+
+        reclaimed.push(this.toRecord({ ...run, ...patch } as StoredAgentRun));
+
+        if (reclaimed.length >= limit) {
+          break;
+        }
       }
-    }
 
-    return reclaimed;
+      return reclaimed;
+    });
   }
 
   async retry(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<AgentRunRecord> {

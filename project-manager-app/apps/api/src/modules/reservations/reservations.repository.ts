@@ -381,48 +381,51 @@ export class ReservationsRepository {
     const now = new Date();
     const limit = input.maxItems ?? 50;
 
-    const stale = await this.prisma.jobReservation.findMany({
-      where: {
-        status: "ACTIVE",
-        expiresAt: { lte: now }
-      },
-      select: { id: true, jobId: true },
-      take: limit
-    }) as Array<{ id: string; jobId: string }>;
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as ReservationTx;
 
-    if (stale.length === 0) {
-      return { expiredCount: 0, jobsReopened: 0 };
-    }
+      const stale = (await db.jobReservation.findMany({
+        where: {
+          status: "ACTIVE",
+          expiresAt: { lte: now }
+        },
+        select: { id: true, jobId: true },
+        take: limit
+      })) as Array<{ id: string; jobId: string }>;
 
-    const staleIds = stale.map((r) => r.id);
-    const jobIds = Array.from(new Set(stale.map((r) => r.jobId)));
+      if (stale.length === 0) {
+        return { expiredCount: 0, jobsReopened: 0 };
+      }
 
-    await this.prisma.jobReservation.updateMany({
-      where: { id: { in: staleIds } },
-      data: { status: "EXPIRED", releasedAt: now }
-    });
+      const staleIds = stale.map((r) => r.id);
+      const jobIds = Array.from(new Set(stale.map((r) => r.jobId)));
 
-    let jobsReopened = 0;
-    for (const jobId of jobIds) {
-      const stillActive = await this.prisma.jobReservation.count({
-        where: { jobId, status: "ACTIVE" }
+      // Repetir `status: "ACTIVE"` en el WHERE del update (no solo en el findMany
+      // previo) es lo que evita que el barrido pise una reserva que un actor real
+      // ya aceptó/liberó entre el find y el update.
+      const expiredResult = await db.jobReservation.updateMany({
+        where: { id: { in: staleIds }, status: "ACTIVE" },
+        data: { status: "EXPIRED", releasedAt: now }
       });
-      if (stillActive === 0) {
-        const job = await this.prisma.job.findFirst({
-          where: { id: jobId, deletedAt: null },
-          select: { id: true, status: true }
+
+      let jobsReopened = 0;
+      for (const jobId of jobIds) {
+        const stillActive = await db.jobReservation.count({
+          where: { jobId, status: "ACTIVE" }
         });
-        if (job && job.status === "RESERVED") {
-          await this.prisma.job.update({
-            where: { id: jobId },
+        if (stillActive === 0) {
+          // Mismo principio para el job: solo reabrir si sigue "RESERVED" en el
+          // momento del update, no en el momento en que se leyó antes.
+          const reopened = await db.job.updateMany({
+            where: { id: jobId, status: "RESERVED", deletedAt: null },
             data: { status: "POSTED" }
           });
-          jobsReopened++;
+          jobsReopened += reopened.count;
         }
       }
-    }
 
-    return { expiredCount: stale.length, jobsReopened };
+      return { expiredCount: expiredResult.count, jobsReopened };
+    });
   }
 
   async findAcceptedByJob(input: ActorInput & { jobId: string }) {
