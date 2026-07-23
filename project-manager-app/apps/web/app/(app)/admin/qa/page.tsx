@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ShieldCheck, AlertTriangle, CheckCircle, XCircle, Activity, Clock, RefreshCw } from "lucide-react";
 import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { fetchJobs, fetchOpsAgentRuntime, fetchDisputes, fetchJobEvidence, fetchJobMilestones } from "../../../semse-api";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 interface QACheck {
@@ -185,22 +186,23 @@ export default function AdminQAPage() {
 
   return (
     <div style={{ maxWidth: "960px", margin: "0 auto" }}>
-      <HtmlInCanvasPanel as="section" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={82}>
-        <div>
-          <Link href="/admin/dashboard" style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--muted)", fontSize: "12px", fontWeight: 600, textDecoration: "none", marginBottom: "8px" }}>
-            <span style={{ fontSize: "14px" }}>←</span> Dashboard
-          </Link>
-          <h1 style={{ fontSize: "22px", fontWeight: 800, color: "var(--ink)", marginBottom: "4px" }}>{t("page.qaCenter")}</h1>
-          <p style={{ fontSize: "13px", color: "var(--muted)" }}>Validaciones automáticas del pipeline operativo</p>
-        </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-          <NotificationBanner audience="admin" />
-          <button onClick={() => void runChecks()} disabled={running} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "10px", border: "none", background: running ? "var(--muted)" : "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: running ? "not-allowed" : "pointer" }}>
-            {running ? <RefreshCw size={15} style={{ animation: "spin 1s linear infinite" }} /> : <ShieldCheck size={15} />}
-            {running ? "Ejecutando..." : "Ejecutar todos"}
-          </button>
-        </div>
-      </HtmlInCanvasPanel>
+      <AdminPageHeader
+        title={t("page.qaCenter")}
+        subtitle="Validaciones automáticas del pipeline operativo"
+        icon={ShieldCheck}
+        iconColor="#6366f1"
+        iconBg="rgba(99,102,241,0.15)"
+        panel
+        actions={
+          <>
+            <NotificationBanner audience="admin" />
+            <button onClick={() => void runChecks()} disabled={running} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "10px", border: "none", background: running ? "var(--muted)" : "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: running ? "not-allowed" : "pointer" }}>
+              {running ? <RefreshCw size={15} style={{ animation: "spin 1s linear infinite" }} /> : <ShieldCheck size={15} />}
+              {running ? "Ejecutando..." : "Ejecutar todos"}
+            </button>
+          </>
+        }
+      />
 
       {error && (
         <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "10px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.25)", color: "#fca5a5", fontSize: "13px" }}>
