@@ -14,7 +14,13 @@ import { PrometeoCopilotService, type CopilotActor } from "./prometeo-copilot.se
 
 function actorOf(req: FastifyRequest): CopilotActor {
   const c = resolveRequestContext(req as Parameters<typeof resolveRequestContext>[0]);
-  return { userId: c.userId, tenantId: c.tenantId, orgId: c.orgId, roles: c.roles };
+  return {
+    userId: c.userId,
+    tenantId: c.tenantId,
+    orgId: c.orgId,
+    roles: c.roles,
+    requestId: resolveRequestId(req.headers ?? {}),
+  };
 }
 
 @Controller("v1/prometeo/copilot")

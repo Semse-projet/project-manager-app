@@ -1,5 +1,6 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
+import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
 import type {
   ActionExecutionResponse,
   CopilotContextRequest,
@@ -131,6 +132,8 @@ export class PrometeoCopilotService {
     private readonly workspace: WorkspaceService,
     @Inject(COPILOT_SESSION_REPOSITORY)
     private readonly sessions: CopilotSessionRepository,
+    @Optional()
+    private readonly domainEventBus?: DomainEventBus,
   ) {}
 
   detectContext(actor: CopilotActor, request: CopilotContextRequest): CopilotContextResponse {
@@ -213,6 +216,8 @@ export class PrometeoCopilotService {
       `copilot.mission.created mission=${missionId} type=${request.missionType} user=${actor.userId}`,
     );
 
+    await this.emitMissionCreated(actor, request, loaded.missionId, loaded.title);
+
     return {
       missionId: loaded.missionId,
       title: loaded.title,
@@ -259,6 +264,58 @@ export class PrometeoCopilotService {
       },
       requiresWorkspace: false,
     };
+  }
+
+  /**
+   * Emit the canonical `agent.action_logged` event for a Copilot-created
+   * mission. Best-effort: a bus failure never breaks mission creation.
+   */
+  private async emitMissionCreated(
+    actor: CopilotActor,
+    request: CreateMissionFromCopilotRequest,
+    missionId: string,
+    title: string,
+  ): Promise<void> {
+    if (!this.domainEventBus) {
+      return;
+    }
+    await this.domainEventBus
+      .emit(
+        {
+          type: "agent.action_logged",
+          meta: {
+            tenantId: actor.tenantId,
+            correlationId: missionId,
+            actorId: actor.userId,
+            actorType: "agent",
+            occurredAt: new Date().toISOString(),
+            version: 1,
+          },
+          payload: {
+            agentRunId: missionId,
+            agentType: "prometeo-copilot",
+            actionType: "generate",
+            targetType: "mission",
+            targetId: missionId,
+            inputSummary: `session=${request.copilotSessionId} type=${request.missionType}`,
+            outputSummary: `mission=${missionId} title=${title}`,
+            confidence: 1,
+            requiresHumanReview: false,
+          },
+          triggers: ["audit"],
+        },
+        {
+          tenantId: actor.tenantId,
+          orgId: actor.orgId,
+          userId: actor.userId,
+          requestId: actor.requestId,
+        },
+      )
+      .catch((err) =>
+        this.logger.warn(
+          `copilot.mission.create domain event failed: ${String((err as Error)?.message ?? err)}`,
+        ),
+      );
   }
 
   private async resolveSession(

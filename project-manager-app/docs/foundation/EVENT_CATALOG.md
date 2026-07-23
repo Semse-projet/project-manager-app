@@ -139,9 +139,27 @@ dual-write.
 
 - `agent.run_created`
 - `agent.action_logged`
+- `agent.human_review_requested`
 - `agent.recommendation_accepted`
 - `agent.recommendation_rejected`
 - `agent.override_required`
+
+### Productores — Prometeo (Orchestrator / Copilot)
+
+Prometeo reutiliza los eventos canónicos existentes; no introduce nombres nuevos.
+
+- **Prometeo Orchestrator** (`POST /v1/prometeo/orchestrate`) emite
+  `agent.action_logged` (`agentType=prometeo-orchestrator`, `actionType=generate`,
+  `targetType=orchestration`) al completar una orquestación. Cuando el plan
+  `requiresApproval` (intención ambigua o pasos que mutan recursos protegidos)
+  emite además `agent.human_review_requested`.
+- **Prometeo Copilot** (`POST /v1/prometeo/copilot/mission/create`) emite
+  `agent.action_logged` (`agentType=prometeo-copilot`, `actionType=generate`,
+  `targetType=mission`) al materializar una misión en el Workspace.
+
+Ambos se emiten vía `DomainEventBus` (audit + routing canónico). La detección de
+contexto, el chat y las quick-actions read-only del Copilot, y la navegación del
+Workspace, son estado de UI y **no** producen eventos (regla anti-ruido).
 
 ## Notifications
 
