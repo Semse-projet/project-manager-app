@@ -40,7 +40,8 @@ import type {
   PrometeoResponseBlock,
   PrometeoToolDescriptor,
   PrometeoToolExecutionResult,
-  PrometeoToolInvokeInput
+  PrometeoToolInvokeInput,
+  AdminSettings,
 } from "@semse/schemas";
 import {
   buildStoredPrometeoAttachment,
@@ -2917,6 +2918,21 @@ export async function updateFarmUnit(unitId: string, input: {
 }): Promise<AgroFarmUnit> {
   return fetchSemse<AgroFarmUnit>(`/api/semse/agro/farm-units/${encodeURIComponent(unitId)}`, {
     method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchAdminSettings(): Promise<AdminSettings | null> {
+  if (!semseRuntimeEnabled()) {
+    return null;
+  }
+  return fetchSemse<AdminSettings>("/api/semse/admin/settings");
+}
+
+export async function updateAdminSettings(input: Partial<AdminSettings>): Promise<AdminSettings> {
+  return fetchSemse<AdminSettings>("/api/semse/admin/settings", {
+    method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });

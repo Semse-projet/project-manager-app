@@ -1,6 +1,6 @@
-// @ts-nocheck
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
+import { adminSettingsSchema, type AdminSettings, type AdminSettingsPatch } from '@semse/schemas';
 
 @Injectable()
 export class AdminService {
@@ -8,18 +8,46 @@ export class AdminService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getUsers(): Promise<any[]> {
-    return await this.prisma.user.findMany({
-      select: { id: true, email: true, role: true, createdAt: true },
-    });
+  async getSettings(tenantId: string): Promise<AdminSettings> {
+    const row = await this.prisma.tenantSettings.findUnique({ where: { tenantId } });
+    const raw = (row?.settingsJson ?? {}) as Record<string, unknown>;
+    return adminSettingsSchema.parse(raw);
   }
 
-  async updateUserRole(userId: string, role: string): Promise<any> {
-    this.logger.log(`Updating user role: ${userId} → ${role}`);
-    return await this.prisma.user.update({
-      where: { id: userId },
-      data: { role },
+  async updateSettings(
+    tenantId: string,
+    patch: AdminSettingsPatch,
+    actor: { userId: string; requestId: string }
+  ): Promise<AdminSettings> {
+    const current = await this.getSettings(tenantId);
+    const next = adminSettingsSchema.parse({ ...current, ...patch });
+
+    await this.prisma.tenantSettings.upsert({
+      where: { tenantId },
+      create: {
+        tenantId,
+        settingsJson: next as object,
+      },
+      update: {
+        settingsJson: next as object,
+      },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        tenantId,
+        actorUserId: actor.userId,
+        action: 'tenant.settings.updated',
+        entityType: 'TenantSettings',
+        entityId: tenantId,
+        beforeJson: current as object,
+        afterJson: next as object,
+      },
+    }).catch((err: Error) => {
+      this.logger.warn(`Failed to write audit log for settings update: ${err.message}`);
+    });
+
+    return next;
   }
 
   async getSystemSettings(): Promise<any> {
