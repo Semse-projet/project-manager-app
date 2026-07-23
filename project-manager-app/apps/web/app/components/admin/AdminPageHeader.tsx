@@ -12,6 +12,7 @@ interface AdminPageHeaderProps {
   iconBg?: string;
   backHref?: string;
   backLabel?: string;
+  showBack?: boolean;
   actions?: ReactNode;
 }
 
@@ -23,11 +24,12 @@ export function AdminPageHeader({
   iconBg = "rgba(99,102,241,0.12)",
   backHref = "/admin/dashboard",
   backLabel = "Dashboard",
+  showBack = true,
   actions,
 }: AdminPageHeaderProps) {
   return (
     <div style={{ marginBottom: 24 }}>
-      {backHref ? (
+      {showBack && backHref ? (
         <Link
           href={backHref}
           style={{
