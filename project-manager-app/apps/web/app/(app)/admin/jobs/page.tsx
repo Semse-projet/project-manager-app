@@ -6,6 +6,7 @@ import {
   AlertCircle, ArrowUpRight, Briefcase, CheckCircle2, Clock, DollarSign,
   Filter, RefreshCw, Search, XCircle,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 type JobStatus =
   | "draft" | "posted" | "published" | "reserved"
@@ -118,24 +119,23 @@ export default function AdminJobsPage() {
   return (
     <div style={{ padding: "24px 28px", maxWidth: 1200, margin: "0 auto" }}>
 
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <Briefcase size={16} color="var(--brand)" />
-            <h1 style={{ fontSize: 20, fontWeight: 900, color: "var(--ink)", letterSpacing: "-0.03em" }}>Jobs Admin</h1>
-          </div>
-          <p style={{ fontSize: 12, color: "var(--muted)" }}>Vista administrativa de todos los jobs del sistema</p>
-        </div>
-        <button
-          onClick={() => void load()}
-          className="btn-ghost"
-          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}
-          disabled={loading}
-        >
-          <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Jobs Admin"
+        subtitle="Vista administrativa de todos los jobs del sistema"
+        icon={Briefcase}
+        iconColor="var(--brand)"
+        iconBg="rgba(99,102,241,.12)"
+        showBack={false}
+        actions={
+          <button
+            onClick={() => void load()}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}
+            disabled={loading}
+          >
+            <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> Refresh
+          </button>
+        }
+      />
 
       {/* KPIs */}
       <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", marginBottom: 24 }}>
