@@ -5,6 +5,7 @@ import {
   Activity, ArrowRight, Bot, Brain, Briefcase, CheckCircle2,
   Clock, DollarSign, Eye, RefreshCw, Shield, TrendingUp, Zap,
 } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -124,22 +125,20 @@ export default function EcosystemPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
-        <div style={{ width: 44, height: 44, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>
-          <Zap size={20} color="#818cf8" />
-        </div>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900 }}>Ecosystem Metrics</h1>
-          <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Estado operativo completo del ecosistema SEMSE OS · {lastAt ?? "cargando…"}
-          </p>
-        </div>
-        <button onClick={load} disabled={loading}
-          style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Ecosystem Metrics"
+        subtitle={`Estado operativo completo del ecosistema SEMSE OS · ${lastAt ?? "cargando…"}`}
+        icon={Zap}
+        iconColor="#818cf8"
+        iconBg="rgba(99,102,241,.15)"
+        showBack={false}
+        actions={
+          <button onClick={load} disabled={loading}
+            style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
+            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          </button>
+        }
+      />
 
       {error && (
         <div style={{ padding: "10px 14px", background: "rgba(239,68,68,.1)", borderRadius: 10, fontSize: 12, color: "#fca5a5", marginBottom: 20 }}>{error}</div>

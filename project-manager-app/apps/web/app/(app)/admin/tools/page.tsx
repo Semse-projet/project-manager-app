@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Wrench, Search, ChevronDown, ChevronUp, Code2, Package } from "lucide-react";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { Card } from "@/components/ui";
 
 type CatalogEntry = {
@@ -67,15 +68,14 @@ export default function AdminToolsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Wrench size={24} className="text-cyan-400" />
-        <div>
-          <h1 className="text-2xl font-bold text-ink">ProTools Catalog</h1>
-          <p className="text-sm text-muted mt-0.5">
-            All {catalog.length} estimation tools available in the SEMSE Algorithm Engine
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="ProTools Catalog"
+        subtitle={`All ${catalog.length} estimation tools available in the SEMSE Algorithm Engine`}
+        icon={Wrench}
+        iconColor="#22d3ee"
+        iconBg="rgba(34,211,238,.12)"
+        showBack={false}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
