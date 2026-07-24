@@ -214,6 +214,49 @@ export default function ClientMilestonesPage() {
         <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: "13px" }}>
           {error}
         </div>
+      ) : groups.length === 0 ? (
+        <HtmlInCanvasPanel
+          as="section"
+          style={{
+            minHeight: "260px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            padding: "32px",
+            textAlign: "center",
+          }}
+          canvasClassName="rounded-2xl"
+          minHeight={260}
+        >
+          <div
+            aria-hidden="true"
+            style={{
+              width: "44px",
+              height: "44px",
+              display: "grid",
+              placeItems: "center",
+              borderRadius: "12px",
+              background: "color-mix(in srgb, var(--brand) 12%, transparent)",
+              color: "var(--brand)",
+            }}
+          >
+            <CheckSquare size={22} />
+          </div>
+          <h2 style={{ margin: 0, color: "var(--ink)", fontSize: "16px", fontWeight: 800 }}>
+            Aún no hay hitos de pago
+          </h2>
+          <p style={{ margin: 0, maxWidth: "440px", color: "var(--muted)", fontSize: "13px", lineHeight: 1.5 }}>
+            Los hitos aparecerán aquí cuando un proyecto activo tenga entregables y pagos definidos.
+          </p>
+          <Link
+            href="/client/jobs"
+            style={{ marginTop: "4px", color: "var(--brand)", fontSize: "13px", fontWeight: 700, textDecoration: "none" }}
+          >
+            Ver mis proyectos
+          </Link>
+        </HtmlInCanvasPanel>
       ) : (
       <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={380}>
         {groups.map(group => {

@@ -2,7 +2,7 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.3"
+version: "1.4"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -12,6 +12,8 @@ spec_index: "docs/SPEC_INDEX.md"
 supersedes: "docs/specs/ui/client-flows.spec.md"
 related_files:
   - apps/web/app/(app)/client
+  - apps/web/app/(app)/client/milestones/page.tsx
+  - apps/web/app/(app)/layout.tsx
   - apps/web/app/(app)/client/dashboard/page.tsx
   - apps/web/app/(app)/client/jobs/page.tsx
   - apps/web/app/(app)/client/jobs/[jobId]/page.tsx
@@ -35,6 +37,7 @@ related_files:
 related_tests:
   - tests/unit/client-money-confirmation.test.ts
   - tests/unit/legacy-route-redirect.test.ts
+  - tests/unit/client-milestones-hydration.test.ts
   - tests/unit/auth.test.ts
 related_endpoints:
   - v1/jobs
@@ -155,6 +158,28 @@ residuales fallan cerradas hacia login si el middleware se omite. Los pendientes
 de marca, persistencia de tema y solapamiento del FAB conservan su estado y no
 se declaran resueltos por este lote.
 
+**Remediación v1.4 (2026-07-24, alcance de tema):** el layout ya no lee
+preferencias de navegador durante el render inicial. Tema y sidebar parten de
+valores deterministas compartidos por SSR y el primer render del cliente; luego
+restauran `semse-theme` y `semse-sidebar-collapsed` en un efecto posterior a la
+hidratación. El tema guardado actualiza el selector y el atributo
+`data-theme`, por lo que sobrevive refresh y navegación por URL directa. Marca
+y solapamiento del FAB siguen pendientes.
+
+### G-CLI-10 — MEDIO — Hidratación y estado vacío de Hitos
+
+**Causa raíz confirmada:** `/client/milestones` heredaba la divergencia SSR del
+layout autenticado: el initializer del sidebar consultaba `localStorage` y otro
+initializer llamaba `setTheme` durante render. Cuando la preferencia persistida
+no coincidía con el default del servidor, React hidrataba árboles distintos y
+emitía `#418`. Por separado, una carga válida sin milestones terminaba en un
+`HtmlInCanvasPanel` alto sin contenido.
+
+**Remediación v1.4:** el primer render del layout es determinista y las
+preferencias se restauran en `useEffect`. La pantalla distingue ahora
+`loading`, `error`, `empty` y `ready`; el estado vacío explica cuándo aparecerán
+los hitos y enlaza a `/client/jobs`.
+
 ## UI Contract (estados esperados, no documentados en el spec anterior)
 
 ```yaml
@@ -194,6 +219,9 @@ required_behavior:
 - [x] Resolver una disputa desde `/jobs/[jobId]` exige resultado y aceptación explícitos
 - [x] `/dashboard` y `/field-ops` exigen sesión y redirigen por rol a una superficie canónica
 - [x] El matcher de aliases legacy es exacto y las páginas residuales fallan cerradas
+- [x] Layout autenticado produce el mismo árbol inicial en SSR y navegador antes de restaurar preferencias
+- [x] Tema persistido se restaura tras hidratar y actualiza `data-theme`
+- [x] `/client/milestones` muestra un estado vacío con explicación y salida navegable
 - [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
 - [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
 
@@ -201,6 +229,8 @@ required_behavior:
 
 ### Web
 - `apps/web/app/(app)/client/**`
+- `apps/web/app/(app)/client/milestones/page.tsx`
+- `apps/web/app/(app)/layout.tsx`
 - `apps/web/app/dashboard/page.tsx`
 - `apps/web/app/field-ops/page.tsx`
 - `apps/web/middleware.ts`
@@ -224,8 +254,10 @@ required_behavior:
 - [x] Cada gap G-CLI-* tiene routing en `governance.audit-remediation-program` y tarea en la sección 1 del plan.
 - [x] G-CLI-01 y G-CLI-02 tienen confirmación explícita, monto/resultado visible y regresión automatizada.
 - [x] La parte de navegación huérfana de G-CLI-09 quedó aislada por rol, sin implementación duplicada y con regresión automatizada.
+- [x] La persistencia de tema de G-CLI-09 y G-CLI-10 quedaron cubiertas por una regresión de hidratación/estado vacío.
 
 ## Rollback Considerations
 
 - Ninguno de los fixes propuestos aquí cambia contratos de API existentes de forma incompatible — son correcciones de lectura (G-CLI-00), flujo de confirmación (G-CLI-01/02) o routing (G-CLI-09), y no requieren rollback de datos.
 - Un rollback de G-CLI-09 debe restaurar código eliminado y no solo quitar el redirect; hacerlo reabriría las superficies huérfanas y su identidad server-side estática.
+- Reintroducir lecturas de `localStorage` en initializers de render reabre G-CLI-10; cualquier preferencia nueva debe hidratar desde un valor SSR compartido o restaurarse después del mount.

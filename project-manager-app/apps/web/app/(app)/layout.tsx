@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
 import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
@@ -386,21 +386,22 @@ function useAppRole(): NavRole {
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = useAppRole();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("semse-sidebar-collapsed") === "true";
-  });
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
   const nav = NAV[role];
   const RoleIcon = nav.icon;
 
-  useState(() => {
-    if (typeof window === "undefined") return;
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem("semse-sidebar-collapsed") === "true");
+
     const savedTheme = window.localStorage.getItem("semse-theme");
-    if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
-  });
+    if (savedTheme === "dark" || savedTheme === "light") {
+      setTheme(savedTheme);
+      document.documentElement.dataset.theme = savedTheme;
+    }
+  }, []);
 
   const handleCollapsedChange = (next: boolean) => {
     setCollapsed(next);
