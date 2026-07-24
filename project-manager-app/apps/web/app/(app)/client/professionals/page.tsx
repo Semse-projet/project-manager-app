@@ -303,7 +303,7 @@ export default function ClientProfessionalsPage() {
         }
         actions={
           <span style={{ padding: "7px 10px", borderRadius: 999, background: "rgba(16,185,129,.12)", color: "#34d399", fontSize: 12, fontWeight: 700 }}>
-            matching Jaccard + trust
+            puntaje de compatibilidad
           </span>
         }
       />
@@ -350,7 +350,7 @@ export default function ClientProfessionalsPage() {
               Profesionales Verificados SEMSE
             </h3>
             <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>
-              Ordenados por trust score
+              Ordenados por confiabilidad
             </span>
           </div>
           <div style={{ display: "grid", gap: 10 }}>

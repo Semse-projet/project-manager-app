@@ -123,6 +123,14 @@ export default function AgentsPage() {
             <button
               key={agent.id}
               onClick={() => setSelected(isSelected ? null : agent.id)}
+              aria-expanded={isSelected}
+              aria-label={
+                tab === "Conversacionales"
+                  ? directChat
+                    ? `${agent.name} — ${("role" in agent && agent.role) || ""} — abrir chat directo`
+                    : `${agent.name} — ${("role" in agent && agent.role) || ""} — canalizado vía ${PANEL_AGENT_LABELS[routedAgent ?? "assistant"]}`
+                  : `${agent.name} — agente especializado del backend, sin chat directo`
+              }
               style={{
                 display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px",
                 padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "left",

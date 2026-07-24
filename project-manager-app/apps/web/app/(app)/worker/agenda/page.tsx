@@ -183,6 +183,7 @@ export default function WorkerAgendaPage() {
         title="Mi Agenda"
         subtitle="Trabajos activos y programados"
         breadcrumbs={[{ label: "Dashboard", href: "/worker/dashboard" }, { label: "Agenda" }]}
+        includeDashboard={false}
         minHeight={140}
         leading={
           <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(99,102,241,.15)", display: "grid", placeItems: "center" }}>

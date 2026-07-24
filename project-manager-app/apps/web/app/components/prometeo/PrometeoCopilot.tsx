@@ -81,6 +81,17 @@ export function PrometeoCopilot() {
 
   async function handleQuickAction(action: CopilotSuggestedAction) {
     if (!context) return;
+
+    // "Preguntar a Prometeo" isn't a backend action with a result to show —
+    // it's an invitation to type a question. Routing it through
+    // executeCopilotAction produced a canned "acción ejecutada" string with
+    // nothing behind it (audit 1.11c). Its real job is just to get the user
+    // into the chat input.
+    if (action.action === "copilot.ask") {
+      document.getElementById("prometeo-copilot-chat-input")?.focus();
+      return;
+    }
+
     setPending(true);
     try {
       const res = await executeCopilotAction({
@@ -94,9 +105,17 @@ export function PrometeoCopilot() {
         router.push("/workspace");
         return;
       }
+      // Surface what the backend actually reports for this action instead of
+      // a static "ejecutada" placeholder that looked identical regardless of
+      // outcome.
+      const summary =
+        res.result && typeof res.result === "object" && "summary" in res.result &&
+        typeof (res.result as { summary?: unknown }).summary === "string"
+          ? (res.result as { summary: string }).summary
+          : `Acción "${action.description}" ejecutada.`;
       setMessages((prev) => [
         ...prev,
-        { id: newId(), role: "assistant", content: `Acción "${action.description}" ejecutada.` },
+        { id: newId(), role: "assistant", content: summary },
       ]);
     } catch (e) {
       setMessages((prev) => [

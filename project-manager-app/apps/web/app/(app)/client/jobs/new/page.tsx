@@ -6,7 +6,7 @@
  * Adaptado: React Router → Next.js, Supabase → API REST
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
@@ -23,12 +23,42 @@ import {
   JOB_CATEGORIES,
   JOB_URGENCY_OPTIONS,
   parseJobIntakePrefill,
+  type JobBudgetType,
+  type JobLocationType,
 } from "../../../../../lib/job-intake";
 import type { ProjectIntake } from "../../../../../lib/smart-intake";
 import {
   clearPersistedIntakeId,
   getPersistedIntakeId,
 } from "../../../../../hooks/use-intake";
+import { useCurrentUser } from "../../../../../hooks/useCurrentUser";
+
+// ──────────────────────────────────────────────
+// DRAFT AUTOSAVE (audit 1.14) — the wizard used to lose 100% of its
+// progress on a refresh. Persist the editable fields to localStorage,
+// scoped per user so a shared browser can't leak one account's draft into
+// another's, restored on mount and cleared once the job actually publishes.
+// ──────────────────────────────────────────────
+
+type JobDraftPayload = {
+  categoryId: string;
+  subcategoryId: string;
+  title: string;
+  description: string;
+  locationType: JobLocationType;
+  city: string;
+  budgetType: JobBudgetType;
+  budgetMin: number;
+  budgetMax: number;
+  urgency: string;
+  deadline: string;
+  step: number;
+  savedAt: number;
+};
+
+function jobDraftStorageKey(userId: string | null | undefined): string | null {
+  return userId ? `semse-job-draft:${userId}` : null;
+}
 
 // ──────────────────────────────────────────────
 // DATA
@@ -113,6 +143,10 @@ export default function NewJobPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeIntakeId, setActiveIntakeId] = useState(prefill.intakeId);
   const [intakeRecovered, setIntakeRecovered] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const { user } = useCurrentUser();
+  const draftKey = jobDraftStorageKey(user?.id);
+  const draftHydratedRef = useRef(false);
 
   useEffect(() => {
     if (prefill.categoryId || prefill.intakeId) {
@@ -235,6 +269,65 @@ export default function NewJobPage() {
     };
   }, [prefill.intakeId]);
 
+  // Restore an autosaved draft on mount, once we know which user's draft to
+  // load. A prefill/intake arriving via the URL is a fresh, explicit intent
+  // and always wins over a stale local draft.
+  useEffect(() => {
+    if (!draftKey || draftHydratedRef.current) return;
+    draftHydratedRef.current = true;
+
+    const hasIncomingIntent = Boolean(prefill.categoryId || prefill.intakeId || prefill.title);
+    if (hasIncomingIntent) return;
+
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as Partial<JobDraftPayload>;
+
+      if (draft.categoryId) setCategoryId(draft.categoryId);
+      if (draft.subcategoryId) setSubcategoryId(draft.subcategoryId);
+      if (draft.title) setTitle(draft.title);
+      if (draft.description) setDescription(draft.description);
+      if (draft.locationType) setLocationType(draft.locationType);
+      if (draft.city) setCity(draft.city);
+      if (draft.budgetType) setBudgetType(draft.budgetType);
+      if (typeof draft.budgetMin === "number") setBudgetMin(draft.budgetMin);
+      if (typeof draft.budgetMax === "number") setBudgetMax(draft.budgetMax);
+      if (draft.urgency) setUrgency(draft.urgency);
+      if (draft.deadline) setDeadline(draft.deadline);
+      if (typeof draft.step === "number") setStep(draft.step);
+      setDraftRestored(true);
+    } catch {
+      // Corrupt/unreadable draft — ignore and start fresh.
+    }
+  }, [draftKey, prefill.categoryId, prefill.intakeId, prefill.title]);
+
+  // Autosave the draft on every change, once the restore attempt above has
+  // had a chance to run (otherwise the empty first render would immediately
+  // overwrite an existing draft before it's read).
+  useEffect(() => {
+    if (!draftKey || !draftHydratedRef.current) return;
+
+    const hasContent = Boolean(categoryId || title.trim() || description.trim());
+    try {
+      if (!hasContent) {
+        window.localStorage.removeItem(draftKey);
+        return;
+      }
+      const payload: JobDraftPayload = {
+        categoryId, subcategoryId, title, description, locationType, city,
+        budgetType, budgetMin, budgetMax, urgency, deadline, step,
+        savedAt: Date.now(),
+      };
+      window.localStorage.setItem(draftKey, JSON.stringify(payload));
+    } catch {
+      // localStorage unavailable/full — draft autosave is best-effort.
+    }
+  }, [
+    draftKey, categoryId, subcategoryId, title, description, locationType,
+    city, budgetType, budgetMin, budgetMax, urgency, deadline, step,
+  ]);
+
   const handleSubmit = async () => {
     setSubmitting(true);
     setSubmitError(null);
@@ -303,6 +396,9 @@ export default function NewJobPage() {
         return;
       }
       clearPersistedIntakeId();
+      if (draftKey) {
+        try { window.localStorage.removeItem(draftKey); } catch { /* best-effort */ }
+      }
       trackProductEvent("wizard.published", {
         category: categoryId || null,
         durationMs: Date.now() - wizardStartedAt,
@@ -373,6 +469,25 @@ export default function NewJobPage() {
           {intakeRecovered
             ? "Recuperamos el intake de la landing y rellenamos el wizard con el borrador guardado."
             : "Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación."}
+        </div>
+      )}
+
+      {draftRestored && (
+        <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.2)", color: "#6ee7b7", fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <span>Recuperamos tu borrador guardado. Sigue donde lo dejaste.</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (draftKey) { try { window.localStorage.removeItem(draftKey); } catch { /* best-effort */ } }
+              setDraftRestored(false);
+              setCategoryId(""); setSubcategoryId(""); setTitle(""); setDescription("");
+              setCity(""); setBudgetMin(0); setBudgetMax(0); setDeadline("");
+              setStep(1);
+            }}
+            style={{ background: "none", border: "none", color: "#6ee7b7", fontSize: "12px", fontWeight: 700, textDecoration: "underline", cursor: "pointer", padding: 0 }}
+          >
+            Descartar y empezar de nuevo
+          </button>
         </div>
       )}
 

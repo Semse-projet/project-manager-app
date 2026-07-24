@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
-import { CheckSquare, Clock, DollarSign, ChevronDown, ChevronRight, ArrowUpRight } from "lucide-react";
+import { CheckSquare, Clock, DollarSign, ChevronDown, ChevronRight, ArrowUpRight, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import { fetchJobMilestones, fetchJobs, mutateMilestone } from "../../../semse-api";
@@ -213,6 +213,27 @@ export default function ClientMilestonesPage() {
       ) : error ? (
         <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: "13px" }}>
           {error}
+        </div>
+      ) : groups.length === 0 ? (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          gap: "10px", padding: "48px 24px", borderRadius: "16px",
+          border: "1px dashed var(--border)", background: "var(--surface)", textAlign: "center",
+        }}>
+          <ListChecks size={28} color="var(--muted)" />
+          <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)" }}>
+            Todavía no tienes hitos de pago
+          </p>
+          <p style={{ fontSize: "12px", color: "var(--muted)", maxWidth: "360px" }}>
+            Los hitos aparecen aquí una vez que un trabajo activo tiene un plan de pagos definido.
+            Si acabas de aceptar una propuesta, entra al detalle del trabajo para crear el primer hito.
+          </p>
+          <Link
+            href="/client/jobs"
+            style={{ marginTop: "4px", fontSize: "12px", fontWeight: 700, color: "var(--brand)", textDecoration: "none" }}
+          >
+            Ver mis trabajos →
+          </Link>
         </div>
       ) : (
       <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={380}>

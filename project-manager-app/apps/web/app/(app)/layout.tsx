@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
 import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
@@ -386,21 +386,41 @@ function useAppRole(): NavRole {
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = useAppRole();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("semse-sidebar-collapsed") === "true";
-  });
+  // NOTE: both `collapsed` and `theme` below must start from the SAME
+  // deterministic value on the server and on the client's first render.
+  // Reading `window.localStorage` inside a `useState` lazy initializer (the
+  // previous implementation) runs the check during render — `typeof window`
+  // is `undefined` on the server but defined on the client, so the very
+  // first client render already diverges from the server-rendered HTML
+  // (collapsed width, theme-dependent DOM) and React throws a hydration
+  // mismatch (audit 1.8, reproduced on /client/milestones but rooted here —
+  // this layout wraps every /client, /worker, /admin, /agents route). The
+  // persisted value is restored in a `useEffect` instead, which only runs
+  // client-side, after hydration has already committed successfully.
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
   const nav = NAV[role];
   const RoleIcon = nav.icon;
 
-  useState(() => {
-    if (typeof window === "undefined") return;
+  useEffect(() => {
+    const savedCollapsed = window.localStorage.getItem("semse-sidebar-collapsed");
+    if (savedCollapsed === "true") setCollapsed(true);
+
+    // Also fixes 1.9: previously the persisted theme was only ever applied
+    // to `document.documentElement.dataset.theme` from `handleThemeChange`
+    // (an explicit user pick). On a hard refresh/direct URL load nothing
+    // called that path, so the saved preference never reached the DOM
+    // attribute the CSS keys off — the theme only "stuck" across SPA
+    // navigation because the attribute set by an earlier manual toggle
+    // survived (this layout doesn't remount on client-side navigation).
     const savedTheme = window.localStorage.getItem("semse-theme");
-    if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
-  });
+    if (savedTheme === "dark" || savedTheme === "light") {
+      setTheme(savedTheme);
+      document.documentElement.dataset.theme = savedTheme;
+    }
+  }, []);
 
   const handleCollapsedChange = (next: boolean) => {
     setCollapsed(next);
@@ -577,7 +597,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           theme={theme}
           onThemeChange={handleThemeChange}
         />
-        <main style={{ flex: 1, padding: "24px", overflow: "auto", paddingBottom: role === "worker" ? "80px" : "24px" }}>{children}</main>
+        <main className="app-main" style={{ flex: 1, padding: "24px", overflow: "auto", paddingBottom: role === "worker" ? "80px" : "24px" }}>{children}</main>
       </div>
 
       {role === "worker" && <WorkerMobileBottomNav pathname={pathname ?? ""} />}
@@ -590,6 +610,16 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
         .worker-bottom-nav { display: none; }
         @media (max-width: 768px) {
           .worker-bottom-nav { display: flex !important; }
+        }
+        /* Audit 1.10: the floating assistant FAB (agent-chat-panel.tsx) is
+           position:fixed at bottom:24/right:24 with a 56px hit area — on
+           narrow mobile viewports page content runs edge-to-edge, so
+           whatever scrolls into that bottom-right corner (e.g. a bid/
+           proposal amount on /client/jobs/[jobId]) ends up underneath it.
+           Reserve enough bottom padding on mobile for every role so
+           in-flow content never renders behind the FAB. */
+        @media (max-width: 520px) {
+          .app-main { padding-bottom: 96px !important; }
         }
       `}</style>
     </div>

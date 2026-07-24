@@ -52,6 +52,7 @@ export function CopilotChat({
 
       <div className="flex items-center gap-2 border-t border-slate-100 p-2">
         <input
+          id="prometeo-copilot-chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
