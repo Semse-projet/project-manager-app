@@ -368,7 +368,7 @@ export default function WorkerTrackerPage() {
     const [nextJobs, nextFreeProjects, nextActive, nextWeek, nextMonth] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
-      fetchActiveTimer(),
+      fetchActiveTimer().catch(() => null),
       fetchWeeklySummary().catch(() => null),
       fetchMonthlySummary().catch(() => null),
     ]);
@@ -662,7 +662,7 @@ export default function WorkerTrackerPage() {
   const weekByDay = weekSummary?.byDay ?? [];
   const maxDayMinutes = weekByDay.reduce((max, day) => Math.max(max, day.minutes), 0);
 
-  const manualBreakMinutes = Number.parseInt(manualBreak, 10) || 0;
+  const manualBreakMinutes = Math.max(0, Number.parseInt(manualBreak, 10) || 0);
   const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd, manualBreakMinutes);
   const pendingEventCount = trackerLocalState.pendingEvents.length;
 

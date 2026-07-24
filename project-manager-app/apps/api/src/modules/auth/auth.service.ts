@@ -365,9 +365,18 @@ export class AuthService {
     const normalizedEmail = input.email.toLowerCase().trim();
     const user = await this.authRepository.findUserByEmail(normalizedEmail);
 
-    if (user?.passwordHash && user.status === "active" && verifyPassword(input.password, user.passwordHash)) {
+    if (!user) {
+      this.logger.warn(`Login failed (no such user): email=${normalizedEmail}`);
+    } else if (!user.passwordHash) {
+      this.logger.warn(`Login failed (no password set): userId=${user.id} email=${normalizedEmail}`);
+    } else if (user.status !== "active") {
+      this.logger.warn(`Login failed (status=${user.status}): userId=${user.id} email=${normalizedEmail}`);
+    } else if (!verifyPassword(input.password, user.passwordHash)) {
+      this.logger.warn(`Login failed (password mismatch): userId=${user.id} email=${normalizedEmail}`);
+    } else {
       const primaryMembership = user.memberships[0];
       if (!primaryMembership) {
+        this.logger.warn(`Login failed (no membership): userId=${user.id} email=${normalizedEmail}`);
         throw new UnauthorizedException("Usuario sin membresía activa");
       }
 

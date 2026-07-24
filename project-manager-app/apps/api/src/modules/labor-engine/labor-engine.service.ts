@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { LaborEngineRepository } from "./labor-engine.repository.js";
 
 function weekBounds(offset = 0): { from: Date; to: Date } {
@@ -87,7 +87,22 @@ export class LaborEngineService {
     if (!params.jobId && !params.freeProjectId && params.purpose === "job_linked") {
       throw new BadRequestException("job_linked purpose requires jobId or freeProjectId");
     }
+    await this.assertOwnership(params);
     return this.repo.startRealtimeEntry(params);
+  }
+
+  /** A worker may only log time against a job they're actually assigned to, or a free
+   * project they created themselves — jobId/freeProjectId are client-supplied and must
+   * not be trusted as-is (see AUDIT_REMEDIATION_PLAN.md 2.9). */
+  private async assertOwnership(params: { tenantId: string; orgId: string; createdBy: string; jobId?: string; freeProjectId?: string }) {
+    if (params.jobId) {
+      const assigned = await this.repo.isJobAssignedToWorker(params.tenantId, params.orgId, params.jobId, params.createdBy);
+      if (!assigned) throw new ForbiddenException("This job is not assigned to you.");
+    }
+    if (params.freeProjectId) {
+      const owned = await this.repo.isFreeProjectOwnedByWorker(params.tenantId, params.freeProjectId, params.createdBy);
+      if (!owned) throw new ForbiddenException("This project does not belong to you.");
+    }
   }
 
   async pauseTimer(id: string, tenantId: string, createdBy: string) {
@@ -164,6 +179,7 @@ export class LaborEngineService {
         throw new BadRequestException("endTime must be after startTime");
       }
     }
+    await this.assertOwnership(params);
     return this.repo.createTimeEntry({
       tenantId: params.tenantId,
       orgId: params.orgId,
