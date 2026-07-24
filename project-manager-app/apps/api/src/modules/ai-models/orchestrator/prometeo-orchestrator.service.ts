@@ -352,6 +352,8 @@ Trabajos disponibles: ${ctx.jobs.recent.slice(0, 3).map((j) => `"${j.title}" (${
 
 ${selectionInstruction}
 
+REGLA SOBRE EL LENTE ECOSISTEMA 5D: si citas una dimensión de esa sección del contexto (Execution/Finance/Evidence/Trust/Operations) o el score general, usa su nombre real tal cual aparece ahí y aclara que es una métrica de este proyecto/tenant específico — nunca inventes un nombre distinto (ej. "confianza del sistema", "nivel de confianza global") ni la presentes como si fuera una métrica de toda la plataforma.
+
 ESTILO DE RESPUESTA: ${assistantStyle}
 IDIOMA: ${languageInstruction}
 NIVEL DE DETALLE: ${verbosityInstruction}
@@ -403,7 +405,7 @@ ${noContextResponse}`;
     if (ctx.ecosystem5d) {
       lines.push(
         "",
-        "## Lente Ecosistema 5D",
+        "## Lente Ecosistema 5D (nivel proyecto/tenant — no es una métrica global del sistema)",
         `- Score general: **${ctx.ecosystem5d.score}/100** (${ctx.ecosystem5d.status})`,
         ...ctx.ecosystem5d.dimensions.slice(0, 5).map((dim) =>
           `- ${dim.label}: **${dim.score}/100** (${dim.status}) — ${dim.summary}`
