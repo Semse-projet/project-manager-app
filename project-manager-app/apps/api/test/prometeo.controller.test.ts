@@ -99,6 +99,12 @@ function createController() {
 
 test("prometeo controller declares permissions and wraps representative payloads", async () => {
   const expectations: Array<[string, string]> = [
+    // 3.14 — ingest/ingest-file/deleteDocument mutate the tenant's indexed
+    // knowledge base; moved off "agents:run:create" (shared by
+    // CLIENT/PRO/WORKER/OPS_ADMIN) onto a dedicated OPS_ADMIN-only
+    // permission. Read-only endpoints (listTools, getTradeLibrary,
+    // listDocuments, search, etc.) keep "agents:run:create" since that's
+    // legitimate normal agent usage for every role.
     ["ingest", "knowledge:manage"],
     ["listTools", "agents:run:create"],
     ["invokeTool", "agents:run:create"],

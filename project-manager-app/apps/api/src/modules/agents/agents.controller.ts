@@ -622,6 +622,12 @@ export class AgentsController {
   }
 
   // ── Coordinator / Delegations ────────────────────────────────────────────
+  // 3.15 — these three endpoints back the /admin/coordinator page, which is
+  // middleware-blocked for CLIENT/PRO/WORKER, but the BFF route added no
+  // extra check — so any authenticated CLIENT/PRO/WORKER could call the API
+  // directly (they all hold "agents:run:create" for normal agent usage) and
+  // get the same tenant-wide feed (task titles, full results) Admin sees.
+  // Gated on a dedicated OPS_ADMIN-only permission instead.
 
   @Get("delegations")
   @RequirePermissions("ops:coordinator:read")

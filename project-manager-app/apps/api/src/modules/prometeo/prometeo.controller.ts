@@ -85,6 +85,13 @@ export class PrometeoController {
     return ok(rid, result);
   }
 
+  // 3.14 — ingest/ingest-file/deleteDocument mutate the tenant's indexed
+  // knowledge base. They previously shared "agents:run:create", which every
+  // authenticated role holds (CLIENT/PRO/WORKER/OPS_ADMIN) for legitimate
+  // agent usage (rag-query, search, etc.) — so any client or professional
+  // could delete or overwrite indexed documents via direct API call,
+  // bypassing /admin/prometeo entirely. Gated on a dedicated OPS_ADMIN-only
+  // permission instead of restricting agents:run:create itself.
   @Post("ingest")
   @RequirePermissions("knowledge:manage")
   async ingest(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {

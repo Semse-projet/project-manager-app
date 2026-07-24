@@ -220,6 +220,9 @@ test("agents controller declares permissions and wraps representative payloads",
     ["blockPlanStep", "agents:run:create"],
     ["retryPlanStep", "agents:run:create"],
     ["skipPlanStep", "agents:run:create"],
+    // 3.15 — moved off "agents:run:create" (shared by CLIENT/PRO/WORKER) onto
+    // a dedicated OPS_ADMIN-only permission; these back the same tenant-wide
+    // coordinator feed the /admin/coordinator page shows.
     ["listDelegations", "ops:coordinator:read"],
     ["getDelegation", "ops:coordinator:read"],
     ["coordinatorSnapshot", "ops:coordinator:read"],
