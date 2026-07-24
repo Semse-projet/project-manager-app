@@ -27,10 +27,12 @@ import { Input, Textarea } from "../../../components/ui/input";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { FeedbackBanner } from "../../../components/ui/error-state";
 import { PageSpinner } from "../../../components/ui/spinner";
-import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
+import { DisputeResolutionModal } from "../../components/disputes/DisputeResolutionModal";
+import { EscrowReleaseModal } from "../../components/payments/EscrowReleaseModal";
 
 type JobDetailPageProps = { params: Promise<{ jobId: string }> };
 type MilestoneAction = "submit" | "approve" | "reject" | "request-changes";
+type ReleaseCandidate = { id: string; title: string; amount: number };
 
 function formatStatus(status: string) {
   return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -61,13 +63,14 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
   const [actingMilestoneId, setActingMilestoneId]     = useState<string | null>(null);
   const [releasingMilestoneId, setReleasingMilestoneId] = useState<string | null>(null);
   const [resolvingDisputeId, setResolvingDisputeId]   = useState<string | null>(null);
-  const [disputeConfirmId, setDisputeConfirmId]       = useState<string | null>(null);
   const [msTitle, setMsTitle]   = useState("Milestone 1");
   const [msAmount, setMsAmount] = useState("500");
   const [msSeq, setMsSeq]       = useState("1");
   const [disputeReason, setDisputeReason] = useState("Need ops review for this job.");
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [releaseCandidate, setReleaseCandidate] = useState<ReleaseCandidate | null>(null);
+  const [resolutionCandidate, setResolutionCandidate] = useState<{ id: string; label: string } | null>(null);
 
   async function refresh(id: string) {
     const [jobResult, milestonesResult, disputesResult, evidenceResult, escrowResult] = await Promise.allSettled([
@@ -244,7 +247,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     }
   }
 
-  async function handleReleaseMilestone(milestoneId: string) {
+  async function confirmReleaseMilestone(milestoneId: string) {
     setReleasingMilestoneId(milestoneId);
     setError(null);
     setFeedback(null);
@@ -253,7 +256,9 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
       await refresh(jobId);
       setFeedback("Release ejecutado correctamente.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo liberar el pago.");
+      const releaseError = e instanceof Error ? e : new Error("No se pudo liberar el pago.");
+      setError(releaseError.message);
+      throw releaseError;
     } finally {
       setReleasingMilestoneId(null);
     }
@@ -275,41 +280,30 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     }
   }
 
-  // 1.3 — this used to fire immediately with a hardcoded "pro_favor"
-  // outcome and no confirmation. The backend's own dispute policy
-  // (disputes.policy.ts assertDisputeResolvable) only allows a CLIENT actor
-  // to settle a dispute in the professional's favor — refunds, splits, and
-  // legal escalation require OPS_ADMIN — so a client-facing outcome picker
-  // would offer choices the API rejects. The correct, backend-supported fix
-  // is a confirmation step that makes the one available outcome (and its
-  // consequence — releasing held funds) explicit before it fires, not a
-  // picker for outcomes this actor cannot actually choose.
-  function handleResolveDispute(disputeId: string) {
+  async function confirmResolveDispute(
+    disputeId: string,
+    resolution: string,
+    resolutionType: "pro_favor"
+  ) {
     if (resolvingDisputeId) return;
-    setDisputeConfirmId(disputeId);
-  }
-
-  async function confirmResolveDispute() {
-    if (!disputeConfirmId || resolvingDisputeId) return;
-    const disputeId = disputeConfirmId;
     setResolvingDisputeId(disputeId);
     setError(null);
     setFeedback(null);
     try {
       await resolveDispute(disputeId, {
-        resolution: "Resolved by client in favor of the professional",
-        resolutionType: "pro_favor",
+        resolution,
+        resolutionType,
       });
-      setDisputeConfirmId(null);
       await refresh(jobId);
       setFeedback("Dispute resuelta. El job volvió a estado operativo.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo resolver la disputa.");
+      const resolutionError = e instanceof Error ? e : new Error("No se pudo resolver la disputa.");
+      setError(resolutionError.message);
+      throw resolutionError;
     } finally {
       setResolvingDisputeId(null);
     }
   }
-
   const escrowTotal = readNumber(escrow?.totalAmount ?? escrow?.amount ?? escrow?.fundedAmount) ?? 0;
   const escrowCurrency = typeof escrow?.currency === "string" ? escrow.currency : "USD";
 
@@ -340,6 +334,26 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
           </div>
         ) : null}
       </HtmlInCanvasPanel>
+
+      {releaseCandidate ? (
+        <EscrowReleaseModal
+          milestoneTitle={releaseCandidate.title}
+          amount={releaseCandidate.amount}
+          currency={escrowCurrency}
+          onClose={() => setReleaseCandidate(null)}
+          onConfirm={() => confirmReleaseMilestone(releaseCandidate.id)}
+        />
+      ) : null}
+
+      {resolutionCandidate ? (
+        <DisputeResolutionModal
+          disputeLabel={resolutionCandidate.label}
+          onClose={() => setResolutionCandidate(null)}
+          onConfirm={(resolution, resolutionType) =>
+            confirmResolveDispute(resolutionCandidate.id, resolution, resolutionType)
+          }
+        />
+      ) : null}
 
       {/* Runtime banner */}
       {!runtimeEnabled ? (
@@ -561,7 +575,11 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                             size="sm"
                             disabled={busy}
                             loading={releasingMilestoneId === id}
-                            onClick={() => handleReleaseMilestone(id)}
+                            onClick={() => setReleaseCandidate({
+                              id,
+                              title: String(ms.title ?? "Milestone"),
+                              amount: readNumber(ms.amount) ?? 0,
+                            })}
                           >
                             Release
                           </Button>
@@ -627,7 +645,10 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                               <button
                                 className="ghost-action-button text-xs"
                                 disabled={resolvingDisputeId === dId}
-                                onClick={() => handleResolveDispute(dId)}
+                                onClick={() => setResolutionCandidate({
+                                  id: dId,
+                                  label: `Disputa ${dId}`,
+                                })}
                               >
                                 {resolvingDisputeId === dId ? "Resolviendo…" : "Resolver"}
                               </button>
@@ -644,18 +665,6 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
         </div>
       ) : null}
 
-      <ConfirmDialog
-        open={disputeConfirmId !== null}
-        title="Confirmar resolución de disputa"
-        description="Esta disputa se resolverá a favor del profesional y los fondos retenidos en escrow se liberarán. Esta acción no se puede deshacer. Refunds, splits o escalamiento requieren revisión de operaciones."
-        details={disputeConfirmId ? [{ label: "Disputa", value: disputeConfirmId }, { label: "Resultado", value: "A favor del profesional" }] : []}
-        confirmLabel="Resolver a favor del profesional"
-        confirmVariant="destructive"
-        loading={resolvingDisputeId === disputeConfirmId && resolvingDisputeId !== null}
-        error={error}
-        onConfirm={() => void confirmResolveDispute()}
-        onCancel={() => setDisputeConfirmId(null)}
-      />
     </div>
   );
 }

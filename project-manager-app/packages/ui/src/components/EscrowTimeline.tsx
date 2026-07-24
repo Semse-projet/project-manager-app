@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type {
   EscrowApiStatus as EscrowStatus,
   MilestoneApiStatus as MilestoneStatus,
@@ -83,7 +82,7 @@ function formatDate(iso: string): string {
 
 interface EscrowTimelineProps {
   escrow: EscrowView;
-  onReleaseMilestone?: (milestoneId: string) => Promise<void>;
+  onReleaseMilestone?: (milestoneId: string) => void;
   onDispute?: () => Promise<void>;
   releasingId?: string | null;
   disputing?: boolean;
@@ -174,6 +173,7 @@ export function EscrowTimeline({
           </div>
           <div className="divide-y divide-white/[0.05]">
             {escrow.milestones
+              .slice()
               .sort((a, b) => a.sequence - b.sequence)
               .map((milestone) => (
                 <MilestoneRow
@@ -212,21 +212,17 @@ export function EscrowTimeline({
 interface MilestoneRowProps {
   milestone: EscrowMilestone;
   currency: string;
-  onRelease?: (id: string) => Promise<void>;
+  onRelease?: (id: string) => void;
   releasing: boolean;
 }
 
 function MilestoneRow({ milestone, currency, onRelease, releasing }: MilestoneRowProps) {
   const cfg = milestoneStatusConfig[milestone.status] ?? milestoneStatusConfig.DRAFT;
   const canRelease = milestone.status === "APPROVED" && onRelease != null;
-  // 1.2 — this button used to call onRelease directly with no confirmation
-  // and no amount shown before the money moved. A safe fund-side modal
-  // (EscrowFundModal, apps/web) exists for funding, but it is not reusable
-  // here — this is a release action against a different endpoint with a
-  // different, milestone-scoped amount — so a lightweight inline confirm
-  // step (same "show the exact amount, require an explicit second click")
-  // is added directly in this shared component instead.
-  const [confirming, setConfirming] = useState(false);
+  // 1.2 — `onRelease` only *requests* a release. The consumer owns the
+  // confirmation step (apps/web EscrowReleaseModal shows the exact amount and
+  // requires an explicit confirm before any money moves), so this component
+  // does not confirm on its own and the user is never asked twice.
 
   return (
     <div className="flex items-start gap-4 px-4 py-4">
@@ -261,42 +257,16 @@ function MilestoneRow({ milestone, currency, onRelease, releasing }: MilestoneRo
           </div>
           <div className="shrink-0 text-right">
             <p className="tabular-nums text-sm font-bold text-ink">{formatCurrency(milestone.amount, currency)}</p>
-            {canRelease && !confirming ? (
+            {canRelease ? (
               <button
                 type="button"
                 className="mt-2 inline-flex items-center justify-center rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-[#0a0a14] transition-all hover:bg-brand-dim disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={releasing}
-                onClick={() => setConfirming(true)}
+                onClick={() => onRelease(milestone.id)}
                 aria-label={`Liberar pago de ${milestone.title}`}
               >
                 Liberar pago
               </button>
-            ) : null}
-            {canRelease && confirming ? (
-              <div className="mt-2 grid gap-1.5 rounded-md border border-amber-500/25 bg-amber-500/[0.06] p-2 text-left">
-                <p className="text-[0.65rem] leading-snug text-amber-200">
-                  Confirmar liberación de {formatCurrency(milestone.amount, currency)}
-                </p>
-                <div className="flex gap-1.5">
-                  <button
-                    type="button"
-                    className="inline-flex flex-1 items-center justify-center rounded-md border border-white/[0.1] bg-transparent px-2 py-1 text-[0.65rem] font-semibold text-ink transition-all hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={releasing}
-                    onClick={() => setConfirming(false)}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    className="inline-flex flex-1 items-center justify-center rounded-md bg-brand px-2 py-1 text-[0.65rem] font-semibold text-[#0a0a14] transition-all hover:bg-brand-dim disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={releasing}
-                    onClick={() => { setConfirming(false); void onRelease(milestone.id); }}
-                    aria-label={`Confirmar liberación de pago de ${milestone.title}`}
-                  >
-                    {releasing ? "Liberando..." : "Confirmar"}
-                  </button>
-                </div>
-              </div>
             ) : null}
           </div>
         </div>

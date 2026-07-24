@@ -8,6 +8,7 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, Inbox, MessageSquare, Refres
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { ErrorState, HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
+import { DisputeResolutionModal } from "../../../components/disputes/DisputeResolutionModal";
 import { DisputeResolutionWorkspace } from "../../../components/disputes/DisputeResolutionWorkspace";
 import {
   createJobDispute,
@@ -20,6 +21,11 @@ import {
 import { CLIENT_ROUTES, clientDisputesHref } from "../../../lib/client-routes";
 
 type DisputesFilter = "all" | "open" | "resolved";
+type ResolutionCandidate = {
+  id: string;
+  label: string;
+  initialResolution: string;
+};
 
 type DisputeRow = {
   id: string;
@@ -77,6 +83,7 @@ export default function ClientDisputesPage() {
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [selectedDisputeId, setSelectedDisputeId] = useState<string | null>(() => searchParams?.get("workspaceId") ?? null);
   const [resolutionDrafts, setResolutionDrafts] = useState<Record<string, string>>({});
+  const [resolutionCandidate, setResolutionCandidate] = useState<ResolutionCandidate | null>(null);
 
   useEffect(() => {
     const nextFilter = searchParams?.get("status");
@@ -221,23 +228,39 @@ export default function ClientDisputesPage() {
     }
   }
 
-  async function handleResolveDispute(disputeId: string, resolution?: string) {
+  async function requestResolveDispute(disputeId: string, resolution?: string) {
+    const dispute = disputes.find((item) => item.id === disputeId);
+    setResolutionCandidate({
+      id: disputeId,
+      label: dispute ? `Disputa de ${dispute.jobTitle}` : `Disputa ${disputeId}`,
+      initialResolution: resolution?.trim() ?? resolutionDrafts[disputeId]?.trim() ?? "",
+    });
+  }
+
+  async function confirmResolveDispute(
+    disputeId: string,
+    resolution: string,
+    resolutionType: "pro_favor"
+  ) {
     if (pendingAction) return;
-    const resolutionText = resolution?.trim() ?? resolutionDrafts[disputeId]?.trim() ?? "";
+    const resolutionText = resolution.trim();
     if (resolutionText.length < 8) {
-      setError("Escribe una resolución verificable antes de cerrar la disputa.");
-      return;
+      const validationError = new Error("Escribe una resolución verificable antes de cerrar la disputa.");
+      setError(validationError.message);
+      throw validationError;
     }
     setPendingAction(`resolve:${disputeId}`);
     setError(null);
     try {
       await resolveDispute(disputeId, {
         resolution: resolutionText,
-        resolutionType: "pro_favor",
+        resolutionType,
       });
       await loadDisputes();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo resolver la disputa.");
+      const resolutionError = caught instanceof Error ? caught : new Error("No se pudo resolver la disputa.");
+      setError(resolutionError.message);
+      throw resolutionError;
     } finally {
       setPendingAction(null);
     }
@@ -264,6 +287,17 @@ export default function ClientDisputesPage() {
           </div>
         }
       />
+
+      {resolutionCandidate ? (
+        <DisputeResolutionModal
+          disputeLabel={resolutionCandidate.label}
+          initialResolution={resolutionCandidate.initialResolution}
+          onClose={() => setResolutionCandidate(null)}
+          onConfirm={(resolution, resolutionType) =>
+            confirmResolveDispute(resolutionCandidate.id, resolution, resolutionType)
+          }
+        />
+      ) : null}
 
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 18 }} canvasClassName="rounded-2xl" minHeight={120}>
         {[
@@ -423,7 +457,7 @@ export default function ClientDisputesPage() {
                       ) : null}
                       {canResolve ? (
                         <button
-                          onClick={() => void handleResolveDispute(item.id)}
+                          onClick={() => void requestResolveDispute(item.id)}
                           disabled={pendingAction === `resolve:${item.id}`}
                           style={{ padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction === `resolve:${item.id}` ? 0.7 : 1 }}
                         >
@@ -481,7 +515,7 @@ export default function ClientDisputesPage() {
                 evidenceHref={selectedDispute.jobId ? `/client/milestones?jobId=${encodeURIComponent(selectedDispute.jobId)}` : undefined}
                 documentsHref={selectedDispute.projectId ? `/client/documents?projectId=${encodeURIComponent(selectedDispute.projectId)}` : "/client/documents"}
                 resolveBusy={pendingAction === `resolve:${selectedDispute.id}`}
-                onResolve={(resolution) => handleResolveDispute(selectedDispute.id, resolution)}
+                onResolve={(resolution) => requestResolveDispute(selectedDispute.id, resolution)}
               />
             </div>
           ) : null}
