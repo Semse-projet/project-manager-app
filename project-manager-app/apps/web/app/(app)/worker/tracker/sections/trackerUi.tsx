@@ -1,8 +1,36 @@
 "use client";
 
 import type { CSSProperties, ReactNode } from "react";
-import type { FreeProjectView, TimeEntryView } from "../../../labor-api";
-import type { JobRecordView } from "../../../../semse-api";
+import { LaborApiError, type FreeProjectView, type TimeEntryView } from "../../../labor-api";
+import { SemseApiError, type JobRecordView } from "../../../../semse-api";
+import type { TrackerLocalSession, TrackerLocalState } from "../trackerLocalStore";
+
+// ── Offline-fallback helpers (compartidos entre el Timer tab y Registros) ──
+// Antes vivían solo en page.tsx (Timer tab), así que el formulario de
+// "Entrada manual" de Registros no tenía forma de detectar un error de
+// conexión y encolar el registro localmente — se perdía en silencio si el
+// worker estaba offline. Centralizados aquí para que ambos formularios se
+// comporten igual y no diverjan otra vez. Ver docs/AUDIT_REMEDIATION_PLAN.md 2.5.
+
+export function isLikelyConnectionError(caught: unknown): boolean {
+  return (
+    typeof navigator !== "undefined" && !navigator.onLine
+  ) || (
+    caught instanceof TypeError && caught.message.toLowerCase().includes("fetch")
+  );
+}
+
+export function friendlyConnectionMessage(action: string): string {
+  return `${action}. Tu tiempo se sigue guardando en este dispositivo y se sincronizará cuando haya conexión.`;
+}
+
+/** Should this failure keep/queue the pending local event instead of surfacing a hard error? */
+export function shouldPreserveLocalEvent(caught: unknown): boolean {
+  if (isLikelyConnectionError(caught)) return true;
+  if (caught instanceof SemseApiError) return caught.status >= 500;
+  if (caught instanceof LaborApiError) return caught.status >= 500;
+  return false;
+}
 
 // Paleta categórica por propósito, validada (contraste/CVD) sobre superficie clara y oscura.
 export const PURPOSE_CHART_COLORS: Record<TimeEntryView["purpose"], string> = {
@@ -60,6 +88,34 @@ export function fmtHours(seconds: number): string {
 
 export function fmtMoney(value: number, currency = "USD"): string {
   return value.toLocaleString("en-US", { style: "currency", currency, maximumFractionDigits: 0 });
+}
+
+/**
+ * Costo total agrupado por moneda real de cada entrada — nunca suma MXN y USD
+ * bajo un solo número. Antes los "Costo estimado" de Resumen/Registros/Reportes
+ * sumaban `entryCost()` de todas las entradas sin mirar `entry.currency` y
+ * siempre mostraban el resultado con `fmtMoney()` (default USD/"$"), así que
+ * una mezcla de monedas se veía como una sola cifra en dólares falsa.
+ * Ver docs/AUDIT_REMEDIATION_PLAN.md 2.14.
+ */
+export function groupCostByCurrency(entries: TimeEntryView[]): { currency: string; amount: number }[] {
+  const totals = new Map<string, number>();
+  for (const entry of entries) {
+    const cost = entryCost(entry);
+    if (cost === null) continue;
+    const currency = entry.currency || "USD";
+    totals.set(currency, (totals.get(currency) ?? 0) + cost);
+  }
+  return [...totals.entries()]
+    .map(([currency, amount]) => ({ currency, amount }))
+    .sort((a, b) => b.amount - a.amount);
+}
+
+/** "$1,234" si hay una sola moneda (o ninguna), "$1,234 + MX$500" si hay varias. */
+export function formatCostSummary(entries: TimeEntryView[]): string {
+  const grouped = groupCostByCurrency(entries);
+  if (grouped.length === 0) return "—";
+  return grouped.map((item) => fmtMoney(item.amount, item.currency)).join(" + ");
 }
 
 export function entryDateLabel(entry: TimeEntryView): string {
@@ -413,4 +469,125 @@ export function PurposeChip({ purpose }: { purpose: TimeEntryView["purpose"] }) 
       {PURPOSE_SHORT_LABELS[purpose]}
     </span>
   );
+}
+
+export function PendingSyncBadge() {
+  return (
+    <span
+      title="Guardado en este dispositivo, todavía no confirmado en SEMSE"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "2px 7px",
+        borderRadius: "999px",
+        border: "1px solid rgba(245,158,11,.4)",
+        background: "rgba(245,158,11,.12)",
+        color: "#b45309",
+        fontSize: "10px",
+        fontWeight: 800,
+        whiteSpace: "nowrap",
+      }}
+    >
+      Pendiente de sincronizar
+    </span>
+  );
+}
+
+// ── Trabajo guardado localmente, aún no sincronizado ────────────────────────
+// Resumen/Registros/Reportes solo leían `entries` del backend, así que una
+// sesión activa o una entrada manual guardada offline por `trackerLocalStore`
+// (ver page.tsx / RegistrosTab) era invisible en sus totales/agregados hasta
+// que se sincronizaba — subcontando horas y costo mientras el worker estaba
+// offline. Ver docs/AUDIT_REMEDIATION_PLAN.md 2.3.
+
+function elapsedFromPendingSession(session: TrackerLocalSession, nowMs: number): number {
+  if (session.status !== "RUNNING") return session.accumulatedSeconds;
+  const anchor = session.resumedAt ?? session.startedAt;
+  const anchorTime = new Date(anchor).getTime();
+  if (Number.isNaN(anchorTime)) return session.accumulatedSeconds;
+  return session.accumulatedSeconds + Math.max(0, Math.floor((nowMs - anchorTime) / 1000));
+}
+
+function pendingManualSeconds(date: string, startTime: string, endTime: string, breakMinutes: number): number | null {
+  const startedAt = new Date(`${date}T${startTime}:00`);
+  let endedAt = new Date(`${date}T${endTime}:00`);
+  if (Number.isNaN(startedAt.getTime()) || Number.isNaN(endedAt.getTime())) return null;
+  if (endedAt <= startedAt) {
+    // Mirror the same overnight-shift rollover rule used everywhere else in the tracker.
+    if (startTime > endTime) {
+      endedAt = new Date(endedAt.getTime() + 24 * 60 * 60 * 1000);
+    } else {
+      return null;
+    }
+  }
+  const gross = Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000);
+  const net = gross - Math.max(0, breakMinutes) * 60;
+  return net > 0 ? net : null;
+}
+
+/**
+ * Convierte el trabajo guardado en `trackerLocalStore` (sesión activa aún no
+ * confirmada por el backend + entradas manuales encoladas offline) en
+ * pseudo-`TimeEntryView` con `status: "pending_sync"`, para que puedan
+ * mezclarse con las entradas reales del backend en cualquier agregación
+ * (costo, horas por propósito/proyecto, listas recientes, CSV).
+ */
+export function pendingLocalEntries(state: TrackerLocalState, now: Date = new Date()): TimeEntryView[] {
+  const out: TimeEntryView[] = [];
+
+  const session = state.activeSession;
+  if (session && session.status !== "STOPPED") {
+    out.push({
+      id: `pending-session:${session.id}`,
+      mode: "realtime",
+      purpose: session.purpose ?? (session.jobId ? "job_linked" : "personal"),
+      jobId: session.jobId ?? null,
+      freeProjectId: session.freeProjectId ?? null,
+      status: "pending_sync",
+      startedAt: session.startedAt,
+      endedAt: null,
+      resumedAt: session.resumedAt ?? null,
+      pausedAt: session.pausedAt ?? null,
+      breakMinutes: 0,
+      durationMinutes: null,
+      accumulatedSeconds: elapsedFromPendingSession(session, now.getTime()),
+      hourlyRate: null,
+      currency: "MXN",
+      location: null,
+      notes: session.notes ?? null,
+      createdAt: session.startedAt,
+      updatedAt: session.updatedAt,
+    });
+  }
+
+  for (const event of state.pendingEvents) {
+    if (event.type !== "manual_session") continue;
+    const seconds = pendingManualSeconds(event.date, event.startTime, event.endTime, event.breakMinutes ?? 0);
+    if (seconds === null) continue;
+    const startedAt = `${event.date}T${event.startTime}:00`;
+    out.push({
+      id: `pending-manual:${event.id}`,
+      mode: "manual",
+      purpose: event.purpose ?? (event.jobId ? "job_linked" : "personal"),
+      jobId: event.jobId ?? null,
+      freeProjectId: event.freeProjectId ?? null,
+      status: "pending_sync",
+      startedAt,
+      endedAt: null,
+      resumedAt: null,
+      pausedAt: null,
+      breakMinutes: event.breakMinutes ?? 0,
+      durationMinutes: Math.round(seconds / 60),
+      accumulatedSeconds: seconds,
+      hourlyRate: event.hourlyRate ?? null,
+      currency: event.currency ?? "MXN",
+      location: event.location ?? null,
+      notes: event.notes ?? null,
+      createdAt: startedAt,
+      updatedAt: startedAt,
+    });
+  }
+
+  return out;
 }
