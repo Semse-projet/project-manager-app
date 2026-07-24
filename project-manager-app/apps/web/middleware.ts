@@ -7,7 +7,7 @@ export const runtime = "nodejs";
  * Next.js Middleware — route protection
  *
  * Protected routes: all paths under the (app) route group
- *   /worker/*, /client/*, /admin/*, /agents
+ *   /worker/*, /client/*, /admin/*, /agents, and the legacy /jobs/*
  *   plus internal architecture pages /anatomy, /knowledge, /repo-map,
  *   and /runtime-map (OPS_ADMIN only)
  *
@@ -43,7 +43,7 @@ function isAuthPage(pathname: string): boolean {
 }
 
 // Protected prefixes — routes that require a valid session
-const PROTECTED_PREFIXES = ["/worker", "/client", "/admin", "/agents"];
+const PROTECTED_PREFIXES = ["/worker", "/client", "/admin", "/agents", "/jobs"];
 
 function isProtected(pathname: string): boolean {
   return (
@@ -141,8 +141,8 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   const role = roleFromRoles(session.roles);
   const ownedPrefixes: Record<typeof role, string[]> = {
     worker: ["/worker", "/agents"],
-    client: ["/client", "/agents"],
-    admin:  ["/worker", "/client", "/admin", "/agents"], // admin sees all
+    client: ["/client", "/agents", "/jobs"],
+    admin:  ["/worker", "/client", "/admin", "/agents", "/jobs"], // admin sees all
   };
 
   const allowed = isInternalArchitecturePagePath(pathname)

@@ -59,6 +59,12 @@ test("OPS_ADMIN includes ops-specific and dashboard:write permissions", () => {
   }
 });
 
+test("CLIENT can request a governed dispute settlement while PRO and WORKER cannot", () => {
+  assert.ok(rolePermissions["CLIENT"].includes("disputes:resolve"));
+  assert.ok(!rolePermissions["PRO"].includes("disputes:resolve"));
+  assert.ok(!rolePermissions["WORKER"].includes("disputes:resolve"));
+});
+
 test("domain permissions are explicit for knowledge, tools, vision, and weather", () => {
   for (const role of ["CLIENT", "PRO", "WORKER", "OPS_ADMIN"]) {
     assert.ok(rolePermissions[role].includes("knowledge:read"), `${role} should read knowledge domains`);

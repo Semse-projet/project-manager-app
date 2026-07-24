@@ -82,7 +82,7 @@ function formatDate(iso: string): string {
 
 interface EscrowTimelineProps {
   escrow: EscrowView;
-  onReleaseMilestone?: (milestoneId: string) => Promise<void>;
+  onReleaseMilestone?: (milestoneId: string) => void;
   onDispute?: () => Promise<void>;
   releasingId?: string | null;
   disputing?: boolean;
@@ -173,6 +173,7 @@ export function EscrowTimeline({
           </div>
           <div className="divide-y divide-white/[0.05]">
             {escrow.milestones
+              .slice()
               .sort((a, b) => a.sequence - b.sequence)
               .map((milestone) => (
                 <MilestoneRow
@@ -211,7 +212,7 @@ export function EscrowTimeline({
 interface MilestoneRowProps {
   milestone: EscrowMilestone;
   currency: string;
-  onRelease?: (id: string) => Promise<void>;
+  onRelease?: (id: string) => void;
   releasing: boolean;
 }
 
@@ -257,7 +258,7 @@ function MilestoneRow({ milestone, currency, onRelease, releasing }: MilestoneRo
                 type="button"
                 className="mt-2 inline-flex items-center justify-center rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-[#0a0a14] transition-all hover:bg-brand-dim disabled:cursor-not-allowed disabled:opacity-40"
                 disabled={releasing}
-                onClick={() => void onRelease(milestone.id)}
+                onClick={() => onRelease(milestone.id)}
                 aria-label={`Liberar pago de ${milestone.title}`}
               >
                 {releasing ? "Liberando..." : "Liberar pago"}

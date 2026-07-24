@@ -2,7 +2,7 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.1"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -15,15 +15,24 @@ related_files:
   - apps/web/app/(app)/client/dashboard/page.tsx
   - apps/web/app/(app)/client/jobs/page.tsx
   - apps/web/app/(app)/client/jobs/[jobId]/page.tsx
+  - apps/web/app/(app)/client/disputes/page.tsx
   - apps/web/app/(app)/client/jobs/new/page.tsx
   - apps/web/app/(app)/client/leads/page.tsx
   - apps/web/app/(app)/client/marketplace/page.tsx
   - apps/web/app/(app)/client/protools/page.tsx
   - apps/web/app/dashboard/dashboard-client.tsx
+  - apps/web/app/components/payments/EscrowFundModal.tsx
+  - apps/web/app/components/payments/EscrowReleaseModal.tsx
+  - apps/web/app/components/disputes/DisputeResolutionModal.tsx
+  - apps/web/app/jobs/[jobId]/page.tsx
+  - apps/web/app/jobs/[jobId]/escrow/page.tsx
+  - apps/web/middleware.ts
   - apps/api/src/modules/bids/bids.repository.ts
   - apps/api/src/modules/payments
   - apps/api/src/modules/auth/auth.service.ts
-related_tests: []
+related_tests:
+  - tests/unit/client-money-confirmation.test.ts
+  - tests/unit/auth.test.ts
 related_endpoints:
   - v1/jobs
   - v1/bids
@@ -84,9 +93,25 @@ El rol CLIENT vive bajo `/client/*` (no `/jobs/*`, que es código huérfano de u
 **Contrato roto:** ninguna de las tres superficies pasa por `EscrowFundModal` (que sí implementa monto + confirmación correctamente, y ya está cableado en `client/payments`).
 **Fix esperado:** cablear `EscrowFundModal` (o un modal equivalente) en las 3 superficies antes de llamar a la API.
 
+**Remediación v1.2 (2026-07-23):** las superficies canónica y heredada abren
+`EscrowFundModal` para revisar monto, moneda, proveedor y método antes del
+fondeo. La liberación usa `EscrowReleaseModal`, que muestra milestone y monto
+antes de invocar `releaseMilestoneEscrow`. `EscrowTimeline` quedó como
+componente presentacional: su callback solicita la confirmación al page owner y
+ya no representa una mutación directa. La ruta heredada `/jobs/*` ahora exige
+sesión y solo admite CLIENT u OPS_ADMIN.
+
 ### G-CLI-02 — CRÍTICO — "Resolver disputa" fijo a `pro_favor`, sin confirmación
 **Archivo:** `apps/web/app/jobs/[jobId]/page.tsx:276-293` (`handleResolveDispute`).
 **Nota:** este archivo vive en la ruta huérfana `/jobs/[jobId]`, no en `/client/*` — verificar explícitamente que esté bloqueada para tráfico real antes de decidir si se repara o se elimina (relacionado con G-CLI-09).
+
+**Remediación v1.2 (2026-07-23):** `/jobs/*` dejó de ser pública. Resolver desde
+esa ruta o desde la superficie canónica `/client/disputes` abre un diálogo que
+explica el único acuerdo permitido para CLIENT
+(`pro_favor`), muestra su efecto financiero y exige aceptación explícita. No se
+ofrecen refunds, splits ni escalamiento porque la policy los reserva a
+OPS_ADMIN. El permiso `disputes:resolve` de CLIENT quedó alineado con esa policy
+de ownership y resultado; PRO y WORKER continúan sin el permiso.
 
 ### G-CLI-03 — ALTO — Wizard de publicación pierde el 100% del progreso al refrescar
 **Archivo:** `client/jobs/new/page.tsx`.
@@ -151,7 +176,9 @@ required_behavior:
 
 - [ ] `client/dashboard` — job con status `ACCEPTED` cuenta en "Trabajos activos" (regresión directa de G-CLI-00)
 - [ ] `client/jobs` filtro "Activos" incluye jobs `IN_PROGRESS`/`RESERVED`/`REVIEW`
-- [ ] Fondear escrow requiere confirmación explícita con monto antes de llamar a la API (3 superficies de G-CLI-01)
+- [x] Fondear escrow requiere confirmación explícita con monto antes de llamar a la API (superficies de G-CLI-01)
+- [x] Liberar escrow muestra milestone, moneda y monto antes de llamar a la API
+- [x] Resolver una disputa desde `/jobs/[jobId]` exige resultado y aceptación explícitos
 - [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
 - [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
 
@@ -162,6 +189,8 @@ required_behavior:
 - `apps/web/app/dashboard/dashboard-client.tsx`
 - `packages/ui/src/components/EscrowTimeline.tsx`
 - `apps/web/app/components/payments/EscrowFundModal.tsx`
+- `apps/web/app/components/payments/EscrowReleaseModal.tsx`
+- `apps/web/app/components/disputes/DisputeResolutionModal.tsx`
 
 ### API
 - `apps/api/src/modules/bids/bids.repository.ts`
@@ -175,6 +204,7 @@ required_behavior:
 - [x] Las migraciones 1.15–1.17/1.19 se separaron en `ui.design-system-remediation`.
 - [x] `node scripts/spec-validate.mjs --strict` pasa.
 - [x] Cada gap G-CLI-* tiene routing en `governance.audit-remediation-program` y tarea en la sección 1 del plan.
+- [x] G-CLI-01 y G-CLI-02 tienen confirmación explícita, monto/resultado visible y regresión automatizada.
 
 ## Rollback Considerations
 

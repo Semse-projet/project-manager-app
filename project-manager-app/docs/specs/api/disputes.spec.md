@@ -4,7 +4,7 @@ title: "Dispute Lifecycle API"
 type: spec
 feature: "Dispute Lifecycle"
 domain: "disputes"
-version: "1.0"
+version: "1.1"
 status: "VERIFIED"
 owner: semse-core
 risk: critical
@@ -17,9 +17,13 @@ depends_on:
   - "docs/specs/api/payments.spec.md"
 related_files:
   - apps/api/src/modules/disputes
+  - packages/auth/src/rbac.ts
   - packages/schemas/src/dispute.schema.ts
 related_tests:
   - apps/api/test/contracts-disputes.spec-contract.test.ts
+  - apps/api/test/disputes.controller.test.ts
+  - apps/api/test/disputes-policy.test.ts
+  - tests/unit/auth.test.ts
   - scripts/api-disputes-smoke.mjs
 related_endpoints:
   - v1/disputes
@@ -31,7 +35,7 @@ related_events:
   - dispute.resolved
 related_agents:
   - dispute-analyzer
-last_verified: 2026-07-17
+last_verified: 2026-07-23
 ---
 
 # Spec: Dispute Lifecycle
@@ -214,7 +218,7 @@ efectos:
 ### `POST /v1/disputes/:disputeId/resolve`
 
 ```yaml
-método: POST · permiso: disputes:resolve · roles: [OPS_ADMIN]
+método: POST · permiso: disputes:resolve · roles: [CLIENT, OPS_ADMIN]
 input:
   schema: resolveProjectDisputeSchema
   campos:
@@ -289,3 +293,12 @@ describe("POST /v1/disputes/:id/submit-evidence") {
 | No hay endpoint `GET /v1/disputes/:disputeId` para detalle individual | 🟡 Media |
 | `POST /v1/disputes/:id/review` incluido en la superficie canónica | ✅ Cerrado |
 | No hay timeout automático para disputas en OPEN sin asignar | 🟢 Baja |
+
+## 8. Alineación RBAC v1.1
+
+- CLIENT recibe `disputes:resolve` para alcanzar el guard del endpoint.
+- La autorización final permanece en `assertDisputeResolvable`: exige que el
+  actor pertenezca a la organización cliente propietaria y que
+  `resolutionType` sea exactamente `pro_favor`.
+- PRO y WORKER no reciben `disputes:resolve`.
+- OPS_ADMIN conserva los cuatro resultados financieros permitidos.

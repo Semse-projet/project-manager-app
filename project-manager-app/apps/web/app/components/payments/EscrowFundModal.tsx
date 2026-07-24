@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { X, CreditCard, Building2, Wallet, Globe, Lock, CheckCircle, AlertTriangle } from "lucide-react";
 
 type Provider = "mock" | "stripe" | "paypal" | "adyen" | "bank-transfer";
@@ -11,7 +11,7 @@ interface EscrowFundModalProps {
   jobTitle: string;
   suggestedAmount?: number;
   onClose: () => void;
-  onSuccess: (txn: { amount: number; provider: Provider; method: MethodType }) => void;
+  onSuccess: (txn: { amount: number; currency: string; provider: Provider; method: MethodType }) => void;
 }
 
 const PROVIDERS: { id: Provider; label: string; description: string; icon: typeof CreditCard; color: string }[] = [
@@ -33,6 +33,9 @@ const METHODS_FOR_PROVIDER: Record<Provider, { id: MethodType; label: string }[]
 const CURRENCIES = ["USD", "EUR", "CAD", "MXN"];
 
 export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onSuccess }: EscrowFundModalProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const successTimerRef = useRef<number | null>(null);
   const [step, setStep] = useState<"form" | "confirm" | "success" | "error">("form");
   const [amount, setAmount] = useState(suggestedAmount ? String(suggestedAmount) : "");
   const [currency, setCurrency] = useState("USD");
@@ -43,6 +46,19 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
 
   const methods = METHODS_FOR_PROVIDER[provider];
   const selectedProvider = PROVIDERS.find(p => p.id === provider)!;
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !loading) onClose();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [loading, onClose]);
+
+  useEffect(() => () => {
+    if (successTimerRef.current !== null) window.clearTimeout(successTimerRef.current);
+  }, []);
 
   function handleProviderChange(p: Provider) {
     setProvider(p);
@@ -71,7 +87,10 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
         return;
       }
       setStep("success");
-      setTimeout(() => onSuccess({ amount: parseFloat(amount), provider, method }), 1200);
+      successTimerRef.current = window.setTimeout(
+        () => onSuccess({ amount: parseFloat(amount), currency, provider, method }),
+        1200,
+      );
     } catch {
       setErrMsg("No se pudo conectar con el servidor de pagos");
       setStep("error");
@@ -98,7 +117,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
 
   if (step === "success") return (
     <div style={overlay}>
-      <div style={{ ...modal, padding: "48px 32px", textAlign: "center" }}>
+      <div role="status" aria-live="polite" style={{ ...modal, padding: "48px 32px", textAlign: "center" }}>
         <CheckCircle size={48} color="#10b981" style={{ margin: "0 auto 16px" }} />
         <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>¡Escrow fondeado!</h2>
         <p style={{ fontSize: "13px", color: "var(--muted)" }}>${parseFloat(amount).toLocaleString()} {currency} procesados via {selectedProvider.label}.</p>
@@ -108,15 +127,21 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
   );
 
   return (
-    <div style={overlay} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={modal}>
+    <div style={overlay} onClick={e => { if (e.target === e.currentTarget && !loading) onClose(); }}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        style={modal}
+      >
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px 0" }}>
           <div>
-            <h2 style={{ fontSize: "17px", fontWeight: 800, color: "var(--ink)" }}>Fondear escrow</h2>
-            <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{jobTitle}</p>
+            <h2 id={titleId} style={{ fontSize: "17px", fontWeight: 800, color: "var(--ink)" }}>Fondear escrow</h2>
+            <p id={descriptionId} style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{jobTitle}</p>
           </div>
-          <button onClick={onClose} style={{ padding: "6px", border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", borderRadius: "8px", display: "flex" }}>
+          <button type="button" aria-label="Cerrar confirmación" disabled={loading} onClick={onClose} style={{ padding: "6px", border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", borderRadius: "8px", display: "flex" }}>
             <X size={18} />
           </button>
         </div>

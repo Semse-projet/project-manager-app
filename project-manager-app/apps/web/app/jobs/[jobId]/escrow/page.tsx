@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   fetchJobEscrow,
   fetchJobMilestones,
-  fundJobEscrow,
   releaseMilestoneEscrow,
   createJobDispute,
   semseRuntimeEnabled,
@@ -14,12 +13,14 @@ import {
   EscrowTimeline,
   normalizeEscrow,
   normalizeMilestone,
+  type EscrowMilestone,
   type EscrowView,
 } from "@semse/ui";
 import { Button } from "../../../../components/ui/button";
-import { Input } from "../../../../components/ui/input";
 import { FeedbackBanner } from "../../../../components/ui/error-state";
 import { PageSpinner } from "../../../../components/ui/spinner";
+import { EscrowFundModal } from "../../../components/payments/EscrowFundModal";
+import { EscrowReleaseModal } from "../../../components/payments/EscrowReleaseModal";
 
 type EscrowPageProps = { params: Promise<{ jobId: string }> };
 
@@ -33,11 +34,11 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
   const [feedback, setFeedback] = useState<string | null>(null);
 
   // Fondear
-  const [fundAmount, setFundAmount] = useState("1000");
-  const [funding, setFunding] = useState(false);
+  const [fundModalOpen, setFundModalOpen] = useState(false);
 
   // Liberar milestone
   const [releasingId, setReleasingId] = useState<string | null>(null);
+  const [releaseCandidate, setReleaseCandidate] = useState<EscrowMilestone | null>(null);
 
   // Disputa
   const [disputing, setDisputing] = useState(false);
@@ -71,30 +72,13 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
     return () => { cancelled = true; };
   }, [params, load]);
 
-  // ── Fondear escrow ──────────────────────────────────────────
-  async function handleFund() {
-    if (!jobId || funding) return;
-    const parsed = Number(fundAmount);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setError("El monto debe ser mayor que cero.");
-      return;
-    }
-    setFunding(true);
-    setError(null);
-    setFeedback(null);
-    try {
-      await fundJobEscrow(jobId, { amount: parsed, currency: "USD", provider: "mock", methodType: "bank_transfer" });
-      setFeedback(`Escrow fondeado: ${parsed} USD.`);
-      await load(jobId);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo fondear el escrow.");
-    } finally {
-      setFunding(false);
-    }
+  // ── Liberar milestone ───────────────────────────────────────
+  function handleRequestReleaseMilestone(milestoneId: string) {
+    const milestone = escrow?.milestones.find((item) => item.id === milestoneId);
+    if (milestone) setReleaseCandidate(milestone);
   }
 
-  // ── Liberar milestone ───────────────────────────────────────
-  async function handleReleaseMilestone(milestoneId: string) {
+  async function confirmReleaseMilestone(milestoneId: string) {
     setReleasingId(milestoneId);
     setError(null);
     setFeedback(null);
@@ -103,7 +87,9 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
       setFeedback("Pago liberado correctamente.");
       await load(jobId);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo liberar el pago.");
+      const releaseError = e instanceof Error ? e : new Error("No se pudo liberar el pago.");
+      setError(releaseError.message);
+      throw releaseError;
     } finally {
       setReleasingId(null);
     }
@@ -147,6 +133,30 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
         </p>
       </div>
 
+      {fundModalOpen ? (
+        <EscrowFundModal
+          jobId={jobId}
+          jobTitle={`Job ${jobId}`}
+          suggestedAmount={escrow?.availableAmount || escrow?.totalAmount || 1000}
+          onClose={() => setFundModalOpen(false)}
+          onSuccess={({ amount }) => {
+            setFundModalOpen(false);
+            setFeedback(`Escrow fondeado: ${amount} USD.`);
+            void load(jobId);
+          }}
+        />
+      ) : null}
+
+      {releaseCandidate ? (
+        <EscrowReleaseModal
+          milestoneTitle={releaseCandidate.title}
+          amount={releaseCandidate.amount}
+          currency={escrow?.currency ?? "USD"}
+          onClose={() => setReleaseCandidate(null)}
+          onConfirm={() => confirmReleaseMilestone(releaseCandidate.id)}
+        />
+      ) : null}
+
       {/* Runtime banner */}
       {!runtimeEnabled && (
         <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] px-4 py-3">
@@ -178,7 +188,7 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
             {escrow ? (
               <EscrowTimeline
                 escrow={escrow}
-                onReleaseMilestone={handleReleaseMilestone}
+                onReleaseMilestone={handleRequestReleaseMilestone}
                 onDispute={handleDispute}
                 releasingId={releasingId}
                 disputing={disputing}
@@ -198,23 +208,15 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
                 Fondear escrow
               </h2>
               <p className="mb-4 text-xs text-muted/60">
-                Método: bank_transfer · Proveedor: mock
+                El monto, la moneda y el proveedor se revisan antes de confirmar.
               </p>
-              <Input
-                label="Monto (USD)"
-                data-testid="escrow-amount-input"
-                inputMode="decimal"
-                value={fundAmount}
-                onChange={(e) => setFundAmount(e.target.value)}
-              />
               <Button
-                className="mt-3 w-full"
+                className="w-full"
                 data-testid="fund-escrow-button"
                 disabled={!runtimeEnabled || loading}
-                loading={funding}
-                onClick={() => void handleFund()}
+                onClick={() => setFundModalOpen(true)}
               >
-                Fondear escrow
+                Revisar y fondear
               </Button>
             </div>
 

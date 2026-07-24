@@ -27,9 +27,12 @@ import { Input, Textarea } from "../../../components/ui/input";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { FeedbackBanner } from "../../../components/ui/error-state";
 import { PageSpinner } from "../../../components/ui/spinner";
+import { DisputeResolutionModal } from "../../components/disputes/DisputeResolutionModal";
+import { EscrowReleaseModal } from "../../components/payments/EscrowReleaseModal";
 
 type JobDetailPageProps = { params: Promise<{ jobId: string }> };
 type MilestoneAction = "submit" | "approve" | "reject" | "request-changes";
+type ReleaseCandidate = { id: string; title: string; amount: number };
 
 function formatStatus(status: string) {
   return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -66,6 +69,8 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
   const [disputeReason, setDisputeReason] = useState("Need ops review for this job.");
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [releaseCandidate, setReleaseCandidate] = useState<ReleaseCandidate | null>(null);
+  const [resolutionCandidate, setResolutionCandidate] = useState<{ id: string; label: string } | null>(null);
 
   async function refresh(id: string) {
     const [jobResult, milestonesResult, disputesResult, evidenceResult, escrowResult] = await Promise.allSettled([
@@ -242,7 +247,7 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     }
   }
 
-  async function handleReleaseMilestone(milestoneId: string) {
+  async function confirmReleaseMilestone(milestoneId: string) {
     setReleasingMilestoneId(milestoneId);
     setError(null);
     setFeedback(null);
@@ -251,7 +256,9 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
       await refresh(jobId);
       setFeedback("Release ejecutado correctamente.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo liberar el pago.");
+      const releaseError = e instanceof Error ? e : new Error("No se pudo liberar el pago.");
+      setError(releaseError.message);
+      throw releaseError;
     } finally {
       setReleasingMilestoneId(null);
     }
@@ -273,20 +280,26 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     }
   }
 
-  async function handleResolveDispute(disputeId: string) {
+  async function confirmResolveDispute(
+    disputeId: string,
+    resolution: string,
+    resolutionType: "pro_favor"
+  ) {
     if (resolvingDisputeId) return;
     setResolvingDisputeId(disputeId);
     setError(null);
     setFeedback(null);
     try {
       await resolveDispute(disputeId, {
-        resolution: "Resolved by client in favor of the professional",
-        resolutionType: "pro_favor",
+        resolution,
+        resolutionType,
       });
       await refresh(jobId);
       setFeedback("Dispute resuelta. El job volvió a estado operativo.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudo resolver la disputa.");
+      const resolutionError = e instanceof Error ? e : new Error("No se pudo resolver la disputa.");
+      setError(resolutionError.message);
+      throw resolutionError;
     } finally {
       setResolvingDisputeId(null);
     }
@@ -322,6 +335,26 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
           </div>
         ) : null}
       </HtmlInCanvasPanel>
+
+      {releaseCandidate ? (
+        <EscrowReleaseModal
+          milestoneTitle={releaseCandidate.title}
+          amount={releaseCandidate.amount}
+          currency={escrowCurrency}
+          onClose={() => setReleaseCandidate(null)}
+          onConfirm={() => confirmReleaseMilestone(releaseCandidate.id)}
+        />
+      ) : null}
+
+      {resolutionCandidate ? (
+        <DisputeResolutionModal
+          disputeLabel={resolutionCandidate.label}
+          onClose={() => setResolutionCandidate(null)}
+          onConfirm={(resolution, resolutionType) =>
+            confirmResolveDispute(resolutionCandidate.id, resolution, resolutionType)
+          }
+        />
+      ) : null}
 
       {/* Runtime banner */}
       {!runtimeEnabled ? (
@@ -543,7 +576,11 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                             size="sm"
                             disabled={busy}
                             loading={releasingMilestoneId === id}
-                            onClick={() => handleReleaseMilestone(id)}
+                            onClick={() => setReleaseCandidate({
+                              id,
+                              title: String(ms.title ?? "Milestone"),
+                              amount: readNumber(ms.amount) ?? 0,
+                            })}
                           >
                             Release
                           </Button>
@@ -609,7 +646,10 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
                               <button
                                 className="ghost-action-button text-xs"
                                 disabled={resolvingDisputeId === dId}
-                                onClick={() => handleResolveDispute(dId)}
+                                onClick={() => setResolutionCandidate({
+                                  id: dId,
+                                  label: `Disputa ${dId}`,
+                                })}
                               >
                                 {resolvingDisputeId === dId ? "Resolviendo…" : "Resolver"}
                               </button>

@@ -55,7 +55,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
-| [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 2 | 2026-07-17 |
+| [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 3 | 2026-07-23 |
 | [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
 | [api-field-ops](specs/api/field-ops.spec.md) | field-ops | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
@@ -136,7 +136,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 14 | 2026-07-23 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | critical | no | yes | no | 5 | 2026-07-23 |
-| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | no | 12 | 2026-07-23 |
+| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 19 | 2026-07-23 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | 2026-07-12 |
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |
