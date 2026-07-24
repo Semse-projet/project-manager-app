@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
 import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
@@ -396,11 +396,17 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const nav = NAV[role];
   const RoleIcon = nav.icon;
 
-  useState(() => {
-    if (typeof window === "undefined") return;
+  useEffect(() => {
     const savedTheme = window.localStorage.getItem("semse-theme");
-    if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
-  });
+    if (savedTheme === "dark" || savedTheme === "light") {
+      setTheme(savedTheme);
+    }
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("semse-theme", theme);
+  }, [theme]);
 
   const handleCollapsedChange = (next: boolean) => {
     setCollapsed(next);
@@ -411,8 +417,6 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
   const handleThemeChange = (value: ThemePreference) => {
     setTheme(value);
-    document.documentElement.dataset.theme = value;
-    window.localStorage.setItem("semse-theme", value);
   };
 
   const shellNavModel = useMemo(
