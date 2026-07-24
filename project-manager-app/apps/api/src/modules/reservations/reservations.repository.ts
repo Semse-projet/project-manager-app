@@ -381,48 +381,50 @@ export class ReservationsRepository {
     const now = new Date();
     const limit = input.maxItems ?? 50;
 
-    const stale = await this.prisma.jobReservation.findMany({
-      where: {
-        status: "ACTIVE",
-        expiresAt: { lte: now }
-      },
-      select: { id: true, jobId: true },
-      take: limit
-    }) as Array<{ id: string; jobId: string }>;
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as ReservationTx;
+      const stale = (await db.jobReservation.findMany({
+        where: {
+          status: "ACTIVE",
+          expiresAt: { lte: now }
+        },
+        select: { id: true, jobId: true },
+        take: limit
+      })) as Array<{ id: string; jobId: string }>;
 
-    if (stale.length === 0) {
-      return { expiredCount: 0, jobsReopened: 0 };
-    }
-
-    const staleIds = stale.map((r) => r.id);
-    const jobIds = Array.from(new Set(stale.map((r) => r.jobId)));
-
-    await this.prisma.jobReservation.updateMany({
-      where: { id: { in: staleIds } },
-      data: { status: "EXPIRED", releasedAt: now }
-    });
-
-    let jobsReopened = 0;
-    for (const jobId of jobIds) {
-      const stillActive = await this.prisma.jobReservation.count({
-        where: { jobId, status: "ACTIVE" }
-      });
-      if (stillActive === 0) {
-        const job = await this.prisma.job.findFirst({
-          where: { id: jobId, deletedAt: null },
-          select: { id: true, status: true }
-        });
-        if (job && job.status === "RESERVED") {
-          await this.prisma.job.update({
-            where: { id: jobId },
-            data: { status: "POSTED" }
-          });
-          jobsReopened++;
-        }
+      if (stale.length === 0) {
+        return { expiredCount: 0, jobsReopened: 0 };
       }
-    }
 
-    return { expiredCount: stale.length, jobsReopened };
+      const staleIds = stale.map((reservation) => reservation.id);
+      const jobIds = Array.from(new Set(stale.map((reservation) => reservation.jobId)));
+      const expired = await db.jobReservation.updateMany({
+        where: {
+          id: { in: staleIds },
+          status: "ACTIVE",
+          expiresAt: { lte: now }
+        },
+        data: { status: "EXPIRED", releasedAt: now }
+      });
+
+      let jobsReopened = 0;
+      for (const jobId of jobIds) {
+        const reopened = await db.job.updateMany({
+          where: {
+            id: jobId,
+            deletedAt: null,
+            status: "RESERVED",
+            reservations: {
+              none: { status: "ACTIVE" }
+            }
+          },
+          data: { status: "POSTED" }
+        });
+        jobsReopened += reopened.count;
+      }
+
+      return { expiredCount: expired.count, jobsReopened };
+    });
   }
 
   async findAcceptedByJob(input: ActorInput & { jobId: string }) {

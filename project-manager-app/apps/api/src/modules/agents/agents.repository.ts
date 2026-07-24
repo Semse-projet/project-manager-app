@@ -154,56 +154,74 @@ export class AgentsRepository {
   }): Promise<AgentRunRecord[]> {
     await this.actorContextService.ensureActorContext(input);
 
-    const candidates = (await this.prisma.agentRun.findMany({
-      where: {
-        tenantId: input.tenantId,
-        status: "RUNNING"
-      },
-      orderBy: { updatedAt: "asc" },
-      take: input.maxItems ?? 50
-    })) as StoredAgentRun[];
+    const limit = input.maxItems ?? 50;
+    const staleBefore = new Date(Date.now() - input.staleAfterMs);
+    const staleSignalWhere: PrismaTypes.AgentRunWhereInput = {
+      OR: [
+        { heartbeatAt: { lte: staleBefore } },
+        { heartbeatAt: null, startedAt: { lte: staleBefore } },
+        { heartbeatAt: null, startedAt: null, updatedAt: { lte: staleBefore } }
+      ]
+    };
 
-    const now = Date.now();
-    const reclaimed: AgentRunRecord[] = [];
+    return this.prisma.$transaction(async (tx) => {
+      const db = tx as AgentRunTx;
+      const candidates = (await db.agentRun.findMany({
+        where: {
+          tenantId: input.tenantId,
+          status: "RUNNING",
+          ...staleSignalWhere
+        },
+        orderBy: { updatedAt: "asc" },
+        take: limit
+      })) as StoredAgentRun[];
+      const reclaimed: AgentRunRecord[] = [];
 
-    for (const run of candidates) {
-      const lastSignal = run.heartbeatAt ?? run.startedAt ?? run.updatedAt ?? run.createdAt;
-      const ageMs = now - lastSignal.getTime();
+      for (const run of candidates) {
+        const mutation = await db.agentRun.updateMany({
+          where: {
+            id: run.id,
+            tenantId: input.tenantId,
+            status: "RUNNING",
+            ...staleSignalWhere
+          },
+          data:
+            run.attempts >= run.maxAttempts
+              ? {
+                  status: "FAILED",
+                  deadLettered: true,
+                  error: "max attempts reached during stale reclaim",
+                  workerId: null,
+                  heartbeatAt: null,
+                  endedAt: new Date()
+                }
+              : {
+                  status: "QUEUED",
+                  workerId: null,
+                  error: "reclaimed due to stale heartbeat",
+                  startedAt: null,
+                  heartbeatAt: null,
+                  endedAt: null
+                }
+        });
 
-      if (Number.isNaN(ageMs) || ageMs < input.staleAfterMs) {
-        continue;
+        if (mutation.count === 0) {
+          continue;
+        }
+
+        const updated = (await db.agentRun.findFirst({
+          where: {
+            id: run.id,
+            tenantId: input.tenantId
+          }
+        })) as StoredAgentRun | null;
+        if (updated) {
+          reclaimed.push(this.toRecord(updated));
+        }
       }
 
-      const updated = (await this.prisma.agentRun.update({
-        where: { id: run.id },
-        data:
-          run.attempts >= run.maxAttempts
-            ? {
-                status: "FAILED",
-                deadLettered: true,
-                error: "max attempts reached during stale reclaim",
-                workerId: null,
-                heartbeatAt: null,
-                endedAt: new Date()
-              }
-            : {
-                status: "QUEUED",
-                workerId: null,
-                error: "reclaimed due to stale heartbeat",
-                startedAt: null,
-                heartbeatAt: null,
-                endedAt: null
-              }
-      })) as StoredAgentRun;
-
-      reclaimed.push(this.toRecord(updated));
-
-      if (reclaimed.length >= (input.maxItems ?? 50)) {
-        break;
-      }
-    }
-
-    return reclaimed;
+      return reclaimed;
+    });
   }
 
   async retry(input: { tenantId: string; orgId: string; userId: string; runId: string }): Promise<AgentRunRecord> {

@@ -197,7 +197,7 @@ tomadas.
 - **Qué:** `sweepExpired()` (reservas) y `reclaimStale()` (agent runs) hacen `findMany` + `update` sin repetir el filtro de estado en el WHERE, sin transacción — a diferencia de sus métodos hermanos.
 - **Dónde:** `apps/api/.../reservations.repository.ts:380-403` · `agents.repository.ts:157-204`
 - **Fix:** envolver en transacción y repetir el filtro de estado original en el WHERE del update (mismo patrón que `accept`/`release`/`expire`).
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-23) — ambos sweeps ejecutan selección y mutación dentro de una transacción y aplican compare-and-set con `updateMany`. Reservas repite `status: ACTIVE` y `expiresAt <= now`; `expiredCount` usa el número real de filas mutadas, no candidatos obsoletos. La reapertura de jobs también es atómica: solo cambia `RESERVED -> POSTED` si no existe ninguna reserva `ACTIVE`. Agent runs selecciona únicamente señales realmente stale y repite `tenantId`, `status: RUNNING` y el cutoff de `heartbeatAt/startedAt/updatedAt` en cada update; si un heartbeat/complete/fail ganó la carrera, `count=0` y se omite. Solo después de una mutación exitosa relee la fila dentro de la misma transacción. Regresiones simulan cambios entre `findMany` y `updateMany`, cubren requeue/dead-letter y preservan `correlationId`. Verificado: reservas 6/6, agent/FSM 8/8, build y lint API pasan.
 
 ### 0.23 — ALTO — Aprobar change-order nunca valida contra el escrow restante
 - **Dónde:** `change-orders.service.ts:158-169,229-233,251-312`
