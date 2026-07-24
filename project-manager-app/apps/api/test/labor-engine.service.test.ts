@@ -42,6 +42,12 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
     async listLongEntries(...args: unknown[]) {
       return record("listLongEntries", args, []);
     },
+    async isJobAssignedToWorker(...args: unknown[]) {
+      return record("isJobAssignedToWorker", args, true);
+    },
+    async isFreeProjectOwnedByWorker(...args: unknown[]) {
+      return record("isFreeProjectOwnedByWorker", args, true);
+    },
     ...overrides,
   };
   return repo;
@@ -89,6 +95,41 @@ void test("startTimer starts a realtime entry for valid input", async () => {
   assert.equal((result as { id: string }).id, "te1");
   const startCall = repo.calls.find((call) => call.method === "startRealtimeEntry");
   assert.ok(startCall, "should call startRealtimeEntry");
+});
+
+void test("startTimer rejects a jobId not assigned to the worker", async () => {
+  const { service } = createService({
+    async isJobAssignedToWorker() {
+      return false;
+    },
+  });
+
+  await assert.rejects(
+    service.startTimer({ tenantId: "tnt", orgId: "org", createdBy: "user-1", purpose: "job_linked", jobId: "job-not-mine" }),
+    /not assigned to you/i,
+  );
+});
+
+void test("createManualEntry rejects a freeProjectId not owned by the worker", async () => {
+  const { service } = createService({
+    async isFreeProjectOwnedByWorker() {
+      return false;
+    },
+  });
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "personal",
+      freeProjectId: "fp-not-mine",
+      date: "2026-07-20",
+      startTime: "09:00",
+      endTime: "13:00",
+    }),
+    /does not belong to you/i,
+  );
 });
 
 void test("pause/resume/stop/updateNotes scope by owner (createdBy)", async () => {

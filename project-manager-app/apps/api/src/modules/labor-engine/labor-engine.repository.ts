@@ -90,9 +90,10 @@ export class LaborEngineRepository {
     clientEventId?: string;
   }): Promise<TimeEntryRecord> {
     const now = new Date();
+    const breakMinutes = Math.max(0, data.breakMinutes ?? 0);
     const duration = data.durationMinutes
       ?? (data.endedAt
-        ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - (data.breakMinutes ?? 0))
+        ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - breakMinutes)
         : null);
 
     const createData = {
@@ -107,7 +108,7 @@ export class LaborEngineRepository {
       status: data.endedAt ? "completed" : "running",
       startedAt: data.startedAt,
       endedAt: data.endedAt ?? null,
-      breakMinutes: data.breakMinutes ?? 0,
+      breakMinutes,
       durationMinutes: duration,
       accumulatedSeconds: duration ? duration * 60 : 0,
       hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,
@@ -144,6 +145,33 @@ export class LaborEngineRepository {
     return this.prisma.timeEntry.findFirst({
       where: { tenantId, createdBy, clientEventId },
     }) as unknown as TimeEntryRecord | null;
+  }
+
+  /** Same assignment rule as FieldOpsRepository.trackerJobAssignmentWhere — a worker
+   * may only log time against a job they're actually accepted/reserved on. */
+  async isJobAssignedToWorker(tenantId: string, orgId: string, jobId: string, userId: string): Promise<boolean> {
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: jobId,
+        tenantId,
+        deletedAt: null,
+        OR: [
+          { bids: { some: { professionalUserId: userId, status: "ACCEPTED" } } },
+          { reservations: { some: { professionalId: userId, status: { in: ["ACTIVE", "ACCEPTED"] } } } },
+          { reservations: { some: { professionalOrgId: orgId, status: { in: ["ACTIVE", "ACCEPTED"] } } } },
+        ],
+      },
+      select: { id: true },
+    });
+    return job !== null;
+  }
+
+  async isFreeProjectOwnedByWorker(tenantId: string, freeProjectId: string, userId: string): Promise<boolean> {
+    const project = await this.prisma.freeProject.findFirst({
+      where: { id: freeProjectId, tenantId, createdBy: userId },
+      select: { id: true },
+    });
+    return project !== null;
   }
 
   async startRealtimeEntry(data: {
