@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { type JobRecord } from "../../common/domain-store.js";
@@ -52,18 +53,68 @@ export class JobsRepository {
     private readonly actorContextService: ActorContextService
   ) {}
 
+  /**
+   * 2.27 — this used to filter only by tenantId + deletedAt: null, so ANY
+   * authenticated caller (e.g. a PRO hitting GET /api/semse/jobs from
+   * worker/dashboard) received every job for the whole tenant across ALL
+   * client organizations, in every status including DRAFT (unpublished).
+   * The frontend only *displayed* a filtered subset — the full payload,
+   * including other clients' draft/private jobs, still reached the browser.
+   *
+   * Now scoped by role, matching how each role is actually allowed to see
+   * jobs elsewhere in the app:
+   *  - OPS_ADMIN: unrestricted (tenant-wide ops visibility is intentional).
+   *  - CLIENT: only jobs belonging to the caller's own client org.
+   *  - PRO/WORKER: only postable jobs (POSTED/PUBLISHED, open to bid) plus
+   *    jobs the caller is already engaged with (bid, reservation, contract,
+   *    or org-level project assignment) — same "assigned" definition used by
+   *    FieldOpsRepository.trackerJobAssignmentWhere and
+   *    LaborEngineRepository.findJobForLaborEntry.
+   *  - Any other/unrecognized role: falls back to own-org scoping (deny by
+   *    default rather than tenant-wide).
+   */
   async listByTenant(input: {
     tenantId: string;
     orgId: string;
     userId: string;
+    roles: string[];
     status?: JobRecord["status"];
   }): Promise<JobRecord[]> {
     await this.actorContextService.ensureActorContext(input);
+
+    const isOpsAdmin = input.roles.includes("OPS_ADMIN");
+    const isClient = input.roles.includes("CLIENT");
+    const isPro = input.roles.includes("PRO") || input.roles.includes("WORKER");
+
+    const visibilityWhere: Prisma.JobWhereInput = isOpsAdmin
+      ? {}
+      : isClient
+        ? { clientOrgId: input.orgId }
+        : isPro
+          ? {
+              OR: [
+                { status: { in: ["POSTED", "PUBLISHED"] } },
+                { bids: { some: { professionalUserId: input.userId } } },
+                {
+                  reservations: {
+                    some: {
+                      status: { in: ["ACTIVE", "ACCEPTED"] },
+                      OR: [{ professionalId: input.userId }, { professionalOrgId: input.orgId }]
+                    }
+                  }
+                },
+                { contract: { is: { deletedAt: null, OR: [{ professionalUserId: input.userId }, { professionalOrgId: input.orgId }] } } },
+                { project: { is: { assignedProOrgId: input.orgId } } }
+              ]
+            }
+          : { clientOrgId: input.orgId };
+
     const jobs = (await this.prisma.job.findMany({
       where: {
         tenantId: input.tenantId,
         deletedAt: null,
-        ...(input.status ? { status: jobStatusMap[input.status] } : {})
+        ...(input.status ? { status: jobStatusMap[input.status] } : {}),
+        ...visibilityWhere
       },
       orderBy: { createdAt: "desc" }
     })) as StoredJob[];
