@@ -2,7 +2,7 @@
 id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
-version: "1.1"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -17,14 +17,19 @@ related_files:
   - apps/web/app/(app)/admin/disputes/page.tsx
   - apps/web/lib/navigation-registry.ts
   - apps/web/lib/admin/admin-navigation.ts
+  - apps/web/middleware.ts
+  - apps/web/app/api/semse/_server.ts
   - apps/api/src/infrastructure/storage/uploads.controller.ts
   - apps/api/src/modules/anatomy
   - apps/api/src/modules/knowledge
   - apps/api/src/modules/repo-knowledge
   - apps/api/src/modules/runtime-knowledge
+  - packages/auth/src/rbac.ts
 related_tests:
   - apps/api/test/domain-rbac-permissions.test.ts
   - apps/api/test/uploads.controller.test.ts
+  - tests/unit/auth.test.ts
+  - tests/unit/internal-architecture-boundary.test.ts
 related_endpoints:
   - v1/uploads/plan
   - v1/anatomy
@@ -36,7 +41,7 @@ last_verified: "2026-07-23"
 
 # Spec: Admin/OPS UI Flows — Remediation
 
-> **Límite de aprobación v1.1.** El análisis estático y los contratos explícitos
+> **Límite de aprobación v1.2.** El análisis estático y los contratos explícitos
 > autorizan fixes correctivos acotados, por eso el estado es `APPROVED`. La
 > ausencia de credencial `OPS_ADMIN` bloquea elevarlo a `VERIFIED`, no su
 > aprobación. Dinero, auth, cross-tenant, verificación y Travel requieren
@@ -89,6 +94,11 @@ El resto arma su propio header y breadcrumb a mano — navegación inconsistente
 **Impacto:** `/anatomy`, `/knowledge`, `/repo-map`, `/runtime-map` — mapas globales de arquitectura del repo y estado de servicios — son visibles para cualquier cliente o profesional autenticado, no solo para operación interna.
 **Contraste (control positivo):** `/admin/product-intelligence` sí está correctamente gateado (`ops:dashboard:read`, solo OPS_ADMIN, más kill switch) — confirma que el patrón correcto ya existe en el propio código, solo falta aplicarlo aquí.
 
+**Cierre local (2026-07-23):** `internal:architecture:read` quedó exclusivo de
+OPS_ADMIN; controllers, las 18 rutas BFF y las cuatro páginas aplican el mismo
+boundary sin fallback a identidad estática. Falta confirmación en vivo con las
+cuatro clases de sesión.
+
 ### G-ADM-08 — CRÍTICO (seguridad, superficie usada desde Admin y otros roles) — Un header del cliente decide en qué tenant se escribe un archivo
 **Archivo:** `apps/api/src/infrastructure/storage/uploads.controller.ts:174-175,237-238` — el emisor de planes de subida lee `tenantId` de `x-tenant-id` (header del cliente) en vez de `resolveRequestContext(req)`; la ruta de descarga es pública sin firma ni expiración.
 
@@ -118,7 +128,10 @@ required_behavior:
 
 ## Tests Required
 
-- [ ] Un actor con rol CLIENT o PRO recibe 403 al intentar `GET /v1/anatomy` o `GET /v1/knowledge` (regresión directa de G-ADM-07)
+- [x] CLIENT, PRO y WORKER reciben 403 en anatomy/repo/runtime y en
+  `knowledge/domains|overview`; OPS_ADMIN pasa. Las 18 rutas BFF internas usan
+  identidad de sesión sin fallback estático y las cuatro páginas top-level son
+  admin-only (regresión directa de G-ADM-07)
 - [ ] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
 - [x] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
 - [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
@@ -135,11 +148,15 @@ required_behavior:
 ### Web
 - `apps/web/lib/navigation-registry.ts`
 - `apps/web/lib/admin/admin-navigation.ts`
+- `apps/web/middleware.ts`
+- `apps/web/app/api/semse/{anatomy,knowledge,repo-knowledge,runtime-knowledge}`
+- `apps/web/app/api/semse/_server.ts`
 - `apps/web/app/(app)/admin/disputes/page.tsx`
 
 ### API
 - `apps/api/src/infrastructure/storage/uploads.controller.ts`
-- `packages/auth/src/rbac.ts` (nuevo permiso `internal:architecture:read`, o gate directo por rol)
+- `packages/auth/src/rbac.ts` (`internal:architecture:read`, OPS_ADMIN-only)
+- `apps/api/src/modules/{anatomy,knowledge,repo-knowledge,runtime-knowledge}`
 
 ## Acceptance Criteria
 
@@ -150,4 +167,6 @@ required_behavior:
 
 ## Rollback Considerations
 
-- G-ADM-07 (cerrar `knowledge:read` a roles internos) podría romper cualquier flujo legítimo no documentado que dependa de que un CLIENT/PRO lea esas rutas — revisar logs de acceso real antes de restringir, no solo el código.
+- G-ADM-07 mantiene `knowledge:read` para workspace memory y skills; solo los
+  mapas/overview de arquitectura usan el permiso interno. Un rollback no puede
+  reabrirlos ni restaurar el fallback BFF a identidad estática.

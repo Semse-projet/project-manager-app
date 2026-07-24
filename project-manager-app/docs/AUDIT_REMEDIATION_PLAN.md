@@ -191,7 +191,7 @@ tomadas.
 - **Qué:** `/anatomy`, `/knowledge`, `/repo-map`, `/runtime-map` están gateadas por `knowledge:read`, permiso que `rbac.ts` otorga a TODOS los roles.
 - **Dónde:** `apps/api/.../{anatomy,knowledge,repo-knowledge,runtime-knowledge}/*.controller.ts` · `packages/auth/src/rbac.ts:47,94,110,191`
 - **Fix:** crear un permiso `internal:architecture:read` exclusivo de roles internos/admin, o gatear por rol directamente.
-- **Estado:** [ ] Pendiente
+- **Estado:** [x] Corregido (2026-07-23) — se agregó `internal:architecture:read` exclusivamente a `OPS_ADMIN`; `AnatomyController`, `RepoKnowledgeController` y `RuntimeKnowledgeController` lo exigen a nivel de clase, y `KnowledgeController` lo exige solo para `domains`/`overview` para no romper workspace memory ni skills legítimos de otros roles. El cierre incluye las dos fronteras que el hallazgo original no explicitaba: las páginas top-level `/anatomy`, `/knowledge`, `/repo-map` y `/runtime-map` ahora entran al middleware protegido y redirigen roles no admin; además, sus 18 rutas BFF usan `fetchSemseDataForAuthenticatedRequest`, que solo resuelve identidad desde headers saneados o cookie firmada y nunca cae en la identidad estática del servidor. Regresiones: CLIENT/PRO/WORKER reciben `ForbiddenException` en los handlers internos, OPS_ADMIN pasa; inventario completo BFF sin helpers con fallback; rutas exactas/subrutas protegidas sin confundir `/knowledge-base`. Build API y lints API/Web pasan (0 errores).
 
 ### 0.22 — ALTO — Barridos programados pueden revertir un estado ya cambiado legítimamente
 - **Qué:** `sweepExpired()` (reservas) y `reclaimStale()` (agent runs) hacen `findMany` + `update` sin repetir el filtro de estado en el WHERE, sin transacción — a diferencia de sus métodos hermanos.

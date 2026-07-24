@@ -67,7 +67,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | medium | yes | yes | yes | 5 | 2026-07-18 |
 | [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | medium | yes | no | yes | 2 | 2026-07-18 |
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | high | yes | yes | yes | 7 | 2026-07-12 |
-| [api.rbac-explicit-boundary](specs/api/rbac-explicit-boundary.spec.md) | core | VERIFIED | high | yes | no | yes | 2 | 2026-07-12 |
+| [api.rbac-explicit-boundary](specs/api/rbac-explicit-boundary.spec.md) | core | VERIFIED | high | yes | yes | yes | 9 | 2026-07-23 |
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | high | yes | no | yes | 3 | 2026-07-12 |
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | low | yes | yes | yes | 5 | 2026-07-18 |
@@ -133,7 +133,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | low | yes | no | yes | 7 | 2026-07-19 |
-| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 11 | 2026-07-23 |
+| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 14 | 2026-07-23 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | critical | no | yes | no | 5 | 2026-07-23 |
 | [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | no | 12 | 2026-07-23 |

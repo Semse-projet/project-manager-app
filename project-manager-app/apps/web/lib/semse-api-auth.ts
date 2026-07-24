@@ -11,6 +11,13 @@ export const PUBLIC_SEMSE_API_EXACT_PATHS = [
 
 export const PUBLIC_SEMSE_API_PREFIXES = ["/api/semse/public/"] as const;
 
+export const INTERNAL_ARCHITECTURE_PAGE_PREFIXES = [
+  "/anatomy",
+  "/knowledge",
+  "/repo-map",
+  "/runtime-map",
+] as const;
+
 const SEMSE_IDENTITY_HEADERS = [
   "x-semse-user-id",
   "x-semse-tenant-id",
@@ -40,6 +47,19 @@ export function sanitizeSemseIdentityHeaders(
   }
 
   return headers;
+}
+
+export function isInternalArchitecturePagePath(pathname: string): boolean {
+  return INTERNAL_ARCHITECTURE_PAGE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+export function canAccessInternalArchitecturePage(
+  pathname: string,
+  role: "worker" | "client" | "admin",
+): boolean {
+  return !isInternalArchitecturePagePath(pathname) || role === "admin";
 }
 
 export function isSemseApiPath(pathname: string): boolean {

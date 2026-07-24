@@ -13,7 +13,7 @@ import { GraphifyService } from "../graphify/graphify.service.js";
 import { RepoKnowledgeService } from "./repo-knowledge.service.js";
 
 @Controller("v1/repo-knowledge")
-@RequirePermissions("knowledge:read")
+@RequirePermissions("internal:architecture:read")
 export class RepoKnowledgeController {
   constructor(
     private readonly repoKnowledgeService: RepoKnowledgeService,

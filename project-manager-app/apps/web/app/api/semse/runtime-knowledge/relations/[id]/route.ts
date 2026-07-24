@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseDataForRequest, handleServerError, isApiBaseConfigured } from "../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isApiBaseConfigured } from "../../../_server";
 import type { RuntimeRelation } from "@semse/schemas";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -9,10 +9,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const { id } = await params;
-    const data = await fetchSemseDataForRequest<RuntimeRelation[]>(`/v1/runtime-knowledge/relations/${id}`, request);
+    const data = await fetchSemseDataForAuthenticatedRequest<RuntimeRelation[]>(`/v1/runtime-knowledge/relations/${id}`, request);
     return NextResponse.json({ data });
   } catch (error) {
     return handleServerError(error);
   }
 }
-

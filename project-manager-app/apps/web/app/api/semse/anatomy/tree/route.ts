@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import type { AnatomyTreeNode } from "@semse/schemas";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const data = await fetchSemseData<AnatomyTreeNode>("/v1/anatomy/tree");
+    const data = await fetchSemseDataForAuthenticatedRequest<AnatomyTreeNode>("/v1/anatomy/tree", request);
     return NextResponse.json({ data });
   } catch (error) {
     if (error instanceof Error && error.message.includes("not configured")) {
@@ -14,4 +14,3 @@ export async function GET() {
     return handleServerError(error);
   }
 }
-

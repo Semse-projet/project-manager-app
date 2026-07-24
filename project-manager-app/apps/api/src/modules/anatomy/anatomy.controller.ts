@@ -12,7 +12,7 @@ import { parseWithSchema } from "../../common/zod-validation.js";
 import { AnatomyService } from "./anatomy.service.js";
 
 @Controller("v1/anatomy")
-@RequirePermissions("knowledge:read")
+@RequirePermissions("internal:architecture:read")
 export class AnatomyController {
   constructor(private readonly anatomyService: AnatomyService) {}
 

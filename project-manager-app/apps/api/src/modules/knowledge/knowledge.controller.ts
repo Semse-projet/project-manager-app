@@ -21,11 +21,13 @@ export class KnowledgeController {
   ) {}
 
   @Get("domains")
+  @RequirePermissions("internal:architecture:read")
   async domains(@Req() req: FastifyRequest) {
     return ok(resolveRequestId(req.headers ?? {}), await this.knowledgeService.getDomains());
   }
 
   @Get("overview")
+  @RequirePermissions("internal:architecture:read")
   async overview(@Req() req: FastifyRequest) {
     return ok(resolveRequestId(req.headers ?? {}), await this.knowledgeService.getOverview());
   }

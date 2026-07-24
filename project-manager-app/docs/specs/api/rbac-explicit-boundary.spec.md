@@ -2,19 +2,37 @@
 id: "api.rbac-explicit-boundary"
 title: "API Spec: RBAC Explicit Boundary"
 domain: "core"
+version: "1.1"
 status: "VERIFIED"
 owner: "semse-core"
 risk: "high"
+date: "2026-07-23"
+author: "Codex"
+spec_index: "docs/SPEC_INDEX.md"
 related_files:
   - apps/api/src/common/permissions.decorator.ts
   - apps/api/src/common/rbac.guard.ts
+  - packages/auth/src/rbac.ts
+  - apps/api/src/modules/anatomy/anatomy.controller.ts
+  - apps/api/src/modules/knowledge/knowledge.controller.ts
+  - apps/api/src/modules/repo-knowledge/repo-knowledge.controller.ts
+  - apps/api/src/modules/runtime-knowledge/runtime-knowledge.controller.ts
+  - apps/web/middleware.ts
+  - apps/web/app/api/semse/_server.ts
 related_tests:
   - apps/api/test/rbac-explicit-boundary.test.ts
   - apps/api/test/domain-rbac-permissions.test.ts
-related_endpoints: []
+  - tests/unit/auth.test.ts
+  - tests/unit/internal-architecture-boundary.test.ts
+related_endpoints:
+  - GET/POST /v1/anatomy/*
+  - GET/POST /v1/repo-knowledge/*
+  - GET/POST /v1/runtime-knowledge/*
+  - GET /v1/knowledge/domains
+  - GET /v1/knowledge/overview
 related_events: []
 related_agents: []
-last_verified: "2026-07-12"
+last_verified: "2026-07-23"
 ---
 
 # API Spec: RBAC Explicit Boundary
@@ -61,7 +79,10 @@ Permisos granulares aplicados:
   - photo upload and daily log signature: `evidence:write`.
 - Smart intake publish: `jobs:create`.
 - Knowledge/anatomy/repo/runtime knowledge:
-  - read/query/status: `knowledge:read`;
+  - anatomy/repo/runtime graph read/query/status:
+    `internal:architecture:read` (`OPS_ADMIN` only);
+  - knowledge domains/overview: `internal:architecture:read`;
+  - workspace memory and agent-skill reads: `knowledge:read`;
   - skill/curation writes: `knowledge:write`.
 - Tools:
   - catalog/schema: `tools:read`;
@@ -93,7 +114,9 @@ Acceso autenticado explicito:
 ## Validacion ejecutable
 
 - `apps/api/test/rbac-explicit-boundary.test.ts` audita todos los `*.controller.ts` y falla si un handler HTTP no publico no declara `@RequirePermissions`, `@AuthenticatedAccess` o `@Public`.
-- `apps/api/test/domain-rbac-permissions.test.ts` valida que knowledge/tools/vision/weather usen permisos de dominio y no `@AuthenticatedAccess`.
+- `apps/api/test/domain-rbac-permissions.test.ts` valida que CLIENT, PRO y WORKER reciban 403 en arquitectura interna, que OPS_ADMIN tenga acceso y que knowledge funcional conserve permisos separados.
+- `tests/unit/internal-architecture-boundary.test.ts` mantiene el inventario de las 18 rutas BFF internas, exige el helper autenticado sin fallback estático y cubre las cuatro páginas admin-only.
+- `tests/unit/auth.test.ts` asegura que `internal:architecture:read` exista solo en OPS_ADMIN.
 - `apps/api/test/legacy-evidence-rbac-permissions.test.ts` valida que evidence legacy y project change-orders legacy usen permisos granulares y no `@AuthenticatedAccess`.
 - El mismo test cubre que `RbacGuard` niega rutas autenticadas sin metadata explicita.
 - Tests existentes refuerzan metadata concreta de uploads y evidence-gateway.
@@ -102,8 +125,10 @@ Acceso autenticado explicito:
 
 - Los controladores legacy marcados con `@AuthenticatedAccess` siguen pendientes de permisos granulares y ownership por recurso.
 - La auditoria valida metadata de controllers; no prueba ABAC/tenant scoping de cada servicio.
-- Los permisos nuevos no cambian los sets de roles; si un flujo requiere roles distintos, debe ajustarse en `packages/auth/src/rbac.ts` con test de contrato.
+- Falta verificación en vivo con sesiones CLIENT/PRO/WORKER/OPS_ADMIN; el contrato local cubre guard, BFF y middleware.
 
 ## Rollback
 
-Revertir `RbacGuard`, `AuthenticatedAccess` y la metadata agregada a controllers. Si se revierte, mantener al menos la auditoria como reporte para no perder visibilidad del riesgo L2.
+Un rollback no puede restaurar `knowledge:read` en los mapas internos ni
+permitir que el BFF sustituya una sesión ausente por la identidad estática del
+servidor.

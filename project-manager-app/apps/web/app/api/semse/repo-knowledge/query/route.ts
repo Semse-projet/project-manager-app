@@ -1,9 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import type { RepoQuery } from "@semse/schemas";
 import { repoQuerySchema } from "@semse/schemas";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as Record<string, unknown>;
     const parsed = repoQuerySchema.safeParse(body);
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const data = await fetchSemseData<RepoQuery & Record<string, unknown>>("/v1/repo-knowledge/query", {
+    const data = await fetchSemseDataForAuthenticatedRequest<RepoQuery & Record<string, unknown>>("/v1/repo-knowledge/query", request, {
       method: "POST",
       headers: {
         "content-type": "application/json"

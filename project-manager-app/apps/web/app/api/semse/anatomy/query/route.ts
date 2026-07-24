@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { AnatomyQuery } from "@semse/schemas";
 import { anatomyQuerySchema } from "@semse/schemas";
-import { fetchSemseData, handleServerError, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await fetchSemseData<AnatomyQuery & Record<string, unknown>>("/v1/anatomy/query", {
+    const data = await fetchSemseDataForAuthenticatedRequest<AnatomyQuery & Record<string, unknown>>("/v1/anatomy/query", request, {
       method: "POST",
       headers: {
         "content-type": "application/json"
@@ -38,4 +38,3 @@ export async function POST(request: NextRequest) {
     return handleServerError(error);
   }
 }
-

@@ -53,6 +53,10 @@ test("OPS_ADMIN includes ops-specific and dashboard:write permissions", () => {
   assert.ok(rolePermissions["OPS_ADMIN"].includes("ops:dashboard:write"));
   assert.ok(rolePermissions["OPS_ADMIN"].includes("ops:incidents:create"));
   assert.ok(rolePermissions["OPS_ADMIN"].includes("disputes:resolve"));
+  assert.ok(rolePermissions["OPS_ADMIN"].includes("internal:architecture:read"));
+  for (const role of ["CLIENT", "PRO", "WORKER"]) {
+    assert.ok(!rolePermissions[role].includes("internal:architecture:read"));
+  }
 });
 
 test("domain permissions are explicit for knowledge, tools, vision, and weather", () => {
