@@ -2,8 +2,8 @@
 id: "api.vision-service-security"
 title: "Vision Service — autenticación, CORS y carga segura"
 domain: "evidence"
-version: "1.0"
-status: "APPROVED"
+version: "1.1"
+status: "VERIFIED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-23"
@@ -13,11 +13,18 @@ related_files:
   - apps/vision-service/app/main.py
   - apps/vision-service/app/routes/evidence.py
   - apps/vision-service/app/services/image_loader.py
-  - apps/api/src/modules/vision/vision.service.ts
+  - apps/vision-service/app/services/scoring.py
+  - apps/vision-service/.env.example
+  - apps/vision-service/requirements-test.txt
+  - apps/api/src/modules/vision/clients/vision-service.client.ts
 related_tests:
   - apps/vision-service/tests/test_analyzers.py
+  - apps/vision-service/tests/test_security.py
   - apps/api/test/vision.service.test.ts
-related_endpoints: []
+  - apps/api/test/vision-service.client.test.ts
+related_endpoints:
+  - GET /health
+  - POST /v1/evidence/*
 related_events: []
 related_agents: []
 last_verified: "2026-07-23"
@@ -76,7 +83,21 @@ ENTONCES recibe 401/403
 - CORS sin wildcard+credentials.
 - Content type/tamaño/timeout limitados.
 
-## 6. Operación y rollback
+## 6. Evidencia de implementación y verificación
+
+- `require_api_key` usa comparación constante y falla cerrado cuando Railway o
+  una variable de entorno común identifica producción.
+- La carga remota desactiva redirects automáticos y revalida allowlist y todas
+  las IP resueltas en cada salto.
+- La misma descarga limitada alimenta OpenCV y EXIF; no existe una segunda
+  petición que evada el guard.
+- Se limitan content type, bytes, píxeles, timeout, puertos y redirects.
+- `mock://`, localhost y loopback IPv6 quedan deshabilitados en producción.
+- `python -m unittest discover -s tests -v`: 49/49 pasan.
+- Tests focalizados API/Vision: 11/11 pasan.
+- Build y lint de `@semse/api`: pasan.
+
+## 7. Operación y rollback
 
 La key debe existir con el mismo valor en API y Vision Service. Un rollback no
 puede reabrir el servicio públicamente; ante desalineación de secretos se

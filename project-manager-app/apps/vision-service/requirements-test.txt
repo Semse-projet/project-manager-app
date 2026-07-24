@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Required by Starlette TestClient. Kept outside the production image.
+httpx2>=2.9.0,<3

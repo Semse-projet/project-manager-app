@@ -20,8 +20,8 @@ class SafetyAnalysis(TypedDict):
 # PPE color ranges in HSV
 PPE_COLOR_RANGES = {
     "helmet": [
-        # Yellow helmet
-        ([18, 100, 100], [25, 255, 255]),
+        # Yellow helmet. OpenCV uses hue 0-179; pure BGR yellow maps near 30.
+        ([20, 100, 100], [35, 255, 255]),
         # Orange helmet
         ([8, 120, 120], [20, 255, 255]),
         # White/light helmet
