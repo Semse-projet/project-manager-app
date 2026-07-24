@@ -10,7 +10,6 @@ import {
   fetchJobEscrow,
   fetchJobPayments,
   fetchTimeTrackerJobs,
-  SemseApiError,
   type JobRecordView,
 } from "../../../semse-api";
 import {
@@ -21,7 +20,6 @@ import {
   fetchLaborEntries,
   fetchMonthlySummary,
   fetchWeeklySummary,
-  LaborApiError,
   pauseLaborTimer,
   resumeLaborTimer,
   startLaborTimer,
@@ -56,6 +54,7 @@ import { RegistrosTab } from "./sections/RegistrosTab";
 import { ProyectosTab } from "./sections/ProyectosTab";
 import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
+import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
 
 function pad(n: number) {
   return String(Math.floor(n)).padStart(2, "0");
@@ -198,25 +197,6 @@ function resolveSyncedEntryId(sessionId: string, sessionIdMap: Map<string, strin
     (state.activeSession?.id === sessionId ? state.activeSession.backendSessionId : undefined) ??
     sessionId
   );
-}
-
-function isLikelyConnectionError(caught: unknown) {
-  return (
-    typeof navigator !== "undefined" && !navigator.onLine
-  ) || (
-    caught instanceof TypeError && caught.message.toLowerCase().includes("fetch")
-  );
-}
-
-function friendlyConnectionMessage(action: string) {
-  return `${action}. Tu tiempo se sigue guardando en este dispositivo y se sincronizará cuando haya conexión.`;
-}
-
-function shouldPreserveLocalEvent(caught: unknown) {
-  if (isLikelyConnectionError(caught)) return true;
-  if (caught instanceof SemseApiError) return caught.status >= 500;
-  if (caught instanceof LaborApiError) return caught.status >= 500;
-  return false;
 }
 
 function manualDurationSeconds(date: string, startTime: string, endTime: string, breakMinutes: number): number | null {
@@ -365,29 +345,50 @@ export default function WorkerTrackerPage() {
   }, []);
 
   const loadTracker = useCallback(async () => {
-    const [nextJobs, nextFreeProjects, nextActive, nextWeek, nextMonth] = await Promise.all([
+    // fetchActiveTimer() gets its own .catch() (not a bare call inside Promise.all)
+    // so one unstable request can't reject the whole batch and blank the page —
+    // jobs/free projects/summaries must still render even if this single call
+    // fails. We also can't just fall back to `null` on failure like the other
+    // calls here: that would silently overwrite a real in-progress timer (or one
+    // just recovered from local storage) with "no active timer" on screen.
+    // See docs/AUDIT_REMEDIATION_PLAN.md 2.2.
+    const activeTimerFetch = fetchActiveTimer()
+      .then((value) => ({ ok: true as const, value }))
+      .catch((caught: unknown) => ({ ok: false as const, error: caught }));
+
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
-      fetchActiveTimer(),
+      activeTimerFetch,
       fetchWeeklySummary().catch(() => null),
       fetchMonthlySummary().catch(() => null),
     ]);
 
     setJobs(nextJobs);
     setFreeProjects(nextFreeProjects);
-    setActiveEntry(nextActive);
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
-    setElapsed(nextActive ? elapsedSeconds(nextActive) : 0);
 
-    if (nextActive) {
-      setMode(modeFromEntry(nextActive));
-      if (nextActive.jobId) setSelectedJob(nextActive.jobId);
-      if (nextActive.freeProjectId) setSelectedFreeProject(nextActive.freeProjectId);
-      setNotes(nextActive.notes ?? "");
+    if (activeTimerResult.ok) {
+      const nextActive = activeTimerResult.value;
+      setActiveEntry(nextActive);
+      setElapsed(nextActive ? elapsedSeconds(nextActive) : 0);
+
+      if (nextActive) {
+        setMode(modeFromEntry(nextActive));
+        if (nextActive.jobId) setSelectedJob(nextActive.jobId);
+        if (nextActive.freeProjectId) setSelectedFreeProject(nextActive.freeProjectId);
+        setNotes(nextActive.notes ?? "");
+      } else {
+        setSelectedJob((prev) => prev || nextJobs[0]?.id || "");
+        setSelectedFreeProject((prev) => prev || nextFreeProjects[0]?.id || "");
+      }
     } else {
+      // Keep whatever active-timer state we already had (e.g. recovered from
+      // local storage on mount) instead of assuming "no timer running".
       setSelectedJob((prev) => prev || nextJobs[0]?.id || "");
       setSelectedFreeProject((prev) => prev || nextFreeProjects[0]?.id || "");
+      setSyncNotice("No pudimos confirmar el estado de tu timer con el servidor. El resto del tracker se cargó con normalidad; reintenta si el cronómetro no se ve correcto.");
     }
   }, []);
 
@@ -448,6 +449,9 @@ export default function WorkerTrackerPage() {
               startTime: event.startTime,
               endTime: event.endTime,
               breakMinutes: event.breakMinutes,
+              hourlyRate: event.hourlyRate,
+              currency: event.currency,
+              location: event.location,
               notes: event.notes,
               clientEventId: event.id,
             });
@@ -1172,9 +1176,10 @@ export default function WorkerTrackerPage() {
                     outline: "none",
                   }}
                 >
-                  {jobs.length === 0 ? (
-                    <option value="">Sin trabajos aceptados</option>
-                  ) : null}
+                  {/* jobs.length === 0 is already handled by the outer branch above
+                      (the "Aún no tienes trabajos aceptados" empty state) — this
+                      <select> only ever renders when jobs.length > 0, so an empty-jobs
+                      <option> here could never execute. See AUDIT_REMEDIATION_PLAN.md 2.15. */}
                   {jobs.map((job) => (
                     <option key={job.id} value={job.id}>
                       {job.title}
@@ -1315,14 +1320,14 @@ export default function WorkerTrackerPage() {
         </div>
       </HtmlInCanvasPanel>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
         <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="#10b981" />
         <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="#8b5cf6" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: "12px" }}>
             <div>
@@ -1382,7 +1387,7 @@ export default function WorkerTrackerPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.2fr .8fr", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <div>
@@ -1415,7 +1420,7 @@ export default function WorkerTrackerPage() {
 
           {currentJobId ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px" }}>
                 <MiniStat label="Estado job" value={currentJob?.status ?? "—"} icon={<Clock size={14} color="var(--brand)" />} />
                 <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="#10b981" />} />
                 <MiniStat label="Fondeado" value={formatMoney(fundedAmount)} icon={<Receipt size={14} color="var(--accent)" />} />

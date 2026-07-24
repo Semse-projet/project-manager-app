@@ -45,6 +45,10 @@ export type TrackerPendingEvent =
       startTime: string;
       endTime: string;
       breakMinutes?: number;
+      /** Solo lo manda el formulario de Registros (RegistrosTab); el del Timer tab no pide tarifa/moneda/ubicación. */
+      hourlyRate?: number;
+      currency?: string;
+      location?: string;
       notes?: string;
       localTimestamp: string;
     };
