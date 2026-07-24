@@ -4,11 +4,11 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
-  Logger,
   UnauthorizedException
 } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { EmailService } from "../../infrastructure/email/email.service.js";
+import { SemseLoggerService } from "../../infrastructure/observability/semse-logger.service.js";
 import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../../common/auth-password.js";
 import { signToken, verifyToken } from "../../common/auth-token.js";
 import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
@@ -38,12 +38,11 @@ function extractBearerToken(headers: Record<string, unknown>): string | null {
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly auditService: AuditService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly semseLogger: SemseLoggerService
   ) {}
 
   private requireSecret(): string {
@@ -163,7 +162,7 @@ export class AuthService {
       refreshTokenHash: sha256(refreshToken),
       accessExpiresAt,
       refreshExpiresAt,
-    }).catch((err) => this.logger.warn(`[auth] createSession failed for userId=${input.userId}: ${String(err?.message ?? err)}`));
+    }).catch((err) => this.semseLogger.warn("auth.createSession failed", { userId: input.userId, error: String(err?.message ?? err) }));
 
     // Audit is non-critical — fire-and-forget so it never blocks the token response
     void this.auditService.append({
@@ -350,9 +349,10 @@ export class AuthService {
     // send succeeded or not. Log loudly instead, so this is visible to ops
     // rather than repeating 0.32's original silent-failure shape.
     if (!emailResult.sent) {
-      this.logger.error(
-        `[auth] Password reset email failed to send for userId=${user.id}: ${emailResult.error ?? "unknown error"}`
-      );
+      this.semseLogger.error("auth.passwordResetEmail failed to send", {
+        userId: user.id,
+        error: emailResult.error ?? "unknown error",
+      });
     }
 
     return {
@@ -366,17 +366,17 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(normalizedEmail);
 
     if (!user) {
-      this.logger.warn(`Login failed (no such user): email=${normalizedEmail}`);
+      this.semseLogger.warn("auth.login failed", { reason: "no_such_user", email: normalizedEmail });
     } else if (!user.passwordHash) {
-      this.logger.warn(`Login failed (no password set): userId=${user.id} email=${normalizedEmail}`);
+      this.semseLogger.warn("auth.login failed", { reason: "no_password_set", userId: user.id, email: normalizedEmail });
     } else if (user.status !== "active") {
-      this.logger.warn(`Login failed (status=${user.status}): userId=${user.id} email=${normalizedEmail}`);
+      this.semseLogger.warn("auth.login failed", { reason: "inactive_status", status: user.status, userId: user.id, email: normalizedEmail });
     } else if (!verifyPassword(input.password, user.passwordHash)) {
-      this.logger.warn(`Login failed (password mismatch): userId=${user.id} email=${normalizedEmail}`);
+      this.semseLogger.warn("auth.login failed", { reason: "password_mismatch", userId: user.id, email: normalizedEmail });
     } else {
       const primaryMembership = user.memberships[0];
       if (!primaryMembership) {
-        this.logger.warn(`Login failed (no membership): userId=${user.id} email=${normalizedEmail}`);
+        this.semseLogger.warn("auth.login failed", { reason: "no_membership", userId: user.id, email: normalizedEmail });
         throw new UnauthorizedException("Usuario sin membresía activa");
       }
 
