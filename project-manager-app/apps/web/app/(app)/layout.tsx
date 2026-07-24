@@ -386,15 +386,27 @@ function useAppRole(): NavRole {
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = useAppRole();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("semse-sidebar-collapsed") === "true";
-  });
+  // NOTE: `collapsed` must start from the SAME deterministic value on the
+  // server and on the client's first render. Reading `window.localStorage`
+  // inside a `useState` lazy initializer (the previous implementation) runs
+  // the check during render — `typeof window` is `undefined` on the server
+  // but defined on the client, so the very first client render already
+  // diverges from the server-rendered HTML (sidebar width) and React throws
+  // a hydration mismatch (audit 1.8, reproduced on /client/milestones but
+  // rooted here — this layout wraps every /client, /worker, /admin, /agents
+  // route). The persisted value is restored in a `useEffect` instead, which
+  // only runs client-side, after hydration has already committed.
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
   const nav = NAV[role];
   const RoleIcon = nav.icon;
+
+  useEffect(() => {
+    const savedCollapsed = window.localStorage.getItem("semse-sidebar-collapsed");
+    if (savedCollapsed === "true") setCollapsed(true);
+  }, []);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("semse-theme");
