@@ -33,7 +33,7 @@ export type TimeEntryView = {
   purpose: "personal" | "payable" | "job_linked";
   jobId: string | null;
   freeProjectId: string | null;
-  status: "running" | "paused" | "completed" | "pending_review" | "approved" | "deleted";
+  status: "running" | "paused" | "completed" | "pending_review" | "approved" | "deleted" | "pending_sync";
   startedAt: string;
   endedAt: string | null;
   resumedAt: string | null;
@@ -177,6 +177,14 @@ export async function fetchLaborEntries(params?: {
   freeProjectId?: string;
   purpose?: string;
   limit?: number;
+  /**
+   * Ancla `range: "week"` a la semana calendario N atrás (misma convención que
+   * fetchWeeklySummary), en vez de la ventana móvil "últimos 7 días" que usa
+   * `range: "week"` por defecto. Úsalo cuando necesitas los registros reales
+   * de una semana específica ya navegada (p. ej. Reportes), no solo los
+   * últimos días.
+   */
+  weekOffset?: number;
 }): Promise<TimeEntryView[]> {
   const qs = new URLSearchParams();
   if (params?.range) qs.set("range", params.range);
@@ -184,6 +192,7 @@ export async function fetchLaborEntries(params?: {
   if (params?.freeProjectId) qs.set("freeProjectId", params.freeProjectId);
   if (params?.purpose) qs.set("purpose", params.purpose);
   if (params?.limit) qs.set("limit", String(params.limit));
+  if (params?.weekOffset != null) qs.set("weekOffset", String(params.weekOffset));
   const q = qs.toString();
   return fetchLabor<TimeEntryView[]>(`/api/semse/labor/entries${q ? `?${q}` : ""}`);
 }
