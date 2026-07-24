@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.1"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -15,6 +15,9 @@ related_files:
   - apps/web/app/(app)/worker/dashboard/page.tsx
   - apps/web/app/(app)/worker/jobs/[jobId]/page.tsx
   - apps/web/app/(app)/worker/field-ops/page.tsx
+  - apps/web/app/field-ops/page.tsx
+  - apps/web/middleware.ts
+  - apps/web/lib/legacy-route-redirect.ts
   - apps/web/app/(app)/worker/tracker
   - apps/web/app/(app)/worker/agenda/page.tsx
   - apps/web/app/(app)/worker/payments/page.tsx
@@ -52,7 +55,8 @@ related_files:
   - apps/api/src/modules/ai-models/ai-models.controller.ts
   - apps/api/src/modules/prometeo-copilot/prometeo-copilot.controller.ts
   - apps/web/lib/language-context.tsx
-related_tests: []
+related_tests:
+  - tests/unit/legacy-route-redirect.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -76,7 +80,7 @@ related_agents:
   - pulse
   - justus
   - planner
-last_verified: "2026-07-23"
+last_verified: "2026-07-24"
 ---
 
 # Spec: Pro/Worker UI Flows — Remediation
@@ -187,6 +191,18 @@ Todos los endpoints de escritura de `/v1/travel` (crear viaje, cambiar estado, g
 ### G-PRO-13 — CRÍTICO — "Mis Tarifas" no tiene ningún efecto real: la promesa central de la pantalla es falsa
 `/worker/rates` promete *"Tus tarifas reales reemplazan los promedios BLS en cada estimado... se usarán en todos los estimados futuros"*. El guardado funciona, pero `ContractorRateService.getOverride()` solo se lee desde `protools.agent.ts:139-158`, invocado únicamente por `POST /v1/semse-agents/protools/estimate` — cuya única UI consumidora es `client/protools/page.tsx` (lado **cliente**, con el `userId` del cliente, no del profesional). La tarifa guardada por un PRO no puede llegar a ningún estimado real, ni por su propia cuenta ni por la del cliente. Fix: decidir el diseño real (¿el estimado de ProTools debería aceptar el `userId` del profesional asignado al job? ¿o esta pantalla debería alimentar otro cálculo, como el de pricing/matching?) antes de tocar código — no es un bug de una línea. Detalle: plan → 2.40.
 
+### G-PRO-14 — MEDIO — Tercera implementación top-level de Field Ops
+`/field-ops` mantenía 929 líneas propias y divergía de `/worker/field-ops` en
+tabs, errores, i18n, banners y layout. Era una ruta sin navegación ni back-link,
+no una variante soportada.
+
+**Remediación v1.2 (2026-07-24):** se eliminó la implementación duplicada. El
+path exacto quedó protegido y redirige WORKER/PRO a `/worker/field-ops`,
+OPS_ADMIN a `/admin/field-ops` y CLIENT a `/client/dashboard`. Una página
+residual fail-closed evita que la superficie reaparezca si el middleware no se
+ejecuta. Esto cierra el plan 2.7; no modifica ni declara resuelto el cronómetro
+legacy dentro de la ruta canónica descrito en G-PRO-01.
+
 ## Cobertura de esta pasada
 
 **Completa en vivo (2026-07-20 y 2026-07-21):** Dashboard, Oportunidades, Mis trabajos (+ detalle), Time Tracker, Operaciones de campo, Mi perfil, Mis pagos, Mis propuestas, Agenda, Tareas, Evidencia (incl. subida real de archivo), Materiales, Incidencias, Movilidad, Reseñas, "Asistente IA" (en realidad `/worker/settings`), widget flotante de Prometeo/agentes, catálogo `/agents` completo.
@@ -249,12 +265,16 @@ required_behavior:
 - [ ] Un PRO puede crear un viaje en `/worker/travel` sin recibir 403 (regresión directa de G-PRO-10)
 - [ ] Un pago con `status: FAILED` o `REVERSED` no se muestra como "Liberado"/"En escrow" en `/worker/payments` (regresión directa de G-PRO-12)
 - [ ] Guardar una tarifa en `/worker/rates` tiene un efecto verificable en al menos un estimado real, o la pantalla deja de prometerlo (regresión directa de G-PRO-13)
+- [x] `/field-ops` ya no renderiza una tercera implementación y redirige por rol a una superficie canónica (regresión directa de G-PRO-14)
 
 ## Implementation Map
 
 ### Web
 - `apps/web/app/(app)/worker/jobs/[jobId]/page.tsx`
 - `apps/web/app/(app)/worker/field-ops/page.tsx`
+- `apps/web/app/field-ops/page.tsx`
+- `apps/web/middleware.ts`
+- `apps/web/lib/legacy-route-redirect.ts`
 - `apps/web/app/(app)/worker/payments/page.tsx`
 - `apps/web/app/(app)/worker/profile/page.tsx`
 - `apps/web/app/(app)/worker/evidence/page.tsx:120-154` (G-PRO-06 — agregar el `PUT` real a `plan.uploadUrl` en la rama `single_put`, usar `plan.key` real)
@@ -283,9 +303,11 @@ required_behavior:
 - [x] El trabajo se divide en lotes por bounded context; aprobar la spec no implica implementar 55 hallazgos en un solo esfuerzo.
 - [x] Los ítems con decisión de producto/compliance se separaron en specs `DRAFT`/`REVIEW`.
 - [x] `node scripts/spec-validate.mjs --strict` pasa.
+- [x] G-PRO-14/plan 2.7 quedó cerrado sin alterar la superficie canónica ni el pendiente operativo G-PRO-01.
 
 ## Rollback Considerations
 
 - G-PRO-01 (bloquear el cronómetro legacy) es la única acción aquí con consecuencia operativa real: si algún profesional depende hoy de `/worker/field-ops` para registrar horas, bloquearlo sin aviso le corta el flujo. Requiere coordinación con el owner de producto antes de desactivar, no solo un merge silencioso.
+- G-PRO-14 no bloquea `/worker/field-ops`; solo retira el duplicado top-level. Revertirlo requiere restaurar explícitamente la implementación eliminada, lo que reintroduciría sus divergencias.
 - G-PRO-13 (tarifas custom) requiere una decisión de diseño de producto antes de cualquier fix — no está claro si el comportamiento correcto es "el estimado de ProTools debe usar la tarifa del profesional asignado" o algo distinto; implementar el fix equivocado podría filtrar la tarifa de un profesional a un contexto donde no corresponde.
 - Los 3 hallazgos de IDOR (G-PRO-11, incidencias/materiales, tareas) son fixes de bajo riesgo (agregar un filtro que ya falta) pero deben desplegarse junto con una revisión de si ya fueron explotados — no hay logging suficiente hoy para saber si algún dato cross-tenant/cross-worker ya fue leído o modificado por esta vía.

@@ -2,7 +2,7 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.2"
+version: "1.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -20,18 +20,21 @@ related_files:
   - apps/web/app/(app)/client/leads/page.tsx
   - apps/web/app/(app)/client/marketplace/page.tsx
   - apps/web/app/(app)/client/protools/page.tsx
-  - apps/web/app/dashboard/dashboard-client.tsx
+  - apps/web/app/dashboard/page.tsx
+  - apps/web/app/field-ops/page.tsx
   - apps/web/app/components/payments/EscrowFundModal.tsx
   - apps/web/app/components/payments/EscrowReleaseModal.tsx
   - apps/web/app/components/disputes/DisputeResolutionModal.tsx
   - apps/web/app/jobs/[jobId]/page.tsx
   - apps/web/app/jobs/[jobId]/escrow/page.tsx
   - apps/web/middleware.ts
+  - apps/web/lib/legacy-route-redirect.ts
   - apps/api/src/modules/bids/bids.repository.ts
   - apps/api/src/modules/payments
   - apps/api/src/modules/auth/auth.service.ts
 related_tests:
   - tests/unit/client-money-confirmation.test.ts
+  - tests/unit/legacy-route-redirect.test.ts
   - tests/unit/auth.test.ts
 related_endpoints:
   - v1/jobs
@@ -45,7 +48,7 @@ related_events:
   - payment.released
 related_agents:
   - prometeo
-last_verified: "2026-07-23"
+last_verified: "2026-07-24"
 ---
 
 # Spec: Client UI Flows — Remediation
@@ -142,6 +145,16 @@ de ownership y resultado; PRO y WORKER continúan sin el permiso.
 - Tema claro/oscuro no sobrevive un refresh.
 - FAB de asistente tapa el monto de una propuesta en mobile.
 
+**Remediación v1.3 (2026-07-24, alcance de navegación):** se retiró la
+implementación huérfana de `/dashboard`, incluido el banner interno y la lectura
+server-side basada en identidad estática de entorno. El path exacto ahora exige
+sesión y redirige a cada dashboard canónico según el rol. También se retiró la
+tercera implementación huérfana `/field-ops`: WORKER/PRO y OPS_ADMIN llegan a
+sus superficies canónicas; CLIENT vuelve a `/client/dashboard`. Ambas páginas
+residuales fallan cerradas hacia login si el middleware se omite. Los pendientes
+de marca, persistencia de tema y solapamiento del FAB conservan su estado y no
+se declaran resueltos por este lote.
+
 ## UI Contract (estados esperados, no documentados en el spec anterior)
 
 ```yaml
@@ -179,6 +192,8 @@ required_behavior:
 - [x] Fondear escrow requiere confirmación explícita con monto antes de llamar a la API (superficies de G-CLI-01)
 - [x] Liberar escrow muestra milestone, moneda y monto antes de llamar a la API
 - [x] Resolver una disputa desde `/jobs/[jobId]` exige resultado y aceptación explícitos
+- [x] `/dashboard` y `/field-ops` exigen sesión y redirigen por rol a una superficie canónica
+- [x] El matcher de aliases legacy es exacto y las páginas residuales fallan cerradas
 - [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
 - [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
 
@@ -186,7 +201,10 @@ required_behavior:
 
 ### Web
 - `apps/web/app/(app)/client/**`
-- `apps/web/app/dashboard/dashboard-client.tsx`
+- `apps/web/app/dashboard/page.tsx`
+- `apps/web/app/field-ops/page.tsx`
+- `apps/web/middleware.ts`
+- `apps/web/lib/legacy-route-redirect.ts`
 - `packages/ui/src/components/EscrowTimeline.tsx`
 - `apps/web/app/components/payments/EscrowFundModal.tsx`
 - `apps/web/app/components/payments/EscrowReleaseModal.tsx`
@@ -205,7 +223,9 @@ required_behavior:
 - [x] `node scripts/spec-validate.mjs --strict` pasa.
 - [x] Cada gap G-CLI-* tiene routing en `governance.audit-remediation-program` y tarea en la sección 1 del plan.
 - [x] G-CLI-01 y G-CLI-02 tienen confirmación explícita, monto/resultado visible y regresión automatizada.
+- [x] La parte de navegación huérfana de G-CLI-09 quedó aislada por rol, sin implementación duplicada y con regresión automatizada.
 
 ## Rollback Considerations
 
-- Ninguno de los fixes propuestos aquí cambia contratos de API existentes de forma incompatible — son correcciones de lectura (G-CLI-00) o de flujo de confirmación en el cliente (G-CLI-01/02), no requieren rollback de datos.
+- Ninguno de los fixes propuestos aquí cambia contratos de API existentes de forma incompatible — son correcciones de lectura (G-CLI-00), flujo de confirmación (G-CLI-01/02) o routing (G-CLI-09), y no requieren rollback de datos.
+- Un rollback de G-CLI-09 debe restaurar código eliminado y no solo quitar el redirect; hacerlo reabriría las superficies huérfanas y su identidad server-side estática.

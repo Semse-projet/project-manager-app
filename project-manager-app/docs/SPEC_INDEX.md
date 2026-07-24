@@ -136,13 +136,13 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 14 | 2026-07-23 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | critical | no | yes | no | 5 | 2026-07-23 |
-| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 19 | 2026-07-23 |
+| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 21 | 2026-07-24 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | 2026-07-12 |
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | 2026-07-12 |
-| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | no | 41 | 2026-07-23 |
+| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 44 | 2026-07-24 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | medium | yes | yes | yes | 6 | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
