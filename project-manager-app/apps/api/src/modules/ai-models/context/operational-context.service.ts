@@ -374,7 +374,7 @@ export class OperationalContextService {
     if (ctx.ecosystem5d) {
       const eco = ctx.ecosystem5d;
       lines.push(
-        `## Lente Ecosistema 5D`,
+        `## Lente Ecosistema 5D (nivel proyecto/tenant — no es una métrica global del sistema)`,
         `Estado general: ${eco.status.toUpperCase()} (${eco.score}/100)`,
         ...eco.dimensions.slice(0, 5).map((dim) => `${dim.label}: ${dim.score}/100 (${dim.status}) — ${dim.summary}`),
         eco.alerts.length > 0
