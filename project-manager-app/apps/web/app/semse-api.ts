@@ -1547,6 +1547,34 @@ export async function fetchTravelAssignment(travelId: string): Promise<Record<st
   return fetchSemse<Record<string, unknown>>(`/api/semse/travel/${encodeURIComponent(travelId)}`);
 }
 
+export type TravelSummary = {
+  travelId: string;
+  totalSpent: number;
+  totalAdvances: number;
+  balanceDue: number;
+  expenseCount: number;
+  lodgingCount: number;
+  advanceCount: number;
+  missingExpenseReceipts: number;
+  missingLodgingReceipts: number;
+  receiptCount: number;
+};
+
+// Batched badge-counter summary for the travel list (one call instead of
+// 3 extra calls — settlement/expenses/lodging — per trip). See
+// TravelService.listSummaries on the API side.
+export async function fetchTravelSummaries(query?: {
+  status?: string; jobId?: string; assignedTo?: string; scope?: "mine" | "all";
+}): Promise<TravelSummary[]> {
+  const qs = new URLSearchParams();
+  if (query?.status) qs.set("status", query.status);
+  if (query?.jobId)  qs.set("jobId",  query.jobId);
+  if (query?.assignedTo) qs.set("assignedTo", query.assignedTo);
+  if (query?.scope) qs.set("scope", query.scope);
+  const q = qs.toString() ? `?${qs.toString()}` : "";
+  return fetchSemse<TravelSummary[]>(`/api/semse/travel/summary${q}`);
+}
+
 export async function createTravelAssignment(input: {
   jobId: string; destinationCity: string; departureDate: string; returnDate?: string;
   estimatedDays?: number; requiresLodging?: boolean; headcount?: number;

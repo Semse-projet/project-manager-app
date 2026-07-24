@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Calendar, DollarSign, Plus, RefreshCw, Inbox, PlaneTakeoff, ChevronRight } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchTravelAssignments, createTravelAssignment, fetchMyJobs, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { fetchTravelAssignments, createTravelAssignment, fetchMyJobs, fetchTravelSummaries, type TravelSummary } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type TravelStatus = "DRAFT" | "PLANNED" | "ACTIVE" | "PENDING_SETTLEMENT" | "CLOSED" | "CANCELLED";
@@ -94,7 +94,7 @@ function rawToRow(
       status === "ACTIVE" && (extras?.expenseCount ?? 0) === 0 && (extras?.lodgingCount ?? 0) === 0 && (extras?.advanceCount ?? 0) === 0
         ? "sin base operativa"
         : Boolean(r.requiresLodging) && status === "ACTIVE" && (extras?.lodgingCount ?? 0) === 0
-          ? "sin hospedaje requerido"
+          ? "hospedaje requerido pendiente"
           : null,
     status:         (["DRAFT","PLANNED","ACTIVE","PENDING_SETTLEMENT","CLOSED","CANCELLED"].includes(status) ? status : "DRAFT") as TravelStatus,
     requiresLodging: Boolean(r.requiresLodging),
@@ -122,50 +122,47 @@ export default function WorkerTravelPage() {
   const [formHeadcount, setFormHeadcount] = useState("1");
   const [formNotes, setFormNotes]       = useState("");
 
+  // NOTE: `load` intentionally has no dependencies. It previously depended on
+  // `formJobId` (read to seed the "new travel" form default), which it also
+  // set as a side effect — that made the useEffect below re-fire a *second*
+  // full load (list + all summaries) on every first mount, since setting
+  // state changed `load`'s identity, which re-ran the effect. Reading/writing
+  // `formJobId` via the functional setState form below avoids that dependency
+  // entirely, so `load` is stable and only runs once per explicit call.
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [rawTravels, rawJobs] = await Promise.all([
+      const [rawTravels, rawJobs, summaries] = await Promise.all([
         fetchTravelAssignments().catch(() => [] as Record<string, unknown>[]),
         fetchMyJobs().catch(() => []),
+        // Single batched call for badge counters instead of 3 extra HTTP
+        // calls (settlement/expenses/lodging) per trip — see 2.36.
+        fetchTravelSummaries().catch(() => [] as TravelSummary[]),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;
-      const extras = await Promise.all(
-        rawTravels.map(async (travel) => {
-          const travelId = String(travel.id ?? "");
-          const [settlement, expenses, lodging] = await Promise.all([
-            fetchTravelSettlement(travelId).catch(() => null),
-            fetchTravelExpenses(travelId).catch(() => [] as Record<string, unknown>[]),
-            fetchTravelLodging(travelId).catch(() => [] as Record<string, unknown>[]),
-          ]);
-          const totalSpent = settlement ? Number((settlement as Record<string, unknown>).totalSpent ?? 0) : null;
-          const expectedBalance = settlement ? Number((settlement as Record<string, unknown>).balanceDue ?? 0) : null;
-          const missingExpenseReceipts = expenses.filter((expense) => !String(expense.receiptUrl ?? "").trim()).length;
-          const missingLodgingReceipts = lodging.filter((record) => !String(record.receiptUrl ?? "").trim()).length;
-          const receiptCount =
-            expenses.filter((expense) => String(expense.receiptUrl ?? "").trim()).length +
-            lodging.filter((record) => String(record.receiptUrl ?? "").trim()).length;
-          const missingReceipts = missingExpenseReceipts + missingLodgingReceipts;
-          return {
-            totalSpent,
-            expectedBalance,
-            missingReceipts,
-            missingExpenseReceipts,
-            missingLodgingReceipts,
-            receiptCount,
-            expenseCount: expenses.length,
-            lodgingCount: lodging.length,
-            advanceCount: settlement ? Number((settlement as Record<string, unknown>).totalAdvances ?? 0) > 0 ? 1 : 0 : 0,
-          };
-        })
-      );
+      const summaryByTravelId = new Map(summaries.map(s => [s.travelId, s]));
       setJobs(rawJobs.map(j => ({ id: j.id, title: j.title })));
-      if (!formJobId && rawJobs.length > 0) setFormJobId(rawJobs[0].id);
-      setTravels(rawTravels.map((r, index) => rawToRow(r as Record<string, unknown>, jobTitleMap, extras[index])));
+      setFormJobId(prev => prev || (rawJobs.length > 0 ? rawJobs[0].id : ""));
+      setTravels(rawTravels.map((r) => {
+        const travelId = String((r as Record<string, unknown>).id ?? "");
+        const summary = summaryByTravelId.get(travelId);
+        const extras = summary ? {
+          totalSpent: summary.totalSpent,
+          expectedBalance: summary.balanceDue,
+          missingReceipts: summary.missingExpenseReceipts + summary.missingLodgingReceipts,
+          missingExpenseReceipts: summary.missingExpenseReceipts,
+          missingLodgingReceipts: summary.missingLodgingReceipts,
+          receiptCount: summary.receiptCount,
+          expenseCount: summary.expenseCount,
+          lodgingCount: summary.lodgingCount,
+          advanceCount: summary.advanceCount,
+        } : undefined;
+        return rawToRow(r as Record<string, unknown>, jobTitleMap, extras);
+      }));
     } catch { /* keep */ }
     setLoading(false);
-  }, [formJobId]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 

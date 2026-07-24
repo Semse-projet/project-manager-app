@@ -25,7 +25,7 @@ const STATUS_MAP: Record<MaterialRequest["status"], { variant: "warning" | "succ
   pending:   { variant: "warning", label: "Pendiente" },
   approved:  { variant: "info",    label: "Aprobado"  },
   delivered: { variant: "success", label: "Entregado" },
-  rejected:  { variant: "neutral", label: "Rechazado" },
+  rejected:  { variant: "error",   label: "Rechazado" },
 };
 
 function rawToReq(m: Record<string, unknown>, jobTitleMap: Record<string, string>): MaterialRequest {
@@ -60,6 +60,10 @@ export default function WorkerMaterialsPage() {
   const [formUnit, setFormUnit]   = useState("unidades");
   const [formCost, setFormCost]   = useState("");
 
+  const qtyValue = formQty.trim() === "" ? NaN : Number(formQty);
+  const qtyIsInvalid = formQty.trim() !== "" && (!Number.isFinite(qtyValue) || qtyValue <= 0);
+  const qtyError = qtyIsInvalid ? "La cantidad debe ser un número mayor que 0." : null;
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -79,7 +83,7 @@ export default function WorkerMaterialsPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function handleSubmit() {
-    if (!formItem.trim() || !formQty || !formJobId || submitting) return;
+    if (!formItem.trim() || !formQty || !formJobId || submitting || qtyIsInvalid) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -163,7 +167,8 @@ export default function WorkerMaterialsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
               <div>
                 <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>CANTIDAD</label>
-                <input type="number" value={formQty} onChange={e => setFormQty(e.target.value)} placeholder="0" style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                <input type="number" min="0" step="any" value={formQty} onChange={e => setFormQty(e.target.value)} placeholder="0" aria-invalid={qtyIsInvalid} style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: `1px solid ${qtyIsInvalid ? "#ef4444" : "var(--border)"}`, background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                {qtyError && <p style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px" }}>{qtyError}</p>}
               </div>
               <div>
                 <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>UNIDAD</label>
@@ -182,7 +187,7 @@ export default function WorkerMaterialsPage() {
             {submitError && <p style={{ fontSize: "12px", color: "#ef4444" }}>{submitError}</p>}
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
-              <button onClick={() => void handleSubmit()} disabled={submitting || !formItem.trim() || !formQty} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>
+              <button onClick={() => void handleSubmit()} disabled={submitting || !formItem.trim() || !formQty || qtyIsInvalid} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: (submitting || qtyIsInvalid) ? 0.7 : 1 }}>
                 {submitting ? "Enviando…" : "Enviar solicitud"}
               </button>
             </div>

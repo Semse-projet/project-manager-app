@@ -112,6 +112,25 @@ export interface TravelSettlementRecord {
   updatedAt: string;
 }
 
+/**
+ * Aggregated per-travel counters used by the worker travel list to render
+ * badges without fetching settlement/expenses/lodging per row (see
+ * TravelService.listSummaries). Field names/semantics mirror what the
+ * frontend previously derived client-side from those 3 calls per trip.
+ */
+export interface TravelSummaryRecord {
+  travelId: string;
+  totalSpent: number;
+  totalAdvances: number;
+  balanceDue: number;
+  expenseCount: number;
+  lodgingCount: number;
+  advanceCount: number;
+  missingExpenseReceipts: number;
+  missingLodgingReceipts: number;
+  receiptCount: number;
+}
+
 // ── Converters ────────────────────────────────────────────────────────────────
 
 function d(v: Prisma.Decimal | null | undefined): number | null {
@@ -264,6 +283,89 @@ export class TravelService {
       orderBy: { departureDate: "desc" },
     });
     return rows.map(toAssignment);
+  }
+
+  /**
+   * Batched badge-counter summary for the travel list screen. Avoids the
+   * classic "3 extra calls per row" N+1: instead of the caller fetching
+   * settlement/expenses/lodging per travelId, this computes the same
+   * aggregates for every assignment the actor can see in 3 grouped queries
+   * total. Scoping mirrors listAssignments exactly (same assignedTo/status/
+   * jobId/scope filters) so this can never be used to peek at another
+   * worker's travelIds — there is no travelId input here at all.
+   */
+  async listSummaries(input: {
+    tenantId: string;
+    userId: string;
+    roles: string[];
+    status?: string;
+    jobId?: string;
+    assignedTo?: string;
+    scope?: string;
+  }): Promise<TravelSummaryRecord[]> {
+    const assignments = await this.listAssignments(input);
+    if (assignments.length === 0) return [];
+    const travelIds = assignments.map(a => a.id);
+
+    const summaries = new Map<string, TravelSummaryRecord>();
+    for (const a of assignments) {
+      summaries.set(a.id, {
+        travelId: a.id, totalSpent: 0, totalAdvances: 0, balanceDue: 0,
+        expenseCount: 0, lodgingCount: 0, advanceCount: 0,
+        missingExpenseReceipts: 0, missingLodgingReceipts: 0, receiptCount: 0,
+      });
+    }
+
+    if (!databaseEnabled()) {
+      for (const e of MOCK_EXPENSES) this._foldExpenseIntoSummary(summaries, e);
+      for (const l of MOCK_LODGINGS) this._foldLodgingIntoSummary(summaries, l);
+      for (const adv of MOCK_ADVANCES) this._foldAdvanceIntoSummary(summaries, adv);
+      for (const s of summaries.values()) s.balanceDue = s.totalAdvances - s.totalSpent;
+      return travelIds.map(id => summaries.get(id)!);
+    }
+
+    const [expenses, lodgings, advances] = await Promise.all([
+      this.prisma.travelExpense.findMany({
+        where: { tenantId: input.tenantId, travelId: { in: travelIds }, status: { not: "REJECTED" } },
+      }),
+      this.prisma.lodgingBooking.findMany({
+        where: { tenantId: input.tenantId, travelId: { in: travelIds } },
+      }),
+      this.prisma.travelAdvance.findMany({
+        where: { tenantId: input.tenantId, travelId: { in: travelIds } },
+      }),
+    ]);
+    for (const e of expenses.map(toExpense)) this._foldExpenseIntoSummary(summaries, e);
+    for (const l of lodgings.map(toLodging)) this._foldLodgingIntoSummary(summaries, l);
+    for (const adv of advances.map(toAdvance)) this._foldAdvanceIntoSummary(summaries, adv);
+    for (const s of summaries.values()) s.balanceDue = s.totalAdvances - s.totalSpent;
+
+    return travelIds.map(id => summaries.get(id)!);
+  }
+
+  private _foldExpenseIntoSummary(summaries: Map<string, TravelSummaryRecord>, e: TravelExpenseRecord): void {
+    const s = summaries.get(e.travelId);
+    if (!s) return;
+    s.expenseCount += 1;
+    s.totalSpent += e.amount;
+    if (e.receiptUrl?.trim()) s.receiptCount += 1;
+    else s.missingExpenseReceipts += 1;
+  }
+
+  private _foldLodgingIntoSummary(summaries: Map<string, TravelSummaryRecord>, l: LodgingBookingRecord): void {
+    const s = summaries.get(l.travelId);
+    if (!s) return;
+    s.lodgingCount += 1;
+    s.totalSpent += l.actualTotal ?? l.estimatedTotal ?? 0;
+    if (l.receiptUrl?.trim()) s.receiptCount += 1;
+    else s.missingLodgingReceipts += 1;
+  }
+
+  private _foldAdvanceIntoSummary(summaries: Map<string, TravelSummaryRecord>, adv: TravelAdvanceRecord): void {
+    const s = summaries.get(adv.travelId);
+    if (!s) return;
+    s.totalAdvances += adv.amount;
+    s.advanceCount = s.totalAdvances > 0 ? 1 : 0;
   }
 
   /**

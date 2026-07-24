@@ -430,7 +430,7 @@ export default function TravelDetailPage() {
     expenseCount === 0 && lodgingCount === 0 && advanceCount === 0
       ? "sin base operativa"
       : Boolean(travel.requiresLodging) && lodgingCount === 0
-        ? "sin hospedaje requerido"
+        ? "hospedaje requerido pendiente"
         : null;
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [

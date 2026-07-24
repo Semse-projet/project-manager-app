@@ -1013,13 +1013,19 @@ function TrackerTab() {
           </div>
           {active.notes && <p className="mb-3 text-[0.65rem] italic text-[var(--muted)]">&quot;{active.notes}&quot;</p>}
           <div className="flex flex-wrap gap-2">
+            {/* Uses the /api/semse/time-tracker/* prefix, same as the rest of this
+                tab (summary/sessions/jobs/start/stop) — an older parallel
+                /api/semse/tracker/* family also exists (both hit the same
+                FieldOpsService.pauseTrackerSession/resumeTrackerSession on the
+                backend) but is unused elsewhere; kept only for backward
+                compatibility, see field-ops.controller.ts. */}
             {active.status === "RUNNING" ? (
-              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/pause`)}
+              <button disabled={acting} onClick={() => void act(`/api/semse/time-tracker/sessions/${active.id}/pause`)}
                 className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-400 disabled:opacity-40">
                 {acting ? "…" : "⏸ Pausar"}
               </button>
             ) : (
-              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/resume`)}
+              <button disabled={acting} onClick={() => void act(`/api/semse/time-tracker/sessions/${active.id}/resume`)}
                 className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 disabled:opacity-40">
                 {acting ? "…" : "▶ Reanudar"}
               </button>

@@ -202,6 +202,14 @@ export class FieldOpsController {
     return ok(requestId, data);
   }
 
+  // NOTE (2.37): duplicates TimeTrackerController's
+  // POST /v1/time-tracker/sessions/:sessionId/pause|resume — both call the
+  // exact same FieldOpsService methods below. The frontend's canonical
+  // /worker/field-ops Tracker tab now calls the /v1/time-tracker/sessions/...
+  // path (matching the rest of its own calls); as of this fix, nothing in
+  // apps/web calls these /v1/field-ops/tracker/:sessionId/pause|resume routes
+  // anymore. Left in place rather than removed in case an external client
+  // depends on them — no test/route audit was done to confirm that.
   @Post("tracker/:sessionId/pause")
   @RequirePermissions("field-ops:write")
   async pauseTrackerSession(

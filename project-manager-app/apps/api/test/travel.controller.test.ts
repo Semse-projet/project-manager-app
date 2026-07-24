@@ -47,6 +47,7 @@ test("travel controller declares correct @RequirePermissions", () => {
   // docs/AUDIT_REMEDIATION_PLAN.md G-PRO-10/2.31.
   const expectations: Array<[string, string]> = [
     ["listAssignments",  "jobs:read"],
+    ["listSummaries",    "jobs:read"],
     ["createAssignment", "travel:manage"],
     ["getAssignment",    "jobs:read"],
     ["updateStatus",     "travel:manage"],
@@ -91,6 +92,43 @@ test("travel controller: listAssignments routes to service with filters", async 
   const result = await controller.listAssignments(makeReq() as never, "PLANNED", "job_1", undefined, "own");
   assert.equal(result.requestId, "req_travel_1");
   assert.equal(result.data.length, 1);
+  assert.equal(calls[0]?.status, "PLANNED");
+  assert.equal(calls[0]?.jobId, "job_1");
+  assert.equal(calls[0]?.scope, "own");
+});
+
+// ── listSummaries (2.36) ──────────────────────────────────────────────────────
+
+test("travel controller: listSummaries routes to service with filters and returns batched counters", async () => {
+  const calls: Record<string, unknown>[] = [];
+  const STUB_SUMMARY = {
+    travelId: "travel_1", totalSpent: 500, totalAdvances: 300, balanceDue: -200,
+    expenseCount: 2, lodgingCount: 1, advanceCount: 1,
+    missingExpenseReceipts: 0, missingLodgingReceipts: 0, receiptCount: 3,
+  };
+  const controller = new TravelController({
+    async listAssignments() { return [STUB_ASSIGNMENT]; },
+    async listSummaries(opts: Record<string, unknown>) {
+      calls.push(opts);
+      return [STUB_SUMMARY];
+    },
+    async createAssignment() { return STUB_ASSIGNMENT; },
+    async getAssignment() { return STUB_ASSIGNMENT; },
+    async updateAssignmentStatus() { return STUB_ASSIGNMENT; },
+    async listExpenses() { return []; },
+    async createExpense() { return STUB_EXPENSE; },
+    async listLodging() { return []; },
+    async createLodging() { return {}; },
+    async listAdvances() { return []; },
+    async createAdvance() { return {}; },
+    async computeSettlement() { return {}; },
+    async closeSettlement() { return {}; },
+  } as never);
+
+  const result = await controller.listSummaries(makeReq() as never, "PLANNED", "job_1", undefined, "own");
+  assert.equal(result.requestId, "req_travel_1");
+  assert.equal(result.data.length, 1);
+  assert.equal(result.data[0]?.travelId, "travel_1");
   assert.equal(calls[0]?.status, "PLANNED");
   assert.equal(calls[0]?.jobId, "job_1");
   assert.equal(calls[0]?.scope, "own");
