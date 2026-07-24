@@ -42,6 +42,17 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
     async listLongEntries(...args: unknown[]) {
       return record("listLongEntries", args, []);
     },
+    // 2.9 — ownership checks added to startTimer/createManualEntry. Default
+    // stubs simulate "job/free project belongs to this tenant and worker" so
+    // existing happy-path tests keep exercising the same behavior; tests that
+    // want to exercise the IDOR rejection path can override these to return
+    // null.
+    async findJobForLaborEntry(...args: unknown[]) {
+      return record("findJobForLaborEntry", args, { id: (args[0] as { jobId?: string })?.jobId ?? "job-stub" });
+    },
+    async findFreeProjectForLaborEntry(...args: unknown[]) {
+      return record("findFreeProjectForLaborEntry", args, { id: (args[0] as { freeProjectId?: string })?.freeProjectId ?? "fp-stub" });
+    },
     ...overrides,
   };
   return repo;
@@ -89,6 +100,47 @@ void test("startTimer starts a realtime entry for valid input", async () => {
   assert.equal((result as { id: string }).id, "te1");
   const startCall = repo.calls.find((call) => call.method === "startRealtimeEntry");
   assert.ok(startCall, "should call startRealtimeEntry");
+});
+
+void test("startTimer rejects a jobId not assigned to this worker (2.9 IDOR)", async () => {
+  const { service } = createService({
+    async findJobForLaborEntry() {
+      return null;
+    },
+  });
+
+  await assert.rejects(
+    service.startTimer({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "job_linked",
+      jobId: "job-not-mine",
+    }),
+    /not assigned/i,
+  );
+});
+
+void test("createManualEntry rejects a freeProjectId not owned by this worker (2.9 IDOR)", async () => {
+  const { service } = createService({
+    async findFreeProjectForLaborEntry() {
+      return null;
+    },
+  });
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "job_linked",
+      freeProjectId: "fp-not-mine",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+    }),
+    /not found/i,
+  );
 });
 
 void test("pause/resume/stop/updateNotes scope by owner (createdBy)", async () => {
