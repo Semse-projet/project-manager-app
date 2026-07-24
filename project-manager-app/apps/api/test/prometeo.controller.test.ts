@@ -99,13 +99,13 @@ function createController() {
 
 test("prometeo controller declares permissions and wraps representative payloads", async () => {
   const expectations: Array<[string, string]> = [
-    ["ingest", "agents:run:create"],
+    ["ingest", "knowledge:manage"],
     ["listTools", "agents:run:create"],
     ["invokeTool", "agents:run:create"],
-    ["ingestFile", "agents:run:create"],
+    ["ingestFile", "knowledge:manage"],
     ["getTradeLibrary", "agents:run:create"],
     ["listDocuments", "agents:run:create"],
-    ["deleteDocument", "agents:run:create"],
+    ["deleteDocument", "knowledge:manage"],
     ["search", "agents:run:create"],
     ["ragContext", "agents:run:create"],
     ["ragQuery", "agents:run:create"],
