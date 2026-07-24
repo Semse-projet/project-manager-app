@@ -155,65 +155,68 @@ export class AgentsRepository {
     await this.actorContextService.ensureActorContext(input);
 
     const limit = input.maxItems ?? 50;
+    const staleBefore = new Date(Date.now() - input.staleAfterMs);
+    const staleSignalWhere: PrismaTypes.AgentRunWhereInput = {
+      OR: [
+        { heartbeatAt: { lte: staleBefore } },
+        { heartbeatAt: null, startedAt: { lte: staleBefore } },
+        { heartbeatAt: null, startedAt: null, updatedAt: { lte: staleBefore } }
+      ]
+    };
 
     return this.prisma.$transaction(async (tx) => {
       const db = tx as AgentRunTx;
-
       const candidates = (await db.agentRun.findMany({
         where: {
           tenantId: input.tenantId,
-          status: "RUNNING"
+          status: "RUNNING",
+          ...staleSignalWhere
         },
         orderBy: { updatedAt: "asc" },
         take: limit
       })) as StoredAgentRun[];
-
-      const now = Date.now();
       const reclaimed: AgentRunRecord[] = [];
 
       for (const run of candidates) {
-        const lastSignal = run.heartbeatAt ?? run.startedAt ?? run.updatedAt ?? run.createdAt;
-        const ageMs = now - lastSignal.getTime();
-
-        if (Number.isNaN(ageMs) || ageMs < input.staleAfterMs) {
-          continue;
-        }
-
-        const patch: PrismaTypes.AgentRunUpdateManyMutationInput =
-          run.attempts >= run.maxAttempts
-            ? {
-                status: "FAILED",
-                deadLettered: true,
-                error: "max attempts reached during stale reclaim",
-                workerId: null,
-                heartbeatAt: null,
-                endedAt: new Date()
-              }
-            : {
-                status: "QUEUED",
-                workerId: null,
-                error: "reclaimed due to stale heartbeat",
-                startedAt: null,
-                heartbeatAt: null,
-                endedAt: null
-              };
-
-        // Repetir `status: "RUNNING"` en el WHERE del update (no solo en el
-        // findMany previo) evita que el barrido reclame un run que un worker
-        // real ya completó/falló/canceló entre el find y el update.
-        const updateResult = await db.agentRun.updateMany({
-          where: { id: run.id, status: "RUNNING" },
-          data: patch
+        const mutation = await db.agentRun.updateMany({
+          where: {
+            id: run.id,
+            tenantId: input.tenantId,
+            status: "RUNNING",
+            ...staleSignalWhere
+          },
+          data:
+            run.attempts >= run.maxAttempts
+              ? {
+                  status: "FAILED",
+                  deadLettered: true,
+                  error: "max attempts reached during stale reclaim",
+                  workerId: null,
+                  heartbeatAt: null,
+                  endedAt: new Date()
+                }
+              : {
+                  status: "QUEUED",
+                  workerId: null,
+                  error: "reclaimed due to stale heartbeat",
+                  startedAt: null,
+                  heartbeatAt: null,
+                  endedAt: null
+                }
         });
 
-        if (updateResult.count === 0) {
+        if (mutation.count === 0) {
           continue;
         }
 
-        reclaimed.push(this.toRecord({ ...run, ...patch } as StoredAgentRun));
-
-        if (reclaimed.length >= limit) {
-          break;
+        const updated = (await db.agentRun.findFirst({
+          where: {
+            id: run.id,
+            tenantId: input.tenantId
+          }
+        })) as StoredAgentRun | null;
+        if (updated) {
+          reclaimed.push(this.toRecord(updated));
         }
       }
 
