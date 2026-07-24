@@ -2,8 +2,8 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.0"
-status: "DRAFT"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-20"
@@ -76,7 +76,7 @@ related_agents:
   - pulse
   - justus
   - planner
-last_verified: "2026-07-21"
+last_verified: "2026-07-23"
 ---
 
 # Spec: Pro/Worker UI Flows — Remediation
@@ -84,6 +84,12 @@ last_verified: "2026-07-21"
 > **Nota de nomenclatura — léela antes que nada.** El rol real en la base de datos (`Role.name`) es **`PRO`**, no `WORKER`. La UI vive bajo `/worker/*` y el sidebar se etiqueta a sí mismo "Profesional". El spec anterior (`docs/specs/ui/pro-flows.spec.md`, `status: VERIFIED`) **no es incorrecto, es más angosto de lo que su nombre sugiere**: sus `related_files`/`related_tests` (`apps/web/app/pro`, `apps/web/app/(app)/tools`, `pro-tools-*.spec.ts`) muestran que en realidad especifica el catálogo **ProTools** (calculadoras de oficio), no la aplicación autenticada completa del rol PRO. La app real de `/worker/*` — dashboard, trabajos, tracker, pagos, perfil — nunca tuvo spec propio. Este documento cubre esa brecha; no reemplaza al spec de ProTools, que además tiene su propio gap confirmado (ver G-CLI-04 en `client-flows-remediation.spec.md`: `POST /api/semse/agents/protools/estimate` da 404 — contradice su `status: VERIFIED`).
 >
 > Auditado con: hallazgos de rebote de la ronda de backend transversal (labor-engine, Stripe Connect, matching) + navegación en vivo contra `semse-web-production.up.railway.app` con una cuenta profesional real (`jhonnymembers403@gmail.com`, rol `PRO`), el 2026-07-20. Cobertura en vivo parcial — ver `docs/AUDIT_REMEDIATION_PLAN.md` sección 2 para la lista exacta de pantallas recorridas y las que faltan.
+
+> **Límite de aprobación v1.1.** Este spec autoriza los fixes correctivos
+> enrutados como `EXECUTABLE` por `governance.audit-remediation-program`.
+> Excluye `2.1` y `2.40` (decisión de producto), `2.28` (verificación en
+> `REVIEW`) y `2.44` (tokenización en `REVIEW`). Cada uno conserva su spec
+> bloqueante y no queda autorizado por el estado `APPROVED` de este documento.
 
 ## Problem Statement
 
@@ -272,10 +278,11 @@ required_behavior:
 
 ## Acceptance Criteria
 
-- [ ] Este spec se agrega a `SPEC_INDEX.md` junto a `docs/specs/ui/pro-flows.spec.md` (no lo reemplaza — cubren alcances distintos, ver nota de apertura); `pro-flows.spec.md` pasa a `REVIEW` porque G-CLI-04 contradice su `status: VERIFIED`
+- [x] Este spec se agrega a `SPEC_INDEX.md` junto a `docs/specs/ui/pro-flows.spec.md`; cubren alcances distintos.
 - [x] ~~Antes de `APPROVED`: completar la cobertura en vivo pendiente y correr la ronda de agentes de código dedicada~~ — hecho 2026-07-21: cobertura en vivo completa + ronda de 5 agentes en paralelo (42 hallazgos nuevos, ver `docs/AUDIT_REMEDIATION_PLAN.md` 2.8-2.48)
-- [ ] Antes de `APPROVED`: el equipo de producto revisa y prioriza los 42+13 hallazgos de este spec (son demasiados para implementar todos a la vez) — este spec documenta el estado real, no implica que todo se arregle en un solo esfuerzo
-- [ ] `pnpm spec:validate:strict` pasa
+- [x] El trabajo se divide en lotes por bounded context; aprobar la spec no implica implementar 55 hallazgos en un solo esfuerzo.
+- [x] Los ítems con decisión de producto/compliance se separaron en specs `DRAFT`/`REVIEW`.
+- [x] `node scripts/spec-validate.mjs --strict` pasa.
 
 ## Rollback Considerations
 

@@ -104,7 +104,8 @@
     "spec:validate": "node ./scripts/spec-validate.mjs",
     "spec:validate:strict": "node ./scripts/spec-validate.mjs --strict",
     "spec:index": "node ./scripts/spec-index.mjs",
-    "spec:coverage": "node ./scripts/spec-coverage.mjs"
+    "spec:coverage": "node ./scripts/spec-coverage.mjs",
+    "spec:audit-plan-coverage": "node ./scripts/audit-plan-spec-coverage.mjs"
   },
   "devDependencies": {
     "@jridgewell/sourcemap-codec": "^1.5.5",

@@ -2,8 +2,8 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.0"
-status: "DRAFT"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-20"
@@ -36,7 +36,7 @@ related_events:
   - payment.released
 related_agents:
   - prometeo
-last_verified: "2026-07-20"
+last_verified: "2026-07-23"
 ---
 
 # Spec: Client UI Flows — Remediation
@@ -44,6 +44,13 @@ last_verified: "2026-07-20"
 > **Por qué existe este documento.** `docs/specs/ui/client-flows.spec.md` (status `VERIFIED`, `last_verified: 2026-06-09`) especifica rutas que **ya no son las que usa el cliente real** (`/jobs/new`, `/jobs/:jobId`, `/jobs/:jobId/payments`) — esas rutas siguen existiendo en el código como una segunda implementación huérfana, sin ningún enlace de navegación (ver hallazgo de UX de esta misma auditoría). El flujo real, vinculado desde el sidebar y usado en producción, vive bajo `/client/*`. Ese flujo real **no tiene spec propio** — nunca se le corrigió el contrato después de la migración de rutas. Este documento cierra esa brecha: especifica el contrato real de `/client/*` y documenta, con evidencia en vivo contra producción, dónde el código actual no cumple ni su propio contrato implícito.
 >
 > Auditado con: 9 revisiones de código en paralelo (backend transversal) + navegación en vivo contra `semse-web-production.up.railway.app` con una cuenta cliente real. Reporte narrativo completo: artefacto "SEMSE — Auditoría de UI/UX y backend" (Claude Artifacts). Backlog accionable: `docs/AUDIT_REMEDIATION_PLAN.md` sección 1 (más sección 0, transversal).
+
+> **Límite de aprobación v1.1.** Este spec autoriza los fixes correctivos de
+> Cliente enrutados como `EXECUTABLE` por
+> `governance.audit-remediation-program`. No autoriza `1.5`, `1.11b` ni `1.21`,
+> que se movieron a `ui.audit-product-decisions`, ni las migraciones
+> arquitectónicas `1.15`–`1.17`/`1.19`, gobernadas por
+> `ui.design-system-remediation`.
 
 ## Problem Statement
 
@@ -60,7 +67,8 @@ El rol CLIENT vive bajo `/client/*` (no `/jobs/*`, que es código huérfano de u
 
 ## Non-Goals
 
-- Este spec no decide si "Cliente" debe seguir siendo un rol híbrido (dueño + contratista) o dividirse en dos — eso es una decisión de producto que este documento solo señala, no resuelve (ver Gap G-CLI-08).
+- Este spec no decide si "Cliente" debe seguir siendo un rol híbrido (dueño + contratista) o dividirse en dos — G-CLI-08/`1.5` se resuelve exclusivamente en `ui.audit-product-decisions`.
+- Marca, trust visible y consolidación del sistema de diseño quedan fuera del alcance aprobado de este documento.
 - No repara el motor de pagos en sí (double-payment, webhook no-op) — eso vive en `docs/AUDIT_REMEDIATION_PLAN.md` sección 0 (transversal, no específico de UI de cliente).
 
 ## Gaps encontrados (reemplaza la sección "Flujos" del spec anterior, que describía rutas huérfanas)
@@ -162,10 +170,11 @@ required_behavior:
 
 ## Acceptance Criteria
 
-- [ ] Este spec reemplaza a `docs/specs/ui/client-flows.spec.md` en `SPEC_INDEX.md` (el anterior pasa a `DEPRECATED`, referencia histórica de la implementación huérfana en `/jobs/*`)
-- [ ] Owner confirma explícitamente G-CLI-08 (decisión de producto) antes de que este spec pase a `APPROVED` — sin eso, no hay `plan.md` que pueda proponer un fix de código para ese gap concreto (los demás gaps sí pueden avanzar a plan independientemente)
-- [ ] `pnpm spec:validate:strict` pasa
-- [ ] Cada gap G-CLI-* tiene su tarea correspondiente en `docs/AUDIT_REMEDIATION_PLAN.md` sección 1, marcada `[x]` solo cuando el test asociado pasa
+- [x] Este spec reemplaza a `docs/specs/ui/client-flows.spec.md` en `SPEC_INDEX.md`; el anterior queda `DEPRECATED`.
+- [x] G-CLI-08 y las demás decisiones se separaron en `ui.audit-product-decisions`; ya no bloquean los fixes ejecutables.
+- [x] Las migraciones 1.15–1.17/1.19 se separaron en `ui.design-system-remediation`.
+- [x] `node scripts/spec-validate.mjs --strict` pasa.
+- [x] Cada gap G-CLI-* tiene routing en `governance.audit-remediation-program` y tarea en la sección 1 del plan.
 
 ## Rollback Considerations
 

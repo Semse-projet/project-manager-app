@@ -27,6 +27,9 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 **Estados:**
 - `APPROVED` — fuente de verdad, se puede implementar desde aquí
 - `DRAFT` — en construcción, no implementar hasta aprobar
+- `REVIEW` — contrato identificado, pero con decisiones o revisión bloqueante; no implementar
+- `IMPLEMENTED` — existe implementación enlazada; falta elevar la evidencia a verificación completa
+- `VERIFIED` — contrato e implementación cuentan con evidencia ejecutable enlazada
 - `PARTIAL` — existe pero incompleto, verificar antes de usar
 - `MISSING` — necesita crearse antes de implementar el dominio
 - `DEPRECATED` — no usar, existe solo como referencia histórica
@@ -45,6 +48,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [semse-forge-agent-harness](specs/agents/SEMSE_FORGE_AGENT_HARNESS.spec.md) | agents | APPROVED | critical | no | no | yes | 5 | 2026-07-17 |
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
+| [api.auth-account-session-remediation](specs/api/auth-account-session-remediation.spec.md) | auth | APPROVED | critical | yes | yes | yes | 5 | 2026-07-23 |
 | [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | high | yes | yes | yes | 3 | 2026-06-28 |
 | [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
 | [api-change-orders](specs/api/change-orders.spec.md) | change-orders | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
@@ -59,6 +63,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-07-17 |
 | [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
+| [api.payout-method-tokenization](specs/api/payout-method-tokenization.spec.md) | payments | REVIEW | critical | yes | yes | yes | 3 | 2026-07-23 |
 | [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | medium | yes | yes | yes | 5 | 2026-07-18 |
 | [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | medium | yes | no | yes | 2 | 2026-07-18 |
 | [api-prometeo-rag-trade-knowledge](specs/api/prometeo.spec.md) | prometeo | VERIFIED | high | yes | yes | yes | 7 | 2026-07-12 |
@@ -66,6 +71,9 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api.readiness](specs/api/readiness.spec.md) | platform | VERIFIED | high | yes | no | yes | 3 | 2026-07-12 |
 | [api-reservations](specs/api/reservations.spec.md) | reservations | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-sense-workspace](specs/api/sense-workspace.spec.md) | workspace | IMPLEMENTED | low | yes | yes | yes | 5 | 2026-07-18 |
+| [api.travel-assignments-settlement](specs/api/travel.spec.md) | travel | APPROVED | high | yes | yes | yes | 5 | 2026-07-23 |
+| [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | APPROVED | critical | yes | no | yes | 4 | 2026-07-23 |
+| [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | critical | yes | yes | yes | 6 | 2026-07-23 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | medium | yes | no | no | 6 | 2026-07-19 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | medium | yes | no | no | 3 | 2026-07-19 |
@@ -90,6 +98,8 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
+| [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | critical | no | no | no | 12 | 2026-07-23 |
+| [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | high | yes | yes | yes | 4 | 2026-07-23 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | high | yes | no | yes | 8 | 2026-07-23 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | high | yes | yes | yes | 7 | 2026-07-17 |
@@ -122,14 +132,16 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | low | yes | no | yes | 7 | 2026-07-19 |
-| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 12 | 2026-07-23 |
+| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 11 | 2026-07-23 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
-| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | DRAFT | critical | yes | yes | no | 12 | 2026-07-20 |
+| [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | critical | no | yes | no | 5 | 2026-07-23 |
+| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | no | 12 | 2026-07-23 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | 2026-07-12 |
+| [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | 2026-07-12 |
-| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | DRAFT | critical | yes | yes | no | 41 | 2026-07-21 |
+| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | no | 41 | 2026-07-23 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | medium | yes | yes | yes | 6 | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
@@ -385,20 +397,17 @@ F1 RanchOps Core debe estabilizarse antes de F2-F5.
 
 ---
 
-## Score SDD actual
+## Cobertura SDD actual
 
-```
-Nivel 0 (Gobierno):          4/4   ████████████ 100%
-Nivel 1 (Visión):            7/7   ████████████ 100%
-Nivel 2 (Dominio):           8/8   ████████████ 100%
-Nivel 3 (ADRs):              9/9   ████████████ 100%
-Nivel 4 (API contracts):    16/16  ████████████ 100%  ← LINKED, varios faltan VERIFIED
-Nivel 5 (FSM specs):         6/6   ████████████ 100%  ← LINKED, varios faltan VERIFIED
-Nivel 6 (UI flows):          5/5   ████████████ 100%  ← LINKED, varios faltan VERIFIED
-Nivel 7 (Infra/Seguridad):   3/3   ████████████ 100%
+- Registro generado: **103 specs**.
+- Plan de remediación de auditoría: **157/157 ítems con routing canónico**.
+- Specs ejecutables nuevas del plan: auth/session, Vision Service, Travel y
+  Labor Engine.
+- Gates explícitos del plan: verificación de profesionales, tokenización de
+  cobros y sistema de diseño en `REVIEW`; decisiones de producto en `DRAFT`.
+- Verificación: `pnpm spec:audit-plan-coverage`,
+  `node scripts/spec-validate.mjs --strict` y `pnpm spec:coverage`.
 
-Score global SDD: Specs linkeados 100% para niveles 0-7. Verificacion ejecutable: ver bloque generado y `pnpm spec:coverage`.
-
-Gaps P0 cerrados:  4/4  (100%)
-Gaps P1 cerrados:  5/5  (100%) ← Specs creados; varios ya están en VERIFIED con pruebas de controller/RBAC
-```
+Los conteos por nivel históricos se eliminaron porque duplicaban el bloque
+generado y quedaban obsoletos al agregar specs. La matriz generada de este
+archivo es la fuente canónica.

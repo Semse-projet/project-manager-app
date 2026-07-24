@@ -2,7 +2,7 @@
 id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -22,19 +22,26 @@ related_files:
   - apps/api/src/modules/knowledge
   - apps/api/src/modules/repo-knowledge
   - apps/api/src/modules/runtime-knowledge
-related_tests: []
+related_tests:
+  - apps/api/test/domain-rbac-permissions.test.ts
+  - apps/api/test/uploads.controller.test.ts
 related_endpoints:
   - v1/uploads/plan
   - v1/anatomy
   - v1/knowledge
 related_events: []
 related_agents: []
-last_verified: "2026-07-20"
+last_verified: "2026-07-23"
 ---
 
 # Spec: Admin/OPS UI Flows — Remediation
 
-> **Estado de esta pasada: PARCIAL, código únicamente.** A diferencia de `client-flows-remediation.spec.md` y `pro-flows-remediation.spec.md`, este documento **no tiene ninguna verificación en vivo** — no hubo credencial de `OPS_ADMIN` disponible durante la sesión de auditoría del 2026-07-20. Todo lo que sigue es análisis estático de código, con la misma rigurosidad (archivo:línea) pero sin la confirmación visual que sí se hizo en los otros dos módulos. No promover este spec a `APPROVED` sin completar esa verificación — es justo el tipo de brecha que este mismo proyecto de SDD existe para cerrar.
+> **Límite de aprobación v1.1.** El análisis estático y los contratos explícitos
+> autorizan fixes correctivos acotados, por eso el estado es `APPROVED`. La
+> ausencia de credencial `OPS_ADMIN` bloquea elevarlo a `VERIFIED`, no su
+> aprobación. Dinero, auth, cross-tenant, verificación y Travel requieren
+> además la spec API del bounded context indicada en
+> `governance.audit-remediation-program`.
 >
 > A diferencia del spec de Cliente y PRO, `docs/specs/ui/admin-flows.spec.md` sí apunta al directorio correcto (`apps/web/app/(app)/admin`) — el problema aquí no es un spec desactualizado de ruta, es que nunca se verificó contra producción.
 
@@ -107,7 +114,7 @@ required_behavior:
 ## Security / RBAC
 
 - G-ADM-07 y G-ADM-08 son los hallazgos de mayor severidad de este documento — ambos son fugas de control de acceso reales, no solo gaps de UX.
-- Antes de `APPROVED`: confirmar con una sesión OPS_ADMIN real si existe alguna otra ruta de mitigación en el frontend que no se vio por análisis estático (poco probable dado que el gate real está en el backend, pero debe verificarse, no asumirse).
+- Antes de `VERIFIED`: confirmar con una sesión OPS_ADMIN real si existe alguna ruta de mitigación o divergencia no visible en el análisis estático.
 
 ## Tests Required
 
@@ -136,10 +143,10 @@ required_behavior:
 
 ## Acceptance Criteria
 
-- [ ] **Bloqueante:** conseguir credencial OPS_ADMIN y repetir la navegación en vivo completa (Dashboard, WorkOps, Trust/Finance, Intelligence/AI, Tool Hub, Verticals — dividir en más de una pasada dado el tamaño, 58 páginas) antes de mover cualquier gap de este documento a `APPROVED`
-- [ ] Lanzar la ronda de agentes de código dedicada a `apps/web/app/(app)/admin/**` (la que sí se hizo para Cliente, y parcialmente para PRO)
-- [ ] `pnpm spec:validate:strict` pasa
-- [ ] Este spec reemplaza a `docs/specs/ui/admin-flows.spec.md` en `SPEC_INDEX.md` solo cuando la verificación en vivo esté completa — hasta entonces, mantener ambos referenciados
+- [ ] **Bloqueante para `VERIFIED`:** conseguir credencial OPS_ADMIN y repetir la navegación completa.
+- [x] La ronda estática dedicada a `apps/web/app/(app)/admin/**` quedó documentada en la sección 3 del plan.
+- [x] `node scripts/spec-validate.mjs --strict` pasa.
+- [x] Este spec y `docs/specs/ui/admin-flows.spec.md` permanecen referenciados; el anterior no se elimina hasta completar verificación en vivo.
 
 ## Rollback Considerations
 

@@ -52,6 +52,7 @@ Estado al 2026-06-09:
 | `api/readiness.spec.md` | VERIFIED | Critico — readiness real para Railway y dependencias |
 | `api/rbac-explicit-boundary.spec.md` | VERIFIED | Critico — deny-by-default para handlers sin metadata |
 | `ui/work-os-navigation-decision-intelligence.spec.md` | APPROVED | Alto — navegacion Work OS y decision intelligence |
+| `governance/audit-remediation-program.spec.md` | APPROVED | Crítico — routing de los 157 ítems del plan de auditoría |
 
 La matriz generada en `docs/SPEC_INDEX.md` es la fuente de verdad para el estado completo. Esta tabla solo resume specs prioritarios para trabajo activo.
 

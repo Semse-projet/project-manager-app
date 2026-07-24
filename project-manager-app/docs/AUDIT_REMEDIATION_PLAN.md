@@ -9,6 +9,31 @@
 - Orden de trabajo sugerido: **Sección 0 (seguridad transversal) primero**, sin importar en qué módulo estés — son los hallazgos más graves y no son específicos de una sola pantalla. Después, módulo por módulo: Cliente (ya auditado) → Worker (pendiente) → Admin (pendiente).
 - Al corregir un hallazgo: márcalo `[x]`, y si vale la pena, anota el commit/PR al final de la línea.
 
+## Enrutamiento SDD obligatorio
+
+La cobertura canónica de los **157 ítems** vive en
+[`governance.audit-remediation-program`](specs/governance/audit-remediation-program.spec.md).
+Antes de implementar cualquier ID:
+
+1. resolver su fila en ese mapa;
+2. abrir la spec primaria del bounded context;
+3. confirmar que esté `APPROVED`, `IMPLEMENTED` o `VERIFIED`;
+4. si está `REVIEW`/`DRAFT`, cerrar la decisión indicada en vez de inferirla.
+
+| Sección | Cobertura | Spec de superficie |
+|---|---:|---|
+| 0 — Transversal | 36/36 | specs API/FSM indicadas por ítem |
+| 1 — Cliente | 23/23 | `ui.client-flows-remediation` |
+| 2 — PRO/Worker | 53/53 | `ui.pro-flows-remediation` |
+| 3 — Admin | 45/45 | `ui.admin-flows-remediation` |
+
+Las decisiones de producto (`1.5`, `1.11b`, `1.21`, `2.1`, `2.40`) están
+separadas en `ui.audit-product-decisions`. Verificación de identidad (`0.9`,
+`2.28`) y tokenización de cobros (`2.44`) permanecen en `REVIEW`. Esto evita
+que una decisión abierta bloquee fixes correctivos no relacionados y evita
+también que el estado aprobado de una spec amplia autorice decisiones aún no
+tomadas.
+
 **Estado de auditoría por módulo:**
 
 | Módulo | Código estático | En vivo (producción) | Fecha |
