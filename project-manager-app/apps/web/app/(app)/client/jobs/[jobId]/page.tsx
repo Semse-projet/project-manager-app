@@ -461,7 +461,7 @@ export default function ClientJobDetailPage() {
   };
 
   return (
-    <div style={{ maxWidth: "1024px", margin: "0 auto", display: "grid", gap: "18px" }}>
+    <div className="pb-24 md:pb-0" style={{ maxWidth: "1024px", margin: "0 auto", display: "grid", gap: "18px" }}>
       <ClientPageHeader
         title={asString(job?.title) ?? "Detalle del trabajo"}
         subtitle={asString(job?.scope) ?? asString(job?.description) ?? "Sin descripción disponible."}
