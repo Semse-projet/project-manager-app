@@ -263,9 +263,10 @@ export class JobsService {
     tenantId: string;
     orgId: string;
     userId: string;
+    roles: string[];
     jobId: string;
   }): Promise<JobRecord> {
-    const job = await this.jobsRepository.findById(input);
+    const job = await this.jobsRepository.findVisibleById(input);
     const [withClientUser] = await this.enrichJobsWithClientUser([job]);
     return this.enrichJobWithPreferredProfessional({
       tenantId: input.tenantId,

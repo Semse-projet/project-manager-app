@@ -6,5 +6,3 @@ export { Spinner, PageSpinner } from "./spinner";
 export { EmptyState } from "./empty-state";
 export { ErrorState, FeedbackBanner } from "./error-state";
 export { Input, Textarea, Select } from "./input";
-export { ConfirmDialog } from "./confirm-dialog";
-export type { ConfirmDialogProps } from "./confirm-dialog";

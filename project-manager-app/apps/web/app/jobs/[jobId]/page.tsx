@@ -27,7 +27,6 @@ import { Input, Textarea } from "../../../components/ui/input";
 import { EmptyState } from "../../../components/ui/empty-state";
 import { FeedbackBanner } from "../../../components/ui/error-state";
 import { PageSpinner } from "../../../components/ui/spinner";
-import { ConfirmDialog } from "../../../components/ui/confirm-dialog";
 
 type JobDetailPageProps = { params: Promise<{ jobId: string }> };
 type MilestoneAction = "submit" | "approve" | "reject" | "request-changes";
@@ -61,7 +60,6 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
   const [actingMilestoneId, setActingMilestoneId]     = useState<string | null>(null);
   const [releasingMilestoneId, setReleasingMilestoneId] = useState<string | null>(null);
   const [resolvingDisputeId, setResolvingDisputeId]   = useState<string | null>(null);
-  const [disputeConfirmId, setDisputeConfirmId]       = useState<string | null>(null);
   const [msTitle, setMsTitle]   = useState("Milestone 1");
   const [msAmount, setMsAmount] = useState("500");
   const [msSeq, setMsSeq]       = useState("1");
@@ -275,23 +273,8 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
     }
   }
 
-  // 1.3 — this used to fire immediately with a hardcoded "pro_favor"
-  // outcome and no confirmation. The backend's own dispute policy
-  // (disputes.policy.ts assertDisputeResolvable) only allows a CLIENT actor
-  // to settle a dispute in the professional's favor — refunds, splits, and
-  // legal escalation require OPS_ADMIN — so a client-facing outcome picker
-  // would offer choices the API rejects. The correct, backend-supported fix
-  // is a confirmation step that makes the one available outcome (and its
-  // consequence — releasing held funds) explicit before it fires, not a
-  // picker for outcomes this actor cannot actually choose.
-  function handleResolveDispute(disputeId: string) {
+  async function handleResolveDispute(disputeId: string) {
     if (resolvingDisputeId) return;
-    setDisputeConfirmId(disputeId);
-  }
-
-  async function confirmResolveDispute() {
-    if (!disputeConfirmId || resolvingDisputeId) return;
-    const disputeId = disputeConfirmId;
     setResolvingDisputeId(disputeId);
     setError(null);
     setFeedback(null);
@@ -300,7 +283,6 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
         resolution: "Resolved by client in favor of the professional",
         resolutionType: "pro_favor",
       });
-      setDisputeConfirmId(null);
       await refresh(jobId);
       setFeedback("Dispute resuelta. El job volvió a estado operativo.");
     } catch (e) {
@@ -643,19 +625,6 @@ export default function JobDetailPage({ params }: JobDetailPageProps) {
           </HtmlInCanvasPanel>
         </div>
       ) : null}
-
-      <ConfirmDialog
-        open={disputeConfirmId !== null}
-        title="Confirmar resolución de disputa"
-        description="Esta disputa se resolverá a favor del profesional y los fondos retenidos en escrow se liberarán. Esta acción no se puede deshacer. Refunds, splits o escalamiento requieren revisión de operaciones."
-        details={disputeConfirmId ? [{ label: "Disputa", value: disputeConfirmId }, { label: "Resultado", value: "A favor del profesional" }] : []}
-        confirmLabel="Resolver a favor del profesional"
-        confirmVariant="destructive"
-        loading={resolvingDisputeId === disputeConfirmId && resolvingDisputeId !== null}
-        error={error}
-        onConfirm={() => void confirmResolveDispute()}
-        onCancel={() => setDisputeConfirmId(null)}
-      />
     </div>
   );
 }

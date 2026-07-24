@@ -138,4 +138,9 @@ test("jobs controller wraps service responses and passes actor context", async (
   assert.equal(transitioned.data.status, "RESERVED");
   assert.equal(calls.create[0]?.tenantId, "tenant_1");
   assert.equal(calls.transition[0]?.targetStatus, "reserved");
+
+  await controller.list(actor as never, {});
+  assert.deepEqual(calls.list[0]?.roles, ["CLIENT"]);
+  await controller.detail(actor as never, "job_1");
+  assert.deepEqual(calls.detail[0]?.roles, ["CLIENT"]);
 });

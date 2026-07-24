@@ -24,12 +24,13 @@ related_tests:
   - apps/api/test/field-ops-service.test.ts
   - apps/api/test/field-ops-tracker.test.ts
   - apps/api/test/field-ops.controller.test.ts
+  - apps/api/test/labor-engine.repository.test.ts
   - apps/api/test/labor-engine.service.test.ts
 related_endpoints:
   - v1/time-tracker
 related_events: []
 related_agents: []
-last_verified: "2026-07-19"
+last_verified: "2026-07-23"
 ---
 
 # Spec: consolidación del tracking de tiempo
@@ -104,6 +105,17 @@ ENTONCES se guarda contextEntityType='FieldUnit' y contextEntityId=<fieldUnitId>
   Y     sin requerir una columna fieldUnitId dedicada
 ```
 
+### P1 — Integridad y ownership de entradas pagables
+
+```
+DADO    que un PRO crea una entrada manual o inicia un timer job_linked
+CUANDO  envía breakMinutes negativo o un jobId/freeProjectId ajeno
+ENTONCES breakMinutes se normaliza a cero antes de calcular/persistir duración
+  Y     el job debe estar asignado por bid, reserva, contrato o proyecto
+  Y     el proyecto libre debe pertenecer al mismo tenant y worker
+  Y     una referencia ajena se rechaza antes de crear TimeEntry
+```
+
 ---
 
 ## 4. FSM
@@ -160,6 +172,8 @@ Los BFF routes en `apps/web/app/api/semse/time-tracker/*` no se tocan.
 - [ ] `pnpm typecheck` pasa tras regenerar el cliente Prisma.
 - [ ] `pnpm lint` no reporta errores.
 - [ ] `pnpm --filter @semse/api test:unit` mantiene cobertura actual (tests de `field-ops` y `labor-engine` se ajustan al nuevo mapeo).
+- [x] `apps/api/test/labor-engine.repository.test.ts` cubre clamp server-side de descansos negativos.
+- [x] `apps/api/test/labor-engine.service.test.ts` cubre rechazo de job/proyecto libre ajenos.
 - [ ] `pnpm spec:preflight` pasa.
 - [ ] Migración es reversiva: rollback = restaurar `TrackerSession` desde backup (la data se migra a `TimeEntry`).
 
