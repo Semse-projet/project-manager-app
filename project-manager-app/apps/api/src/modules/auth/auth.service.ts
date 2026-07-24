@@ -307,7 +307,8 @@ export class AuthService {
     email: string;
     requestId: string;
   }) {
-    const user = await this.authRepository.findUserByEmail(input.email);
+    const normalizedEmail = input.email.toLowerCase().trim();
+    const user = await this.authRepository.findUserByEmail(normalizedEmail);
     if (!user) {
       return { status: "accepted" as const };
     }
@@ -334,7 +335,7 @@ export class AuthService {
     const webBaseUrl = (process.env.SEMSE_WEB_BASE_URL?.trim() || "https://semseproject.com").replace(/\/+$/, "");
     const resetLink = `${webBaseUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
     const emailResult = await this.emailService.send({
-      to: input.email,
+      to: user.email,
       subject: "Restablece tu contraseña de SEMSE",
       html: `
         <p>Recibimos una solicitud para restablecer tu contraseña de SEMSE.</p>
@@ -355,10 +356,10 @@ export class AuthService {
       );
     }
 
-    return {
-      status: "accepted" as const,
-      resetTokenPreview: process.env.NODE_ENV === "production" ? undefined : rawToken
-    };
+    if (process.env.NODE_ENV === "production") {
+      return { status: "accepted" as const };
+    }
+    return { status: "accepted" as const, resetTokenPreview: rawToken };
   }
 
   async loginWithPassword(input: { email: string; password: string; requestId: string }) {

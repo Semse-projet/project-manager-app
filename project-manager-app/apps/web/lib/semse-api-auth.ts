@@ -11,6 +11,37 @@ export const PUBLIC_SEMSE_API_EXACT_PATHS = [
 
 export const PUBLIC_SEMSE_API_PREFIXES = ["/api/semse/public/"] as const;
 
+const SEMSE_IDENTITY_HEADERS = [
+  "x-semse-user-id",
+  "x-semse-tenant-id",
+  "x-semse-org-id",
+  "x-semse-roles",
+] as const;
+
+type SemseSessionIdentity = {
+  userId: string;
+  tenantId: string;
+  orgId: string;
+  roles: string[];
+};
+
+export function sanitizeSemseIdentityHeaders(
+  input: HeadersInit,
+  session: SemseSessionIdentity | null,
+): Headers {
+  const headers = new Headers(input);
+  for (const name of SEMSE_IDENTITY_HEADERS) headers.delete(name);
+
+  if (session) {
+    headers.set("x-semse-user-id", session.userId);
+    headers.set("x-semse-tenant-id", session.tenantId);
+    headers.set("x-semse-org-id", session.orgId);
+    headers.set("x-semse-roles", session.roles.join(","));
+  }
+
+  return headers;
+}
+
 export function isSemseApiPath(pathname: string): boolean {
   return pathname === "/api/semse" || pathname.startsWith("/api/semse/");
 }

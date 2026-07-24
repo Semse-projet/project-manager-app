@@ -16,7 +16,12 @@ export const runtime = "nodejs";
 import { type NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, decodeSession, roleFromRoles, defaultDashboardForRole } from "@/lib/auth";
 import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
-import { buildSemseApiUnauthorizedBody, isPublicSemseApiPath, isSemseApiPath } from "@/lib/semse-api-auth";
+import {
+  buildSemseApiUnauthorizedBody,
+  isPublicSemseApiPath,
+  isSemseApiPath,
+  sanitizeSemseIdentityHeaders,
+} from "@/lib/semse-api-auth";
 
 // Paths that are always public
 const PUBLIC_PREFIXES = ["/login", "/register", "/forgot-password", "/reset-password", "/logout", "/_next/", "/favicon"];
@@ -40,24 +45,8 @@ function isProtected(pathname: string): boolean {
   return PROTECTED_PREFIXES.some(prefix => pathname.startsWith(prefix));
 }
 
-const SEMSE_IDENTITY_HEADERS = ["x-semse-user-id", "x-semse-tenant-id", "x-semse-org-id", "x-semse-roles"];
-
 function withSessionHeaders(req: NextRequest, session: Awaited<ReturnType<typeof decodeSession>>) {
-  const requestHeaders = new Headers(req.headers);
-
-  // Always strip caller-supplied identity headers first — regardless of
-  // whether there's a valid session. Previously these were only overwritten
-  // in the `session` branch, so a request with no/invalid session forwarded
-  // whatever x-semse-* headers the caller sent, unexamined.
-  for (const name of SEMSE_IDENTITY_HEADERS) requestHeaders.delete(name);
-
-  if (session) {
-    requestHeaders.set("x-semse-user-id", session.userId);
-    requestHeaders.set("x-semse-tenant-id", session.tenantId);
-    requestHeaders.set("x-semse-org-id", session.orgId);
-    requestHeaders.set("x-semse-roles", session.roles.join(","));
-  }
-
+  const requestHeaders = sanitizeSemseIdentityHeaders(req.headers, session);
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
 

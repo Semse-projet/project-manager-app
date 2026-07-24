@@ -17,6 +17,7 @@ related_files:
   - docs/specs/ui/design-system-remediation.spec.md
   - docs/specs/ui/audit-product-decisions.spec.md
   - docs/specs/api/auth-account-session-remediation.spec.md
+  - docs/specs/api/session-revocation-architecture.spec.md
   - docs/specs/api/worker-verification-remediation.spec.md
   - docs/specs/api/vision-service-security.spec.md
   - docs/specs/api/travel.spec.md
@@ -61,7 +62,8 @@ convierte automáticamente una spec en `VERIFIED`.
 | Ítems | Spec primaria | Routing |
 |---|---|---|
 | `0.0` | `ui.client-flows-remediation`, `ui.pro-flows-remediation`, `ui.admin-flows-remediation`, `api-job-lifecycle-bids` | EXECUTABLE |
-| `0.1`, `0.2`, `0.3`, `0.32` | `api.auth-account-session-remediation`, `api-bff-auth-boundary` | EXECUTABLE |
+| `0.1`, `0.2`, `0.32` | `api.auth-account-session-remediation`, `api-bff-auth-boundary` | EXECUTABLE |
+| `0.3` | `auth.session-revocation-architecture` | REVIEW_REQUIRED |
 | `0.4` | `api-evidence-upload-review`, `api-milestone-lifecycle` | EXECUTABLE |
 | `0.5`, `0.23` | `api-change-orders`, `api-payments-escrow` | EXECUTABLE |
 | `0.6` | `api-prometeo-copilot`, `api-agents-runtime` | EXECUTABLE |
