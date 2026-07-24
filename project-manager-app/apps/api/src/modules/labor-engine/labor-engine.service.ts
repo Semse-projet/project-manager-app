@@ -1,6 +1,11 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { LaborEngineRepository } from "./labor-engine.repository.js";
 
+// Calendario lunes-domingo / día 1-fin de mes. Usado a propósito por los KPIs
+// que se etiquetan como "Esta semana"/"Este mes"/"Semana actual" y por la
+// navegación con `weekOffset` (Reportes) — ahí el corte calendario es correcto
+// y esperado. NO usar para nada etiquetado como "Últimos N días": ver
+// rollingWindowBounds() más abajo (docs/AUDIT_REMEDIATION_PLAN.md 2.12).
 function weekBounds(offset = 0): { from: Date; to: Date } {
   const now = new Date();
   const day = now.getDay(); // 0 = Sun
@@ -17,6 +22,22 @@ function monthBounds(offset = 0): { from: Date; to: Date } {
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const to = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0, 23, 59, 59, 999);
+  return { from, to };
+}
+
+/**
+ * Ventana móvil real de `days` días terminando ahora — NO alineada a
+ * calendario. Usada por `listEntries` cuando `range: "week"|"month"` porque
+ * la UI etiqueta esos filtros como "Últimos 7 días"/"Últimos 30 días"
+ * (page.tsx, RegistrosTab.tsx) y también alimenta el contexto del chat de
+ * Cronos (labor-chat.service.ts). Antes esto reutilizaba weekBounds/monthBounds
+ * (calendario lunes-domingo / día 1-fin de mes), así que el día 1-2 de cada
+ * mes "Últimos 30 días" devolvía solo 1-2 días reales de datos.
+ * Ver docs/AUDIT_REMEDIATION_PLAN.md 2.12.
+ */
+function rollingWindowBounds(days: number): { from: Date; to: Date } {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
   return { from, to };
 }
 
@@ -49,6 +70,17 @@ export class LaborEngineService {
     description?: string;
     status?: string;
   }) {
+    // "converted" solo puede llegar por el flujo dedicado POST /free-projects/:id/convert
+    // (que exige jobId y setea convertedJobId de forma atómica). Este PATCH genérico no
+    // acepta convertedJobId como input, así que aceptar status:"converted" aquí dejaría
+    // el proyecto marcado "convertido" sin ningún job real de destino — la UI lo seguiría
+    // renderizando como "Convertido a job" sin referencia real.
+    // Ver docs/AUDIT_REMEDIATION_PLAN.md 2.16.
+    if (data.status === "converted") {
+      throw new BadRequestException(
+        "status \"converted\" cannot be set directly. Use POST /free-projects/:id/convert instead.",
+      );
+    }
     return this.repo.updateFreeProject(id, tenantId, data);
   }
 
@@ -193,14 +225,24 @@ export class LaborEngineService {
     purpose?: string;
     range?: "week" | "month" | "all";
     limit?: number;
+    /**
+     * Cuando se manda (p. ej. Reportes navegando semanas con las flechas),
+     * ancla explícitamente a la semana calendario N atrás (weekBounds),
+     * igual que fetchWeeklySummary — así los registros que ve Reportes para
+     * "hace 3 semanas" son los reales de esa semana, no una ventana móvil
+     * relativa a hoy. Ver docs/AUDIT_REMEDIATION_PLAN.md 2.13.
+     */
+    weekOffset?: number;
   }) {
     let from: Date | undefined;
     let to: Date | undefined;
 
-    if (params.range === "week") {
-      ({ from, to } = weekBounds());
+    if (params.weekOffset != null) {
+      ({ from, to } = weekBounds(params.weekOffset));
+    } else if (params.range === "week") {
+      ({ from, to } = rollingWindowBounds(7));
     } else if (params.range === "month") {
-      ({ from, to } = monthBounds());
+      ({ from, to } = rollingWindowBounds(30));
     }
 
     return this.repo.listTimeEntries({ ...params, from, to, limit: params.limit ?? 50 });
