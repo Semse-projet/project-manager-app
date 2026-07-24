@@ -16,7 +16,8 @@ export function ClientBreadcrumbs({
   items: BreadcrumbItem[];
   includeDashboard?: boolean;
 }) {
-  const fullItems = includeDashboard
+  const hasDashboard = items[0]?.label.trim().toLowerCase() === "dashboard";
+  const fullItems = includeDashboard && !hasDashboard
     ? [{ label: "Dashboard", href: CLIENT_ROUTES.dashboard }, ...items]
     : items;
 
