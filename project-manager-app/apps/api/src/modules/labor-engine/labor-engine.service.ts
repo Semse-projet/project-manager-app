@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { LaborEngineRepository } from "./labor-engine.repository.js";
 
 function weekBounds(offset = 0): { from: Date; to: Date } {
@@ -60,6 +60,42 @@ export class LaborEngineService {
     return this.repo.updateFreeProject(id, tenantId, { status: "converted", convertedJobId: jobId });
   }
 
+  // ── Ownership checks (2.9 — IDOR) ─────────────────────────────────────────
+  // startTimer/createManualEntry both accept a client-supplied jobId/freeProjectId
+  // straight from the request body. Before this check, only a DB-level FK
+  // (onDelete: SetNull) existed — a PRO who knew/guessed any job's id could log
+  // payable job_linked time against a job never assigned to them. See
+  // docs/AUDIT_REMEDIATION_PLAN.md 2.9.
+  private async assertLaborEntryTargetsAccessible(params: {
+    tenantId: string;
+    orgId: string;
+    createdBy: string;
+    jobId?: string;
+    freeProjectId?: string;
+  }): Promise<void> {
+    if (params.jobId) {
+      const job = await this.repo.findJobForLaborEntry({
+        tenantId: params.tenantId,
+        jobId: params.jobId,
+        orgId: params.orgId,
+        userId: params.createdBy,
+      });
+      if (!job) {
+        throw new ForbiddenException("Job not found or not assigned to this worker");
+      }
+    }
+    if (params.freeProjectId) {
+      const freeProject = await this.repo.findFreeProjectForLaborEntry({
+        tenantId: params.tenantId,
+        freeProjectId: params.freeProjectId,
+        createdBy: params.createdBy,
+      });
+      if (!freeProject) {
+        throw new NotFoundException("Free project not found");
+      }
+    }
+  }
+
   // ── TimeEntry — realtime ──────────────────────────────────────────────────
 
   async startTimer(params: {
@@ -87,6 +123,7 @@ export class LaborEngineService {
     if (!params.jobId && !params.freeProjectId && params.purpose === "job_linked") {
       throw new BadRequestException("job_linked purpose requires jobId or freeProjectId");
     }
+    await this.assertLaborEntryTargetsAccessible(params);
     return this.repo.startRealtimeEntry(params);
   }
 
@@ -164,6 +201,7 @@ export class LaborEngineService {
         throw new BadRequestException("endTime must be after startTime");
       }
     }
+    await this.assertLaborEntryTargetsAccessible(params);
     return this.repo.createTimeEntry({
       tenantId: params.tenantId,
       orgId: params.orgId,

@@ -251,6 +251,7 @@ export class JobsService {
     tenantId: string;
     orgId: string;
     userId: string;
+    roles: string[];
     status?: JobRecord["status"];
   }): Promise<JobRecord[]> {
     const jobs = await this.jobsRepository.listByTenant(input);

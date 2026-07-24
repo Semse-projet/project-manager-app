@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
+  fetchJob,
   fetchJobEscrow,
   fetchJobMilestones,
-  fundJobEscrow,
   releaseMilestoneEscrow,
   createJobDispute,
   semseRuntimeEnabled,
@@ -17,9 +17,9 @@ import {
   type EscrowView,
 } from "@semse/ui";
 import { Button } from "../../../../components/ui/button";
-import { Input } from "../../../../components/ui/input";
 import { FeedbackBanner } from "../../../../components/ui/error-state";
 import { PageSpinner } from "../../../../components/ui/spinner";
+import { EscrowFundModal } from "../../../components/payments/EscrowFundModal";
 
 type EscrowPageProps = { params: Promise<{ jobId: string }> };
 
@@ -27,14 +27,16 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
   const runtimeEnabled = semseRuntimeEnabled();
 
   const [jobId, setJobId] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [escrow, setEscrow] = useState<EscrowView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Fondear
-  const [fundAmount, setFundAmount] = useState("1000");
-  const [funding, setFunding] = useState(false);
+  // Fondear — 1.2: reuses the same EscrowFundModal already wired up in
+  // client/payments instead of the previous ad-hoc form that fired
+  // fundJobEscrow directly on click with no confirmation step.
+  const [fundModalOpen, setFundModalOpen] = useState(false);
 
   // Liberar milestone
   const [releasingId, setReleasingId] = useState<string | null>(null);
@@ -47,10 +49,12 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
     setLoading(true);
     setError(null);
     try {
-      const [rawEscrow, rawMilestones] = await Promise.all([
+      const [job, rawEscrow, rawMilestones] = await Promise.all([
+        fetchJob(jid).catch(() => null),
         fetchJobEscrow(jid),
         fetchJobMilestones(jid).catch(() => [] as Record<string, unknown>[]),
       ]);
+      if (job?.title) setJobTitle(job.title);
       const milestones = (rawMilestones as Record<string, unknown>[]).map(normalizeMilestone);
       setEscrow(normalizeEscrow(rawEscrow, jid, milestones));
     } catch (e: unknown) {
@@ -70,28 +74,6 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
     })();
     return () => { cancelled = true; };
   }, [params, load]);
-
-  // ── Fondear escrow ──────────────────────────────────────────
-  async function handleFund() {
-    if (!jobId || funding) return;
-    const parsed = Number(fundAmount);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setError("El monto debe ser mayor que cero.");
-      return;
-    }
-    setFunding(true);
-    setError(null);
-    setFeedback(null);
-    try {
-      await fundJobEscrow(jobId, { amount: parsed, currency: "USD", provider: "mock", methodType: "bank_transfer" });
-      setFeedback(`Escrow fondeado: ${parsed} USD.`);
-      await load(jobId);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "No se pudo fondear el escrow.");
-    } finally {
-      setFunding(false);
-    }
-  }
 
   // ── Liberar milestone ───────────────────────────────────────
   async function handleReleaseMilestone(milestoneId: string) {
@@ -198,21 +180,13 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
                 Fondear escrow
               </h2>
               <p className="mb-4 text-xs text-muted/60">
-                Método: bank_transfer · Proveedor: mock
+                Abre el flujo seguro de fondeo — pide monto, proveedor y confirmación antes de procesar el pago.
               </p>
-              <Input
-                label="Monto (USD)"
-                data-testid="escrow-amount-input"
-                inputMode="decimal"
-                value={fundAmount}
-                onChange={(e) => setFundAmount(e.target.value)}
-              />
               <Button
-                className="mt-3 w-full"
+                className="w-full"
                 data-testid="fund-escrow-button"
                 disabled={!runtimeEnabled || loading}
-                loading={funding}
-                onClick={() => void handleFund()}
+                onClick={() => setFundModalOpen(true)}
               >
                 Fondear escrow
               </Button>
@@ -244,6 +218,15 @@ export default function JobEscrowPage({ params }: EscrowPageProps) {
           </aside>
         </div>
       )}
+
+      {fundModalOpen && jobId ? (
+        <EscrowFundModal
+          jobId={jobId}
+          jobTitle={jobTitle || "este trabajo"}
+          onClose={() => setFundModalOpen(false)}
+          onSuccess={() => { setFundModalOpen(false); setFeedback("Escrow fondeado correctamente."); void load(jobId); }}
+        />
+      ) : null}
     </div>
   );
 }

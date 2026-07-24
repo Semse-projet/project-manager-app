@@ -66,6 +66,40 @@ export type FreeProjectRecord = {
 export class LaborEngineRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // ── Ownership checks (2.9 — IDOR) ─────────────────────────────────────────
+  // Same "is this PRO actually assigned to this job" OR-clause as
+  // FieldOpsRepository.trackerJobAssignmentWhere (field-ops.repository.ts) —
+  // reused here rather than re-invented so timer/manual entries and the
+  // legacy tracker agree on what "assigned" means.
+
+  /** Returns the job iff it belongs to the tenant AND the caller is actually assigned to it (by bid, reservation, contract, or org-level project assignment). Null otherwise. */
+  async findJobForLaborEntry(input: { tenantId: string; jobId: string; orgId: string; userId: string }): Promise<{ id: string } | null> {
+    return this.prisma.job.findFirst({
+      where: {
+        id: input.jobId,
+        tenantId: input.tenantId,
+        deletedAt: null,
+        OR: [
+          { bids: { some: { professionalUserId: input.userId, status: "ACCEPTED" } } },
+          { reservations: { some: { professionalId: input.userId, status: { in: ["ACTIVE", "ACCEPTED"] } } } },
+          { reservations: { some: { professionalOrgId: input.orgId, status: { in: ["ACTIVE", "ACCEPTED"] } } } },
+          { contract: { is: { professionalUserId: input.userId, deletedAt: null } } },
+          { contract: { is: { professionalOrgId: input.orgId, deletedAt: null } } },
+          { project: { is: { assignedProOrgId: input.orgId } } },
+        ],
+      },
+      select: { id: true },
+    }) as unknown as { id: string } | null;
+  }
+
+  /** Returns the free project iff it belongs to the tenant AND was created by this same worker. Null otherwise. */
+  async findFreeProjectForLaborEntry(input: { tenantId: string; freeProjectId: string; createdBy: string }): Promise<{ id: string } | null> {
+    return this.prisma.freeProject.findFirst({
+      where: { id: input.freeProjectId, tenantId: input.tenantId, createdBy: input.createdBy },
+      select: { id: true },
+    }) as unknown as { id: string } | null;
+  }
+
   // ── TimeEntry ──────────────────────────────────────────────────────────────
 
   async createTimeEntry(data: {
@@ -90,9 +124,15 @@ export class LaborEngineRepository {
     clientEventId?: string;
   }): Promise<TimeEntryRecord> {
     const now = new Date();
+    // 2.8 — a negative breakMinutes would SUBTRACT from the worked span below,
+    // inflating payable duration beyond the actual clocked range. Clamp here,
+    // server-side, rather than trusting the frontend preview's clamp (the
+    // frontend was previously sending the raw unclamped value — see
+    // docs/AUDIT_REMEDIATION_PLAN.md 2.8).
+    const breakMinutes = Math.max(0, data.breakMinutes ?? 0);
     const duration = data.durationMinutes
       ?? (data.endedAt
-        ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - (data.breakMinutes ?? 0))
+        ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - breakMinutes)
         : null);
 
     const createData = {
@@ -107,7 +147,7 @@ export class LaborEngineRepository {
       status: data.endedAt ? "completed" : "running",
       startedAt: data.startedAt,
       endedAt: data.endedAt ?? null,
-      breakMinutes: data.breakMinutes ?? 0,
+      breakMinutes,
       durationMinutes: duration,
       accumulatedSeconds: duration ? duration * 60 : 0,
       hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,

@@ -662,7 +662,10 @@ export default function WorkerTrackerPage() {
   const weekByDay = weekSummary?.byDay ?? [];
   const maxDayMinutes = weekByDay.reduce((max, day) => Math.max(max, day.minutes), 0);
 
-  const manualBreakMinutes = Number.parseInt(manualBreak, 10) || 0;
+  // 2.8 — clamp here so the preview and the value actually submitted to
+  // createManualEntry can never diverge; a negative value here would let a
+  // worker fabricate payable minutes above their real clocked range.
+  const manualBreakMinutes = Math.max(0, Number.parseInt(manualBreak, 10) || 0);
   const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd, manualBreakMinutes);
   const pendingEventCount = trackerLocalState.pendingEvents.length;
 
