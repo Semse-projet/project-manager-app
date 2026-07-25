@@ -29,6 +29,7 @@ export class JobsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
+      roles: actor.roles,
       status: parsed.data.status
     });
     return ok(resolveRequestId(req.headers ?? {}), data.map((job) => toVisibleJob(job)));
