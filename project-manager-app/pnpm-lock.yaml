@@ -587,6 +587,9 @@ importers:
       '@semse/autonomy':
         specifier: workspace:*
         version: link:../../packages/autonomy
+      '@semse/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
 
   apps/web:
     dependencies:

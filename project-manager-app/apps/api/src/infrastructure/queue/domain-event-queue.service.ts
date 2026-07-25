@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
 import { Queue, type QueueOptions } from "bullmq";
 import { Redis } from "ioredis";
 import { SEMSE_DOMAIN_EVENT_QUEUE } from "@semse/shared";
+import { buildQueueTracePayload } from "../observability/request-context.store.js";
 
 export type DomainEventQueueInput = {
   eventId: string;
@@ -62,7 +63,7 @@ export class DomainEventQueueService implements OnModuleDestroy {
 
     await this.queue.add(
       "domain-event.process",
-      { eventId: input.eventId },
+      { eventId: input.eventId, ...buildQueueTracePayload() },
       {
         jobId: toDomainEventJobId(input.eventId, input.generation),
         ...DOMAIN_EVENT_JOB_OPTIONS,
