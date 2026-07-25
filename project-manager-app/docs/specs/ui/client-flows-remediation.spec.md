@@ -2,7 +2,7 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.4"
+version: "1.5"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -17,6 +17,7 @@ related_files:
   - apps/web/app/(app)/client/dashboard/page.tsx
   - apps/web/app/(app)/client/jobs/page.tsx
   - apps/web/app/(app)/client/jobs/[jobId]/page.tsx
+  - apps/web/app/(app)/client/professionals/page.tsx
   - apps/web/app/(app)/client/disputes/page.tsx
   - apps/web/app/(app)/client/jobs/new/page.tsx
   - apps/web/app/(app)/client/leads/page.tsx
@@ -38,6 +39,7 @@ related_tests:
   - tests/unit/client-money-confirmation.test.ts
   - tests/unit/legacy-route-redirect.test.ts
   - tests/unit/client-milestones-hydration.test.ts
+  - tests/unit/client-presentation-remediation.test.ts
   - tests/unit/auth.test.ts
 related_endpoints:
   - v1/jobs
@@ -51,7 +53,7 @@ related_events:
   - payment.released
 related_agents:
   - prometeo
-last_verified: "2026-07-24"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Client UI Flows — Remediation
@@ -166,6 +168,12 @@ hidratación. El tema guardado actualiza el selector y el atributo
 `data-theme`, por lo que sobrevive refresh y navegación por URL directa. Marca
 y solapamiento del FAB siguen pendientes.
 
+**Remediación v1.5 (2026-07-25, alcance mobile):** el contenedor raíz de
+`/client/jobs/[jobId]` reserva espacio inferior en viewports móviles mediante
+`pb-24 md:pb-0`. El contenido final, incluido el monto de la última propuesta,
+puede desplazarse por encima del FAB sin alterar el espaciado de escritorio.
+La identidad de marca continúa fuera de este cierre.
+
 ### G-CLI-10 — MEDIO — Hidratación y estado vacío de Hitos
 
 **Causa raíz confirmada:** `/client/milestones` heredaba la divergencia SSR del
@@ -179,6 +187,19 @@ emitía `#418`. Por separado, una carga válida sin milestones terminaba en un
 preferencias se restauran en `useEffect`. La pantalla distingue ahora
 `loading`, `error`, `empty` y `ready`; el estado vacío explica cuándo aparecerán
 los hitos y enlaza a `/client/jobs`.
+
+### G-CLI-11 — MEDIO — Nombre interno del algoritmo expuesto al cliente
+
+**Causa confirmada:** `/client/professionals` describía el ranking con
+terminología de implementación (`matching Jaccard + trust`) que no ayuda a una
+persona a decidir entre profesionales y acopla el copy a un algoritmo sujeto a
+cambio.
+
+**Remediación v1.5 (2026-07-25):** la pantalla usa lenguaje de producto:
+“Encuentra profesionales compatibles con tu trabajo”, “Matching SEMSE”,
+“Ordenados por confianza” y “compatibilidad”. Las señales explicables
+individuales permanecen visibles, pero el nombre interno del algoritmo ya no
+se presenta en la UI.
 
 ## UI Contract (estados esperados, no documentados en el spec anterior)
 
@@ -202,6 +223,8 @@ states:
 required_behavior:
   - "Trabajos activos" y la pestaña "Activos" deben reflejar jobs con status ACCEPTED/IN_PROGRESS/RESERVED/REVIEW reales (bloqueado hoy por G-CLI-00)
   - Ninguna acción que mueva dinero o cierre una disputa ejecuta sin un paso de confirmación explícito con el monto/resultado visible
+  - El contenido final de una propuesta permanece desplazable por encima del FAB en mobile
+  - El ranking de profesionales usa lenguaje de producto y no expone nombres internos de algoritmos
   - El wizard de publicación no pierde datos ante un refresh accidental
 ```
 
@@ -222,6 +245,8 @@ required_behavior:
 - [x] Layout autenticado produce el mismo árbol inicial en SSR y navegador antes de restaurar preferencias
 - [x] Tema persistido se restaura tras hidratar y actualiza `data-theme`
 - [x] `/client/milestones` muestra un estado vacío con explicación y salida navegable
+- [x] `/client/jobs/[jobId]` conserva espacio mobile bajo el contenido para que el FAB no cubra el monto final
+- [x] `/client/professionals` no expone “Jaccard” y conserva copy de compatibilidad/confianza
 - [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
 - [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
 
@@ -229,6 +254,8 @@ required_behavior:
 
 ### Web
 - `apps/web/app/(app)/client/**`
+- `apps/web/app/(app)/client/jobs/[jobId]/page.tsx`
+- `apps/web/app/(app)/client/professionals/page.tsx`
 - `apps/web/app/(app)/client/milestones/page.tsx`
 - `apps/web/app/(app)/layout.tsx`
 - `apps/web/app/dashboard/page.tsx`
@@ -255,9 +282,11 @@ required_behavior:
 - [x] G-CLI-01 y G-CLI-02 tienen confirmación explícita, monto/resultado visible y regresión automatizada.
 - [x] La parte de navegación huérfana de G-CLI-09 quedó aislada por rol, sin implementación duplicada y con regresión automatizada.
 - [x] La persistencia de tema de G-CLI-09 y G-CLI-10 quedaron cubiertas por una regresión de hidratación/estado vacío.
+- [x] El solapamiento mobile de G-CLI-09 y el copy de G-CLI-11 tienen regresión source-level enlazada.
 
 ## Rollback Considerations
 
 - Ninguno de los fixes propuestos aquí cambia contratos de API existentes de forma incompatible — son correcciones de lectura (G-CLI-00), flujo de confirmación (G-CLI-01/02) o routing (G-CLI-09), y no requieren rollback de datos.
 - Un rollback de G-CLI-09 debe restaurar código eliminado y no solo quitar el redirect; hacerlo reabriría las superficies huérfanas y su identidad server-side estática.
 - Reintroducir lecturas de `localStorage` en initializers de render reabre G-CLI-10; cualquier preferencia nueva debe hidratar desde un valor SSR compartido o restaurarse después del mount.
+- Quitar el espacio inferior mobile de `/client/jobs/[jobId]` reabre el solapamiento del FAB; restaurar nombres técnicos en `/client/professionals` reabre G-CLI-11.

@@ -49,7 +49,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | high | yes | no | yes | 3 | 2026-07-23 |
 | [api.auth-account-session-remediation](specs/api/auth-account-session-remediation.spec.md) | auth | VERIFIED | critical | yes | yes | yes | 9 | 2026-07-23 |
-| [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | high | yes | yes | yes | 3 | 2026-06-28 |
+| [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | critical | yes | yes | yes | 10 | 2026-07-25 |
 | [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | high | yes | yes | yes | 3 | 2026-06-09 |
 | [api-change-orders](specs/api/change-orders.spec.md) | change-orders | VERIFIED | high | yes | no | yes | 3 | 2026-06-09 |
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
@@ -99,7 +99,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [fsm-job-lifecycle](specs/fsm/job-lifecycle.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-07-23 |
-| [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | critical | no | no | no | 13 | 2026-07-23 |
+| [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | critical | no | no | no | 14 | 2026-07-25 |
 | [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | high | yes | yes | yes | 4 | 2026-07-23 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | high | yes | no | yes | 8 | 2026-07-23 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
@@ -136,13 +136,13 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 14 | 2026-07-23 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | critical | no | yes | no | 5 | 2026-07-23 |
-| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 23 | 2026-07-24 |
+| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 24 | 2026-07-25 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | 2026-07-12 |
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | 2026-07-12 |
-| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 44 | 2026-07-24 |
+| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 44 | 2026-07-25 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | medium | yes | yes | yes | 6 | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |

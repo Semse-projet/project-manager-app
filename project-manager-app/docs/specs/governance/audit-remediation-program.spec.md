@@ -2,7 +2,7 @@
 id: "governance.audit-remediation-program"
 title: "Programa de remediación de auditoría — routing SDD integral"
 domain: "governance"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -17,6 +17,7 @@ related_files:
   - docs/specs/ui/design-system-remediation.spec.md
   - docs/specs/ui/audit-product-decisions.spec.md
   - docs/specs/api/auth-account-session-remediation.spec.md
+  - docs/specs/api/bff-auth-boundary.spec.md
   - docs/specs/api/session-revocation-architecture.spec.md
   - docs/specs/api/worker-verification-remediation.spec.md
   - docs/specs/api/vision-service-security.spec.md
@@ -27,16 +28,17 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-07-23"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Programa de remediación de auditoría
 
 ## 1. Propósito
 
-Este documento es el mapa canónico entre los **157 ítems** de
-`docs/AUDIT_REMEDIATION_PLAN.md` y sus contratos SDD. Evita dos fallos de
-gobernanza:
+Este documento es el mapa canónico entre los **157 ítems originales** y los
+IDs de seguimiento que se agreguen a `docs/AUDIT_REMEDIATION_PLAN.md` durante
+la remediación. El inventario routable actual contiene **158 IDs**. Evita dos
+fallos de gobernanza:
 
 1. implementar un hallazgo sin spec;
 2. bloquear un conjunto entero de fixes porque una decisión de producto no
@@ -63,6 +65,7 @@ convierte automáticamente una spec en `VERIFIED`.
 |---|---|---|
 | `0.0` | `ui.client-flows-remediation`, `ui.pro-flows-remediation`, `ui.admin-flows-remediation`, `api-job-lifecycle-bids` | EXECUTABLE |
 | `0.1`, `0.2`, `0.32` | `api.auth-account-session-remediation`, `api-bff-auth-boundary` | EXECUTABLE |
+| `0.1b` | `api-bff-auth-boundary` | CLOSED |
 | `0.3` | `auth.session-revocation-architecture` | REVIEW_REQUIRED |
 | `0.4` | `api-evidence-upload-review`, `api-milestone-lifecycle` | EXECUTABLE |
 | `0.5`, `0.23` | `api-change-orders`, `api-payments-escrow` | EXECUTABLE |
@@ -81,7 +84,7 @@ convierte automáticamente una spec en `VERIFIED`.
 | `0.31` | `ui.client-flows-remediation`, `ui-pro-flows` | EXECUTABLE |
 | `0.33` | `api-agents-runtime`, `ui.pro-flows-remediation` | EXECUTABLE |
 
-Cobertura: **36/36**.
+Cobertura: **37/37** (36 originales + 1 seguimiento).
 
 ## 4. Routing canónico — Sección 1 Cliente
 
@@ -145,8 +148,8 @@ Cobertura: **45/45**.
 
 ## 8. Gates
 
-- Cobertura del inventario: 157/157.
-- `pnpm spec:audit-plan-coverage`: 157 mapeados, 0 faltantes, 0 extras.
+- Cobertura del inventario actual: 158/158.
+- `pnpm spec:audit-plan-coverage`: 158 mapeados, 0 faltantes, 0 extras.
 - `node scripts/spec-validate.mjs --strict`: 0 errores/0 warnings.
 - `node scripts/spec-index.mjs`: índice regenerado.
 - Ninguna spec `DRAFT` o `REVIEW` autoriza implementación.
