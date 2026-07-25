@@ -41,6 +41,25 @@ function rollingWindowBounds(days: number): { from: Date; to: Date } {
   return { from, to };
 }
 
+/**
+ * `hourlyRate`/`currency` on a manual TimeEntry are 100% client-supplied and
+ * feed `knownCost` in getTeamSummary() (labor-engine.repository.ts), the
+ * "estimated cost" KPI a supervisor sees on /admin/labor-engine. Without a
+ * bound, a worker can declare an absurd or negative rate and corrupt that
+ * figure. No existing rate cap/currency enum was found elsewhere in the repo
+ * (checked packages/schemas, travel/materials controllers — those only do
+ * `.positive()`/`.nonnegative()` with no ceiling), so MAX_HOURLY_RATE is a
+ * new, deliberately generous bound chosen here (documented in
+ * docs/AUDIT_REMEDIATION_PLAN.md 2.10) rather than an existing convention.
+ * ALLOWED_CURRENCIES mirrors the only two options the "Entrada manual" form
+ * actually offers (RegistrosTab.tsx currency <select>: USD, MXN) — there is
+ * no currency enum in the Prisma schema (TimeEntry.currency is a bare
+ * String), so this whitelist is the closest thing to a real convention.
+ * See docs/AUDIT_REMEDIATION_PLAN.md 2.10.
+ */
+const MAX_HOURLY_RATE = 500;
+const ALLOWED_CURRENCIES = new Set(["USD", "MXN"]);
+
 @Injectable()
 export class LaborEngineService {
   constructor(private readonly repo: LaborEngineRepository) {}
@@ -186,6 +205,20 @@ export class LaborEngineService {
     contextEntityId?: string;
     clientEventId?: string;
   }) {
+    if (params.hourlyRate != null) {
+      if (!Number.isFinite(params.hourlyRate) || params.hourlyRate <= 0) {
+        throw new BadRequestException("hourlyRate must be a positive number");
+      }
+      if (params.hourlyRate > MAX_HOURLY_RATE) {
+        throw new BadRequestException(`hourlyRate cannot exceed ${MAX_HOURLY_RATE}`);
+      }
+    }
+    if (params.currency != null && !ALLOWED_CURRENCIES.has(params.currency)) {
+      throw new BadRequestException(
+        `currency must be one of: ${Array.from(ALLOWED_CURRENCIES).join(", ")}`,
+      );
+    }
+
     const startedAt = new Date(`${params.date}T${params.startTime}:00`);
     let endedAt = new Date(`${params.date}T${params.endTime}:00`);
     if (isNaN(startedAt.getTime()) || isNaN(endedAt.getTime())) {

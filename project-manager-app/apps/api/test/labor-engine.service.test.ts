@@ -185,6 +185,105 @@ void test("createManualEntry rolls endedAt to the next day for a real overnight 
   assert.equal(input.endedAt.toISOString(), new Date("2026-07-09T06:00:00").toISOString());
 });
 
+void test("createManualEntry rejects a negative hourlyRate", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "job_linked",
+      jobId: "job-9",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      hourlyRate: -50,
+    }),
+    /positive/,
+  );
+});
+
+void test("createManualEntry rejects a zero hourlyRate", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "job_linked",
+      jobId: "job-9",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      hourlyRate: 0,
+    }),
+    /positive/,
+  );
+});
+
+void test("createManualEntry rejects an absurdly large hourlyRate", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "job_linked",
+      jobId: "job-9",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      hourlyRate: 999999,
+    }),
+    /exceed/,
+  );
+});
+
+void test("createManualEntry rejects a currency outside the allowed set", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "job_linked",
+      jobId: "job-9",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      currency: "XXX",
+    }),
+    /currency must be one of/,
+  );
+});
+
+void test("createManualEntry accepts a valid hourlyRate and currency", async () => {
+  const { service, repo } = createService();
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "job_linked",
+    jobId: "job-9",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+    hourlyRate: 45,
+    currency: "MXN",
+  });
+
+  const createCall = repo.calls.find((call) => call.method === "createTimeEntry");
+  assert.ok(createCall);
+  const payload = createCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.hourlyRate, 45);
+  assert.equal(payload.currency, "MXN");
+});
+
 void test("createManualEntry creates a manual entry with break minutes", async () => {
   const { service, repo } = createService();
 
