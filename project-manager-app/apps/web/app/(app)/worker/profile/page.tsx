@@ -18,6 +18,7 @@ import {
   type UserView,
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { workerTrustPresentation } from "../../../../lib/worker-money-trust-ui";
 
 const KNOWN_TRADES = [
   "Electricidad", "Plomería", "Pintura", "Albañilería", "Carpintería",
@@ -113,6 +114,7 @@ export default function WorkerProfilePage() {
   const uniqueRoles = Array.from(new Set(memberships.map((m) => m.role.key)));
   const memberSince = currentUser?.createdAt
     ? new Date(currentUser.createdAt).toLocaleDateString("es-MX", { month: "long", year: "numeric" }) : "—";
+  const trust = workerTrustPresentation(currentUser?.trustScore);
 
   function startEditing() {
     setDraft({
@@ -232,13 +234,18 @@ export default function WorkerProfilePage() {
                   {formatRoleLabel(key)}
                 </span>
               ))}
-              <span style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#10b981", fontSize: "12px", fontWeight: 700 }}>
-                Trust {Math.round((currentUser?.trustScore ?? 0) * 100)}%
+              <span style={{ padding: "5px 10px", borderRadius: "999px", background: trust.hasScore ? "rgba(16,185,129,.12)" : "rgba(99,102,241,.12)", color: trust.hasScore ? "#10b981" : "#818cf8", fontSize: "12px", fontWeight: 700 }}>
+                {trust.label}
               </span>
               <span style={{ padding: "5px 10px", borderRadius: "999px", background: profile?.availability ? "rgba(16,185,129,.10)" : "rgba(156,163,175,.12)", color: profile?.availability ? "#10b981" : "var(--muted)", fontSize: "12px", fontWeight: 700 }}>
                 {profile?.availability ? "Disponible" : "No disponible"}
               </span>
             </div>
+            {trust.detail && !loading ? (
+              <p role="note" style={{ marginTop: "9px", maxWidth: "560px", fontSize: "11px", lineHeight: 1.5, color: "var(--muted)" }}>
+                {trust.detail}
+              </p>
+            ) : null}
           </div>
         </div>
       </HtmlInCanvasPanel>

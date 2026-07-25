@@ -63,7 +63,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-23 |
 | [api-matching](specs/api/matching.spec.md) | matching | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api-milestone-lifecycle](specs/api/milestones.spec.md) | milestones | VERIFIED | critical | yes | yes | yes | 3 | 2026-07-17 |
-| [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 4 | 2026-06-09 |
+| [api-payments-escrow](specs/api/payments.spec.md) | payments | VERIFIED | critical | yes | no | yes | 6 | 2026-07-25 |
 | [api.payout-method-tokenization](specs/api/payout-method-tokenization.spec.md) | payments | REVIEW | critical | yes | yes | yes | 3 | 2026-07-23 |
 | [api-prometeo-copilot](specs/api/prometeo-copilot.spec.md) | prometeo | IMPLEMENTED | medium | yes | yes | yes | 5 | 2026-07-25 |
 | [api-prometeo-orchestrator](specs/api/prometeo-orchestrator.spec.md) | prometeo | IMPLEMENTED | medium | yes | no | yes | 2 | 2026-07-18 |
@@ -143,7 +143,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | 2026-07-12 |
-| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 45 | 2026-07-25 |
+| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 46 | 2026-07-25 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | medium | yes | yes | yes | 6 | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |

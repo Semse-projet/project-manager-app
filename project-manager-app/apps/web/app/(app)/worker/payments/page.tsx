@@ -8,6 +8,7 @@ import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
 import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchProjects, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { connectPayoutPresentation } from "../../../../lib/worker-money-trust-ui";
 
 type PayRow = {
   id: string;
@@ -39,6 +40,7 @@ export default function WorkerPaymentsPage() {
   const [connectAccount, setConnectAccount] = useState<StripeConnectAccountView | null>(null);
   const [platformFeeRate, setPlatformFeeRate] = useState(0.0075);
   const [connectLoading, setConnectLoading] = useState(false);
+  const [connectStatusLoaded, setConnectStatusLoaded] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [paymentReadiness, setPaymentReadiness] = useState<PaymentProviderReadiness | null>(null);
 
@@ -133,7 +135,8 @@ export default function WorkerPaymentsPage() {
     // Load Stripe Connect account status
     void fetchMyConnectAccount()
       .then((r) => { setConnectAccount(r.account); setPlatformFeeRate(r.platformFeeRate); })
-      .catch(() => undefined);
+      .catch(() => setConnectError("No pudimos confirmar el estado de Stripe Connect."))
+      .finally(() => setConnectStatusLoaded(true));
     void fetchPaymentProviderReadiness().then(setPaymentReadiness).catch(() => undefined);
   }, [loadPayments, loadPayoutMethod]);
 
@@ -142,6 +145,12 @@ export default function WorkerPaymentsPage() {
   const totalReleased = released.reduce((a, p) => a + p.amount, 0);
   const totalEscrow   = inEscrow.reduce((a, p) => a + p.amount, 0);
   const totalPending  = payments.filter(p => p.status === "pending").reduce((a, p) => a + p.amount, 0);
+  const connectPayout = connectPayoutPresentation(
+    connectAccount?.status,
+    connectStatusLoaded,
+    platformFeeRate,
+  );
+  const connectBusy = connectLoading || !connectStatusLoaded;
 
   const filtered = payments.filter(p => {
     if (filterJobId && p.jobId && p.jobId !== filterJobId) return false;
@@ -235,24 +244,23 @@ export default function WorkerPaymentsPage() {
       {/* Stripe Connect panel */}
       <HtmlInCanvasPanel as="section" style={{ ...card, padding: "18px 20px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={80}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: connectAccount?.status === "active" ? "rgba(16,185,129,.15)" : "rgba(99,102,241,.12)", display: "grid", placeItems: "center" }}>
-            <BadgeDollarSign size={16} color={connectAccount?.status === "active" ? "#10b981" : "#818cf8"} />
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: connectPayout.ready ? "rgba(16,185,129,.15)" : "rgba(245,158,11,.12)", display: "grid", placeItems: "center" }}>
+            <BadgeDollarSign size={16} color={connectPayout.ready ? "#10b981" : "#f59e0b"} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>Cuenta Stripe Connect</div>
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>
-              {connectAccount
-                ? connectAccount.status === "active"
-                  ? `Activa — transferencias habilitadas. Fee plataforma: ${(platformFeeRate * 100).toFixed(2)}%`
-                  : `Estado: ${connectAccount.status} — completa el onboarding para habilitar pagos`
-                : "Sin cuenta conectada — crea una para recibir pagos automáticos"}
+            <div style={{ fontSize: 11, color: connectPayout.ready ? "#10b981" : "#f59e0b", fontWeight: 700 }}>
+              {connectPayout.label}
             </div>
           </div>
-          {connectAccount?.status === "active" && (
+          {connectPayout.ready && (
             <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "#10b981", fontWeight: 800 }}>
               Activa
             </span>
           )}
+        </div>
+        <div role="status" style={{ padding: "10px 12px", borderRadius: 8, background: connectPayout.ready ? "rgba(16,185,129,.07)" : "rgba(245,158,11,.08)", color: connectPayout.ready ? "#10b981" : "#fbbf24", fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>
+          {connectPayout.detail}
         </div>
         {connectError && (
           <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, marginBottom: 10 }}>
@@ -262,7 +270,7 @@ export default function WorkerPaymentsPage() {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {!connectAccount && (
             <button
-              disabled={connectLoading}
+              disabled={connectBusy}
               onClick={async () => {
                 setConnectLoading(true); setConnectError(null);
                 try {
@@ -271,9 +279,9 @@ export default function WorkerPaymentsPage() {
                 } catch (e) { setConnectError(e instanceof Error ? e.message : "Error"); }
                 setConnectLoading(false);
               }}
-              style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700, cursor: connectLoading ? "not-allowed" : "pointer", opacity: connectLoading ? 0.7 : 1 }}
+              style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: "#6366f1", color: "#fff", fontSize: 12, fontWeight: 700, cursor: connectBusy ? "not-allowed" : "pointer", opacity: connectBusy ? 0.7 : 1 }}
             >
-              {connectLoading ? "Creando…" : "Crear cuenta"}
+              {!connectStatusLoaded ? "Verificando…" : connectLoading ? "Creando…" : "Crear cuenta"}
             </button>
           )}
           {connectAccount && connectAccount.status !== "active" && (
@@ -317,7 +325,9 @@ export default function WorkerPaymentsPage() {
           <ArrowDownLeft size={18} color="#10b981" style={{ flexShrink: 0 }} />
           <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
             <strong style={{ color: "#10b981" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan cuando el cliente aprueba cada milestone.
-            Configura tu método de cobro para recibir los fondos automáticamente.
+            {connectPayout.ready
+              ? " Tu cuenta Stripe Connect está lista para el payout automático."
+              : " En el riel Stripe, el payout automático queda bloqueado hasta activar tu cuenta Connect."}
           </p>
         </HtmlInCanvasPanel>
       )}

@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.5"
+version: "1.6"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -30,6 +30,7 @@ related_files:
   - apps/web/app/(app)/worker/incidents/page.tsx
   - apps/web/app/(app)/worker/materials/page.tsx
   - apps/web/lib/material-request-ui.ts
+  - apps/web/lib/worker-money-trust-ui.ts
   - apps/web/app/(app)/worker/tasks/page.tsx
   - apps/web/app/(app)/worker/disputes/page.tsx
   - apps/web/app/(app)/worker/opportunities/page.tsx
@@ -73,6 +74,7 @@ related_tests:
   - apps/api/test/contractor-rate.service.test.ts
   - tests/unit/labor-rate-boundary.test.ts
   - tests/unit/worker-material-request-ui.test.ts
+  - tests/unit/worker-money-trust-ui.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -150,10 +152,24 @@ cubierto por código; todavía falta repetir el caso con un job real en vivo.
 **Conecta con backend (transversal 0.16):** si el escrow de este trabajo se liberara hoy, `createPayoutIntent` (`apps/api/.../stripe.provider.ts:73-83`) caería en la cuenta `STRIPE_CONNECT_ACCOUNT_ID` legacy compartida en vez de pagarle a este profesional — no es un riesgo teórico, es el estado real de una cuenta real hoy.
 **Fix esperado (UI):** si el backend bloquea el payout sin Connect activo (fix de 0.16), esta pantalla debería comunicar claramente por qué el profesional no puede cobrar todavía, no solo mostrar un CTA neutral de "crea una cuenta".
 
+**Remediación v1.6 (2.1c):** el provider ya falla cerrado para todo
+`recipientUserId` sin Connect activo y no usa la cuenta compartida. La UI
+distingue verificación de estado, cuenta activa y payout bloqueado; en el caso
+bloqueado explica tanto el onboarding requerido como la ausencia de fallback.
+El aviso de escrow usa la misma frontera en vez de prometer un cobro automático
+que todavía no está habilitado.
+
 ### G-PRO-03 — MEDIO — El perfil muestra "Trust 0%" sin ningún contexto
 **Confirmado en vivo:** `/worker/profile` → badges "Profesional", **"Trust 0%"**, "Disponible". "Verificación: Sin verificar".
 **Conecta con backend:** `trustScore` por defecto es `0` real (no un prior neutral, `schema.prisma:230`), y es exactamente el sesgo de cold-start que 0.28 documenta en el algoritmo de matching — aquí se ve el efecto directo sobre una persona real, sin explicación de qué significa el número ni cómo subirlo.
 **Fix esperado (UI, independiente del fix de algoritmo):** como mínimo, no mostrar "0%" desnudo — agregar contexto ("Nuevo en la plataforma — tu trust score sube con trabajos completados") mientras se decide el fix de fondo del algoritmo.
+
+**Remediación v1.6 (2.1d):** para `trustScore === 0`, el perfil muestra “Trust
+en construcción” y explica que todavía no existe historial suficiente y que
+los perfiles nuevos parten de una referencia neutral en búsquedas. Esto refleja
+el prior `0.5` que matching aplica exclusivamente a `0 jobs + score 0`, sin
+afirmar que el valor almacenado ya se recalcula. Scores reales mayores que cero
+conservan su porcentaje.
 
 ### G-PRO-04 — CRÍTICO — Verificación de identidad (firma DID) es un stub, expuesto como "Sin verificar" al profesional
 **Backend:** `apps/api/.../worker-verification.repository.ts:115-135` — el código comenta *"for now, return synthetic verification"*, solo valida que las strings no estén vacías, cero criptografía real.
@@ -315,6 +331,8 @@ required_behavior:
   - Un usuario PRO debe poder enviar un mensaje a Prometeo/agentes y recibir respuesta real (RBAC corregido; conversación live pendiente)
   - Una solicitud de material solo puede enviarse con cantidad finita y mayor que cero
   - Una solicitud de material rechazada debe usar el tratamiento visual de error
+  - Sin Connect activo, la UI debe decir que el payout automático está bloqueado y que no se redirige a una cuenta compartida
+  - Un `trustScore` cold-start de cero debe presentarse como falta de historial, no como evaluación negativa
 ```
 
 ## Security / RBAC
@@ -341,7 +359,7 @@ El pendiente de cumplimiento 2.44 no queda cerrado por esta actualización.
 
 - [ ] `/worker/jobs/[jobId]` muestra el mismo badge de estado que `/client/jobs/[jobId]` para el mismo `jobId` (regresión directa de G-PRO-00)
 - [ ] La pestaña "Tracker" de `/worker/field-ops` no permite iniciar una sesión de tiempo nueva (o queda removida)
-- [ ] `/worker/payments` comunica explícitamente por qué no se puede cobrar cuando no hay cuenta Connect activa
+- [x] `/worker/payments` comunica que el payout Stripe está bloqueado sin Connect activo y que no existe fallback a una cuenta compartida
 - [ ] Un usuario con rol `PRO` puede enviar un mensaje a Prometeo (o cualquier agente) desde el widget flotante y recibe una respuesta real, no `Insufficient permissions` (regresión directa de G-PRO-05)
 - [ ] Un usuario con rol `WORKER` (literal, no alias de PRO) tiene el mismo resultado
 - [ ] El label del nav item que enlaza a `/worker/settings` coincide con su contenido real en ambos idiomas
@@ -361,6 +379,7 @@ El pendiente de cumplimiento 2.44 no queda cerrado por esta actualización.
 - [x] Incidencias/materiales, tareas y detalle de Travel aplican las policies de actor documentadas para 2.19, 2.20 y 2.34.
 - [x] El formulario de materiales no envía cantidades vacías, no finitas, iguales a cero o negativas y muestra el error junto al campo (2.24).
 - [x] El estado `rejected` de materiales usa `StatusBadge` con variante `error` (2.25).
+- [x] El perfil presenta cold-start como “Trust en construcción” y la regresión confirma el prior neutral real de matching (2.1d).
 
 Los checks aún abiertos en esta sección son recorridos funcionales/live. No se
 marcan completos solo porque la frontera correspondiente ya esté corregida en
@@ -384,6 +403,7 @@ código.
 - `apps/web/app/(app)/worker/payments/page.tsx:58-61` (G-PRO-12)
 - `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
 - `apps/web/app/(app)/worker/materials/page.tsx` y `apps/web/lib/material-request-ui.ts` (2.24/2.25 — validación positiva y estado de rechazo)
+- `apps/web/app/(app)/worker/payments/page.tsx`, `worker/profile/page.tsx` y `apps/web/lib/worker-money-trust-ui.ts` (2.1c/2.1d — payout y trust honestos)
 - `apps/web/app/(app)/worker/tracker/sections/RegistrosTab.tsx` (2.10 — sin rate/moneda controlables)
 - `apps/web/app/(app)/admin/labor-engine/page.tsx` (2.10 — fallback BLS, nunca override del admin)
 - `apps/web/app/semse-api.ts:363-378` (G-PRO-07 — `fetchMyJobs`/`ReviewableJob` necesita `clientUserId`)
@@ -411,6 +431,7 @@ código.
 - [x] G-PRO-14/plan 2.7 quedó cerrado sin alterar la superficie canónica ni el pendiente operativo G-PRO-01.
 - [x] v1.4 cierra 2.10 con una fuente BLS autorizada y mantiene abiertos los ítems `DECISION_REQUIRED`/`REVIEW_REQUIRED`, incluido 2.40.
 - [x] v1.5 cierra 2.24/2.25 con validación previa accesible y semántica visual consistente, cubiertas por prueba unitaria.
+- [x] v1.6 cierra en código 2.1c/2.1d y mantiene explícita la verificación live pendiente.
 
 ## Rollback Considerations
 
