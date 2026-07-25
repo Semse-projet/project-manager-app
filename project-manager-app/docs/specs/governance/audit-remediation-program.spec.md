@@ -2,7 +2,7 @@
 id: "governance.audit-remediation-program"
 title: "Programa de remediación de auditoría — routing SDD integral"
 domain: "governance"
-version: "1.1"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -18,6 +18,7 @@ related_files:
   - docs/specs/ui/audit-product-decisions.spec.md
   - docs/specs/api/auth-account-session-remediation.spec.md
   - docs/specs/api/bff-auth-boundary.spec.md
+  - docs/specs/api/governance-tenant-boundary.spec.md
   - docs/specs/api/session-revocation-architecture.spec.md
   - docs/specs/api/worker-verification-remediation.spec.md
   - docs/specs/api/vision-service-security.spec.md
@@ -37,7 +38,7 @@ last_verified: "2026-07-25"
 
 Este documento es el mapa canónico entre los **157 ítems originales** y los
 IDs de seguimiento que se agreguen a `docs/AUDIT_REMEDIATION_PLAN.md` durante
-la remediación. El inventario routable actual contiene **158 IDs**. Evita dos
+la remediación. El inventario routable actual contiene **159 IDs**. Evita dos
 fallos de gobernanza:
 
 1. implementar un hallazgo sin spec;
@@ -122,6 +123,7 @@ Cobertura: **53/53**.
 | Ítems | Spec primaria | Routing |
 |---|---|---|
 | `3.0`–`3.44` | `ui.admin-flows-remediation` + spec API del bounded context afectado | CLOSED / regresión |
+| `3.10b` | `api.governance-tenant-boundary`, `ui.admin-flows-remediation` | CLOSED |
 
 Excepciones con contrato adicional obligatorio:
 
@@ -134,7 +136,7 @@ Excepciones con contrato adicional obligatorio:
 - `3.25`, `3.18`: `api-job-lifecycle-bids`.
 - `3.37`: `api-communications`.
 
-Cobertura: **45/45**.
+Cobertura: **46/46** (45 originales + 1 seguimiento).
 
 ## 7. Reglas de ejecución
 
@@ -148,8 +150,8 @@ Cobertura: **45/45**.
 
 ## 8. Gates
 
-- Cobertura del inventario actual: 158/158.
-- `pnpm spec:audit-plan-coverage`: 158 mapeados, 0 faltantes, 0 extras.
+- Cobertura del inventario actual: 159/159.
+- `pnpm spec:audit-plan-coverage`: 159 mapeados, 0 faltantes, 0 extras.
 - `node scripts/spec-validate.mjs --strict`: 0 errores/0 warnings.
 - `node scripts/spec-index.mjs`: índice regenerado.
 - Ninguna spec `DRAFT` o `REVIEW` autoriza implementación.

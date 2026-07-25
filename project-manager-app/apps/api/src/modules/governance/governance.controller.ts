@@ -37,24 +37,22 @@ export class GovernanceController {
     // authorId must always be the real caller — never trust a client-supplied
     // value here, or any actor could author a DAO proposal under someone
     // else's identity. See docs/AUDIT_REMEDIATION_PLAN.md 3.13.
-    const tenantId = typeof body.tenantId === "string" && body.tenantId.trim()
-      ? body.tenantId.trim()
-      : ctx.tenantId;
+    const tenantId = ctx.tenantId;
     const authorId = ctx.userId;
 
     const data = await this.governance.createProposal({ tenantId, authorId, title, description, category, closesAt });
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
-  /** GET /v1/governance/proposals?tenantId=...&status=... — list proposals */
+  /** GET /v1/governance/proposals?status=... — list proposals in the caller tenant */
   @Get("proposals")
   @RequirePermissions("ops:dashboard:read")
   async listProposals(
     @Req() req: FastifyRequest,
-    @Query("tenantId") tenantId: string,
     @Query("status") status?: string,
   ) {
-    const data = await this.governance.listProposals(tenantId, status);
+    const ctx = resolveRequestContext(req);
+    const data = await this.governance.listProposals(ctx.tenantId, status);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -62,7 +60,8 @@ export class GovernanceController {
   @Get("proposals/:id")
   @RequirePermissions("ops:dashboard:read")
   async getProposal(@Req() req: FastifyRequest, @Param("id") id: string) {
-    const data = await this.governance.getProposal(id);
+    const ctx = resolveRequestContext(req);
+    const data = await this.governance.getProposal(id, ctx.tenantId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -70,7 +69,8 @@ export class GovernanceController {
   @Get("proposals/:id/results")
   @RequirePermissions("ops:dashboard:read")
   async getResults(@Req() req: FastifyRequest, @Param("id") id: string) {
-    const data = await this.governance.getResults(id);
+    const ctx = resolveRequestContext(req);
+    const data = await this.governance.getResults(id, ctx.tenantId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
@@ -90,9 +90,7 @@ export class GovernanceController {
 
     const units = typeof body.units === "number" ? body.units : 1;
     const reason = typeof body.reason === "string" ? body.reason : undefined;
-    const tenantId = typeof body.tenantId === "string" && body.tenantId.trim()
-      ? body.tenantId.trim()
-      : ctx.tenantId;
+    const tenantId = ctx.tenantId;
     // voterId must always be the real caller — a client-supplied voterId let
     // any actor with ops:dashboard:read cast a vote as an arbitrary user,
     // directly impersonating them in a reputation-weighted tally. See
@@ -108,19 +106,20 @@ export class GovernanceController {
   @HttpCode(HttpStatus.OK)
   @RequirePermissions("ops:dashboard:read")
   async closeProposal(@Req() req: FastifyRequest, @Param("id") id: string) {
-    const data = await this.governance.closeProposal(id);
+    const ctx = resolveRequestContext(req);
+    const data = await this.governance.closeProposal(id, ctx.tenantId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
-  /** GET /v1/governance/credits/:userId?tenantId=... — governance credit summary */
+  /** GET /v1/governance/credits/:userId — governance credit summary in the caller tenant */
   @Get("credits/:userId")
   @RequirePermissions("ops:dashboard:read")
   async getCredits(
     @Req() req: FastifyRequest,
     @Param("userId") userId: string,
-    @Query("tenantId") tenantId: string,
   ) {
-    const data = await this.governance.getCredits(tenantId, userId);
+    const ctx = resolveRequestContext(req);
+    const data = await this.governance.getCredits(ctx.tenantId, userId);
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 }

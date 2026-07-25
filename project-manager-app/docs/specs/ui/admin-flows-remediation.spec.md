@@ -2,7 +2,7 @@
 id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
-version: "1.2"
+version: "1.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -20,6 +20,9 @@ related_files:
   - apps/web/middleware.ts
   - apps/web/app/api/semse/_server.ts
   - apps/api/src/infrastructure/storage/uploads.controller.ts
+  - apps/api/src/modules/governance/governance.controller.ts
+  - apps/api/src/modules/governance/governance.service.ts
+  - apps/web/app/api/semse/governance
   - apps/api/src/modules/anatomy
   - apps/api/src/modules/knowledge
   - apps/api/src/modules/repo-knowledge
@@ -28,15 +31,19 @@ related_files:
 related_tests:
   - apps/api/test/domain-rbac-permissions.test.ts
   - apps/api/test/uploads.controller.test.ts
+  - apps/api/test/governance.controller.test.ts
+  - apps/api/test/governance.service.test.ts
   - tests/unit/auth.test.ts
+  - tests/unit/governance-tenant-boundary.test.ts
   - tests/unit/internal-architecture-boundary.test.ts
 related_endpoints:
   - v1/uploads/plan
   - v1/anatomy
   - v1/knowledge
+  - v1/governance
 related_events: []
 related_agents: []
-last_verified: "2026-07-23"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Admin/OPS UI Flows — Remediation
@@ -52,11 +59,11 @@ last_verified: "2026-07-23"
 
 ## Problem Statement
 
-El panel de Admin comparte la causa raíz de estado incorrecto de los otros dos módulos (por lectura de código, sin confirmar en pantalla), y tiene además hallazgos propios de seguridad de acceso: rutas internas de arquitectura del sistema abiertas a cualquier rol, no solo admin, y una escritura de archivos que confía en un header en vez de la sesión real.
+El panel de Admin comparte la causa raíz de estado incorrecto de los otros dos módulos (por lectura de código, sin confirmar en pantalla), y tiene además hallazgos propios de seguridad de acceso: rutas internas de arquitectura del sistema abiertas a cualquier rol, escrituras de archivos que confiaban en un header y Governance que aceptaba tenant/actor del cliente o consultaba propuestas solo por ID.
 
 ## Scope
 
-- In scope: `apps/web/app/(app)/admin/**` (58 páginas), la navegación/registro de módulos admin, y los endpoints internos de arquitectura (anatomy/knowledge/repo-map/runtime-map) que — aunque no viven bajo `/admin/*` en la URL — están pensados para uso interno/operativo.
+- In scope: `apps/web/app/(app)/admin/**` (58 páginas), la navegación/registro de módulos admin, Governance y los endpoints internos de arquitectura (anatomy/knowledge/repo-map/runtime-map) que — aunque no viven bajo `/admin/*` en la URL — están pensados para uso interno/operativo.
 - Out of scope: los hallazgos de backend puramente transversales (Forge, SSE cross-tenant, pagos) — están en `docs/AUDIT_REMEDIATION_PLAN.md` sección 0, este spec solo referencia los que tienen una superficie de UI/acceso específica de Admin.
 
 ## Non-Goals
@@ -102,6 +109,23 @@ cuatro clases de sesión.
 ### G-ADM-08 — CRÍTICO (seguridad, superficie usada desde Admin y otros roles) — Un header del cliente decide en qué tenant se escribe un archivo
 **Archivo:** `apps/api/src/infrastructure/storage/uploads.controller.ts:174-175,237-238` — el emisor de planes de subida lee `tenantId` de `x-tenant-id` (header del cliente) en vez de `resolveRequestContext(req)`; la ruta de descarga es pública sin firma ni expiración.
 
+**Cierre local:** el emisor usa `resolveRequestContext(req).tenantId`; la
+regresión del controller confirma que un header falsificado no decide el
+tenant. La política separada de descarga pública no se altera con este cierre.
+
+### G-ADM-09 — CRÍTICO — Governance permitía lectura y escritura cross-tenant
+
+**Causa raíz:** create/vote aceptaban `tenantId` del body, list/credits lo
+aceptaban del query y detail/results/close buscaban propuestas solo por ID. Un
+OPS_ADMIN de un tenant podía operar otro tenant y crear un voto cuyo tenant no
+coincidía con el de la propuesta.
+
+**Cierre local (plan 3.10b):** controller deriva tenant/actor exclusivamente de
+la sesión; service acota propuesta y votos por `{id, tenantId}`, persiste el
+tenant de la propuesta y cierra con update condicionado por tenant+estado. Las
+cinco rutas BFF usan identidad autenticada sin fallback. Contrato primario:
+`api.governance-tenant-boundary`.
+
 ## UI Contract (pendiente de confirmar visualmente — hipótesis por código)
 
 ```yaml
@@ -119,11 +143,12 @@ states:
 required_behavior:
   - Ninguna resolución de disputa ejecuta sin confirmación explícita (bloqueado hoy por G-ADM-02)
   - Todo módulo "COMPLETE" según CLAUDE.md debe ser alcanzable desde el sidebar de Admin (bloqueado hoy por G-ADM-01)
+  - Governance nunca permite elegir tenant o actor desde body/query y un ID foráneo responde como no encontrado
 ```
 
 ## Security / RBAC
 
-- G-ADM-07 y G-ADM-08 son los hallazgos de mayor severidad de este documento — ambos son fugas de control de acceso reales, no solo gaps de UX.
+- G-ADM-07, G-ADM-08 y G-ADM-09 son fugas de control de acceso reales, no solo gaps de UX.
 - Antes de `VERIFIED`: confirmar con una sesión OPS_ADMIN real si existe alguna ruta de mitigación o divergencia no visible en el análisis estático.
 
 ## Tests Required
@@ -132,7 +157,8 @@ required_behavior:
   `knowledge/domains|overview`; OPS_ADMIN pasa. Las 18 rutas BFF internas usan
   identidad de sesión sin fallback estático y las cuatro páginas top-level son
   admin-only (regresión directa de G-ADM-07)
-- [ ] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
+- [x] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
+- [x] Governance deriva tenant/actor de sesión, rechaza IDs cross-tenant sin writes y usa BFF sin fallback (regresión de G-ADM-09/3.10b)
 - [x] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
 - [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
 - [x] Las alertas QualityGuard en `/admin/labor-engine` muestran un acción visible (perfil del worker; pausar/detener timers olvidados) y confirman antes de mutar
@@ -152,9 +178,12 @@ required_behavior:
 - `apps/web/app/api/semse/{anatomy,knowledge,repo-knowledge,runtime-knowledge}`
 - `apps/web/app/api/semse/_server.ts`
 - `apps/web/app/(app)/admin/disputes/page.tsx`
+- `apps/web/app/api/semse/governance`
 
 ### API
 - `apps/api/src/infrastructure/storage/uploads.controller.ts`
+- `apps/api/src/modules/governance/governance.controller.ts`
+- `apps/api/src/modules/governance/governance.service.ts`
 - `packages/auth/src/rbac.ts` (`internal:architecture:read`, OPS_ADMIN-only)
 - `apps/api/src/modules/{anatomy,knowledge,repo-knowledge,runtime-knowledge}`
 
@@ -170,3 +199,5 @@ required_behavior:
 - G-ADM-07 mantiene `knowledge:read` para workspace memory y skills; solo los
   mapas/overview de arquitectura usan el permiso interno. Un rollback no puede
   reabrirlos ni restaurar el fallback BFF a identidad estática.
+- G-ADM-09 depende de scoping API y BFF estricto; no se debe revertir una sola
+  capa y asumir que la otra sustituye el boundary completo.
