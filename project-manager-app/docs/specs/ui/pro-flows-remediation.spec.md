@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.4"
+version: "1.5"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -29,6 +29,7 @@ related_files:
   - apps/web/app/(app)/worker/rates/page.tsx
   - apps/web/app/(app)/worker/incidents/page.tsx
   - apps/web/app/(app)/worker/materials/page.tsx
+  - apps/web/lib/material-request-ui.ts
   - apps/web/app/(app)/worker/tasks/page.tsx
   - apps/web/app/(app)/worker/disputes/page.tsx
   - apps/web/app/(app)/worker/opportunities/page.tsx
@@ -71,6 +72,7 @@ related_tests:
   - apps/api/test/labor-engine.service.test.ts
   - apps/api/test/contractor-rate.service.test.ts
   - tests/unit/labor-rate-boundary.test.ts
+  - tests/unit/worker-material-request-ui.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -230,8 +232,9 @@ Todos los endpoints de escritura de `/v1/travel` (crear viaje, cambiar estado, g
 **Remediación en código (2.31):** se introdujo `travel:manage`, otorgado a los
 roles operativos correspondientes, y todos los endpoints de escritura de
 Travel usan ese permiso dedicado en vez de `jobs:create`. La policy por recurso
-sigue siendo obligatoria; crear contra un `jobId` inválido continúa como
-pendiente separado 2.35. Falta comprobar el flujo completo con un PRO real.
+sigue siendo obligatoria. La creación ahora valida que el `jobId` exista,
+pertenezca al tenant y sea accesible por el actor (2.35). Falta comprobar el
+flujo completo con un PRO real.
 
 ### G-PRO-11 — CRÍTICO (seguridad, IDOR cross-tenant) — El estado de cualquier unidad de campo de cualquier tenant se puede sobreescribir
 `apps/api/.../field-ops.repository.ts:122-127` (`updateUnitStatus`) recibe `tenantId` pero nunca lo usa en el `where` del `update` (a diferencia de `findUnitById`, que sí lo hace) — cualquier usuario con `field-ops:write` (PRO o WORKER) puede cambiar el estado de una `FieldUnit` de otra organización con solo conocer/adivinar su `id`. Fix: agregar `tenantId` al `where` del update, igual que en el resto de repositorios de este módulo. Detalle: plan → 2.32.
@@ -270,6 +273,12 @@ residual fail-closed evita que la superficie reaparezca si el middleware no se
 ejecuta. Esto cierra el plan 2.7; no modifica ni declara resuelto el cronómetro
 legacy dentro de la ruta canónica descrito en G-PRO-01.
 
+**Remediación v1.5 (2026-07-25):** el formulario de materiales valida en cliente
+que la cantidad sea finita y mayor que cero antes de enviar, presenta el error
+inline con atributos accesibles y conserva la validación positiva del backend
+como segunda frontera. El estado `rejected` usa la variante visual `error`.
+Esto cierra 2.24 y 2.25 sin modificar el contrato del API.
+
 ## Cobertura de esta pasada
 
 **Completa en vivo (2026-07-20 y 2026-07-21):** Dashboard, Oportunidades, Mis trabajos (+ detalle), Time Tracker, Operaciones de campo, Mi perfil, Mis pagos, Mis propuestas, Agenda, Tareas, Evidencia (incl. subida real de archivo), Materiales, Incidencias, Movilidad, Reseñas, "Asistente IA" (en realidad `/worker/settings`), widget flotante de Prometeo/agentes, catálogo `/agents` completo.
@@ -304,6 +313,8 @@ required_behavior:
   - Solo debe existir una ruta activa de registro de horas por profesional (bloqueado hoy por G-PRO-01)
   - Un archivo de evidencia subido en `/worker/evidence` debe existir realmente en storage tras "Registrar" (PUT real implementado; storage live pendiente)
   - Un usuario PRO debe poder enviar un mensaje a Prometeo/agentes y recibir respuesta real (RBAC corregido; conversación live pendiente)
+  - Una solicitud de material solo puede enviarse con cantidad finita y mayor que cero
+  - Una solicitud de material rechazada debe usar el tratamiento visual de error
 ```
 
 ## Security / RBAC
@@ -322,9 +333,9 @@ job, con override OPS_ADMIN. Tareas (2.20) rechaza a un actor no administrador
 cuando `assignedTo` pertenece a otro usuario. Travel (2.34) centraliza el acceso
 en `getAssignment`/`assertTravelAccess`: worker asignado, organización cliente
 dueña u OPS_ADMIN. Estas fronteras necesitan verificación multiusuario en vivo;
-no hay evidencia histórica suficiente para descartar abuso anterior. Los
-pendientes 2.35 (validar el job al crear viaje) y 2.44 no quedan cerrados por
-esta actualización.
+no hay evidencia histórica suficiente para descartar abuso anterior. La
+creación de Travel también valida job, tenant y relación del actor (2.35).
+El pendiente de cumplimiento 2.44 no queda cerrado por esta actualización.
 
 ## Tests Required
 
@@ -348,6 +359,8 @@ esta actualización.
 - [x] La policy de jobs evita que PRO/WORKER reciba `DRAFT` ajenos y aplica la misma frontera al detalle (regresión de 2.27; prueba de repositorio).
 - [x] `updateUnitStatus` incluye `tenantId` en la mutación y falla si no actualiza filas (regresión de G-PRO-11/2.32; verificación estática + suite Field Ops).
 - [x] Incidencias/materiales, tareas y detalle de Travel aplican las policies de actor documentadas para 2.19, 2.20 y 2.34.
+- [x] El formulario de materiales no envía cantidades vacías, no finitas, iguales a cero o negativas y muestra el error junto al campo (2.24).
+- [x] El estado `rejected` de materiales usa `StatusBadge` con variante `error` (2.25).
 
 Los checks aún abiertos en esta sección son recorridos funcionales/live. No se
 marcan completos solo porque la frontera correspondiente ya esté corregida en
@@ -370,6 +383,7 @@ código.
 - `apps/web/app/(app)/worker/profile/page.tsx:134-153` (G-PRO-09)
 - `apps/web/app/(app)/worker/payments/page.tsx:58-61` (G-PRO-12)
 - `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
+- `apps/web/app/(app)/worker/materials/page.tsx` y `apps/web/lib/material-request-ui.ts` (2.24/2.25 — validación positiva y estado de rechazo)
 - `apps/web/app/(app)/worker/tracker/sections/RegistrosTab.tsx` (2.10 — sin rate/moneda controlables)
 - `apps/web/app/(app)/admin/labor-engine/page.tsx` (2.10 — fallback BLS, nunca override del admin)
 - `apps/web/app/semse-api.ts:363-378` (G-PRO-07 — `fetchMyJobs`/`ReviewableJob` necesita `clientUserId`)
@@ -384,7 +398,7 @@ código.
 - `apps/api/src/modules/field-ops/field-ops.repository.ts` (G-PRO-11 — mutación acotada por tenant)
 - `apps/api/src/modules/incidents/incidents.service.ts` y `apps/api/src/modules/materials/materials.service.ts` (2.19 — policy por participación en job)
 - `apps/api/src/modules/tasks/tasks.service.ts` (2.20 — ownership de la tarea)
-- `apps/api/src/modules/travel/travel.service.ts` (2.34 — policy por recurso; 2.35 sigue pendiente)
+- `apps/api/src/modules/travel/travel.service.ts` (2.34 — policy por recurso; 2.35 — validación de job/tenant/actor al crear)
 - `apps/web/app/api/semse/uploads/files/[...key]/route.ts` (G-PRO-06 — proxy autenticado del cuerpo real)
 
 ## Acceptance Criteria
@@ -396,6 +410,7 @@ código.
 - [x] `node scripts/spec-validate.mjs --strict` pasa.
 - [x] G-PRO-14/plan 2.7 quedó cerrado sin alterar la superficie canónica ni el pendiente operativo G-PRO-01.
 - [x] v1.4 cierra 2.10 con una fuente BLS autorizada y mantiene abiertos los ítems `DECISION_REQUIRED`/`REVIEW_REQUIRED`, incluido 2.40.
+- [x] v1.5 cierra 2.24/2.25 con validación previa accesible y semántica visual consistente, cubiertas por prueba unitaria.
 
 ## Rollback Considerations
 

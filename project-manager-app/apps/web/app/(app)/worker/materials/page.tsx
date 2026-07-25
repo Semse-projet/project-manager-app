@@ -7,6 +7,11 @@ import { Package, Plus, ChevronDown, Clock, DollarSign, RefreshCw, Inbox } from 
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { fetchMaterials, createMaterialRequest, fetchMyJobs } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import {
+  MATERIAL_REQUEST_STATUS_META,
+  parsePositiveMaterialQuantity,
+  type MaterialRequestStatus,
+} from "../../../../lib/material-request-ui";
 
 interface MaterialRequest {
   id: string;
@@ -17,16 +22,9 @@ interface MaterialRequest {
   jobId: string;
   milestone: string;
   estimatedCost: number;
-  status: "pending" | "approved" | "delivered" | "rejected";
+  status: MaterialRequestStatus;
   requestedAt: string;
 }
-
-const STATUS_MAP: Record<MaterialRequest["status"], { variant: "warning" | "success" | "info" | "neutral" | "error"; label: string }> = {
-  pending:   { variant: "warning", label: "Pendiente" },
-  approved:  { variant: "info",    label: "Aprobado"  },
-  delivered: { variant: "success", label: "Entregado" },
-  rejected:  { variant: "neutral", label: "Rechazado" },
-};
 
 function rawToReq(m: Record<string, unknown>, jobTitleMap: Record<string, string>): MaterialRequest {
   const jobId = String(m.jobId ?? "");
@@ -57,6 +55,7 @@ export default function WorkerMaterialsPage() {
   const [formJobId, setFormJobId] = useState("");
   const [formItem, setFormItem]   = useState("");
   const [formQty, setFormQty]     = useState("");
+  const [quantityTouched, setQuantityTouched] = useState(false);
   const [formUnit, setFormUnit]   = useState("unidades");
   const [formCost, setFormCost]   = useState("");
 
@@ -70,27 +69,33 @@ export default function WorkerMaterialsPage() {
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;
       setJobs(rawJobs.map(j => ({ id: j.id, title: j.title })));
-      if (formJobId === "" && rawJobs.length > 0) setFormJobId(rawJobs[0].id);
+      setFormJobId(current => current || rawJobs[0]?.id || "");
       setRequests(rawMats.map(m => rawToReq(m, jobTitleMap)));
     } catch { /* keep empty */ }
     setLoading(false);
-  }, [formJobId]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
   async function handleSubmit() {
-    if (!formItem.trim() || !formQty || !formJobId || submitting) return;
+    const quantity = parsePositiveMaterialQuantity(formQty);
+    if (quantity === null) {
+      setQuantityTouched(true);
+      return;
+    }
+    if (!formItem.trim() || !formJobId || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
       await createMaterialRequest({
         jobId: formJobId,
         item: formItem.trim(),
-        quantity: Number(formQty),
+        quantity,
         unit: formUnit,
         estimatedCost: formCost ? Number(formCost) : undefined,
       });
       setFormItem(""); setFormQty(""); setFormCost("");
+      setQuantityTouched(false);
       setShowForm(false);
       await load();
     } catch (err) {
@@ -105,6 +110,10 @@ export default function WorkerMaterialsPage() {
   const rejected  = requests.filter(r => r.status === "rejected");
   const totalApproved  = approved.reduce((s, r) => s + r.estimatedCost, 0);
   const totalPending   = pending.reduce((s, r) => s + r.estimatedCost, 0);
+  const parsedQuantity = parsePositiveMaterialQuantity(formQty);
+  const quantityError = quantityTouched && parsedQuantity === null
+    ? "La cantidad debe ser un número mayor que 0."
+    : null;
 
   const card: React.CSSProperties = {
     background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px",
@@ -163,7 +172,25 @@ export default function WorkerMaterialsPage() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
               <div>
                 <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>CANTIDAD</label>
-                <input type="number" value={formQty} onChange={e => setFormQty(e.target.value)} placeholder="0" style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
+                <input
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value={formQty}
+                  onChange={e => {
+                    setFormQty(e.target.value);
+                    setQuantityTouched(true);
+                  }}
+                  placeholder="0"
+                  aria-invalid={quantityError ? "true" : undefined}
+                  aria-describedby={quantityError ? "material-quantity-error" : undefined}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: quantityError ? "1px solid #ef4444" : "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
+                />
+                {quantityError && (
+                  <p id="material-quantity-error" role="alert" style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px" }}>
+                    {quantityError}
+                  </p>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>UNIDAD</label>
@@ -182,7 +209,7 @@ export default function WorkerMaterialsPage() {
             {submitError && <p style={{ fontSize: "12px", color: "#ef4444" }}>{submitError}</p>}
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
-              <button onClick={() => void handleSubmit()} disabled={submitting || !formItem.trim() || !formQty} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>
+              <button onClick={() => void handleSubmit()} disabled={submitting || !formItem.trim() || parsedQuantity === null || !formJobId} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>
                 {submitting ? "Enviando…" : "Enviar solicitud"}
               </button>
             </div>
@@ -206,7 +233,7 @@ export default function WorkerMaterialsPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {requests.map(req => {
-              const s = STATUS_MAP[req.status];
+              const s = MATERIAL_REQUEST_STATUS_META[req.status];
               return (
                 <div key={req.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px" }}>
                   <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "rgba(139,92,246,.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
