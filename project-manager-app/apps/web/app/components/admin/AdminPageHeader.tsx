@@ -68,7 +68,7 @@ export function AdminPageHeader({
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "var(--ink)" }}>{title}</h1>
           {subtitle ? (
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>{subtitle}</p>
+            <div style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>{subtitle}</div>
           ) : null}
         </div>
         {actions ? <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{actions}</div> : null}

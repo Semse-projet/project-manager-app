@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Layers, TrendingUp, Users, ClipboardList, Package, DollarSign, AlertTriangle, Sprout } from "lucide-react";
+import { ExternalLink, Layers, TrendingUp, Users, ClipboardList, Package, AlertTriangle, Sprout } from "lucide-react";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 
 interface Farm {
@@ -90,9 +90,12 @@ export default function AdminAgroPage() {
         backHref="/admin/verticals"
         backLabel="Verticals"
         actions={
-          <Link href="/agro" className="btn-ghost" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <ExternalLink size={12} /> Ir a Agro
-          </Link>
+          <>
+            <span className="badge badge-green" style={{ fontSize: 10 }}>Live</span>
+            <Link href="/agro" className="btn-ghost" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <ExternalLink size={12} /> Ir a Agro
+            </Link>
+          </>
         }
       />
 

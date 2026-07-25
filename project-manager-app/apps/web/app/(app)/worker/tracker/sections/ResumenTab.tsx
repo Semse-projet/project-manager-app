@@ -12,12 +12,16 @@ import {
   type WeeklySummaryView,
 } from "../../../labor-api";
 import type { JobRecordView } from "../../../../semse-api";
+import { readTrackerLocalState, type TrackerLocalState } from "../trackerLocalStore";
 import {
   BarList,
   ChangeBadge,
   ChartCard,
   DonutChart,
+  formatCostSummary,
   KpiCard,
+  PendingSyncBadge,
+  pendingLocalEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
   PurposeChip,
@@ -36,6 +40,7 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
   const [monthly, setMonthly] = useState<MonthlySummaryView | null>(null);
   const [entries, setEntries] = useState<TimeEntryView[]>([]);
   const [freeProjects, setFreeProjects] = useState<FreeProjectView[]>([]);
+  const [localState, setLocalState] = useState<TrackerLocalState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,23 +73,42 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
     };
   }, []);
 
+  // Sesión activa aún no confirmada + entradas manuales encoladas offline
+  // (trackerLocalStore) — sin esto, Resumen solo cuenta lo ya sincronizado
+  // con el backend y subcuenta en silencio mientras el worker está offline.
+  // Ver docs/AUDIT_REMEDIATION_PLAN.md 2.3.
+  useEffect(() => {
+    setLocalState(readTrackerLocalState(window.localStorage));
+  }, []);
+
+  const pendingEntries = useMemo(
+    () => (localState ? pendingLocalEntries(localState) : []),
+    [localState]
+  );
+
+  const entriesWithPending = useMemo(
+    () => (pendingEntries.length > 0 ? [...entries, ...pendingEntries] : entries),
+    [entries, pendingEntries]
+  );
+
   const todayKey = new Date().toISOString().slice(0, 10);
-  const todayMinutes = monthly?.byDay.find((day) => day.date === todayKey)?.minutes ?? 0;
+  const pendingSeconds = pendingEntries.reduce((sum, entry) => sum + entrySeconds(entry), 0);
+  const todayPendingSeconds = pendingEntries
+    .filter((entry) => entry.startedAt.slice(0, 10) === todayKey)
+    .reduce((sum, entry) => sum + entrySeconds(entry), 0);
+  const todayMinutes = (monthly?.byDay.find((day) => day.date === todayKey)?.minutes ?? 0) + Math.round(todayPendingSeconds / 60);
 
   const purposeSeconds = useMemo(() => {
     const totals: Record<TimeEntryView["purpose"], number> = { personal: 0, payable: 0, job_linked: 0 };
-    for (const entry of entries) totals[entry.purpose] += entrySeconds(entry);
+    for (const entry of entriesWithPending) totals[entry.purpose] += entrySeconds(entry);
     return totals;
-  }, [entries]);
+  }, [entriesWithPending]);
 
-  const estimatedCost = useMemo(
-    () => entries.reduce((sum, entry) => sum + (entryCost(entry) ?? 0), 0),
-    [entries]
-  );
+  const costSummary = useMemo(() => formatCostSummary(entriesWithPending), [entriesWithPending]);
 
   const projectBars = useMemo(() => {
     const totals = new Map<string, { label: string; color: string; seconds: number }>();
-    for (const entry of entries) {
+    for (const entry of entriesWithPending) {
       const project = resolveEntryProject(entry, freeProjects, jobs);
       const current = totals.get(project.label) ?? { ...project, seconds: 0 };
       current.seconds += entrySeconds(entry);
@@ -94,7 +118,7 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
       .sort((a, b) => b.seconds - a.seconds)
       .slice(0, 6)
       .map((item) => ({ label: item.label, value: item.seconds, color: item.color }));
-  }, [entries, freeProjects, jobs]);
+  }, [entriesWithPending, freeProjects, jobs]);
 
   const trendPoints = useMemo(() => (
     (monthly?.byDay ?? []).map((day) => ({
@@ -104,10 +128,10 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
   ), [monthly]);
 
   const latestEntries = useMemo(
-    () => [...entries]
+    () => [...entriesWithPending]
       .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
       .slice(0, 8),
-    [entries]
+    [entriesWithPending]
   );
 
   if (loading) {
@@ -130,18 +154,19 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
         <KpiCard label="Horas hoy" value={fmtHours(todayMinutes * 60)} color="#3b82f6" hint={`${monthly?.totalEntries ?? 0} registros en el mes`} />
         <KpiCard
           label="Esta semana"
-          value={fmtHours((weekly?.totalMinutes ?? 0) * 60)}
+          value={fmtHours((weekly?.totalMinutes ?? 0) * 60 + pendingSeconds)}
           color="#059669"
           badge={<ChangeBadge value={weekly?.changePercent ?? null} />}
+          hint={pendingSeconds > 0 ? "incluye horas pendientes de sincronizar" : undefined}
         />
-        <KpiCard label="Este mes" value={fmtHours((monthly?.totalMinutes ?? 0) * 60)} color="#d97706" hint={`${monthly?.from.slice(0, 10) ?? ""} → hoy`} />
+        <KpiCard label="Este mes" value={fmtHours((monthly?.totalMinutes ?? 0) * 60 + pendingSeconds)} color="#d97706" hint={`${monthly?.from.slice(0, 10) ?? ""} → hoy`} />
         <KpiCard label="Proyectos libres" value={String(activeProjects)} color="#8b5cf6" hint="activos en tu espacio" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <KpiCard label="Facturable (mes)" value={fmtHours(purposeSeconds.payable + purposeSeconds.job_linked)} color={PURPOSE_CHART_COLORS.payable} hint="pago potencial + jobs" />
         <KpiCard label="Personal (mes)" value={fmtHours(purposeSeconds.personal)} color={PURPOSE_CHART_COLORS.personal} hint="cálculo propio" />
-        <KpiCard label="Costo estimado" value={estimatedCost > 0 ? fmtMoney(estimatedCost) : "—"} color="var(--accent)" hint="según tarifas registradas" />
+        <KpiCard label="Costo estimado" value={costSummary} color="var(--accent)" hint="según tarifas registradas" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
@@ -180,6 +205,7 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
                       {project.label}
                     </span>
                     <PurposeChip purpose={entry.purpose} />
+                    {entry.status === "pending_sync" ? <PendingSyncBadge /> : null}
                     <span style={{ color: "var(--ink)", fontWeight: 800, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{fmtHours(entrySeconds(entry))}</span>
                     {cost != null ? <span style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{fmtMoney(cost, entry.currency)}</span> : null}
                   </div>

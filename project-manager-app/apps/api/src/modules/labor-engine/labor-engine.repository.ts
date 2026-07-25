@@ -325,9 +325,12 @@ export class LaborEngineRepository {
   }
 
   /** Todos los timers activos del tenant (vista admin multi-worker). */
+  /** Excludes purpose:"personal" — the tracker UI tells workers those hours are
+   * private, never linked to jobs or pay, so they must not surface in any
+   * admin/supervisor view (see docs/AUDIT_REMEDIATION_PLAN.md 2.11). */
   async listActiveEntriesForTenant(tenantId: string): Promise<TimeEntryRecord[]> {
     return this.prisma.timeEntry.findMany({
-      where: { tenantId, status: { in: ["running", "paused"] } },
+      where: { tenantId, status: { in: ["running", "paused"] }, purpose: { not: "personal" } },
       orderBy: { startedAt: "asc" },
     }) as unknown as TimeEntryRecord[];
   }
@@ -349,6 +352,7 @@ export class LaborEngineRepository {
         tenantId: params.tenantId,
         status: "completed",
         startedAt: { gte: params.from, lte: params.to },
+        purpose: { not: "personal" },
       },
       select: { createdBy: true, durationMinutes: true, hourlyRate: true, startedAt: true },
       orderBy: { startedAt: "asc" },
@@ -397,6 +401,7 @@ export class LaborEngineRepository {
         status: "completed",
         startedAt: { gte: params.from, lte: params.to },
         durationMinutes: { gte: params.minMinutes },
+        purpose: { not: "personal" },
       },
       orderBy: { durationMinutes: "desc" },
       take: 50,

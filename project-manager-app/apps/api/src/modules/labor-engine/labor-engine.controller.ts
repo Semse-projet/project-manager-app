@@ -248,6 +248,7 @@ export class LaborEngineController {
     @Query("freeProjectId") freeProjectId?: string,
     @Query("purpose") purpose?: string,
     @Query("limit") limit?: string,
+    @Query("weekOffset") weekOffset?: string,
   ) {
     const a = actor(req);
     const data = await this.svc.listEntries({
@@ -258,6 +259,7 @@ export class LaborEngineController {
       purpose,
       range: range === "week" ? "week" : range === "month" ? "month" : "all",
       limit: parsePositiveInt(limit, 50),
+      weekOffset: weekOffset != null ? parseNonNegativeInt(weekOffset, 0) : undefined,
     });
     return ok(rid(req), data);
   }

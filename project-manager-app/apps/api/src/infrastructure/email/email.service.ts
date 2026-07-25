@@ -1,62 +1,103 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Resend } from "resend";
+import nodemailer, { Transporter } from "nodemailer";
 
 /**
- * Thin wrapper around Resend. Previously there was no email-sending
- * infrastructure anywhere in this backend (0.32 in
- * docs/AUDIT_REMEDIATION_PLAN.md) — password reset requests generated a
- * real token but never delivered it to anyone, which locked a real user
- * out of their account twice in 24h.
+ * Thin wrapper around Resend, with Gmail SMTP as a fallback provider.
+ * Previously there was no email-sending infrastructure anywhere in this
+ * backend (0.32 in docs/AUDIT_REMEDIATION_PLAN.md) — password reset
+ * requests generated a real token but never delivered it to anyone, which
+ * locked a real user out of their account twice in 24h.
  *
- * Requires RESEND_API_KEY (and optionally EMAIL_FROM, a verified sender)
- * as Railway service variables for the API. Without RESEND_API_KEY this
- * degrades to logging a warning and returning sent:false — callers must
- * treat that as a real failure, not swallow it, so the gap is visible
- * instead of silently repeating the original bug.
+ * Resend requires RESEND_API_KEY (and optionally EMAIL_FROM, a verified
+ * sender) as Railway service variables. Resend rejects sending from a
+ * domain that hasn't completed DNS verification — while that's pending,
+ * GMAIL_USER + GMAIL_APP_PASSWORD (a Google Account App Password, not the
+ * real account password) let outgoing mail go out via Gmail SMTP instead.
+ * Resend is tried first when configured (it's the intended production
+ * path); Gmail is the fallback, tried if Resend is unconfigured or its
+ * send attempt fails. Without either provider configured this degrades to
+ * logging a warning and returning sent:false — callers must treat that as
+ * a real failure, not swallow it, so the gap is visible instead of
+ * silently repeating the original bug.
  */
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly resend: Resend | null;
+  private readonly gmail: Transporter | null;
   private readonly from: string;
+  private readonly gmailFrom: string;
 
   constructor() {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     this.resend = apiKey ? new Resend(apiKey) : null;
     this.from = process.env.EMAIL_FROM?.trim() || "SEMSE <no-reply@semseproject.com>";
 
-    if (!this.resend) {
-      this.logger.warn("[EmailService] RESEND_API_KEY is not configured — outgoing emails will not be sent");
+    const gmailUser = process.env.GMAIL_USER?.trim();
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.trim();
+    this.gmail = gmailUser && gmailAppPassword
+      ? nodemailer.createTransport({
+          service: "gmail",
+          auth: { user: gmailUser, pass: gmailAppPassword }
+        })
+      : null;
+    this.gmailFrom = gmailUser ? `SEMSE <${gmailUser}>` : "";
+
+    if (!this.resend && !this.gmail) {
+      this.logger.warn("[EmailService] Neither RESEND_API_KEY nor GMAIL_USER/GMAIL_APP_PASSWORD are configured — outgoing emails will not be sent");
     }
   }
 
   get isConfigured(): boolean {
-    return this.resend !== null;
+    return this.resend !== null || this.gmail !== null;
   }
 
   async send(input: { to: string; subject: string; html: string; text?: string }): Promise<{ sent: boolean; error?: string }> {
-    if (!this.resend) {
+    if (!this.resend && !this.gmail) {
       this.logger.warn(`[EmailService] Skipped sending "${input.subject}" to ${input.to} — provider not configured`);
-      return { sent: false, error: "Email provider not configured (RESEND_API_KEY missing)" };
+      return { sent: false, error: "Email provider not configured (RESEND_API_KEY / GMAIL_USER+GMAIL_APP_PASSWORD missing)" };
     }
 
-    try {
-      const result = await this.resend.emails.send({
-        from: this.from,
-        to: input.to,
-        subject: input.subject,
-        html: input.html,
-        text: input.text
-      });
-      if (result.error) {
-        this.logger.error(`[EmailService] Resend rejected email to ${input.to}: ${result.error.message}`);
-        return { sent: false, error: result.error.message };
+    let resendError: string | undefined;
+    if (this.resend) {
+      try {
+        const result = await this.resend.emails.send({
+          from: this.from,
+          to: input.to,
+          subject: input.subject,
+          html: input.html,
+          text: input.text
+        });
+        if (result.error) {
+          resendError = result.error.message;
+          this.logger.error(`[EmailService] Resend rejected email to ${input.to}: ${resendError}`);
+        } else {
+          return { sent: true };
+        }
+      } catch (error) {
+        resendError = error instanceof Error ? error.message : String(error);
+        this.logger.error(`[EmailService] Resend failed to send to ${input.to}: ${resendError}`);
       }
-      return { sent: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`[EmailService] Failed to send to ${input.to}: ${message}`);
-      return { sent: false, error: message };
     }
+
+    if (this.gmail) {
+      try {
+        await this.gmail.sendMail({
+          from: this.gmailFrom,
+          to: input.to,
+          subject: input.subject,
+          html: input.html,
+          text: input.text
+        });
+        return { sent: true };
+      } catch (error) {
+        const gmailError = error instanceof Error ? error.message : String(error);
+        this.logger.error(`[EmailService] Gmail SMTP failed to send to ${input.to}: ${gmailError}`);
+        return { sent: false, error: resendError ? `resend: ${resendError}; gmail: ${gmailError}` : gmailError };
+      }
+    }
+
+    return { sent: false, error: resendError };
   }
 }

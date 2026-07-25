@@ -293,7 +293,7 @@ export default function ClientProfessionalsPage() {
     <div style={{ maxWidth: "760px", margin: "0 auto", display: "grid", gap: "16px" }}>
       <ClientPageHeader
         title="Buscar Profesionales"
-        subtitle="Algoritmo de matching por compatibilidad con tu trabajo"
+        subtitle="Encuentra profesionales compatibles con tu trabajo"
         breadcrumbs={[{ label: "Dashboard", href: CLIENT_ROUTES.dashboard }, { label: "Profesionales" }]}
         minHeight={140}
         leading={
@@ -303,7 +303,7 @@ export default function ClientProfessionalsPage() {
         }
         actions={
           <span style={{ padding: "7px 10px", borderRadius: 999, background: "rgba(16,185,129,.12)", color: "#34d399", fontSize: 12, fontWeight: 700 }}>
-            matching Jaccard + trust
+            Matching SEMSE
           </span>
         }
       />
@@ -350,7 +350,7 @@ export default function ClientProfessionalsPage() {
               Profesionales Verificados SEMSE
             </h3>
             <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>
-              Ordenados por trust score
+              Ordenados por confianza
             </span>
           </div>
           <div style={{ display: "grid", gap: 10 }}>
@@ -386,7 +386,7 @@ export default function ClientProfessionalsPage() {
                   }}>
                     {pro.trustScore}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--muted)" }}>trust</div>
+                  <div style={{ fontSize: 10, color: "var(--muted)" }}>confianza</div>
                 </div>
                 {pro.publicSlug && (
                   <Link href={`/pro/${pro.publicSlug}`} target="_blank" style={{ color: "#818cf8", flexShrink: 0 }}>

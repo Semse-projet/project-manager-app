@@ -1,20 +1,5 @@
 # SEMSEproject — CLAUDE.md
 
-## Monorepo structure
-
-```
-apps/
-  api/          NestJS backend — @semse/api
-  web/          Next.js frontend — @semse/web
-  worker/       Background worker — @semse/worker
-  vision-service/  FastAPI (Python) — computer vision
-  autonomy-server/ Node agent server
-packages/
-  db/           Prisma schema + migrations — @semse/db
-  schemas/      Shared Zod schemas + types — @semse/schemas
-  ui/           Shared React components — @semse/ui
-```
-
 ## Key commands
 
 ```bash
