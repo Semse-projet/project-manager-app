@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { Resend } from "resend";
 import nodemailer, { Transporter } from "nodemailer";
+import { SemseLoggerService } from "../observability/semse-logger.service.js";
 
 /**
  * Thin wrapper around Resend, with Gmail SMTP as a fallback provider.
@@ -23,13 +24,12 @@ import nodemailer, { Transporter } from "nodemailer";
  */
 @Injectable()
 export class EmailService {
-  private readonly logger = new Logger(EmailService.name);
   private readonly resend: Resend | null;
   private readonly gmail: Transporter | null;
   private readonly from: string;
   private readonly gmailFrom: string;
 
-  constructor() {
+  constructor(private readonly logger: SemseLoggerService) {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     this.resend = apiKey ? new Resend(apiKey) : null;
     this.from = process.env.EMAIL_FROM?.trim() || "SEMSE <no-reply@semseproject.com>";
@@ -44,8 +44,13 @@ export class EmailService {
       : null;
     this.gmailFrom = gmailUser ? `SEMSE <${gmailUser}>` : "";
 
+    this.logger.info("email.providers configured", {
+      resend: this.resend !== null,
+      gmail: this.gmail !== null,
+      from: this.from,
+    });
     if (!this.resend && !this.gmail) {
-      this.logger.warn("[EmailService] Neither RESEND_API_KEY nor GMAIL_USER/GMAIL_APP_PASSWORD are configured — outgoing emails will not be sent");
+      this.logger.warn("email.providers none configured — outgoing emails will not be sent");
     }
   }
 
@@ -55,7 +60,7 @@ export class EmailService {
 
   async send(input: { to: string; subject: string; html: string; text?: string }): Promise<{ sent: boolean; error?: string }> {
     if (!this.resend && !this.gmail) {
-      this.logger.warn(`[EmailService] Skipped sending "${input.subject}" to ${input.to} — provider not configured`);
+      this.logger.warn("email.send skipped — provider not configured", { subject: input.subject, to: input.to });
       return { sent: false, error: "Email provider not configured (RESEND_API_KEY / GMAIL_USER+GMAIL_APP_PASSWORD missing)" };
     }
 
@@ -71,13 +76,13 @@ export class EmailService {
         });
         if (result.error) {
           resendError = result.error.message;
-          this.logger.error(`[EmailService] Resend rejected email to ${input.to}: ${resendError}`);
+          this.logger.error("email.send resend rejected", { to: input.to, error: resendError });
         } else {
           return { sent: true };
         }
       } catch (error) {
         resendError = error instanceof Error ? error.message : String(error);
-        this.logger.error(`[EmailService] Resend failed to send to ${input.to}: ${resendError}`);
+        this.logger.error("email.send resend threw", { to: input.to, error: resendError });
       }
     }
 
@@ -90,10 +95,11 @@ export class EmailService {
           html: input.html,
           text: input.text
         });
+        this.logger.info("email.send delivered via gmail", { to: input.to });
         return { sent: true };
       } catch (error) {
         const gmailError = error instanceof Error ? error.message : String(error);
-        this.logger.error(`[EmailService] Gmail SMTP failed to send to ${input.to}: ${gmailError}`);
+        this.logger.error("email.send gmail failed", { to: input.to, error: gmailError });
         return { sent: false, error: resendError ? `resend: ${resendError}; gmail: ${gmailError}` : gmailError };
       }
     }
