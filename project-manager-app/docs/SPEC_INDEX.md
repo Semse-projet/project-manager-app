@@ -101,7 +101,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [fsm-milestone-lifecycle](specs/fsm/milestone-lifecycle.spec.md) | milestones | VERIFIED | critical | yes | no | yes | 3 | 2026-07-17 |
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | high | yes | no | yes | 2 | 2026-07-23 |
 | [governance.audit-remediation-program](specs/governance/audit-remediation-program.spec.md) | governance | APPROVED | critical | no | no | no | 15 | 2026-07-25 |
-| [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | high | yes | yes | yes | 4 | 2026-07-23 |
+| [labor.engine-remediation](specs/labor/labor-engine-remediation.spec.md) | labor | APPROVED | high | yes | yes | yes | 7 | 2026-07-25 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | high | yes | no | yes | 8 | 2026-07-23 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | high | yes | yes | yes | 7 | 2026-07-17 |

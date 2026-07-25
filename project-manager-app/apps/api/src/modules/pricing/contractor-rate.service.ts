@@ -1,10 +1,16 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { OEWS_TRADES } from "./oews.service.js";
 
 // National baseline: average hourly mean across all 12 tracked construction trades (BLS OEWS 2023)
-const NATIONAL_BASELINE_HOURLY_RATE =
+export const NATIONAL_BASELINE_HOURLY_RATE =
   Math.round((OEWS_TRADES.reduce((s, t) => s + t.nationalHourlyMean, 0) / OEWS_TRADES.length) * 100) / 100;
+
+export const CONTRACTOR_RATE_POLICY = {
+  currency: "USD",
+  laborRatePerHr: { min: 10, max: 250 },
+  materialMarkup: { min: 0, max: 1 },
+} as const;
 
 export type ContractorRateOverrideView = {
   userId:         string;
@@ -38,6 +44,7 @@ export class ContractorRateService {
   }
 
   async upsertOverride(userId: string, input: UpsertContractorRateInput): Promise<ContractorRateOverrideView> {
+    this.assertValidOverride(input);
     const row = await this.prisma.contractorRateOverride.upsert({
       where:  { userId },
       create: {
@@ -58,6 +65,28 @@ export class ContractorRateService {
 
   async deleteOverride(userId: string): Promise<void> {
     await this.prisma.contractorRateOverride.deleteMany({ where: { userId } });
+  }
+
+  private assertValidOverride(input: UpsertContractorRateInput): void {
+    const rate = input.laborRatePerHr;
+    if (
+      !Number.isFinite(rate)
+      || rate < CONTRACTOR_RATE_POLICY.laborRatePerHr.min
+      || rate > CONTRACTOR_RATE_POLICY.laborRatePerHr.max
+    ) {
+      throw new BadRequestException(
+        `laborRatePerHr must be between ${CONTRACTOR_RATE_POLICY.laborRatePerHr.min} and ${CONTRACTOR_RATE_POLICY.laborRatePerHr.max} USD`,
+      );
+    }
+
+    const markup = input.materialMarkup;
+    if (
+      !Number.isFinite(markup)
+      || markup < CONTRACTOR_RATE_POLICY.materialMarkup.min
+      || markup > CONTRACTOR_RATE_POLICY.materialMarkup.max
+    ) {
+      throw new BadRequestException("materialMarkup must be between 0 and 1");
+    }
   }
 
   /** Convert DB row to view object with derived multipliers. */

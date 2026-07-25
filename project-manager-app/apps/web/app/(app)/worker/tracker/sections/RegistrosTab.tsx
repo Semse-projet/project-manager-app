@@ -75,8 +75,6 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
   const [formStart, setFormStart] = useState("08:00");
   const [formEnd, setFormEnd] = useState("16:00");
   const [formBreak, setFormBreak] = useState("30");
-  const [formRate, setFormRate] = useState("");
-  const [formCurrency, setFormCurrency] = useState("USD");
   const [formLocation, setFormLocation] = useState("");
   const [formNotes, setFormNotes] = useState("");
 
@@ -179,7 +177,6 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
     const jobId = formPurpose === "job_linked" ? formJobId : undefined;
     const freeProjectId = formPurpose !== "job_linked" && formFreeProjectId ? formFreeProjectId : undefined;
     const breakMinutes = Math.max(0, Number(formBreak) || 0);
-    const hourlyRate = formRate ? Number(formRate) : undefined;
     const location = formLocation || undefined;
     const notes = formNotes || undefined;
 
@@ -192,8 +189,6 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
         startTime: formStart,
         endTime: formEnd,
         breakMinutes,
-        hourlyRate,
-        currency: formCurrency,
         location,
         notes,
       });
@@ -217,8 +212,6 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
           startTime: formStart,
           endTime: formEnd,
           breakMinutes,
-          hourlyRate,
-          currency: formCurrency,
           location,
           notes,
           localTimestamp: new Date().toISOString(),
@@ -364,18 +357,10 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
                 <label style={fieldLabel()}>Descanso (min)</label>
                 <input type="number" min="0" value={formBreak} onChange={(event) => setFormBreak(event.target.value)} style={fieldInput()} />
               </div>
-              <div>
-                <label style={fieldLabel()}>Tarifa/hora</label>
-                <input type="number" min="0" step="0.5" value={formRate} onChange={(event) => setFormRate(event.target.value)} placeholder="Opcional" style={fieldInput()} />
-              </div>
-              <div>
-                <label style={fieldLabel()}>Moneda</label>
-                <select value={formCurrency} onChange={(event) => setFormCurrency(event.target.value)} style={fieldInput()}>
-                  <option value="USD">USD</option>
-                  <option value="MXN">MXN</option>
-                </select>
-              </div>
             </div>
+            <p style={{ margin: 0, fontSize: "11px", color: "var(--muted)" }}>
+              El costo administrativo se estima con la tarifa base BLS en USD; este registro solo captura tiempo y contexto.
+            </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "10px" }}>
               <div>
                 <label style={fieldLabel()}>Ubicación</label>

@@ -230,8 +230,6 @@ export class LaborEngineController {
       startTime: body["startTime"],
       endTime: body["endTime"],
       breakMinutes: typeof body["breakMinutes"] === "number" ? body["breakMinutes"] : 0,
-      hourlyRate: typeof body["hourlyRate"] === "number" ? body["hourlyRate"] : undefined,
-      currency: typeof body["currency"] === "string" ? body["currency"] : undefined,
       location: typeof body["location"] === "string" ? body["location"] : undefined,
       notes: typeof body["notes"] === "string" ? body["notes"] : undefined,
       clientEventId: typeof body["clientEventId"] === "string" ? body["clientEventId"] : undefined,

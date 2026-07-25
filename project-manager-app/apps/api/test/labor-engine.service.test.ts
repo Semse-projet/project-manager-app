@@ -219,6 +219,27 @@ void test("createManualEntry creates a manual entry with break minutes", async (
   assert.equal(payload.breakMinutes, 30);
 });
 
+void test("createManualEntry persists no client-controlled cost and normalizes currency", async () => {
+  const { service, repo } = createService();
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "payable",
+    freeProjectId: "fp-1",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+  });
+
+  const createCall = repo.calls.find((call) => call.method === "createTimeEntry");
+  assert.ok(createCall);
+  const payload = createCall.args[0] as Record<string, unknown>;
+  assert.equal(payload.hourlyRate, undefined);
+  assert.equal(payload.currency, "USD");
+});
+
 void test("getAdminOverview flags stale timers, overtime and long entries", async () => {
   const now = Date.now();
   const { service } = createService({

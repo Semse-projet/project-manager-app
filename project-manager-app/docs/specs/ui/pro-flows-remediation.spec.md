@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.3"
+version: "1.4"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -66,6 +66,11 @@ related_tests:
   - apps/api/test/travel.controller.test.ts
   - apps/api/test/evidence.spec-contract.test.ts
   - apps/api/test/uploads.controller.test.ts
+  - apps/api/test/labor-engine.controller.test.ts
+  - apps/api/test/labor-engine.repository.test.ts
+  - apps/api/test/labor-engine.service.test.ts
+  - apps/api/test/contractor-rate.service.test.ts
+  - tests/unit/labor-rate-boundary.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -81,6 +86,8 @@ related_endpoints:
   - v1/tasks
   - v1/users
   - v1/jobs
+  - v1/labor
+  - v1/pricing/labor-rates
 related_events: []
 related_agents:
   - prometeo
@@ -244,6 +251,13 @@ con una transacción fallida o revertida.
 ### G-PRO-13 — CRÍTICO — "Mis Tarifas" no tiene ningún efecto real: la promesa central de la pantalla es falsa
 `/worker/rates` promete *"Tus tarifas reales reemplazan los promedios BLS en cada estimado... se usarán en todos los estimados futuros"*. El guardado funciona, pero `ContractorRateService.getOverride()` solo se lee desde `protools.agent.ts:139-158`, invocado únicamente por `POST /v1/semse-agents/protools/estimate` — cuya única UI consumidora es `client/protools/page.tsx` (lado **cliente**, con el `userId` del cliente, no del profesional). La tarifa guardada por un PRO no puede llegar a ningún estimado real, ni por su propia cuenta ni por la del cliente. Fix: decidir el diseño real (¿el estimado de ProTools debería aceptar el `userId` del profesional asignado al job? ¿o esta pantalla debería alimentar otro cálculo, como el de pricing/matching?) antes de tocar código — no es un bug de una línea. Detalle: plan → 2.40.
 
+**Remediación v1.4 (2.10, sin cerrar 2.40):** el formulario manual retiró los
+inputs de tarifa/moneda y el backend ignora esos campos en payloads legacy.
+El costo de equipo usa únicamente el baseline BLS USD con overtime 1.5x; no
+lee valores históricos sin procedencia ni el override del administrador.
+El override dedicado ahora está acotado a USD 10..250, pero su promesa de
+afectar “todos los estimados” sigue siendo una decisión separada y abierta.
+
 ### G-PRO-14 — MEDIO — Tercera implementación top-level de Field Ops
 `/field-ops` mantenía 929 líneas propias y divergía de `/worker/field-ops` en
 tabs, errores, i18n, banners y layout. Era una ruta sin navegación ni back-link,
@@ -329,6 +343,7 @@ esta actualización.
 - [ ] Un PRO puede crear un viaje en `/worker/travel` sin recibir 403 (regresión directa de G-PRO-10)
 - [ ] Un pago con `status: FAILED` o `REVERSED` no se muestra como "Liberado"/"En escrow" en `/worker/payments` (regresión directa de G-PRO-12)
 - [ ] Guardar una tarifa en `/worker/rates` tiene un efecto verificable en al menos un estimado real, o la pantalla deja de prometerlo (regresión directa de G-PRO-13)
+- [x] Una entrada manual no puede alterar el KPI administrativo mediante `hourlyRate`/`currency`; el formulario no ofrece esos inputs y el summary usa BLS USD (plan 2.10).
 - [x] `/field-ops` ya no renderiza una tercera implementación y redirige por rol a una superficie canónica (regresión directa de G-PRO-14)
 - [x] La policy de jobs evita que PRO/WORKER reciba `DRAFT` ajenos y aplica la misma frontera al detalle (regresión de 2.27; prueba de repositorio).
 - [x] `updateUnitStatus` incluye `tenantId` en la mutación y falla si no actualiza filas (regresión de G-PRO-11/2.32; verificación estática + suite Field Ops).
@@ -355,6 +370,8 @@ código.
 - `apps/web/app/(app)/worker/profile/page.tsx:134-153` (G-PRO-09)
 - `apps/web/app/(app)/worker/payments/page.tsx:58-61` (G-PRO-12)
 - `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
+- `apps/web/app/(app)/worker/tracker/sections/RegistrosTab.tsx` (2.10 — sin rate/moneda controlables)
+- `apps/web/app/(app)/admin/labor-engine/page.tsx` (2.10 — fallback BLS, nunca override del admin)
 - `apps/web/app/semse-api.ts:363-378` (G-PRO-07 — `fetchMyJobs`/`ReviewableJob` necesita `clientUserId`)
 
 ### API
@@ -378,7 +395,7 @@ código.
 - [x] Los ítems con decisión de producto/compliance se separaron en specs `DRAFT`/`REVIEW`.
 - [x] `node scripts/spec-validate.mjs --strict` pasa.
 - [x] G-PRO-14/plan 2.7 quedó cerrado sin alterar la superficie canónica ni el pendiente operativo G-PRO-01.
-- [x] v1.3 distingue fixes ya presentes en código de validaciones live todavía pendientes; no cierra 2.10 ni los ítems `DECISION_REQUIRED`/`REVIEW_REQUIRED`.
+- [x] v1.4 cierra 2.10 con una fuente BLS autorizada y mantiene abiertos los ítems `DECISION_REQUIRED`/`REVIEW_REQUIRED`, incluido 2.40.
 
 ## Rollback Considerations
 
