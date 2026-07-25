@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.6"
+version: "1.7"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -33,6 +33,7 @@ related_files:
   - apps/web/lib/worker-money-trust-ui.ts
   - apps/web/app/(app)/worker/tasks/page.tsx
   - apps/web/app/(app)/worker/disputes/page.tsx
+  - apps/web/lib/dispute-evidence-package.ts
   - apps/web/app/(app)/worker/opportunities/page.tsx
   - apps/web/app/(app)/worker/settings/page.tsx
   - apps/web/app/(app)/worker/bids/page.tsx
@@ -75,6 +76,7 @@ related_tests:
   - tests/unit/labor-rate-boundary.test.ts
   - tests/unit/worker-material-request-ui.test.ts
   - tests/unit/worker-money-trust-ui.test.ts
+  - tests/unit/dispute-evidence-package.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -217,6 +219,13 @@ identidad autorizada al API. Para `external_transfer` la UI falla de forma
 explícita en vez de registrar una subida ficticia. Falta confirmar en storage
 real el flujo `single_put`; no se marca validación live.
 
+**Seguimiento v1.7 (2.45):** el paquete de evidencia del workspace de disputas
+ya no recibe nombre/tamaño inventados ni completa partes ficticias. Selecciona
+un `File`, deriva de él los metadatos del plan y hace `PUT` de sus bytes a la
+`key` real mediante el BFF. Solo después expone el enlace del objeto. Para
+`external_transfer` muestra el límite temporal y no simula éxito. La existencia
+del objeto aún requiere verificación live.
+
 ## Gaps adicionales — ronda de 5 agentes de código en paralelo (2026-07-21)
 
 > Auditoría estática de `apps/web/app/(app)/worker/**` completa, la misma metodología aplicada al módulo Cliente (5 agentes en paralelo, uno por franja funcional). 42 hallazgos nuevos en total; los `CRÍTICO` se detallan aquí como gaps propios, el resto (14 `ALTO`, 13 `MEDIO`, 6 `BAJO`) está catalogado con evidencia completa file:line en `docs/AUDIT_REMEDIATION_PLAN.md` → Sección 2, ítems **2.8 a 2.48**, para no duplicar el mismo detalle en dos documentos.
@@ -333,6 +342,7 @@ required_behavior:
   - Una solicitud de material rechazada debe usar el tratamiento visual de error
   - Sin Connect activo, la UI debe decir que el payout automático está bloqueado y que no se redirige a una cuenta compartida
   - Un `trustScore` cold-start de cero debe presentarse como falta de historial, no como evaluación negativa
+  - El paquete de disputa debe usar un archivo real y solo confirmar éxito después de transferir sus bytes
 ```
 
 ## Security / RBAC
@@ -380,6 +390,7 @@ El pendiente de cumplimiento 2.44 no queda cerrado por esta actualización.
 - [x] El formulario de materiales no envía cantidades vacías, no finitas, iguales a cero o negativas y muestra el error junto al campo (2.24).
 - [x] El estado `rejected` de materiales usa `StatusBadge` con variante `error` (2.25).
 - [x] El perfil presenta cold-start como “Trust en construcción” y la regresión confirma el prior neutral real de matching (2.1d).
+- [x] El paquete de evidencia de disputas deriva metadatos del `File`, hace el `PUT` real y rechaza el multipart simulado (2.45).
 
 Los checks aún abiertos en esta sección son recorridos funcionales/live. No se
 marcan completos solo porque la frontera correspondiente ya esté corregida en
@@ -404,6 +415,7 @@ código.
 - `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
 - `apps/web/app/(app)/worker/materials/page.tsx` y `apps/web/lib/material-request-ui.ts` (2.24/2.25 — validación positiva y estado de rechazo)
 - `apps/web/app/(app)/worker/payments/page.tsx`, `worker/profile/page.tsx` y `apps/web/lib/worker-money-trust-ui.ts` (2.1c/2.1d — payout y trust honestos)
+- `apps/web/app/components/disputes/DisputeResolutionWorkspace.tsx` y `apps/web/lib/dispute-evidence-package.ts` (2.45 — paquete real, sin multipart ficticio)
 - `apps/web/app/(app)/worker/tracker/sections/RegistrosTab.tsx` (2.10 — sin rate/moneda controlables)
 - `apps/web/app/(app)/admin/labor-engine/page.tsx` (2.10 — fallback BLS, nunca override del admin)
 - `apps/web/app/semse-api.ts:363-378` (G-PRO-07 — `fetchMyJobs`/`ReviewableJob` necesita `clientUserId`)
@@ -432,6 +444,7 @@ código.
 - [x] v1.4 cierra 2.10 con una fuente BLS autorizada y mantiene abiertos los ítems `DECISION_REQUIRED`/`REVIEW_REQUIRED`, incluido 2.40.
 - [x] v1.5 cierra 2.24/2.25 con validación previa accesible y semántica visual consistente, cubiertas por prueba unitaria.
 - [x] v1.6 cierra en código 2.1c/2.1d y mantiene explícita la verificación live pendiente.
+- [x] v1.7 cierra en código 2.45 con archivo y bytes reales; la comprobación del objeto en storage sigue live-pending.
 
 ## Rollback Considerations
 

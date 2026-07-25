@@ -56,7 +56,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 3 | 2026-07-23 |
-| [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 3 | 2026-06-09 |
+| [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | critical | yes | yes | yes | 5 | 2026-07-25 |
 | [api-field-ops](specs/api/field-ops.spec.md) | field-ops | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
 | [api.governance-tenant-boundary](specs/api/governance-tenant-boundary.spec.md) | governance | VERIFIED | critical | yes | yes | yes | 4 | 2026-07-25 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
@@ -143,7 +143,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | low | no | yes | yes | 5 | 2026-07-12 |
-| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 46 | 2026-07-25 |
+| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 47 | 2026-07-25 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | medium | yes | yes | yes | 6 | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | low | yes | yes | yes | 6 | 2026-06-10 |
