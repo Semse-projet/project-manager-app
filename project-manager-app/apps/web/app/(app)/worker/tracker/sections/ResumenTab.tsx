@@ -21,10 +21,12 @@ import {
   formatCostSummary,
   KpiCard,
   PendingSyncBadge,
+  pendingEntriesInRange,
   pendingLocalEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
   PurposeChip,
+  rollingWindowDayBounds,
   TrendChart,
   entryCost,
   entrySeconds,
@@ -86,16 +88,27 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
     [localState]
   );
 
-  const entriesWithPending = useMemo(
-    () => (pendingEntries.length > 0 ? [...entries, ...pendingEntries] : entries),
-    [entries, pendingEntries]
-  );
+  // `entries` viene acotado por el backend a la ventana móvil de 30 días
+  // (range: "month"), así que el trabajo pendiente se acota igual para que los
+  // agregados del mes no mezclen fechas fuera de esa ventana.
+  const entriesWithPending = useMemo(() => {
+    if (pendingEntries.length === 0) return entries;
+    const { from, to } = rollingWindowDayBounds(30);
+    const pendingInWindow = pendingEntriesInRange(pendingEntries, from, to);
+    return pendingInWindow.length > 0 ? [...entries, ...pendingInWindow] : entries;
+  }, [entries, pendingEntries]);
 
   const todayKey = new Date().toISOString().slice(0, 10);
-  const pendingSeconds = pendingEntries.reduce((sum, entry) => sum + entrySeconds(entry), 0);
-  const todayPendingSeconds = pendingEntries
-    .filter((entry) => entry.startedAt.slice(0, 10) === todayKey)
-    .reduce((sum, entry) => sum + entrySeconds(entry), 0);
+  const sumSeconds = (list: TimeEntryView[]) => list.reduce((sum, entry) => sum + entrySeconds(entry), 0);
+  // Cada KPI suma solo el trabajo pendiente de SU periodo: una entrada manual
+  // encolada offline con fecha de otra semana/mes no pertenece a estas tarjetas.
+  const weekPendingSeconds = weekly
+    ? sumSeconds(pendingEntriesInRange(pendingEntries, weekly.from.slice(0, 10), weekly.to.slice(0, 10)))
+    : 0;
+  const monthPendingSeconds = monthly
+    ? sumSeconds(pendingEntriesInRange(pendingEntries, monthly.from.slice(0, 10), monthly.to.slice(0, 10)))
+    : 0;
+  const todayPendingSeconds = sumSeconds(pendingEntriesInRange(pendingEntries, todayKey, todayKey));
   const todayMinutes = (monthly?.byDay.find((day) => day.date === todayKey)?.minutes ?? 0) + Math.round(todayPendingSeconds / 60);
 
   const purposeSeconds = useMemo(() => {
@@ -154,12 +167,12 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
         <KpiCard label="Horas hoy" value={fmtHours(todayMinutes * 60)} color="#3b82f6" hint={`${monthly?.totalEntries ?? 0} registros en el mes`} />
         <KpiCard
           label="Esta semana"
-          value={fmtHours((weekly?.totalMinutes ?? 0) * 60 + pendingSeconds)}
+          value={fmtHours((weekly?.totalMinutes ?? 0) * 60 + weekPendingSeconds)}
           color="#059669"
           badge={<ChangeBadge value={weekly?.changePercent ?? null} />}
-          hint={pendingSeconds > 0 ? "incluye horas pendientes de sincronizar" : undefined}
+          hint={weekPendingSeconds > 0 ? "incluye horas pendientes de sincronizar" : undefined}
         />
-        <KpiCard label="Este mes" value={fmtHours((monthly?.totalMinutes ?? 0) * 60 + pendingSeconds)} color="#d97706" hint={`${monthly?.from.slice(0, 10) ?? ""} → hoy`} />
+        <KpiCard label="Este mes" value={fmtHours((monthly?.totalMinutes ?? 0) * 60 + monthPendingSeconds)} color="#d97706" hint={`${monthly?.from.slice(0, 10) ?? ""} → hoy`} />
         <KpiCard label="Proyectos libres" value={String(activeProjects)} color="#8b5cf6" hint="activos en tu espacio" />
       </div>
 

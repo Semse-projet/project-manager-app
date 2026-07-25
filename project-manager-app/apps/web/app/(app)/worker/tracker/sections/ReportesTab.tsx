@@ -21,6 +21,7 @@ import {
   ColumnChart,
   formatCostSummary,
   KpiCard,
+  pendingEntriesInRange,
   pendingLocalEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
@@ -127,10 +128,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
     if (!weekly) return weekEntriesRaw;
     const from = weekly.from.slice(0, 10);
     const to = weekly.to.slice(0, 10);
-    const pending = pendingLocalEntries(localState).filter((entry) => {
-      const day = entry.startedAt.slice(0, 10);
-      return day >= from && day <= to;
-    });
+    const pending = pendingEntriesInRange(pendingLocalEntries(localState), from, to);
     return pending.length > 0 ? [...weekEntriesRaw, ...pending] : weekEntriesRaw;
   }, [localState, weekEntriesRaw, weekly]);
 

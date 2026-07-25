@@ -526,6 +526,35 @@ function pendingManualSeconds(date: string, startTime: string, endTime: string, 
   return net > 0 ? net : null;
 }
 
+export function localDayKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Ventana móvil de `days` días terminando hoy, en claves de día locales — el
+ * espejo cliente de `rollingWindowBounds` del servicio, que es lo que acota las
+ * `entries` de los filtros "Últimos 7/30 días".
+ */
+export function rollingWindowDayBounds(days: number, now: Date = new Date()): { from: string; to: string } {
+  return { from: localDayKey(new Date(now.getTime() - days * 24 * 60 * 60 * 1000)), to: localDayKey(now) };
+}
+
+/**
+ * Acota pseudo-entradas pendientes al rango de días `[from, to]` (inclusive,
+ * claves `YYYY-MM-DD`). Sin esto, una entrada manual encolada offline con fecha
+ * de otro periodo se cuenta en el periodo actual: el backend sí acota sus
+ * propias entradas al rango, el trabajo local no.
+ */
+export function pendingEntriesInRange(entries: TimeEntryView[], from: string, to: string): TimeEntryView[] {
+  return entries.filter((entry) => {
+    const day = entry.startedAt.slice(0, 10);
+    return day >= from && day <= to;
+  });
+}
+
 /**
  * Convierte el trabajo guardado en `trackerLocalStore` (sesión activa aún no
  * confirmada por el backend + entradas manuales encoladas offline) en
@@ -537,7 +566,11 @@ export function pendingLocalEntries(state: TrackerLocalState, now: Date = new Da
   const out: TimeEntryView[] = [];
 
   const session = state.activeSession;
-  if (session && session.status !== "STOPPED") {
+  // Una sesión con `backendSessionId` ya existe en el backend, y las listas de
+  // entradas (`listTimeEntries`/`getActiveTimeEntry`) no filtran por estado, así
+  // que ya viene incluida en `entries`: emitirla también como pendiente la
+  // contaría dos veces en horas, costo, propósito y proyecto.
+  if (session && session.status !== "STOPPED" && !session.backendSessionId) {
     out.push({
       id: `pending-session:${session.id}`,
       mode: "realtime",
