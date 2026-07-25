@@ -6,7 +6,7 @@
  * Adaptado: React Router → Next.js, Supabase → API REST
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
@@ -19,10 +19,13 @@ import { CLIENT_ROUTES } from "../../../../lib/client-routes";
 import { trackProductEvent } from "../../../../../lib/product-intelligence";
 import { suggestBudget, type BudgetSuggestion } from "../../../../semse-api";
 import {
+  clearJobWizardDraft,
   computeInitialJobWizardStep,
   JOB_CATEGORIES,
   JOB_URGENCY_OPTIONS,
+  loadJobWizardDraft,
   parseJobIntakePrefill,
+  saveJobWizardDraft,
 } from "../../../../../lib/job-intake";
 import type { ProjectIntake } from "../../../../../lib/smart-intake";
 import {
@@ -113,6 +116,7 @@ export default function NewJobPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeIntakeId, setActiveIntakeId] = useState(prefill.intakeId);
   const [intakeRecovered, setIntakeRecovered] = useState(false);
+  const [draftRecovered, setDraftRecovered] = useState(false);
 
   useEffect(() => {
     if (prefill.categoryId || prefill.intakeId) {
@@ -164,6 +168,56 @@ export default function NewJobPage() {
     if (step === 3) return budgetMin > 0 && budgetMax >= budgetMin;
     return true;
   };
+
+  const isInitialDraftSave = useRef(true);
+
+  useEffect(() => {
+    if (prefill.intakeId || getPersistedIntakeId() || prefill.categoryId || prefill.subcategoryId || prefill.title || prefill.description) {
+      return;
+    }
+    const draft = loadJobWizardDraft();
+    if (!draft) return;
+
+    setStep((current) => (draft.step > current ? draft.step : current));
+    setCategoryId((current) => current || draft.categoryId);
+    setSubcategoryId((current) => current || draft.subcategoryId);
+    setTitle((current) => current || draft.title);
+    setDescription((current) => current || draft.description);
+    setLocationType(draft.locationType);
+    setCity((current) => current || draft.city);
+    setBudgetType(draft.budgetType);
+    setBudgetMin(draft.budgetMin);
+    setBudgetMax(draft.budgetMax);
+    setUrgency(draft.urgency);
+    setDeadline(draft.deadline);
+    setDraftRecovered(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (isInitialDraftSave.current) {
+      isInitialDraftSave.current = false;
+      return;
+    }
+    const timeout = setTimeout(() => {
+      saveJobWizardDraft({
+        step,
+        categoryId,
+        subcategoryId,
+        title,
+        description,
+        locationType,
+        city,
+        budgetType,
+        budgetMin,
+        budgetMax,
+        urgency,
+        deadline,
+        savedAt: new Date().toISOString(),
+      });
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [step, categoryId, subcategoryId, title, description, locationType, city, budgetType, budgetMin, budgetMax, urgency, deadline]);
 
   useEffect(() => {
     let cancelled = false;
@@ -303,6 +357,7 @@ export default function NewJobPage() {
         return;
       }
       clearPersistedIntakeId();
+      clearJobWizardDraft();
       trackProductEvent("wizard.published", {
         category: categoryId || null,
         durationMs: Date.now() - wizardStartedAt,
@@ -373,6 +428,12 @@ export default function NewJobPage() {
           {intakeRecovered
             ? "Recuperamos el intake de la landing y rellenamos el wizard con el borrador guardado."
             : "Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación."}
+        </div>
+      )}
+
+      {draftRecovered && (
+        <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.18)", color: "#34d399", fontSize: "13px" }}>
+          Recuperamos tu borrador guardado. Puedes seguir editando desde el último paso completado.
         </div>
       )}
 
