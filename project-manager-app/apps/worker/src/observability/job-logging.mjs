@@ -22,7 +22,7 @@ export function runWithTraceId(traceId, fn) {
 }
 
 export function resolveJobTraceId(job) {
-  const candidate = job?.data?.traceId ?? job?.opts?.telemetry?.traceId;
+  const candidate = job?.data?.traceId;
   return typeof candidate === "string" && candidate.trim() ? candidate.trim() : randomUUID();
 }
 

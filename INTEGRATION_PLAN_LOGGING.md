@@ -91,8 +91,11 @@ Flow: **API → Worker → API/Autonomy**
   `x-trace-id` header or generates one; the value goes into the observability
   context and is echoed back in the `x-trace-id` response header.
 - API queue services (`infrastructure/queue/*.ts`): `buildQueueTracePayload()`
-  adds `traceId` to the BullMQ job payload of the agent-run, developer-runtime
-  and domain-event queues.
+  adds `traceId` to the BullMQ job payload of the agent-run and developer-runtime
+  queues. The domain-event queue is excluded on purpose: invariant F1-D
+  (`parseDomainEventJobData` in `apps/worker/src/domain-event-worker.mjs`) allows
+  `eventId` as the only payload key, so those jobs get a locally generated
+  `traceId`.
 - Worker: the per-job logger takes that `traceId` and stores it in an
   `AsyncLocalStorage`, so every outgoing API call from the job adds the
   `x-trace-id` header (`buildHeadersForTenant` in `main.mjs`).
