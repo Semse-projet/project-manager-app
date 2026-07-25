@@ -192,6 +192,9 @@ importers:
       mammoth:
         specifier: ^1.12.0
         version: 1.12.0
+      nodemailer:
+        specifier: ^9.0.3
+        version: 9.0.3
       openai:
         specifier: ^6.48.0
         version: 6.48.0(@aws-sdk/credential-provider-node@3.972.70)(@smithy/signature-v4@5.6.6)(zod@3.25.76)
@@ -223,6 +226,9 @@ importers:
       '@types/node':
         specifier: ^22.20.1
         version: 22.20.1
+      '@types/nodemailer':
+        specifier: ^8.0.1
+        version: 8.0.1
       typescript:
         specifier: ^5.8.2
         version: 5.9.3
@@ -4232,6 +4238,9 @@ packages:
   '@types/node@24.13.2':
     resolution: {integrity: sha512-fRa09kZTgu8o71KFcDjUFuc7F+dEbZYZmkI0mg5YBTRs0yMKjYHsq/c0urDKeDb+D5qVgXOdFcuu+DZPKOITwA==}
 
+  '@types/nodemailer@8.0.1':
+    resolution: {integrity: sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==}
+
   '@types/pdfkit@0.17.6':
     resolution: {integrity: sha512-tIwzxk2uWKp0Cq9JIluQXJid77lYhF52EsIOwhsMF4iWLA6YneoBR1xVKYYdAysHuepUB0OX4tdwMiUDdGKmig==}
 
@@ -7355,6 +7364,10 @@ packages:
   node-releases@2.0.51:
     resolution: {integrity: sha512-wRNIrw4DmVLKQlbgOMdkMx27Wrpzes2hh5Jtbi2bjPd+4wJstWIqP5A+lscnqbm0xxmT5Bpg8Lec5ItEBwx6BQ==}
     engines: {node: '>=18'}
+
+  nodemailer@9.0.3:
+    resolution: {integrity: sha512-n+YP+NKwR5zRWa60k3GiQ6Q3B4KXCoAw40dAKeCtYn020iNN74aWK2liXIC3ZEATeGql7we3tE3t8QwhY0eskw==}
+    engines: {node: '>=6.0.0'}
 
   nopt@9.0.0:
     resolution: {integrity: sha512-Zhq3a+yFKrYwSBluL4H9XP3m3y5uvQkB/09CwDruCiRmR/UJYnn9W4R48ry0uGC70aeTPKLynBtscP9efFFcPw==}
@@ -12837,6 +12850,10 @@ snapshots:
       undici-types: 7.18.2
     optional: true
 
+  '@types/nodemailer@8.0.1':
+    dependencies:
+      '@types/node': 22.20.1
+
   '@types/pdfkit@0.17.6':
     dependencies:
       '@types/node': 22.20.1
@@ -16509,6 +16526,8 @@ snapshots:
       which: 6.0.1
 
   node-releases@2.0.51: {}
+
+  nodemailer@9.0.3: {}
 
   nopt@9.0.0:
     dependencies:
