@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../../../_server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +18,9 @@ export async function POST(
 
   try {
     const { projectId } = await params;
-    const data = await fetchSemseData(
+    const data = await fetchSemseDataForAuthenticatedRequest(
       `/v1/buildops/plans/${encodeURIComponent(projectId)}/unapprove`,
+      req,
       { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) },
     );
     return NextResponse.json({ requestId: `buildops-plan-unapprove-${Date.now()}`, data });

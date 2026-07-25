@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchSemseData, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
+import { fetchSemseDataForAuthenticatedRequest, handleServerError, isSemseRuntimeEnabled, runtimeDisabledResponse } from "../../_server";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   if (!isSemseRuntimeEnabled()) return runtimeDisabledResponse();
 
   try {
-    const data = await fetchSemseData("/v1/buildops/projects");
+    const data = await fetchSemseDataForAuthenticatedRequest("/v1/buildops/projects", req);
     return NextResponse.json({ requestId: `buildops-projects-${Date.now()}`, data });
   } catch (error) {
     return handleServerError(error);
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const data = await fetchSemseData("/v1/buildops/projects", {
+    const data = await fetchSemseDataForAuthenticatedRequest("/v1/buildops/projects", req, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),

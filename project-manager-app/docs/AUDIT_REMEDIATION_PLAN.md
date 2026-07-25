@@ -27,6 +27,10 @@ Antes de implementar cualquier ID:
 | 2 — PRO/Worker | 53/53 | `ui.pro-flows-remediation` |
 | 3 — Admin | 45/45 | `ui.admin-flows-remediation` |
 
+Los IDs de seguimiento descubiertos durante la remediación (por ejemplo, `0.1b`)
+se documentan junto a su causa raíz y se enlazan a una spec canónica, pero no
+alteran retroactivamente el baseline de 157 ítems de la auditoría original.
+
 Las decisiones de producto (`1.5`, `1.11b`, `1.21`, `2.1`, `2.40`) están
 separadas en `ui.audit-product-decisions`. Verificación de identidad (`0.9`,
 `2.28`) y tokenización de cobros (`2.44`) permanecen en `REVIEW`. Esto evita
@@ -66,6 +70,12 @@ tomadas.
 - **Fix:** el middleware debe descartar/sobrescribir los headers `x-semse-*` entrantes SIEMPRE que no haya sesión válida, antes de evaluar si la ruta es pública — no solo cuando sí hay sesión.
 - **Estado:** [x] Corregido (Crew D, 2026-07-21) — `withSessionHeaders()` ahora borra los 4 headers `x-semse-*` del request entrante SIEMPRE primero, y solo los vuelve a fijar si hay sesión válida — antes solo se sobrescribían dentro de la rama `if (session)`. Cubre las 3 llamadas (ruta pública, ruta API protegida, ruta app protegida) con un solo fix. Pendiente verificación en vivo (probar con un `x-semse-tenant-id` falsificado y sin cookie de sesión).
 - **Verificación local (2026-07-23):** la política se centralizó en `sanitizeSemseIdentityHeaders()` y las regresiones prueban ambos sentidos del boundary: sin sesión se eliminan todos los headers falsificados; con sesión firmada se sobrescriben con la identidad confiable. `tests/unit/web-bff-auth-policy.test.ts`: 6/6.
+
+### 0.1b — CRÍTICO — BFF mutantes reemplazaban cualquier sesión válida por la identidad estática OPS_ADMIN
+- **Qué:** recurrencia distinta de 0.1. El middleware sí exigía una sesión para `/api/semse/*`, pero 22 rutas con `POST`/`PUT`/`PATCH` llamaban al helper bare `fetchSemseData()`. Ese helper ignora por completo la identidad firmada de la sesión y construye la llamada backend desde `SEMSE_TENANT_ID`/`SEMSE_USER_ID`/`SEMSE_ROLES`; el rol estático por defecto es `OPS_ADMIN`. Por tanto, una sesión CLIENT/PRO/WORKER válida podía ejecutar mutaciones BuildOps, Field Ops, Ops, Tasks, Materials, Incidents y cierre de Governance como el principal privilegiado del servidor.
+- **Ruta SDD:** `docs/specs/api/bff-auth-boundary.spec.md` v1.1 (`VERIFIED`).
+- **Estado:** [x] Corregido (2026-07-25) — el inventario P0 completo de 22 rutas ahora usa `fetchSemseDataForAuthenticatedRequest()`, que solo acepta headers saneados por middleware o cookie firmada y nunca cae en identidad estática. `tests/unit/sensitive-bff-boundary.test.ts` fija el inventario exacto, exige el helper estricto y además recorre todas las rutas mutantes para prohibir nuevas llamadas directas a `fetchSemseData()`. Verificación: 13/13 tests de boundary/cliente verdes, spec strict 104/104 sin errores ni warnings y lint web sin errores.
+- **Deuda separada:** los handlers legacy que ya usan `fetchSemseDataForRequest()` reciben la sesión bajo el flujo normal de middleware, pero ese helper conserva un fallback estático de defensa en profundidad. Su migración global es una fase posterior explícitamente fuera de este lote; no se confunde con el escalamiento directo de los 22 bare-static.
 
 ### 0.2 — CRÍTICO — `SEMSE_BOOTSTRAP_TOKEN` no se exige en código
 - **Qué:** a diferencia de `AUTH_SECRET` (obligatorio en producción), esta variable es opcional en el código — si faltara, `POST /v1/auth/token` firma tokens para cualquiera. Hoy SÍ está configurada en Railway (verificado 2026-07-20), pero el código no lo garantiza.
