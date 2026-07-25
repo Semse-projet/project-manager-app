@@ -19,6 +19,11 @@ import {
   type AgentApprovalItem,
   type DisputeComment
 } from "../../semse-api";
+import {
+  buildDisputePackageUploadInput,
+  disputePackageProxyUrl,
+  resolveDisputePackagePlan,
+} from "../../../lib/dispute-evidence-package";
 
 function mimeToEvidenceKind(mime: string): "PHOTO" | "VIDEO" | "DOCUMENT" {
   if (mime.startsWith("image/")) return "PHOTO";
@@ -445,24 +450,17 @@ export function DisputeResolutionWorkspace({
     if (!packageFile || !dispute.jobId || planningUpload) return;
     setPlanningUpload(true);
     setUploadMessage(null);
+    setUploadPlan(null);
     try {
       const file = packageFile;
-      const contentType = file.type || "application/octet-stream";
-      const plan = (await planUpload({
-        domain: "dispute",
-        filename: file.name,
-        contentType,
-        fileSizeBytes: file.size,
-        source: "local_device"
-      })) as UploadPlanView;
+      const plan = (await planUpload(buildDisputePackageUploadInput(file))) as UploadPlanView;
       setUploadPlan(plan);
 
-      const key = String(plan.key ?? "");
-      if (plan.recommendedStrategy === "external_transfer" || !key) {
-        throw new Error(`"${file.name}" es demasiado grande para subir aquí todavía (límite temporal ~25MB). Usa un archivo más pequeño o divídelo.`);
-      }
+      // Rejects an empty file up front and any strategy other than a single
+      // PUT (multipart/external transfer have no working server path yet).
+      const { key, contentType } = resolveDisputePackagePlan(plan);
 
-      const uploadRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
+      const uploadRes = await fetch(disputePackageProxyUrl(key), {
         method: "PUT",
         headers: { "content-type": contentType, "content-length": String(file.size) },
         body: file
@@ -798,9 +796,9 @@ export function DisputeResolutionWorkspace({
           {!dispute.jobId ? (
             <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>Esta disputa no tiene un trabajo vinculado — no se puede registrar evidencia aquí.</p>
           ) : null}
-          {uploadPlan?.recommendedStrategy === "external_transfer" ? (
+          {uploadPlan?.recommendedStrategy && uploadPlan.recommendedStrategy !== "single_put" ? (
             <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", fontSize: 12, color: "var(--warn)" }}>
-              Archivos grandes (transferencia externa) todavía no tienen una ruta de subida real — usa un archivo más chico por ahora.
+              Los archivos grandes todavía no tienen una ruta de subida real — usa un archivo más chico por ahora.
             </div>
           ) : null}
           {uploadMessage ? (

@@ -4,7 +4,7 @@ title: "Evidence Upload and Review API"
 type: spec
 feature: "Evidence Upload & Review"
 domain: "evidence"
-version: "1.0"
+version: "1.1"
 status: "VERIFIED"
 owner: semse-core
 risk: critical
@@ -17,11 +17,14 @@ depends_on: "docs/specs/api/milestones.spec.md"
 related_files:
   - apps/api/src/modules/evidence
   - apps/api/src/modules/operational-intelligence/evidence-review.service.ts
+  - apps/web/app/components/disputes/DisputeResolutionWorkspace.tsx
+  - apps/web/lib/dispute-evidence-package.ts
   - packages/schemas/src/evidence.schema.ts
 related_tests:
   - apps/api/test/evidence.spec-contract.test.ts
   - apps/api/test/evidence-review.service.test.ts
   - apps/api/test/evidence-crud-phase2.test.ts
+  - tests/unit/dispute-evidence-package.test.ts
 related_endpoints:
   - v1/evidence
   - v1/uploads
@@ -32,7 +35,7 @@ related_events:
 related_agents:
   - evidence-coach
   - evidence-analyzer
-last_verified: 2026-06-09
+last_verified: 2026-07-25
 ---
 
 # Spec: Evidence Upload & Review
@@ -346,6 +349,18 @@ errores:
   400: campos inválidos o domain fuera del enum
   403: sin evidence:write
 ```
+
+#### Consumidor web de paquetes de disputa (v1.1)
+
+`DisputeResolutionWorkspace` debe usar un `File` seleccionado por el usuario:
+
+- `filename`, `contentType` y `fileSizeBytes` salen del archivo, no de campos
+  declarativos;
+- una estrategia `single_put` usa la `key` real del plan y envía el archivo
+  como cuerpo al proxy BFF `/api/semse/uploads/files/:key`;
+- la UI solo confirma éxito después de un `2xx` del `PUT`;
+- `external_transfer` falla de forma explícita mientras el backend multipart
+  no persista bytes; no crea partes ni ETags simulados.
 
 ---
 
@@ -687,6 +702,13 @@ describe("PUT /v1/uploads/multipart-session/:id/parts/:n") {
 describe("POST /v1/uploads/multipart-session/complete") {
   it("completa sesión con partsReceived correcto")
   it("rechaza con 400 si parts array está vacío")
+}
+
+describe("Dispute evidence package UI") {
+  it("planifica con nombre, MIME y tamaño del File seleccionado")
+  it("hace PUT del File real a la key del plan")
+  it("rechaza external_transfer sin simular multipart")
+  it("solo expone el enlace después de un PUT exitoso")
 }
 
 describe("GET /v1/jobs/:jobId/evidence") {
