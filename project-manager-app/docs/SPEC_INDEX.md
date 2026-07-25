@@ -137,7 +137,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 17 | 2026-07-25 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | high | yes | yes | yes | 3 | 2026-06-09 |
 | [ui.audit-product-decisions](specs/ui/audit-product-decisions.spec.md) | product | DRAFT | critical | no | yes | no | 5 | 2026-07-23 |
-| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 27 | 2026-07-25 |
+| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | critical | yes | yes | yes | 28 | 2026-07-25 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | high | yes | yes | yes | 4 | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | high | yes | yes | yes | 10 | 2026-07-12 |
 | [ui.design-system-remediation](specs/ui/design-system-remediation.spec.md) | ui | REVIEW | high | no | yes | no | 4 | 2026-07-23 |

@@ -29,6 +29,14 @@ import {
   clearPersistedIntakeId,
   getPersistedIntakeId,
 } from "../../../../../hooks/use-intake";
+import { useCurrentUser } from "../../../../../hooks/useCurrentUser";
+import {
+  clearJobWizardDraft,
+  hasMeaningfulJobWizardProgress,
+  readJobWizardDraft,
+  writeJobWizardDraft,
+  type JobWizardDraft,
+} from "../../../../../lib/job-wizard-draft";
 
 // ──────────────────────────────────────────────
 // DATA
@@ -98,7 +106,16 @@ function StepBar({ current, maxAvailable, onSelect }: { current: number; maxAvai
 export default function NewJobPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, loading: currentUserLoading } = useCurrentUser();
   const prefill = useMemo(() => parseJobIntakePrefill(searchParams), [searchParams]);
+  const hasExplicitPrefill = useMemo(
+    () => [
+      "intakeId", "intake", "category", "subcategory", "title", "description",
+      "locationType", "city", "budgetType", "budgetMin", "budgetMax", "urgency",
+      "deadline", "step", "preferredUserId", "preferredName", "preferredSlug",
+    ].some(key => searchParams.has(key)),
+    [searchParams],
+  );
   const preferredProfessional = prefill.preferredProfessionalUserId
     ? {
         userId: prefill.preferredProfessionalUserId,
@@ -113,6 +130,8 @@ export default function NewJobPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeIntakeId, setActiveIntakeId] = useState(prefill.intakeId);
   const [intakeRecovered, setIntakeRecovered] = useState(false);
+  const [draftRecovered, setDraftRecovered] = useState(false);
+  const [hydratedDraftOwnerId, setHydratedDraftOwnerId] = useState<string | null>(null);
 
   useEffect(() => {
     if (prefill.categoryId || prefill.intakeId) {
@@ -136,6 +155,7 @@ export default function NewJobPage() {
   const [locationType, setLocationType] = useState<"remote" | "on_site" | "hybrid">(prefill.locationType);
   const [city, setCity] = useState(prefill.city);
   const [files, setFiles] = useState<File[]>([]);
+  const [filesNeedReselection, setFilesNeedReselection] = useState(false);
 
   // Step 3
   const [budgetType, setBudgetType] = useState<"fixed" | "range" | "hourly">(prefill.budgetType);
@@ -166,10 +186,103 @@ export default function NewJobPage() {
   };
 
   useEffect(() => {
+    if (currentUserLoading || !user || hydratedDraftOwnerId === user.id) return;
+
+    const persisted = hasExplicitPrefill
+      ? null
+      : readJobWizardDraft(window.sessionStorage, user.id);
+    if (persisted && hasMeaningfulJobWizardProgress(persisted)) {
+      setStep(persisted.step);
+      setActiveIntakeId(persisted.activeIntakeId);
+      setCategoryId(persisted.categoryId);
+      setSubcategoryId(persisted.subcategoryId);
+      setTitle(persisted.title);
+      setDescription(persisted.description);
+      setLocationType(persisted.locationType);
+      setCity(persisted.city);
+      setBudgetType(persisted.budgetType);
+      setBudgetMin(persisted.budgetMin);
+      setBudgetMax(persisted.budgetMax);
+      setUrgency(persisted.urgency);
+      setDeadline(persisted.deadline);
+      setFilesNeedReselection(persisted.hadFiles);
+      setDraftRecovered(true);
+    } else {
+      setDraftRecovered(false);
+      setFilesNeedReselection(false);
+    }
+    setHydratedDraftOwnerId(user.id);
+  }, [currentUserLoading, hasExplicitPrefill, hydratedDraftOwnerId, user]);
+
+  useEffect(() => {
+    if (!user || hydratedDraftOwnerId !== user.id) return;
+
+    const draft: JobWizardDraft = {
+      version: 1,
+      savedAt: Date.now(),
+      step,
+      activeIntakeId,
+      categoryId,
+      subcategoryId,
+      title,
+      description,
+      locationType,
+      city,
+      budgetType,
+      budgetMin,
+      budgetMax,
+      urgency,
+      deadline,
+      hadFiles: files.length > 0 || filesNeedReselection,
+    };
+    if (hasMeaningfulJobWizardProgress(draft)) {
+      writeJobWizardDraft(window.sessionStorage, user.id, draft);
+    } else {
+      clearJobWizardDraft(window.sessionStorage, user.id);
+    }
+  }, [
+    activeIntakeId,
+    budgetMax,
+    budgetMin,
+    budgetType,
+    categoryId,
+    city,
+    deadline,
+    description,
+    files.length,
+    filesNeedReselection,
+    hydratedDraftOwnerId,
+    locationType,
+    step,
+    subcategoryId,
+    title,
+    urgency,
+    user,
+  ]);
+
+  useEffect(() => {
+    if (files.length === 0) return;
+
+    const warnAboutFiles = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnAboutFiles);
+    return () => window.removeEventListener("beforeunload", warnAboutFiles);
+  }, [files.length]);
+
+  useEffect(() => {
+    if (currentUserLoading || (user && hydratedDraftOwnerId !== user.id)) {
+      return;
+    }
+
     let cancelled = false;
-    const draftId = prefill.intakeId || getPersistedIntakeId();
+    const draftId = prefill.intakeId || activeIntakeId || getPersistedIntakeId();
 
     if (!draftId) {
+      return;
+    }
+    if (intakeRecovered && activeIntakeId === draftId) {
       return;
     }
 
@@ -233,7 +346,14 @@ export default function NewJobPage() {
     return () => {
       cancelled = true;
     };
-  }, [prefill.intakeId]);
+  }, [
+    activeIntakeId,
+    currentUserLoading,
+    hydratedDraftOwnerId,
+    intakeRecovered,
+    prefill.intakeId,
+    user,
+  ]);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -303,6 +423,9 @@ export default function NewJobPage() {
         return;
       }
       clearPersistedIntakeId();
+      if (user) {
+        clearJobWizardDraft(window.sessionStorage, user.id);
+      }
       trackProductEvent("wizard.published", {
         category: categoryId || null,
         durationMs: Date.now() - wizardStartedAt,
@@ -368,11 +491,20 @@ export default function NewJobPage() {
         }
       />
 
-      {(prefill.source === "landing" || intakeRecovered || Boolean(activeIntakeId)) && (
+      {(prefill.source === "landing" || intakeRecovered || draftRecovered || Boolean(activeIntakeId)) && (
         <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(59,130,246,.08)", border: "1px solid rgba(59,130,246,.18)", color: "#bfdbfe", fontSize: "13px" }}>
           {intakeRecovered
             ? "Recuperamos el intake de la landing y rellenamos el wizard con el borrador guardado."
-            : "Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación."}
+            : draftRecovered
+              ? "Recuperamos el borrador de esta pestaña para que continúes donde lo dejaste."
+              : "Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación."}
+        </div>
+      )}
+
+      {filesNeedReselection && (
+        <div role="status" style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.24)", color: "#fcd34d", fontSize: "13px" }}>
+          El resto del borrador se recuperó. Por seguridad del navegador, vuelve
+          a seleccionar los archivos adjuntos antes de publicar.
         </div>
       )}
 
@@ -529,7 +661,16 @@ export default function NewJobPage() {
                 </p>
                 <p style={{ fontSize: "11px", color: "var(--faint)" }}>Máx. 10 MB por archivo</p>
               </label>
-              <input id="file-upload" type="file" multiple style={{ display: "none" }} onChange={e => setFiles(e.target.files ? Array.from(e.target.files) : [])} />
+              <input
+                id="file-upload"
+                type="file"
+                multiple
+                style={{ display: "none" }}
+                onChange={e => {
+                  setFiles(e.target.files ? Array.from(e.target.files) : []);
+                  setFilesNeedReselection(false);
+                }}
+              />
               {files.length > 0 && (
                 <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "6px" }}>
                   {files.map((f, i) => (
@@ -724,6 +865,9 @@ export default function NewJobPage() {
         {step === 1 ? (
           <Link
             href={CLIENT_ROUTES.dashboard}
+            onClick={() => {
+              if (user) clearJobWizardDraft(window.sessionStorage, user.id);
+            }}
             style={{
               display: "inline-flex", alignItems: "center", gap: "6px",
               padding: "10px 18px", borderRadius: "9px",

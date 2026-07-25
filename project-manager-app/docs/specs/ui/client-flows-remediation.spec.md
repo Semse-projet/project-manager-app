@@ -2,7 +2,7 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.6"
+version: "1.7"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -23,6 +23,7 @@ related_files:
   - apps/web/app/(app)/client/professionals/page.tsx
   - apps/web/app/(app)/client/disputes/page.tsx
   - apps/web/app/(app)/client/jobs/new/page.tsx
+  - apps/web/lib/job-wizard-draft.ts
   - apps/web/app/(app)/client/leads/page.tsx
   - apps/web/app/(app)/client/marketplace/page.tsx
   - apps/web/app/(app)/client/protools/page.tsx
@@ -44,6 +45,7 @@ related_tests:
   - tests/unit/legacy-route-redirect.test.ts
   - tests/unit/client-milestones-hydration.test.ts
   - tests/unit/client-presentation-remediation.test.ts
+  - tests/unit/client-job-wizard-draft.test.ts
   - tests/unit/auth.test.ts
 related_endpoints:
   - v1/jobs
@@ -125,10 +127,19 @@ ofrecen refunds, splits ni escalamiento porque la policy los reserva a
 OPS_ADMIN. El permiso `disputes:resolve` de CLIENT quedó alineado con esa policy
 de ownership y resultado; PRO y WORKER continúan sin el permiso.
 
-### G-CLI-03 — ALTO — Wizard de publicación pierde el 100% del progreso al refrescar
+### G-CLI-03 — MEDIO — Wizard de publicación pierde el 100% del progreso al refrescar
 **Archivo:** `client/jobs/new/page.tsx`.
 **Confirmado en vivo:** se llenaron los 2 primeros pasos, se refrescó, el wizard volvió a Paso 1 sin ningún rastro.
 **Fix esperado:** persistir el estado del wizard en `localStorage`/`sessionStorage` por paso, o advertir antes de perder el progreso.
+
+**Remediación v1.7 (2026-07-25):** el wizard persiste los campos serializables,
+el paso actual y el `activeIntakeId` en `sessionStorage`, con versión, caducidad
+de 24 horas y clave separada por `userId`. La restauración valida el payload y
+reduce el paso si sus prerequisitos ya no están completos; un prefill explícito
+por URL tiene precedencia. Publicar o cancelar elimina el borrador. Los objetos
+`File` no se almacenan en browser storage: mientras están seleccionados se
+instala un aviso `beforeunload` y, si el usuario continúa con el refresh, la UI
+explica que debe seleccionarlos otra vez sin descartar el resto del formulario.
 
 ### G-CLI-04 — CRÍTICO — Función caída: "Calcular estimado" de ProTools da 404
 **Confirmado en vivo:** `POST /api/semse/agents/protools/estimate` → 404 real, reproducible. El frontend muestra `Unexpected token '<', "<!DOCTYPE "...` crudo en vez de un mensaje entendible.
@@ -243,7 +254,8 @@ required_behavior:
   - Ninguna acción que mueva dinero o cierre una disputa ejecuta sin un paso de confirmación explícito con el monto/resultado visible
   - El contenido final de una propuesta permanece desplazable por encima del FAB en mobile
   - El ranking de profesionales usa lenguaje de producto y no expone nombres internos de algoritmos
-  - El wizard de publicación no pierde datos ante un refresh accidental
+  - El wizard restaura tras refresh los campos serializables y el último paso válido de la misma cuenta/pestaña
+  - Si existen archivos locales no serializables, el navegador advierte antes de refrescar y la UI comunica que deben seleccionarse otra vez
 ```
 
 ## Security / RBAC
@@ -267,7 +279,7 @@ required_behavior:
 - [x] `/client/professionals` no expone “Jaccard” y conserva copy de compatibilidad/confianza
 - [x] `/agents` distingue 6 chats directos, 10 capacidades canalizadas y 8 automatizaciones sin chat, sin fingir telemetría backend
 - [x] El layout autenticado monta exactamente una superficie global de asistencia (`AgentChatPanel`)
-- [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
+- [x] Wizard de publicación restaura campos y último paso válido tras refresh; aísla por usuario, expira el borrador y avisa por archivos no serializables
 - [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
 
 ## Implementation Map
@@ -285,6 +297,7 @@ required_behavior:
 - `apps/web/app/field-ops/page.tsx`
 - `apps/web/middleware.ts`
 - `apps/web/lib/legacy-route-redirect.ts`
+- `apps/web/lib/job-wizard-draft.ts`
 - `packages/ui/src/components/EscrowTimeline.tsx`
 - `apps/web/app/components/payments/EscrowFundModal.tsx`
 - `apps/web/app/components/payments/EscrowReleaseModal.tsx`
@@ -308,12 +321,14 @@ required_behavior:
 - [x] El solapamiento mobile de G-CLI-09 y el copy de G-CLI-11 tienen regresión source-level enlazada.
 - [x] G-CLI-06 declara y prueba la relación 6/10/8 del catálogo sin estados backend fabricados.
 - [x] G-CLI-07 deja una sola superficie global y no presenta como funcional el Copilot todavía roto.
+- [x] G-CLI-03/1.14 restaura el borrador por usuario/pestaña, conserva precedencia del prefill y limpia el estado al publicar o cancelar.
 
 ## Rollback Considerations
 
 - Ninguno de los fixes propuestos aquí cambia contratos de API existentes de forma incompatible — son correcciones de lectura (G-CLI-00), flujo de confirmación (G-CLI-01/02) o routing (G-CLI-09), y no requieren rollback de datos.
 - Un rollback de G-CLI-09 debe restaurar código eliminado y no solo quitar el redirect; hacerlo reabriría las superficies huérfanas y su identidad server-side estática.
 - Reintroducir lecturas de `localStorage` en initializers de render reabre G-CLI-10; cualquier preferencia nueva debe hidratar desde un valor SSR compartido o restaurarse después del mount.
+- Mover el borrador del wizard a `localStorage` sin aislamiento de identidad expondría descripción y ubicación a otra cuenta del mismo navegador; debe conservarse el key por `userId` y la hidratación posterior al mount.
 - Quitar el espacio inferior mobile de `/client/jobs/[jobId]` reabre el solapamiento del FAB; restaurar nombres técnicos en `/client/professionals` reabre G-CLI-11.
 - Volver a montar `PrometeoCopilot` globalmente antes de corregir autenticación,
   acciones y traducción de errores reabre G-CLI-07; su código retenido no debe
