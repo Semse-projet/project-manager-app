@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Queue, type QueueOptions } from "bullmq";
 import { Redis } from "ioredis";
 import { SEMSE_AGENT_RUN_QUEUE } from "@semse/shared";
+import { buildQueueTracePayload } from "../observability/request-context.store.js";
 
 type QueueRunInput = {
   runId: string;
@@ -51,7 +52,7 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
 
     await this.queue.add(
       input.agentType,
-      input,
+      { ...input, ...buildQueueTracePayload() },
       {
         jobId: toQueueJobId(input),
         priority: resolveJobPriority(input.agentType)

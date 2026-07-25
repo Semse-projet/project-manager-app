@@ -60,6 +60,8 @@ export class DomainEventQueueService implements OnModuleDestroy {
       throw new DomainEventQueueUnavailableError();
     }
 
+    // F1-D: el payload sólo puede contener eventId (validado en el worker por
+    // parseDomainEventJobData), así que esta cola no transporta traceId.
     await this.queue.add(
       "domain-event.process",
       { eventId: input.eventId },

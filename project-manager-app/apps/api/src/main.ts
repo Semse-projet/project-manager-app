@@ -20,10 +20,11 @@ import { HttpExceptionFilter } from "./common/http-exception.filter.js";
 import { MetricsService } from "./infrastructure/observability/metrics.service.js";
 import { runWithObservabilityContext } from "./infrastructure/observability/request-context.store.js";
 import { SemseLoggerService } from "./infrastructure/observability/semse-logger.service.js";
-import { resolveRequestId } from "./common/request-id.js";
+import { resolveRequestId, resolveTraceId } from "./common/request-id.js";
 
 type ObservableRequest = FastifyRequest & {
   requestId?: string;
+  traceId?: string;
   startedAt?: number;
   routerPath?: string;
 };
@@ -71,6 +72,7 @@ async function bootstrap(): Promise<void> {
       SEMSE_REQUEST_HEADER_NAMES.contentType,
       SEMSE_IDENTITY_HEADER_NAMES.orgId,
       SEMSE_REQUEST_HEADER_NAMES.requestId,
+      SEMSE_REQUEST_HEADER_NAMES.traceId,
       SEMSE_IDENTITY_HEADER_NAMES.roles,
       SEMSE_IDENTITY_HEADER_NAMES.tenantId,
       SEMSE_IDENTITY_HEADER_NAMES.userId
@@ -89,12 +91,16 @@ async function bootstrap(): Promise<void> {
   });
   fastify.addHook("onRequest", (request: ObservableRequest, reply: FastifyReply, done: () => void) => {
     const requestId = resolveRequestId(request.headers ?? {});
+    const traceId = resolveTraceId(request.headers ?? {});
     request.requestId = requestId;
+    request.traceId = traceId;
     request.startedAt = Date.now();
     reply.header("x-request-id", requestId);
+    reply.header(SEMSE_REQUEST_HEADER_NAMES.traceId, traceId);
     runWithObservabilityContext(
       {
         requestId,
+        traceId,
         correlationId:
           typeof request.headers?.["x-correlation-id"] === "string"
             ? request.headers["x-correlation-id"]
@@ -115,6 +121,7 @@ async function bootstrap(): Promise<void> {
     });
     logger.info("http_request_completed", {
       requestId: request.requestId,
+      traceId: request.traceId,
       method: request.method,
       path: request.routerPath ?? request.url,
       statusCode: reply.statusCode,

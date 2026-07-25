@@ -51,8 +51,10 @@ import {
   SEMSE_BOOTSTRAP_HEADER_NAME,
   SEMSE_DEVELOPER_RUNTIME_QUEUE,
   SEMSE_DOMAIN_EVENT_QUEUE,
+  SEMSE_TRACE_HEADER_NAME,
   validateWorkerEnv
 } from "@semse/shared";
+import { getCurrentTraceId, processJobWithLogging } from "./observability/job-logging.mjs";
 import { executeSpecializedWorkerRun, shouldUseSpecializedWorkerHandler } from "./agent-run-handlers.mjs";
 import { processDomainEventQueueJob } from "./domain-event-worker.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
@@ -211,7 +213,12 @@ async function main() {
         return { skipped: true };
       }
 
-      return processQueuedRun(job.data);
+      return processJobWithLogging({
+        job,
+        queue: SEMSE_AGENT_RUN_QUEUE,
+        data: { runId: job.data.runId, agentType: job.data.agentType, tenantId: job.data.tenantId },
+        handler: () => processQueuedRun(job.data)
+      });
     },
     {
       connection,
@@ -229,7 +236,12 @@ async function main() {
 
   const developerRuntimeWorker = new Worker(
     SEMSE_DEVELOPER_RUNTIME_QUEUE,
-    async (job) => processDeveloperRuntimeQueueJob(job.data),
+    async (job) => processJobWithLogging({
+      job,
+      queue: SEMSE_DEVELOPER_RUNTIME_QUEUE,
+      data: { sessionId: job.data.sessionId, missionId: job.data.missionId },
+      handler: () => processDeveloperRuntimeQueueJob(job.data)
+    }),
     {
       connection,
       concurrency: 1
@@ -247,10 +259,15 @@ async function main() {
   const domainEventWorker = env.SEMSE_EVENT_CONSUMERS_ENABLED === "true"
     ? new Worker(
         SEMSE_DOMAIN_EVENT_QUEUE,
-        async (job) => processDomainEventQueueJob({
-          jobData: job.data,
-          workerId: config.workerId,
-          postJson,
+        async (job) => processJobWithLogging({
+          job,
+          queue: SEMSE_DOMAIN_EVENT_QUEUE,
+          data: { eventId: job.data.eventId },
+          handler: () => processDomainEventQueueJob({
+            jobData: job.data,
+            workerId: config.workerId,
+            postJson,
+          }),
         }),
         {
           connection,
@@ -571,8 +588,10 @@ function buildHeaders() {
 }
 
 function buildHeadersForTenant(tenantId) {
+  const traceId = getCurrentTraceId();
   const headers = {
     "content-type": "application/json",
+    ...(traceId ? { [SEMSE_TRACE_HEADER_NAME]: traceId } : {}),
     ...buildIdentityHeaders({
       userId: config.userId,
       tenantId,

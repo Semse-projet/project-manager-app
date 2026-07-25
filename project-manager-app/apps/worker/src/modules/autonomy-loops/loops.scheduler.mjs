@@ -18,6 +18,7 @@ import {
   permanentLoops,
   runPermanentLoopCycle
 } from "@semse/autonomy";
+import { processJobWithLogging } from "../../observability/job-logging.mjs";
 
 export function loopsEnabled(env = process.env) {
   return env.AUTONOMY_LOOPS_ENABLED === "true";
@@ -107,7 +108,12 @@ export async function setupPermanentLoops({ connection, logger, requestJson, pos
 
   const worker = new Worker(
     AUTONOMY_LOOPS_QUEUE,
-    async (job) => runLoopCycleJob({ loopId: job.data.loopId, logger, requestJson, postJson, repoRoot }),
+    async (job) => processJobWithLogging({
+      job,
+      queue: AUTONOMY_LOOPS_QUEUE,
+      data: { loopId: job.data.loopId },
+      handler: () => runLoopCycleJob({ loopId: job.data.loopId, logger, requestJson, postJson, repoRoot })
+    }),
     { connection, concurrency: 1 }
   );
 
