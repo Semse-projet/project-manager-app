@@ -2,7 +2,7 @@
 id: "api.travel-assignments-settlement"
 title: "Travel — asignaciones, gastos, hospedaje, anticipos y liquidación"
 domain: "travel"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -17,11 +17,12 @@ related_files:
   - apps/web/app/(app)/admin/travel/page.tsx
 related_tests:
   - apps/api/test/travel.controller.test.ts
+  - apps/api/test/travel.service.test.ts
 related_endpoints:
   - v1/travel
 related_events: []
 related_agents: []
-last_verified: "2026-07-23"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Travel — asignaciones y liquidación
@@ -55,6 +56,14 @@ ENTONCES el job debe existir en el tenant
   Y un updateMany con count=0 se trata como rechazo, nunca como validación
 ```
 
+**Implementado en v1.1 (2026-07-25):** el controller propaga identidad completa
+del actor y `createAssignment` resuelve el job con `id + tenantId +
+deletedAt:null` dentro de una transacción. CLIENT se valida contra
+`clientOrgId`; PRO/WORKER contra `project.assignedProOrgId`; OPS_ADMIN conserva
+el override únicamente después de confirmar que el job pertenece al tenant. La
+marcación `isOutOfTown` usa compare-and-set y `count !== 1` bloquea la creación.
+Sin persistencia, la creación falla cerrada porque no puede validar ownership.
+
 ## 4. Contratos API
 
 - `GET /v1/travel`: lista ya agregada con contadores/resumen necesarios para
@@ -79,9 +88,11 @@ ENTONCES el job debe existir en el tenant
 
 - PRO ajeno recibe 403 en cada subrecurso.
 - CLIENT de otra org recibe 403.
-- Job inexistente/cross-tenant impide crear.
-- PRO sin asignación no crea viaje.
-- OPS_ADMIN puede operar dentro de su tenant.
+- [x] Job inexistente/cross-tenant impide crear.
+- [x] PRO/WORKER sin asignación no crea viaje.
+- [x] CLIENT de otra org no crea viaje.
+- [x] OPS_ADMIN puede crear únicamente para un job existente dentro de su tenant.
+- [x] `updateMany.count=0` no permite crear y el modo sin persistencia falla cerrado.
 - Cierre requiere evidencia y confirmación.
 - Lista no ejecuta N+1 desde el cliente.
 
