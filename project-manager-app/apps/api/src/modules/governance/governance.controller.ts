@@ -15,7 +15,7 @@ export class GovernanceController {
 
   /** POST /v1/governance/proposals — submit a proposal */
   @Post("proposals")
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:propose")
   async createProposal(
     @Req() req: FastifyRequest,
     @Body() body: Record<string, unknown>,
@@ -46,7 +46,7 @@ export class GovernanceController {
 
   /** GET /v1/governance/proposals?status=... — list proposals in the caller tenant */
   @Get("proposals")
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:read")
   async listProposals(
     @Req() req: FastifyRequest,
     @Query("status") status?: string,
@@ -58,7 +58,7 @@ export class GovernanceController {
 
   /** GET /v1/governance/proposals/:id — single proposal with votes */
   @Get("proposals/:id")
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:read")
   async getProposal(@Req() req: FastifyRequest, @Param("id") id: string) {
     const ctx = resolveRequestContext(req);
     const data = await this.governance.getProposal(id, ctx.tenantId);
@@ -67,7 +67,7 @@ export class GovernanceController {
 
   /** GET /v1/governance/proposals/:id/results — tally results */
   @Get("proposals/:id/results")
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:read")
   async getResults(@Req() req: FastifyRequest, @Param("id") id: string) {
     const ctx = resolveRequestContext(req);
     const data = await this.governance.getResults(id, ctx.tenantId);
@@ -77,7 +77,7 @@ export class GovernanceController {
   /** POST /v1/governance/proposals/:id/vote — cast a vote */
   @Post("proposals/:id/vote")
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:vote")
   async castVote(
     @Req() req: FastifyRequest,
     @Param("id") proposalId: string,
@@ -92,7 +92,7 @@ export class GovernanceController {
     const reason = typeof body.reason === "string" ? body.reason : undefined;
     const tenantId = ctx.tenantId;
     // voterId must always be the real caller — a client-supplied voterId let
-    // any actor with ops:dashboard:read cast a vote as an arbitrary user,
+    // any actor with governance:vote cast a vote as an arbitrary user,
     // directly impersonating them in a reputation-weighted tally. See
     // docs/AUDIT_REMEDIATION_PLAN.md 3.13.
     const voterId = ctx.userId;
@@ -104,7 +104,7 @@ export class GovernanceController {
   /** POST /v1/governance/proposals/:id/close — close voting and finalize outcome */
   @Post("proposals/:id/close")
   @HttpCode(HttpStatus.OK)
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:close")
   async closeProposal(@Req() req: FastifyRequest, @Param("id") id: string) {
     const ctx = resolveRequestContext(req);
     const data = await this.governance.closeProposal(id, ctx.tenantId);
@@ -113,7 +113,7 @@ export class GovernanceController {
 
   /** GET /v1/governance/credits/:userId — governance credit summary in the caller tenant */
   @Get("credits/:userId")
-  @RequirePermissions("ops:dashboard:read")
+  @RequirePermissions("governance:read")
   async getCredits(
     @Req() req: FastifyRequest,
     @Param("userId") userId: string,

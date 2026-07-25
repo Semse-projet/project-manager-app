@@ -3,6 +3,7 @@ import "reflect-metadata";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BadRequestException } from "@nestjs/common";
+import { hasPermission } from "../../../packages/auth/src/rbac.ts";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import { GovernanceController } from "../dist/modules/governance/governance.controller.js";
 
@@ -34,18 +35,36 @@ const STUB_PROPOSAL = {
 
 test("governance controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
-    ["createProposal", "ops:dashboard:read"],
-    ["listProposals",  "ops:dashboard:read"],
-    ["getProposal",    "ops:dashboard:read"],
-    ["getResults",     "ops:dashboard:read"],
-    ["castVote",       "ops:dashboard:read"],
-    ["closeProposal",  "ops:dashboard:read"],
-    ["getCredits",     "ops:dashboard:read"],
+    ["createProposal", "governance:propose"],
+    ["listProposals",  "governance:read"],
+    ["getProposal",    "governance:read"],
+    ["getResults",     "governance:read"],
+    ["castVote",       "governance:vote"],
+    ["closeProposal",  "governance:close"],
+    ["getCredits",     "governance:read"],
   ];
 
   for (const [method, permission] of expectations) {
     const meta = Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, GovernanceController.prototype[method]);
     assert.deepEqual(meta, [permission], `${method} should require ${permission}`);
+  }
+});
+
+test("governance role matrix separates participation from administrative close", () => {
+  for (const role of ["CLIENT", "PRO"]) {
+    assert.equal(hasPermission([role], "governance:read"), true);
+    assert.equal(hasPermission([role], "governance:propose"), true);
+    assert.equal(hasPermission([role], "governance:vote"), true);
+    assert.equal(hasPermission([role], "governance:close"), false);
+  }
+
+  for (const permission of [
+    "governance:read",
+    "governance:propose",
+    "governance:vote",
+    "governance:close",
+  ]) {
+    assert.equal(hasPermission(["OPS_ADMIN"], permission), true);
   }
 });
 

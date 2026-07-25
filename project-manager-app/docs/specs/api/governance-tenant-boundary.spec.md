@@ -2,7 +2,7 @@
 id: "api.governance-tenant-boundary"
 title: "Governance Tenant and Actor Boundary"
 domain: "governance"
-version: "1.0"
+version: "1.1"
 status: "VERIFIED"
 owner: "semse-core"
 risk: "critical"
@@ -13,6 +13,7 @@ related_files:
   - "apps/api/src/modules/governance/governance.controller.ts"
   - "apps/api/src/modules/governance/governance.service.ts"
   - "apps/web/app/api/semse/governance"
+  - "packages/auth/src/rbac.ts"
 related_tests:
   - "apps/api/test/governance.controller.test.ts"
   - "apps/api/test/governance.service.test.ts"
@@ -47,11 +48,13 @@ tenant and could persist a vote whose `tenantId` disagreed with its proposal.
   - Scope proposal reads, results, votes and close by `{ id, tenantId }`.
   - Persist each vote with the tenant of the already-scoped proposal.
   - Filter included votes to the proposal tenant.
+  - Filter proposal-list vote counts to the proposal tenant.
+  - Serialize vote and close with the same proposal row lock.
   - Close through a conditional `{ id, tenantId, status: "open" }` update.
+  - Use dedicated read/propose/vote/close permissions.
   - Require authenticated-only identity in every Governance BFF route.
   - Remove tenant/actor fields from BFF payloads before forwarding.
 - Out of scope:
-  - Replacing `ops:dashboard:read` with dedicated Governance permissions.
   - Changing voting weights, credit decay, quorum or proposal outcome rules.
   - Historical cleanup of inconsistent votes created before this boundary.
 
@@ -80,9 +83,11 @@ endpoints:
   POST /v1/governance/proposals/:id/vote:
     lookup: id + caller_tenant
     invariant: vote.tenantId == proposal.tenantId
+    concurrency: proposal_row_lock
   POST /v1/governance/proposals/:id/close:
     lookup: id + caller_tenant
     write_condition: status == open
+    concurrency: proposal_row_lock_before_tally
   GET /v1/governance/credits/:userId:
     tenant_scope: caller
 errors:
@@ -117,13 +122,17 @@ forbidden_forwarded_fields:
 - `GovernanceVote.tenantId` equals its proposal tenant.
 - Cross-tenant proposal IDs produce no vote or proposal-status write.
 - Results and closure tally only votes scoped to the same tenant.
+- Proposal-list vote counts include only votes scoped to the same tenant.
 - A close succeeds only once through a conditional update.
+- Vote and close cannot interleave a late vote after a stale tally.
 
 ## Security / RBAC
 
 - Authentication: required.
-- Current permission: `ops:dashboard:read`; a dedicated Governance permission is
-  a separate authorization-hardening decision.
+- Read: `governance:read` (CLIENT, PRO, OPS_ADMIN).
+- Propose: `governance:propose` (CLIENT, PRO, OPS_ADMIN).
+- Vote: `governance:vote` (CLIENT, PRO, OPS_ADMIN).
+- Close: `governance:close` (OPS_ADMIN only).
 - Tenant boundary: deny by non-disclosure (`404`) for foreign IDs.
 - BFF boundary: signed session identity only, with no static server fallback.
 
@@ -135,8 +144,13 @@ forbidden_forwarded_fields:
 - [x] Foreign proposal vote and close perform zero writes.
 - [x] Vote tenant comes from the scoped proposal.
 - [x] Close update includes tenant and open status.
+- [x] Proposal-list vote count includes `where: { tenantId }`.
+- [x] Vote and close acquire the same proposal row lock inside transactions.
+- [x] Duplicate vote constraint maps to 409.
+- [x] CLIENT/PRO can read/propose/vote but cannot close; OPS_ADMIN can close.
 - [x] All Governance BFF routes use the authenticated-only helper.
-- [x] BFF does not forward tenant or actor fields.
+- [x] BFF inventory is discovered recursively and does not forward tenant or
+  actor fields in the payload actually serialized.
 
 ## Implementation Map
 
@@ -144,6 +158,7 @@ forbidden_forwarded_fields:
 
 - `apps/api/src/modules/governance/governance.controller.ts`
 - `apps/api/src/modules/governance/governance.service.ts`
+- `packages/auth/src/rbac.ts`
 
 ### Web
 
@@ -159,6 +174,7 @@ forbidden_forwarded_fields:
 
 - [x] API build passes.
 - [x] Governance controller/service regressions pass.
+- [x] Auth package build and Governance role matrix pass.
 - [x] Governance BFF inventory regression passes.
 - [x] Strict spec validation and audit-plan coverage pass.
 - [x] `docs/SPEC_INDEX.md` is regenerated.

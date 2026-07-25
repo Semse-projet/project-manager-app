@@ -2,7 +2,7 @@
 id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
-version: "1.3"
+version: "1.4"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -126,6 +126,11 @@ tenant de la propuesta y cierra con update condicionado por tenant+estado. Las
 cinco rutas BFF usan identidad autenticada sin fallback. Contrato primario:
 `api.governance-tenant-boundary`.
 
+**Follow-up v1.4:** `_count.votes` también filtra por tenant; votar y cerrar
+comparten un row lock transaccional antes de insertar o contar; el duplicate
+vote responde 409. RBAC usa permisos dedicados por acción y reserva
+`governance:close` para OPS_ADMIN.
+
 ## UI Contract (pendiente de confirmar visualmente — hipótesis por código)
 
 ```yaml
@@ -158,7 +163,7 @@ required_behavior:
   identidad de sesión sin fallback estático y las cuatro páginas top-level son
   admin-only (regresión directa de G-ADM-07)
 - [x] El emisor de planes de subida usa `resolveRequestContext(req)`, no `x-tenant-id` (regresión de G-ADM-08)
-- [x] Governance deriva tenant/actor de sesión, rechaza IDs cross-tenant sin writes y usa BFF sin fallback (regresión de G-ADM-09/3.10b)
+- [x] Governance deriva tenant/actor de sesión, filtra votos/conteos por tenant, serializa vote/close, aplica RBAC por acción y usa BFF sin fallback (regresión de G-ADM-09/3.10b)
 - [x] Resolver una disputa desde Admin requiere un paso de confirmación explícito antes de notificar a las partes
 - [x] `/admin/labor-engine` aparece en `ADMIN_MODULES` o `navigation-registry.ts`
 - [x] Las alertas QualityGuard en `/admin/labor-engine` muestran un acción visible (perfil del worker; pausar/detener timers olvidados) y confirman antes de mutar
@@ -184,7 +189,7 @@ required_behavior:
 - `apps/api/src/infrastructure/storage/uploads.controller.ts`
 - `apps/api/src/modules/governance/governance.controller.ts`
 - `apps/api/src/modules/governance/governance.service.ts`
-- `packages/auth/src/rbac.ts` (`internal:architecture:read`, OPS_ADMIN-only)
+- `packages/auth/src/rbac.ts` (`internal:architecture:read` y `governance:close`, OPS_ADMIN-only)
 - `apps/api/src/modules/{anatomy,knowledge,repo-knowledge,runtime-knowledge}`
 
 ## Acceptance Criteria
