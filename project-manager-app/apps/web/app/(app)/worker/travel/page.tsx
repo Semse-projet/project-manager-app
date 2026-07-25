@@ -83,7 +83,7 @@ function rawToRow(
       status === "ACTIVE" && Number(r.expenseCount ?? 0) === 0 && Number(r.lodgingCount ?? 0) === 0 && Number(r.advanceCount ?? 0) === 0
         ? "sin base operativa"
         : Boolean(r.requiresLodging) && status === "ACTIVE" && Number(r.lodgingCount ?? 0) === 0
-          ? "sin hospedaje requerido"
+          ? "falta hospedaje requerido"
           : null,
     status:         (["DRAFT","PLANNED","ACTIVE","PENDING_SETTLEMENT","CLOSED","CANCELLED"].includes(status) ? status : "DRAFT") as TravelStatus,
     requiresLodging: Boolean(r.requiresLodging),

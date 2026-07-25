@@ -73,7 +73,7 @@ function rawToRow(
       status === "ACTIVE" && Number(row.expenseCount ?? 0) === 0 && Number(row.lodgingCount ?? 0) === 0 && Number(row.advanceCount ?? 0) === 0
         ? "sin base operativa"
         : Boolean(row.requiresLodging) && status === "ACTIVE" && Number(row.lodgingCount ?? 0) === 0
-          ? "sin hospedaje requerido"
+          ? "falta hospedaje requerido"
           : null,
     status: ["DRAFT", "PLANNED", "ACTIVE", "PENDING_SETTLEMENT", "CLOSED", "CANCELLED"].includes(status) ? status : "DRAFT",
   };

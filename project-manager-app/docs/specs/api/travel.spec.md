@@ -2,7 +2,7 @@
 id: "api.travel-assignments-settlement"
 title: "Travel — asignaciones, gastos, hospedaje, anticipos y liquidación"
 domain: "travel"
-version: "1.2"
+version: "1.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -18,6 +18,7 @@ related_files:
 related_tests:
   - apps/api/test/travel.controller.test.ts
   - apps/api/test/travel.service.test.ts
+  - tests/unit/travel-consistency-remediation.test.ts
   - tests/unit/travel-list-remediation.test.ts
 related_endpoints:
   - v1/travel
@@ -30,7 +31,7 @@ last_verified: "2026-07-25"
 
 ## 1. Alcance del plan
 
-Contrato canónico para `2.31`, `2.34`, `2.35`, `2.36`, `2.38`, `3.24` y
+Contrato canónico para `2.31`, `2.34`, `2.35`, `2.36`, `2.37`, `2.38`, `3.24` y
 `3.35`. Los uploads de comprobantes se rigen además por `api-evidence-upload-review`.
 
 ## 2. Actores y acceso
@@ -90,6 +91,9 @@ no vuelve a disparar el efecto.
 - El cierre no ocurre si faltan comprobantes requeridos.
 - La UI dice “falta hospedaje requerido”; no usa el ambiguo “sin hospedaje
   requerido”.
+- El tab Tracker de Field Ops usa únicamente la familia BFF canónica
+  `/api/semse/time-tracker/sessions/**`; los aliases `/api/semse/tracker/**`
+  permanecen solo por compatibilidad, no como rutas mezcladas en una superficie.
 - El listado obtiene summaries en una sola carga o endpoint batch; no tres
   requests por viaje ni doble carga al montar.
 
@@ -105,6 +109,8 @@ no vuelve a disparar el efecto.
 - Cierre requiere evidencia y confirmación.
 - [x] Lista no ejecuta N+1 desde Worker/Admin y el backend conserva una forma fija de cuatro consultas.
 - [x] Inicializar el job por defecto no dispara una segunda carga en Worker.
+- [x] Pausar/reanudar/detener desde Field Ops usa una sola familia BFF.
+- [x] Las cuatro superficies de lista/detalle Worker/Admin usan copy inequívoco cuando falta hospedaje.
 
 ## 7. Rollback
 
