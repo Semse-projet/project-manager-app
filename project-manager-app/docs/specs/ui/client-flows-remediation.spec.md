@@ -2,7 +2,7 @@
 id: "ui.client-flows-remediation"
 title: "Client UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.5"
+version: "1.6"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -12,8 +12,11 @@ spec_index: "docs/SPEC_INDEX.md"
 supersedes: "docs/specs/ui/client-flows.spec.md"
 related_files:
   - apps/web/app/(app)/client
+  - apps/web/app/(app)/agents/page.tsx
   - apps/web/app/(app)/client/milestones/page.tsx
   - apps/web/app/(app)/layout.tsx
+  - apps/web/components/ai/agent-panel-state.tsx
+  - apps/web/app/components/prometeo/PrometeoCopilot.tsx
   - apps/web/app/(app)/client/dashboard/page.tsx
   - apps/web/app/(app)/client/jobs/page.tsx
   - apps/web/app/(app)/client/jobs/[jobId]/page.tsx
@@ -36,6 +39,7 @@ related_files:
   - apps/api/src/modules/payments
   - apps/api/src/modules/auth/auth.service.ts
 related_tests:
+  - tests/unit/client-agent-surface-remediation.test.ts
   - tests/unit/client-money-confirmation.test.ts
   - tests/unit/legacy-route-redirect.test.ts
   - tests/unit/client-milestones-hydration.test.ts
@@ -137,8 +141,22 @@ de ownership y resultado; PRO y WORKER continúan sin el permiso.
 ### G-CLI-06 — ALTO — Catálogo de 24 agentes de IA: solo 6 son alcanzables, y no lo dice
 **Confirmado en vivo:** clic en la mayoría de las tarjetas de `/agents` no hace nada (botones sin `aria-label`); el FAB flotante siempre abre a Prometeo sin importar cuál tarjeta se clickeó.
 
+**Remediación v1.6 (2026-07-25):** el catálogo declara su contrato real:
+6 chats directos (`assistant`, `marta`, `planner`, `felix`, `pulse`, `justus`),
+10 capacidades canalizadas explícitamente hacia uno de esos chats y 8
+automatizaciones backend sin chat directo. Las tarjetas conversacionales
+seleccionan el agente efectivo y exponen estado con `aria-pressed`; las
+automatizaciones usan copy neutral y ya no muestran “Backend activo”, porque el
+catálogo no consume telemetría en tiempo real.
+
 ### G-CLI-07 — ALTO — "Prometeo Copilot" (segundo widget flotante) expone un error interno crudo
 **Confirmado en vivo:** el chip de acción rápida es un stub (`Acción "Preguntar a Prometeo" ejecutada.`); el chat libre responde literalmente `Authentication required for SEMSE API route`.
+
+**Remediación v1.6 (2026-07-25):** el layout autenticado dejó de montar e
+importar `PrometeoCopilot`; `AgentChatPanel` queda como única superficie global
+de asistencia. El API y el subárbol del Copilot se conservan para una
+remediación posterior, pero no se declara que su autenticación ni sus acciones
+rápidas estén corregidas.
 
 ### G-CLI-08 — ALTO — El rol "Cliente" mezcla dos personas de producto sin avisar
 **Confirmado en vivo:** `/client/leads` es un CRM de prospectos (lenguaje de contratista); `/client/marketplace` ("Buscar trabajo") muestra al cliente su propio job publicado con un botón "Aplicar" como si él mismo pudiera postularse. `/client/bids` ("Mis propuestas") le dice al cliente "Explora el marketplace y aplica a trabajos disponibles".
@@ -247,6 +265,8 @@ required_behavior:
 - [x] `/client/milestones` muestra un estado vacío con explicación y salida navegable
 - [x] `/client/jobs/[jobId]` conserva espacio mobile bajo el contenido para que el FAB no cubra el monto final
 - [x] `/client/professionals` no expone “Jaccard” y conserva copy de compatibilidad/confianza
+- [x] `/agents` distingue 6 chats directos, 10 capacidades canalizadas y 8 automatizaciones sin chat, sin fingir telemetría backend
+- [x] El layout autenticado monta exactamente una superficie global de asistencia (`AgentChatPanel`)
 - [ ] Wizard de publicación sobrevive un refresh en cualquier paso sin perder datos
 - [ ] `POST /api/semse/agents/protools/estimate` responde 200 con un payload válido, no 404
 
@@ -254,10 +274,13 @@ required_behavior:
 
 ### Web
 - `apps/web/app/(app)/client/**`
+- `apps/web/app/(app)/agents/page.tsx`
 - `apps/web/app/(app)/client/jobs/[jobId]/page.tsx`
 - `apps/web/app/(app)/client/professionals/page.tsx`
 - `apps/web/app/(app)/client/milestones/page.tsx`
 - `apps/web/app/(app)/layout.tsx`
+- `apps/web/components/ai/agent-panel-state.tsx`
+- `apps/web/app/components/prometeo/PrometeoCopilot.tsx` (retenido, no montado globalmente)
 - `apps/web/app/dashboard/page.tsx`
 - `apps/web/app/field-ops/page.tsx`
 - `apps/web/middleware.ts`
@@ -283,6 +306,8 @@ required_behavior:
 - [x] La parte de navegación huérfana de G-CLI-09 quedó aislada por rol, sin implementación duplicada y con regresión automatizada.
 - [x] La persistencia de tema de G-CLI-09 y G-CLI-10 quedaron cubiertas por una regresión de hidratación/estado vacío.
 - [x] El solapamiento mobile de G-CLI-09 y el copy de G-CLI-11 tienen regresión source-level enlazada.
+- [x] G-CLI-06 declara y prueba la relación 6/10/8 del catálogo sin estados backend fabricados.
+- [x] G-CLI-07 deja una sola superficie global y no presenta como funcional el Copilot todavía roto.
 
 ## Rollback Considerations
 
@@ -290,3 +315,6 @@ required_behavior:
 - Un rollback de G-CLI-09 debe restaurar código eliminado y no solo quitar el redirect; hacerlo reabriría las superficies huérfanas y su identidad server-side estática.
 - Reintroducir lecturas de `localStorage` en initializers de render reabre G-CLI-10; cualquier preferencia nueva debe hidratar desde un valor SSR compartido o restaurarse después del mount.
 - Quitar el espacio inferior mobile de `/client/jobs/[jobId]` reabre el solapamiento del FAB; restaurar nombres técnicos en `/client/professionals` reabre G-CLI-11.
+- Volver a montar `PrometeoCopilot` globalmente antes de corregir autenticación,
+  acciones y traducción de errores reabre G-CLI-07; su código retenido no debe
+  interpretarse como autorización para exponerlo.

@@ -91,7 +91,7 @@ export default function AgentsPage() {
           Catálogo de Agentes
         </h1>
         <p style={{ fontSize: "13px", color: "var(--muted)" }}>
-          {NAMED_AGENTS.length} agentes conversacionales · {SPECIALIZED_AGENTS.length} agentes especializados del backend SEMSE OS
+          6 chats directos · 10 capacidades canalizadas · 8 automatizaciones backend sin chat directo
         </p>
       </div>
 
@@ -101,6 +101,7 @@ export default function AgentsPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
+            aria-pressed={tab === t}
             style={{
               padding: "7px 18px", borderRadius: "7px", border: "none",
               background: tab === t ? "var(--brand)" : "transparent",
@@ -123,6 +124,7 @@ export default function AgentsPage() {
             <button
               key={agent.id}
               onClick={() => setSelected(isSelected ? null : agent.id)}
+              aria-pressed={isSelected}
               style={{
                 display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px",
                 padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "left",
@@ -154,15 +156,17 @@ export default function AgentsPage() {
                 <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.4 }}>{agent.desc}</p>
               </div>
 
-              {/* Active indicator */}
+              {/* Interaction mode — structural capability, not live telemetry */}
               <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "5px" }}>
-                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
+                {tab === "Conversacionales"
+                  ? <MessageSquare size={11} color={directChat ? agent.color : "var(--faint)"} aria-hidden="true" />
+                  : <span aria-hidden="true" style={{ fontSize: "11px", color: "var(--faint)" }}>⚙</span>}
                 <span style={{ fontSize: "10px", color: "var(--faint)" }}>
                   {tab === "Conversacionales"
                     ? directChat
                       ? "Chat directo"
                       : `Canalizado vía ${PANEL_AGENT_LABELS[routedAgent ?? "assistant"]}`
-                    : "Backend activo"}
+                    : "Automatización backend · sin chat directo"}
                 </span>
               </div>
             </button>
@@ -197,6 +201,11 @@ export default function AgentsPage() {
             {tab === "Conversacionales" && !directChat && routedAgent && (
               <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "12px" }}>
                 Este agente abre su conversación dentro de <strong>{PANEL_AGENT_LABELS[routedAgent]}</strong>, que hoy es uno de los 6 agentes operativos del panel.
+              </p>
+            )}
+            {tab === "Especializados" && (
+              <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "12px" }}>
+                Esta capacidad se ejecuta en automatizaciones del backend y no ofrece chat directo desde el catálogo. El estado no representa telemetría en tiempo real.
               </p>
             )}
             {tab === "Conversacionales" && (
