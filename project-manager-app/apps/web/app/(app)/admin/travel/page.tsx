@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PlaneTakeoff, RefreshCw, Inbox, Wallet, AlertTriangle, Clock3, ChevronRight, ChevronDown } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchJobs, fetchTravelAdvances, fetchTravelAssignments, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { fetchJobs, fetchTravelAssignments } from "../../../semse-api";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
@@ -47,17 +47,6 @@ const STATUS_MAP: Record<TravelStatus, { variant: "success" | "warning" | "info"
 function rawToRow(
   row: Record<string, unknown>,
   jobTitleMap: Record<string, string>,
-  extras?: {
-    totalSpent?: number | null;
-    missingReceipts?: number;
-    missingExpenseReceipts?: number;
-    missingLodgingReceipts?: number;
-    receiptCount?: number;
-    expenseCount?: number;
-    lodgingCount?: number;
-    advanceCount?: number;
-    expectedBalance?: number | null;
-  }
 ): TravelRow {
   const jobId = String(row.jobId ?? "");
   const status = String(row.status ?? "DRAFT").toUpperCase() as TravelStatus;
@@ -70,20 +59,20 @@ function rawToRow(
     departureDate: typeof row.departureDate === "string" ? row.departureDate.slice(0, 10) : "—",
     returnDate: typeof row.returnDate === "string" ? row.returnDate.slice(0, 10) : null,
     approvedBudget: typeof row.approvedBudget === "number" ? row.approvedBudget : null,
-    totalSpent: extras?.totalSpent ?? null,
-    missingReceipts: extras?.missingReceipts ?? 0,
-    missingExpenseReceipts: extras?.missingExpenseReceipts ?? 0,
-    missingLodgingReceipts: extras?.missingLodgingReceipts ?? 0,
-    receiptCount: extras?.receiptCount ?? 0,
-    expenseCount: extras?.expenseCount ?? 0,
-    lodgingCount: extras?.lodgingCount ?? 0,
-    advanceCount: extras?.advanceCount ?? 0,
-    expectedBalance: extras?.expectedBalance ?? null,
-    readyToClose: (extras?.missingReceipts ?? 0) === 0 && status === "PENDING_SETTLEMENT",
+    totalSpent: typeof row.totalSpent === "number" ? row.totalSpent : null,
+    missingReceipts: typeof row.missingReceipts === "number" ? row.missingReceipts : 0,
+    missingExpenseReceipts: typeof row.missingExpenseReceipts === "number" ? row.missingExpenseReceipts : 0,
+    missingLodgingReceipts: typeof row.missingLodgingReceipts === "number" ? row.missingLodgingReceipts : 0,
+    receiptCount: typeof row.receiptCount === "number" ? row.receiptCount : 0,
+    expenseCount: typeof row.expenseCount === "number" ? row.expenseCount : 0,
+    lodgingCount: typeof row.lodgingCount === "number" ? row.lodgingCount : 0,
+    advanceCount: typeof row.advanceCount === "number" ? row.advanceCount : 0,
+    expectedBalance: typeof row.expectedBalance === "number" ? row.expectedBalance : null,
+    readyToClose: Number(row.missingReceipts ?? 0) === 0 && status === "PENDING_SETTLEMENT",
     blockedReason:
-      status === "ACTIVE" && (extras?.expenseCount ?? 0) === 0 && (extras?.lodgingCount ?? 0) === 0 && (extras?.advanceCount ?? 0) === 0
+      status === "ACTIVE" && Number(row.expenseCount ?? 0) === 0 && Number(row.lodgingCount ?? 0) === 0 && Number(row.advanceCount ?? 0) === 0
         ? "sin base operativa"
-        : Boolean(row.requiresLodging) && status === "ACTIVE" && (extras?.lodgingCount ?? 0) === 0
+        : Boolean(row.requiresLodging) && status === "ACTIVE" && Number(row.lodgingCount ?? 0) === 0
           ? "sin hospedaje requerido"
           : null,
     status: ["DRAFT", "PLANNED", "ACTIVE", "PENDING_SETTLEMENT", "CLOSED", "CANCELLED"].includes(status) ? status : "DRAFT",
@@ -119,36 +108,7 @@ export default function AdminTravelPage() {
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const job of jobs) jobTitleMap[job.id] = job.title;
-      const extras = await Promise.all(
-        travels.map(async (item) => {
-          const travelId = String(item.id ?? "");
-          const [settlement, expenses, lodging] = await Promise.all([
-            fetchTravelSettlement(travelId).catch(() => null),
-            fetchTravelExpenses(travelId).catch(() => [] as Record<string, unknown>[]),
-            fetchTravelLodging(travelId).catch(() => [] as Record<string, unknown>[]),
-          ]);
-          const totalSpent = settlement ? Number((settlement as Record<string, unknown>).totalSpent ?? 0) : null;
-          const expectedBalance = settlement ? Number((settlement as Record<string, unknown>).balanceDue ?? 0) : null;
-          const missingExpenseReceipts = expenses.filter((expense) => !String(expense.receiptUrl ?? "").trim()).length;
-          const missingLodgingReceipts = lodging.filter((record) => !String(record.receiptUrl ?? "").trim()).length;
-          const receiptCount =
-            expenses.filter((expense) => String(expense.receiptUrl ?? "").trim()).length +
-            lodging.filter((record) => String(record.receiptUrl ?? "").trim()).length;
-          const missingReceipts = missingExpenseReceipts + missingLodgingReceipts;
-          return {
-            totalSpent,
-            expectedBalance,
-            missingReceipts,
-            missingExpenseReceipts,
-            missingLodgingReceipts,
-            receiptCount,
-            expenseCount: expenses.length,
-            lodgingCount: lodging.length,
-            advanceCount: settlement ? Number((settlement as Record<string, unknown>).totalAdvances ?? 0) > 0 ? 1 : 0 : 0,
-          };
-        })
-      );
-      setItems(travels.map((item, index) => rawToRow(item, jobTitleMap, extras[index])));
+      setItems(travels.map((item) => rawToRow(item, jobTitleMap)));
     } catch {
       setItems([]);
     } finally {

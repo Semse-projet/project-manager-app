@@ -2,7 +2,7 @@
 id: "api.travel-assignments-settlement"
 title: "Travel — asignaciones, gastos, hospedaje, anticipos y liquidación"
 domain: "travel"
-version: "1.1"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -18,6 +18,7 @@ related_files:
 related_tests:
   - apps/api/test/travel.controller.test.ts
   - apps/api/test/travel.service.test.ts
+  - tests/unit/travel-list-remediation.test.ts
 related_endpoints:
   - v1/travel
 related_events: []
@@ -75,6 +76,14 @@ Sin persistencia, la creación falla cerrada porque no puede validar ownership.
 - `POST /settlement/close`: confirmación explícita, comprobantes requeridos y
   cierre auditable.
 
+**Implementado en v1.2 (2026-07-25):** la lista carga asignaciones y luego
+expenses/lodging/advances en tres consultas batch por `travelId IN (...)`. La
+respuesta agrega gasto, saldo esperado, comprobantes faltantes/presentes y
+contadores. Worker y Admin consumen esos campos sin requests por fila; listar
+ya no llama `computeSettlement` ni hace upsert como efecto colateral. La carga
+del Worker usa un callback estable y la inicialización del job del formulario
+no vuelve a disparar el efecto.
+
 ## 5. Reglas de integridad
 
 - Montos no negativos y moneda explícita.
@@ -94,7 +103,8 @@ Sin persistencia, la creación falla cerrada porque no puede validar ownership.
 - [x] OPS_ADMIN puede crear únicamente para un job existente dentro de su tenant.
 - [x] `updateMany.count=0` no permite crear y el modo sin persistencia falla cerrado.
 - Cierre requiere evidencia y confirmación.
-- Lista no ejecuta N+1 desde el cliente.
+- [x] Lista no ejecuta N+1 desde Worker/Admin y el backend conserva una forma fija de cuatro consultas.
+- [x] Inicializar el job por defecto no dispara una segunda carga en Worker.
 
 ## 7. Rollback
 

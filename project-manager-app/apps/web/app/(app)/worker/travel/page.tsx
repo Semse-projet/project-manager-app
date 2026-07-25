@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Calendar, DollarSign, Plus, RefreshCw, Inbox, PlaneTakeoff, ChevronRight } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchTravelAssignments, createTravelAssignment, fetchMyJobs, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { fetchTravelAssignments, createTravelAssignment, fetchMyJobs } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type TravelStatus = "DRAFT" | "PLANNED" | "ACTIVE" | "PENDING_SETTLEMENT" | "CLOSED" | "CANCELLED";
@@ -57,17 +57,6 @@ const TRANSPORT_LABEL: Record<string, string> = {
 function rawToRow(
   r: Record<string, unknown>,
   jobTitleMap: Record<string, string>,
-  extras?: {
-    totalSpent?: number | null;
-    missingReceipts?: number;
-    missingExpenseReceipts?: number;
-    missingLodgingReceipts?: number;
-    receiptCount?: number;
-    expenseCount?: number;
-    lodgingCount?: number;
-    advanceCount?: number;
-    expectedBalance?: number | null;
-  }
 ): TravelRow {
   const jobId = String(r.jobId ?? "");
   const status = String(r.status ?? "DRAFT") as TravelStatus;
@@ -80,20 +69,20 @@ function rawToRow(
     returnDate:     typeof r.returnDate === "string" ? r.returnDate.slice(0, 10) : null,
     estimatedDays:  typeof r.estimatedDays === "number" ? r.estimatedDays : null,
     approvedBudget: typeof r.approvedBudget === "number" ? r.approvedBudget : null,
-    totalSpent: extras?.totalSpent ?? null,
-    missingReceipts: extras?.missingReceipts ?? 0,
-    missingExpenseReceipts: extras?.missingExpenseReceipts ?? 0,
-    missingLodgingReceipts: extras?.missingLodgingReceipts ?? 0,
-    receiptCount: extras?.receiptCount ?? 0,
-    expenseCount: extras?.expenseCount ?? 0,
-    lodgingCount: extras?.lodgingCount ?? 0,
-    advanceCount: extras?.advanceCount ?? 0,
-    expectedBalance: extras?.expectedBalance ?? null,
-    readyToClose: (extras?.missingReceipts ?? 0) === 0 && status === "PENDING_SETTLEMENT",
+    totalSpent: typeof r.totalSpent === "number" ? r.totalSpent : null,
+    missingReceipts: typeof r.missingReceipts === "number" ? r.missingReceipts : 0,
+    missingExpenseReceipts: typeof r.missingExpenseReceipts === "number" ? r.missingExpenseReceipts : 0,
+    missingLodgingReceipts: typeof r.missingLodgingReceipts === "number" ? r.missingLodgingReceipts : 0,
+    receiptCount: typeof r.receiptCount === "number" ? r.receiptCount : 0,
+    expenseCount: typeof r.expenseCount === "number" ? r.expenseCount : 0,
+    lodgingCount: typeof r.lodgingCount === "number" ? r.lodgingCount : 0,
+    advanceCount: typeof r.advanceCount === "number" ? r.advanceCount : 0,
+    expectedBalance: typeof r.expectedBalance === "number" ? r.expectedBalance : null,
+    readyToClose: Number(r.missingReceipts ?? 0) === 0 && status === "PENDING_SETTLEMENT",
     blockedReason:
-      status === "ACTIVE" && (extras?.expenseCount ?? 0) === 0 && (extras?.lodgingCount ?? 0) === 0 && (extras?.advanceCount ?? 0) === 0
+      status === "ACTIVE" && Number(r.expenseCount ?? 0) === 0 && Number(r.lodgingCount ?? 0) === 0 && Number(r.advanceCount ?? 0) === 0
         ? "sin base operativa"
-        : Boolean(r.requiresLodging) && status === "ACTIVE" && (extras?.lodgingCount ?? 0) === 0
+        : Boolean(r.requiresLodging) && status === "ACTIVE" && Number(r.lodgingCount ?? 0) === 0
           ? "sin hospedaje requerido"
           : null,
     status:         (["DRAFT","PLANNED","ACTIVE","PENDING_SETTLEMENT","CLOSED","CANCELLED"].includes(status) ? status : "DRAFT") as TravelStatus,
@@ -131,41 +120,12 @@ export default function WorkerTravelPage() {
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;
-      const extras = await Promise.all(
-        rawTravels.map(async (travel) => {
-          const travelId = String(travel.id ?? "");
-          const [settlement, expenses, lodging] = await Promise.all([
-            fetchTravelSettlement(travelId).catch(() => null),
-            fetchTravelExpenses(travelId).catch(() => [] as Record<string, unknown>[]),
-            fetchTravelLodging(travelId).catch(() => [] as Record<string, unknown>[]),
-          ]);
-          const totalSpent = settlement ? Number((settlement as Record<string, unknown>).totalSpent ?? 0) : null;
-          const expectedBalance = settlement ? Number((settlement as Record<string, unknown>).balanceDue ?? 0) : null;
-          const missingExpenseReceipts = expenses.filter((expense) => !String(expense.receiptUrl ?? "").trim()).length;
-          const missingLodgingReceipts = lodging.filter((record) => !String(record.receiptUrl ?? "").trim()).length;
-          const receiptCount =
-            expenses.filter((expense) => String(expense.receiptUrl ?? "").trim()).length +
-            lodging.filter((record) => String(record.receiptUrl ?? "").trim()).length;
-          const missingReceipts = missingExpenseReceipts + missingLodgingReceipts;
-          return {
-            totalSpent,
-            expectedBalance,
-            missingReceipts,
-            missingExpenseReceipts,
-            missingLodgingReceipts,
-            receiptCount,
-            expenseCount: expenses.length,
-            lodgingCount: lodging.length,
-            advanceCount: settlement ? Number((settlement as Record<string, unknown>).totalAdvances ?? 0) > 0 ? 1 : 0 : 0,
-          };
-        })
-      );
       setJobs(rawJobs.map(j => ({ id: j.id, title: j.title })));
-      if (!formJobId && rawJobs.length > 0) setFormJobId(rawJobs[0].id);
-      setTravels(rawTravels.map((r, index) => rawToRow(r as Record<string, unknown>, jobTitleMap, extras[index])));
+      setFormJobId((current) => current || rawJobs[0]?.id || "");
+      setTravels(rawTravels.map((r) => rawToRow(r as Record<string, unknown>, jobTitleMap)));
     } catch { /* keep */ }
     setLoading(false);
-  }, [formJobId]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 

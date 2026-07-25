@@ -87,6 +87,129 @@ function createHarness(options: {
   };
 }
 
+function travelAssignmentRow(id: string, assignedTo = "worker_1") {
+  const now = new Date("2026-07-25T00:00:00.000Z");
+  return {
+    id,
+    tenantId: "tenant_1",
+    jobId: `job_${id}`,
+    assignedTo,
+    destinationCity: "Monterrey",
+    departureDate: new Date("2026-08-01T00:00:00.000Z"),
+    returnDate: null,
+    estimatedDays: null,
+    requiresLodging: true,
+    headcount: 1,
+    mainTransportMode: null,
+    approvedBudget: null,
+    approvedBy: null,
+    status: "ACTIVE",
+    notes: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+test("travel list returns batch summaries with a fixed four-query shape", async () => {
+  const calls: Array<{ method: string; args: unknown }> = [];
+  const prisma = {
+    travelAssignment: {
+      async findMany(args: unknown) {
+        calls.push({ method: "travelAssignment.findMany", args });
+        return [travelAssignmentRow("travel_1"), travelAssignmentRow("travel_2")];
+      },
+    },
+    travelExpense: {
+      async findMany(args: unknown) {
+        calls.push({ method: "travelExpense.findMany", args });
+        return [
+          { travelId: "travel_1", amount: 100, category: "meal", receiptUrl: "receipt://meal", status: "PENDING" },
+          { travelId: "travel_1", amount: 50, category: "transport", receiptUrl: null, status: "REJECTED" },
+          { travelId: "travel_1", amount: 25, category: "other", receiptUrl: null, status: "APPROVED" },
+        ];
+      },
+    },
+    lodgingBooking: {
+      async findMany(args: unknown) {
+        calls.push({ method: "lodgingBooking.findMany", args });
+        return [{
+          travelId: "travel_1",
+          actualTotal: null,
+          estimatedTotal: 200,
+          receiptUrl: "receipt://hotel",
+        }];
+      },
+    },
+    travelAdvance: {
+      async findMany(args: unknown) {
+        calls.push({ method: "travelAdvance.findMany", args });
+        return [
+          { travelId: "travel_1", amount: 150 },
+          { travelId: "travel_1", amount: 100 },
+        ];
+      },
+    },
+  };
+  const service = new TravelService(prisma as never);
+
+  const result = await service.listAssignments({
+    tenantId: "tenant_1",
+    userId: "worker_1",
+    roles: ["PRO"],
+  });
+
+  assert.equal(calls.length, 4);
+  assert.deepEqual(calls.map((call) => call.method), [
+    "travelAssignment.findMany",
+    "travelExpense.findMany",
+    "lodgingBooking.findMany",
+    "travelAdvance.findMany",
+  ]);
+  assert.deepEqual(result[0] && {
+    totalSpent: result[0].totalSpent,
+    expectedBalance: result[0].expectedBalance,
+    missingReceipts: result[0].missingReceipts,
+    missingExpenseReceipts: result[0].missingExpenseReceipts,
+    missingLodgingReceipts: result[0].missingLodgingReceipts,
+    receiptCount: result[0].receiptCount,
+    expenseCount: result[0].expenseCount,
+    lodgingCount: result[0].lodgingCount,
+    advanceCount: result[0].advanceCount,
+  }, {
+    totalSpent: 325,
+    expectedBalance: -75,
+    missingReceipts: 2,
+    missingExpenseReceipts: 2,
+    missingLodgingReceipts: 0,
+    receiptCount: 2,
+    expenseCount: 3,
+    lodgingCount: 1,
+    advanceCount: 2,
+  });
+  assert.deepEqual(result[1] && {
+    totalSpent: result[1].totalSpent,
+    expectedBalance: result[1].expectedBalance,
+    expenseCount: result[1].expenseCount,
+    lodgingCount: result[1].lodgingCount,
+    advanceCount: result[1].advanceCount,
+  }, {
+    totalSpent: 0,
+    expectedBalance: 0,
+    expenseCount: 0,
+    lodgingCount: 0,
+    advanceCount: 0,
+  });
+  for (const call of calls.slice(1)) {
+    assert.deepEqual(
+      (call.args as { where: { tenantId: string; travelId: { in: string[] } } }).where,
+      {
+        tenantId: "tenant_1",
+        travelId: { in: ["travel_1", "travel_2"] },
+      },
+    );
+  }
+});
+
 test("travel creation rejects an absent or cross-tenant job before any write", async () => {
   const { service, calls } = createHarness({ job: null });
 

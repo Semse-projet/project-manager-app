@@ -31,6 +31,21 @@ export interface TravelAssignmentRecord {
   updatedAt: string;
 }
 
+export interface TravelAssignmentSummary {
+  totalSpent: number;
+  expectedBalance: number;
+  missingReceipts: number;
+  missingExpenseReceipts: number;
+  missingLodgingReceipts: number;
+  receiptCount: number;
+  expenseCount: number;
+  lodgingCount: number;
+  advanceCount: number;
+}
+
+export type TravelAssignmentListRecord =
+  TravelAssignmentRecord & TravelAssignmentSummary;
+
 export interface TravelExpenseRecord {
   id: string;
   tenantId: string;
@@ -122,6 +137,58 @@ export interface TravelSettlementRecord {
 
 function d(v: Prisma.Decimal | null | undefined): number | null {
   return v == null ? null : Number(v);
+}
+
+function summarizeAssignment(
+  expenses: Array<{
+    amount: Prisma.Decimal | number;
+    category: string;
+    receiptUrl: string | null;
+    status: string;
+  }>,
+  lodgings: Array<{
+    actualTotal: Prisma.Decimal | number | null;
+    estimatedTotal: Prisma.Decimal | number | null;
+    receiptUrl: string | null;
+  }>,
+  advances: Array<{ amount: Prisma.Decimal | number }>,
+): TravelAssignmentSummary {
+  const includedExpenses = expenses.filter((expense) => expense.status !== "REJECTED");
+  const expenseTotal = includedExpenses.reduce(
+    (sum, expense) => sum + Number(expense.amount),
+    0,
+  );
+  const lodgingTotal = lodgings.reduce(
+    (sum, lodging) =>
+      sum + Number(lodging.actualTotal ?? lodging.estimatedTotal ?? 0),
+    0,
+  );
+  const totalAdvances = advances.reduce(
+    (sum, advance) => sum + Number(advance.amount),
+    0,
+  );
+  const missingExpenseReceipts = expenses.filter(
+    (expense) => !expense.receiptUrl?.trim(),
+  ).length;
+  const missingLodgingReceipts = lodgings.filter(
+    (lodging) => !lodging.receiptUrl?.trim(),
+  ).length;
+
+  return {
+    totalSpent: expenseTotal + lodgingTotal,
+    expectedBalance: totalAdvances - expenseTotal - lodgingTotal,
+    missingReceipts: missingExpenseReceipts + missingLodgingReceipts,
+    missingExpenseReceipts,
+    missingLodgingReceipts,
+    receiptCount:
+      expenses.length +
+      lodgings.length -
+      missingExpenseReceipts -
+      missingLodgingReceipts,
+    expenseCount: expenses.length,
+    lodgingCount: lodgings.length,
+    advanceCount: advances.length,
+  };
 }
 
 function toAssignment(row: {
@@ -250,16 +317,25 @@ export class TravelService {
     jobId?: string;
     assignedTo?: string;
     scope?: string;
-  }): Promise<TravelAssignmentRecord[]> {
+  }): Promise<TravelAssignmentListRecord[]> {
     const adminScope = input.scope === "all" && input.roles.includes("OPS_ADMIN");
     const assignedToFilter = adminScope ? input.assignedTo : input.userId;
 
-    if (!databaseEnabled()) return MOCK_ASSIGNMENTS.filter(a =>
-      a.tenantId === input.tenantId &&
-      (!assignedToFilter || a.assignedTo === assignedToFilter) &&
-      (!input.status || a.status === input.status) &&
-      (!input.jobId || a.jobId === input.jobId)
-    );
+    if (!databaseEnabled()) {
+      return MOCK_ASSIGNMENTS.filter(a =>
+        a.tenantId === input.tenantId &&
+        (!assignedToFilter || a.assignedTo === assignedToFilter) &&
+        (!input.status || a.status === input.status) &&
+        (!input.jobId || a.jobId === input.jobId)
+      ).map((assignment) => ({
+        ...assignment,
+        ...summarizeAssignment(
+          MOCK_EXPENSES.filter((expense) => expense.travelId === assignment.id),
+          MOCK_LODGINGS.filter((lodging) => lodging.travelId === assignment.id),
+          MOCK_ADVANCES.filter((advance) => advance.travelId === assignment.id),
+        ),
+      }));
+    }
     const rows = await this.prisma.travelAssignment.findMany({
       where: {
         tenantId: input.tenantId,
@@ -269,7 +345,56 @@ export class TravelService {
       },
       orderBy: { departureDate: "desc" },
     });
-    return rows.map(toAssignment);
+    const assignments = rows.map(toAssignment);
+    const travelIds = assignments.map((assignment) => assignment.id);
+    if (travelIds.length === 0) return [];
+
+    const [expenses, lodgings, advances] = await Promise.all([
+      this.prisma.travelExpense.findMany({
+        where: {
+          tenantId: input.tenantId,
+          travelId: { in: travelIds },
+        },
+        select: {
+          travelId: true,
+          amount: true,
+          category: true,
+          receiptUrl: true,
+          status: true,
+        },
+      }),
+      this.prisma.lodgingBooking.findMany({
+        where: {
+          tenantId: input.tenantId,
+          travelId: { in: travelIds },
+        },
+        select: {
+          travelId: true,
+          actualTotal: true,
+          estimatedTotal: true,
+          receiptUrl: true,
+        },
+      }),
+      this.prisma.travelAdvance.findMany({
+        where: {
+          tenantId: input.tenantId,
+          travelId: { in: travelIds },
+        },
+        select: {
+          travelId: true,
+          amount: true,
+        },
+      }),
+    ]);
+
+    return assignments.map((assignment) => ({
+      ...assignment,
+      ...summarizeAssignment(
+        expenses.filter((expense) => expense.travelId === assignment.id),
+        lodgings.filter((lodging) => lodging.travelId === assignment.id),
+        advances.filter((advance) => advance.travelId === assignment.id),
+      ),
+    }));
   }
 
   /**
