@@ -23,6 +23,7 @@ import {
   PendingSyncBadge,
   pendingEntriesInRange,
   pendingLocalEntries,
+  pendingSummaryEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
   PurposeChip,
@@ -88,6 +89,14 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
     [localState]
   );
 
+  // Los KPI de abajo son `resumen.totalMinutes + pendiente`, y el resumen solo
+  // cuenta entradas `completed`: el cronómetro en curso nunca está ahí, así que
+  // aquí sí se incluye aunque ya esté sincronizado.
+  const summaryPendingEntries = useMemo(
+    () => (localState ? pendingSummaryEntries(localState) : []),
+    [localState]
+  );
+
   // `entries` viene acotado por el backend a la ventana móvil de 30 días
   // (range: "month"), así que el trabajo pendiente se acota igual para que los
   // agregados del mes no mezclen fechas fuera de esa ventana.
@@ -103,12 +112,12 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
   // Cada KPI suma solo el trabajo pendiente de SU periodo: una entrada manual
   // encolada offline con fecha de otra semana/mes no pertenece a estas tarjetas.
   const weekPendingSeconds = weekly
-    ? sumSeconds(pendingEntriesInRange(pendingEntries, weekly.from.slice(0, 10), weekly.to.slice(0, 10)))
+    ? sumSeconds(pendingEntriesInRange(summaryPendingEntries, weekly.from.slice(0, 10), weekly.to.slice(0, 10)))
     : 0;
   const monthPendingSeconds = monthly
-    ? sumSeconds(pendingEntriesInRange(pendingEntries, monthly.from.slice(0, 10), monthly.to.slice(0, 10)))
+    ? sumSeconds(pendingEntriesInRange(summaryPendingEntries, monthly.from.slice(0, 10), monthly.to.slice(0, 10)))
     : 0;
-  const todayPendingSeconds = sumSeconds(pendingEntriesInRange(pendingEntries, todayKey, todayKey));
+  const todayPendingSeconds = sumSeconds(pendingEntriesInRange(summaryPendingEntries, todayKey, todayKey));
   const todayMinutes = (monthly?.byDay.find((day) => day.date === todayKey)?.minutes ?? 0) + Math.round(todayPendingSeconds / 60);
 
   const purposeSeconds = useMemo(() => {

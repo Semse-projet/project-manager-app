@@ -561,16 +561,34 @@ export function pendingEntriesInRange(entries: TimeEntryView[], from: string, to
  * pseudo-`TimeEntryView` con `status: "pending_sync"`, para que puedan
  * mezclarse con las entradas reales del backend en cualquier agregación
  * (costo, horas por propósito/proyecto, listas recientes, CSV).
+ *
+ * La sesión activa se emite solo cuando el backend todavía no la conoce
+ * (`backendSessionId` ausente): `listTimeEntries` no filtra por estado, así que
+ * una sesión ya sincronizada viene en `entries` y emitirla aquí la contaría dos
+ * veces. Para los KPI que se calculan sobre los resúmenes usa
+ * `pendingSummaryEntries` (ver su doc).
  */
 export function pendingLocalEntries(state: TrackerLocalState, now: Date = new Date()): TimeEntryView[] {
+  return localEntries(state, now, false);
+}
+
+/**
+ * Igual que `pendingLocalEntries`, pero emite la sesión activa aunque ya esté
+ * sincronizada. Es lo que necesitan los KPI del tipo
+ * `summary.totalMinutes + pendiente` ("Horas hoy", "Esta semana", "Este mes",
+ * "Total semana"): `getLaborSummary` solo suma entradas `completed`, así que un
+ * cronómetro en curso —sincronizado o no— nunca está en el resumen y el
+ * pendiente es su única fuente.
+ */
+export function pendingSummaryEntries(state: TrackerLocalState, now: Date = new Date()): TimeEntryView[] {
+  return localEntries(state, now, true);
+}
+
+function localEntries(state: TrackerLocalState, now: Date, includeSyncedSession: boolean): TimeEntryView[] {
   const out: TimeEntryView[] = [];
 
   const session = state.activeSession;
-  // Una sesión con `backendSessionId` ya existe en el backend, y las listas de
-  // entradas (`listTimeEntries`/`getActiveTimeEntry`) no filtran por estado, así
-  // que ya viene incluida en `entries`: emitirla también como pendiente la
-  // contaría dos veces en horas, costo, propósito y proyecto.
-  if (session && session.status !== "STOPPED" && !session.backendSessionId) {
+  if (session && session.status !== "STOPPED" && (includeSyncedSession || !session.backendSessionId)) {
     out.push({
       id: `pending-session:${session.id}`,
       mode: "realtime",
