@@ -208,3 +208,74 @@ export function buildJobIntakeHref(prefill: Partial<JobIntakePrefill>): string {
   const query = qs.toString();
   return query ? `/client/jobs/new?${query}` : "/client/jobs/new";
 }
+
+// ──────────────────────────────────────────────
+// CLIENT JOB WIZARD DRAFT (localStorage)
+// ──────────────────────────────────────────────
+
+const JOB_WIZARD_DRAFT_KEY = "semse-job-wizard-draft";
+
+export type JobWizardDraft = {
+  step: number;
+  categoryId: string;
+  subcategoryId: string;
+  title: string;
+  description: string;
+  locationType: JobLocationType;
+  city: string;
+  budgetType: JobBudgetType;
+  budgetMin: number;
+  budgetMax: number;
+  urgency: string;
+  deadline: string;
+  savedAt: string;
+};
+
+export function saveJobWizardDraft(draft: JobWizardDraft): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(JOB_WIZARD_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+export function loadJobWizardDraft(): JobWizardDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(JOB_WIZARD_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<JobWizardDraft>;
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      step: typeof parsed.step === "number" && parsed.step >= 1 && parsed.step <= 4 ? parsed.step : 1,
+      categoryId: String(parsed.categoryId ?? ""),
+      subcategoryId: String(parsed.subcategoryId ?? ""),
+      title: String(parsed.title ?? ""),
+      description: String(parsed.description ?? ""),
+      locationType: ["remote", "on_site", "hybrid"].includes(parsed.locationType as string)
+        ? (parsed.locationType as JobLocationType)
+        : "on_site",
+      city: String(parsed.city ?? ""),
+      budgetType: ["fixed", "range", "hourly"].includes(parsed.budgetType as string)
+        ? (parsed.budgetType as JobBudgetType)
+        : "range",
+      budgetMin: Number.isFinite(Number(parsed.budgetMin)) ? Number(parsed.budgetMin) : 500,
+      budgetMax: Number.isFinite(Number(parsed.budgetMax)) ? Number(parsed.budgetMax) : 2000,
+      urgency: String(parsed.urgency ?? "medium"),
+      deadline: String(parsed.deadline ?? ""),
+      savedAt: String(parsed.savedAt ?? ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function clearJobWizardDraft(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(JOB_WIZARD_DRAFT_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
