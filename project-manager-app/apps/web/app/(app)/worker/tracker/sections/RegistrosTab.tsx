@@ -22,6 +22,7 @@ import {
   BarList,
   formatCostSummary,
   KpiCard,
+  pendingEntriesInRange,
   pendingLocalEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
@@ -37,6 +38,7 @@ import {
   fmtMoney,
   friendlyConnectionMessage,
   resolveEntryProject,
+  rollingWindowDayBounds,
   sectionCard,
   shouldPreserveLocalEvent,
 } from "./trackerUi";
@@ -113,10 +115,17 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
     [localState]
   );
 
-  const entriesWithPending = useMemo(
-    () => (pendingEntries.length > 0 ? [...entries, ...pendingEntries] : entries),
-    [entries, pendingEntries]
-  );
+  // El backend acota `entries` a la ventana móvil del filtro activo
+  // (Últimos 7/30 días), así que el trabajo pendiente se acota igual: si no, un
+  // registro manual encolado offline con fecha vieja aparecería dentro de
+  // "Últimos 7 días" y en sus totales.
+  const entriesWithPending = useMemo(() => {
+    if (pendingEntries.length === 0) return entries;
+    if (range === "all") return [...entries, ...pendingEntries];
+    const { from, to } = rollingWindowDayBounds(range === "week" ? 7 : 30);
+    const pendingInWindow = pendingEntriesInRange(pendingEntries, from, to);
+    return pendingInWindow.length > 0 ? [...entries, ...pendingInWindow] : entries;
+  }, [entries, pendingEntries, range]);
 
   const filtered = useMemo(() => entriesWithPending.filter((entry) => {
     if (purposeFilter !== "all" && entry.purpose !== purposeFilter) return false;

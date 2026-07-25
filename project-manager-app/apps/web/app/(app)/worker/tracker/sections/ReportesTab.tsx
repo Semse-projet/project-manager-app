@@ -21,7 +21,9 @@ import {
   ColumnChart,
   formatCostSummary,
   KpiCard,
+  pendingEntriesInRange,
   pendingLocalEntries,
+  pendingSummaryEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
   TrendChart,
@@ -127,10 +129,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
     if (!weekly) return weekEntriesRaw;
     const from = weekly.from.slice(0, 10);
     const to = weekly.to.slice(0, 10);
-    const pending = pendingLocalEntries(localState).filter((entry) => {
-      const day = entry.startedAt.slice(0, 10);
-      return day >= from && day <= to;
-    });
+    const pending = pendingEntriesInRange(pendingLocalEntries(localState), from, to);
     return pending.length > 0 ? [...weekEntriesRaw, ...pending] : weekEntriesRaw;
   }, [localState, weekEntriesRaw, weekly]);
 
@@ -191,9 +190,13 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
     );
   }
 
-  const weekPendingSeconds = weekEntries
-    .filter((entry) => entry.status === "pending_sync")
-    .reduce((sum, entry) => sum + entrySeconds(entry), 0);
+  // `weekly.totalMinutes` solo cuenta entradas `completed`, así que el total de
+  // la semana suma el pendiente incluyendo el cronómetro en curso aunque ya esté
+  // sincronizado (a diferencia de `weekEntries`, que ya lo recibe vía backend).
+  const weekPendingSeconds = localState && weekly
+    ? pendingEntriesInRange(pendingSummaryEntries(localState), weekly.from.slice(0, 10), weekly.to.slice(0, 10))
+      .reduce((sum, entry) => sum + entrySeconds(entry), 0)
+    : 0;
   const weekSeconds = (weekly?.totalMinutes ?? 0) * 60 + weekPendingSeconds;
 
   return (

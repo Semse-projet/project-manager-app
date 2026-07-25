@@ -526,18 +526,69 @@ function pendingManualSeconds(date: string, startTime: string, endTime: string, 
   return net > 0 ? net : null;
 }
 
+export function localDayKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Ventana móvil de `days` días terminando hoy, en claves de día locales — el
+ * espejo cliente de `rollingWindowBounds` del servicio, que es lo que acota las
+ * `entries` de los filtros "Últimos 7/30 días".
+ */
+export function rollingWindowDayBounds(days: number, now: Date = new Date()): { from: string; to: string } {
+  return { from: localDayKey(new Date(now.getTime() - days * 24 * 60 * 60 * 1000)), to: localDayKey(now) };
+}
+
+/**
+ * Acota pseudo-entradas pendientes al rango de días `[from, to]` (inclusive,
+ * claves `YYYY-MM-DD`). Sin esto, una entrada manual encolada offline con fecha
+ * de otro periodo se cuenta en el periodo actual: el backend sí acota sus
+ * propias entradas al rango, el trabajo local no.
+ */
+export function pendingEntriesInRange(entries: TimeEntryView[], from: string, to: string): TimeEntryView[] {
+  return entries.filter((entry) => {
+    const day = entry.startedAt.slice(0, 10);
+    return day >= from && day <= to;
+  });
+}
+
 /**
  * Convierte el trabajo guardado en `trackerLocalStore` (sesión activa aún no
  * confirmada por el backend + entradas manuales encoladas offline) en
  * pseudo-`TimeEntryView` con `status: "pending_sync"`, para que puedan
  * mezclarse con las entradas reales del backend en cualquier agregación
  * (costo, horas por propósito/proyecto, listas recientes, CSV).
+ *
+ * La sesión activa se emite solo cuando el backend todavía no la conoce
+ * (`backendSessionId` ausente): `listTimeEntries` no filtra por estado, así que
+ * una sesión ya sincronizada viene en `entries` y emitirla aquí la contaría dos
+ * veces. Para los KPI que se calculan sobre los resúmenes usa
+ * `pendingSummaryEntries` (ver su doc).
  */
 export function pendingLocalEntries(state: TrackerLocalState, now: Date = new Date()): TimeEntryView[] {
+  return localEntries(state, now, false);
+}
+
+/**
+ * Igual que `pendingLocalEntries`, pero emite la sesión activa aunque ya esté
+ * sincronizada. Es lo que necesitan los KPI del tipo
+ * `summary.totalMinutes + pendiente` ("Horas hoy", "Esta semana", "Este mes",
+ * "Total semana"): `getLaborSummary` solo suma entradas `completed`, así que un
+ * cronómetro en curso —sincronizado o no— nunca está en el resumen y el
+ * pendiente es su única fuente.
+ */
+export function pendingSummaryEntries(state: TrackerLocalState, now: Date = new Date()): TimeEntryView[] {
+  return localEntries(state, now, true);
+}
+
+function localEntries(state: TrackerLocalState, now: Date, includeSyncedSession: boolean): TimeEntryView[] {
   const out: TimeEntryView[] = [];
 
   const session = state.activeSession;
-  if (session && session.status !== "STOPPED") {
+  if (session && session.status !== "STOPPED" && (includeSyncedSession || !session.backendSessionId)) {
     out.push({
       id: `pending-session:${session.id}`,
       mode: "realtime",
