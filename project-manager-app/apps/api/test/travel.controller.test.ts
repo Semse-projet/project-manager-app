@@ -123,6 +123,13 @@ test("travel controller: createAssignment validates required fields", async () =
   const result = await controller.createAssignment(makeReq() as never, validBody);
   assert.equal(result.data.id, "travel_new");
   assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0], {
+    tenantId: "tenant_1",
+    actorUserId: "usr_worker_1",
+    orgId: "org_1",
+    roles: ["PRO"],
+    ...validBody,
+  });
 });
 
 test("travel controller: createAssignment rejects missing required fields", async () => {
