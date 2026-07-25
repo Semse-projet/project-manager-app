@@ -172,19 +172,20 @@ export default function NewJobPage() {
   const isInitialDraftSave = useRef(true);
 
   useEffect(() => {
-    if (prefill.intakeId || getPersistedIntakeId() || prefill.categoryId || prefill.subcategoryId || prefill.title || prefill.description) {
+    const hasPrefillParams = Array.from(searchParams?.keys() ?? []).some((key) => key !== "source");
+    if (prefill.intakeId || getPersistedIntakeId() || hasPrefillParams) {
       return;
     }
     const draft = loadJobWizardDraft();
     if (!draft) return;
 
-    setStep((current) => (draft.step > current ? draft.step : current));
-    setCategoryId((current) => current || draft.categoryId);
-    setSubcategoryId((current) => current || draft.subcategoryId);
-    setTitle((current) => current || draft.title);
-    setDescription((current) => current || draft.description);
+    setStep(draft.step);
+    setCategoryId(draft.categoryId);
+    setSubcategoryId(draft.subcategoryId);
+    setTitle(draft.title);
+    setDescription(draft.description);
     setLocationType(draft.locationType);
-    setCity((current) => current || draft.city);
+    setCity(draft.city);
     setBudgetType(draft.budgetType);
     setBudgetMin(draft.budgetMin);
     setBudgetMax(draft.budgetMax);
