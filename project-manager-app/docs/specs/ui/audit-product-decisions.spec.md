@@ -2,7 +2,7 @@
 id: "ui.audit-product-decisions"
 title: "Decisiones de producto bloqueantes de la auditoría 2026-07"
 domain: "product"
-version: "1.0"
+version: "1.1"
 status: "DRAFT"
 owner: "semse-core"
 risk: "critical"
@@ -15,11 +15,13 @@ related_files:
   - docs/specs/ui/pro-flows-remediation.spec.md
   - docs/specs/api/worker-verification-remediation.spec.md
   - docs/specs/api/payout-method-tokenization.spec.md
-related_tests: []
+  - apps/web/app/(app)/worker/rates/page.tsx
+related_tests:
+  - tests/unit/worker-rates-copy-mitigation.test.ts
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: "2026-07-23"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Decisiones de producto bloqueantes
@@ -41,6 +43,15 @@ en `DRAFT`.
 | PD-05 | `2.28`, `0.9` | Identidad/verificación | KYC/DID, evidencia, retención y cola |
 | PD-06 | `2.40` | Tarifas del profesional | qué estimados afecta y quién selecciona al PRO |
 | PD-07 | `2.44` | Riel de cobro | Connect/Elements/Financial Connections/Plaid |
+
+### Mitigación vigente de PD-06
+
+Mientras la integración de tarifas sigue abierta, `/worker/rates` puede
+persistir los valores únicamente como referencia de perfil. La UI debe decir
+de forma visible que hoy no modifica estimados ni cotizaciones, y no puede
+presentar los valores como “activos”, “aplicados” o como reemplazo del baseline
+BLS. Esto no decide qué estimador deberá consumirlos ni cómo se seleccionará al
+PRO.
 
 ## 3. Plantilla de resolución
 

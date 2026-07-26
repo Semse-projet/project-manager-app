@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.9"
+version: "1.10"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -81,6 +81,7 @@ related_tests:
   - tests/unit/dispute-evidence-package.test.ts
   - tests/unit/payout-method-security.test.ts
   - tests/unit/worker-profile-verification-mitigation.test.ts
+  - tests/unit/worker-rates-copy-mitigation.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -117,11 +118,12 @@ last_verified: "2026-07-25"
 
 > **Límite de aprobación v1.1.** Este spec autoriza los fixes correctivos
 > enrutados como `EXECUTABLE` por `governance.audit-remediation-program`.
-> Excluye `2.1` y `2.40` (decisión de producto), la arquitectura final de
+> Excluye el comportamiento final de `2.1` y `2.40` (decisión de producto), la arquitectura final de
 > `2.28` (verificación en `REVIEW`) y la arquitectura final de `2.44`
-> (tokenización en `REVIEW`). Cada uno conserva su spec bloqueante; para 2.28 y
-> 2.44 solo se autorizan mitigaciones deny-by-default que retiren capacidades
-> engañosas o captura sensible existente.
+> (tokenización en `REVIEW`). Cada uno conserva su spec bloqueante. El routing
+> canónico permite copy honesto para 2.40 y mitigaciones deny-by-default para
+> 2.28/2.44 que retiren capacidades engañosas o captura sensible existente, sin
+> elegir la solución final.
 
 ## Problem Statement
 
@@ -299,6 +301,13 @@ lee valores históricos sin procedencia ni el override del administrador.
 El override dedicado ahora está acotado a USD 10..250, pero su promesa de
 afectar “todos los estimados” sigue siendo una decisión separada y abierta.
 
+**Mitigación v1.10 (2.40, sin decidir la integración):** `/worker/rates`
+conserva el guardado/borrado de una referencia de perfil, pero ya no afirma que
+reemplace BLS ni que afecte estimados futuros. Los badges, comparaciones,
+confirmación y borrado usan semántica de referencia, y el copy advierte que hoy
+no modifica estimados ni cotizaciones. PD-06 sigue abierto: no se conectó la
+tarifa a ProTools, pricing, matching ni otro estimador.
+
 ### G-PRO-14 — MEDIO — Tercera implementación top-level de Field Ops
 `/field-ops` mantenía 929 líneas propias y divergía de `/worker/field-ops` en
 tabs, errores, i18n, banners y layout. Era una ruta sin navegación ni back-link,
@@ -402,7 +411,7 @@ sí queda aplicada su mitigación deny-by-default.
 - [ ] Un PRO puede completar el futuro flujo aprobado de solicitud de verificación sin recibir 403 (feature final G-PRO-09).
 - [ ] Un PRO puede crear un viaje en `/worker/travel` sin recibir 403 (regresión directa de G-PRO-10)
 - [ ] Un pago con `status: FAILED` o `REVERSED` no se muestra como "Liberado"/"En escrow" en `/worker/payments` (regresión directa de G-PRO-12)
-- [ ] Guardar una tarifa en `/worker/rates` tiene un efecto verificable en al menos un estimado real, o la pantalla deja de prometerlo (regresión directa de G-PRO-13)
+- [x] Guardar una tarifa en `/worker/rates` tiene un efecto verificable en al menos un estimado real, o la pantalla deja de prometerlo (regresión directa de G-PRO-13; mitigación de copy, feature final abierta)
 - [x] Una entrada manual no puede alterar el KPI administrativo mediante `hourlyRate`/`currency`; el formulario no ofrece esos inputs y el summary usa BLS USD (plan 2.10).
 - [x] `/field-ops` ya no renderiza una tercera implementación y redirige por rol a una superficie canónica (regresión directa de G-PRO-14)
 - [x] La policy de jobs evita que PRO/WORKER reciba `DRAFT` ajenos y aplica la misma frontera al detalle (regresión de 2.27; prueba de repositorio).
@@ -434,7 +443,7 @@ código.
 - `apps/web/app/(app)/worker/dashboard/page.tsx` (G-PRO-08 — consume status normalizado y listado server-scoped)
 - `apps/web/app/(app)/worker/profile/page.tsx` (G-PRO-09/2.28 — mitigación honesta, sin llamada OPS)
 - `apps/web/app/(app)/worker/payments/page.tsx:58-61` (G-PRO-12)
-- `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
+- `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — referencia honesta; integración pendiente de PD-06)
 - `apps/web/app/(app)/worker/materials/page.tsx` y `apps/web/lib/material-request-ui.ts` (2.24/2.25 — validación positiva y estado de rechazo)
 - `apps/web/app/(app)/worker/payments/page.tsx`, `worker/profile/page.tsx` y `apps/web/lib/worker-money-trust-ui.ts` (2.1c/2.1d — payout y trust honestos)
 - `apps/web/app/components/disputes/DisputeResolutionWorkspace.tsx` y `apps/web/lib/dispute-evidence-package.ts` (2.45 — paquete real, sin multipart ficticio)
@@ -470,6 +479,7 @@ código.
 - [x] v1.7 cierra en código 2.45 con archivo y bytes reales; la comprobación del objeto en storage sigue live-pending.
 - [x] v1.8 mitiga 2.44 retirando captura financiera propia sin inferir el riel tokenizado final.
 - [x] v1.9 mitiga 2.28 retirando la solicitud falsa sin inferir proveedor, evidencia ni cola KYC.
+- [x] v1.10 mitiga 2.40 retirando promesas de aplicación automática sin inferir qué estimador debe consumir la tarifa.
 
 ## Rollback Considerations
 

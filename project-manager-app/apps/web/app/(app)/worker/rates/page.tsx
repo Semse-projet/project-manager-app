@@ -93,7 +93,7 @@ export default function ContractorRatesPage() {
     }
   }
 
-  async function revertToBls() {
+  async function deleteCustomRates() {
     setDeleting(true);
     setError(null);
     try {
@@ -137,12 +137,12 @@ export default function ContractorRatesPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>Mis Tarifas</h1>
           <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Tus tarifas reales reemplazan los promedios BLS en cada estimado
+            Tus tarifas se guardan como referencia de perfil; hoy no cambian estimados ni cotizaciones automáticamente.
           </p>
         </div>
         {status?.hasCustomRates && (
           <span style={{ marginLeft: "auto", fontSize: 10, padding: "4px 10px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "#10b981", fontWeight: 800 }}>
-            Activas
+            Referencia guardada
           </span>
         )}
       </div>
@@ -155,7 +155,7 @@ export default function ContractorRatesPage() {
 
       {saved && (
         <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "#10b981", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-          <Check size={14} /> Tarifas guardadas. Se usarán en todos los estimados futuros.
+          <Check size={14} /> Tarifas guardadas como referencia. Aún no modifican estimados ni cotizaciones.
         </div>
       )}
 
@@ -167,11 +167,10 @@ export default function ContractorRatesPage() {
           </div>
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)" }}>
-              Promedio nacional BLS OEWS 2023
+              Referencia nacional BLS OEWS 2023
             </div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>
-              ${baseline.toFixed(2)}/hr promedio de 12 oficios de construcción
-              {status?.hasCustomRates ? " — reemplazado por tus tarifas" : " — se usa si no hay override"}
+              ${baseline.toFixed(2)}/hr promedio de 12 oficios de construcción. Se muestra para comparar; tu referencia guardada no lo reemplaza automáticamente.
             </div>
           </div>
         </div>
@@ -195,7 +194,7 @@ export default function ContractorRatesPage() {
             suffix="/ hr"
           />
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(99,102,241,.06)", fontSize: 12, color: "var(--ink)" }}>
-            Multiplicador aplicado: <strong style={{ color: "#818cf8" }}>{derivedLaborMult}×</strong>
+            Comparación con BLS: <strong style={{ color: "#818cf8" }}>{derivedLaborMult}×</strong>
             {" "}vs. promedio nacional (${ baseline.toFixed(2)}/hr)
           </div>
         </div>
@@ -218,8 +217,8 @@ export default function ContractorRatesPage() {
             suffix="%"
           />
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,.06)", fontSize: 12, color: "var(--ink)" }}>
-            Factor aplicado: <strong style={{ color: "#10b981" }}>{derivedMatMult}×</strong>
-            {" "}sobre el costo base de materiales BLS
+            Equivalencia de referencia: <strong style={{ color: "#10b981" }}>{derivedMatMult}×</strong>
+            {" "}sobre un costo base de materiales
           </div>
         </div>
       </HtmlInCanvasPanel>
@@ -262,9 +261,9 @@ export default function ContractorRatesPage() {
 
         {status?.hasCustomRates && (
           <button
-            onClick={() => void revertToBls()}
+            onClick={() => void deleteCustomRates()}
             disabled={deleting}
-            title="Eliminar override y volver a promedios BLS"
+            title="Eliminar la referencia personalizada"
             style={{
               padding: "13px 18px", borderRadius: 12, border: "1.5px solid var(--border)",
               background: "transparent", color: "var(--muted)", fontSize: 13, fontWeight: 700,
@@ -273,15 +272,15 @@ export default function ContractorRatesPage() {
             }}
           >
             <Trash2 size={14} />
-            {deleting ? "Restaurando…" : "Usar BLS"}
+            {deleting ? "Eliminando…" : "Eliminar referencia"}
           </button>
         )}
       </div>
 
       <div style={{ fontSize: 11, color: "var(--faint)", textAlign: "center" }}>
         {status?.override?.updatedAt
-          ? `Última actualización: ${new Date(status.override.updatedAt).toLocaleString("es-MX")}`
-          : "Sin tarifas guardadas — los estimados usan promedios BLS OEWS."}
+          ? `Última actualización de esta referencia: ${new Date(status.override.updatedAt).toLocaleString("es-MX")}`
+          : "Sin referencia personalizada guardada."}
       </div>
     </div>
   );
