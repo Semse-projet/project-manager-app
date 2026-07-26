@@ -4,7 +4,7 @@ title: "Payments and Escrow API"
 type: spec
 feature: "Payments & Escrow"
 domain: "payments"
-version: "1.1"
+version: "1.2"
 status: "VERIFIED"
 owner: semse-core
 risk: critical
@@ -20,6 +20,9 @@ related_files:
   - apps/api/src/modules/payments
   - apps/api/src/modules/payments/providers/stripe.provider.ts
   - apps/api/src/modules/payments/stripe-connect.service.ts
+  - apps/web/app/components/payments/PayoutMethodForm.tsx
+  - apps/web/app/api/semse/workers/payout-method/route.ts
+  - apps/web/lib/payout-method-security.ts
   - packages/schemas/src/payment.schema.ts
   - packages/schemas/src/escrow-view.types.ts
   - packages/db/prisma/schema.prisma
@@ -28,6 +31,7 @@ related_tests:
   - apps/api/test/payment-governance.service.test.ts
   - apps/api/test/payments.controller.test.ts
   - tests/unit/worker-money-trust-ui.test.ts
+  - tests/unit/payout-method-security.test.ts
 related_endpoints:
   - v1/payments
   - v1/escrow
@@ -211,19 +215,21 @@ ENTONCES se libera el monto del milestone desde el escrow
 
 ---
 
-### P1-C — PRO configura método de cobro
+### P1-C — PRO configura identificador manual de cobro
 
 **Criterio de aceptación:**
 ```
 DADO   que el actor tiene rol PRO
-CUANDO POST /v1/workers/me/payout-method con { type, ...campos por tipo }
-ENTONCES se guarda el método de pago del worker
+CUANDO POST /v1/workers/me/payout-method con { type: paypal|zelle|cashapp, email }
+ENTONCES se guarda un identificador manual no sensible
   Y     GET /v1/workers/me/payout-method retorna el método configurado
   Y     se registra auditLog `worker.payout_method.update` sin datos sensibles
+  Y     banco/tarjeta se configuran únicamente mediante Stripe Connect
 ```
 
 **Casos borde:**
 - `type` fuera de los valores válidos → `400 Bad Request`
+- cualquier campo adicional, incluidos PAN/cuenta/routing → `400 Bad Request`
 
 ---
 
@@ -582,7 +588,7 @@ efectos: auditLog: false
 ```yaml
 método: POST
 ruta: /v1/workers/me/payout-method
-descripción: PRO configura su método de cobro
+descripción: PRO guarda un identificador manual no sensible; payout automático usa Stripe Connect
 
 auth: requerida
 roles: [PRO, OPS_ADMIN]
@@ -594,17 +600,15 @@ input:
     - nombre: type
       tipo: enum
       requerido: true
-      valores: [bank_account, debit_card, paypal, zelle, cashapp]
-    - nombre: bankName
+      valores: [paypal, zelle, cashapp]
+    - nombre: email
       tipo: string
-      requerido: false
-    - nombre: routingNumber, accountNumber, last4, email
-      tipo: string
-      requerido: false (según type)
+      requerido: true
+      validación: trim().min(1).max(254)
 
 output: método guardado
 errores:
-  400: type inválido o campos requeridos para el type faltantes
+  400: type inválido, email faltante o cualquier campo adicional
   403: actor sin autenticación
 efectos: auditLog: true (`worker.payout_method.update`)
 ```
@@ -749,8 +753,9 @@ describe("GET /v1/jobs/:jobId/escrow") {
 }
 
 describe("POST /v1/workers/me/payout-method") {
-  it("guarda método bank_account con routing y account number")
   it("guarda método paypal con email")
+  it("rechaza bank_account y debit_card")
+  it("rechaza routing/account/PAN como campos adicionales")
   it("rechaza con 400 si type está fuera del enum")
 }
 ```
@@ -775,11 +780,13 @@ describe("POST /v1/workers/me/payout-method") {
 
 ## 11. Gaps pendientes
 
-No quedan gaps abiertos de pagos v1 identificados en esta spec.
+No quedan gaps abiertos dentro de la superficie v1 aprobada. La selección del
+riel tokenizado definitivo sigue en `api.payout-method-tokenization` (`REVIEW`);
+esta spec solo fija la mitigación deny-by-default.
 
 **Gaps cerrados en implementación:**
 - Un payout con `recipientUserId` conocido falla cerrado sin Connect activo y nunca cae a la cuenta compartida (0.16/2.1c).
-- `POST /v1/workers/me/payout-method` audita cambios con `worker.payout_method.update`.
+- `POST /v1/workers/me/payout-method` audita cambios con `worker.payout_method.update` y solo acepta identificadores manuales allowlisted; banco/tarjeta propia queda deny-by-default (mitigación 2.44).
 - `GET /v1/jobs/:jobId/escrow` y rutas financieras de proyecto validan explícitamente que PRO asignado no lee financials por política de dominio.
 - `POST /v1/escrow/refund` permite reembolso manual OPS-only con audit, SSE y `PaymentTxn` REFUND.
 - Providers `mock` y `stripe` quedan documentados en surface v1.

@@ -146,7 +146,7 @@ test("cliente fondea escrow y libera milestone desde pagos", async ({ page }) =>
   await expect(page.getByText(`Liberación – ${job.title}`)).toBeVisible({ timeout: 15000 });
 });
 
-test("profesional guarda metodo de cobro y queda persistido", async ({ page }) => {
+test("profesional guarda identificador manual sin datos financieros completos", async ({ page }) => {
   await loginAs(page, "Profesional", "/worker/dashboard");
 
   await page.goto("/worker/payments");

@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchSemseDataForRequest, handleServerError, runtimeDisabledResponse } from "../../_server";
-
-interface PayoutMethodPayload {
-  type: "bank_account" | "debit_card" | "paypal" | "zelle" | "cashapp";
-  bankName?: string;
-  routingNumber?: string;
-  accountNumber?: string;
-  last4?: string;
-  email?: string;
-}
+import { parseSafePayoutMethodPayload } from "../../../../../lib/payout-method-security";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,11 +21,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as PayoutMethodPayload;
-
-    if (!body.type) {
+    const parsed = parseSafePayoutMethodPayload(await request.json());
+    if (!parsed.ok) {
       return NextResponse.json(
-        { error: { status: 400, message: "type is required" } },
+        { error: { status: 400, message: parsed.error } },
         { status: 400 }
       );
     }
@@ -41,7 +32,7 @@ export async function POST(request: NextRequest) {
     const data = await fetchSemseDataForRequest<Record<string, unknown>>("/v1/workers/me/payout-method", request, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify(parsed.data),
     });
 
     return NextResponse.json({ data });

@@ -11,13 +11,9 @@ import { PaymentsService } from "./payments.service.js";
 import { verifyStripeWebhookSignature } from "./stripe-webhook-signature.js";
 
 const workerPayoutMethodSchema = z.object({
-  type: z.enum(["bank_account", "debit_card", "paypal", "zelle", "cashapp"]),
-  bankName: z.string().trim().min(1).optional(),
-  routingNumber: z.string().trim().optional(),
-  accountNumber: z.string().trim().optional(),
-  last4: z.string().trim().optional(),
-  email: z.string().trim().optional()
-});
+  type: z.enum(["paypal", "zelle", "cashapp"]),
+  email: z.string().trim().min(1).max(254)
+}).strict();
 
 function isProductionRuntime(): boolean {
   return process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT_NAME === "production";

@@ -165,16 +165,10 @@ export class PaymentsService {
     orgId: string;
     userId: string;
     requestId: string;
-    type: "bank_account" | "debit_card" | "paypal" | "zelle" | "cashapp";
-    bankName?: string;
-    routingNumber?: string;
-    accountNumber?: string;
-    last4?: string;
-    email?: string;
+    type: "paypal" | "zelle" | "cashapp";
+    email: string;
   }) {
     const labelMap: Record<typeof input.type, string> = {
-      bank_account: "Cuenta bancaria",
-      debit_card: "Tarjeta de débito",
       paypal: "PayPal",
       zelle: "Zelle",
       cashapp: "Cash App"
@@ -182,11 +176,7 @@ export class PaymentsService {
     const sanitized = {
       type: input.type,
       label: labelMap[input.type],
-      bankName: input.type === "bank_account" ? input.bankName : undefined,
-      last4: input.last4
-        ?? (input.type === "bank_account" ? input.accountNumber?.slice(-4) : undefined)
-        ?? (input.type === "debit_card" ? input.accountNumber?.slice(-4) : undefined),
-      email: ["paypal", "zelle", "cashapp"].includes(input.type) ? input.email : undefined,
+      email: input.email,
       verified: false
     };
 
@@ -211,8 +201,6 @@ export class PaymentsService {
       afterJson: {
         type: sanitized.type,
         label: sanitized.label,
-        bankName: sanitized.bankName,
-        last4: sanitized.last4,
         email: sanitized.email,
         verified: sanitized.verified
       }

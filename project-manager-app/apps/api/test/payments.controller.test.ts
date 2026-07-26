@@ -102,6 +102,38 @@ test("payments controller declares permissions", () => {
   }
 });
 
+test("payout method accepts manual identifiers and rejects financial credentials", async () => {
+  const { controller, calls } = createController();
+  const actor = {
+    headers: { "x-request-id": "req_payout_safe" },
+    authContext: { tenantId: "tenant_1", orgId: "org_pro_1", userId: "usr_pro_1", roles: ["PRO"] },
+  };
+
+  const saved = await controller.saveWorkerPayoutMethod(actor as never, {
+    type: "paypal",
+    email: "worker@example.com",
+  });
+  assert.equal(saved.data.type, "paypal");
+  assert.equal(calls.at(-1)?.method, "saveWorkerPayoutMethod");
+
+  await assert.rejects(
+    () => controller.saveWorkerPayoutMethod(actor as never, {
+      type: "bank_account",
+      routingNumber: "123456789",
+      accountNumber: "123456789012",
+    }),
+    /Bad Request|validation/i,
+  );
+  await assert.rejects(
+    () => controller.saveWorkerPayoutMethod(actor as never, {
+      type: "paypal",
+      email: "worker@example.com",
+      cardNumber: "4111111111111111",
+    }),
+    /Bad Request|validation/i,
+  );
+});
+
 test("payments controller wraps visible escrow/contract/transaction payloads", async () => {
   const { controller, calls } = createController();
   const actor = {

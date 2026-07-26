@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.7"
+version: "1.8"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -40,6 +40,8 @@ related_files:
   - apps/web/app/(app)/worker/travel/page.tsx
   - apps/web/app/components/disputes/DisputeResolutionWorkspace.tsx
   - apps/web/app/components/payments/PayoutMethodForm.tsx
+  - apps/web/app/api/semse/workers/payout-method/route.ts
+  - apps/web/lib/payout-method-security.ts
   - apps/api/src/modules/labor-engine
   - apps/api/src/modules/travel
   - apps/api/src/modules/field-ops
@@ -77,6 +79,7 @@ related_tests:
   - tests/unit/worker-material-request-ui.test.ts
   - tests/unit/worker-money-trust-ui.test.ts
   - tests/unit/dispute-evidence-package.test.ts
+  - tests/unit/payout-method-security.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -114,8 +117,9 @@ last_verified: "2026-07-25"
 > **Límite de aprobación v1.1.** Este spec autoriza los fixes correctivos
 > enrutados como `EXECUTABLE` por `governance.audit-remediation-program`.
 > Excluye `2.1` y `2.40` (decisión de producto), `2.28` (verificación en
-> `REVIEW`) y `2.44` (tokenización en `REVIEW`). Cada uno conserva su spec
-> bloqueante y no queda autorizado por el estado `APPROVED` de este documento.
+> `REVIEW`) y la arquitectura final de `2.44` (tokenización en `REVIEW`). Cada
+> uno conserva su spec bloqueante; para 2.44 solo se autoriza la mitigación
+> deny-by-default que retira la captura sensible existente.
 
 ## Problem Statement
 
@@ -343,6 +347,7 @@ required_behavior:
   - Sin Connect activo, la UI debe decir que el payout automático está bloqueado y que no se redirige a una cuenta compartida
   - Un `trustScore` cold-start de cero debe presentarse como falta de historial, no como evaluación negativa
   - El paquete de disputa debe usar un archivo real y solo confirmar éxito después de transferir sus bytes
+  - Ningún formulario propio debe solicitar PAN, cuenta bancaria o routing completos
 ```
 
 ## Security / RBAC
@@ -351,7 +356,11 @@ required_behavior:
 - **IDOR intra-tenant (ALTO, plan 2.19):** `POST/GET /v1/incidents` y `/v1/materials` no verifican que el actor esté asignado al `jobId` — cualquier worker del tenant puede leer/inyectar incidencias y solicitudes de material de otro job.
 - **IDOR intra-tenant (ALTO, plan 2.20):** `PATCH /v1/tasks/:taskId/status` no verifica `assignedTo === actor.userId` — cualquier worker puede cambiar el estado de la tarea de otro.
 - **IDOR intra-tenant (ALTO, plan 2.34):** los endpoints de detalle/mutación de `/v1/travel/:travelId` (gastos, hospedaje, anticipos, liquidación) no verifican `assignedTo === actor.userId` — cualquiera con `jobs:read` en el tenant puede ver, y quien tenga `jobs:create` puede modificar, el viaje de otro worker.
-- **Cumplimiento/PCI-DSS (ALTO, plan 2.44):** `PayoutMethodForm.tsx` recolecta PAN de tarjeta y número de cuenta/routing bancario completos en inputs propios sin tokenizar (no Stripe Elements/Plaid) — transita en texto plano por el BFF antes de que el backend descarte los dígitos completos y guarde solo `last4`. Requiere decisión de producto/cumplimiento, no solo un fix de código.
+- **Cumplimiento/PCI-DSS (ALTO, plan 2.44):** la selección del riel tokenizado
+  definitivo sigue `REVIEW_REQUIRED`, pero la exposición inmediata está
+  mitigada: `PayoutMethodForm` ya no contiene inputs de PAN/cuenta/routing; BFF
+  y API solo aceptan `{type,email}` para PayPal/Zelle/Cash App manuales y
+  rechazan campos extra. Banco/tarjeta se dirige a Stripe Connect.
 - La cuenta usada para esta auditoría estuvo bloqueada por el bug transversal 0.32 (reset de contraseña no envía correo) y se desbloqueó manualmente por el operador de la sesión — ver nota en `docs/AUDIT_REMEDIATION_PLAN.md`. Se repitió una segunda vez el 2026-07-21.
 
 **Estado de remediación de los IDOR:** G-PRO-11/2.32 está cerrado en código
@@ -363,7 +372,8 @@ en `getAssignment`/`assertTravelAccess`: worker asignado, organización cliente
 dueña u OPS_ADMIN. Estas fronteras necesitan verificación multiusuario en vivo;
 no hay evidencia histórica suficiente para descartar abuso anterior. La
 creación de Travel también valida job, tenant y relación del actor (2.35).
-El pendiente de cumplimiento 2.44 no queda cerrado por esta actualización.
+La decisión final de cumplimiento 2.44 no queda cerrada por esta actualización;
+sí queda aplicada su mitigación deny-by-default.
 
 ## Tests Required
 
@@ -391,6 +401,7 @@ El pendiente de cumplimiento 2.44 no queda cerrado por esta actualización.
 - [x] El estado `rejected` de materiales usa `StatusBadge` con variante `error` (2.25).
 - [x] El perfil presenta cold-start como “Trust en construcción” y la regresión confirma el prior neutral real de matching (2.1d).
 - [x] El paquete de evidencia de disputas deriva metadatos del `File`, hace el `PUT` real y rechaza el multipart simulado (2.45).
+- [x] El formulario de cobro no captura PAN/cuenta/routing y BFF/API rechazan esos campos; el riel tokenizado final permanece en REVIEW (mitigación 2.44).
 
 Los checks aún abiertos en esta sección son recorridos funcionales/live. No se
 marcan completos solo porque la frontera correspondiente ya esté corregida en
@@ -416,6 +427,7 @@ código.
 - `apps/web/app/(app)/worker/materials/page.tsx` y `apps/web/lib/material-request-ui.ts` (2.24/2.25 — validación positiva y estado de rechazo)
 - `apps/web/app/(app)/worker/payments/page.tsx`, `worker/profile/page.tsx` y `apps/web/lib/worker-money-trust-ui.ts` (2.1c/2.1d — payout y trust honestos)
 - `apps/web/app/components/disputes/DisputeResolutionWorkspace.tsx` y `apps/web/lib/dispute-evidence-package.ts` (2.45 — paquete real, sin multipart ficticio)
+- `apps/web/app/components/payments/PayoutMethodForm.tsx`, BFF payout-method y `apps/web/lib/payout-method-security.ts` (2.44 — captura sensible retirada)
 - `apps/web/app/(app)/worker/tracker/sections/RegistrosTab.tsx` (2.10 — sin rate/moneda controlables)
 - `apps/web/app/(app)/admin/labor-engine/page.tsx` (2.10 — fallback BLS, nunca override del admin)
 - `apps/web/app/semse-api.ts:363-378` (G-PRO-07 — `fetchMyJobs`/`ReviewableJob` necesita `clientUserId`)
@@ -445,6 +457,7 @@ código.
 - [x] v1.5 cierra 2.24/2.25 con validación previa accesible y semántica visual consistente, cubiertas por prueba unitaria.
 - [x] v1.6 cierra en código 2.1c/2.1d y mantiene explícita la verificación live pendiente.
 - [x] v1.7 cierra en código 2.45 con archivo y bytes reales; la comprobación del objeto en storage sigue live-pending.
+- [x] v1.8 mitiga 2.44 retirando captura financiera propia sin inferir el riel tokenizado final.
 
 ## Rollback Considerations
 

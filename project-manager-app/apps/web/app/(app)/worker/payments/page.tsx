@@ -242,7 +242,7 @@ export default function WorkerPaymentsPage() {
       )}
 
       {/* Stripe Connect panel */}
-      <HtmlInCanvasPanel as="section" style={{ ...card, padding: "18px 20px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={80}>
+      <HtmlInCanvasPanel id="stripe-connect-account" as="section" style={{ ...card, padding: "18px 20px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={80}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: connectPayout.ready ? "rgba(16,185,129,.15)" : "rgba(245,158,11,.12)", display: "grid", placeItems: "center" }}>
             <BadgeDollarSign size={16} color={connectPayout.ready ? "#10b981" : "#f59e0b"} />

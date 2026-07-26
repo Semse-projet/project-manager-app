@@ -339,9 +339,11 @@ test("webhook: Stripe-Signature rechaza timestamps fuera de tolerancia", () => {
 // ── Payout method validation ───────────────────────────────────────────────────
 
 test("payout-method: type debe estar en el enum permitido", () => {
-  const validTypes = ["bank_account", "debit_card", "paypal", "zelle", "cashapp"];
+  const validTypes = ["paypal", "zelle", "cashapp"];
   const invalidType = "bitcoin";
-  assert.ok(validTypes.includes("bank_account"));
+  assert.ok(!validTypes.includes("bank_account"));
+  assert.ok(!validTypes.includes("debit_card"));
+  assert.ok(validTypes.includes("paypal"));
   assert.ok(!validTypes.includes(invalidType), "bitcoin no es tipo válido");
 });
 
