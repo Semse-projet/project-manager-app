@@ -21,6 +21,10 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/auth/login`
 - `POST /v1/auth/logout`
 - `POST /v1/auth/refresh`
+- `POST /v1/auth/register`
+- `POST /v1/auth/password-reset/request`
+- `POST /v1/auth/password-reset/confirm`
+- `POST /v1/auth/password-change` (autenticado; valida contraseña vigente, actualiza el hash y revoca las demás sesiones renovables)
 - `GET /v1/auth/me`
 
 ## Jobs / Bids / Reservations / Contracts

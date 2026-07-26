@@ -87,6 +87,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.fieldOps", href: "/worker/field-ops", icon: Wrench, section: "section.field" },
       { labelKey: "nav.reviews", href: "/worker/review", icon: Star },
       { labelKey: "nav.myProfile", href: "/worker/profile", icon: User },
+      { labelKey: "nav.accountSecurity", href: "/worker/account", icon: ShieldCheck },
       { labelKey: "nav.aiSettings", href: "/worker/settings", icon: Settings },
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
     ],
@@ -110,6 +111,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.reviews", href: "/client/reviews", icon: Star },
       { labelKey: "nav.payments", href: "/client/payments", icon: CreditCard },
       { labelKey: "nav.financeHub", href: "/client/finance", icon: DollarSign },
+      { labelKey: "nav.accountSecurity", href: "/client/account", icon: ShieldCheck },
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
     ],
   },
@@ -130,6 +132,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.toolHub",        href: "/admin/tool-hub",         icon: Package },
       { labelKey: "nav.verticals",      href: "/admin/verticals",        icon: Layers },
       { labelKey: "nav.settings",       href: "/admin/settings",         icon: Settings },
+      { labelKey: "nav.accountSecurity", href: "/admin/account",          icon: User },
       // ── Verticals ─────────────────────────────────────────────────────────
       { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf,            section: "section.verticals" },
       { labelKey: "nav.buildOps",       href: "/buildops",               icon: FolderKanban },

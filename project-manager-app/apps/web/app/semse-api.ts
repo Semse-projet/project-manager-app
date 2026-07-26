@@ -1107,6 +1107,22 @@ export async function updateMyProfile(data: UserProfileUpdateInput): Promise<Use
   return patchSemse<UserProfileView>("/api/semse/users/me/profile", data as Record<string, unknown>);
 }
 
+export type PasswordChangeResult = {
+  status: "updated";
+  userId: string;
+  revokedOtherSessions: number;
+};
+
+export async function changeMyPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<PasswordChangeResult> {
+  return mutateSemse<PasswordChangeResult>(
+    "/api/semse/auth/password-change",
+    input,
+  );
+}
+
 export async function fetchOpsAuditLog(): Promise<Record<string, unknown>[]> {
   return fetchSemse<Record<string, unknown>[]>("/api/semse/ops/audit");
 }

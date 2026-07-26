@@ -12,8 +12,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!token || !newPassword) {
     return NextResponse.json({ ok: false, error: "token y newPassword son requeridos" }, { status: 400 });
   }
-  if (newPassword.length < 8) {
-    return NextResponse.json({ ok: false, error: "La contraseña debe tener al menos 8 caracteres" }, { status: 400 });
+  if (newPassword.length < 15 || newPassword.length > 128) {
+    return NextResponse.json({ ok: false, error: "La contraseña debe tener entre 15 y 128 caracteres" }, { status: 400 });
   }
 
   const apiBaseUrl = process.env.SEMSE_API_BASE_URL?.trim().replace(/\/+$/, "");

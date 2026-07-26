@@ -57,6 +57,7 @@ dual-write.
 ## Auth / Identity
 
 - `user.created`
+- `user.password_changed`
 - `user.verified`
 - `user.suspended`
 - `organization.created`

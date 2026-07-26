@@ -37,7 +37,7 @@ function errorMessage(error: unknown, fallback: string): string {
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
   const score = [
-    password.length >= 8,
+    password.length >= 15,
     /[A-Z]/.test(password),
     /[0-9]/.test(password),
     /[^A-Za-z0-9]/.test(password),
@@ -114,8 +114,8 @@ export default function RegisterPage() {
       setError("Las contraseñas no coinciden");
       return;
     }
-    if (password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres");
+    if (password.length < 15 || password.length > 128) {
+      setError("La contraseña debe tener entre 15 y 128 caracteres");
       return;
     }
 
@@ -286,7 +286,10 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                placeholder="Mínimo 8 caracteres"
+                minLength={15}
+                maxLength={128}
+                autoComplete="new-password"
+                placeholder="Mínimo 15 caracteres"
                 style={inputStyle}
               />
               <PasswordStrength password={password} />
@@ -300,6 +303,9 @@ export default function RegisterPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required
+                minLength={15}
+                maxLength={128}
+                autoComplete="new-password"
                 placeholder="Repite la contraseña"
                 style={{
                   ...inputStyle,
