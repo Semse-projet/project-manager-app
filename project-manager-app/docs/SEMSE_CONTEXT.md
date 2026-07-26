@@ -52,7 +52,8 @@ apps/api             NestJS + Prisma
 apps/worker          BullMQ y jobs
 apps/vision-service  Vision especializado
 apps/autonomy-server runtime de autonomia
-apps/mobile          cliente movil/offline
+apps/angular         superficie adicional
+apps/assistant-portal superficie adicional
 
 packages/agents      packages/auth       packages/autonomy
 packages/db          packages/knowledge  packages/product-events
