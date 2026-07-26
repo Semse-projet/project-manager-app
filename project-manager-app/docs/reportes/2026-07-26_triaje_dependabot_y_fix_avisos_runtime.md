@@ -56,9 +56,15 @@ La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.ya
 
 ## Hallazgos colaterales (no corregidos aquí, valen su propio ticket)
 
-1. **Peer dependency roto en producción por el propio Dependabot.** `pnpm install` avisa:
-   `@nestjs/platform-fastify 11.1.28 → unmet peer @fastify/static@"^8.0.0 || ^9.0.0": found 10.1.2`.
-   Lo introdujo el merge de **#429** (`chore(deps): bump @fastify/static from 9.3.0 to 10.1.2`). Es la API, en `dependencies`. Conviene revisar si `@nestjs/platform-fastify` tolera `@fastify/static` 10 o si hay que revertir ese bump.
+1. **El warning de peer de `@fastify/static` es cosmético — INVESTIGADO Y CERRADO. No quitar el paquete.**
+   `pnpm install` avisa: `@nestjs/platform-fastify 11.1.28 → unmet peer @fastify/static@"^8.0.0 || ^9.0.0": found 10.1.2` (lo introdujo el merge de **#429**).
+
+   El warning es engañoso en dos direcciones y conviene dejar el análisis escrito, porque invita a "limpiar" una dependencia que en realidad es obligatoria:
+
+   - **Parece no usarse, pero se usa.** No hay ni una referencia a `@fastify/static` ni a `useStaticAssets` en todo el código del repo, ni en ningún commit del historial. Pero `SwaggerModule.setup("v1/docs", …)` (`apps/api/src/main.ts:141`) lo activa indirectamente: `@nestjs/swagger` detecta el adapter fastify y llama a `app.useStaticAssets()` (`swagger-module.js:104-105`), que a su vez hace `loadPackage('@fastify/static', …)` → `require('@fastify/static')` (`@nestjs/platform-fastify/adapters/fastify-adapter.js:308`). Es un **requisito duro de runtime**: sin el paquete, la API no arranca. **Quitarlo de `dependencies` rompería producción.**
+   - **Parece incompatible, pero funciona.** El rango de peer que se queda corto es solo el de `@nestjs/platform-fastify@11.1.28` (`^8.0.0 || ^9.0.0`); `@nestjs/swagger@11.4.6` ya declara `^8.0.0 || ^9.0.0 || ^10.0.0`. `useStaticAssets` se limita a registrar el plugin, y la v10 es compatible para ese uso. **Verificado en producción con la 10.1.2 desplegada: `GET /v1/docs` → 200 y `GET /v1/docs-json` → 200.**
+
+   **Acción recomendada: ninguna.** Esperar a que `@nestjs/platform-fastify` amplíe su rango de peer. Si el warning molesta en CI, la salida limpia es `pnpm.peerDependencyRules.allowedVersions`, nunca borrar el paquete.
 2. **Los 4 tests de `changePassword` fallan solo en la suite completa y pasan en aislamiento** — bug de aislamiento/estado compartido entre tests, introducido por **#430** (`feat(account): add shared account center and password change`). No es un bug de producto, pero deja la suite en rojo permanente.
 3. **`scripts/workspace-runner.mjs:42`** usa `spawnSync("pnpm", …)` sin `shell: true`, así que `pnpm typecheck`, `build:packages` y `railway:preflight` **fallan con `ENOENT` en Windows**. En CI (Linux) funciona.
 4. **Scripts con sintaxis Unix** que fallan bajo cmd.exe en Windows: `@semse/knowledge` build (`mkdir -p` / `cp`) y `@semse/api` `test:unit` (`$(find …)`).
