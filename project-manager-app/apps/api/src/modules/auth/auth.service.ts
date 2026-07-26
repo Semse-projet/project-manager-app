@@ -255,6 +255,62 @@ export class AuthService {
     };
   }
 
+  async changePassword(input: RequestContext & {
+    currentPassword: string;
+    newPassword: string;
+    requestId: string;
+  }) {
+    if (!input.sessionId) {
+      throw new BadRequestException("Session-bound authentication is required");
+    }
+
+    if (input.newPassword.length < 15 || input.newPassword.length > 128) {
+      throw new BadRequestException("New password must contain between 15 and 128 characters");
+    }
+
+    const user = await this.authRepository.findUserCredentialById(input.userId);
+    if (
+      !user ||
+      user.status !== "active" ||
+      !user.passwordHash ||
+      !verifyPassword(input.currentPassword, user.passwordHash)
+    ) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+
+    if (verifyPassword(input.newPassword, user.passwordHash)) {
+      throw new BadRequestException("New password must be different from the current password");
+    }
+
+    const result = await this.authRepository.changePasswordAndRevokeOtherSessions({
+      userId: input.userId,
+      currentSessionId: input.sessionId,
+      expectedPasswordHash: user.passwordHash,
+      passwordHash: hashPassword(input.newPassword)
+    });
+
+    await this.auditService.append({
+      id: `aud_${Date.now()}`,
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.userId,
+      action: "user.password_changed",
+      entityType: "User",
+      entityId: input.userId,
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: {
+        revokedOtherSessions: result.revokedOtherSessions
+      }
+    });
+
+    return {
+      status: "updated" as const,
+      userId: input.userId,
+      revokedOtherSessions: result.revokedOtherSessions
+    };
+  }
+
   async register(input: {
     email: string;
     password: string;

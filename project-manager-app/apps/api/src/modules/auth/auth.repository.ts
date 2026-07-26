@@ -107,6 +107,55 @@ export class AuthRepository {
     });
   }
 
+  findUserCredentialById(userId: string) {
+    return this.client.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        status: true
+      }
+    });
+  }
+
+  async changePasswordAndRevokeOtherSessions(input: {
+    userId: string;
+    currentSessionId: string;
+    expectedPasswordHash: string;
+    passwordHash: string;
+  }): Promise<{ revokedOtherSessions: number }> {
+    return this.client.$transaction(async (tx) => {
+      const authTx = tx as AuthTransactionClient;
+
+      const updated = await authTx.user.updateMany({
+        where: {
+          id: input.userId,
+          passwordHash: input.expectedPasswordHash
+        },
+        data: { passwordHash: input.passwordHash }
+      });
+      if (updated.count !== 1) {
+        throw new UnauthorizedException("Current password is no longer valid");
+      }
+
+      const revoked = await authTx.authSession.updateMany({
+        where: {
+          userId: input.userId,
+          id: { not: input.currentSessionId },
+          status: ACTIVE_SESSION_STATUS,
+          revokedAt: null
+        },
+        data: {
+          status: REVOKED_SESSION_STATUS,
+          revokedAt: new Date()
+        }
+      });
+
+      return { revokedOtherSessions: revoked.count };
+    });
+  }
+
   findUserByEmail(email: string) {
     return this.client.user.findUnique({
       where: { email },

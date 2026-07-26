@@ -20,14 +20,19 @@ export const authPasswordResetRequestSchema = z.object({
 
 export const authPasswordResetConfirmSchema = z.object({
   token: nonEmptyId,
-  newPassword: z.string().min(12).max(128)
+  newPassword: z.string().min(15).max(128)
 });
 
 export const authRegisterBodySchema = z.object({
   email: z.string().trim().email(),
-  password: z.string().min(8).max(128),
+  password: z.string().min(15).max(128),
   name: z.string().trim().min(1).max(80),
   role: z.enum(["CLIENT", "PRO"]).default("CLIENT"),
+});
+
+export const authPasswordChangeSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(15).max(128)
 });
 
 export const milestoneCreateSchema = z.object({
