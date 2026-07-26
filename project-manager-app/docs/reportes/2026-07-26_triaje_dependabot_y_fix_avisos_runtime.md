@@ -52,10 +52,11 @@ Los scripts `pnpm typecheck` y `pnpm --filter @semse/api test:unit` **no corren 
 | Tests unitarios de la API (con el `dist` obsoleto del inicio) | 1966 tests, **1961 pass / 5 fail** |
 | **Misma suite sobre las dependencias de `main`** | **1966 / 1961 pass / 5 fail — los mismos 5** ⇒ cero regresiones atribuibles a este cambio |
 | Tests unitarios de la API (tras el fix de `test:unit`, desde `dist` borrado) | 1966 tests, **1965 pass / 1 fail** |
+| Tests unitarios de la API (tras normalizar el path de `graphify`) | 1966 tests, **1966 pass / 0 fail** ✅ |
 
 La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.yaml` con `git stash`, reinstalando con `--frozen-lockfile` y corriendo la suite completa otra vez, para comparar en igualdad de condiciones. Los 5 fallos idénticos en ambos lados confirmaban que el cambio de dependencias no introducía regresiones; después se identificó que 4 de esos 5 eran artefactos de un `dist` sin recompilar (ver hallazgo colateral 2), que afectaban por igual a las dos corridas.
 
-**El único fallo que queda es `graphify: graphPath falls back to default graphify-out/graph.json`**, y es un bug del test exclusivo de Windows: `assert.ok(service.graphPath.endsWith("graphify-out/graph.json"))` compara con separador `/` mientras que en Windows el path se construye con `\`. En CI (Linux) pasa. No se toca aquí.
+**El fallo restante de `graphify` también se corrigió** (ver hallazgo colateral 3): era un bug del test exclusivo de Windows. Con eso, la suite unitaria de la API queda en **1966/1966**.
 
 ## Hallazgos colaterales (no corregidos aquí, valen su propio ticket)
 
@@ -76,9 +77,14 @@ La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.ya
    **Fix:** `test:unit` de `apps/api` ahora es `pnpm build && node --experimental-strip-types --test …`, el mismo patrón que ya usa el `test:unit` de la raíz (`pnpm build:packages && …`). Verificado borrando `apps/api/dist` por completo: el script reconstruye y la suite pasa **1965/1966**.
 
    `test:coverage` tiene la misma dependencia latente del `dist`, pero hoy solo se invoca desde el script de la raíz, que ya construye antes. Se deja como está para no duplicar builds.
-3. **`scripts/workspace-runner.mjs:42`** usa `spawnSync("pnpm", …)` sin `shell: true`, así que `pnpm typecheck`, `build:packages` y `railway:preflight` **fallan con `ENOENT` en Windows**. En CI (Linux) funciona.
-4. **Scripts con sintaxis Unix** que fallan bajo cmd.exe en Windows: `@semse/knowledge` build (`mkdir -p` / `cp`) y `@semse/api` `test:unit` (`$(find …)`).
-5. **`apps/assistant-portal/package.json` declara `pnpm.overrides`**, que pnpm ignora con un warning — solo tienen efecto en la raíz del workspace. Es código muerto que da una falsa sensación de estar pinneando algo.
+3. **Test de `graphify` con un path no portable — CORREGIDO en este PR.**
+   `graphify.service.test.ts:93` hacía `assert.ok(service.graphPath.endsWith("graphify-out/graph.json"))`, pero el servicio construye la ruta con `resolve(process.cwd(), …)` (`graphify.service.ts:19-21`), que en Windows devuelve separadores `\`. El test solo podía pasar en Linux/macOS.
+
+   **Fix:** comparar contra `join("graphify-out", "graph.json")`, que produce el separador de la plataforma. La aserción conserva su intención (verificar el fallback a la ruta por defecto) y ahora es válida en las tres plataformas.
+
+4. **`scripts/workspace-runner.mjs:42`** usa `spawnSync("pnpm", …)` sin `shell: true`, así que `pnpm typecheck`, `build:packages` y `railway:preflight` **fallan con `ENOENT` en Windows**. En CI (Linux) funciona.
+5. **Scripts con sintaxis Unix** que fallan bajo cmd.exe en Windows: `@semse/knowledge` build (`mkdir -p` / `cp`) y `@semse/api` `test:unit` (`$(find …)`).
+6. **`apps/assistant-portal/package.json` declara `pnpm.overrides`**, que pnpm ignora con un warning — solo tienen efecto en la raíz del workspace. Es código muerto que da una falsa sensación de estar pinneando algo.
 
 ## Discrepancia con el conteo de GitHub
 
