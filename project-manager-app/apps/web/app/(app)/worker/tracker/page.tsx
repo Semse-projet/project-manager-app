@@ -56,6 +56,20 @@ import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
 import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
 
+// Auto-sync retry policy for the offline queue. Every attempt rewrites the
+// local state, and that rewrite is what re-evaluates the auto-sync effect, so a
+// failing attempt must never schedule the next one immediately: that turns a
+// rejected pending event into an unbounded request loop that re-renders the
+// whole tracker on every round trip.
+const AUTO_SYNC_RETRY_BASE_MS = 5_000;
+const AUTO_SYNC_RETRY_MAX_MS = 5 * 60_000;
+const AUTO_SYNC_MAX_ATTEMPTS = 6;
+
+function autoSyncRetryDelay(attempts: number) {
+  const exponent = Math.max(0, attempts - 1);
+  return Math.min(AUTO_SYNC_RETRY_BASE_MS * 2 ** exponent, AUTO_SYNC_RETRY_MAX_MS);
+}
+
 function pad(n: number) {
   return String(Math.floor(n)).padStart(2, "0");
 }
@@ -334,6 +348,8 @@ export default function WorkerTrackerPage() {
   const [trackerLocalState, setTrackerLocalState] = useState<TrackerLocalState>(() => createTrackerLocalState());
   const [isOnline, setIsOnline] = useState(true);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [autoSyncStopped, setAutoSyncStopped] = useState(false);
+  const autoSyncAttemptsRef = useRef(0);
 
   const persistTrackerLocalState = useCallback((nextState: TrackerLocalState) => {
     setTrackerLocalState(nextState);
@@ -475,15 +491,31 @@ export default function WorkerTrackerPage() {
       }
 
       const syncedState = markTrackerSynced(remainingState);
+      autoSyncAttemptsRef.current = 0;
+      setAutoSyncStopped(false);
       persistTrackerLocalState(syncedState);
+      setError(null);
       setSyncNotice("Sincronización completada. Tus horas ya están protegidas en SEMSE.");
       await loadTracker();
     } catch (caught) {
       const failedState = markTrackerSyncFailed(remainingState, caught instanceof Error ? caught.message : "No se pudo sincronizar el tracker.");
+      // A rejection the backend will keep rejecting (4xx that isn't a transient
+      // outage) can't be fixed by retrying, so auto-sync stops and the pending
+      // work waits for "Reintentar ahora" instead of being resent forever.
+      const retryable = shouldPreserveLocalEvent(caught);
+      if (!retryable) setAutoSyncStopped(true);
       persistTrackerLocalState(failedState);
-      setSyncNotice("No pudimos sincronizar ahora. Seguiremos intentando automáticamente.");
+      setSyncNotice(retryable
+        ? "No pudimos sincronizar ahora. Seguiremos intentando automáticamente."
+        : "SEMSE rechazó un cambio pendiente. Tus horas siguen guardadas aquí; revisa el detalle y usa \"Reintentar ahora\".");
     }
   }, [loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
+
+  const retryPendingSyncNow = useCallback(() => {
+    autoSyncAttemptsRef.current = 0;
+    setAutoSyncStopped(false);
+    void syncPendingEvents(readTrackerLocalState(window.localStorage));
+  }, [syncPendingEvents]);
 
   const syncPendingEventsRef = useRef(syncPendingEvents);
 
@@ -512,6 +544,8 @@ export default function WorkerTrackerPage() {
     const handleOnline = () => {
       setIsOnline(true);
       setSyncNotice("Conexión restaurada. Sincronizando cambios pendientes...");
+      autoSyncAttemptsRef.current = 0;
+      setAutoSyncStopped(false);
       void syncPendingEventsRef.current(readTrackerLocalState(window.localStorage));
     };
     const handleOffline = () => {
@@ -529,10 +563,34 @@ export default function WorkerTrackerPage() {
   }, []);
 
   useEffect(() => {
-    if (isOnline && trackerLocalState.pendingEvents.length > 0 && trackerLocalState.syncStatus !== "syncing") {
-      void syncPendingEvents(trackerLocalState);
+    if (!isOnline || trackerLocalState.syncStatus === "syncing") return;
+
+    if (trackerLocalState.pendingEvents.length === 0) {
+      autoSyncAttemptsRef.current = 0;
+      if (autoSyncStopped) setAutoSyncStopped(false);
+      return;
     }
-  }, [isOnline, syncPendingEvents, trackerLocalState]);
+
+    const runSync = () => {
+      autoSyncAttemptsRef.current += 1;
+      void syncPendingEventsRef.current(readTrackerLocalState(window.localStorage));
+    };
+
+    if (trackerLocalState.syncStatus !== "failed") {
+      autoSyncAttemptsRef.current = 0;
+      runSync();
+      return;
+    }
+
+    if (autoSyncStopped) return;
+    if (autoSyncAttemptsRef.current >= AUTO_SYNC_MAX_ATTEMPTS) {
+      setAutoSyncStopped(true);
+      return;
+    }
+
+    const timer = window.setTimeout(runSync, autoSyncRetryDelay(autoSyncAttemptsRef.current));
+    return () => window.clearTimeout(timer);
+  }, [autoSyncStopped, isOnline, trackerLocalState]);
 
   useEffect(() => {
     const run = async () => {
@@ -693,9 +751,11 @@ export default function WorkerTrackerPage() {
       return {
         tone: "danger" as const,
         title: "Sincronización pendiente",
-        message: trackerLocalState.lastError
-          ? `No pudimos sincronizar ahora: ${trackerLocalState.lastError}`
-          : "No pudimos sincronizar ahora. Seguiremos intentando automáticamente.",
+        message: `${trackerLocalState.lastError
+          ? `No pudimos sincronizar ahora: ${trackerLocalState.lastError}.`
+          : "No pudimos sincronizar ahora."} ${autoSyncStopped
+          ? "Tus horas siguen guardadas en este dispositivo; usa \"Reintentar ahora\" cuando quieras volver a intentarlo."
+          : "Seguiremos intentando automáticamente."}`,
       };
     }
     if (pendingEventCount > 0) {
@@ -713,7 +773,7 @@ export default function WorkerTrackerPage() {
       };
     }
     return null;
-  }, [isOnline, pendingEventCount, syncNotice, trackerLocalState.lastError, trackerLocalState.syncStatus]);
+  }, [autoSyncStopped, isOnline, pendingEventCount, syncNotice, trackerLocalState.lastError, trackerLocalState.syncStatus]);
 
   async function refreshAfterMutation() {
     await loadTracker();
@@ -1068,7 +1128,7 @@ export default function WorkerTrackerPage() {
           {isOnline && pendingEventCount > 0 && trackerLocalState.syncStatus !== "syncing" ? (
             <button
               type="button"
-              onClick={() => void syncPendingEvents(readTrackerLocalState(window.localStorage))}
+              onClick={retryPendingSyncNow}
               disabled={saving}
               style={{ ...linkButton(), marginLeft: "auto" }}
             >
