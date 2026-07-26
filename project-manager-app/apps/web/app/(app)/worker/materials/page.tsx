@@ -25,7 +25,7 @@ const STATUS_MAP: Record<MaterialRequest["status"], { variant: "warning" | "succ
   pending:   { variant: "warning", label: "Pendiente" },
   approved:  { variant: "info",    label: "Aprobado"  },
   delivered: { variant: "success", label: "Entregado" },
-  rejected:  { variant: "neutral", label: "Rechazado" },
+  rejected:  { variant: "error",   label: "Rechazado" },
 };
 
 function rawToReq(m: Record<string, unknown>, jobTitleMap: Record<string, string>): MaterialRequest {
@@ -79,16 +79,25 @@ export default function WorkerMaterialsPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function handleSubmit() {
-    if (!formItem.trim() || !formQty || !formJobId || submitting) return;
+    const qtyNum = Number(formQty);
+    const costNum = formCost ? Number(formCost) : undefined;
+    if (!formItem.trim() || !formQty || Number.isNaN(qtyNum) || qtyNum <= 0 || !formJobId || submitting) {
+      setSubmitError("La cantidad debe ser un número mayor a 0.");
+      return;
+    }
+    if (costNum !== undefined && (Number.isNaN(costNum) || costNum < 0)) {
+      setSubmitError("El costo estimado no puede ser negativo.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
       await createMaterialRequest({
         jobId: formJobId,
         item: formItem.trim(),
-        quantity: Number(formQty),
+        quantity: qtyNum,
         unit: formUnit,
-        estimatedCost: formCost ? Number(formCost) : undefined,
+        estimatedCost: costNum,
       });
       setFormItem(""); setFormQty(""); setFormCost("");
       setShowForm(false);
