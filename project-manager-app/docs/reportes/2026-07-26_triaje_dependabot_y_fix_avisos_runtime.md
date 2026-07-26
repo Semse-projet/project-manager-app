@@ -103,6 +103,32 @@ La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.ya
 5. **Scripts con sintaxis Unix** que fallan bajo cmd.exe en Windows: `@semse/knowledge` build (`mkdir -p` / `cp`) y `@semse/api` `test:unit` (`$(find …)`).
 6. **`apps/assistant-portal/package.json` declara `pnpm.overrides`**, que pnpm ignora con un warning — solo tienen efecto en la raíz del workspace. Es código muerto que da una falsa sensación de estar pinneando algo.
 
-## Discrepancia con el conteo de GitHub
+## Cuadre con el conteo de GitHub — RESUELTO
 
-GitHub reporta **12 (6 high / 2 moderate / 4 low)**; `pnpm audit` daba **11 hallazgos en 10 avisos (7 high / 2 moderate / 2 low)**. Los "high" cuadran casi (`fast-uri` cuenta doble por sus dos ramas, `brace-expansion` por sus dos rutas), pero GitHub ve **2 low más**. Dependabot cuenta por alerta y por manifiesto, e incluye ramas que `pnpm audit` resuelve distinto. **El cuadre exacto queda pendiente**: requiere leer las alertas por API, y `gh` no está autenticado en esta máquina.
+GitHub reportaba **12 alertas (6 high / 2 medium / 4 low)** y `pnpm audit` **11 hallazgos en 10 avisos**. Leídas las alertas por API (`gh api repos/…/dependabot/alerts?state=open`), el cuadre es exacto:
+
+**Las 12 alertas son 10 avisos únicos + 2 duplicados**, y los duplicados salen de un **segundo lockfile**: `project-manager-app/apps/assistant-portal/pnpm-lock.yaml`. Las alertas **#54 (`body-parser`)** y **#55 (`dompurify`)** son literalmente las mismas que **#65** y **#67** del lockfile raíz, contadas otra vez porque Dependabot escanea cada manifiesto por separado.
+
+Las 6 alertas high, y qué hace este PR con cada una:
+
+| Alerta | Paquete | Estado tras este PR |
+|---|---|---|
+| #70 | `fast-uri` (rama 4.x) | ✅ Cerrada → `4.1.1` |
+| #69 | `fast-uri` (rama 3.x) | ✅ Cerrada → `3.1.4` |
+| #81 | `find-my-way` | ✅ Cerrada → `9.7.0` |
+| #64 | `js-yaml` | ✅ Cerrada → `4.3.0` |
+| #68 | `sharp` | ✅ Cerrada → `0.35.3` |
+| #85 | `brace-expansion` | ⬜ Se deja a propósito (ver arriba) |
+
+**De 12 alertas quedan 7**: #85 (`brace-expansion`, high), #82 (`tar`) y #66 (`@hono/node-server`) en medium, y las 4 low (`dompurify` y `body-parser`, duplicadas en los dos lockfiles). **Ninguna toca un servicio desplegado.**
+
+### Hallazgo derivado: lockfile anidado en `apps/assistant-portal`
+
+`apps/assistant-portal` **está dentro del workspace** (`pnpm-workspace.yaml` incluye `apps/*`), pero tiene su propio `pnpm-lock.yaml` (312 KB, del 2026-07-18 — 8 días más viejo que el de la raíz). En un workspace pnpm, los paquetes miembro no deben tener lockfile propio: manda el de la raíz.
+
+Consecuencias reales:
+- pnpm **ignora** ese lockfile al instalar desde la raíz, así que está muerto y se pudre.
+- Dependabot **sí** lo escanea como manifiesto independiente → duplica alertas de forma permanente (las 4 low de arriba son en realidad 2).
+- Explica el `pnpm.overrides` huérfano del `package.json` de esa app (hallazgo colateral 6): esa app parece haberse creado como proyecto suelto y luego absorbido en el workspace sin limpiar.
+
+**Sugerencia:** borrar `apps/assistant-portal/pnpm-lock.yaml` y el bloque `pnpm.overrides` de su `package.json`. Eliminaría 2 alertas duplicadas y una fuente estable de ruido. No se hace en este PR por mantener el alcance; la app no se despliega, así que no corre prisa.
