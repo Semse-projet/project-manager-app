@@ -2,7 +2,7 @@
 id: "governance.audit-remediation-program"
 title: "Programa de remediación de auditoría — routing SDD integral"
 domain: "governance"
-version: "1.3"
+version: "1.4"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -38,7 +38,7 @@ last_verified: "2026-07-25"
 
 Este documento es el mapa canónico entre los **157 ítems originales** y los
 IDs de seguimiento que se agreguen a `docs/AUDIT_REMEDIATION_PLAN.md` durante
-la remediación. El inventario routable actual contiene **160 IDs**. Evita dos
+la remediación. El inventario routable actual contiene **161 IDs**. Evita dos
 fallos de gobernanza:
 
 1. implementar un hallazgo sin spec;
@@ -113,10 +113,11 @@ superficie; la siguiente tabla identifica el bounded context primario.
 | `2.1e`, `2.41` | `api-agents-runtime`, `api-prometeo-copilot` | EXECUTABLE |
 | `2.1f`, `2.18`, `2.21`, `2.22`, `2.45` | `api-evidence-upload-review` | EXECUTABLE |
 | `2.19`, `2.20`, `2.24`, `2.25`, `2.32`, `2.33` | `api-field-ops`, `tasks.task-unification-fase1` | EXECUTABLE |
+| `2.49` | `api-field-ops` | CLOSED / regresión |
 | `2.1c`, `2.39`, `2.42`, `2.43`, `2.46`, `2.48` | `api-payments-escrow`, `api-dispute-lifecycle` | EXECUTABLE |
 | `2.6`, `2.7`, `2.17`, `2.23`, `2.37` | `ui.pro-flows-remediation` | EXECUTABLE |
 
-Cobertura: **53/53**.
+Cobertura: **54/54**.
 
 ## 6. Routing canónico — Sección 3 Admin
 
@@ -150,8 +151,8 @@ Cobertura: **47/47** (45 originales + 2 seguimientos).
 
 ## 8. Gates
 
-- Cobertura del inventario actual: 160/160.
-- `pnpm spec:audit-plan-coverage`: 160 mapeados, 0 faltantes, 0 extras.
+- Cobertura del inventario actual: 161/161.
+- `pnpm spec:audit-plan-coverage`: 161 mapeados, 0 faltantes, 0 extras.
 - `node scripts/spec-validate.mjs --strict`: 0 errores/0 warnings.
 - `node scripts/spec-index.mjs`: índice regenerado.
 - Ninguna spec `DRAFT` o `REVIEW` autoriza implementación.

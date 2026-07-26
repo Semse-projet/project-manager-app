@@ -57,7 +57,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [api-contract-lifecycle](specs/api/contracts.spec.md) | contracts | VERIFIED | high | yes | no | yes | 2 | 2026-06-09 |
 | [api-dispute-lifecycle](specs/api/disputes.spec.md) | disputes | VERIFIED | critical | yes | no | yes | 3 | 2026-07-23 |
 | [api-evidence-upload-review](specs/api/evidence.spec.md) | evidence | VERIFIED | critical | yes | yes | yes | 5 | 2026-07-25 |
-| [api-field-ops](specs/api/field-ops.spec.md) | field-ops | VERIFIED | high | yes | no | yes | 2 | 2026-06-07 |
+| [api-field-ops](specs/api/field-ops.spec.md) | field-ops | IMPLEMENTED | high | yes | no | yes | 2 | 2026-07-25 |
 | [api.governance-tenant-boundary](specs/api/governance-tenant-boundary.spec.md) | governance | VERIFIED | critical | yes | yes | yes | 4 | 2026-07-25 |
 | [api-smart-intake](specs/api/intake.spec.md) | smart-intake | VERIFIED | medium | yes | yes | yes | 3 | 2026-06-09 |
 | [api-job-lifecycle-bids](specs/api/jobs.spec.md) | jobs | VERIFIED | high | yes | no | yes | 3 | 2026-07-23 |
