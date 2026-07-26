@@ -49,10 +49,13 @@ Los scripts `pnpm typecheck` y `pnpm --filter @semse/api test:unit` **no corren 
 | `tsc --noEmit -p apps/web/tsconfig.json` | ✅ Sin errores |
 | `check:worker` (`node --check src/main.mjs`) | ✅ |
 | Tests unitarios raíz | ✅ 952 tests, **947 pass / 0 fail**, 5 skipped |
-| Tests unitarios de la API | 1966 tests, **1961 pass / 5 fail** |
+| Tests unitarios de la API (con el `dist` obsoleto del inicio) | 1966 tests, **1961 pass / 5 fail** |
 | **Misma suite sobre las dependencias de `main`** | **1966 / 1961 pass / 5 fail — los mismos 5** ⇒ cero regresiones atribuibles a este cambio |
+| Tests unitarios de la API (tras el fix de `test:unit`, desde `dist` borrado) | 1966 tests, **1965 pass / 1 fail** |
 
-La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.yaml` con `git stash`, reinstalando con `--frozen-lockfile` y corriendo la suite completa otra vez, para comparar en igualdad de condiciones.
+La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.yaml` con `git stash`, reinstalando con `--frozen-lockfile` y corriendo la suite completa otra vez, para comparar en igualdad de condiciones. Los 5 fallos idénticos en ambos lados confirmaban que el cambio de dependencias no introducía regresiones; después se identificó que 4 de esos 5 eran artefactos de un `dist` sin recompilar (ver hallazgo colateral 2), que afectaban por igual a las dos corridas.
+
+**El único fallo que queda es `graphify: graphPath falls back to default graphify-out/graph.json`**, y es un bug del test exclusivo de Windows: `assert.ok(service.graphPath.endsWith("graphify-out/graph.json"))` compara con separador `/` mientras que en Windows el path se construye con `\`. En CI (Linux) pasa. No se toca aquí.
 
 ## Hallazgos colaterales (no corregidos aquí, valen su propio ticket)
 
@@ -65,7 +68,14 @@ La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.ya
    - **Parece incompatible, pero funciona.** El rango de peer que se queda corto es solo el de `@nestjs/platform-fastify@11.1.28` (`^8.0.0 || ^9.0.0`); `@nestjs/swagger@11.4.6` ya declara `^8.0.0 || ^9.0.0 || ^10.0.0`. `useStaticAssets` se limita a registrar el plugin, y la v10 es compatible para ese uso. **Verificado en producción con la 10.1.2 desplegada: `GET /v1/docs` → 200 y `GET /v1/docs-json` → 200.**
 
    **Acción recomendada: ninguna.** Esperar a que `@nestjs/platform-fastify` amplíe su rango de peer. Si el warning molesta en CI, la salida limpia es `pnpm.peerDependencyRules.allowedVersions`, nunca borrar el paquete.
-2. **Los 4 tests de `changePassword` fallan solo en la suite completa y pasan en aislamiento** — bug de aislamiento/estado compartido entre tests, introducido por **#430** (`feat(account): add shared account center and password change`). No es un bug de producto, pero deja la suite en rojo permanente.
+2. **`apps/api` `test:unit` no construía antes de correr, y los tests importan del `dist` compilado — CORREGIDO en este PR.**
+   Los 4 tests de `changePassword` fallaban con `TypeError: service.changePassword is not a function`. La causa no era el test ni el código de #430: **122 de los 208 archivos de test de la API importan de `../dist/`**, pero `test:unit` solo hacía `node --test …`, sin compilar. Con un `dist` anterior al merge de #430, `AuthService` compilado no tenía todavía el método.
+
+   Es un footgun con nombre y apellido: **`CLAUDE.md:22` documenta `pnpm --filter @semse/api test:unit` como *la* forma de correr los tests de la API**, y ese comando daba falsos negativos contra cualquier `dist` desactualizado. En CI no se notaba por pura suerte de orden: `verify:workspace` corre `railway:preflight` (que construye) antes, y el `test:coverage` de la raíz hace `pnpm build:api` primero.
+
+   **Fix:** `test:unit` de `apps/api` ahora es `pnpm build && node --experimental-strip-types --test …`, el mismo patrón que ya usa el `test:unit` de la raíz (`pnpm build:packages && …`). Verificado borrando `apps/api/dist` por completo: el script reconstruye y la suite pasa **1965/1966**.
+
+   `test:coverage` tiene la misma dependencia latente del `dist`, pero hoy solo se invoca desde el script de la raíz, que ya construye antes. Se deja como está para no duplicar builds.
 3. **`scripts/workspace-runner.mjs:42`** usa `spawnSync("pnpm", …)` sin `shell: true`, así que `pnpm typecheck`, `build:packages` y `railway:preflight` **fallan con `ENOENT` en Windows**. En CI (Linux) funciona.
 4. **Scripts con sintaxis Unix** que fallan bajo cmd.exe en Windows: `@semse/knowledge` build (`mkdir -p` / `cp`) y `@semse/api` `test:unit` (`$(find …)`).
 5. **`apps/assistant-portal/package.json` declara `pnpm.overrides`**, que pnpm ignora con un warning — solo tienen efecto en la raíz del workspace. Es código muerto que da una falsa sensación de estar pinneando algo.
