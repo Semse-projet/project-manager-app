@@ -2,7 +2,7 @@
 id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
-version: "1.4"
+version: "1.5"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -15,6 +15,8 @@ related_files:
   - apps/web/app/(app)/admin/dashboard/page.tsx
   - apps/web/app/(app)/admin/labor-engine/page.tsx
   - apps/web/app/(app)/admin/disputes/page.tsx
+  - apps/web/app/(app)/admin/compliance/page.tsx
+  - apps/web/lib/admin/compliance-checks.ts
   - apps/web/lib/navigation-registry.ts
   - apps/web/lib/admin/admin-navigation.ts
   - apps/web/middleware.ts
@@ -36,6 +38,7 @@ related_tests:
   - tests/unit/auth.test.ts
   - tests/unit/governance-tenant-boundary.test.ts
   - tests/unit/internal-architecture-boundary.test.ts
+  - tests/unit/admin-compliance-checks.test.ts
 related_endpoints:
   - v1/uploads/plan
   - v1/anatomy
@@ -131,6 +134,20 @@ comparten un row lock transaccional antes de insertar o contar; el duplicate
 vote responde 409. RBAC usa permisos dedicados por acción y reserva
 `governance:close` para OPS_ADMIN.
 
+### G-ADM-10 — ALTO — Compliance declaraba verde ante fuentes caídas
+
+`/admin/compliance` convertía cada error de jobs, disputas, organizaciones,
+reseñas o viajes en `[]`. Los conteos cero resultantes producían “Cumple” y una
+tasa general válida sin datos. La identidad cubría solo cinco organizaciones y
+dos obligaciones manuales se presentaban con fechas hardcodeadas sin una fuente
+regulatoria/fiscal.
+
+**Cierre local v1.5 (plan 3.45):** cada fuente conserva disponibilidad; sus
+fallos producen `pending`, copy “No se asume cumplimiento”, un banner de
+incompletitud y tasa no verificable. Se consultan todas las organizaciones y
+cualquier fallo parcial de membresía bloquea el verde. Los dos controles sin
+integración se etiquetan como revisión manual y no inventan fechas.
+
 ## UI Contract (pendiente de confirmar visualmente — hipótesis por código)
 
 ```yaml
@@ -146,9 +163,10 @@ states:
   - ready
   - error
 required_behavior:
-  - Ninguna resolución de disputa ejecuta sin confirmación explícita (bloqueado hoy por G-ADM-02)
-  - Todo módulo "COMPLETE" según CLAUDE.md debe ser alcanzable desde el sidebar de Admin (bloqueado hoy por G-ADM-01)
+  - Ninguna resolución de disputa ejecuta sin confirmación explícita
+  - Todo módulo "COMPLETE" según CLAUDE.md debe ser alcanzable desde el sidebar de Admin
   - Governance nunca permite elegir tenant o actor desde body/query y un ID foráneo responde como no encontrado
+  - Un fallo de fuente en Compliance nunca se presenta como control cumplido ni produce una tasa verde
 ```
 
 ## Security / RBAC
@@ -173,6 +191,7 @@ required_behavior:
 - [x] `/admin/settings` persiste los ajustes en `TenantSettings` (`GET/PUT /v1/admin/settings` + BFF `/api/semse/admin/settings`) y muestra honestamente el estado de guardado/errores; los toggles de MFA/session log/integraciones incluyen texto que aclara que el enforcement real depende de configuración del servidor
 - [x] `POST /v1/prometeo/ingest`, `/ingest-file` y `DELETE /v1/prometeo/documents/:id` requieren `knowledge:manage` (OPS_ADMIN-only); lecturas RAG (search, rag-query, etc.) siguen disponibles con `agents:run:create`
 - [x] `GET /v1/agents/delegations`, `/delegations/:id` y `/coordinator/snapshot` requieren `ops:coordinator:read` (OPS_ADMIN-only) en vez de `agents:run:create` compartido
+- [x] `/admin/compliance` distingue fuente vacía de fuente caída, falla cerrado a `pending`, consulta todas las organizaciones y etiqueta controles manuales sin fechas inventadas
 
 ## Implementation Map
 
@@ -183,6 +202,8 @@ required_behavior:
 - `apps/web/app/api/semse/{anatomy,knowledge,repo-knowledge,runtime-knowledge}`
 - `apps/web/app/api/semse/_server.ts`
 - `apps/web/app/(app)/admin/disputes/page.tsx`
+- `apps/web/app/(app)/admin/compliance/page.tsx`
+- `apps/web/lib/admin/compliance-checks.ts`
 - `apps/web/app/api/semse/governance`
 
 ### API
@@ -196,6 +217,7 @@ required_behavior:
 
 - [ ] **Bloqueante para `VERIFIED`:** conseguir credencial OPS_ADMIN y repetir la navegación completa.
 - [x] La ronda estática dedicada a `apps/web/app/(app)/admin/**` quedó documentada en la sección 3 del plan.
+- [x] El seguimiento 3.45 impide estados falsamente verdes en Compliance con regresión unitaria.
 - [x] `node scripts/spec-validate.mjs --strict` pasa.
 - [x] Este spec y `docs/specs/ui/admin-flows.spec.md` permanecen referenciados; el anterior no se elimina hasta completar verificación en vivo.
 
