@@ -293,7 +293,7 @@
 - **1.5 ALTO** — El rol "Cliente" mezcla dos personas (dueño que contrata vs. contratista con CRM propio) — `/client/leads`, `/client/bids` (copy de "aplica a trabajos"), `/client/marketplace` (cliente ve su propio job con botón "Aplicar"). [ ] Pendiente — **decisión de producto, no solo código**
 - **1.6 ALTO** — `/dashboard` (ruta huérfana) carga con todo en cero y expone un banner de migración interna ("Mission Control") a cualquier cliente. [ ] Pendiente
 - **1.7 MEDIO** — `/field-ops` (tercera implementación huérfana) carga sin nav, callejón sin salida. [ ] Pendiente
-- **1.8 MEDIO** — Error de hidratación de React (`#418`) en `/client/milestones`, zona vacía sin estado vacío real. [ ] Pendiente
+- **1.8 MEDIO** — Error de hidratación de React (`#418`) en `/client/milestones`, zona vacía sin estado vacío real. [x] Corregido — se agregó un estado vacío explícito en `/client/milestones/page.tsx` que se muestra cuando no hay trabajos activos con hitos, evitando el panel `HtmlInCanvasPanel` vacío de 380 px. Incluye mensaje orientador y link a "Ver mis trabajos". Pendiente verificación en vivo.
 
 ### Interacción / usabilidad (confirmado en vivo)
 - **1.9 MEDIO** — Tema claro/oscuro no sobrevive un refresh/URL directa (solo persiste en navegación SPA). [x] Corregido — `AppLayoutInner` ahora sincroniza el tema con `localStorage` mediante `useEffect` (lee al montar y persiste en cada cambio) y aplica `data-theme` al `documentElement`, de modo que el modo claro/oscuro se restaura tras refresh o acceso directo a una URL. La selección del `Topbar` refleja el valor persistido. Pendiente verificación en vivo.
