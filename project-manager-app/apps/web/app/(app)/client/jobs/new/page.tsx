@@ -170,6 +170,8 @@ export default function NewJobPage() {
   };
 
   const isInitialDraftSave = useRef(true);
+  const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPublishedRef = useRef(false);
 
   useEffect(() => {
     const hasPrefillParams = Array.from(searchParams?.keys() ?? []).some((key) => key !== "source");
@@ -200,7 +202,13 @@ export default function NewJobPage() {
       isInitialDraftSave.current = false;
       return;
     }
+    if (hasPublishedRef.current) return;
+
+    if (draftSaveTimeoutRef.current) {
+      clearTimeout(draftSaveTimeoutRef.current);
+    }
     const timeout = setTimeout(() => {
+      if (hasPublishedRef.current) return;
       saveJobWizardDraft({
         step,
         categoryId,
@@ -217,7 +225,13 @@ export default function NewJobPage() {
         savedAt: new Date().toISOString(),
       });
     }, 500);
-    return () => clearTimeout(timeout);
+    draftSaveTimeoutRef.current = timeout;
+    return () => {
+      clearTimeout(timeout);
+      if (draftSaveTimeoutRef.current === timeout) {
+        draftSaveTimeoutRef.current = null;
+      }
+    };
   }, [step, categoryId, subcategoryId, title, description, locationType, city, budgetType, budgetMin, budgetMax, urgency, deadline]);
 
   useEffect(() => {
@@ -356,6 +370,11 @@ export default function NewJobPage() {
         setSubmitError(data.error?.message ?? `Error ${res.status}`);
         setSubmitting(false);
         return;
+      }
+      hasPublishedRef.current = true;
+      if (draftSaveTimeoutRef.current) {
+        clearTimeout(draftSaveTimeoutRef.current);
+        draftSaveTimeoutRef.current = null;
       }
       clearPersistedIntakeId();
       clearJobWizardDraft();
