@@ -2,7 +2,7 @@
 id: "api.worker-verification-remediation"
 title: "Verificación de profesionales y cola de solicitudes"
 domain: "trust"
-version: "1.0"
+version: "1.1"
 status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
@@ -19,11 +19,12 @@ related_files:
 related_tests:
   - apps/api/test/worker-verification.controller.test.ts
   - apps/api/test/worker-application.service.test.ts
+  - tests/unit/worker-profile-verification-mitigation.test.ts
 related_endpoints:
   - v1/workers
 related_events: []
 related_agents: []
-last_verified: "2026-07-23"
+last_verified: "2026-07-25"
 ---
 
 # Spec: Verificación de profesionales y cola de solicitudes
@@ -47,6 +48,21 @@ owner (proveedor KYC/DID, evidencias aceptadas y retención).
 - La UI del profesional no llama al endpoint administrativo `users:verify`.
 - Ningún estado `VERIFIED` se concede mientras el mecanismo configurado esté en
   modo sintético o stub.
+
+## 2.1 Mitigación activa v1.1
+
+Mientras no exista el contrato aprobado de solicitud:
+
+- `/worker/profile` no llama `POST /v1/users/:userId/verify`;
+- no presenta "Solicitud enviada" ni un botón que inevitablemente devuelve 403;
+- identidad, antecedentes y teléfono se muestran como próximos pasos no
+  disponibles, con copy que desaconseja enviar documentos por canales alternos;
+- el endpoint existente conserva `users:verify` y la policy OPS_ADMIN;
+- no se concede a PRO el permiso administrativo ni se crea un registro
+  sintético.
+
+Esto cierra la capacidad engañosa y mantiene deny-by-default, pero no implementa
+la cola KYC/DID final.
 
 ## 3. FSM propuesta
 
@@ -94,12 +110,13 @@ REJECTED -> PENDING_REVIEW
 
 ## 6. Tests requeridos
 
-- PRO puede solicitar revisión de su propio perfil sin 403.
-- PRO no puede aprobar/verificar usuarios.
-- OPS_ADMIN no ve solicitudes de otro tenant.
-- El stub nunca produce `VERIFIED`.
-- Aprobar exige evidencia real y deja audit.
-- Stats cuentan solo profesionales del tenant.
+- [x] La UI PRO no llama al endpoint administrativo ni ofrece una solicitud falsa.
+- [ ] PRO puede solicitar revisión de su propio perfil mediante el futuro contrato sin 403.
+- [ ] PRO no puede aprobar/verificar usuarios.
+- [ ] OPS_ADMIN no ve solicitudes de otro tenant.
+- [x] El stub nunca produce `VERIFIED`.
+- [ ] Aprobar exige evidencia real y deja audit.
+- [x] Stats cuentan solo profesionales del tenant.
 
 ## 7. Gate de aprobación
 

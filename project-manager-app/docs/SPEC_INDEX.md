@@ -75,7 +75,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [auth.session-revocation-architecture](specs/api/session-revocation-architecture.spec.md) | auth | REVIEW | critical | yes | no | yes | 3 | 2026-07-23 |
 | [api.travel-assignments-settlement](specs/api/travel.spec.md) | travel | APPROVED | high | yes | yes | yes | 5 | 2026-07-25 |
 | [api.vision-service-security](specs/api/vision-service-security.spec.md) | evidence | VERIFIED | critical | yes | no | yes | 7 | 2026-07-23 |
-| [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | critical | yes | yes | yes | 6 | 2026-07-23 |
+| [api.worker-verification-remediation](specs/api/worker-verification-remediation.spec.md) | trust | REVIEW | critical | yes | yes | yes | 6 | 2026-07-25 |
 | [aut-001-permanent-loops](specs/autonomy/permanent-loops.spec.md) | autonomy | IMPLEMENTED | medium | no | no | yes | 6 | 2026-07-04 |
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | medium | yes | no | no | 6 | 2026-07-19 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | medium | yes | no | no | 3 | 2026-07-19 |

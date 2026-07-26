@@ -2,7 +2,7 @@
 id: "ui.pro-flows-remediation"
 title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-version: "1.8"
+version: "1.9"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -80,6 +80,7 @@ related_tests:
   - tests/unit/worker-money-trust-ui.test.ts
   - tests/unit/dispute-evidence-package.test.ts
   - tests/unit/payout-method-security.test.ts
+  - tests/unit/worker-profile-verification-mitigation.test.ts
 related_endpoints:
   - v1/time-tracker
   - v1/field-ops
@@ -116,10 +117,11 @@ last_verified: "2026-07-25"
 
 > **Límite de aprobación v1.1.** Este spec autoriza los fixes correctivos
 > enrutados como `EXECUTABLE` por `governance.audit-remediation-program`.
-> Excluye `2.1` y `2.40` (decisión de producto), `2.28` (verificación en
-> `REVIEW`) y la arquitectura final de `2.44` (tokenización en `REVIEW`). Cada
-> uno conserva su spec bloqueante; para 2.44 solo se autoriza la mitigación
-> deny-by-default que retira la captura sensible existente.
+> Excluye `2.1` y `2.40` (decisión de producto), la arquitectura final de
+> `2.28` (verificación en `REVIEW`) y la arquitectura final de `2.44`
+> (tokenización en `REVIEW`). Cada uno conserva su spec bloqueante; para 2.28 y
+> 2.44 solo se autorizan mitigaciones deny-by-default que retiren capacidades
+> engañosas o captura sensible existente.
 
 ## Problem Statement
 
@@ -255,6 +257,13 @@ privado. Falta revalidación con cuentas reales.
 ### G-PRO-09 — CRÍTICO — Los botones "Verificar" del perfil siempre fallan con 403 para cualquier PRO
 `/worker/profile` → "Solicitar" (Documento de identidad / Antecedentes / Teléfono) llama `POST /v1/users/:userId/verify`, gateado por `@RequirePermissions("users:verify")` (`users.controller.ts:96-98`) — permiso exclusivo de `OPS_ADMIN` (`rbac.ts:165`), ausente en `PRO`. `users.policy.ts:16-18` (`canVerifyUser`) refuerza el mismo requisito. Distinto de G-PRO-04 (el stub DID) — aquí la petición muere en el guard RBAC antes de llegar a esa lógica. El botón de "solicitar verificación" está conectado por error a un endpoint exclusivo de administración. Fix: crear un endpoint/flujo de solicitud accesible para PRO que solo notifique/encole la verificación para revisión de OPS_ADMIN, en vez de intentar ejecutar la verificación admin directamente. Detalle: plan → 2.28.
 
+**Mitigación v1.9 (2.28):** el perfil ya no llama el endpoint administrativo ni
+presenta botones/estados de solicitud ficticios. Explica que el proceso seguro
+aún no existe, marca los tres pasos como próximos y desaconseja enviar
+documentos por canales alternos. `users:verify` y `canVerifyUser` permanecen
+OPS-only. La cola/proveedor/evidencia final sigue en
+`api.worker-verification-remediation` (`REVIEW`).
+
 ### G-PRO-10 — CRÍTICO — El módulo de Movilidad (viajes) es completamente inalcanzable para cualquier PRO real
 Todos los endpoints de escritura de `/v1/travel` (crear viaje, cambiar estado, gastos, hospedaje, anticipos, cerrar liquidación — `travel.controller.ts`) exigen `jobs:create`, permiso que ni `PRO` ni `WORKER` tienen en `packages/auth/src/rbac.ts` (solo `CLIENT`/`OPS_ADMIN`). El botón "+ Nuevo viaje" responde 403 siempre — ningún profesional puede crear un viaje, no solo "subir un comprobante" (eso es un problema aparte, ver G-PRO-06/0.34, que además resultó estar roto en ambas rutas de subida). El propio test del backend (`travel.controller.test.ts`) usa `roles: ["PRO"]` pero llama al controller directo sin pasar por `RbacGuard`, por lo que nunca detectó este mismatch. Fix: agregar `jobs:create` a `PRO`/`WORKER`, o (más correcto) introducir un permiso propio para "gestionar mis propios viajes" que no dependa del permiso de creación de jobs. Detalle: plan → 2.31.
 
@@ -348,6 +357,7 @@ required_behavior:
   - Un `trustScore` cold-start de cero debe presentarse como falta de historial, no como evaluación negativa
   - El paquete de disputa debe usar un archivo real y solo confirmar éxito después de transferir sus bytes
   - Ningún formulario propio debe solicitar PAN, cuenta bancaria o routing completos
+  - El perfil PRO no debe llamar el endpoint administrativo de verificación ni prometer una solicitud inexistente
 ```
 
 ## Security / RBAC
@@ -388,7 +398,8 @@ sí queda aplicada su mitigación deny-by-default.
 - [ ] Un PRO puede enviar una reseña de cliente desde `/worker/review` y el registro se crea (regresión directa de G-PRO-07)
 - [ ] `/worker/dashboard` muestra oportunidades reales cuando existen jobs `posted` en el tenant (regresión directa de G-PRO-08)
 - [ ] La llamada que alimenta `/worker/dashboard` no devuelve jobs `DRAFT` de organizaciones distintas a las del profesional (regresión directa de G-PRO-08)
-- [ ] Un PRO puede completar el flujo de "Solicitar verificación" en `/worker/profile` sin recibir 403 (regresión directa de G-PRO-09)
+- [x] `/worker/profile` no llama al endpoint OPS-only ni presenta una solicitud ficticia mientras 2.28 sigue en REVIEW.
+- [ ] Un PRO puede completar el futuro flujo aprobado de solicitud de verificación sin recibir 403 (feature final G-PRO-09).
 - [ ] Un PRO puede crear un viaje en `/worker/travel` sin recibir 403 (regresión directa de G-PRO-10)
 - [ ] Un pago con `status: FAILED` o `REVERSED` no se muestra como "Liberado"/"En escrow" en `/worker/payments` (regresión directa de G-PRO-12)
 - [ ] Guardar una tarifa en `/worker/rates` tiene un efecto verificable en al menos un estimado real, o la pantalla deja de prometerlo (regresión directa de G-PRO-13)
@@ -421,7 +432,7 @@ código.
 - `apps/web/app/(app)/worker/travel/[travelId]/page.tsx` (G-PRO-06 — comprobantes usan el mismo PUT real)
 - `apps/web/app/(app)/worker/review/page.tsx` (G-PRO-07 — identidad del cliente propagada sin casts)
 - `apps/web/app/(app)/worker/dashboard/page.tsx` (G-PRO-08 — consume status normalizado y listado server-scoped)
-- `apps/web/app/(app)/worker/profile/page.tsx:134-153` (G-PRO-09)
+- `apps/web/app/(app)/worker/profile/page.tsx` (G-PRO-09/2.28 — mitigación honesta, sin llamada OPS)
 - `apps/web/app/(app)/worker/payments/page.tsx:58-61` (G-PRO-12)
 - `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
 - `apps/web/app/(app)/worker/materials/page.tsx` y `apps/web/lib/material-request-ui.ts` (2.24/2.25 — validación positiva y estado de rechazo)
@@ -437,7 +448,7 @@ código.
 - `apps/api/src/modules/worker-verification/worker-verification.repository.ts`
 - `packages/auth/src/rbac.ts` (G-PRO-05/G-PRO-10 — `agents:run:create` y `travel:manage` ya están alineados para PRO/WORKER)
 - `apps/web/lib/language-context.tsx` (G-PRO-05 — traducción alineada a "Configuración del asistente")
-- `apps/api/src/modules/users/users.controller.ts:96-98` (G-PRO-09 — endpoint de verificación necesita una vía accesible a PRO)
+- `apps/api/src/modules/users/users.controller.ts` y `users.policy.ts` (G-PRO-09 — frontera administrativa preservada; vía PRO pendiente)
 - `apps/api/src/modules/jobs/jobs.repository.ts` (G-PRO-08 — visibilidad común de listado/detalle por rol)
 - `apps/api/src/modules/field-ops/field-ops.repository.ts` (G-PRO-11 — mutación acotada por tenant)
 - `apps/api/src/modules/incidents/incidents.service.ts` y `apps/api/src/modules/materials/materials.service.ts` (2.19 — policy por participación en job)
@@ -458,6 +469,7 @@ código.
 - [x] v1.6 cierra en código 2.1c/2.1d y mantiene explícita la verificación live pendiente.
 - [x] v1.7 cierra en código 2.45 con archivo y bytes reales; la comprobación del objeto en storage sigue live-pending.
 - [x] v1.8 mitiga 2.44 retirando captura financiera propia sin inferir el riel tokenizado final.
+- [x] v1.9 mitiga 2.28 retirando la solicitud falsa sin inferir proveedor, evidencia ni cola KYC.
 
 ## Rollback Considerations
 

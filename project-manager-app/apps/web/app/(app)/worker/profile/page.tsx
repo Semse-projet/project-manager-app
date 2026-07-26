@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BadgeCheck, Building2, Check, CheckCircle2, Mail, MapPin, Phone, Scale, Shield, Star, User, X } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Building2, Check, Mail, MapPin, Phone, Scale, Shield, Star, User, X } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchCurrentUser,
@@ -59,9 +59,6 @@ export default function WorkerProfilePage() {
   const [memberships, setMemberships] = useState<UserMembershipView[]>([]);
   const [ratings, setRatings] = useState<RatingListItem[]>([]);
   const [openDisputes, setOpenDisputes] = useState(0);
-  const [verifyBusy, setVerifyBusy] = useState(false);
-  const [verifyDone, setVerifyDone] = useState<string | null>(null);
-  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [editing, setEditing] = useState(false);
@@ -131,27 +128,6 @@ export default function WorkerProfilePage() {
   function cancelEditing() {
     setSaveError(null);
     setEditing(false);
-  }
-
-  async function requestVerification(type: string) {
-    if (!currentUser) return;
-    setVerifyBusy(true);
-    setVerifyError(null);
-    setVerifyDone(null);
-    try {
-      const res = await fetch(`/api/semse/users/${currentUser.id}/verify`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ verificationType: type }),
-      });
-      const json = await res.json() as { data?: unknown; error?: { message?: string } };
-      if (!res.ok) throw new Error(typeof json.error?.message === "string" ? json.error.message : "Error al solicitar verificación");
-      setVerifyDone(type);
-    } catch (e) {
-      setVerifyError(e instanceof Error ? e.message : "Error desconocido");
-    } finally {
-      setVerifyBusy(false);
-    }
   }
 
   async function saveProfile() {
@@ -419,12 +395,13 @@ export default function WorkerProfilePage() {
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
               <BadgeCheck size={17} color="#f59e0b" />
               <div>
-                <h3 style={{ fontSize: "13px", fontWeight: 800, color: "#f59e0b", margin: 0 }}>Verificar tu perfil</h3>
-                <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Los profesionales verificados reciben 3× más propuestas.</p>
+                <h3 style={{ fontSize: "13px", fontWeight: 800, color: "#f59e0b", margin: 0 }}>Verificación en preparación</h3>
+                <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Todavía no existe un proceso seguro de solicitud para profesionales.</p>
               </div>
             </div>
-            {verifyError && <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "10px" }}>{verifyError}</p>}
-            {verifyDone && <p style={{ fontSize: "12px", color: "#10b981", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}><CheckCircle2 size={13} />Solicitud enviada. El equipo revisará tu {verifyDone === "id_document" ? "documento de identidad" : verifyDone === "background_check" ? "antecedentes" : verifyDone}.</p>}
+            <p role="note" style={{ margin: "0 0 12px", padding: "10px 12px", borderRadius: "9px", background: "rgba(245,158,11,.08)", color: "var(--muted)", fontSize: "11px", lineHeight: 1.55 }}>
+              SEMSE no enviará tus datos al endpoint administrativo ni marcará tu perfil como verificado sin una cola, evidencia y proveedor de identidad aprobados. No subas documentos por canales alternos.
+            </p>
             <div style={{ display: "grid", gap: "8px" }}>
               {([
                 { type: "id_document",      label: "Documento de identidad",    desc: "Pasaporte, licencia de conducir o cédula" },
@@ -436,14 +413,9 @@ export default function WorkerProfilePage() {
                     <p style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)", margin: 0 }}>{item.label}</p>
                     <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>{item.desc}</p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={verifyBusy || verifyDone === item.type}
-                    onClick={() => void requestVerification(item.type)}
-                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "#10b981" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
-                  >
-                    {verifyDone === item.type ? "✓ Enviado" : "Solicitar"}
-                  </button>
+                  <span style={{ padding: "6px 10px", borderRadius: "999px", border: "1px solid rgba(245,158,11,.3)", background: "rgba(245,158,11,.08)", color: "#f59e0b", fontSize: "10px", fontWeight: 800, whiteSpace: "nowrap" }}>
+                    Próximamente
+                  </span>
                 </div>
               ))}
             </div>
