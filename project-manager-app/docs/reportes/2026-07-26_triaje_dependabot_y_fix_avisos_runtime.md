@@ -20,21 +20,33 @@ Solo se despliegan **4 apps**: `apps/api`, `apps/web`, `apps/worker` (Railway) y
 | `fast-uri` | `3.1.3` → `3.1.4` | `apps/angular` › `@angular/build` › `ajv` | Mismo CVE en la rama 3.x. La app no se despliega, pero el fix es patch y dejar la mitad de un CVE abierto no aporta nada |
 | `find-my-way` | `9.6.0` → `9.7.0` | `apps/api` › `@nestjs/platform-fastify` | Router de la API, CVSS 7.5. **Mitigante: el aviso es DDoS vía HTTP/2 y HTTP/2 no está habilitado** — `new FastifyAdapter({ logger: false })` en `apps/api/src/main.ts:35`, sin `http2: true`. No explotable tal como está configurado; se sube por higiene porque es un bump menor |
 | `js-yaml` | `4.2.0` → `4.3.0` | `apps/api` › `@nestjs/cli` (devDependency) | **El aviso lo causaba nuestro propio `pnpm.overrides`**, que lo pinneaba en `4.2.0` cuando el fix es `≥4.3.0`. Solo build-time, pero la corrección es cambiar un número que ya controlamos |
+| `sharp` | `0.34.5` → `0.35.3` | `apps/web` › `next` | CVEs heredados de libvips (GHSA-f88m-g3jw-g9cj). **La exposición es real, no teórica** — ver abajo. `0.35.3` trae libvips `8.18.3` |
 
 Se usó la sintaxis de override con rango (`fast-uri@^3.0.0` / `fast-uri@^4.0.0`), el mismo patrón que ya se usa para `undici`, para no forzar la rama 4.x sobre los consumidores que piden `^3` (`ajv`).
 
-**Resultado en `pnpm audit`:** de **11 hallazgos (7 high / 2 moderate / 2 low)** a **7 (3 high / 2 moderate / 2 low)**.
+**Resultado en `pnpm audit`:** de **11 hallazgos (7 high / 2 moderate / 2 low)** a **6 (2 high / 2 moderate / 2 low)**. **Ningún aviso restante toca un servicio desplegado**: los 6 vienen de `apps/angular` y `apps/assistant-portal` (que no se despliegan) o de dependencias solo de build/test.
 
 ## Deliberadamente NO corregido
 
 | Paquete | Por qué se deja |
 |---|---|
-| `sharp` `0.34.5` → `≥0.35.0` | CVEs heredados de libvips, en `apps/web` › `next`. **Requiere su propia verificación de build, no entra en un PR de overrides.** Exposición práctica baja: `next.config.ts` no tiene bloque `images`, así que Next rechaza URLs remotas, y ningún componente usa `next/image`. En contra: la ruta `/_next/image` existe igual y `middleware.ts:176` la excluye del middleware, así que no pide sesión. El fix trae binarios nativos nuevos — hay que confirmar compatibilidad con `next@15.5.21` y que el build de Railway no rompa |
 | `brace-expansion` `1.1.16` / `2.1.2` | Solo `@nestjs/cli` (dev) y `c8` › `test-exclude` (test). El aviso cubre **todo** `<=5.0.7`, así que "arreglarlo" exige forzar 5.x en todo el árbol, con riesgo real de romper los consumidores de `minimatch` 3.x. Ya existe un `brace-expansion@5.0.8` sano en paralelo en el árbol |
 | `@hono/node-server` | `apps/angular` › `@angular/cli` › `@modelcontextprotocol/sdk`. App no desplegada; el bug es path traversal solo en Windows |
 | `tar` `7.5.20` | `apps/angular` › `@angular/cli` › `pacote`. App no desplegada, build-time |
 | `body-parser` `1.20.5` | `apps/assistant-portal` › `express`. App no desplegada |
 | `dompurify` `3.4.11` | `apps/assistant-portal` › `streamdown` › `mermaid`. App no desplegada |
+
+### Nota sobre `sharp`: la exposición es real y se verificó antes de subir la versión
+
+En una primera lectura este ítem parecía de riesgo bajo, con dos argumentos: `next.config.ts` no tiene bloque `images` (así que Next rechaza URLs remotas) y **ningún componente usa `next/image`**. Ambos son ciertos, pero **la conclusión era falsa**. Probado contra producción:
+
+```
+GET /_next/image?url=%2Ficon-1024.png&w=64&q=75   →  200, image/png
+```
+
+La ruta `/_next/image` está viva, `middleware.ts:176` la excluye del middleware (no pide sesión) y **procesa por sharp cualquier imagen local del sitio**. Que no haya componentes `<Image>` no apaga el endpoint. El vector queda acotado a ficheros locales —no se puede inyectar una URL remota arbitraria— pero libvips sí recibe entrada por una ruta pública.
+
+Un matiz importante para revisar el PR: **ninguna versión de Next, ni la última (`16.2.12`), ha pasado a `sharp ^0.35`** — todas siguen en `^0.34.x`. Este override va por delante de lo que el propio Next ha validado, y por eso se verificó a mano en vez de confiar en el rango declarado.
 
 ## Validación
 
@@ -53,6 +65,11 @@ Los scripts `pnpm typecheck` y `pnpm --filter @semse/api test:unit` **no corren 
 | **Misma suite sobre las dependencias de `main`** | **1966 / 1961 pass / 5 fail — los mismos 5** ⇒ cero regresiones atribuibles a este cambio |
 | Tests unitarios de la API (tras el fix de `test:unit`, desde `dist` borrado) | 1966 tests, **1965 pass / 1 fail** |
 | Tests unitarios de la API (tras normalizar el path de `graphify`) | 1966 tests, **1966 pass / 0 fail** ✅ |
+| `sharp@0.35.3`: binding nativo | ✅ Carga en la máquina local; libvips `8.18.3` |
+| `sharp@0.35.3`: binarios de Linux en el lockfile | ✅ `@img/sharp-linux-x64` y `@img/sharp-linuxmusl-x64` presentes — es lo que necesita el build de Railway |
+| `sharp@0.35.3`: las APIs que usa Next | ✅ `sharp()`, `metadata`, `resize`, `rotate`, `trim`, `toBuffer` y `jpeg`/`png`/`webp`/`avif`, ejercitadas contra `apps/web/public/icon-1024.png` |
+| `next build` de `apps/web` con `sharp@0.35.3` | ✅ `Compiled successfully`, **403/403 páginas estáticas** |
+| Optimizador en runtime, servidor standalone local | ✅ `/_next/image` → 200 `image/png` en `w=64` (2570 B) y `w=256` (9741 B); con `Accept: image/webp` → 200 `image/webp` (3438 B) |
 
 La comparación contra `main` se hizo revirtiendo `package.json` + `pnpm-lock.yaml` con `git stash`, reinstalando con `--frozen-lockfile` y corriendo la suite completa otra vez, para comparar en igualdad de condiciones. Los 5 fallos idénticos en ambos lados confirmaban que el cambio de dependencias no introducía regresiones; después se identificó que 4 de esos 5 eran artefactos de un `dist` sin recompilar (ver hallazgo colateral 2), que afectaban por igual a las dos corridas.
 
