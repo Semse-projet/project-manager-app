@@ -2447,6 +2447,11 @@ export async function fetchPmoAlerts(): Promise<PmoAlert[]> {
 
 export async function suggestBudget(input: {
   title: string; scope: string; category?: string; location?: string;
+  /** Re-estimate an existing job once it has an assigned professional, applying
+   * that professional's real "Mis Tarifas" rate instead of the BLS average —
+   * only has an effect server-side if the job actually has an accepted bid/
+   * Contract and the caller owns it. See AUDIT_REMEDIATION_PLAN.md 2.40. */
+  jobId?: string;
 }): Promise<BudgetSuggestion> {
   return mutateSemse<BudgetSuggestion>("/api/semse/intelligence/budget/suggest", input as Record<string, unknown>);
 }

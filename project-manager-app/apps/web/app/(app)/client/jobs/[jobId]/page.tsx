@@ -28,8 +28,10 @@ import {
   fetchJobPayments,
   mutateMilestone,
   releaseMilestoneEscrow,
+  suggestBudget,
   transitionJobStatus,
   type BidView,
+  type BudgetSuggestion,
   sendNotification,
   type JobAgentSignal
 } from "../../../../semse-api";
@@ -223,6 +225,9 @@ export default function ClientJobDetailPage() {
   const [activeInsight, setActiveInsight] = useState<InsightPanelId | null>(null);
   const [showMilestoneForm, setShowMilestoneForm] = useState(false);
   const [newMilestone, setNewMilestone] = useState({ title: "", amount: "", sequence: "" });
+  const [rateAdjustedEstimate, setRateAdjustedEstimate] = useState<BudgetSuggestion | null>(null);
+  const [rateEstimateLoading, setRateEstimateLoading] = useState(false);
+  const [rateEstimateError, setRateEstimateError] = useState<string | null>(null);
   // 1.1 — both money actions below used to fire immediately on click with no
   // confirmation and no visible amount. Fund now opens the existing
   // EscrowFundModal (same one already wired up in client/payments); release
@@ -298,6 +303,30 @@ export default function ClientJobDetailPage() {
   function handleFundEscrow() {
     if (!jobId || pendingAction) return;
     setFundModalOpen(true);
+  }
+
+  // 2.40 — "Mis Tarifas" only affects a real estimate once this job has an
+  // assigned professional (an accepted bid). Re-requests the same budget
+  // suggestion the job used at creation time, but with `jobId` so the backend
+  // can apply that professional's real hourly rate instead of the BLS average.
+  async function handleRecalculateWithRate() {
+    if (!jobId || !job) return;
+    setRateEstimateLoading(true);
+    setRateEstimateError(null);
+    try {
+      const result = await suggestBudget({
+        title: asString(job.title) ?? "",
+        scope: asString(job.scope) ?? asString(job.description) ?? "",
+        category: asString(job.category),
+        location: asString(job.location) ?? asString(job.city),
+        jobId,
+      });
+      setRateAdjustedEstimate(result);
+    } catch (err) {
+      setRateEstimateError(err instanceof Error ? err.message : "No se pudo recalcular el estimado.");
+    } finally {
+      setRateEstimateLoading(false);
+    }
   }
 
   async function handleMilestoneAction(
@@ -730,6 +759,46 @@ export default function ClientJobDetailPage() {
               </button>
             </div>
           </section>
+
+          {acceptedBid ? (
+            <section style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
+                <div>
+                  <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)", margin: 0 }}>Estimado con tarifa real del profesional</h2>
+                  <p style={{ fontSize: "12px", color: "var(--muted)", margin: "4px 0 0" }}>
+                    El rango de arriba usa promedios del mercado. Este profesional ya tiene asignado el trabajo — recalculá usando su tarifa real declarada en vez del promedio BLS.
+                  </p>
+                </div>
+                <button
+                  onClick={() => void handleRecalculateWithRate()}
+                  disabled={rateEstimateLoading}
+                  style={{ padding: "9px 14px", borderRadius: "10px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "12px", fontWeight: 700, cursor: rateEstimateLoading ? "wait" : "pointer", opacity: rateEstimateLoading ? 0.7 : 1 }}
+                >
+                  {rateEstimateLoading ? "Calculando…" : "Recalcular con tarifa real"}
+                </button>
+              </div>
+              {rateEstimateError ? (
+                <p style={{ fontSize: "12px", color: "#ef4444", margin: "0 0 8px" }}>{rateEstimateError}</p>
+              ) : null}
+              {rateAdjustedEstimate ? (
+                <div>
+                  <div style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>
+                    {formatMoney(rateAdjustedEstimate.min)} - {formatMoney(rateAdjustedEstimate.max)}
+                  </div>
+                  {rateAdjustedEstimate.factors
+                    .filter((factor) => factor.name === "Tarifa real del profesional asignado")
+                    .map((factor) => (
+                      <p key={factor.name} style={{ fontSize: "12px", color: "var(--muted)", margin: "6px 0 0" }}>{factor.note}</p>
+                    ))}
+                  {rateAdjustedEstimate.factors.every((factor) => factor.name !== "Tarifa real del profesional asignado") ? (
+                    <p style={{ fontSize: "12px", color: "var(--muted)", margin: "6px 0 0" }}>
+                      Este profesional no tiene una tarifa personal configurada en &quot;Mis Tarifas&quot; — el estimado sigue usando el promedio BLS.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
 
           <section id="escrow-section" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px", scrollMarginTop: "80px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
