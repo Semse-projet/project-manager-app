@@ -86,7 +86,7 @@ export default function AdminSettingsPage() {
     <main style={{ padding: "32px", color: "var(--ink)" }}>
       <AdminPageHeader
         title={t("page.settings")}
-        subtitle="Ajustes del sistema SEMSE OS"
+        subtitle="Ajustes del sistema SEMSE Project"
         icon={Settings}
         iconColor="#818cf8"
         iconBg="rgba(99,102,241,0.15)"
@@ -235,7 +235,7 @@ function GeneralSection({ value, onChange }: { value: AdminSettings; onChange: (
           <option value="UTC">UTC</option>
         </select>
       </SettingRow>
-      <SettingRow label="Versión del sistema" description="SEMSE OS — monorepo">
+      <SettingRow label="Versión del sistema" description="SEMSE Project — monorepo">
         <span style={{ color: "var(--muted)", fontFamily: "monospace" }}>v0.1.0-dev</span>
       </SettingRow>
     </div>

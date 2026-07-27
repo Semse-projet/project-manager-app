@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Agentes — Catálogo de agentes SEMSE OS
+ * Agentes — Catálogo de agentes SEMSE Project
  * Muestra los 16 agentes nombrados y 8 especializados del ecosistema
  */
 
@@ -91,7 +91,7 @@ export default function AgentsPage() {
           Catálogo de Agentes
         </h1>
         <p style={{ fontSize: "13px", color: "var(--muted)" }}>
-          {NAMED_AGENTS.length} agentes conversacionales · {SPECIALIZED_AGENTS.length} agentes especializados del backend SEMSE OS
+          {NAMED_AGENTS.length} agentes conversacionales · {SPECIALIZED_AGENTS.length} agentes especializados del backend SEMSE Project
         </p>
       </div>
 

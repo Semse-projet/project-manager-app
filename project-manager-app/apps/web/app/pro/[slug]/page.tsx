@@ -186,7 +186,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           <div>
             <p style={{ fontSize: 12, color: "#334155", margin: 0 }}>
               Perfil verificado por{" "}
-              <span style={{ color: "#6366f1", fontWeight: 700 }}>SEMSE OS</span>
+              <span style={{ color: "#6366f1", fontWeight: 700 }}>SEMSE Project</span>
             </p>
             {profile.lastActivityAt && (
               <p style={{ fontSize: 11, color: "#1e3a5f", margin: "4px 0 0" }}>

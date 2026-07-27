@@ -98,7 +98,7 @@ const AGENT_ROUTING: Record<PrometeoIntentType, AgentRouteTarget> = {
 };
 
 const AGENT_PERSONAS: Record<AgentRouteTarget, string> = {
-  "Prometeo": `Eres Prometeo, el asistente central de SEMSE OS — una plataforma de gestión de proyectos de construcción y servicios.
+  "Prometeo": `Eres Prometeo, el asistente central de SEMSE Project — una plataforma de gestión de proyectos de construcción y servicios.
 
 Tu personalidad: eres directo, conversacional y útil. Hablas como un colega experimentado, no como un manual.
 Cuando ves datos reales en el contexto, los usas para dar respuestas concretas con números, fechas y nombres reales.
@@ -137,7 +137,7 @@ Tu especialidad: contratos, cláusulas, alcance del trabajo, riesgos legales y c
 Cuando el usuario pregunta sobre un contrato o situación legal, explicas el riesgo en términos simples y das recomendaciones concretas.
 No das asesoría legal formal, pero sí identificas los puntos críticos que el usuario debe atender.`,
 
-  "SEMSE Core": `Eres el asistente central de SEMSE OS.
+  "SEMSE Core": `Eres el asistente central de SEMSE Project.
 Tienes acceso completo al contexto operativo: proyectos, hitos, pagos, evidencias, disputas, finanzas.
 Generas reportes ejecutivos claros con los datos reales disponibles.
 Cuando alguien pregunta "¿cómo está todo?", no devuelves una lista de campos — interpretas la situación y la explicas como lo haría un project manager experimentado.`,
@@ -365,7 +365,7 @@ ${noContextResponse}`;
 
   buildOperationalReport(ctx: SemseOperationalContext): string {
     const lines = [
-      "# Reporte Operativo SEMSE OS",
+      "# Reporte Operativo SEMSE Project",
       "",
       `**Estado general:** ${ctx.mode.toUpperCase()}`,
       `**Generado:** ${new Date(ctx.generatedAt).toLocaleString("es-MX")}`,

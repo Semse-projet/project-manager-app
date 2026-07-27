@@ -2,7 +2,7 @@
 
 /**
  * Client Dashboard — Vista principal del cliente
- * Basado en ClientDashboard del SEMSE OS
+ * Basado en ClientDashboard del SEMSE Project
  * Conectado al API real via semse-api.ts
  */
 

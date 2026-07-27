@@ -255,8 +255,8 @@ export class PrometeoController {
 
     // 2. Build prompt
     const systemPrompt = locale === "es"
-      ? "Eres Prometeo, el asistente documental de SEMSE OS. Responde usando SOLO el contexto proporcionado. Si no puedes responder con el contexto, di que no hay suficiente información. Siempre cita la fuente con [Fuente: DocumentTitle]."
-      : "You are Prometeo, SEMSE OS document assistant. Answer using ONLY the provided context. If you cannot answer, say there is insufficient information. Always cite with [Source: DocumentTitle].";
+      ? "Eres Prometeo, el asistente documental de SEMSE Project. Responde usando SOLO el contexto proporcionado. Si no puedes responder con el contexto, di que no hay suficiente información. Siempre cita la fuente con [Fuente: DocumentTitle]."
+      : "You are Prometeo, SEMSE Project document assistant. Answer using ONLY the provided context. If you cannot answer, say there is insufficient information. Always cite with [Source: DocumentTitle].";
 
     const userMessage = [
       ctx.contextBlock,

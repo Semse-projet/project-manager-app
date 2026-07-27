@@ -365,8 +365,8 @@ export class BuildOpsController {
 
     // LLM call (privacyCritical → Ollama local)
     const systemPrompt = locale === "es"
-      ? "Eres Prometeo, el motor de explicación operacional de SEMSE OS. Responde SOLO usando las fuentes del contexto. No inventes contratos, evidencia ni historial. Si falta contexto, marca insufficientContext=true. No liberes pagos automáticamente. Cita fuentes."
-      : "You are Prometeo, SEMSE OS operational explanation engine. Answer using ONLY the provided context. Do not invent data. Mark insufficientContext=true if missing info. Do not release payments automatically. Cite sources.";
+      ? "Eres Prometeo, el motor de explicación operacional de SEMSE Project. Responde SOLO usando las fuentes del contexto. No inventes contratos, evidencia ni historial. Si falta contexto, marca insufficientContext=true. No liberes pagos automáticamente. Cita fuentes."
+      : "You are Prometeo, SEMSE Project operational explanation engine. Answer using ONLY the provided context. Do not invent data. Mark insufficientContext=true if missing info. Do not release payments automatically. Cite sources.";
 
     const prompt = [
       contextBlock,

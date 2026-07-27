@@ -2098,7 +2098,7 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 8px 24px rgba(0,0,0,.10);
 }
 
-/* ── Mobile improvements for SEMSE OS pages (Bloque Q) ──────────────────── */
+/* ── Mobile improvements for SEMSE Project pages (Bloque Q) ──────────────────── */
 @media (max-width: 640px) {
   /* Reduce heading sizes */
   h1 { font-size: 20px !important; }

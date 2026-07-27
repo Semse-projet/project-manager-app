@@ -850,7 +850,7 @@ export default function SemseXPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: 0.4 }}>
             <Key size={11} color="#475569" />
             <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: "0.2em", textTransform: "uppercase", color: "#475569" }}>
-              SEMSE-OS · AES-256 · ZERO-KNOWLEDGE
+              SEMSE PROJECT · AES-256 · ZERO-KNOWLEDGE
             </span>
           </div>
         </footer>

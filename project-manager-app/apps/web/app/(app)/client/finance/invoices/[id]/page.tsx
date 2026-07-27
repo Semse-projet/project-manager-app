@@ -210,7 +210,7 @@ export default function InvoicePage() {
 
         {/* Footer */}
         <div style={{ marginTop: 48, paddingTop: 20, borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", fontSize: 11, color: "#94a3b8" }}>
-          <span>SEMSE OS · semse.io</span>
+          <span>SEMSE Project · semse.io</span>
           <span>Generado el {new Date().toLocaleDateString("es-MX")}</span>
         </div>
       </div>
