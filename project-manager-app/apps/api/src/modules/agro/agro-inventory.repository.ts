@@ -79,13 +79,8 @@ export class AgroInventoryRepository {
     targetId?: string;
     occurredAt: Date;
     notes?: string;
-  },
-  // Cliente transaccional opcional. Lo usa el sync offline para que el
-  // movimiento y su marcador de idempotencia caigan en la misma transaccion:
-  // sin esto, un fallo entre ambos duplicaria stock y costo al reintentar.
-  client?: { agroInventoryMovement: { create(args: any): Promise<any> } }) {
-    const db = client ?? this.prisma;
-    return db.agroInventoryMovement.create({
+  }) {
+    return this.prisma.agroInventoryMovement.create({
       data: {
         farmId: input.farmId,
         itemId: input.itemId,
