@@ -81,7 +81,16 @@ export default function WorkerMaterialsPage() {
   async function handleSubmit() {
     const qtyNum = Number(formQty);
     const costNum = formCost ? Number(formCost) : undefined;
-    if (!formItem.trim() || !formQty || Number.isNaN(qtyNum) || qtyNum <= 0 || !formJobId || submitting) {
+    if (submitting) return;
+    if (!formJobId) {
+      setSubmitError("Selecciona un trabajo antes de enviar la solicitud.");
+      return;
+    }
+    if (!formItem.trim()) {
+      setSubmitError("Escribe el nombre del material o ítem.");
+      return;
+    }
+    if (!formQty || Number.isNaN(qtyNum) || qtyNum <= 0) {
       setSubmitError("La cantidad debe ser un número mayor a 0.");
       return;
     }
