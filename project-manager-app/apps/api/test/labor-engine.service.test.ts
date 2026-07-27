@@ -208,6 +208,83 @@ void test("createManualEntry creates a manual entry with break minutes", async (
   assert.equal(payload.breakMinutes, 30);
 });
 
+void test("createManualEntry rejects a negative hourlyRate", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "personal",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      hourlyRate: -30,
+    }),
+    /hourlyRate/,
+  );
+});
+
+void test("createManualEntry rejects an absurdly large hourlyRate", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "personal",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      hourlyRate: 999_999_999,
+    }),
+    /hourlyRate/,
+  );
+});
+
+void test("createManualEntry rejects a malformed currency code", async () => {
+  const { service } = createService();
+
+  await assert.rejects(
+    service.createManualEntry({
+      tenantId: "tnt",
+      orgId: "org",
+      createdBy: "user-1",
+      purpose: "personal",
+      date: "2026-07-08",
+      startTime: "09:00",
+      endTime: "13:00",
+      hourlyRate: 25,
+      currency: "usd",
+    }),
+    /currency/,
+  );
+});
+
+void test("createManualEntry accepts a valid hourlyRate/currency pair", async () => {
+  const { service, repo } = createService();
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "personal",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+    hourlyRate: 25,
+    currency: "USD",
+  });
+
+  const createCall = repo.calls.find((call) => call.method === "createTimeEntry");
+  assert.ok(createCall, "should call createTimeEntry");
+  const payload = createCall.args[0] as Record<string, unknown>;
+  assert.equal(payload.hourlyRate, 25);
+  assert.equal(payload.currency, "USD");
+});
+
 void test("getAdminOverview flags stale timers, overtime and long entries", async () => {
   const now = Date.now();
   const { service } = createService({

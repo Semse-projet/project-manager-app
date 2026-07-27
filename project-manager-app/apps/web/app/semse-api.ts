@@ -1563,6 +1563,20 @@ export async function fetchTravelAssignment(travelId: string): Promise<Record<st
   return fetchSemse<Record<string, unknown>>(`/api/semse/travel/${encodeURIComponent(travelId)}`);
 }
 
+/** Batched equivalent of fetching each travel's settlement/expenses/lodging
+ * separately just to compute badge counters — see AUDIT_REMEDIATION_PLAN.md 2.36. */
+export async function fetchTravelAssignmentsSummary(query?: {
+  status?: string; jobId?: string; assignedTo?: string; scope?: "mine" | "all";
+}): Promise<Record<string, unknown>[]> {
+  const qs = new URLSearchParams();
+  if (query?.status) qs.set("status", query.status);
+  if (query?.jobId)  qs.set("jobId",  query.jobId);
+  if (query?.assignedTo) qs.set("assignedTo", query.assignedTo);
+  if (query?.scope) qs.set("scope", query.scope);
+  const q = qs.toString() ? `?${qs.toString()}` : "";
+  return fetchSemse<Record<string, unknown>[]>(`/api/semse/travel/summary${q}`);
+}
+
 export async function createTravelAssignment(input: {
   jobId: string; destinationCity: string; departureDate: string; returnDate?: string;
   estimatedDays?: number; requiresLodging?: boolean; headcount?: number;

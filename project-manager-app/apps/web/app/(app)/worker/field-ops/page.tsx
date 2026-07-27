@@ -1014,12 +1014,12 @@ function TrackerTab() {
           {active.notes && <p className="mb-3 text-[0.65rem] italic text-[var(--muted)]">&quot;{active.notes}&quot;</p>}
           <div className="flex flex-wrap gap-2">
             {active.status === "RUNNING" ? (
-              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/pause`)}
+              <button disabled={acting} onClick={() => void act(`/api/semse/time-tracker/sessions/${active.id}/pause`)}
                 className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-400 disabled:opacity-40">
                 {acting ? "…" : "⏸ Pausar"}
               </button>
             ) : (
-              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/resume`)}
+              <button disabled={acting} onClick={() => void act(`/api/semse/time-tracker/sessions/${active.id}/resume`)}
                 className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 disabled:opacity-40">
                 {acting ? "…" : "▶ Reanudar"}
               </button>
