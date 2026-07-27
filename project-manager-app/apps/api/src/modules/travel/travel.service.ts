@@ -681,22 +681,146 @@ export class TravelService {
     advances: TravelAdvanceRecord[],
     lodgings: LodgingBookingRecord[],
   ): TravelSettlementRecord {
-    const totalAdvances = advances.reduce((s, a) => s + a.amount, 0);
-    const totalMeals = expenses.filter(e => e.category === "meal").reduce((s, e) => s + e.amount, 0);
-    const totalTransport = expenses.filter(e => e.category === "transport").reduce((s, e) => s + e.amount, 0);
-    const totalOther = expenses.filter(e => e.category === "other").reduce((s, e) => s + e.amount, 0);
-    const totalLodging = lodgings.reduce((s, l) => s + (l.actualTotal ?? l.estimatedTotal ?? 0), 0);
-    const totalSpent = totalMeals + totalTransport + totalOther + totalLodging;
-    // positive = worker owes back; negative = company owes worker
-    const balanceDue = totalAdvances - totalSpent;
+    const totals = computeSettlementTotals(expenses, advances, lodgings);
 
     return {
       id: `set_${Date.now()}`, tenantId, travelId,
       approvedBudget: travel.approvedBudget,
-      totalAdvances, totalLodging, totalMeals, totalTransport, totalOther,
-      totalSpent, balanceDue, status: "DRAFT",
+      ...totals, status: "DRAFT",
       notes: null, closedBy: null, closedAt: null,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
   }
+
+  /**
+   * Batches the per-travel settlement/expense/lodging lookups that
+   * `/worker/travel` used to do with 3 sequential HTTP calls per row (a real
+   * N+1: ~180 requests to open the screen with 15 trips, plus this whole
+   * chain used to fire twice per mount — see AUDIT_REMEDIATION_PLAN.md 2.36).
+   * Reuses the exact same balance/receipt math as `computeSettlement`/
+   * `_buildSettlement` via `computeSettlementTotals`, just grouped over all
+   * of the actor's travels in 3 queries total instead of 3 per travel.
+   */
+  async listAssignmentsWithSummary(input: {
+    tenantId: string;
+    userId: string;
+    roles: string[];
+    status?: string;
+    jobId?: string;
+    assignedTo?: string;
+    scope?: string;
+  }): Promise<Array<TravelAssignmentRecord & {
+    totalSpent: number | null;
+    expectedBalance: number | null;
+    missingReceipts: number;
+    missingExpenseReceipts: number;
+    missingLodgingReceipts: number;
+    receiptCount: number;
+    expenseCount: number;
+    lodgingCount: number;
+    advanceCount: number;
+  }>> {
+    const assignments = await this.listAssignments(input);
+    const travelIds = assignments.map((a) => a.id);
+    if (travelIds.length === 0) return [];
+
+    const emptySummary = () => ({
+      totalSpent: null, expectedBalance: null, missingReceipts: 0,
+      missingExpenseReceipts: 0, missingLodgingReceipts: 0,
+      receiptCount: 0, expenseCount: 0, lodgingCount: 0, advanceCount: 0,
+    });
+
+    if (!databaseEnabled()) {
+      return assignments.map((a) => {
+        const expenses = MOCK_EXPENSES.filter(e => e.travelId === a.id && e.status !== "REJECTED");
+        const advances = MOCK_ADVANCES.filter(x => x.travelId === a.id);
+        const lodgings = MOCK_LODGINGS.filter(l => l.travelId === a.id);
+        return { ...a, ...summarizeTravel(expenses, advances, lodgings) };
+      });
+    }
+
+    const [expenses, advances, lodgings] = await Promise.all([
+      this.prisma.travelExpense.findMany({
+        where: { tenantId: input.tenantId, travelId: { in: travelIds }, status: { not: "REJECTED" } },
+      }),
+      this.prisma.travelAdvance.findMany({
+        where: { tenantId: input.tenantId, travelId: { in: travelIds } },
+      }),
+      this.prisma.lodgingBooking.findMany({
+        where: { tenantId: input.tenantId, travelId: { in: travelIds } },
+      }),
+    ]);
+
+    const expensesByTravel = new Map<string, TravelExpenseRecord[]>();
+    for (const e of expenses.map(toExpense)) {
+      const list = expensesByTravel.get(e.travelId) ?? [];
+      list.push(e);
+      expensesByTravel.set(e.travelId, list);
+    }
+    const advancesByTravel = new Map<string, TravelAdvanceRecord[]>();
+    for (const a of advances.map(toAdvance)) {
+      const list = advancesByTravel.get(a.travelId) ?? [];
+      list.push(a);
+      advancesByTravel.set(a.travelId, list);
+    }
+    const lodgingsByTravel = new Map<string, LodgingBookingRecord[]>();
+    for (const l of lodgings.map(toLodging)) {
+      const list = lodgingsByTravel.get(l.travelId) ?? [];
+      list.push(l);
+      lodgingsByTravel.set(l.travelId, list);
+    }
+
+    return assignments.map((a) => ({
+      ...a,
+      ...summarizeTravel(
+        expensesByTravel.get(a.id) ?? [],
+        advancesByTravel.get(a.id) ?? [],
+        lodgingsByTravel.get(a.id) ?? [],
+      ),
+    }));
+
+    function summarizeTravel(
+      expenses: TravelExpenseRecord[],
+      advances: TravelAdvanceRecord[],
+      lodgings: LodgingBookingRecord[],
+    ) {
+      if (expenses.length === 0 && advances.length === 0 && lodgings.length === 0) return emptySummary();
+      const totals = computeSettlementTotals(expenses, advances, lodgings);
+      const missingExpenseReceipts = expenses.filter((e) => !e.receiptUrl?.trim()).length;
+      const missingLodgingReceipts = lodgings.filter((l) => !l.receiptUrl?.trim()).length;
+      const receiptCount =
+        expenses.filter((e) => e.receiptUrl?.trim()).length +
+        lodgings.filter((l) => l.receiptUrl?.trim()).length;
+      return {
+        totalSpent: totals.totalSpent,
+        expectedBalance: totals.balanceDue,
+        missingReceipts: missingExpenseReceipts + missingLodgingReceipts,
+        missingExpenseReceipts,
+        missingLodgingReceipts,
+        receiptCount,
+        expenseCount: expenses.length,
+        lodgingCount: lodgings.length,
+        advanceCount: advances.reduce((s, adv) => s + adv.amount, 0) > 0 ? 1 : 0,
+      };
+    }
+  }
+}
+
+/** Shared by `_buildSettlement` (single-travel detail) and
+ * `listAssignmentsWithSummary` (list-page batch) so the balance/receipt math
+ * only lives in one place. */
+function computeSettlementTotals(
+  expenses: TravelExpenseRecord[],
+  advances: TravelAdvanceRecord[],
+  lodgings: LodgingBookingRecord[],
+) {
+  const totalAdvances = advances.reduce((s, a) => s + a.amount, 0);
+  const totalMeals = expenses.filter(e => e.category === "meal").reduce((s, e) => s + e.amount, 0);
+  const totalTransport = expenses.filter(e => e.category === "transport").reduce((s, e) => s + e.amount, 0);
+  const totalOther = expenses.filter(e => e.category === "other").reduce((s, e) => s + e.amount, 0);
+  const totalLodging = lodgings.reduce((s, l) => s + (l.actualTotal ?? l.estimatedTotal ?? 0), 0);
+  const totalSpent = totalMeals + totalTransport + totalOther + totalLodging;
+  // positive = worker owes back; negative = company owes worker
+  const balanceDue = totalAdvances - totalSpent;
+  return { totalAdvances, totalLodging, totalMeals, totalTransport, totalOther, totalSpent, balanceDue };
 }

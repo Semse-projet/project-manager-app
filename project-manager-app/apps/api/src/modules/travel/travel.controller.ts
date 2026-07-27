@@ -98,6 +98,31 @@ export class TravelController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  // Must stay registered before `@Get(":travelId")` below — Nest matches
+  // routes in declaration order and `:travelId` would otherwise swallow
+  // "summary" as a param value.
+  @Get("summary")
+  @RequirePermissions("jobs:read")
+  async listAssignmentsSummary(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Query("status") status?: string,
+    @Query("jobId") jobId?: string,
+    @Query("assignedTo") assignedTo?: string,
+    @Query("scope") scope?: string,
+  ) {
+    const actor = resolveRequestContext(req);
+    const data = await this.travelService.listAssignmentsWithSummary({
+      tenantId: actor.tenantId,
+      userId: actor.userId,
+      roles: actor.roles,
+      status,
+      jobId,
+      assignedTo,
+      scope,
+    });
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Post()
   @RequirePermissions("travel:manage")
   async createAssignment(

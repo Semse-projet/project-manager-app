@@ -137,6 +137,25 @@ export class LaborEngineService {
     }
   }
 
+  /** hourlyRate/currency are client-supplied and feed `knownCost` on the admin
+   * team-cost KPI (getTeamSummary) unchecked — reject a negative or absurd
+   * rate here instead of trusting whatever the worker types in.
+   * See AUDIT_REMEDIATION_PLAN.md 2.10. */
+  private assertValidRate(hourlyRate?: number, currency?: string) {
+    if (hourlyRate !== undefined) {
+      const MAX_HOURLY_RATE = 100_000;
+      if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+        throw new BadRequestException("hourlyRate must be a non-negative number");
+      }
+      if (hourlyRate > MAX_HOURLY_RATE) {
+        throw new BadRequestException(`hourlyRate must not exceed ${MAX_HOURLY_RATE}`);
+      }
+    }
+    if (currency !== undefined && !/^[A-Z]{3}$/.test(currency)) {
+      throw new BadRequestException("currency must be a 3-letter ISO code (e.g. USD, MXN)");
+    }
+  }
+
   async pauseTimer(id: string, tenantId: string, createdBy: string) {
     return this.repo.pauseTimeEntry(id, tenantId, createdBy);
   }
@@ -211,6 +230,7 @@ export class LaborEngineService {
         throw new BadRequestException("endTime must be after startTime");
       }
     }
+    this.assertValidRate(params.hourlyRate, params.currency);
     await this.assertOwnership(params);
     return this.repo.createTimeEntry({
       tenantId: params.tenantId,
