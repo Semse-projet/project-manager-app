@@ -10,11 +10,15 @@ import { resolveRequestId } from "../../common/request-id.js";
 import { PaymentsService } from "./payments.service.js";
 import { verifyStripeWebhookSignature } from "./stripe-webhook-signature.js";
 
+// 2.44 — bank_account/debit_card no longer accept a raw routingNumber/
+// accountNumber/card number at all. Stripe.js tokenizes those client-side
+// (stripe.createToken, browser → Stripe's servers directly) before this
+// endpoint is ever called; only the resulting token id and the last4 Stripe's
+// own response includes reach our BFF/backend. See AUDIT_REMEDIATION_PLAN.md.
 const workerPayoutMethodSchema = z.object({
   type: z.enum(["bank_account", "debit_card", "paypal", "zelle", "cashapp"]),
   bankName: z.string().trim().min(1).optional(),
-  routingNumber: z.string().trim().optional(),
-  accountNumber: z.string().trim().optional(),
+  stripeToken: z.string().trim().min(1).optional(),
   last4: z.string().trim().optional(),
   email: z.string().trim().optional()
 });

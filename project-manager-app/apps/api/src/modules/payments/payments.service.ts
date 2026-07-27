@@ -167,8 +167,12 @@ export class PaymentsService {
     requestId: string;
     type: "bank_account" | "debit_card" | "paypal" | "zelle" | "cashapp";
     bankName?: string;
-    routingNumber?: string;
-    accountNumber?: string;
+    // 2.44 — the raw routing/account/card number never reaches this method at
+    // all anymore: Stripe.js tokenizes it client-side (browser → Stripe
+    // directly) before the BFF call is made. `stripeToken` and `last4` below
+    // both come from that tokenization response, not from anything this
+    // service could derive from raw digits.
+    stripeToken?: string;
     last4?: string;
     email?: string;
   }) {
@@ -179,13 +183,32 @@ export class PaymentsService {
       zelle: "Zelle",
       cashapp: "Cash App"
     };
+
+    // Don't trust the last4 the browser claims when we can verify it against
+    // Stripe directly. verifyPayoutToken() only returns a truthy string when
+    // StripeConnectService is wired up, Stripe is really configured, AND the
+    // token actually resolved to a last4 — any other case (service not
+    // injected, Stripe not configured/mock mode, or a token that somehow
+    // lacked one) falls back to whatever the client sent, rather than
+    // hard-failing outside of real deployments.
+    let verifiedLast4 = input.last4;
+    if (["bank_account", "debit_card"].includes(input.type) && input.stripeToken) {
+      const result = await this.stripeConnect?.verifyPayoutToken(input.stripeToken);
+      if (result) {
+        verifiedLast4 = result;
+      }
+    }
+
+    // The Stripe token itself is single-use and only needed to prove, at
+    // submit time, that Stripe could tokenize the number — this record is a
+    // display/status entry (see getWorkerPayoutMethod's callers), not the
+    // real payout mechanism (that's the separate Stripe Connect account
+    // panel on /worker/payments), so there's no product reason to retain it.
     const sanitized = {
       type: input.type,
       label: labelMap[input.type],
       bankName: input.type === "bank_account" ? input.bankName : undefined,
-      last4: input.last4
-        ?? (input.type === "bank_account" ? input.accountNumber?.slice(-4) : undefined)
-        ?? (input.type === "debit_card" ? input.accountNumber?.slice(-4) : undefined),
+      last4: verifiedLast4,
       email: ["paypal", "zelle", "cashapp"].includes(input.type) ? input.email : undefined,
       verified: false
     };

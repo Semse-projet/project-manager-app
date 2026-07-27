@@ -17,6 +17,8 @@
     "@semse/schemas": "workspace:*",
     "@semse/shared": "workspace:*",
     "@semse/ui": "workspace:*",
+    "@stripe/react-stripe-js": "^6.8.0",
+    "@stripe/stripe-js": "^9.10.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.577.0",
     "motion": "^11.18.0",

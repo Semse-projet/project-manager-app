@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Building2, CreditCard, Wallet, Check, ChevronDown, AlertTriangle, Loader2 } from "lucide-react";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
 import { normalizeErrorMessage } from "../../semse-api";
+import { getStripe, isStripeConfigured } from "../../../lib/stripe-client";
 
 type PayoutType = "bank_account" | "debit_card" | "paypal" | "zelle" | "cashapp";
 
@@ -30,14 +32,10 @@ const PAYOUT_TYPES: { id: PayoutType; label: string; description: string; icon: 
 
 const US_BANKS = ["Bank of America", "Chase", "Wells Fargo", "Citibank", "TD Bank", "PNC Bank", "US Bank", "Otro"];
 
-function validate(type: PayoutType, bankName: string, routing: string, account: string, cardNumber: string, email: string): string | null {
+function validate(type: PayoutType, bankName: string, routing: string, email: string): string | null {
   if (type === "bank_account") {
     if (!bankName) return "Selecciona un banco";
     if (routing.length !== 9) return "El routing number debe tener 9 dígitos";
-    if (account.length < 4) return "Número de cuenta inválido";
-  }
-  if (type === "debit_card") {
-    if (cardNumber.length < 13) return "Número de tarjeta inválido";
   }
   if (type === "paypal" && !email.includes("@")) return "Email PayPal inválido";
   if (type === "zelle" && email.length < 5) return "Teléfono o email Zelle requerido";
@@ -45,16 +43,33 @@ function validate(type: PayoutType, bankName: string, routing: string, account: 
   return null;
 }
 
-export function PayoutMethodForm({ currentMethod, onSave }: PayoutMethodFormProps) {
+const cardElementStyle = {
+  style: {
+    base: {
+      fontSize: "13px",
+      color: "var(--ink, #0f172a)",
+      "::placeholder": { color: "var(--muted, #94a3b8)" },
+    },
+    invalid: { color: "#ef4444" },
+  },
+};
+
+function PayoutMethodFormInner({ currentMethod, onSave }: PayoutMethodFormProps) {
+  const stripe = useStripe();
+  const elements = useElements();
+
   const [type, setType]           = useState<PayoutType>(currentMethod?.type ?? "bank_account");
   const [bankName, setBankName]   = useState(currentMethod?.bankName ?? "");
   const [routing, setRouting]     = useState("");
+  // The account number never leaves the browser except inside the direct
+  // stripe.createToken() call below (browser → Stripe's own servers) — it is
+  // never sent to our own BFF/backend. See AUDIT_REMEDIATION_PLAN.md 2.44.
   const [account, setAccount]     = useState("");
-  const [cardNumber, setCardNumber] = useState("");
   const [email, setEmail]         = useState(currentMethod?.email ?? "");
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
   const [error, setError]         = useState<string | null>(null);
+  const [cardComplete, setCardComplete] = useState(false);
 
   const inp: React.CSSProperties = {
     width: "100%", padding: "10px 12px", borderRadius: "9px",
@@ -62,32 +77,89 @@ export function PayoutMethodForm({ currentMethod, onSave }: PayoutMethodFormProp
     color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box",
   };
 
+  async function tokenizeBankAccount(): Promise<{ token: string; last4?: string } | null> {
+    if (!stripe) {
+      setError("Stripe no está listo todavía. Intenta de nuevo en un momento.");
+      return null;
+    }
+    const result = await stripe.createToken("bank_account", {
+      country: "US",
+      currency: "usd",
+      routing_number: routing,
+      account_number: account,
+      account_holder_type: "individual",
+    });
+    if (result.error) {
+      setError(result.error.message ?? "No se pudo verificar la cuenta bancaria.");
+      return null;
+    }
+    return { token: result.token.id, last4: result.token.bank_account?.last4 };
+  }
+
+  async function tokenizeCard(): Promise<{ token: string; last4?: string } | null> {
+    if (!stripe || !elements) {
+      setError("Stripe no está listo todavía. Intenta de nuevo en un momento.");
+      return null;
+    }
+    const cardElement = elements.getElement(CardElement);
+    if (!cardElement) {
+      setError("Completa los datos de la tarjeta.");
+      return null;
+    }
+    const result = await stripe.createToken(cardElement);
+    if (result.error) {
+      setError(result.error.message ?? "No se pudo verificar la tarjeta.");
+      return null;
+    }
+    return { token: result.token.id, last4: result.token.card?.last4 };
+  }
+
   async function handleSave() {
-    const validationError = validate(type, bankName, routing, account, cardNumber, email);
+    const validationError = validate(type, bankName, routing, email);
     if (validationError) { setError(validationError); return; }
+    if (type === "debit_card" && !cardComplete) { setError("Completa los datos de la tarjeta."); return; }
     setError(null);
     setSaving(true);
 
-    const method: PayoutMethod = {
-      type,
-      label: PAYOUT_TYPES.find(t => t.id === type)!.label,
-      bankName:  type === "bank_account" ? bankName : undefined,
-      last4:     type === "debit_card" ? cardNumber.slice(-4) : type === "bank_account" ? account.slice(-4) : undefined,
-      email:     ["paypal", "zelle", "cashapp"].includes(type) ? email : undefined,
-      verified:  false,
-    };
-
     try {
+      // Card and bank account numbers are tokenized directly against Stripe's
+      // servers from the browser (stripe.createToken) — our own backend only
+      // ever receives the resulting token id + the last4 Stripe's response
+      // includes, never the raw PAN/routing/account number. Digital wallets
+      // (PayPal/Zelle/Cash App) only ever collected a handle/email, not
+      // financial account numbers, so they're unaffected.
+      let token: string | undefined;
+      let last4: string | undefined;
+      if (type === "bank_account") {
+        const result = await tokenizeBankAccount();
+        if (!result) { setSaving(false); return; }
+        token = result.token;
+        last4 = result.last4;
+      } else if (type === "debit_card") {
+        const result = await tokenizeCard();
+        if (!result) { setSaving(false); return; }
+        token = result.token;
+        last4 = result.last4;
+      }
+
+      const method: PayoutMethod = {
+        type,
+        label: PAYOUT_TYPES.find(t => t.id === type)!.label,
+        bankName: type === "bank_account" ? bankName : undefined,
+        last4,
+        email: ["paypal", "zelle", "cashapp"].includes(type) ? email : undefined,
+        verified: false,
+      };
+
       const response = await fetch("/api/semse/workers/payout-method", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type,
-          bankName:      method.bankName,
-          routingNumber: type === "bank_account" ? routing : undefined,
-          accountNumber: type === "bank_account" ? account : undefined,
-          last4:         method.last4,
-          email:         method.email,
+          bankName: method.bankName,
+          stripeToken: token,
+          last4: method.last4,
+          email: method.email,
         }),
       });
       if (!response.ok) {
@@ -179,22 +251,22 @@ export function PayoutMethodForm({ currentMethod, onSave }: PayoutMethodFormProp
               />
             </div>
           </div>
+          <p style={{ fontSize: "11px", color: "var(--muted)" }}>
+            Tu número de cuenta se verifica directo con Stripe desde tu navegador — nunca pasa por nuestros servidores, solo guardamos los últimos 4 dígitos.
+          </p>
         </>
       )}
 
-      {/* Debit card */}
+      {/* Debit card — Stripe's own hosted CardElement, never our own <input> */}
       {type === "debit_card" && (
         <div>
-          <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>NÚMERO DE TARJETA</label>
-          <input
-            data-testid="payout-card-number"
-            value={cardNumber}
-            onChange={e => setCardNumber(e.target.value.replace(/\D/g, "").slice(0, 16))}
-            placeholder="Visa o Mastercard débito"
-            style={inp}
-            maxLength={16}
-          />
-          <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "5px" }}>Solo se guardará los últimos 4 dígitos.</p>
+          <label style={{ fontSize: "11px", fontWeight: 700, color: "var(--muted)", display: "block", marginBottom: "6px" }}>DATOS DE LA TARJETA</label>
+          <div style={{ ...inp, padding: "12px" }}>
+            <CardElement options={cardElementStyle} onChange={(e) => setCardComplete(e.complete)} />
+          </div>
+          <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "5px" }}>
+            El número de tarjeta lo procesa Stripe directamente en tu navegador — nunca llega a nuestros servidores. Solo guardamos los últimos 4 dígitos.
+          </p>
         </div>
       )}
 
@@ -229,7 +301,7 @@ export function PayoutMethodForm({ currentMethod, onSave }: PayoutMethodFormProp
 
       <button
         data-testid="payout-save-button"
-        onClick={handleSave}
+        onClick={() => void handleSave()}
         disabled={saving}
         style={{
           padding: "12px", borderRadius: "10px", border: "none",
@@ -245,5 +317,26 @@ export function PayoutMethodForm({ currentMethod, onSave }: PayoutMethodFormProp
          "Guardar método de cobro"}
       </button>
     </div>
+  );
+}
+
+export function PayoutMethodForm(props: PayoutMethodFormProps) {
+  const stripePromise = useMemo(() => getStripe(), []);
+
+  if (!isStripeConfigured()) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 14px", borderRadius: "9px", background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.2)" }}>
+        <AlertTriangle size={14} color="#ef4444" />
+        <p style={{ fontSize: "12px", color: "#ef4444" }}>
+          El método de cobro no está disponible todavía — falta configurar la clave pública de Stripe en este entorno.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <Elements stripe={stripePromise}>
+      <PayoutMethodFormInner {...props} />
+    </Elements>
   );
 }
