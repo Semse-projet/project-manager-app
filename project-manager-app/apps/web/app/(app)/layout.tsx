@@ -96,22 +96,31 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     labelKey: "role.client",
     color: "#8ab4f8",
     icon: Building,
+    // Grouped and explicitly labeled into two contexts a Client account can
+    // act in — "buyer" (hiring professionals for your own jobs) vs.
+    // "contractor" (bidding on other jobs, running your own lead/CRM
+    // pipeline) — instead of one flat undifferentiated list. This was a real
+    // source of confusion (e.g. 1.5's "Aplicar" button showing up on the
+    // client's own marketplace listing, fixed separately in
+    // marketplace.service.ts). See AUDIT_REMEDIATION_PLAN.md 1.5 — kept as
+    // one Client role/dashboard per the product decision, not split into two
+    // separate roles.
     items: [
       { labelKey: "nav.dashboard", href: "/client/dashboard", icon: LayoutDashboard, section: "section.main" },
-      { labelKey: "nav.leads", href: "/client/leads", icon: Users },
-      { labelKey: "nav.postJob", href: "/client/jobs/new", icon: Plus },
+      { labelKey: "nav.postJob", href: "/client/jobs/new", icon: Plus, section: "section.buyer" },
       { labelKey: "nav.myProjects", href: "/client/jobs", icon: FolderKanban },
       { labelKey: "nav.aiCopilot", href: "/client/projects", icon: Bot },
       { labelKey: "nav.milestones", href: "/client/milestones", icon: CheckSquare },
       { labelKey: "nav.professionals", href: "/client/professionals", icon: Users },
-      { labelKey: "nav.clientMarketplace", href: "/client/marketplace", icon: Store },
-      { labelKey: "nav.myBids", href: "/client/bids", icon: Send },
-      { labelKey: "nav.protools", href: "/client/protools", icon: Wrench },
       { labelKey: "nav.documents", href: "/client/documents", icon: FileText },
       { labelKey: "nav.reviews", href: "/client/reviews", icon: Star },
       { labelKey: "nav.payments", href: "/client/payments", icon: CreditCard },
       { labelKey: "nav.financeHub", href: "/client/finance", icon: DollarSign },
-      { labelKey: "nav.accountSecurity", href: "/client/account", icon: ShieldCheck },
+      { labelKey: "nav.leads", href: "/client/leads", icon: Users, section: "section.contractor" },
+      { labelKey: "nav.clientMarketplace", href: "/client/marketplace", icon: Store },
+      { labelKey: "nav.myBids", href: "/client/bids", icon: Send },
+      { labelKey: "nav.protools", href: "/client/protools", icon: Wrench },
+      { labelKey: "nav.accountSecurity", href: "/client/account", icon: ShieldCheck, section: "section.account" },
       { labelKey: "nav.agents", href: "/agents", icon: Bot, section: "section.ai" },
     ],
   },
@@ -246,37 +255,55 @@ function Sidebar({
       </div>
 
       <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
-        {nav.items.map((item) => {
+        {nav.items.map((item, idx) => {
           const Icon = item.icon;
           const active = (pathname ?? "").startsWith(item.href);
           const label = t(item.labelKey);
+          // A section marker starts a new visual group in the sidebar — e.g.
+          // splitting the Client role's buyer tools (post a job, projects,
+          // milestones) from its contractor tools (leads, marketplace, my
+          // bids), which previously sat in one undifferentiated list and were
+          // a real source of "which hat am I wearing" confusion. See
+          // AUDIT_REMEDIATION_PLAN.md 1.5.
+          const previousSection = idx > 0 ? nav.items[idx - 1].section : undefined;
+          const showSectionHeader = item.section && item.section !== previousSection && (!collapsed || mobile);
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              title={collapsed && !mobile ? label : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "9px 10px",
-                borderRadius: "8px",
-                marginBottom: "2px",
-                textDecoration: "none",
-                background: active ? `${nav.color}18` : "transparent",
-                color: active ? nav.color : "var(--muted)",
-                fontWeight: active ? 700 : 500,
-                fontSize: "13px",
-                transition: "background 0.12s, color 0.12s",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-              }}
-            >
-              <Icon size={16} style={{ flexShrink: 0 }} />
-              {(!collapsed || mobile) && <span>{label}</span>}
-            </Link>
+            <div key={item.href}>
+              {showSectionHeader && (
+                <div style={{
+                  fontSize: "10px", fontWeight: 800, color: "var(--faint, #6b7280)",
+                  textTransform: "uppercase", letterSpacing: "0.06em",
+                  padding: idx === 0 ? "2px 10px 6px" : "14px 10px 6px",
+                }}>
+                  {t(item.section!)}
+                </div>
+              )}
+              <Link
+                href={item.href}
+                onClick={onClose}
+                title={collapsed && !mobile ? label : undefined}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  padding: "9px 10px",
+                  borderRadius: "8px",
+                  marginBottom: "2px",
+                  textDecoration: "none",
+                  background: active ? `${nav.color}18` : "transparent",
+                  color: active ? nav.color : "var(--muted)",
+                  fontWeight: active ? 700 : 500,
+                  fontSize: "13px",
+                  transition: "background 0.12s, color 0.12s",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                }}
+              >
+                <Icon size={16} style={{ flexShrink: 0 }} />
+                {(!collapsed || mobile) && <span>{label}</span>}
+              </Link>
+            </div>
           );
         })}
       </nav>
@@ -474,31 +501,45 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
               ),
             };
           })
-        : shellNavModel.map((item) => {
+        : shellNavModel.map((item, idx) => {
             const navItem = item as ShellNavLink;
             const Icon = navItem.icon;
+            // Mirrors the section-header grouping added to the mobile Sidebar
+            // component (AUDIT_REMEDIATION_PLAN.md 1.5) — this is the separate
+            // desktop AppShell nav renderer (see 1.17 for the known, deliberately
+            // deferred duplication between the two), so it needs the same
+            // section-change logic applied independently.
+            const previousSection = idx > 0 ? (shellNavModel[idx - 1] as ShellNavLink).section : undefined;
+            const showSectionHeader = navItem.section && navItem.section !== previousSection && !collapsed;
             return {
               key: navItem.key,
               label: navItem.label,
               active: navItem.active,
               node: (
-                <Link
-                  href={navItem.href}
-                  title={collapsed ? navItem.label : undefined}
-                  className={[
-                    "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                    navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
-                  ].join(" ")}
-                >
-                  <span className="flex h-5 w-5 items-center justify-center">
-                    <Icon size={16} />
-                  </span>
-                  {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
-                </Link>
+                <div key={navItem.key}>
+                  {showSectionHeader && (
+                    <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                      {t(navItem.section!)}
+                    </div>
+                  )}
+                  <Link
+                    href={navItem.href}
+                    title={collapsed ? navItem.label : undefined}
+                    className={[
+                      "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
+                      navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
+                    ].join(" ")}
+                  >
+                    <span className="flex h-5 w-5 items-center justify-center">
+                      <Icon size={16} />
+                    </span>
+                    {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
+                  </Link>
+                </div>
               ),
             };
           }),
-    [shellNavModel, role, collapsed],
+    [shellNavModel, role, collapsed, t],
   );
 
   return (

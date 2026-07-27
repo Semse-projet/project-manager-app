@@ -27,6 +27,7 @@ export class MarketplaceController {
       category, location, urgency,
       limit: parsePositiveInt(limit, 20),
       offset: parseNonNegativeInt(offset, 0),
+      excludeOrgId: ctx.orgId,
     });
     return ok(rid, result);
   }
@@ -36,7 +37,7 @@ export class MarketplaceController {
   async getStats(@Req() req: { headers?: Record<string, unknown> }) {
     const ctx = resolveRequestContext(req);
     const rid = resolveRequestId(req.headers ?? {});
-    return ok(rid, await this.svc.getStats(ctx.tenantId));
+    return ok(rid, await this.svc.getStats(ctx.tenantId, ctx.orgId));
   }
 
   @Get("professionals")
