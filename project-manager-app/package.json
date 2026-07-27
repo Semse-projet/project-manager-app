@@ -32,6 +32,7 @@
     "db:seed": "pnpm --filter @semse/db prisma:seed",
     "db:reset": "pnpm --filter @semse/db prisma:reset",
     "check:worker": "pnpm --filter @semse/worker check",
+    "check:assistant-portal": "pnpm --filter @semse/assistant-portal check && pnpm --filter @semse/assistant-portal test",
     "typecheck": "pnpm run typecheck:all",
     "typecheck:all": "node ./scripts/workspace-runner.mjs typecheck:all",
     "lint": "pnpm --filter @semse/api lint && pnpm --filter @semse/web lint",
@@ -120,6 +121,9 @@
   "pnpm": {
     "overrides": {
       "@babel/core": "7.29.6",
+      "@types/express": "4.17.21",
+      "body-parser@^1.20.0": "1.20.6",
+      "dompurify": "3.4.12",
       "esbuild": "0.28.1",
       "fast-uri@^3.0.0": "3.1.4",
       "fast-uri@^4.0.0": "4.1.1",
