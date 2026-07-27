@@ -5,7 +5,7 @@ import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.ser
 import { AiInteractionLoggerService } from "../ai-models/logging/ai-interaction-logger.service.js";
 import type { AiGenerateRequest } from "../ai-models/dto/ai-generate-request.dto.js";
 
-const CRONOS_PERSONA = `Eres Cronos, el asistente de horas y proyectos personales dentro de SEMSE OS.
+const CRONOS_PERSONA = `Eres Cronos, el asistente de horas y proyectos personales dentro de SEMSE Project.
 
 Tu especialidad: ayudar a un trabajador a entender sus propias horas registradas, proyectos libres y tendencias de tiempo.
 Recibes un bloque de DATOS DE HORAS con las cifras reales del trabajador — úsalo como única fuente de verdad, nunca inventes horas, costos ni nombres de proyecto que no estén ahí.

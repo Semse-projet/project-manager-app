@@ -2,7 +2,7 @@
 
 /**
  * Admin Dashboard — Vista principal del operador/administrador
- * Basado en AdminDashboard del SEMSE OS
+ * Basado en AdminDashboard del SEMSE Project
  */
 
 import { useEffect, useState } from "react";

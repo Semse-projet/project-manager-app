@@ -281,7 +281,7 @@ export default function ResetPasswordPage() {
               ⚡
             </div>
             <span style={{ fontSize: "24px", fontWeight: 900, color: "var(--ink, #f1f5f9)", letterSpacing: "-0.5px" }}>
-              SEMSE OS
+              SEMSE Project
             </span>
           </div>
         </div>

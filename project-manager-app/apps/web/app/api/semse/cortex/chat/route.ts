@@ -31,7 +31,7 @@ const DEMO_RESPONSES: Record<string, string[]> = {
     "Puedes ver el historial completo de pagos en la sección Pagos de tu panel.",
   ],
   default: [
-    "Hola, soy Prometeo — el agente de SEMSE OS. Conecta el backend configurando las variables de entorno `SEMSE_API_BASE_URL`, `SEMSE_TENANT_ID`, `SEMSE_ORG_ID` y `SEMSE_USER_ID` para activar el agente real.",
+    "Hola, soy Prometeo — el agente de SEMSE Project. Conecta el backend configurando las variables de entorno `SEMSE_API_BASE_URL`, `SEMSE_TENANT_ID`, `SEMSE_ORG_ID` y `SEMSE_USER_ID` para activar el agente real.",
     "Puedo ayudarte con información sobre trabajos, milestones, escrow y disputas. El MCA completo se activa con el backend conectado.",
     "En modo demo puedo responder preguntas sobre el flujo de trabajo de SEMSE: publicar trabajos → propuestas → reserva → contrato → milestones → escrow → liberación.",
   ],

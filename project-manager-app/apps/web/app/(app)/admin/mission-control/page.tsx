@@ -624,12 +624,12 @@ export default function MissionControlPage() {
         )}
       </div>
 
-      {/* SEMSE OS Modules */}
+      {/* SEMSE Project Modules */}
       <section style={{ marginBottom: "24px" }}>
         <div style={{ display: "flex", alignItems: "end", justifyContent: "space-between", gap: "16px", marginBottom: "12px" }}>
           <div>
             <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--faint, #4b6280)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "6px" }}>
-              SEMSE OS
+              SEMSE Project
             </p>
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "var(--ink, #f1f5f9)" }}>
               Ecosistema modular

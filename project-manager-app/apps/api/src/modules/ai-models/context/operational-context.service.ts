@@ -339,7 +339,7 @@ export class OperationalContextService {
 
   formatContextBlock(ctx: SemseOperationalContext): string {
     const lines = [
-      `## Contexto operativo SEMSE OS (modo=${ctx.mode})`,
+      `## Contexto operativo SEMSE Project (modo=${ctx.mode})`,
       `Usuario: ${ctx.user.id} | Rol: ${ctx.user.role}`,
       ctx.activeProject
         ? `Proyecto activo: "${ctx.activeProject.title}" (${ctx.activeProject.status})`

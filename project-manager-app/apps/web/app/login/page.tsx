@@ -141,7 +141,7 @@ export default function LoginPage() {
                 letterSpacing: "-0.5px",
               }}
             >
-              SEMSE OS
+              SEMSE Project
             </span>
           </div>
           <p style={{ color: "var(--muted, #94a3b8)", fontSize: "14px" }}>

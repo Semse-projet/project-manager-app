@@ -184,7 +184,7 @@ export default function RegisterPage() {
               ⚡
             </div>
             <span style={{ fontSize: "24px", fontWeight: 900, color: "var(--ink, #f1f5f9)", letterSpacing: "-0.5px" }}>
-              SEMSE OS
+              SEMSE Project
             </span>
           </div>
           <p style={{ color: "var(--muted, #94a3b8)", fontSize: "14px" }}>
