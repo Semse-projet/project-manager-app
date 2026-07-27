@@ -408,6 +408,26 @@ export default function WorkerTrackerPage() {
     }
   }, []);
 
+  const loadFilteredHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const target = parseTargetKey(historyTarget === "all" || historyTarget === "personal" ? "" : historyTarget);
+      const nextEntries = await fetchLaborEntries({
+        range: historyRange,
+        jobId: target.jobId,
+        freeProjectId: target.freeProjectId,
+        purpose: historyTarget === "personal" ? "personal" : undefined,
+        limit: 200,
+      });
+      setEntries(nextEntries);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyRange, historyTarget]);
+
   const syncPendingEvents = useCallback(async (state: TrackerLocalState = trackerLocalState) => {
     if (state.pendingEvents.length === 0 || saving) return;
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
@@ -496,7 +516,9 @@ export default function WorkerTrackerPage() {
       persistTrackerLocalState(syncedState);
       setError(null);
       setSyncNotice("Sincronización completada. Tus horas ya están protegidas en SEMSE.");
-      await loadTracker();
+      // The synced events stop being rendered as pending work, so the entry list
+      // has to be re-read from the backend or it shows the hours as gone.
+      await Promise.all([loadTracker(), loadFilteredHistory()]);
     } catch (caught) {
       const failedState = markTrackerSyncFailed(remainingState, caught instanceof Error ? caught.message : "No se pudo sincronizar el tracker.");
       // A rejection the backend will keep rejecting (4xx that isn't a transient
@@ -509,7 +531,7 @@ export default function WorkerTrackerPage() {
         ? "No pudimos sincronizar ahora. Seguiremos intentando automáticamente."
         : "SEMSE rechazó un cambio pendiente. Tus horas siguen guardadas aquí; revisa el detalle y usa \"Reintentar ahora\".");
     }
-  }, [loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
+  }, [loadFilteredHistory, loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
 
   const retryPendingSyncNow = useCallback(() => {
     autoSyncAttemptsRef.current = 0;
@@ -607,26 +629,6 @@ export default function WorkerTrackerPage() {
 
     void run();
   }, [loadTracker]);
-
-  const loadFilteredHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    setError(null);
-    try {
-      const target = parseTargetKey(historyTarget === "all" || historyTarget === "personal" ? "" : historyTarget);
-      const nextEntries = await fetchLaborEntries({
-        range: historyRange,
-        jobId: target.jobId,
-        freeProjectId: target.freeProjectId,
-        purpose: historyTarget === "personal" ? "personal" : undefined,
-        limit: 200,
-      });
-      setEntries(nextEntries);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [historyRange, historyTarget]);
 
   useEffect(() => {
     if (loading) return;

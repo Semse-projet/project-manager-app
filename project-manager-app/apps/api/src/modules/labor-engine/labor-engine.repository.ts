@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { randomUUID } from "node:crypto";
+import { jobAssignmentWhere } from "../../common/job-assignment.js";
 
 // FLSA-style weekly overtime: hours beyond 40/week pay 1.5x. This is
 // deliberately separate from QUALITY_GUARD.overtimeWeekMinutes (48h) in
@@ -147,19 +148,15 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord | null;
   }
 
-  /** Same assignment rule as FieldOpsRepository.trackerJobAssignmentWhere — a worker
-   * may only log time against a job they're actually accepted/reserved on. */
+  /** A worker may only log time against a job they're engaged on, using the same
+   * rule that decides which jobs the tracker offers (`jobAssignmentWhere`). */
   async isJobAssignedToWorker(tenantId: string, orgId: string, jobId: string, userId: string): Promise<boolean> {
     const job = await this.prisma.job.findFirst({
       where: {
         id: jobId,
         tenantId,
         deletedAt: null,
-        OR: [
-          { bids: { some: { professionalUserId: userId, status: "ACCEPTED" } } },
-          { reservations: { some: { professionalId: userId, status: { in: ["ACTIVE", "ACCEPTED"] } } } },
-          { reservations: { some: { professionalOrgId: orgId, status: { in: ["ACTIVE", "ACCEPTED"] } } } },
-        ],
+        OR: jobAssignmentWhere({ orgId, userId }),
       },
       select: { id: true },
     });
