@@ -110,6 +110,17 @@ export default function WorkerProfilePage() {
   const avgRating = ratings.length > 0
     ? (ratings.reduce((s, r) => s + r.score, 0) / ratings.length).toFixed(1) : "—";
   const isVerified = currentUser?.verificationStatus === "verified";
+  // A brand-new professional (0 reviews yet) and someone the trust algorithm
+  // has genuinely scored low both show trustScore 0 — the raw badge alone
+  // ("Trust 0%") reads as a real, permanent low score in either case, with no
+  // way to tell the two apart. See AUDIT_REMEDIATION_PLAN.md 2.1d/0.28.
+  const isNewProfessional = (currentUser?.trustScore ?? 0) === 0 && ratings.length === 0;
+  const trustLabel = isNewProfessional
+    ? "Trust — nuevo en la plataforma"
+    : `Trust ${Math.round((currentUser?.trustScore ?? 0) * 100)}%`;
+  const trustTitle = isNewProfessional
+    ? "Todavía no tienes trabajos completados ni reseñas — tu puntaje de confianza sube a medida que completas trabajos y recibes buenas reseñas."
+    : "El puntaje de confianza sube con trabajos completados y buenas reseñas, y baja con disputas o cancelaciones.";
   const uniqueRoles = Array.from(new Set(memberships.map((m) => m.role.key)));
   const memberSince = currentUser?.createdAt
     ? new Date(currentUser.createdAt).toLocaleDateString("es-MX", { month: "long", year: "numeric" }) : "—";
@@ -232,8 +243,11 @@ export default function WorkerProfilePage() {
                   {formatRoleLabel(key)}
                 </span>
               ))}
-              <span style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#10b981", fontSize: "12px", fontWeight: 700 }}>
-                Trust {Math.round((currentUser?.trustScore ?? 0) * 100)}%
+              <span
+                title={trustTitle}
+                style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#10b981", fontSize: "12px", fontWeight: 700, cursor: "help" }}
+              >
+                {trustLabel}
               </span>
               <span style={{ padding: "5px 10px", borderRadius: "999px", background: profile?.availability ? "rgba(16,185,129,.10)" : "rgba(156,163,175,.12)", color: profile?.availability ? "#10b981" : "var(--muted)", fontSize: "12px", fontWeight: 700 }}>
                 {profile?.availability ? "Disponible" : "No disponible"}
