@@ -8,12 +8,20 @@ on:
       - "project-manager-app/apps/api/**"
       - "project-manager-app/apps/worker/**"
       - "project-manager-app/scripts/api-integration.mjs"
+      # La ruta de migracion: este job es lo unico que la ejercita contra un
+      # Postgres real, asi que un cambio en ella tiene que dispararlo.
+      - "project-manager-app/scripts/pre-migrate.mjs"
+      - "project-manager-app/packages/db/**"
       - ".github/workflows/api-integration.yml"
   pull_request:
     paths:
       - "project-manager-app/apps/api/**"
       - "project-manager-app/apps/worker/**"
       - "project-manager-app/scripts/api-integration.mjs"
+      # La ruta de migracion: este job es lo unico que la ejercita contra un
+      # Postgres real, asi que un cambio en ella tiene que dispararlo.
+      - "project-manager-app/scripts/pre-migrate.mjs"
+      - "project-manager-app/packages/db/**"
       - ".github/workflows/api-integration.yml"
 
 concurrency:
@@ -65,11 +73,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Apply database migrations
-        run: pnpm db:migrate
-
+      # El build va ANTES de migrar, al reves que antes: pre-migrate.mjs
+      # importa @prisma/client, que no existe hasta que build:api corre
+      # prisma generate. En produccion no se nota porque la imagen genera el
+      # cliente en el build y el CMD solo arranca; este orden reproduce eso.
       - name: Build workspace packages and API
         run: pnpm build:api
+
+      # Se ejecuta el mismo script que corre el contenedor al arrancar
+      # (Dockerfile.api CMD / startCommand de Railway), no `pnpm db:migrate`:
+      # asi la ruta de migracion de produccion queda probada en CI contra un
+      # Postgres real, incluido el `migrate deploy` que aplica el SQL.
+      - name: Apply database migrations (production boot path)
+        run: node scripts/pre-migrate.mjs
 
       - name: Run DB-backed API integration tests
         run: pnpm test:integration

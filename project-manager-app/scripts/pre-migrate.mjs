@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 /**
- * Pre-migration script — runs BEFORE prisma migrate deploy.
- * 1. If DB has no migration history (P3005 scenario), creates _prisma_migrations
- *    and marks all existing migrations as applied via direct SQL + checksums.
- *    Then runs prisma db push to add any tables that are missing.
- * 2. Deduplicates rows that would violate unique constraints.
+ * Migraciones de arranque — se ejecuta antes de levantar la API.
+ * 1. Solo si la base NO tiene historial de migraciones (escenario P3005): crea
+ *    _prisma_migrations, marca las migraciones existentes como aplicadas via
+ *    SQL directo + checksums, y sincroniza con prisma db push. Si SI hay
+ *    historial no se baseliza nada: las no registradas son pendientes.
+ * 2. Deduplica filas que violarian constraints unicos.
+ * 3. Aplica las migraciones pendientes con prisma migrate deploy.
+ *
+ * El paso 3 es la unica via por la que el SQL de una migracion se ejecuta en
+ * produccion. Antes no existia, y el paso 1 marcaba como aplicada cualquier
+ * migracion nueva, asi que ningun backfill ni limpieza de datos llegaba a
+ * correr — ni en el arranque ni despues a mano.
  *
  * Uses require.resolve("prisma/build/index.js") for the Prisma CLI so it works
  * regardless of symlink state or package manager (npm/pnpm).
@@ -86,14 +93,47 @@ async function baselineIfNeeded() {
   `;
   const recorded = new Set(dbRows.map((r) => r.migration_name));
 
+  // El baseline existe para UN solo escenario: una base que ya tiene tablas
+  // pero ningun historial de migraciones (P3005). Si hay historial, cualquier
+  // migracion no registrada es simplemente una migracion pendiente, y aplicarla
+  // es trabajo de `migrate deploy`.
+  //
+  // Marcarlas aqui como aplicadas -lo que se hacia antes- las saltaba para
+  // siempre: su SQL no se ejecutaba nunca, ni en el arranque ni despues a mano,
+  // porque `migrate deploy` ya las veia registradas. La base quedaba
+  // desincronizada del esquema en silencio.
+  // Una base vacia no es el escenario P3005: ahi lo correcto es que
+  // `migrate deploy` construya el esquema aplicando las migraciones en orden.
+  // Baselizarla marcaria todo como aplicado sin ejecutar nada.
+  const [{ count: userTables }] = await prisma.$queryRaw`
+    SELECT COUNT(*)::int AS count FROM pg_tables
+    WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'
+  `;
+  if (userTables === 0) {
+    console.log("[pre-migrate] base vacia — migrate deploy creara el esquema desde cero");
+    return;
+  }
+
+  const hasHistory = row.exists && recorded.size > 0;
+  if (hasHistory) {
+    const pending = diskMigrations.filter(
+      (name) => !recorded.has(name) && existsSync(join(MIGRATIONS_DIR, name, "migration.sql")),
+    );
+    if (pending.length > 0) {
+      console.log(
+        `[pre-migrate] ${pending.length} migracion(es) pendiente(s) — las aplicara migrate deploy: ${pending.join(", ")}`,
+      );
+    } else {
+      console.log("[pre-migrate] _prisma_migrations complete — no baseline needed");
+    }
+    return;
+  }
+
+  console.log("[pre-migrate] ⚠ base sin historial de migraciones (P3005) — baseline");
+
   const missing = diskMigrations.filter(
     (name) => !recorded.has(name) && existsSync(join(MIGRATIONS_DIR, name, "migration.sql"))
   );
-
-  if (missing.length === 0 && row.exists) {
-    console.log("[pre-migrate] _prisma_migrations complete — no baseline needed");
-    return;
-  }
 
   if (missing.length > 0) {
     console.log(`[pre-migrate] ⚠ ${missing.length} migration(s) not recorded — inserting`);
@@ -223,6 +263,28 @@ try {
   await runDedup();
 } catch (err) {
   console.warn("[pre-migrate] warn: dedup error:", err?.message ?? err);
+}
+
+// ---------------------------------------------------------------------------
+// Aplicar migraciones pendientes
+// ---------------------------------------------------------------------------
+//
+// Va DESPUES del dedup, que existe precisamente para limpiar filas que
+// impedirian crear un constraint unico.
+//
+// Si esto falla, se sale con codigo 1 y el contenedor no arranca: es
+// deliberado. Arrancar la API con un cliente Prisma que conoce columnas que la
+// base no tiene es peor que no arrancar, porque el fallo aparece disperso en
+// tiempo de ejecucion en vez de una sola vez en el arranque.
+try {
+  const prismaCli = getPrismaCli();
+  console.log("[pre-migrate] aplicando migraciones pendientes...");
+  run(prismaCli.file, [...prismaCli.baseArgs, "migrate", "deploy", "--schema", SCHEMA]);
+  console.log("[pre-migrate] ✓ migrate deploy completo");
+} catch (err) {
+  console.error("[pre-migrate] FATAL: migrate deploy fallo:", err?.message ?? err);
+  prisma.$disconnect().catch(() => {});
+  process.exit(1);
 }
 
 // Force exit — prisma.$disconnect() can hang keeping the process alive,
