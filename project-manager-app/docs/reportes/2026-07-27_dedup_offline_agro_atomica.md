@@ -95,6 +95,20 @@ ahora revierte al lanzar y **serializa** las transacciones. Sin aislamiento, al
 revertir la perdedora de una carrera se borraba tambien lo que habia escrito la
 ganadora — un artefacto del stub que Postgres no permite.
 
+### Trampa encontrada: los tests de agro estan duplicados
+
+`apps/api/test/agro-sync.service.test.ts` y
+`tests/unit/agro-sync.service.test.ts` son **el mismo archivo salvo la ruta del
+import**, y los ejecutan jobs distintos de CI (`unit-coverage` el primero,
+`quality-gates` el segundo). Al editar solo uno, `quality-gates` fallo con 6
+tests en rojo mientras la suite de la API pasaba 1969/1969 en local.
+
+Pasa igual con `agro-animal`, `agro-evidence`, `agro-farm`, `agro-inventory` y
+`agro-task`. **Nada obliga a que las copias coincidan**, asi que van a divergir:
+la unica señal es un CI en rojo, y solo si la divergencia rompe algo. Merece una
+decision aparte —una sola fuente y que el otro job la reutilice— pero no la tomo
+aqui: excede el alcance de este arreglo.
+
 ## Lo que esto no hace
 
 - **No hay cola cliente todavia.** Este es el lado servidor.
