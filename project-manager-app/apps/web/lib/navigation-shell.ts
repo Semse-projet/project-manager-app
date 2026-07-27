@@ -16,6 +16,7 @@ export interface ShellNavLink {
   href: string;
   active: boolean;
   icon: ShellNavIcon;
+  section?: string;
 }
 
 export interface AdminNavGroup {
@@ -128,6 +129,7 @@ export function buildShellNavItems({
         href: item.href,
         active,
         icon: Icon,
+        section: item.section,
       };
     });
   }

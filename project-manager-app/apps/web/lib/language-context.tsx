@@ -111,6 +111,9 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "section.field": "Campo",
     "section.ai": "IA",
     "section.lab": "Lab",
+    "section.buyer": "Como comprador — contratás profesionales",
+    "section.contractor": "Como contratista — ofrecés tus servicios",
+    "section.account": "Cuenta",
 
     // ── Common UI ─────────────────────────────────────────────────────────────
     "ui.signOut": "Salir",
@@ -770,6 +773,9 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "section.field": "Field",
     "section.ai": "AI",
     "section.lab": "Lab",
+    "section.buyer": "As a buyer — hiring professionals",
+    "section.contractor": "As a contractor — offering your services",
+    "section.account": "Account",
 
     // ── Common UI ─────────────────────────────────────────────────────────────
     "ui.signOut": "Sign out",
