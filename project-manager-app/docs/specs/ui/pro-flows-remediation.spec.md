@@ -112,6 +112,7 @@ El rol PRO (UI: "Profesional", rutas: `/worker/*`) tiene un cronómetro de horas
 **Archivo legacy:** `apps/web/app/(app)/worker/field-ops/page.tsx:895-1120` (`TrackerTab`), respaldado por `FieldOpsService`/`TrackerSession` — el propio `CLAUDE.md` del repo dice que ese motor "remains only as legacy API", pero la UI sigue dejando registrar horas completas ahí.
 **Impacto:** horas registradas en el cronómetro legacy nunca se concilian contra nómina/escrow real.
 **Fix esperado:** cerrar o bloquear la pestaña "Tracker" de `/worker/field-ops` como ruta de registro de horas activa; si se necesita conservar por datos históricos, dejarla solo de lectura.
+**Resuelto (2026-07-27) — decisión de producto explícita del usuario: deprecar/ocultar el legado ahora.** Se removió `{ id: "tracker", ... }` de `TABS` en `field-ops/page.tsx` y todo el componente `TrackerTab` (~226 líneas, único consumidor de las interfaces `TrackerSessionView`/`TrackerJob`/`TrackerSummary` y del helper `fmtDuration`) — la pestaña ya no es seleccionable ni se monta. Se agregó un link visible "⏱ Time Tracker" en el header de `/worker/field-ops` apuntando a `/worker/tracker` (Labor Engine) para que un profesional que buscaba el tracker ahí tenga una salida clara, no un desaparecido silencioso. **Deliberadamente NO se tocó** el backend `FieldOpsService`/`TrackerSession` ni ningún dato histórico — solo la vía de acceso desde la UI; borrar el modelo/datos es una decisión aparte que necesitaría confirmar primero que nada más lo lee.
 
 ### G-PRO-02 — ALTO — Esta cuenta profesional real no tiene Stripe Connect conectado
 **Confirmado en vivo:** `/worker/payments` → "Método de cobro" → *"Cuenta Stripe Connect: Sin cuenta conectada — crea una para recibir pagos automáticos."*
@@ -196,7 +197,7 @@ screens:
   - /worker/jobs
   - /worker/jobs/[jobId]
   - /worker/tracker (Labor Engine real — 6 tabs: Timer/Resumen/Registros/Proyectos/Reportes/Asistente)
-  - /worker/field-ops (legacy — pestaña "Tracker" debe desactivarse o quedar solo lectura, ver G-PRO-01)
+  - /worker/field-ops (pestaña "Tracker" removida 2026-07-27, ver G-PRO-01 — Unidades/Worklogs/Base de conocimiento/Proveedores siguen activas)
   - /worker/payments
   - /worker/profile
   - /worker/evidence
@@ -212,7 +213,7 @@ states:
   - error
 required_behavior:
   - El badge de estado de un trabajo debe coincidir exactamente con lo que ve el cliente para el mismo jobId (bloqueado hoy por G-PRO-00)
-  - Solo debe existir una ruta activa de registro de horas por profesional (bloqueado hoy por G-PRO-01)
+  - Solo debe existir una ruta activa de registro de horas por profesional (resuelto 2026-07-27, ver G-PRO-01)
   - Un archivo de evidencia subido en `/worker/evidence` debe existir realmente en storage tras "Registrar" (bloqueado hoy por G-PRO-06)
   - Un usuario PRO debe poder enviar un mensaje a Prometeo/agentes y recibir respuesta real (bloqueado hoy por G-PRO-05)
 ```
@@ -229,7 +230,7 @@ required_behavior:
 ## Tests Required
 
 - [ ] `/worker/jobs/[jobId]` muestra el mismo badge de estado que `/client/jobs/[jobId]` para el mismo `jobId` (regresión directa de G-PRO-00)
-- [ ] La pestaña "Tracker" de `/worker/field-ops` no permite iniciar una sesión de tiempo nueva (o queda removida)
+- [x] La pestaña "Tracker" de `/worker/field-ops` no permite iniciar una sesión de tiempo nueva (o queda removida) — removida por completo 2026-07-27
 - [ ] `/worker/payments` comunica explícitamente por qué no se puede cobrar cuando no hay cuenta Connect activa
 - [ ] Un usuario con rol `PRO` puede enviar un mensaje a Prometeo (o cualquier agente) desde el widget flotante y recibe una respuesta real, no `Insufficient permissions` (regresión directa de G-PRO-05)
 - [ ] Un usuario con rol `WORKER` (literal, no alias de PRO) tiene el mismo resultado
@@ -279,6 +280,6 @@ required_behavior:
 
 ## Rollback Considerations
 
-- G-PRO-01 (bloquear el cronómetro legacy) es la única acción aquí con consecuencia operativa real: si algún profesional depende hoy de `/worker/field-ops` para registrar horas, bloquearlo sin aviso le corta el flujo. Requiere coordinación con el owner de producto antes de desactivar, no solo un merge silencioso.
+- G-PRO-01 — **decisión de producto obtenida 2026-07-27 (usuario, dueño del producto): deprecar/ocultar el legado ahora.** Implementado quitando la pestaña de la UI (ver arriba) sin tocar el backend/datos históricos, y agregando un link visible al Time Tracker real para no dejar al profesional sin salida. Si en producción hay sesiones `TrackerSession` activas de profesionales reales al momento del deploy, esas sesiones quedan huérfanas (sin UI para pausar/detener) — vale la pena revisar si hay alguna activa antes de desplegar, o aceptar el corte.
 - G-PRO-13 (tarifas custom) requiere una decisión de diseño de producto antes de cualquier fix — no está claro si el comportamiento correcto es "el estimado de ProTools debe usar la tarifa del profesional asignado" o algo distinto; implementar el fix equivocado podría filtrar la tarifa de un profesional a un contexto donde no corresponde.
 - Los 3 hallazgos de IDOR (G-PRO-11, incidencias/materiales, tareas) son fixes de bajo riesgo (agregar un filtro que ya falta) pero deben desplegarse junto con una revisión de si ya fueron explotados — no hay logging suficiente hoy para saber si algún dato cross-tenant/cross-worker ya fue leído o modificado por esta vía.
