@@ -3,6 +3,7 @@ import { PUBLIC_MARKET_CURRENCY } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
 import { LocationCostService } from "../pricing/location-cost.service.js";
+import { ContractorRateService } from "../pricing/contractor-rate.service.js";
 
 export type BudgetSuggestion = {
   min: number;
@@ -53,6 +54,7 @@ export class BudgetIntelligenceService {
     private readonly prisma: PrismaService,
     private readonly gateway: AiModelGatewayService,
     @Optional() private readonly locationCost?: LocationCostService,
+    @Optional() private readonly contractorRate?: ContractorRateService,
   ) {}
 
   async suggestBudget(input: {
@@ -66,6 +68,18 @@ export class BudgetIntelligenceService {
     areaSqft?: number;
     /** ZIP code for regional cost adjustment. Falls back to a 5-digit ZIP found in `location`. */
     zipCode?: string;
+    /**
+     * An existing job to re-estimate for, once it has an assigned professional
+     * (post bid-acceptance) — enables the "Mis Tarifas" adjustment below. Never
+     * trust a client-supplied professional userId directly: the assigned pro is
+     * always resolved server-side from this job's own Contract record, scoped
+     * by tenantId AND ownership (orgId, unless OPS_ADMIN), so a caller can't
+     * fish for another org's job/professional rate multiplier by guessing
+     * jobIds. See AUDIT_REMEDIATION_PLAN.md 2.40.
+     */
+    jobId?: string;
+    orgId?: string;
+    roles?: string[];
   }): Promise<BudgetSuggestion> {
     // 1. Load historical jobs with budgets
     const historicalJobs = await this.prisma.job.findMany({
@@ -181,6 +195,38 @@ export class BudgetIntelligenceService {
         }
       } catch (err) {
         this.logger.debug(`[budget] locationCost.getMultipliers failed for zip=${resolvedZip}: ${(err as Error).message}`);
+      }
+    }
+
+    // 6a. Assigned professional's real rate ("Mis Tarifas", AUDIT_REMEDIATION_PLAN.md
+    // 2.40) — only applies once a job has an accepted bid/Contract, i.e. never
+    // for a brand-new draft job (client/jobs/new) or the standalone ProTools
+    // estimator (client/protools), which by construction don't have an
+    // assigned professional yet. Skipped entirely for the zero-state ("no
+    // reliable range") the same way the location adjustment is.
+    if (input.jobId && this.contractorRate && (budgetMin > 0 || budgetMax > 0)) {
+      try {
+        const job = await this.prisma.job.findFirst({
+          where: { id: input.jobId, tenantId: input.tenantId },
+          select: { clientOrgId: true, contract: { select: { professionalUserId: true } } },
+        });
+        const isOwner = job && (job.clientOrgId === input.orgId || (input.roles ?? []).includes("OPS_ADMIN"));
+        const proUserId = isOwner ? job?.contract?.professionalUserId : undefined;
+        if (proUserId) {
+          const rate = await this.contractorRate.getOverride(proUserId);
+          if (rate && Math.abs(rate.laborMultiplier - 1) > 0.02) {
+            budgetMin = Math.round(budgetMin * rate.laborMultiplier);
+            budgetMax = Math.round(budgetMax * rate.laborMultiplier);
+            budgetMedian = Math.round(budgetMedian * rate.laborMultiplier);
+            factors.push({
+              name: "Tarifa real del profesional asignado",
+              impact: rate.laborMultiplier > 1 ? "increases" : "decreases",
+              note: `Ajustado a la tarifa declarada por el profesional ($${rate.laborRatePerHr}/hr) en vez del promedio BLS (×${rate.laborMultiplier.toFixed(2)})`,
+            });
+          }
+        }
+      } catch (err) {
+        this.logger.debug(`[budget] contractorRate adjustment failed for jobId=${input.jobId}: ${(err as Error).message}`);
       }
     }
 

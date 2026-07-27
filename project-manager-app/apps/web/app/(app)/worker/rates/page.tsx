@@ -137,7 +137,7 @@ export default function ContractorRatesPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>Mis Tarifas</h1>
           <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>
-            Tus tarifas reales reemplazan los promedios BLS en cada estimado
+            Tus tarifas reales reemplazan el promedio BLS en el estimado de un trabajo, una vez que ese trabajo te lo asignen a vos
           </p>
         </div>
         {status?.hasCustomRates && (
@@ -155,7 +155,7 @@ export default function ContractorRatesPage() {
 
       {saved && (
         <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "#10b981", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-          <Check size={14} /> Tarifas guardadas. Se usarán en todos los estimados futuros.
+          <Check size={14} /> Tarifas guardadas. Se usarán en el estimado de cualquier trabajo que se te asigne a partir de ahora.
         </div>
       )}
 
