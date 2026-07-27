@@ -81,6 +81,7 @@ export const rolePermissions: Record<string, string[]> = {
     "org:members:read",
     "users:read",
     "users:memberships:read",
+    "users:verify:request",
     "notifications:read",
     "finance:read",
     "finance:write",
@@ -117,7 +118,8 @@ export const rolePermissions: Record<string, string[]> = {
     "tools:run",
     "vision:read",
     "vision:run",
-    "weather:read"
+    "weather:read",
+    "users:verify:request"
   ],
   EVENT_CONSUMER: [
     "domain-events:consume"

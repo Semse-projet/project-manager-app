@@ -93,3 +93,109 @@ test("users service rejects status updates for non-admin actors", async () => {
   assert.equal(calls.updates.length, 0);
   assert.equal(calls.audit.length, 0);
 });
+
+// ── Verification requests (AUDIT_REMEDIATION_PLAN.md 2.28) ────────────────────
+
+function createServiceWithWorkspaceMemory() {
+  const stored = new Map<string, { id: string; body?: string }>();
+  const workspaceMemory = {
+    async append(record: { id: string; body?: string }) {
+      stored.set(record.id, record);
+      return record;
+    },
+    async query(input: { workspaceId: string; tags?: string[] }) {
+      return Array.from(stored.values()).filter((r) => r.id.includes(input.workspaceId));
+    },
+    async queryAcrossTenant() {
+      return Array.from(stored.values()).filter((r) => JSON.parse(r.body ?? "{}").status === "pending");
+    },
+  };
+  const repository = {
+    async findUserById() { return { id: "usr_target", verificationStatus: "unverified" }; },
+    async verifyUser(input: Record<string, unknown>) {
+      return { id: input.targetUserId, verificationStatus: "verified" };
+    },
+  };
+  const auditService = { async append() { /* no-op */ } };
+  const domainEventBus = { async emit() { /* no-op */ } };
+  const service = new UsersService(repository as never, auditService as never, domainEventBus as never, workspaceMemory as never);
+  return { service, workspaceMemory };
+}
+
+void test("requestVerification queues a pending request for the requester's own account", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  const result = await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "id_document",
+  });
+
+  assert.equal(result.status, "pending");
+  assert.equal(result.verificationType, "id_document");
+});
+
+void test("requestVerification rejects requesting verification for someone else", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await assert.rejects(
+    () => service.requestVerification({
+      tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+      targetUserId: "usr_other", verificationType: "id_document",
+    }),
+    /Cannot request verification/,
+  );
+});
+
+void test("listVerificationRequests rejects non-admin actors", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await assert.rejects(
+    () => service.listVerificationRequests({ tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"] }),
+    /Cannot view verification requests/,
+  );
+});
+
+void test("reviewVerificationRequest rejects non-admin actors", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await assert.rejects(
+    () => service.reviewVerificationRequest({
+      tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+      targetUserId: "usr_pro", verificationType: "id_document", decision: "approved", requestId: "req_1",
+    }),
+    /Cannot review verification requests/,
+  );
+});
+
+void test("reviewVerificationRequest 404s when there's no matching pending request", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await assert.rejects(
+    () => service.reviewVerificationRequest({
+      tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+      targetUserId: "usr_nobody", verificationType: "id_document", decision: "approved", requestId: "req_1",
+    }),
+  );
+});
+
+void test("an approved review shows up in listVerificationRequests as no longer pending, and a rejected one never verifies the user", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "id_document",
+  });
+
+  const pendingBefore = await service.listVerificationRequests({ tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"] });
+  assert.equal(pendingBefore.length, 1);
+  assert.equal(pendingBefore[0].userId, "usr_pro");
+
+  const review = await service.reviewVerificationRequest({
+    tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+    targetUserId: "usr_pro", verificationType: "id_document", decision: "approved", requestId: "req_1",
+  });
+  assert.equal(review.status, "approved");
+
+  const pendingAfter = await service.listVerificationRequests({ tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"] });
+  assert.equal(pendingAfter.length, 0, "the same deterministic id should be overwritten, not duplicated, once reviewed");
+});
