@@ -3249,7 +3249,12 @@ model AgroAuditEvent {
   after      Json?
   source     String   @default("SYSTEM") // WEB | MOBILE | SYNC | SYSTEM | IMPORT
   createdAt  DateTime @default(now())
+  // Clave de idempotencia de la cola offline: solo la llevan los marcadores de
+  // sync. NULL en el resto de eventos de auditoria, y Postgres no considera
+  // iguales dos NULL, asi que el unique no los afecta.
+  clientEventId String?
 
+  @@unique([farmId, clientEventId])
   @@index([farmId])
   @@index([entityType, entityId])
   @@index([createdAt])
