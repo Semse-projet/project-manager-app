@@ -73,15 +73,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # El build va ANTES de migrar, al reves que antes: pre-migrate.mjs
+      # importa @prisma/client, que no existe hasta que build:api corre
+      # prisma generate. En produccion no se nota porque la imagen genera el
+      # cliente en el build y el CMD solo arranca; este orden reproduce eso.
+      - name: Build workspace packages and API
+        run: pnpm build:api
+
       # Se ejecuta el mismo script que corre el contenedor al arrancar
       # (Dockerfile.api CMD / startCommand de Railway), no `pnpm db:migrate`:
       # asi la ruta de migracion de produccion queda probada en CI contra un
       # Postgres real, incluido el `migrate deploy` que aplica el SQL.
       - name: Apply database migrations (production boot path)
         run: node scripts/pre-migrate.mjs
-
-      - name: Build workspace packages and API
-        run: pnpm build:api
 
       - name: Run DB-backed API integration tests
         run: pnpm test:integration
