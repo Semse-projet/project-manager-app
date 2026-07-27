@@ -318,3 +318,57 @@ export function buildDisputeWorkspaceMemoryRecord(input: {
     updatedAtIso: nowIso()
   };
 }
+
+/**
+ * AUDIT_REMEDIATION_PLAN.md 2.28 — a PRO requesting identity/background/phone
+ * verification used to hit POST /v1/users/:userId/verify directly, an
+ * OPS_ADMIN-only endpoint that actually executes the verification (a stub,
+ * see 0.9) — always a 403 for the requester. This records the *request*
+ * itself so an admin can review and decide, without the requester ever being
+ * able to execute the verification themselves. Deterministic id (workspace +
+ * verificationType) means a repeat request or an admin's review both
+ * overwrite the same record via WorkspaceMemoryRepository.append()'s upsert,
+ * rather than piling up duplicate rows per request.
+ */
+export function buildVerificationRequestWorkspaceMemoryRecord(input: {
+  tenantId: string;
+  orgId: string;
+  userId: string;
+  verificationType: "email" | "phone" | "id_document" | "background_check";
+  status: "pending" | "approved" | "rejected";
+  requestedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+}): WorkspaceMemoryRecord {
+  const workspaceId = `worker:${input.userId}:verification`;
+  const body = JSON.stringify({
+    verificationType: input.verificationType,
+    status: input.status,
+    requestedAt: input.requestedAt,
+    reviewedBy: input.reviewedBy,
+    reviewedAt: input.reviewedAt,
+    reviewNote: input.reviewNote
+  });
+
+  return {
+    id: buildWorkspaceMemoryId({
+      workspaceId,
+      kind: "decision",
+      slug: `verification-request-${input.verificationType}`
+    }),
+    tenantId: input.tenantId,
+    orgId: input.orgId,
+    createdBy: input.userId,
+    workspaceId,
+    taskId: input.userId,
+    kind: "decision",
+    scope: "workspace",
+    title: `Verification request (${input.verificationType}): ${input.status}`,
+    summary: `Worker ${input.userId} requested ${input.verificationType} verification — ${input.status}.`,
+    body,
+    tags: ["verification", "request", `type:${input.verificationType}`, `status:${input.status}`],
+    sourceRef: input.userId,
+    updatedAtIso: nowIso()
+  };
+}

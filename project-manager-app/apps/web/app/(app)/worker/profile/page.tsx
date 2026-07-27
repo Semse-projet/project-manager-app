@@ -148,7 +148,12 @@ export default function WorkerProfilePage() {
     setVerifyError(null);
     setVerifyDone(null);
     try {
-      const res = await fetch(`/api/semse/users/${currentUser.id}/verify`, {
+      // Requests review instead of calling /verify directly — that endpoint
+      // only runs the real verification and is OPS_ADMIN-only, so a PRO
+      // hitting it always got a 403 (AUDIT_REMEDIATION_PLAN.md 2.28). This
+      // just queues the request for an admin to review from
+      // /admin/trust/worker-applications.
+      const res = await fetch(`/api/semse/users/${currentUser.id}/verify-request`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ verificationType: type }),

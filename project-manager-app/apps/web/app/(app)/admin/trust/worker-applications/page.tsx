@@ -49,6 +49,24 @@ type UnverifiedWorker = {
   profile?: { displayName?: string | null } | null;
 };
 
+// AUDIT_REMEDIATION_PLAN.md 2.28 — a worker's own explicit "Verificar" request
+// from /worker/profile, queued for review here (distinct from "Workers sin
+// verificar" below, which lists every unverified worker whether or not they
+// asked — an admin can act on either).
+type VerificationRequest = {
+  userId: string;
+  verificationType: string;
+  status: string;
+  requestedAt?: string;
+};
+
+const VERIFICATION_TYPE_LABEL: Record<string, string> = {
+  email: "Email",
+  phone: "Teléfono",
+  id_document: "Documento de identidad",
+  background_check: "Antecedentes",
+};
+
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   submitted: { label: "Nueva", color: "#818cf8", bg: "rgba(99,102,241,.12)" },
   reviewing: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
@@ -196,6 +214,7 @@ export default function WorkerApplicationsAdminPage() {
   const [stats, setStats] = useState<ApplicationStats | null>(null);
   const [verification, setVerification] = useState<VerificationStats | null>(null);
   const [unverified, setUnverified] = useState<UnverifiedWorker[]>([]);
+  const [verificationRequests, setVerificationRequests] = useState<VerificationRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -207,18 +226,20 @@ export default function WorkerApplicationsAdminPage() {
     setError(null);
     try {
       const query = statusFilter ? `?status=${encodeURIComponent(statusFilter)}&limit=100` : "?limit=100";
-      const [apps, appStats, verifStats, unverifiedList] = await Promise.all([
+      const [apps, appStats, verifStats, unverifiedList, requests] = await Promise.all([
         fetchJson<WorkerApplication[]>(`/api/semse/workers/applications${query}`),
         fetchJson<ApplicationStats>("/api/semse/workers/applications/stats").catch(() => null),
         fetchJson<VerificationStats>("/api/semse/workers/verification/stats").catch(() => null),
         fetchJson<{ count: number; workers: UnverifiedWorker[] }>("/api/semse/workers/unverified")
           .then((data) => data.workers)
           .catch(() => [] as UnverifiedWorker[]),
+        fetchJson<VerificationRequest[]>("/api/semse/users/verify-requests").catch(() => [] as VerificationRequest[]),
       ]);
       setApplications(apps);
       setStats(appStats);
       setVerification(verifStats);
       setUnverified(unverifiedList);
+      setVerificationRequests(requests);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudieron cargar las aplicaciones.");
     } finally {
@@ -244,6 +265,25 @@ export default function WorkerApplicationsAdminPage() {
       await load();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo actualizar la aplicación.");
+    } finally {
+      setBusy(false);
+    }
+  }, [load]);
+
+  const handleReviewRequest = useCallback(async (userId: string, verificationType: string, decision: "approved" | "rejected") => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await fetchJson(`/api/semse/users/${encodeURIComponent(userId)}/verify-request/${encodeURIComponent(verificationType)}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      setNotice(decision === "approved" ? "Solicitud aprobada — el worker quedó verificado." : "Solicitud rechazada.");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo revisar la solicitud.");
     } finally {
       setBusy(false);
     }
@@ -334,6 +374,46 @@ export default function WorkerApplicationsAdminPage() {
         ) : (
           applications.map((application) => (
             <ApplicationRow key={application.id} application={application} onReview={handleReview} busy={busy} />
+          ))
+        )}
+      </div>
+
+      {/* Verification requests — explicit "Verificar" requests from /worker/profile (2.28) */}
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
+        <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+          <UserCheck size={14} color="#f59e0b" />
+          <span style={{ fontSize: 12, fontWeight: 800 }}>Solicitudes de verificación ({verificationRequests.length})</span>
+        </div>
+        {verificationRequests.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+            Sin solicitudes pendientes.
+          </div>
+        ) : (
+          verificationRequests.map((req) => (
+            <div key={`${req.userId}-${req.verificationType}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                  {VERIFICATION_TYPE_LABEL[req.verificationType] ?? req.verificationType}
+                </p>
+                <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>{req.userId}</p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleReviewRequest(req.userId, req.verificationType, "approved")}
+                style={actionButton("#10b981")}
+              >
+                <CheckCircle2 size={12} /> Aprobar
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleReviewRequest(req.userId, req.verificationType, "rejected")}
+                style={actionButton("#ef4444")}
+              >
+                <XCircle size={12} /> Rechazar
+              </button>
+            </div>
           ))
         )}
       </div>
