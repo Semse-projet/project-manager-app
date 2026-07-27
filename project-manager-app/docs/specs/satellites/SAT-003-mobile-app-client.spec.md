@@ -42,7 +42,7 @@ daría experiencia dedicada sin condicionar el deploy de Railway.
 
 ## Non-Goals
 
-- No se mueve al monorepo (ya existe `apps/mobile` interno; este satélite es independiente y puede reemplazarlo o convivir — decisión al final de la fase, con datos).
+- No se mueve al monorepo. Existió un `apps/mobile` interno, pero era un spike de React Native/Expo que nunca llegó a compilar (sin `package.json` ni `tsconfig`, con dependencias jamás instaladas); se retiró el 2026-07-26 y quedó archivado en el tag `archive/mobile-spike-2026-06`. **Este satélite ya no convive con nada: es el único diseño vigente de cliente móvil.**
 
 ## 1. Modelo de auth (diferencia clave con otros satélites)
 

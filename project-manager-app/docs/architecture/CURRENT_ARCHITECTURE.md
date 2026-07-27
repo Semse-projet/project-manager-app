@@ -50,7 +50,7 @@ un renombramiento masivo.
 | SEMSE Payments | Pagos, estados de escrow operativo, releases, refunds y gobierno financiero | `payments`, `escrow`, `payment-governance`, `finance`, `liens` |
 | SEMSE Trust | Reputacion, verificacion, cumplimiento, disputas y governance | `ratings`, `trust`, `governance`, `compliance`, `disputes` |
 | SEMSE AI | Prometeo, agentes, autonomia, Vision, Browser Agent e inteligencia | `prometeo`, `agents`, `autonomy`, `vision`, `browser-agent`, `operational-intelligence` |
-| SEMSE Agro | Fincas, animales, cultivos, inventario, costos y trazabilidad | `apps/api/src/modules/agro`, `apps/web/app/agro`, `apps/mobile` |
+| SEMSE Agro | Fincas, animales, cultivos, inventario, costos y trazabilidad | `apps/api/src/modules/agro`, `apps/web/app/agro` |
 | SEMSE BuildOps | Proyectos, hitos, ProTools, materiales, incidentes y operaciones de construccion | `buildops`, `milestones`, `projects`, `pricing`, `materials`, `incidents`, `tools` |
 | SEMSE Knowledge | RAG, documentos, trade library, Graphify, embeddings y memoria institucional | `knowledge`, `repo-knowledge`, `runtime-knowledge`, `graphify`, `skills` |
 | SEMSE Integrations | Stripe, WhatsApp, Railway, modelos, storage, webhooks, SDK y satelites | adapters en API, `developer-runtime`, `evidence-gateway`, specs SAT |
@@ -119,9 +119,16 @@ La raiz canónica es un monorepo pnpm. Las aplicaciones principales son:
 - `apps/worker`: BullMQ, timers y trabajos asincronos.
 - `apps/vision-service`: analisis visual especializado.
 - `apps/autonomy-server`: runtime de autonomia donde se despliegue.
-- `apps/mobile`: cliente movil y primitives offline.
 - `apps/angular` y `apps/assistant-portal`: superficies adicionales o de
   transicion; no redefinen la raiz canónica.
+
+> **Cliente movil: planeado, no existente.** Hubo un `apps/mobile` con un spike
+> de React Native/Expo (2026-06-22) que nunca llego a compilar — sin
+> `package.json` ni `tsconfig`, y con dependencias que jamas se instalaron en el
+> monorepo. Se retiro el 2026-07-26 y queda archivado en el tag
+> `archive/mobile-spike-2026-06`. El diseño vigente del cliente movil es la spec
+> `SAT-003`, que lo define como **satelite externo** consumiendo el BFF/API via
+> SDK, no como una app del monorepo.
 
 Paquetes compartidos existentes:
 
