@@ -14,14 +14,14 @@ const ROLE_OPTIONS: { role: AccountRole; label: string; icon: string; desc: stri
     label: "Cliente",
     icon: "🏢",
     desc: "Publica trabajos, gestiona proyectos y pagos",
-    color: "#3b82f6",
+    color: "var(--brand)",
   },
   {
     role: "PRO",
     label: "Profesional",
     icon: "🪖",
     desc: "Recibe trabajos, gestiona obras y cobra",
-    color: "#10b981",
+    color: "var(--ok)",
   },
 ];
 
@@ -44,7 +44,7 @@ function PasswordStrength({ password }: { password: string }) {
   ].filter(Boolean).length;
 
   const labels = ["Muy débil", "Débil", "Regular", "Fuerte", "Muy fuerte"];
-  const colors = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#10b981"];
+  const colors = ["var(--error)", "#f97316", "#eab308", "#22c55e", "var(--ok)"];
 
   return (
     <div style={{ marginTop: "6px" }}>
@@ -174,7 +174,7 @@ export default function RegisterPage() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -309,11 +309,11 @@ export default function RegisterPage() {
                 placeholder="Repite la contraseña"
                 style={{
                   ...inputStyle,
-                  borderColor: passwordMismatch ? "#ef4444" : "var(--border, #1f2d3d)",
+                  borderColor: passwordMismatch ? "var(--error)" : "var(--border, #1f2d3d)",
                 }}
               />
               {passwordMismatch && (
-                <span style={{ fontSize: "11px", color: "#ef4444", marginTop: "4px", display: "block" }}>
+                <span style={{ fontSize: "11px", color: "var(--error)", marginTop: "4px", display: "block" }}>
                   Las contraseñas no coinciden
                 </span>
               )}
@@ -326,7 +326,7 @@ export default function RegisterPage() {
                   borderRadius: "8px",
                   background: "rgba(239,68,68,.12)",
                   border: "1px solid rgba(239,68,68,.3)",
-                  color: "#ef4444",
+                  color: "var(--error)",
                   fontSize: "13px",
                   marginBottom: "16px",
                 }}
@@ -354,7 +354,7 @@ export default function RegisterPage() {
                 background:
                   loading || passwordMismatch
                     ? "var(--faint, #4b6280)"
-                    : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                    : "linear-gradient(135deg, var(--brand), #8b5cf6)",
                 color: "#fff",
                 fontSize: "14px",
                 fontWeight: 700,

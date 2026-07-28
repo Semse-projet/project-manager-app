@@ -102,22 +102,22 @@ type RemoteState<T> = {
 
 const UNIT_STATUS_META: Record<UnitStatus, { label: string; color: string; bg: string; Icon: typeof CheckCircle2 }> = {
   PENDING: { label: "Pendiente", color: "#6b7280", bg: "#f3f4f6", Icon: Clock },
-  IN_PROGRESS: { label: "En progreso", color: "#10b981", bg: "#d1fae5", Icon: CheckCircle2 },
+  IN_PROGRESS: { label: "En progreso", color: "var(--ok)", bg: "#d1fae5", Icon: CheckCircle2 },
   COMPLETE: { label: "Completada", color: "#0ea5e9", bg: "#dbeafe", Icon: CheckCircle2 },
   ON_HOLD: { label: "En pausa", color: "#f59e0b", bg: "#fef3c7", Icon: AlertCircle },
-  CANCELLED: { label: "Cancelada", color: "#ef4444", bg: "#fee2e2", Icon: AlertCircle }
+  CANCELLED: { label: "Cancelada", color: "var(--error)", bg: "#fee2e2", Icon: AlertCircle }
 };
 
 const VISIBILITY_COLOR: Record<FactVisibility, string> = {
-  TEAM: "#10b981",
-  ORG: "#3b82f6",
+  TEAM: "var(--ok)",
+  ORG: "var(--brand)",
   PUBLIC: "#8b5cf6"
 };
 
 const COMPLIANCE_META: Record<ComplianceStatus, { label: string; color: string; Icon: typeof ShieldCheck }> = {
-  APPROVED: { label: "Aprobado", color: "#10b981", Icon: ShieldCheck },
+  APPROVED: { label: "Aprobado", color: "var(--ok)", Icon: ShieldCheck },
   PENDING: { label: "Pendiente", color: "#f59e0b", Icon: ShieldAlert },
-  EXPIRED: { label: "Expirado", color: "#ef4444", Icon: ShieldX },
+  EXPIRED: { label: "Expirado", color: "var(--error)", Icon: ShieldX },
   MISSING: { label: "Faltante", color: "#6b7280", Icon: ShieldAlert }
 };
 
@@ -132,7 +132,7 @@ function confidenceBar(confidence: number) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ width: 72, height: 6, borderRadius: 20, background: "var(--border)", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 20, background: pct >= 80 ? "#10b981" : pct >= 60 ? "#f59e0b" : "#ef4444" }} />
+        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 20, background: pct >= 80 ? "var(--ok)" : pct >= 60 ? "#f59e0b" : "var(--error)" }} />
       </div>
       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{pct}%</span>
     </div>
@@ -159,7 +159,7 @@ function LoadingState() {
 
 function ErrorState({ error }: { error: string }) {
   return (
-    <div style={{ padding: "18px 20px", borderRadius: 12, border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", background: "rgba(239,68,68,.08)", fontSize: 13 }}>
+    <div style={{ padding: "18px 20px", borderRadius: 12, border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", background: "rgba(239,68,68,.08)", fontSize: 13 }}>
       {error}
     </div>
   );
@@ -255,7 +255,7 @@ function UnitsTab({ state, onRefresh }: { state: RemoteState<FieldUnit[]>; onRef
         {showCreate && (
           <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nueva unidad de campo</div>
-            {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+            {saveErr && <div style={{ fontSize: 12, color: "var(--error)", marginBottom: 8 }}>{saveErr}</div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Código *</label>
@@ -472,7 +472,7 @@ function WorklogsTab({ state, unitOptions, onRefresh }: {
       {showCreate && (
         <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nuevo registro de campo</div>
-          {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+          {saveErr && <div style={{ fontSize: 12, color: "var(--error)", marginBottom: 8 }}>{saveErr}</div>}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
             <div>
               <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Unidad *</label>
@@ -536,17 +536,17 @@ function WorklogsTab({ state, unitOptions, onRefresh }: {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div style={{ background: "var(--faint)", borderRadius: 8, padding: "10px 14px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#10b981", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Hoy se hizo</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ok)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Hoy se hizo</div>
                   <div style={{ fontSize: 13, color: "var(--ink)" }}>{entry.doneToday}</div>
                 </div>
                 <div style={{ background: "var(--faint)", borderRadius: 8, padding: "10px 14px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#3b82f6", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Próximo paso</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Próximo paso</div>
                   <div style={{ fontSize: 13, color: "var(--ink)" }}>{entry.pendingNext}</div>
                 </div>
               </div>
               {entry.blockers ? (
                 <div style={{ marginTop: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "8px 14px" }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>Bloqueadores</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--error)", marginBottom: 2, textTransform: "uppercase", letterSpacing: "0.05em" }}>Bloqueadores</div>
                   <div style={{ fontSize: 13, color: "#b91c1c" }}>{entry.blockers}</div>
                 </div>
               ) : null}
@@ -654,7 +654,7 @@ function KnowledgeTab({ state, onRefresh }: { state: RemoteState<ContextMemoryEn
       {showCreate && (
         <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nuevo hecho de conocimiento</div>
-          {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+          {saveErr && <div style={{ fontSize: 12, color: "var(--error)", marginBottom: 8 }}>{saveErr}</div>}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
             <div>
               <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Sujeto *</label>
@@ -795,7 +795,7 @@ function VendorsTab({ state, onRefresh }: { state: RemoteState<Vendor[]>; onRefr
     if (total === 0) return { pct: 0, color: "#6b7280" };
     const approved = vendor.compliance.filter((doc) => doc.status === "APPROVED").length;
     const pct = Math.round((approved / total) * 100);
-    return { pct, color: pct === 100 ? "#10b981" : pct >= 60 ? "#f59e0b" : "#ef4444" };
+    return { pct, color: pct === 100 ? "var(--ok)" : pct >= 60 ? "#f59e0b" : "var(--error)" };
   }
 
   if (state.loading) return <LoadingState />;
@@ -825,7 +825,7 @@ function VendorsTab({ state, onRefresh }: { state: RemoteState<Vendor[]>; onRefr
         {showCreate && (
           <form onSubmit={handleCreate} style={{ marginBottom: 16, padding: "16px 20px", border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)" }}>
             <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Nuevo proveedor</div>
-            {saveErr && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 8 }}>{saveErr}</div>}
+            {saveErr && <div style={{ fontSize: 12, color: "var(--error)", marginBottom: 8 }}>{saveErr}</div>}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
               <div style={{ gridColumn: "1 / -1" }}>
                 <label style={{ display: "block", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Nombre *</label>
@@ -878,7 +878,7 @@ function VendorsTab({ state, onRefresh }: { state: RemoteState<Vendor[]>; onRefr
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       {hasIssues ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, background: "#fef2f2", color: "#ef4444", fontSize: 11, fontWeight: 600 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, background: "#fef2f2", color: "var(--error)", fontSize: 11, fontWeight: 600 }}>
                           <ShieldAlert size={11} /> Revisar
                         </span>
                       ) : null}
@@ -1093,7 +1093,7 @@ export default function FieldOpsPage() {
         title={t("page.fieldOps")}
         subtitle="Unidades, registros de campo, conocimiento y proveedores"
         icon={Wrench}
-        iconColor="#10b981"
+        iconColor="var(--ok)"
         iconBg="#f0fdf4"
         actions={<NotificationBanner audience="admin" />}
       />

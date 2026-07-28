@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#94a3b8", sent: "#818cf8", viewed: "#a78bfa", approved: "#34d399",
-  paid: "#10b981", overdue: "#f87171", cancelled: "#64748b",
+  paid: "var(--ok)", overdue: "#f87171", cancelled: "#64748b",
   pending: "#fbbf24", rejected: "#f87171", reimbursed: "#34d399", archived: "#64748b",
 };
 
@@ -150,7 +150,7 @@ export default function FinancePage() {
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
         <StatCard label="Total facturado" value={fmt(totalInvoiced)} sub={`${invoices.length} facturas`} icon={FileText} />
-        <StatCard label="Cobrado" value={fmt(totalPaid)} sub={`${invoices.filter(i => i.status === "paid").length} pagadas`} icon={CheckCircle} color="#10b981" />
+        <StatCard label="Cobrado" value={fmt(totalPaid)} sub={`${invoices.filter(i => i.status === "paid").length} pagadas`} icon={CheckCircle} color="var(--ok)" />
         <StatCard label="Por cobrar" value={fmt(totalInvoiced - totalPaid)} sub={`${pendingInvoices} pendientes`} icon={Clock} color="#fbbf24" />
         <StatCard label="Total gastos" value={fmt(totalExpenses)} sub={`${expenses.length} registros`} icon={TrendingUp} color="#f87171" />
       </div>
@@ -287,7 +287,7 @@ function InvoiceRow({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =>
           </button>
         )}
         {["sent", "viewed", "approved"].includes(invoice.status) && (
-          <button onClick={() => void handlePay()} disabled={busy} style={btnStyle("#10b981", "white", true)}>
+          <button onClick={() => void handlePay()} disabled={busy} style={btnStyle("var(--ok)", "white", true)}>
             Marcar pagada
           </button>
         )}
@@ -329,10 +329,10 @@ function ExpenseRow({ expense, onRefresh }: { expense: ProjectExpense; onRefresh
       </div>
       {expense.status === "pending" && (
         <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => void handle("approve")} disabled={busy} style={btnStyle("#10b981", "white", true)}>
+          <button onClick={() => void handle("approve")} disabled={busy} style={btnStyle("var(--ok)", "white", true)}>
             <CheckCircle size={12} />
           </button>
-          <button onClick={() => void handle("reject")} disabled={busy} style={btnStyle("#ef4444", "white", true)}>
+          <button onClick={() => void handle("reject")} disabled={busy} style={btnStyle("var(--error)", "white", true)}>
             <X size={12} />
           </button>
         </div>
@@ -532,7 +532,7 @@ function ScanReceiptModal({ onClose, onCreated }: { onClose: () => void; onCreat
     }
   }
 
-  const confidenceColor = { high: "#10b981", medium: "#fbbf24", low: "#f87171" };
+  const confidenceColor = { high: "var(--ok)", medium: "#fbbf24", low: "#f87171" };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", display: "grid", placeItems: "center", zIndex: 100 }}>
@@ -600,7 +600,7 @@ function ScanReceiptModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 ))}
               </div>
             )}
-            <button onClick={() => void handleCreate()} disabled={creating} style={btnStyle("#10b981", "white")}>
+            <button onClick={() => void handleCreate()} disabled={creating} style={btnStyle("var(--ok)", "white")}>
               {creating ? "Guardando..." : "Guardar como gasto"}
             </button>
           </div>

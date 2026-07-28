@@ -70,16 +70,16 @@ type ActivityEvent = {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Record<string, string> = {
-  critical: "#ef4444", high: "#f97316", medium: "#eab308", low: "#3b82f6",
+  critical: "var(--error)", high: "#f97316", medium: "#eab308", low: "var(--brand)",
 };
 
 const STATUS_COLOR: Record<string, string> = {
-  active: "#22c55e", in_review: "#3b82f6", paused: "#eab308",
-  completed: "#22c55e", cancelled: "#ef4444",
+  active: "#22c55e", in_review: "var(--brand)", paused: "#eab308",
+  completed: "#22c55e", cancelled: "var(--error)",
 };
 
 const RISK_COLOR: Record<string, string> = {
-  low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "#ef4444",
+  low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "var(--error)",
 };
 
 function timeAgo(d: string): string {
@@ -197,7 +197,7 @@ export default function IntelligenceRoomPage() {
       </div>
 
       {actionError && (
-        <div role="alert" style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: "8px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
+        <div role="alert" style={{ background: "#450a0a", border: "1px solid var(--error)", borderRadius: "8px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
           {actionError}
         </div>
       )}
@@ -273,7 +273,7 @@ export default function IntelligenceRoomPage() {
           marginBottom: "18px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-            <div style={{ width: "26px", height: "26px", borderRadius: "7px", background: "linear-gradient(135deg, #8b5cf6, #3b82f6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>⚡</div>
+            <div style={{ width: "26px", height: "26px", borderRadius: "7px", background: "linear-gradient(135deg, #8b5cf6, var(--brand))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>⚡</div>
             <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink, #f1f5f9)" }}>Prometeo Brief — Este proyecto</span>
             <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)", marginLeft: "auto" }}>{new Date(brief.generatedAt).toLocaleTimeString()}</span>
           </div>
@@ -369,7 +369,7 @@ export default function IntelligenceRoomPage() {
           </p>
           <div style={{ background: "var(--surface, #0c1017)", border: "1px solid var(--border, #1f2d3d)", borderRadius: "10px", overflow: "hidden" }}>
             {activity.slice(0, 15).map((ev, i) => {
-              const sevColor = ev.severity === "critical" ? "#ef4444" : ev.severity === "warning" ? "#f97316" : "#3b82f6";
+              const sevColor = ev.severity === "critical" ? "var(--error)" : ev.severity === "warning" ? "#f97316" : "var(--brand)";
               const typeEmoji: Record<string, string> = {
                 milestone: "🏁", change_order: "📋", signal: "🔔", algorithm: "🤖", evidence: "🖼️",
               };
@@ -421,7 +421,7 @@ export default function IntelligenceRoomPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   {run.durationMs != null && <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{run.durationMs}ms</span>}
-                  <span style={{ fontSize: "10px", color: run.status === "completed" ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{run.status}</span>
+                  <span style={{ fontSize: "10px", color: run.status === "completed" ? "#22c55e" : "var(--error)", fontWeight: 600 }}>{run.status}</span>
                   <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{timeAgo(run.createdAt)}</span>
                 </div>
               </div>

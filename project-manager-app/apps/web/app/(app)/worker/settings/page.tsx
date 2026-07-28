@@ -208,13 +208,13 @@ export default function WorkerSettingsPage() {
       </div>
 
       {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "#ef4444", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       )}
 
       {saved && (
-        <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "#10b981", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "var(--ok)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
           <Check size={14} /> Configuración guardada.
         </div>
       )}
@@ -242,7 +242,7 @@ export default function WorkerSettingsPage() {
 
       {/* Modes */}
       <HtmlInCanvasPanel style={card} minHeight={60}>
-        <Section icon={<Layers size={14} color="#10b981" />} title="Modos avanzados">
+        <Section icon={<Layers size={14} color="var(--ok)" />} title="Modos avanzados">
           <div style={{ display: "grid", gap: 10 }}>
             <Toggle
               label="Modo unificado"
@@ -279,7 +279,7 @@ export default function WorkerSettingsPage() {
             </p>
             {(unified || expert) && (
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                {unified && <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: "rgba(16,185,129,.12)", color: "#10b981", fontWeight: 700 }}>modo unificado activo</span>}
+                {unified && <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: "rgba(16,185,129,.12)", color: "var(--ok)", fontWeight: 700 }}>modo unificado activo</span>}
                 {expert  && <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 5, background: "rgba(99,102,241,.12)", color: "#818cf8", fontWeight: 700 }}>modo experto activo</span>}
               </div>
             )}

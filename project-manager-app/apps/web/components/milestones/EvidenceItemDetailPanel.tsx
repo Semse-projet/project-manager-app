@@ -133,7 +133,7 @@ function SafetyWidget({ imageUrl, trade }: { imageUrl: string; trade?: string })
 
   if (!result) return null;
   const pct = Math.round(result.complianceScore * 100);
-  const color = pct >= 80 ? "#10b981" : pct >= 50 ? "#fbbf24" : "#ef4444";
+  const color = pct >= 80 ? "var(--ok)" : pct >= 50 ? "#fbbf24" : "var(--error)";
 
   return (
     <div style={{ background: "rgba(251,191,36,.04)", border: "1px solid rgba(251,191,36,.2)", borderRadius: 10, padding: 10 }}>
@@ -154,7 +154,7 @@ function SafetyWidget({ imageUrl, trade }: { imageUrl: string; trade?: string })
           { label: "Chaleco", icon: <ShieldCheck size={12} />, ok: result.vestDetected },
           { label: "Arnés", icon: <CheckCircle size={12} />, ok: result.harnessDetected },
         ].map(({ label, icon, ok }) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: ok ? "#10b981" : "#6b7280" }}>
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: ok ? "var(--ok)" : "#6b7280" }}>
             {icon} {label} {ok ? "✓" : "✗"}
           </div>
         ))}

@@ -155,7 +155,7 @@ export default function TrustPage() {
         actions={
           <>
             <Link href="/admin/trust/worker-applications"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "#10b981", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "var(--ok)", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
               <UserPlus size={13} /> Aplicaciones de workers
             </Link>
             <button onClick={load} disabled={loading}

@@ -54,7 +54,7 @@ const TYPE_COLORS: Record<string, string> = {
   milestone_completed:       "#86efac",
   rating_received:           "#fbbf24",
   job_matched:               "#6366f1",
-  bid_accepted:              "#10b981",
+  bid_accepted:              "var(--ok)",
   rating_requested:          "#fbbf24",
 };
 
@@ -154,7 +154,7 @@ export function NotificationBell() {
         style={{ position: "relative", width: 34, height: 34, borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", display: "grid", placeItems: "center", cursor: "pointer" }}>
         <Bell size={15} color="var(--muted)" />
         {unread > 0 && (
-          <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
+          <span style={{ position: "absolute", top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 99, background: "var(--error)", color: "#fff", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
             {unread > 9 ? "9+" : unread}
           </span>
         )}

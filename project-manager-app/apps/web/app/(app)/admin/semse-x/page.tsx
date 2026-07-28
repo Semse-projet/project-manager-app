@@ -55,12 +55,12 @@ function taskLabel(t: string): string {
 function modelColor(slug: string): string {
   if (slug.includes("claude")) return "#06b6d4";
   if (slug.includes("prometeo")) return "#818cf8";
-  if (slug.includes("gpt")) return "#10b981";
+  if (slug.includes("gpt")) return "var(--ok)";
   return "#94a3b8";
 }
 
 function ecoTone(status: "strong" | "stable" | "watch" | "critical") {
-  if (status === "strong") return { color: "#10b981", bg: "rgba(16,185,129,.12)" };
+  if (status === "strong") return { color: "var(--ok)", bg: "rgba(16,185,129,.12)" };
   if (status === "stable") return { color: "#22d3ee", bg: "rgba(34,211,238,.12)" };
   if (status === "watch") return { color: "#fbbf24", bg: "rgba(251,191,36,.12)" };
   return { color: "#f87171", bg: "rgba(248,113,113,.12)" };
@@ -294,7 +294,7 @@ export default function SemseXPage() {
       {/* ── MAIN ─────────────────────────────────────────────────────────────── */}
       <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
         {error ? (
-          <div role="alert" style={{ background: "#450a0a", borderBottom: "1px solid #ef4444", padding: "10px 40px", color: "#fecaca", fontSize: "12px" }}>
+          <div role="alert" style={{ background: "#450a0a", borderBottom: "1px solid var(--error)", padding: "10px 40px", color: "#fecaca", fontSize: "12px" }}>
             {error}
           </div>
         ) : null}
@@ -332,7 +332,7 @@ export default function SemseXPage() {
             )}
             <div>
               <p style={{ fontSize: 8, fontWeight: 900, color: "#334155", textTransform: "uppercase", marginBottom: 4 }}>Tasa de Éxito</p>
-              <p style={{ fontSize: 20, fontWeight: 900, color: successRate === 100 ? "#10b981" : "#fbbf24", margin: 0 }}>{successRate}%</p>
+              <p style={{ fontSize: 20, fontWeight: 900, color: successRate === 100 ? "var(--ok)" : "#fbbf24", margin: 0 }}>{successRate}%</p>
             </div>
             {ctx && (
               <div>
@@ -489,9 +489,9 @@ export default function SemseXPage() {
                     </p>
                     {(["api", "redis", "worker"] as const).map(k => (
                       <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <GlowDot color={ctx.systemHealth[k] === "ok" ? "#10b981" : "#f87171"} />
+                        <GlowDot color={ctx.systemHealth[k] === "ok" ? "var(--ok)" : "#f87171"} />
                         <span style={{ fontSize: 10, color: "#475569", textTransform: "uppercase", fontWeight: 700, flex: 1 }}>{k}</span>
-                        <span style={{ fontSize: 10, fontWeight: 900, color: ctx.systemHealth[k] === "ok" ? "#10b981" : "#f87171" }}>
+                        <span style={{ fontSize: 10, fontWeight: 900, color: ctx.systemHealth[k] === "ok" ? "var(--ok)" : "#f87171" }}>
                           {ctx.systemHealth[k].toUpperCase()}
                         </span>
                       </div>
@@ -568,7 +568,7 @@ export default function SemseXPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 32 }}>
                 {[
                   { label: "Planes Generados", val: "5 Templates", icon: FileCode, color: "#22d3ee" },
-                  { label: "Auto-Delegaciones", val: `${snapshot?.totalDelegations ?? 3}`, icon: Shield, color: "#10b981" },
+                  { label: "Auto-Delegaciones", val: `${snapshot?.totalDelegations ?? 3}`, icon: Shield, color: "var(--ok)" },
                   { label: "Memoria Comprimida", val: "-84%", icon: TrendingDown, color: "#a78bfa", synthetic: true },
                   { label: "API en Evolución", val: "v2.0", icon: Workflow, color: "#fb923c", synthetic: true },
                 ].map((stat) => (
@@ -600,7 +600,7 @@ export default function SemseXPage() {
                     </p>
                     {snapshot ? (
                       [
-                        { label: "Completadas", val: snapshot.completed, color: "#10b981" },
+                        { label: "Completadas", val: snapshot.completed, color: "var(--ok)" },
                         { label: "Ejecutando", val: snapshot.executing, color: "#22d3ee" },
                         { label: "Pendientes", val: snapshot.pending, color: "#fbbf24" },
                         { label: "Fallidas", val: snapshot.failed, color: "#f87171" },
@@ -666,7 +666,7 @@ export default function SemseXPage() {
                   { name: "Prometeo", role: "Orquestador Central", status: "activo", color: "#22d3ee", icon: Brain },
                   { name: "Pulse", role: "Métricas Operativas", status: "standby", color: "#818cf8", icon: Activity },
                   { name: "Marta", role: "Compliance Legal", status: "standby", color: "#f472b6", icon: Scale },
-                  { name: "Felix", role: "Verificación Evidencias", status: "standby", color: "#10b981", icon: Eye },
+                  { name: "Felix", role: "Verificación Evidencias", status: "standby", color: "var(--ok)", icon: Eye },
                   { name: "Justus", role: "Pagos y Escrow", status: "standby", color: "#fbbf24", icon: Database },
                   { name: "Planner", role: "Planificación", status: "standby", color: "#fb923c", icon: Workflow },
                   { name: "Field Ops", role: "Operaciones Campo", status: snapshot?.executing ?? 0 > 0 ? "activo" : "standby", color: "#34d399", icon: Server },
@@ -681,8 +681,8 @@ export default function SemseXPage() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
                       <agent.icon size={18} color={agent.color} />
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <GlowDot color={agent.status === "activo" ? "#10b981" : "#334155"} ping={agent.status === "activo"} />
-                        <span style={{ fontSize: 8, fontWeight: 900, color: agent.status === "activo" ? "#10b981" : "#334155", textTransform: "uppercase" }}>
+                        <GlowDot color={agent.status === "activo" ? "var(--ok)" : "#334155"} ping={agent.status === "activo"} />
+                        <span style={{ fontSize: 8, fontWeight: 900, color: agent.status === "activo" ? "var(--ok)" : "#334155", textTransform: "uppercase" }}>
                           {agent.status}
                         </span>
                       </div>
@@ -731,9 +731,9 @@ export default function SemseXPage() {
                     </p>
                   </div>
                   {[
-                    { rule: "Liberación de Escrow", gate: "APROBACIÓN HUMANA", color: "#10b981" },
+                    { rule: "Liberación de Escrow", gate: "APROBACIÓN HUMANA", color: "var(--ok)" },
                     { rule: "Apertura de Disputas", gate: "PLAN REQUERIDO", color: "#fbbf24" },
-                    { rule: "Aprobación de Hitos", gate: "APROBACIÓN HUMANA", color: "#10b981" },
+                    { rule: "Aprobación de Hitos", gate: "APROBACIÓN HUMANA", color: "var(--ok)" },
                     { rule: "Cierre de Disputas", gate: "PLAN + EVIDENCIA", color: "#f87171" },
                     { rule: "Generación de Planes", gate: "IA AUTÓNOMA", color: "#22d3ee" },
                     { rule: "Análisis Documental", gate: "IA AUTÓNOMA", color: "#22d3ee" },
@@ -767,25 +767,25 @@ export default function SemseXPage() {
                       label: "Disputas Abiertas",
                       val: ctx.disputes.open,
                       level: ctx.disputes.open > 2 ? "CRÍTICO" : ctx.disputes.open > 0 ? "ELEVADO" : "NOMINAL",
-                      color: ctx.disputes.open > 2 ? "#f87171" : ctx.disputes.open > 0 ? "#fbbf24" : "#10b981",
+                      color: ctx.disputes.open > 2 ? "#f87171" : ctx.disputes.open > 0 ? "#fbbf24" : "var(--ok)",
                     },
                     {
                       label: "Hitos por Aprobar",
                       val: ctx.milestones.pendingApproval,
                       level: ctx.milestones.pendingApproval > 3 ? "ELEVADO" : "NOMINAL",
-                      color: ctx.milestones.pendingApproval > 3 ? "#fbbf24" : "#10b981",
+                      color: ctx.milestones.pendingApproval > 3 ? "#fbbf24" : "var(--ok)",
                     },
                     {
                       label: "Evidencias Pendientes",
                       val: ctx.evidences.pendingReview,
                       level: ctx.evidences.pendingReview > 5 ? "ELEVADO" : "NOMINAL",
-                      color: ctx.evidences.pendingReview > 5 ? "#fbbf24" : "#10b981",
+                      color: ctx.evidences.pendingReview > 5 ? "#fbbf24" : "var(--ok)",
                     },
                     {
                       label: "Worker Status",
                       val: ctx.systemHealth.worker === "ok" ? "ONLINE" : "DEGRADADO",
                       level: ctx.systemHealth.worker === "ok" ? "NOMINAL" : "CRÍTICO",
-                      color: ctx.systemHealth.worker === "ok" ? "#10b981" : "#f87171",
+                      color: ctx.systemHealth.worker === "ok" ? "var(--ok)" : "#f87171",
                     },
                   ].map((item) => (
                     <div key={item.label} style={{
@@ -813,9 +813,9 @@ export default function SemseXPage() {
                 padding: "20px 28px", background: "rgba(16,185,129,0.06)",
                 border: "1px solid rgba(16,185,129,0.15)", borderRadius: 20,
               }}>
-                <CheckCircle size={20} color="#10b981" style={{ flexShrink: 0 }} />
+                <CheckCircle size={20} color="var(--ok)" style={{ flexShrink: 0 }} />
                 <div>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: "#10b981", textTransform: "uppercase" }}>
+                  <span style={{ fontSize: 11, fontWeight: 900, color: "var(--ok)", textTransform: "uppercase" }}>
                     Human-in-the-Loop Activo
                   </span>
                   <span style={{ fontSize: 10, color: "#334155", marginLeft: 12, fontWeight: 600 }}>

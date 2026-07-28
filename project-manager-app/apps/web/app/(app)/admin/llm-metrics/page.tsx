@@ -27,9 +27,9 @@ const TASK_LABELS: Record<string, string> = {
 
 function CircuitBadge({ state }: { state: LLMProviderMetric["circuitState"] }) {
   const meta = {
-    closed:     { icon: CheckCircle,  color: "#10b981", label: "Cerrado"    },
+    closed:     { icon: CheckCircle,  color: "var(--ok)", label: "Cerrado"    },
     "half-open":{ icon: MinusCircle,  color: "#f59e0b", label: "Half-open"  },
-    open:       { icon: XCircle,      color: "#ef4444", label: "Abierto"    },
+    open:       { icon: XCircle,      color: "var(--error)", label: "Abierto"    },
   }[state];
   const Icon = meta.icon;
   return (
@@ -41,7 +41,7 @@ function CircuitBadge({ state }: { state: LLMProviderMetric["circuitState"] }) {
 
 function SuccessBar({ rate }: { rate: number }) {
   const pct = Math.round(rate * 100);
-  const color = pct >= 90 ? "#10b981" : pct >= 70 ? "#f59e0b" : "#ef4444";
+  const color = pct >= 90 ? "var(--ok)" : pct >= 70 ? "#f59e0b" : "var(--error)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <div style={{ width: 60, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden", flexShrink: 0 }}>
@@ -53,7 +53,7 @@ function SuccessBar({ rate }: { rate: number }) {
 }
 
 function ScorePill({ score }: { score: number }) {
-  const color = score >= 700 ? "#10b981" : score >= 400 ? "#f59e0b" : "#ef4444";
+  const color = score >= 700 ? "var(--ok)" : score >= 400 ? "#f59e0b" : "var(--error)";
   return (
     <span style={{
       display: "inline-block", padding: "3px 8px", borderRadius: 6,
@@ -158,7 +158,7 @@ export default function AdminLLMMetricsPage() {
           {
             label: "Éxito promedio",
             value: `${Math.round(stats.avgSuccessRate * 100)}%`,
-            icon: <CheckCircle size={18} color="#10b981" />,
+            icon: <CheckCircle size={18} color="var(--ok)" />,
             bg: "rgba(16,185,129,.08)", border: "rgba(16,185,129,.2)",
           },
           {
@@ -170,7 +170,7 @@ export default function AdminLLMMetricsPage() {
           {
             label: "Circuitos abiertos",
             value: stats.openCircuits,
-            icon: <AlertTriangle size={18} color={stats.openCircuits > 0 ? "#ef4444" : "#10b981"} />,
+            icon: <AlertTriangle size={18} color={stats.openCircuits > 0 ? "var(--error)" : "var(--ok)"} />,
             bg: stats.openCircuits > 0 ? "rgba(239,68,68,.08)" : "rgba(16,185,129,.06)",
             border: stats.openCircuits > 0 ? "rgba(239,68,68,.2)" : "rgba(16,185,129,.15)",
           },
@@ -314,9 +314,9 @@ export default function AdminLLMMetricsPage() {
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
           {[
             { icon: <BarChart2 size={12} color="#6366f1" />, text: "Score = successRate² × 1000 / (latencia_s + 1). Más alto es mejor." },
-            { icon: <CheckCircle size={12} color="#10b981" />, text: "Circuito cerrado: provider disponible." },
+            { icon: <CheckCircle size={12} color="var(--ok)" />, text: "Circuito cerrado: provider disponible." },
             { icon: <MinusCircle size={12} color="#f59e0b" />, text: "Half-open: 1 probe permitida después de 30s de fallo." },
-            { icon: <XCircle size={12} color="#ef4444" />, text: "Circuito abierto: 3+ fallos consecutivos — skipped automáticamente." },
+            { icon: <XCircle size={12} color="var(--error)" />, text: "Circuito abierto: 3+ fallos consecutivos — skipped automáticamente." },
           ].map(({ icon, text }) => (
             <div key={text} style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11, color: "var(--muted)", maxWidth: 240 }}>
               <span style={{ flexShrink: 0, marginTop: 1 }}>{icon}</span>

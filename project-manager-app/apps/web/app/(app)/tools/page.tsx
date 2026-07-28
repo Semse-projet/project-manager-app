@@ -26,7 +26,7 @@ const CATEGORIES: Category[] = [
   {
     id: "exterior",
     label: "Exterior & Estructura",
-    color: "#3b82f6",
+    color: "var(--brand)",
     bg: "#eff6ff",
     tools: [
       { id: "roofing",      label: "Roofing",           desc: "Shingles, felt, flashing, nails, labor y escrow-ready output.",          href: "/tools/roofing",       icon: "🏠", highlight: true },
@@ -67,7 +67,7 @@ const CATEGORIES: Category[] = [
   {
     id: "remodeling",
     label: "Remodelación Especializada",
-    color: "#10b981",
+    color: "var(--ok)",
     bg: "#f0fdf4",
     tools: [
       { id: "bathroom", label: "Bathroom Remodel", desc: "Tile, plomería, waterproofing, fixtures — cosmetic a full gut.",    href: "/tools/bathroom", icon: "🚿", highlight: true },
@@ -78,7 +78,7 @@ const CATEGORIES: Category[] = [
   {
     id: "ops",
     label: "Operaciones en Campo",
-    color: "#ef4444",
+    color: "var(--error)",
     bg: "#fef2f2",
     tools: [
       { id: "project-manager", label: "Construction Manager", desc: "Crew, daily logs, change orders, inspecciones y cierre de obra.", href: "/tools/project-manager", icon: "📊", highlight: true },
@@ -108,7 +108,7 @@ export default function ToolsHubPage() {
         <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
           <Link
             href="/tools/dashboard"
-            style={{ padding: "9px 20px", borderRadius: 8, background: "#3b82f6", textDecoration: "none", color: "#fff", fontSize: 13, fontWeight: 700 }}
+            style={{ padding: "9px 20px", borderRadius: 8, background: "var(--brand)", textDecoration: "none", color: "#fff", fontSize: 13, fontWeight: 700 }}
           >
             Ver Unified Dashboard →
           </Link>

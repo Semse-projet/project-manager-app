@@ -25,7 +25,7 @@ interface Incident {
 }
 
 const SEV_COLOR: Record<IncidentSeverity, string> = {
-  low: "#6b7280", medium: "#fbbf24", high: "#f97316", critical: "#ef4444",
+  low: "#6b7280", medium: "#fbbf24", high: "#f97316", critical: "var(--error)",
 };
 const SEV_LABEL: Record<IncidentSeverity, string> = {
   low: "Baja", medium: "Media", high: "Alta", critical: "Crítica",
@@ -190,7 +190,7 @@ export default function WorkerIncidentsPage() {
               <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>DESCRIPCIÓN</label>
               <textarea value={formDesc} onChange={e => setFormDesc(e.target.value)} rows={3} placeholder="Detalla qué ocurrió, cuándo y el impacto estimado" style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
-            {submitError && <p style={{ fontSize: "12px", color: "#ef4444" }}>{submitError}</p>}
+            {submitError && <p style={{ fontSize: "12px", color: "var(--error)" }}>{submitError}</p>}
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
               <button onClick={() => void handleSubmit()} disabled={submitting || !formTitle.trim()} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>

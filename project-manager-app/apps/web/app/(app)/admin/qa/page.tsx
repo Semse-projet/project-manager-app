@@ -20,10 +20,10 @@ interface QACheck {
 }
 
 const STATUS_ICON: Record<QACheck["status"], React.ReactNode> = {
-  pass:    <CheckCircle size={16} color="#10b981" />,
-  fail:    <XCircle size={16} color="#ef4444" />,
+  pass:    <CheckCircle size={16} color="var(--ok)" />,
+  fail:    <XCircle size={16} color="var(--error)" />,
   warn:    <AlertTriangle size={16} color="#fbbf24" />,
-  running: <Activity size={16} color="#3b82f6" />,
+  running: <Activity size={16} color="var(--brand)" />,
 };
 
 const STATUS_MAP: Record<QACheck["status"], { variant: "success" | "error" | "warning" | "info"; label: string }> = {
@@ -212,9 +212,9 @@ export default function AdminQAPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px", marginBottom: "20px" }}>
         {[
-          { label: "Checks OK", value: pass, color: "#10b981", bg: "rgba(16,185,129,.08)" },
+          { label: "Checks OK", value: pass, color: "var(--ok)", bg: "rgba(16,185,129,.08)" },
           { label: "Alertas",   value: warn, color: "#fbbf24", bg: "rgba(251,191,36,.08)" },
-          { label: "Fallos",    value: fail, color: "#ef4444", bg: "rgba(239,68,68,.08)" },
+          { label: "Fallos",    value: fail, color: "var(--error)", bg: "rgba(239,68,68,.08)" },
         ].map(s => (
           <div key={s.label} style={{ ...card, padding: "16px", background: s.bg, borderColor: `${s.color}30`, textAlign: "center" }}>
             <p style={{ fontSize: "28px", fontWeight: 900, color: s.color }}>{s.value}</p>

@@ -184,7 +184,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
 
   if (error && !weekly && !monthly) {
     return (
-      <div style={{ ...sectionCard, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
+      <div style={{ ...sectionCard, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
         {error}
       </div>
     );
@@ -230,7 +230,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
         <KpiCard
           label="Total semana"
           value={fmtHours(weekSeconds)}
-          color="#3b82f6"
+          color="var(--brand)"
           badge={<ChangeBadge value={weekly?.changePercent ?? null} />}
         />
         <KpiCard label="Días trabajados" value={String(daysWorked)} color="#059669" hint={daysWorked > 0 ? `${fmtHours(Math.round(weekSeconds / daysWorked))} promedio/día` : undefined} />
@@ -247,7 +247,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
         {weekLoading ? (
           <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>Cargando semana...</p>
         ) : (
-          <ColumnChart points={weekColumns} color="#3b82f6" valueFmt={fmtHours} />
+          <ColumnChart points={weekColumns} color="var(--brand)" valueFmt={fmtHours} />
         )}
       </ChartCard>
 

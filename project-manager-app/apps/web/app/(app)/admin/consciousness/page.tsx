@@ -302,7 +302,7 @@ export default function ConsciousnessPage() {
                 <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>{allRisks.length} total</span>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
-                <RiskGroup label="critical" items={data.risks.critical} color="#ef4444" />
+                <RiskGroup label="critical" items={data.risks.critical} color="var(--error)" />
                 <RiskGroup label="high"     items={data.risks.high}     color="#f97316" />
                 <RiskGroup label="medium"   items={data.risks.medium}   color="#eab308" />
                 <RiskGroup label="low"      items={data.risks.low}      color="#64748b" />

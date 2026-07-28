@@ -162,7 +162,7 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
 
   if (error) {
     return (
-      <div style={{ ...sectionCard, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
+      <div style={{ ...sectionCard, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
         {error}
       </div>
     );
@@ -173,7 +173,7 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
-        <KpiCard label="Horas hoy" value={fmtHours(todayMinutes * 60)} color="#3b82f6" hint={`${monthly?.totalEntries ?? 0} registros en el mes`} />
+        <KpiCard label="Horas hoy" value={fmtHours(todayMinutes * 60)} color="var(--brand)" hint={`${monthly?.totalEntries ?? 0} registros en el mes`} />
         <KpiCard
           label="Esta semana"
           value={fmtHours((weekly?.totalMinutes ?? 0) * 60 + weekPendingSeconds)}
@@ -193,7 +193,7 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
         <ChartCard title="Tendencia del mes" subtitle="Horas registradas por día">
-          <TrendChart points={trendPoints} color="#3b82f6" valueFmt={fmtHours} />
+          <TrendChart points={trendPoints} color="var(--brand)" valueFmt={fmtHours} />
         </ChartCard>
         <ChartCard title="Horas por propósito" subtitle="Distribución del mes">
           <DonutChart

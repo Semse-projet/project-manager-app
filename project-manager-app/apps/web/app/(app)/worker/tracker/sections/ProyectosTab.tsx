@@ -25,7 +25,7 @@ import {
 const STATUS_META: Record<FreeProjectView["status"], { label: string; color: string }> = {
   active: { label: "Activo", color: "#059669" },
   archived: { label: "Archivado", color: "#64748b" },
-  converted: { label: "Convertido a job", color: "#3b82f6" },
+  converted: { label: "Convertido a job", color: "var(--brand)" },
 };
 
 export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
@@ -173,7 +173,7 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
           </button>
         </div>
 
-        {error ? <p style={{ fontSize: "12px", color: "#ef4444", margin: "8px 0 0" }}>{error}</p> : null}
+        {error ? <p style={{ fontSize: "12px", color: "var(--error)", margin: "8px 0 0" }}>{error}</p> : null}
 
         {formOpen ? (
           <div style={{ border: "1px dashed var(--border)", borderRadius: "12px", padding: "14px", marginTop: "12px", display: "grid", gap: "10px" }}>
@@ -350,7 +350,7 @@ function dangerGhostButton(disabled: boolean) {
     borderRadius: "8px",
     border: "1px solid rgba(239,68,68,.35)",
     background: "rgba(239,68,68,.1)",
-    color: "#ef4444",
+    color: "var(--error)",
     fontSize: "11px",
     fontWeight: 800,
     cursor: disabled ? "not-allowed" : "pointer",

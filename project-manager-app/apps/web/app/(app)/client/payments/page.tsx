@@ -49,7 +49,7 @@ type PaymentReadiness = {
 
 const TYPE_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "neutral"; label: string; color: string }> = {
   DEPOSIT:  { variant: "info",    label: "Escrow",     color: "var(--brand)" },
-  RELEASE:  { variant: "success", label: "Liberado",   color: "#10b981" },
+  RELEASE:  { variant: "success", label: "Liberado",   color: "var(--ok)" },
   HOLDBACK: { variant: "warning", label: "Retención",  color: "#f59e0b" },
   FEE:      { variant: "neutral", label: "Fee",        color: "#8b5cf6" },
   REFUND:   { variant: "warning", label: "Reembolso",  color: "#f59e0b" },
@@ -337,7 +337,7 @@ export default function ClientPaymentsPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {paymentReadiness.rails.filter((rail) => rail.clientFunding).map((rail) => (
-                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "#10b981" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
                   {rail.label}{rail.automatic ? "" : " · manual"}
                 </span>
               ))}
@@ -360,26 +360,26 @@ export default function ClientPaymentsPage() {
           minHeight={86}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-            {canFundSelectedJob ? <CheckCircle size={18} color="#10b981" /> : <AlertTriangle size={18} color="#f59e0b" />}
+            {canFundSelectedJob ? <CheckCircle size={18} color="var(--ok)" /> : <AlertTriangle size={18} color="#f59e0b" />}
             <div style={{ flex: 1 }}>
-              <p data-testid="client-payments-readiness-title" style={{ fontSize: "13px", fontWeight: 800, color: canFundSelectedJob ? "#10b981" : "#f59e0b", marginBottom: "6px" }}>
+              <p data-testid="client-payments-readiness-title" style={{ fontSize: "13px", fontWeight: 800, color: canFundSelectedJob ? "var(--ok)" : "#f59e0b", marginBottom: "6px" }}>
                 {canFundSelectedJob ? "Proyecto listo para fondear escrow" : "Precondiciones de pago pendientes"}
               </p>
               <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "10px" }}>
                 {selectedJob.title}
               </p>
               <div style={{ display: "grid", gap: "6px" }}>
-                <p data-testid="client-payments-check-reservation" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.acceptedReservation ? "#10b981" : "var(--muted)" }}>
+                <p data-testid="client-payments-check-reservation" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.acceptedReservation ? "var(--ok)" : "var(--muted)" }}>
                   {selectedReadiness === null || selectedReadiness?.checks.acceptedReservation ? "✓ Reserva aceptada" : "• Falta una reserva aceptada"}
                 </p>
 
-                <p data-testid="client-payments-check-contract" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.activeContract ? "#10b981" : "var(--muted)" }}>
+                <p data-testid="client-payments-check-contract" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.activeContract ? "var(--ok)" : "var(--muted)" }}>
                   {selectedReadiness === null || selectedReadiness?.checks.activeContract ? "✓ Contrato activo" : "• Falta contrato activo"}
                 </p>
-                <p data-testid="client-payments-check-client-sign" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.signedClient ? "#10b981" : "var(--muted)" }}>
+                <p data-testid="client-payments-check-client-sign" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.signedClient ? "var(--ok)" : "var(--muted)" }}>
                   {selectedReadiness === null || selectedReadiness?.checks.signedClient ? "✓ Firma del cliente registrada" : "• Falta firma del cliente"}
                 </p>
-                <p data-testid="client-payments-check-pro-sign" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.signedProfessional ? "#10b981" : "var(--muted)" }}>
+                <p data-testid="client-payments-check-pro-sign" style={{ fontSize: "12px", color: selectedReadiness === null || selectedReadiness?.checks.signedProfessional ? "var(--ok)" : "var(--muted)" }}>
                   {selectedReadiness === null || selectedReadiness?.checks.signedProfessional ? "✓ Firma del profesional registrada" : "• Falta firma del profesional"}
                 </p>
                 {selectedReadiness === null && (
@@ -403,7 +403,7 @@ export default function ClientPaymentsPage() {
       {/* Milestones pending release */}
       {pendingMilestones.length > 0 && (
         <HtmlInCanvasPanel as="section" style={{ ...card, padding: "16px 18px", marginBottom: "20px", borderColor: "rgba(16,185,129,.3)", background: "rgba(16,185,129,.05)" }} canvasClassName="rounded-2xl" minHeight={80}>
-          <p data-testid="client-payments-milestones-title" style={{ fontSize: "12px", fontWeight: 700, color: "#10b981", marginBottom: "10px" }}>
+          <p data-testid="client-payments-milestones-title" style={{ fontSize: "12px", fontWeight: 700, color: "var(--ok)", marginBottom: "10px" }}>
             MILESTONES LISTOS PARA APROBAR ({pendingMilestones.length})
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -413,12 +413,12 @@ export default function ClientPaymentsPage() {
                   <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)" }}>{ms.title}</p>
                   <p style={{ fontSize: "11px", color: "var(--muted)" }}>{ms.jobTitle}</p>
                 </div>
-                <p style={{ fontSize: "14px", fontWeight: 800, color: "#10b981", marginRight: "8px" }}>${ms.amount.toLocaleString()}</p>
+                <p style={{ fontSize: "14px", fontWeight: 800, color: "var(--ok)", marginRight: "8px" }}>${ms.amount.toLocaleString()}</p>
                 <button
                   data-testid={`client-payments-release-${ms.id}`}
                   onClick={() => void handleRelease(ms.id)}
                   disabled={releasing === ms.id}
-                  style={{ display: "flex", alignItems: "center", gap: "5px", padding: "7px 14px", borderRadius: "8px", border: "none", background: releasing === ms.id ? "var(--muted)" : "#10b981", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: releasing === ms.id ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
+                  style={{ display: "flex", alignItems: "center", gap: "5px", padding: "7px 14px", borderRadius: "8px", border: "none", background: releasing === ms.id ? "var(--muted)" : "var(--ok)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: releasing === ms.id ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
                 >
                   {releasing === ms.id ? "Liberando..." : <><CheckCircle size={13} /> Aprobar y liberar</>}
                 </button>
@@ -469,7 +469,7 @@ export default function ClientPaymentsPage() {
             {[1, 2, 3, 4].map(i => <div key={i} style={{ height: "60px", borderRadius: "10px", background: "var(--raised)", animation: "pulse 1.5s ease-in-out infinite" }} />)}
           </div>
         ) : error ? (
-          <div style={{ padding: "18px", color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)" }}>{error}</div>
+          <div style={{ padding: "18px", color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)" }}>{error}</div>
         ) : filtered.length === 0 ? (
           <div data-testid="client-payments-empty" style={{ padding: "48px 24px", textAlign: "center" }}>
             <Inbox size={32} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
@@ -487,7 +487,7 @@ export default function ClientPaymentsPage() {
               style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px", borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none", background: isDisputed ? "rgba(239,68,68,.03)" : "transparent" }}
             >
               <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, background: isDisputed ? "rgba(239,68,68,.12)" : `${cfg.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {isDisputed ? <Scale size={16} color="#ef4444" /> : <DollarSign size={16} color={cfg.color} />}
+                {isDisputed ? <Scale size={16} color="var(--error)" /> : <DollarSign size={16} color={cfg.color} />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.description}</p>
@@ -497,13 +497,13 @@ export default function ClientPaymentsPage() {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
                 {isDisputed ? (
-                  <Link href="/client/disputes?status=open" style={{ fontSize: "11px", fontWeight: 800, color: "#ef4444", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px", padding: "4px 9px", borderRadius: "7px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
+                  <Link href="/client/disputes?status=open" style={{ fontSize: "11px", fontWeight: 800, color: "var(--error)", textDecoration: "none", display: "flex", alignItems: "center", gap: "4px", padding: "4px 9px", borderRadius: "7px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
                     <Scale size={10} /> En disputa
                   </Link>
                 ) : (
                   <StatusBadge variant={cfg.variant} text={cfg.label} size="sm" />
                 )}
-                <p style={{ fontSize: "15px", fontWeight: 800, minWidth: "76px", textAlign: "right", color: isRefund ? "#10b981" : isDisputed ? "#ef4444" : t.type === "RELEASE" ? "var(--ink)" : "var(--brand)" }}>
+                <p style={{ fontSize: "15px", fontWeight: 800, minWidth: "76px", textAlign: "right", color: isRefund ? "var(--ok)" : isDisputed ? "var(--error)" : t.type === "RELEASE" ? "var(--ink)" : "var(--brand)" }}>
                   {isRefund ? "+" : t.type === "DEPOSIT" ? "" : "-"}${Math.abs(t.amount).toLocaleString()}
                 </p>
                 {t.type === "DEPOSIT" && !isDisputed && (

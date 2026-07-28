@@ -17,7 +17,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#94a3b8", sent: "#818cf8", viewed: "#a78bfa", approved: "#34d399",
-  paid: "#10b981", overdue: "#f87171", cancelled: "#64748b",
+  paid: "var(--ok)", overdue: "#f87171", cancelled: "#64748b",
 };
 
 function fmt(n: number, currency = "USD") {
@@ -93,7 +93,7 @@ export default function InvoicePage() {
           )}
           {["sent", "viewed", "approved", "overdue"].includes(invoice.status) && (
             <button onClick={() => void handlePay()} disabled={busy}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "none", background: "#10b981", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 16px", borderRadius: 10, border: "none", background: "var(--ok)", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
               Marcar pagada
             </button>
           )}
@@ -142,7 +142,7 @@ export default function InvoicePage() {
           {invoice.dueDate && (
             <div>
               <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700, marginBottom: 6 }}>FECHA DE VENCIMIENTO</div>
-              <div style={{ fontSize: 14, color: invoice.status === "overdue" ? "#ef4444" : "#1e293b", fontWeight: 600 }}>
+              <div style={{ fontSize: 14, color: invoice.status === "overdue" ? "var(--error)" : "#1e293b", fontWeight: 600 }}>
                 {new Date(invoice.dueDate).toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" })}
               </div>
             </div>

@@ -37,14 +37,14 @@ const STATUS_META: Record<COStatus, { label: string; color: string; icon: typeof
   predicted:         { label: "Predicho",         color: "#94a3b8", icon: Sparkles },
   submitted:         { label: "Enviado",           color: "#fbbf24", icon: Clock },
   approved:          { label: "Aprobado",          color: "#22c55e", icon: CheckCircle },
-  rejected:          { label: "Rechazado",         color: "#ef4444", icon: XCircle },
+  rejected:          { label: "Rechazado",         color: "var(--error)", icon: XCircle },
   voided:            { label: "Anulado",           color: "#64748b", icon: XCircle },
   applied:           { label: "Aplicado",          color: "#818cf8", icon: Zap },
   changes_requested: { label: "Cambios pedidos",  color: "#fb923c", icon: AlertTriangle },
 };
 
 const RISK_COLORS: Record<string, string> = {
-  low: "#22c55e", medium: "#fbbf24", high: "#fb923c", critical: "#ef4444",
+  low: "#22c55e", medium: "#fbbf24", high: "#fb923c", critical: "var(--error)",
 };
 
 function money(v: string | number | null | undefined) {
@@ -323,7 +323,7 @@ export default function AdminChangeOrdersPage() {
                             <button
                               disabled={!!busyId}
                               onClick={() => { if (window.confirm(`¿Rechazar el change order "${co.title}"?`)) void action(co.id, "reject", { clientNote: noteById[co.id], reason: noteById[co.id] }); }}
-                              style={btn("#ef4444", !!busyId)}
+                              style={btn("var(--error)", !!busyId)}
                             >
                               <XCircle size={11} style={{ display: "inline", marginRight: 4 }} />
                               Rechazar

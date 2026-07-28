@@ -187,7 +187,7 @@ export default function ClientMilestonesPage() {
       {/* Summary */}
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "24px" }} canvasClassName="rounded-2xl" minHeight={120}>
         {[
-          { label: "Hitos completados", value: String(summary.completed), color: "#10b981", icon: CheckSquare },
+          { label: "Hitos completados", value: String(summary.completed), color: "var(--ok)", icon: CheckSquare },
           { label: "En progreso", value: String(summary.inProgress), color: "var(--brand)", icon: Clock },
           { label: "Fondos en escrow", value: `$${summary.escrow.toLocaleString()}`, color: "var(--accent)", icon: DollarSign },
         ].map(s => {
@@ -212,7 +212,7 @@ export default function ClientMilestonesPage() {
           ))}
         </div>
       ) : error ? (
-        <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: "13px" }}>
+        <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: "13px" }}>
           {error}
         </div>
       ) : groups.length === 0 ? (

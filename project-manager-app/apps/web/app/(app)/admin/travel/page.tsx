@@ -561,7 +561,7 @@ export default function AdminTravelPage() {
                   syncFilters({ grpRisk: next });
                 }} aria-expanded={showRisk} style={{ display: "grid", gap: "4px", background: "transparent", border: "none", padding: 0, cursor: "pointer", width: "fit-content", textAlign: "left" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <AlertTriangle size={14} color="#ef4444" />
+                    <AlertTriangle size={14} color="var(--error)" />
                     <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)" }}>Con riesgo operativo</h3>
                     <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 6px", borderRadius: "999px", background: "rgba(239,68,68,.12)", color: "#b91c1c" }}>
                       {riskItems.length}
@@ -584,7 +584,7 @@ export default function AdminTravelPage() {
                   syncFilters({ grpOk: next });
                 }} aria-expanded={showOk} style={{ display: "grid", gap: "4px", background: "transparent", border: "none", padding: 0, cursor: "pointer", width: "fit-content", textAlign: "left" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <PlaneTakeoff size={14} color="#10b981" />
+                    <PlaneTakeoff size={14} color="var(--ok)" />
                     <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)" }}>Operación estable</h3>
                     <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 6px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#047857" }}>
                       {okItems.length}

@@ -50,13 +50,13 @@ function formatDate(s?: string) {
 
 const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   draft:       { label: "Borrador",    color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  posted:      { label: "Publicado",   color: "#3b82f6", bg: "rgba(59,130,246,.12)"  },
+  posted:      { label: "Publicado",   color: "var(--brand)", bg: "rgba(59,130,246,.12)"  },
   reserved:    { label: "Reservado",   color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
   accepted:    { label: "Aceptado",    color: "#8b5cf6", bg: "rgba(139,92,246,.12)"  },
   in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)"   },
   review:      { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
-  dispute:     { label: "En disputa",  color: "#ef4444", bg: "rgba(239,68,68,.12)"   },
-  completed:   { label: "Completado",  color: "#10b981", bg: "rgba(16,185,129,.12)"  },
+  dispute:     { label: "En disputa",  color: "var(--error)", bg: "rgba(239,68,68,.12)"   },
+  completed:   { label: "Completado",  color: "var(--ok)", bg: "rgba(16,185,129,.12)"  },
   cancelled:   { label: "Cancelado",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
 
@@ -64,8 +64,8 @@ const MILESTONE_META: Record<string, { label: string; color: string; bg: string 
   DRAFT:           { label: "Pendiente",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
   AWAITING_REVIEW: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
   SUBMITTED:       { label: "Enviado",     color: "#06b6d4", bg: "rgba(6,182,212,.12)"   },
-  APPROVED:        { label: "Aprobado",    color: "#10b981", bg: "rgba(16,185,129,.12)"  },
-  REJECTED:        { label: "Rechazado",   color: "#ef4444", bg: "rgba(239,68,68,.12)"   },
+  APPROVED:        { label: "Aprobado",    color: "var(--ok)", bg: "rgba(16,185,129,.12)"  },
+  REJECTED:        { label: "Rechazado",   color: "var(--error)", bg: "rgba(239,68,68,.12)"   },
   PAID:            { label: "Pagado",      color: "#22c55e", bg: "rgba(34,197,94,.12)"   },
 };
 
@@ -73,13 +73,13 @@ const WORKER_NEXT_ACTION: Record<string, { label: string; detail: string; tone: 
   reserved:    { label: "Reservado — confirma tu disponibilidad",           detail: "El cliente aún no acepta. Puedes esperar o contactarlo.",           tone: "#f59e0b" },
   in_progress: { label: "En progreso — avanza y envía los milestones",      detail: "Sube evidencia y marca cada milestone como completado.",            tone: "#06b6d4" },
   review:      { label: "En revisión — el cliente está evaluando tu entrega", detail: "Espera aprobación. Puedes subir evidencia adicional si hace falta.", tone: "#f59e0b" },
-  dispute:     { label: "Disputa activa — aporta evidencia",                detail: "El equipo de ops está revisando. Sube pruebas de tu trabajo.",      tone: "#ef4444" },
-  completed:   { label: "Trabajo completado",                               detail: "El trabajo se cerró correctamente.",                                tone: "#10b981" },
+  dispute:     { label: "Disputa activa — aporta evidencia",                detail: "El equipo de ops está revisando. Sube pruebas de tu trabajo.",      tone: "var(--error)" },
+  completed:   { label: "Trabajo completado",                               detail: "El trabajo se cerró correctamente.",                                tone: "var(--ok)" },
 };
 
 function EvidenceIcon({ kind }: { kind: string }) {
-  if (kind === "PHOTO") return <ImageIcon size={13} color="#10b981" />;
-  if (kind === "VIDEO") return <Video size={13} color="#3b82f6" />;
+  if (kind === "PHOTO") return <ImageIcon size={13} color="var(--ok)" />;
+  if (kind === "VIDEO") return <Video size={13} color="var(--brand)" />;
   return <FileText size={13} color="#8b5cf6" />;
 }
 
@@ -153,7 +153,7 @@ export default function WorkerJobDetailPage() {
   const escrowFunded = escrowStatus === "FUNDED" || escrowStatus === "ACTIVE";
 
   const acceptedGuide = escrowFunded
-    ? { label: "Escrow fondeado — puedes iniciar el trabajo", detail: "Los fondos ya están protegidos. Presiona 'Iniciar trabajo' cuando estés listo.", tone: "#10b981" }
+    ? { label: "Escrow fondeado — puedes iniciar el trabajo", detail: "Los fondos ya están protegidos. Presiona 'Iniciar trabajo' cuando estés listo.", tone: "var(--ok)" }
     : { label: "Aceptado — espera el fondeo del escrow", detail: "El cliente debe fondear el escrow antes de que puedas comenzar. Te notificaremos cuando esté listo.", tone: "#8b5cf6" };
 
   const nextAction = normalizedStatus === "accepted"
@@ -199,7 +199,7 @@ export default function WorkerJobDetailPage() {
           {[1, 2, 3].map(i => <div key={i} style={{ height: "120px", borderRadius: "16px", border: "1px solid var(--border)", background: "var(--surface)", animation: "pulse 1.5s ease-in-out infinite" }} />)}
         </div>
       ) : error ? (
-        <div style={{ padding: "18px 20px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: "14px", color: "#ef4444", fontSize: "13px" }}>{error}</div>
+        <div style={{ padding: "18px 20px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: "14px", color: "var(--error)", fontSize: "13px" }}>{error}</div>
       ) : (
         <>
           {/* Next action banner */}
@@ -214,7 +214,7 @@ export default function WorkerJobDetailPage() {
                     <button
                       onClick={() => void handleStartJob()}
                       disabled={pendingAction !== null}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "#10b981", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "var(--ok)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
                     >
                       ▶ Iniciar trabajo
                     </button>
@@ -250,7 +250,7 @@ export default function WorkerJobDetailPage() {
                   <div style={{ marginTop: 10 }}>
                     <Link
                       href={`/worker/disputes?status=open`}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       <AlertCircle size={13} />
                       Abrir panel de disputas
@@ -261,7 +261,7 @@ export default function WorkerJobDetailPage() {
                   <div style={{ marginTop: 10 }}>
                     <Link
                       href={`/worker/jobs/${jobId}/rate`}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.1)", color: "#10b981", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.1)", color: "var(--ok)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       ⭐ Calificar al cliente
                     </Link>
@@ -284,10 +284,10 @@ export default function WorkerJobDetailPage() {
                 <div style={{ fontSize: "13px", color: "var(--ink)" }}>{asString(job?.category) ?? "—"}</div>
               </div>
               {(asString(job?.location) ?? asString(job?.city)) ? (
-                <a href={`https://maps.google.com/?q=${encodeURIComponent(asString(job?.location) ?? asString(job?.city) ?? "")}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", display: "block", transition: "border-color .15s" }} onMouseOver={e => { e.currentTarget.style.borderColor = "#10b981"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; }}>
+                <a href={`https://maps.google.com/?q=${encodeURIComponent(asString(job?.location) ?? asString(job?.city) ?? "")}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", display: "block", transition: "border-color .15s" }} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--ok)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; }}>
                   <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Ubicación</div>
                   <div style={{ fontSize: "13px", color: "var(--ink)", display: "flex", alignItems: "center", gap: "6px" }}><MapPin size={13} color="var(--muted)" />{asString(job?.location) ?? asString(job?.city)}</div>
-                  <div style={{ fontSize: "11px", color: "#10b981", marginTop: "4px" }}>Ver en mapa →</div>
+                  <div style={{ fontSize: "11px", color: "var(--ok)", marginTop: "4px" }}>Ver en mapa →</div>
                 </a>
               ) : (
                 <div style={{ padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)" }}>
@@ -321,7 +321,7 @@ export default function WorkerJobDetailPage() {
                 <h2 style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)", margin: 0 }}>Milestones</h2>
                 <p style={{ fontSize: "12px", color: "var(--muted)", margin: "4px 0 0" }}>{milestoneSummary.approved}/{milestoneSummary.total} hitos aprobados</p>
               </div>
-              <Link href={`/worker/evidence?jobId=${jobId}`} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "9px", background: "rgba(16,185,129,.12)", color: "#10b981", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
+              <Link href={`/worker/evidence?jobId=${jobId}`} style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "9px", background: "rgba(16,185,129,.12)", color: "var(--ok)", fontSize: "12px", fontWeight: 700, textDecoration: "none" }}>
                 <Camera size={13} /> Subir evidencia
               </Link>
             </div>
@@ -371,7 +371,7 @@ export default function WorkerJobDetailPage() {
                           </div>
                         )}
                         {status === "REJECTED" && asString(milestone.rejectionReason) && (
-                          <p style={{ fontSize: "11px", color: "#ef4444", marginTop: "8px" }}>Razón de rechazo: {asString(milestone.rejectionReason)}</p>
+                          <p style={{ fontSize: "11px", color: "var(--error)", marginTop: "8px" }}>Razón de rechazo: {asString(milestone.rejectionReason)}</p>
                         )}
                       </div>
                     );

@@ -156,7 +156,7 @@ export default function PrivacyPage() {
             <li key={s.id}>
               <a
                 href={`#${s.id}`}
-                style={{ textDecoration: "none", color: "#3b82f6", fontSize: 14, fontWeight: 500 }}
+                style={{ textDecoration: "none", color: "var(--brand)", fontSize: 14, fontWeight: 500 }}
               >
                 {s.title}
               </a>
@@ -175,7 +175,7 @@ export default function PrivacyPage() {
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 12 }}>
               {section.content.map((line, i) => (
                 <li key={i} style={{ display: "flex", gap: 12, fontSize: 15, color: "#374151", lineHeight: 1.7 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6", flexShrink: 0, marginTop: 9 }} />
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand)", flexShrink: 0, marginTop: 9 }} />
                   <span>{renderLine(line)}</span>
                 </li>
               ))}
@@ -197,7 +197,7 @@ export default function PrivacyPage() {
           justifyContent: "space-between",
         }}
       >
-        <Link href="/terms" style={{ fontSize: 14, color: "#3b82f6", textDecoration: "none", fontWeight: 600 }}>
+        <Link href="/terms" style={{ fontSize: 14, color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}>
           Términos de servicio →
         </Link>
         <Link href="/" style={{ fontSize: 14, color: "#64748b", textDecoration: "none" }}>

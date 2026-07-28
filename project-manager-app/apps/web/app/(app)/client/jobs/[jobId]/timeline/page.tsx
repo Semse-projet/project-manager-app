@@ -11,16 +11,16 @@ import { fetchJob, fetchBuildOpsProjects, fetchProjectActivity, type ActivityEve
 import { NotificationBanner } from "../../../../../components/notifications/NotificationBanner";
 
 const SEVERITY_CONFIG = {
-  info:     { color: "#3b82f6", bg: "#1e3a5f", icon: <Info size={14} /> },
+  info:     { color: "var(--brand)", bg: "#1e3a5f", icon: <Info size={14} /> },
   warning:  { color: "#f59e0b", bg: "#451a03", icon: <AlertTriangle size={14} /> },
-  critical: { color: "#ef4444", bg: "#450a0a", icon: <AlertTriangle size={14} /> },
+  critical: { color: "var(--error)", bg: "#450a0a", icon: <AlertTriangle size={14} /> },
 };
 
 const TYPE_ICON: Record<string, React.ReactNode> = {
-  milestone_status:   <CheckCircle size={14} color="#10b981" />,
+  milestone_status:   <CheckCircle size={14} color="var(--ok)" />,
   change_order:       <FileText size={14} color="#f59e0b" />,
   operational_signal: <Zap size={14} color="#a78bfa" />,
-  algorithm_run:      <Activity size={14} color="#3b82f6" />,
+  algorithm_run:      <Activity size={14} color="var(--brand)" />,
   evidence_upload:    <HardHat size={14} color="#22d3ee" />,
 };
 
@@ -150,7 +150,7 @@ export default function JobTimelinePage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-            <Clock size={20} color="#3b82f6" /> Timeline del Proyecto
+            <Clock size={20} color="var(--brand)" /> Timeline del Proyecto
           </h1>
           {jobTitle && <p style={{ margin: "4px 0 0", fontSize: 13, color: "#9ca3af" }}>{jobTitle}</p>}
         </div>
@@ -169,7 +169,7 @@ export default function JobTimelinePage() {
           <button
             key={key}
             onClick={() => setTab(key)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, border: "none", background: tab === key ? "#3b82f6" : "transparent", color: tab === key ? "#fff" : "#6b7280", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 7, border: "none", background: tab === key ? "var(--brand)" : "transparent", color: tab === key ? "#fff" : "#6b7280", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
           >
             {icon} {label}
           </button>
@@ -182,7 +182,7 @@ export default function JobTimelinePage() {
           {events.length > 0 && (
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               <span style={{ fontSize: 12, color: "#6b7280", padding: "4px 10px", background: "#1f2937", borderRadius: 20, border: "1px solid #374151" }}>{events.length} eventos</span>
-              {criticalCount > 0 && <span style={{ fontSize: 12, color: "#ef4444", padding: "4px 10px", background: "#450a0a", borderRadius: 20, border: "1px solid #ef444440" }}>{criticalCount} crítico{criticalCount > 1 ? "s" : ""}</span>}
+              {criticalCount > 0 && <span style={{ fontSize: 12, color: "var(--error)", padding: "4px 10px", background: "#450a0a", borderRadius: 20, border: "1px solid #ef444440" }}>{criticalCount} crítico{criticalCount > 1 ? "s" : ""}</span>}
               {warningCount > 0 && <span style={{ fontSize: 12, color: "#f59e0b", padding: "4px 10px", background: "#451a03", borderRadius: 20, border: "1px solid #f59e0b40" }}>{warningCount} atención</span>}
             </div>
           )}
@@ -217,7 +217,7 @@ export default function JobTimelinePage() {
         <div style={{ background: "#111827", border: "1px solid #1f2937", borderRadius: 12, padding: 24 }}>
           {gifLoading && (
             <div style={{ textAlign: "center", padding: "40px", color: "#6b7280" }}>
-              <Film size={32} style={{ marginBottom: 12, color: "#3b82f6" }} />
+              <Film size={32} style={{ marginBottom: 12, color: "var(--brand)" }} />
               <div style={{ fontSize: 14, fontWeight: 600 }}>Construyendo time-lapse visual…</div>
               <div style={{ fontSize: 12, marginTop: 4, color: "#4b5563" }}>Procesando fotos del proyecto con Vision AI</div>
             </div>
@@ -234,7 +234,7 @@ export default function JobTimelinePage() {
           {photoGif && !gifLoading && (
             <div style={{ textAlign: "center" }}>
               <div style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                <Film size={16} color="#3b82f6" />
+                <Film size={16} color="var(--brand)" />
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#f9fafb" }}>Time-lapse del proyecto</span>
                 <span style={{ fontSize: 11, color: "#6b7280", padding: "2px 8px", background: "#1f2937", borderRadius: 20 }}>{gifFrames} fotos</span>
               </div>

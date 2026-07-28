@@ -1340,7 +1340,7 @@ export default function AdminOpsPage() {
                     </div>
 
                     {feedback && (
-                      <div style={{ padding: "8px 10px", borderRadius: 8, fontSize: 12, background: feedback.kind === "ok" ? "rgba(16,185,129,.08)" : "rgba(239,68,68,.08)", color: feedback.kind === "ok" ? "#34d399" : "#ef4444", border: `1px solid ${feedback.kind === "ok" ? "rgba(16,185,129,.2)" : "rgba(239,68,68,.2)"}` }}>
+                      <div style={{ padding: "8px 10px", borderRadius: 8, fontSize: 12, background: feedback.kind === "ok" ? "rgba(16,185,129,.08)" : "rgba(239,68,68,.08)", color: feedback.kind === "ok" ? "#34d399" : "var(--error)", border: `1px solid ${feedback.kind === "ok" ? "rgba(16,185,129,.2)" : "rgba(239,68,68,.2)"}` }}>
                         {feedback.message}
                       </div>
                     )}

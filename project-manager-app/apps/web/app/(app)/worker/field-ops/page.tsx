@@ -234,7 +234,7 @@ function UnitsTab() {
         action={
           <button
             onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors"
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors"
           >
             {showForm ? "Cancelar" : "+ Nueva unidad"}
           </button>
@@ -250,30 +250,30 @@ function UnitsTab() {
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Project ID *</label>
               <input value={formProjectId} onChange={e => setFormProjectId(e.target.value)}
                 required placeholder="cuid del proyecto"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Código *</label>
               <input value={formCode} onChange={e => setFormCode(e.target.value)}
                 required placeholder="Ej: 110, Wing-A"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Nombre</label>
               <input value={formName} onChange={e => setFormName(e.target.value)}
                 placeholder="Nombre amigable"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Dirección</label>
               <input value={formAddress} onChange={e => setFormAddress(e.target.value)}
                 placeholder="Dirección física"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex justify-end">
             <button type="submit" disabled={creating || !formProjectId.trim() || !formCode.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {creating ? "Creando…" : "Crear unidad"}
             </button>
           </div>
@@ -297,7 +297,7 @@ function UnitsTab() {
                 className={cn(
                   "cursor-pointer rounded-xl border px-4 py-3 transition-all",
                   selected?.id === unit.id
-                    ? "border-[var(--brand,#3b82f6)]/30 bg-[var(--brand,#3b82f6)]/5"
+                    ? "border-[var(--brand,var(--brand))]/30 bg-[var(--brand,var(--brand))]/5"
                     : "border-white/[0.06] bg-[var(--bg-2,#111)] hover:border-white/[0.12]"
                 )}
               >
@@ -420,7 +420,7 @@ function WorklogsTab() {
         title={`Worklogs (${filtered.length})`}
         action={
           <button onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors">
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors">
             {showForm ? "Cancelar" : "+ Registrar avance"}
           </button>
         }
@@ -430,7 +430,7 @@ function WorklogsTab() {
       <div className="mb-4">
         <input value={filterUnit} onChange={e => setFilterUnit(e.target.value)}
           placeholder="Filtrar por código de unidad…"
-          className="w-full max-w-xs rounded-lg border border-white/[0.08] bg-[var(--bg-2,#111)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)] placeholder:text-[var(--muted)]" />
+          className="w-full max-w-xs rounded-lg border border-white/[0.08] bg-[var(--bg-2,#111)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))] placeholder:text-[var(--muted)]" />
       </div>
 
       {/* New worklog form */}
@@ -441,37 +441,37 @@ function WorklogsTab() {
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Field Unit ID *</label>
               <input value={fUnitId} onChange={e => setFUnitId(e.target.value)} required
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Fecha *</label>
               <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} required
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Hecho hoy *</label>
               <textarea value={fDone} onChange={e => setFDone(e.target.value)} required rows={2}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)] resize-none" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))] resize-none" />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Pendiente siguiente *</label>
               <textarea value={fPending} onChange={e => setFPending(e.target.value)} required rows={2}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)] resize-none" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))] resize-none" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Bloqueadores</label>
               <input value={fBlockers} onChange={e => setFBlockers(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Notas</label>
               <input value={fNotes} onChange={e => setFNotes(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex justify-end">
             <button type="submit" disabled={submitting || !fUnitId.trim() || !fDone.trim() || !fPending.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {submitting ? "Guardando…" : "Guardar avance"}
             </button>
           </div>
@@ -491,7 +491,7 @@ function WorklogsTab() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold text-[var(--brand,#3b82f6)]">
+                    <span className="text-xs font-semibold text-[var(--brand,var(--brand))]">
                       {w.fieldUnit ? `Unidad ${w.fieldUnit.code}` : w.fieldUnitId.slice(0, 8)}
                     </span>
                     <span className="text-[0.65rem] text-[var(--muted)]">
@@ -586,7 +586,7 @@ function KnowledgeTab() {
         title={`Memoria contextual (${facts.length})`}
         action={
           <button onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors">
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors">
             {showForm ? "Cancelar" : "+ Nueva entrada"}
           </button>
         }
@@ -600,19 +600,19 @@ function KnowledgeTab() {
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Sujeto *</label>
               <input value={fSubject} onChange={e => setFSubject(e.target.value)} required
                 placeholder="FieldUnit:110"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Predicado *</label>
               <input value={fPredicate} onChange={e => setFPredicate(e.target.value)} required
                 placeholder="blocked_by, status…"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Objeto *</label>
               <input value={fObject} onChange={e => setFObject(e.target.value)} required
                 placeholder="Valor o descripción"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex items-end gap-3">
@@ -620,10 +620,10 @@ function KnowledgeTab() {
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Confianza (0–1)</label>
               <input type="number" min="0" max="1" step="0.05" value={fConfidence}
                 onChange={e => setFConfidence(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <button type="submit" disabled={submitting || !fSubject.trim() || !fPredicate.trim() || !fObject.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {submitting ? "Guardando…" : "Crear hecho"}
             </button>
           </div>
@@ -649,7 +649,7 @@ function KnowledgeTab() {
             <tbody>
               {facts.map((f, i) => (
                 <tr key={f.id} className={cn("border-b border-white/[0.04]", i % 2 === 0 ? "" : "bg-white/[0.01]")}>
-                  <td className="px-4 py-2.5 font-medium text-[var(--brand,#3b82f6)]">{f.subject}</td>
+                  <td className="px-4 py-2.5 font-medium text-[var(--brand,var(--brand))]">{f.subject}</td>
                   <td className="px-4 py-2.5 text-[var(--muted)]">{f.predicate}</td>
                   <td className="px-4 py-2.5 text-[var(--ink)] max-w-[200px] truncate">{f.object}</td>
                   <td className={cn("px-4 py-2.5 font-mono font-semibold", confidenceColor(f.confidence))}>
@@ -742,7 +742,7 @@ function VendorsTab() {
         title={`Proveedores (${vendors.length})`}
         action={
           <button onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors">
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors">
             {showForm ? "Cancelar" : "+ Nuevo proveedor"}
           </button>
         }
@@ -755,22 +755,22 @@ function VendorsTab() {
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Nombre *</label>
               <input value={fName} onChange={e => setFName(e.target.value)} required
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Teléfono</label>
               <input value={fPhone} onChange={e => setFPhone(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Email</label>
               <input type="email" value={fEmail} onChange={e => setFEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex justify-end">
             <button type="submit" disabled={creating || !fName.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {creating ? "Creando…" : "Crear proveedor"}
             </button>
           </div>
@@ -797,7 +797,7 @@ function VendorsTab() {
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[0.65rem] font-bold text-[var(--brand,#3b82f6)]">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[0.65rem] font-bold text-[var(--brand,var(--brand))]">
                       {v.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -901,7 +901,7 @@ export default function FieldOpsPage() {
           </Link>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand,#3b82f6)]/10 text-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand,var(--brand))]/10 text-lg">
                 🔧
               </div>
               <div>
@@ -938,7 +938,7 @@ export default function FieldOpsPage() {
               className={cn(
                 "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all",
                 activeTab === tab.id
-                  ? "bg-[var(--brand,#3b82f6)]/15 text-[var(--brand,#3b82f6)]"
+                  ? "bg-[var(--brand,var(--brand))]/15 text-[var(--brand,var(--brand))]"
                   : "text-[var(--muted,#94979e)] hover:text-[var(--ink,#f7f8fa)]"
               )}
             >

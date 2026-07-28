@@ -23,9 +23,9 @@ function normalizeStatus(value: unknown): DisputeRow["status"] {
 }
 
 const STATUS_META = {
-  open:     { label: "Abierta",   color: "#ef4444", Icon: AlertTriangle },
+  open:     { label: "Abierta",   color: "var(--error)", Icon: AlertTriangle },
   assigned: { label: "Asignada",  color: "#f59e0b", Icon: ShieldAlert   },
-  resolved: { label: "Resuelta",  color: "#10b981", Icon: CheckCircle2  },
+  resolved: { label: "Resuelta",  color: "var(--ok)", Icon: CheckCircle2  },
 };
 
 export function JobDisputeHistory({
@@ -97,17 +97,17 @@ export function JobDisputeHistory({
     <section style={{ background: "var(--surface)", border: `1px solid ${openCount > 0 ? "rgba(239,68,68,.28)" : "var(--border)"}`, borderRadius: "16px", padding: "20px 22px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <Scale size={16} color={openCount > 0 ? "#ef4444" : "var(--muted)"} />
+          <Scale size={16} color={openCount > 0 ? "var(--error)" : "var(--muted)"} />
           <div>
             <h2 style={{ fontSize: "15px", fontWeight: 800, color: "var(--ink)", margin: 0 }}>
               Historial de disputas
             </h2>
             {openCount > 0 ? (
-              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#ef4444", fontWeight: 700 }}>
+              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--error)", fontWeight: 700 }}>
                 {openCount} disputa{openCount !== 1 ? "s" : ""} activa{openCount !== 1 ? "s" : ""}
               </p>
             ) : rows.length > 0 ? (
-              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "#10b981", fontWeight: 700 }}>
+              <p style={{ margin: "2px 0 0", fontSize: "11px", color: "var(--ok)", fontWeight: 700 }}>
                 Todas resueltas
               </p>
             ) : null}
@@ -128,7 +128,7 @@ export function JobDisputeHistory({
           ))}
         </div>
       ) : error ? (
-        <div style={{ padding: "14px 16px", borderRadius: "12px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: "13px" }}>
+        <div style={{ padding: "14px 16px", borderRadius: "12px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: "13px" }}>
           {error}
         </div>
       ) : rows.length === 0 ? (
@@ -168,7 +168,7 @@ export function JobDisputeHistory({
                 <p style={{ margin: 0, fontSize: "13px", color: "var(--ink)", lineHeight: 1.6 }}>{row.reason}</p>
 
                 {row.resolution ? (
-                  <div style={{ padding: "8px 10px", borderRadius: "10px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.2)", fontSize: "12px", color: "#10b981", lineHeight: 1.5 }}>
+                  <div style={{ padding: "8px 10px", borderRadius: "10px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.2)", fontSize: "12px", color: "var(--ok)", lineHeight: 1.5 }}>
                     <RefreshCw size={11} style={{ display: "inline", marginRight: 5 }} />
                     {row.resolution}
                   </div>

@@ -186,7 +186,7 @@ export default function TermsPage() {
         }}
       >
         <p style={{ fontWeight: 700, marginBottom: 12, color: "var(--ink)" }}>Contenido</p>
-        <ol style={{ margin: 0, padding: "0 0 0 20px", display: "grid", gap: 6, color: "var(--accent, #3b82f6)" }}>
+        <ol style={{ margin: 0, padding: "0 0 0 20px", display: "grid", gap: 6, color: "var(--accent, var(--brand))" }}>
           {SECTIONS.map((s) => (
             <li key={s.id}>
               <a href={`#${s.id}`} style={{ color: "inherit", textDecoration: "none", fontSize: "0.9rem" }}>
@@ -208,7 +208,7 @@ export default function TermsPage() {
                 color: "var(--ink)",
                 marginBottom: 12,
                 paddingBottom: 8,
-                borderBottom: "2px solid var(--accent, #3b82f6)",
+                borderBottom: "2px solid var(--accent, var(--brand))",
                 display: "inline-block",
               }}
             >
@@ -241,7 +241,7 @@ export default function TermsPage() {
         }}
       >
         ¿Tienes preguntas? Escríbenos a{" "}
-        <a href="mailto:legal@semseproject.com" style={{ color: "var(--accent, #3b82f6)" }}>
+        <a href="mailto:legal@semseproject.com" style={{ color: "var(--accent, var(--brand))" }}>
           legal@semseproject.com
         </a>
       </div>

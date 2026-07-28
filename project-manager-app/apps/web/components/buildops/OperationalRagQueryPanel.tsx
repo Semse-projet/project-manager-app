@@ -58,7 +58,7 @@ export function OperationalRagQueryPanel({ projectId, milestoneId }: Props) {
 
   const typeColor: Record<string, string> = {
     payment_governance: "#818cf8", milestone: "#fbbf24", evidence_item: "#86efac",
-    audit_log: "#94a3b8", change_order: "#fb923c", operational_signal: "#ef4444",
+    audit_log: "#94a3b8", change_order: "#fb923c", operational_signal: "var(--error)",
     buildops_project: "#6366f1", rag_document: "#38bdf8",
   };
 

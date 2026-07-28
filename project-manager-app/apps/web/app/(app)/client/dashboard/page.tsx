@@ -23,13 +23,13 @@ import { fetchRatings, type RatingListItem } from "../../../semse-api";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   draft:       { label: "Borrador",    color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  posted:      { label: "Publicado",   color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  posted:      { label: "Publicado",   color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   reserved:    { label: "Reservado",   color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   accepted:    { label: "Aceptado",    color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
   in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)" },
   review:      { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  dispute:     { label: "En disputa",  color: "#ef4444", bg: "rgba(239,68,68,.12)" },
-  completed:   { label: "Completado",  color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  dispute:     { label: "En disputa",  color: "var(--error)", bg: "rgba(239,68,68,.12)" },
+  completed:   { label: "Completado",  color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   cancelled:   { label: "Cancelado",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
 
@@ -57,9 +57,9 @@ function preferredProfessionalLabel(job: JobRecordView): string | null {
 
 const CLIENT_TIER: Record<string, { label: string; color: string }> = {
   nuevo:        { label: "Nuevo",         color: "#64748b" },
-  confiable:    { label: "Confiable",     color: "#3b82f6" },
+  confiable:    { label: "Confiable",     color: "var(--brand)" },
   preferido:    { label: "Preferido",     color: "#8b5cf6" },
-  elite:        { label: "Elite",         color: "#10b981" },
+  elite:        { label: "Elite",         color: "var(--ok)" },
 };
 
 function clientRepTier(total: number, avg: number): string {
@@ -294,7 +294,7 @@ export default function ClientDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <div style={{ padding: "20px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "12px", color: "#ef4444", fontSize: "13px" }}>
+          <div style={{ padding: "20px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "12px", color: "var(--error)", fontSize: "13px" }}>
             {apiError} — configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.
           </div>
         ) : jobs.length === 0 ? (
@@ -348,12 +348,12 @@ export default function ClientDashboardPage() {
         </h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
           {[
-            { label: "Publicar nuevo trabajo", href: CLIENT_ROUTES.newJob,      icon: Plus,         color: "#3b82f6" },
+            { label: "Publicar nuevo trabajo", href: CLIENT_ROUTES.newJob,      icon: Plus,         color: "var(--brand)" },
             { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "#8b5cf6" },
-            { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "#10b981" },
+            { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "var(--ok)" },
             { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "#ff6a00" },
             { label: pendingBidCount > 0 ? `Propuestas recibidas (${pendingBidCount})` : "Propuestas recibidas", href: "/client/proposals", icon: Users, color: "#6366f1" },
-            { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "#ef4444" },
+            { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "var(--error)" },
           ].map(action => {
             const Icon = action.icon;
             return (

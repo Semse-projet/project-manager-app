@@ -81,10 +81,10 @@ type MissionControlSummary = {
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Record<string, string> = {
-  critical: "#ef4444",
+  critical: "var(--error)",
   high: "#f97316",
   medium: "#eab308",
-  low: "#3b82f6",
+  low: "var(--brand)",
 };
 
 const SEVERITY_BG: Record<string, string> = {
@@ -446,7 +446,7 @@ export default function MissionControlPage() {
     return true;
   });
 
-  const systemHealthColor = criticalOpen.length > 0 ? "#ef4444" : highOpen.length > 0 ? "#f97316" : openSignals.length > 0 ? "#eab308" : "#22c55e";
+  const systemHealthColor = criticalOpen.length > 0 ? "var(--error)" : highOpen.length > 0 ? "#f97316" : openSignals.length > 0 ? "#eab308" : "#22c55e";
   const systemHealthLabel = criticalOpen.length > 0 ? "CRITICAL" : highOpen.length > 0 ? "HIGH RISK" : openSignals.length > 0 ? "ATTENTION" : "HEALTHY";
 
   return (
@@ -497,7 +497,7 @@ export default function MissionControlPage() {
         <div style={{
           position: "fixed" as const, top: "20px", right: "20px", zIndex: 9999,
           background: liveAlert.severity === "critical" ? "rgba(239,68,68,.95)" : "rgba(249,115,22,.95)",
-          border: `1px solid ${liveAlert.severity === "critical" ? "#ef4444" : "#f97316"}`,
+          border: `1px solid ${liveAlert.severity === "critical" ? "var(--error)" : "#f97316"}`,
           borderRadius: "12px", padding: "12px 16px", maxWidth: "320px",
           boxShadow: "0 4px 24px rgba(0,0,0,.4)",
           display: "flex", gap: "10px", alignItems: "flex-start",
@@ -525,7 +525,7 @@ export default function MissionControlPage() {
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
             <div style={{
               width: "28px", height: "28px", borderRadius: "8px",
-              background: "linear-gradient(135deg, #8b5cf6, #3b82f6)",
+              background: "linear-gradient(135deg, #8b5cf6, var(--brand))",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "14px",
             }}>⚡</div>
@@ -549,7 +549,7 @@ export default function MissionControlPage() {
                   fontSize: "12px",
                 }}>
                   <span style={{
-                    color: sec.severity === "critical" ? "#ef4444" : sec.severity === "high" ? "#f97316" : "#eab308",
+                    color: sec.severity === "critical" ? "var(--error)" : sec.severity === "high" ? "#f97316" : "#eab308",
                     fontWeight: 700, flexShrink: 0, minWidth: "56px",
                     fontSize: "10px", textTransform: "uppercase",
                   }}>
@@ -588,11 +588,11 @@ export default function MissionControlPage() {
           Resumen Operacional
         </p>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <StatCard label="Señales abiertas" value={openSignals.length} color="#3b82f6" emoji="🔔" onClick={() => setFilter("open")} />
-          <StatCard label="Riesgo crítico" value={criticalOpen.length} color="#ef4444" emoji="🚨" onClick={() => setFilter("critical")} />
+          <StatCard label="Señales abiertas" value={openSignals.length} color="var(--brand)" emoji="🔔" onClick={() => setFilter("open")} />
+          <StatCard label="Riesgo crítico" value={criticalOpen.length} color="var(--error)" emoji="🚨" onClick={() => setFilter("critical")} />
           <StatCard label="Evidence gaps" value={evidenceGaps.length} color="#f97316" emoji="📷" />
           <StatCard label="Pagos bloqueados" value={paymentBlocked.length} color="#eab308" emoji="🔒" />
-          <StatCard label="Riesgo disputa" value={disputeRisk.length} color="#ef4444" emoji="⚠️" />
+          <StatCard label="Riesgo disputa" value={disputeRisk.length} color="var(--error)" emoji="⚠️" />
           {overview?.totalProjects !== undefined && (
             <StatCard label="Proyectos activos" value={overview.activeProjects ?? overview.totalProjects} color="#22c55e" emoji="🏗️" />
           )}
@@ -600,7 +600,7 @@ export default function MissionControlPage() {
             <StatCard label="Milestones pendientes" value={overview.milestonesPendingReview} color="#8b5cf6" emoji="✅" />
           )}
           {overview?.openDisputes !== undefined && overview.openDisputes > 0 && (
-            <StatCard label="Disputas abiertas" value={overview.openDisputes} color="#ef4444" emoji="⚖️" />
+            <StatCard label="Disputas abiertas" value={overview.openDisputes} color="var(--error)" emoji="⚖️" />
           )}
           {mcSummary?.pendingEvidence !== undefined && mcSummary.pendingEvidence > 0 && (
             <StatCard label="Evidencia pendiente" value={mcSummary.pendingEvidence} color="#a78bfa" emoji="🖼️" />
@@ -651,7 +651,7 @@ export default function MissionControlPage() {
         {(["open", "high", "critical", "all"] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)} style={{
             padding: "5px 12px", borderRadius: "6px",
-            border: `1px solid ${filter === f ? "#3b82f6" : "var(--border, #1f2d3d)"}`,
+            border: `1px solid ${filter === f ? "var(--brand)" : "var(--border, #1f2d3d)"}`,
             background: filter === f ? "rgba(59,130,246,.15)" : "transparent",
             color: filter === f ? "#93c5fd" : "var(--muted, #94a3b8)",
             fontSize: "11px", fontWeight: filter === f ? 700 : 400, cursor: "pointer",
@@ -665,7 +665,7 @@ export default function MissionControlPage() {
       {loading ? (
         <p style={{ color: "var(--muted, #94a3b8)", textAlign: "center", padding: "40px 0" }}>Cargando señales…</p>
       ) : error ? (
-        <div style={{ color: "#ef4444", padding: "16px", textAlign: "center" }}>{error}</div>
+        <div style={{ color: "var(--error)", padding: "16px", textAlign: "center" }}>{error}</div>
       ) : filtered.length === 0 ? (
         <div style={{
           textAlign: "center", padding: "40px",
@@ -742,7 +742,7 @@ export default function MissionControlPage() {
                 </div>
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0 }}>
                   {run.durationMs != null && <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{run.durationMs}ms</span>}
-                  <span style={{ fontSize: "10px", color: run.status === "completed" ? "#22c55e" : "#ef4444", fontWeight: 600 }}>{run.status}</span>
+                  <span style={{ fontSize: "10px", color: run.status === "completed" ? "#22c55e" : "var(--error)", fontWeight: 600 }}>{run.status}</span>
                   <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)" }}>{timeAgo(run.createdAt)}</span>
                 </div>
               </div>

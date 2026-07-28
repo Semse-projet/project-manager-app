@@ -26,10 +26,10 @@ import {
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "#94a3b8", sent: "#818cf8", viewed: "#a78bfa", approved: "#34d399",
-  paid: "#10b981", overdue: "#f87171", cancelled: "#64748b",
+  paid: "var(--ok)", overdue: "#f87171", cancelled: "#64748b",
   pending: "#fbbf24", rejected: "#f87171", reimbursed: "#34d399", archived: "#64748b",
-  deposit: "#3b82f6", release: "#10b981", refund: "#fbbf24", active: "#3b82f6", funded: "#3b82f6", partial: "#a78bfa",
-  succeeded: "#10b981", failed: "#f87171", reversed: "#f87171",
+  deposit: "var(--brand)", release: "var(--ok)", refund: "#fbbf24", active: "var(--brand)", funded: "var(--brand)", partial: "#a78bfa",
+  succeeded: "var(--ok)", failed: "#f87171", reversed: "#f87171",
 };
 
 function fmt(n: number) {
@@ -204,7 +204,7 @@ export default function AdminFinancePage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(175px, 1fr))", gap: 14 }}>
         <KpiCard label="Total facturado" value={fmt(totalInvoiced)} sub={`${invoices.length} facturas`} icon={FileText} />
-        <KpiCard label="Cobrado" value={fmt(totalPaid)} sub={`${invoices.filter(i => i.status === "paid").length} pagadas`} icon={CheckCircle} color="#10b981" />
+        <KpiCard label="Cobrado" value={fmt(totalPaid)} sub={`${invoices.filter(i => i.status === "paid").length} pagadas`} icon={CheckCircle} color="var(--ok)" />
         <KpiCard label="Vencidas" value={fmt(overdueAmount)} sub={`${overdueInvoices.length} facturas`} icon={AlertTriangle} color="#f87171" alert={overdueInvoices.length > 0} />
         <KpiCard label="Total gastos" value={fmt(totalExpenses)} sub={`${expenses.length} registros`} icon={Receipt} color="#fb923c" />
         <KpiCard label="Gastos pendientes" value={String(pendingExpenses.length)} sub="Por revisar" icon={Clock} color="#fbbf24" alert={pendingExpenses.length > 0} />
@@ -234,7 +234,7 @@ export default function AdminFinancePage() {
               <div key={rail.key} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)" }}>{rail.label}</span>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "#10b981" : "#f59e0b" }}>{rail.ready ? "READY" : "SETUP"}</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b" }}>{rail.ready ? "READY" : "SETUP"}</span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
                   {rail.clientFunding ? "cliente" : ""}{rail.clientFunding && rail.professionalPayout ? " + " : ""}{rail.professionalPayout ? "profesional" : ""} · {rail.automatic ? "automático" : "manual"}
@@ -357,13 +357,13 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(175px, 1fr))", gap: 14 }}>
-        <KpiCard label="En escrow" value={fmt(totalEscrow)} sub={`${escrows.length} escrows`} icon={DollarSign} color="#3b82f6" />
-        <KpiCard label="Liberado" value={fmt(totalReleased)} sub="A profesionales" icon={CheckCircle} color="#10b981" />
+        <KpiCard label="En escrow" value={fmt(totalEscrow)} sub={`${escrows.length} escrows`} icon={DollarSign} color="var(--brand)" />
+        <KpiCard label="Liberado" value={fmt(totalReleased)} sub="A profesionales" icon={CheckCircle} color="var(--ok)" />
         <KpiCard label="Reembolsado" value={fmt(totalRefunded)} sub="A clientes" icon={TrendingDown} color="#fbbf24" />
       </div>
 
       {(refundOk ?? releaseOk) && (
-        <div data-testid="admin-escrow-refund-ok" style={{ background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.25)", borderRadius: 12, padding: 12, color: "#10b981", fontSize: 13 }}>
+        <div data-testid="admin-escrow-refund-ok" style={{ background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.25)", borderRadius: 12, padding: 12, color: "var(--ok)", fontSize: 13 }}>
           {refundOk ?? releaseOk}
         </div>
       )}
@@ -387,7 +387,7 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
                   data-testid={`admin-escrow-release-${e.escrowId}`}
                   disabled={releaseBusy === e.escrowId}
                   onClick={() => { setReleaseTarget(e); setReleaseError(null); setReleaseOk(null); setRefundOk(null); setRefundTarget(null); }}
-                  style={smBtn("rgba(16,185,129,.15)", "#10b981")}
+                  style={smBtn("rgba(16,185,129,.15)", "var(--ok)")}
                 >
                   Liberar
                 </button>
@@ -410,9 +410,9 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
           <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>
             Se liberará <strong>{fmt(releaseTarget.amount)}</strong> al profesional asignado. Esta acción mueve dinero real y no se puede deshacer desde este panel.
           </p>
-          {releaseError && <div style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{releaseError}</div>}
+          {releaseError && <div style={{ color: "var(--error)", fontSize: 12, marginBottom: 10 }}>{releaseError}</div>}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <button disabled={releaseBusy === releaseTarget.escrowId} onClick={() => void submitRelease()} style={smBtn("#10b981", "#04120c")}>
+            <button disabled={releaseBusy === releaseTarget.escrowId} onClick={() => void submitRelease()} style={smBtn("var(--ok)", "#04120c")}>
               {releaseBusy === releaseTarget.escrowId ? "Liberando…" : `Confirmar liberación de ${fmt(releaseTarget.amount)}`}
             </button>
             <button disabled={releaseBusy === releaseTarget.escrowId} onClick={() => setReleaseTarget(null)} style={smBtn("transparent", "var(--muted)")}>
@@ -426,7 +426,7 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
         <div data-testid="admin-escrow-refund-form" style={{ background: "var(--surface)", borderRadius: 14, padding: 18, border: "1px solid rgba(251,191,36,.35)" }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", marginBottom: 4 }}>Reembolsar escrow — {refundTarget.jobTitle}</div>
           <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>Los fondos vuelven al cliente. Esta acción queda registrada como transacción REFUND.</p>
-          {refundError && <div style={{ color: "#ef4444", fontSize: 12, marginBottom: 10 }}>{refundError}</div>}
+          {refundError && <div style={{ color: "var(--error)", fontSize: 12, marginBottom: 10 }}>{refundError}</div>}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             <input
               type="number" min="1" placeholder="Monto"
@@ -464,7 +464,7 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
               </div>
               <div style={{ fontSize: 12, color: "var(--muted)" }}>{t.jobId.slice(-8)}</div>
             </div>
-            <div style={{ fontWeight: 800, fontSize: 15, color: t.status !== "SUCCEEDED" ? "var(--muted)" : t.type === "RELEASE" ? "#10b981" : t.type === "REFUND" ? "#fbbf24" : "var(--ink)", textDecoration: t.status === "FAILED" || t.status === "REVERSED" ? "line-through" : "none" }}>{fmt(Math.abs(t.amount))}</div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: t.status !== "SUCCEEDED" ? "var(--muted)" : t.type === "RELEASE" ? "var(--ok)" : t.type === "REFUND" ? "#fbbf24" : "var(--ink)", textDecoration: t.status === "FAILED" || t.status === "REVERSED" ? "line-through" : "none" }}>{fmt(Math.abs(t.amount))}</div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.date ? new Date(t.date).toLocaleDateString("es-MX") : "—"}</div>
             <div />
           </div>
@@ -518,7 +518,7 @@ function InvoiceRow({ invoice, onRefresh }: { invoice: Invoice; onRefresh: () =>
           <button disabled={busy} onClick={() => void run(() => sendInvoice(invoice.id))} style={smBtn("#4f46e5", "white")}>Enviar</button>
         )}
         {["sent", "viewed", "approved", "overdue"].includes(invoice.status) && (
-          <button disabled={busy} onClick={() => void run(() => markInvoicePaid(invoice.id))} style={smBtn("#10b981", "white")}>Cobrada</button>
+          <button disabled={busy} onClick={() => void run(() => markInvoicePaid(invoice.id))} style={smBtn("var(--ok)", "white")}>Cobrada</button>
         )}
       </div>
     </div>
@@ -566,8 +566,8 @@ function ExpenseRow({ expense, onRefresh }: { expense: ProjectExpense; onRefresh
       <div style={{ fontSize: 11, color: "var(--muted)" }}>{expense.submittedBy.slice(-8)}</div>
       {expense.status === "pending" ? (
         <div style={{ display: "flex", gap: 6 }}>
-          <button disabled={busy} onClick={() => void run(() => approveExpense(expense.id))} style={smBtn("#10b981", "white")}>✓</button>
-          <button disabled={busy} onClick={() => void run(() => rejectExpense(expense.id))} style={smBtn("#ef4444", "white")}>✗</button>
+          <button disabled={busy} onClick={() => void run(() => approveExpense(expense.id))} style={smBtn("var(--ok)", "white")}>✓</button>
+          <button disabled={busy} onClick={() => void run(() => rejectExpense(expense.id))} style={smBtn("var(--error)", "white")}>✗</button>
         </div>
       ) : <div />}
     </div>

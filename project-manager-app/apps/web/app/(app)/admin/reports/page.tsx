@@ -16,8 +16,8 @@ const PERIODS = ["Todo"] as const;
 type Period = typeof PERIODS[number];
 
 const REPORT_TYPES = [
-  { id: "ops",      label: "Operaciones",     description: "Trabajos creados, completados, tasa de cierre y tiempo promedio.", icon: Briefcase,   color: "#3b82f6" },
-  { id: "finance",  label: "Financiero",      description: "Escrow total, comisiones, liberaciones y disputas por período.",   icon: DollarSign,  color: "#10b981" },
+  { id: "ops",      label: "Operaciones",     description: "Trabajos creados, completados, tasa de cierre y tiempo promedio.", icon: Briefcase,   color: "var(--brand)" },
+  { id: "finance",  label: "Financiero",      description: "Escrow total, comisiones, liberaciones y disputas por período.",   icon: DollarSign,  color: "var(--ok)" },
   { id: "agents",   label: "Rendimiento IA",  description: "Runs de agentes, tasas de confianza, revisión humana requerida.", icon: TrendingUp,  color: "#8b5cf6" },
   { id: "users",    label: "Usuarios",        description: "Nuevos registros, actividad por rol y retención.",                 icon: Users,       color: "#f59e0b" },
 ];
@@ -198,7 +198,7 @@ export default function AdminReportsPage() {
       />
 
       {error ? (
-        <div role="alert" style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: "10px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
+        <div role="alert" style={{ background: "#450a0a", border: "1px solid var(--error)", borderRadius: "10px", padding: "12px 16px", marginBottom: "18px", color: "#fecaca", fontSize: "13px" }}>
           {error}
         </div>
       ) : null}
@@ -208,7 +208,7 @@ export default function AdminReportsPage() {
           <div key={m.label} style={{ ...card, padding: "14px 16px" }}>
             <p style={{ fontSize: "20px", fontWeight: 900, color: "var(--ink)" }}>{m.value}</p>
             <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "3px", marginBottom: "6px" }}>{m.label}</p>
-            <span style={{ fontSize: "11px", fontWeight: 700, color: m.up ? "#10b981" : "#ef4444" }}>{m.change}</span>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: m.up ? "var(--ok)" : "var(--error)" }}>{m.change}</span>
             <span style={{ fontSize: "10px", color: "var(--faint)", marginLeft: "4px" }}>vs anterior</span>
           </div>
         ))}

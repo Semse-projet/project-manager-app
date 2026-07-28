@@ -291,7 +291,7 @@ export default function WorkerTravelPage() {
               <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>NOTAS</label>
               <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
-            {submitError && <p style={{ fontSize: "12px", color: "#ef4444" }}>{submitError}</p>}
+            {submitError && <p style={{ fontSize: "12px", color: "var(--error)" }}>{submitError}</p>}
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
               <button onClick={() => void handleCreate()} disabled={submitting || !formCity.trim() || !formDepart} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>

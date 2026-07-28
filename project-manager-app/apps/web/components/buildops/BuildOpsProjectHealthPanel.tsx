@@ -21,7 +21,7 @@ type ProjectHealth = {
 };
 
 function riskColor(r: string): string {
-  if (r === "critical") return "#ef4444";
+  if (r === "critical") return "var(--error)";
   if (r === "high")     return "#fb7185";
   if (r === "medium")   return "#fbbf24";
   return "#86efac";
@@ -89,7 +89,7 @@ export function BuildOpsProjectHealthPanel({ projectId }: Props) {
       {/* Counters */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
         {[
-          { label: "Señales críticas", value: data.criticalSignals, color: data.criticalSignals > 0 ? "#ef4444" : "#86efac" },
+          { label: "Señales críticas", value: data.criticalSignals, color: data.criticalSignals > 0 ? "var(--error)" : "#86efac" },
           { label: "Señales abiertas", value: data.openSignals, color: data.openSignals > 0 ? "#fbbf24" : "var(--muted)" },
           { label: "Change orders", value: data.openChangeCandidates, color: data.openChangeCandidates > 0 ? "#fbbf24" : "var(--muted)" },
           { label: "Completado", value: `${data.completion}%`, color: data.completion >= 80 ? "#86efac" : "var(--ink)" },

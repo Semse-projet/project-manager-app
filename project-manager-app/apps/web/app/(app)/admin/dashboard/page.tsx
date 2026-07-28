@@ -243,11 +243,11 @@ export default function AdminDashboardPage() {
         <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>Gestión rápida</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
           {[
-            { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "#3b82f6" },
+            { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "var(--brand)" },
             { label: t("nav.communications"), href: "/admin/communications", icon: MessageSquare, color: "#14b8a6" },
             { label: t("nav.users"),        href: "/admin/users",         icon: Users,         color: "#8b5cf6" },
-            { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "#ef4444" },
-            { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "#10b981" },
+            { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "var(--error)" },
+            { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "var(--ok)" },
             { label: t("nav.compliance"),   href: "/admin/compliance",    icon: Shield,        color: "#f59e0b" },
             { label: t("nav.autonomy"),     href: "/admin/autonomy",      icon: Bot,           color: "#a855f7" },
             { label: t("nav.llmMetrics"),   href: "/admin/llm-metrics",   icon: Activity,      color: "#6366f1" },

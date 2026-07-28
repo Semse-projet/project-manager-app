@@ -710,7 +710,7 @@ export default function NewJobPage() {
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
                       background: budgetSuggestion.confidence === "high" ? "rgba(16,185,129,.15)" : budgetSuggestion.confidence === "medium" ? "rgba(251,191,36,.15)" : "rgba(148,163,184,.15)",
-                      color: budgetSuggestion.confidence === "high" ? "#10b981" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "#94a3b8",
+                      color: budgetSuggestion.confidence === "high" ? "var(--ok)" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "#94a3b8",
                       textTransform: "uppercase",
                     }}>
                       {budgetSuggestion.confidence}
@@ -729,7 +729,7 @@ export default function NewJobPage() {
                     {budgetSuggestion.basis} · {budgetSuggestion.similarJobsFound} trabajos similares
                   </p>
                   {budgetSuggestion.min > 0 && (
-                    <p style={{ fontSize: 11, color: "#10b981", marginTop: 6, fontWeight: 600 }}>✓ Rango aplicado automáticamente a los sliders</p>
+                    <p style={{ fontSize: 11, color: "var(--ok)", marginTop: 6, fontWeight: 600 }}>✓ Rango aplicado automáticamente a los sliders</p>
                   )}
                 </div>
               )}
@@ -794,7 +794,7 @@ export default function NewJobPage() {
 
       {/* Submit error */}
       {submitError && (
-        <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.25)", borderRadius: "10px", color: "#ef4444", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.25)", borderRadius: "10px", color: "var(--error)", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
           <AlertCircle size={15} style={{ flexShrink: 0 }} />
           {submitError}
         </div>

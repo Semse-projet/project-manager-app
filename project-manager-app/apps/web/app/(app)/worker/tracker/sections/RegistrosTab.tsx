@@ -256,7 +256,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
-        <KpiCard label="Horas del filtro" value={fmtHours(totals.seconds)} color="#3b82f6" hint={`${filtered.length} registros · ${rangeLabel}`} />
+        <KpiCard label="Horas del filtro" value={fmtHours(totals.seconds)} color="var(--brand)" hint={`${filtered.length} registros · ${rangeLabel}`} />
         <KpiCard label="Días con actividad" value={String(totals.days)} color="#059669" hint={totals.days > 0 ? `${fmtHours(Math.round(totals.seconds / totals.days))} promedio/día` : undefined} />
         <KpiCard label="Costo estimado" value={totals.costSummary} color="var(--accent)" hint="según tarifas registradas" />
       </div>
@@ -320,7 +320,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
           <p style={{ fontSize: "12px", color: "#059669", margin: "0 0 10px" }}>{notice}</p>
         ) : null}
         {error ? (
-          <p style={{ fontSize: "12px", color: "#ef4444", margin: "0 0 10px" }}>{error}</p>
+          <p style={{ fontSize: "12px", color: "var(--error)", margin: "0 0 10px" }}>{error}</p>
         ) : null}
 
         {showForm ? (
@@ -406,7 +406,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
                 {saving ? "Guardando..." : "Guardar registro"}
               </button>
               <button type="button" onClick={() => setShowForm(false)} style={toolbarButton(false)}>Cancelar</button>
-              <span style={{ fontSize: "12px", color: durationPreview === null ? "#ef4444" : "var(--muted)" }}>
+              <span style={{ fontSize: "12px", color: durationPreview === null ? "var(--error)" : "var(--muted)" }}>
                 Duración neta: {durationPreview === null ? "rango inválido" : fmtHours(durationPreview)}
               </span>
             </div>

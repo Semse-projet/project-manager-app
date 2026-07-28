@@ -104,7 +104,7 @@ function ScoreBar({ value, label, color }: { value: number; label: string; color
 
 function CandidateCard({ candidate, preferred }: { candidate: Candidate; preferred?: boolean }) {
   const scorePercent = Math.round(candidate.score * 100);
-  const scoreColor = scorePercent >= 70 ? "#10b981" : scorePercent >= 40 ? "#f59e0b" : "#ef4444";
+  const scoreColor = scorePercent >= 70 ? "var(--ok)" : scorePercent >= 40 ? "#f59e0b" : "var(--error)";
 
   return (
     <div style={{
@@ -135,7 +135,7 @@ function CandidateCard({ candidate, preferred }: { candidate: Candidate; preferr
                 </span>
               ) : null}
               {candidate.verificationStatus === "verified" ? (
-                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#10b981" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--ok)" }}>
                   <CheckCircle size={11} /> Verificado
                 </span>
               ) : (
@@ -159,7 +159,7 @@ function CandidateCard({ candidate, preferred }: { candidate: Candidate; preferr
 
       <div style={{ display: "grid", gap: 6 }}>
         <ScoreBar value={candidate.breakdown.textSimilarity}    label="Similitud de trabajo" color="#818cf8" />
-        <ScoreBar value={candidate.breakdown.trustSignal}       label="Confianza"             color="#10b981" />
+        <ScoreBar value={candidate.breakdown.trustSignal}       label="Confianza"             color="var(--ok)" />
         <ScoreBar value={candidate.breakdown.verificationSignal} label="Verificación"         color="#06b6d4" />
         <ScoreBar value={candidate.breakdown.ratingSignal}      label="Calificaciones"        color="#f59e0b" />
       </div>
@@ -382,7 +382,7 @@ export default function ClientProfessionalsPage() {
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div style={{
                     fontSize: 16, fontWeight: 900,
-                    color: pro.trustScore >= 80 ? "#10b981" : pro.trustScore >= 60 ? "#fbbf24" : "#94a3b8",
+                    color: pro.trustScore >= 80 ? "var(--ok)" : pro.trustScore >= 60 ? "#fbbf24" : "#94a3b8",
                   }}>
                     {pro.trustScore}
                   </div>
@@ -435,7 +435,7 @@ export default function ClientProfessionalsPage() {
             disabled={loading || !selectedJobId}
             style={{
               padding: "10px 18px", borderRadius: 10, border: "none",
-              background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff",
+              background: "linear-gradient(135deg,var(--ok),#059669)", color: "#fff",
               fontWeight: 700, fontSize: 13, cursor: loading || !selectedJobId ? "not-allowed" : "pointer",
               opacity: loading || !selectedJobId ? 0.5 : 1,
               display: "flex", alignItems: "center", gap: 6,
@@ -448,7 +448,7 @@ export default function ClientProfessionalsPage() {
       </HtmlInCanvasPanel>
 
       {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "#ef4444", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -466,7 +466,7 @@ export default function ClientProfessionalsPage() {
 
           {result.preferredCandidateStatus?.state === "in_results" && preferredTarget && preferredMatchedCandidate && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.18)" }}>
-              <Shield size={15} color="#10b981" />
+              <Shield size={15} color="var(--ok)" />
               <span style={{ fontSize: 13, color: "var(--ink)" }}>
                 <strong>{preferredTarget.name || preferredMatchedCandidate.email}</strong> entró por mérito propio. El sistema no necesitó empujarlo.
               </span>
@@ -483,7 +483,7 @@ export default function ClientProfessionalsPage() {
           )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.18)" }}>
-            <Zap size={15} color="#10b981" />
+            <Zap size={15} color="var(--ok)" />
             <span style={{ fontSize: 13, color: "var(--ink)" }}>
               <strong>{result.candidates.length}</strong> candidatos rankeados de <strong>{result.candidatesEvaluated}</strong> evaluados para <em>{result.jobTitle}</em>
             </span>

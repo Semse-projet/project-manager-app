@@ -16,7 +16,7 @@ type MilestoneReadiness = {
 };
 
 const RISK_COLOR: Record<string, string> = {
-  low: "#22c55e", medium: "#fbbf24", high: "#ef4444",
+  low: "#22c55e", medium: "#fbbf24", high: "var(--error)",
 };
 
 const PAYMENT_LABEL: Record<string, string> = {

@@ -33,9 +33,9 @@ type DisputeRow = {
 };
 
 const STATUS_META: Record<DisputeRow["status"], { variant: "error" | "warning" | "success"; label: string; tone: string }> = {
-  open: { variant: "error", label: "Abierta", tone: "#ef4444" },
+  open: { variant: "error", label: "Abierta", tone: "var(--error)" },
   assigned: { variant: "warning", label: "Asignada", tone: "#f59e0b" },
-  resolved: { variant: "success", label: "Resuelta", tone: "#10b981" }
+  resolved: { variant: "success", label: "Resuelta", tone: "var(--ok)" }
 };
 
 function normalizeDisputeStatus(value: unknown): DisputeRow["status"] {
@@ -267,8 +267,8 @@ export default function ClientDisputesPage() {
 
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 18 }} canvasClassName="rounded-2xl" minHeight={120}>
         {[
-          { label: "Abiertas", value: activeDisputes.length, color: "#ef4444", icon: AlertTriangle },
-          { label: "Resueltas", value: resolvedDisputes.length, color: "#10b981", icon: CheckCircle2 },
+          { label: "Abiertas", value: activeDisputes.length, color: "var(--error)", icon: AlertTriangle },
+          { label: "Resueltas", value: resolvedDisputes.length, color: "var(--ok)", icon: CheckCircle2 },
           { label: "Trabajos elegibles", value: eligibleJobs.length, color: "#6366f1", icon: ShieldAlert }
         ].map((item) => {
           const Icon = item.icon;
@@ -360,7 +360,7 @@ export default function ClientDisputesPage() {
       </HtmlInCanvasPanel>
 
       {error && (
-        <div style={{ marginBottom: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: 13 }}>
+        <div style={{ marginBottom: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -401,7 +401,7 @@ export default function ClientDisputesPage() {
                       </div>
                       <p style={{ margin: 0, fontSize: 13, color: "var(--ink)", lineHeight: 1.6 }}>{item.reason}</p>
                       {item.resolution ? (
-                        <p style={{ margin: 0, fontSize: 12, color: "#10b981" }}>Resolución: {item.resolution}</p>
+                        <p style={{ margin: 0, fontSize: 12, color: "var(--ok)" }}>Resolución: {item.resolution}</p>
                       ) : null}
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -429,7 +429,7 @@ export default function ClientDisputesPage() {
                         <button
                           onClick={() => void handleResolveDispute(item.id)}
                           disabled={pendingAction === `resolve:${item.id}`}
-                          style={{ padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction === `resolve:${item.id}` ? 0.7 : 1 }}
+                          style={{ padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction === `resolve:${item.id}` ? 0.7 : 1 }}
                         >
                           {pendingAction === `resolve:${item.id}` ? "Resolviendo..." : "Marcar resuelta"}
                         </button>

@@ -34,7 +34,7 @@ export function shouldPreserveLocalEvent(caught: unknown): boolean {
 
 // Paleta categórica por propósito, validada (contraste/CVD) sobre superficie clara y oscura.
 export const PURPOSE_CHART_COLORS: Record<TimeEntryView["purpose"], string> = {
-  job_linked: "#3b82f6",
+  job_linked: "var(--brand)",
   payable: "#d97706",
   personal: "#8b5cf6",
 };
@@ -45,7 +45,7 @@ export const PURPOSE_SHORT_LABELS: Record<TimeEntryView["purpose"], string> = {
   personal: "Personal",
 };
 
-export const FREE_PROJECT_SWATCHES = ["#3b82f6", "#d97706", "#059669", "#dc2626", "#8b5cf6", "#0891b2"];
+export const FREE_PROJECT_SWATCHES = ["var(--brand)", "#d97706", "#059669", "#dc2626", "#8b5cf6", "#0891b2"];
 
 export const sectionCard: CSSProperties = {
   background: "var(--surface)",

@@ -50,7 +50,7 @@ const cardElementStyle = {
       color: "var(--ink, #0f172a)",
       "::placeholder": { color: "var(--muted, #94a3b8)" },
     },
-    invalid: { color: "#ef4444" },
+    invalid: { color: "var(--error)" },
   },
 };
 
@@ -233,11 +233,11 @@ function PayoutMethodFormInner({ currentMethod, onSave }: PayoutMethodFormProps)
                 value={routing}
                 onChange={e => setRouting(e.target.value.replace(/\D/g, "").slice(0, 9))}
                 placeholder="9 dígitos"
-                style={{ ...inp, borderColor: routing.length > 0 && routing.length !== 9 ? "#ef4444" : "var(--border)" }}
+                style={{ ...inp, borderColor: routing.length > 0 && routing.length !== 9 ? "var(--error)" : "var(--border)" }}
                 maxLength={9}
               />
               {routing.length > 0 && routing.length !== 9 && (
-                <p style={{ fontSize: "10px", color: "#ef4444", marginTop: "3px" }}>{routing.length}/9 dígitos</p>
+                <p style={{ fontSize: "10px", color: "var(--error)", marginTop: "3px" }}>{routing.length}/9 dígitos</p>
               )}
             </div>
             <div>
@@ -289,8 +289,8 @@ function PayoutMethodFormInner({ currentMethod, onSave }: PayoutMethodFormProps)
       {/* Validation error */}
       {error && (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "9px", background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.2)" }}>
-          <AlertTriangle size={13} color="#ef4444" />
-          <p style={{ fontSize: "12px", color: "#ef4444" }}>{error}</p>
+          <AlertTriangle size={13} color="var(--error)" />
+          <p style={{ fontSize: "12px", color: "var(--error)" }}>{error}</p>
         </div>
       )}
 
@@ -305,7 +305,7 @@ function PayoutMethodFormInner({ currentMethod, onSave }: PayoutMethodFormProps)
         disabled={saving}
         style={{
           padding: "12px", borderRadius: "10px", border: "none",
-          background: saved ? "#10b981" : saving ? "var(--muted)" : "var(--brand)",
+          background: saved ? "var(--ok)" : saving ? "var(--muted)" : "var(--brand)",
           color: "#fff", fontSize: "14px", fontWeight: 700,
           cursor: saving ? "not-allowed" : "pointer",
           display: "flex", alignItems: "center", justifyContent: "center", gap: "7px",
@@ -326,8 +326,8 @@ export function PayoutMethodForm(props: PayoutMethodFormProps) {
   if (!isStripeConfigured()) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "12px 14px", borderRadius: "9px", background: "rgba(239,68,68,.07)", border: "1px solid rgba(239,68,68,.2)" }}>
-        <AlertTriangle size={14} color="#ef4444" />
-        <p style={{ fontSize: "12px", color: "#ef4444" }}>
+        <AlertTriangle size={14} color="var(--error)" />
+        <p style={{ fontSize: "12px", color: "var(--error)" }}>
           El método de cobro no está disponible todavía — falta configurar la clave pública de Stripe en este entorno.
         </p>
       </div>
