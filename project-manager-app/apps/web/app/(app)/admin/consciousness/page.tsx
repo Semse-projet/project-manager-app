@@ -407,7 +407,6 @@ export default function ConsciousnessPage() {
           {/* Autonomy Level 3-4 — Simulation + Apply */}
           <SimulationPanel />
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
