@@ -79,7 +79,7 @@ export function ConfirmDialog({
         ) : null}
 
         {error ? (
-          <p style={{ fontSize: "12px", color: "#ef4444", marginTop: "12px" }}>{error}</p>
+          <p style={{ fontSize: "12px", color: "var(--error)", marginTop: "12px" }}>{error}</p>
         ) : null}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "20px" }}>

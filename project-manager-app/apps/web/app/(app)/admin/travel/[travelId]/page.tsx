@@ -169,7 +169,7 @@ export default function AdminTravelDetailPage() {
   }
 
   if (!travel) {
-    return <div style={{ padding: "32px", textAlign: "center", color: "#ef4444" }}>{error ?? "Viaje no encontrado"}</div>;
+    return <div style={{ padding: "32px", textAlign: "center", color: "var(--error)" }}>{error ?? "Viaje no encontrado"}</div>;
   }
 
   const status = String(travel.status ?? "DRAFT").toUpperCase() as TravelStatus;
@@ -334,7 +334,7 @@ export default function AdminTravelDetailPage() {
                 <span>{spentPct?.toFixed(0)}%</span>
               </div>
               <div style={{ width: "100%", height: "10px", borderRadius: "999px", background: "rgba(148,163,184,.16)", overflow: "hidden" }}>
-                <div style={{ width: `${spentPct ?? 0}%`, height: "100%", background: Number(budgetRemaining) < 0 ? "#ef4444" : "#3b82f6" }} />
+                <div style={{ width: `${spentPct ?? 0}%`, height: "100%", background: Number(budgetRemaining) < 0 ? "var(--error)" : "var(--brand)" }} />
               </div>
             </div>
             <div>
@@ -343,7 +343,7 @@ export default function AdminTravelDetailPage() {
                 <span>{advancePct?.toFixed(0)}%</span>
               </div>
               <div style={{ width: "100%", height: "10px", borderRadius: "999px", background: "rgba(148,163,184,.16)", overflow: "hidden" }}>
-                <div style={{ width: `${advancePct ?? 0}%`, height: "100%", background: "#10b981" }} />
+                <div style={{ width: `${advancePct ?? 0}%`, height: "100%", background: "var(--ok)" }} />
               </div>
             </div>
           </div>

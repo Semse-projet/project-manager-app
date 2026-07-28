@@ -1,6 +1,6 @@
 # Reporte de remediación de dependencias
 
-Fecha: 2026-07-27  
+Fecha: 2026-07-27
 Rama: `codex/dependabot-remediation`
 
 ## Alcance

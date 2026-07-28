@@ -169,7 +169,7 @@ export default function LeadsPage() {
           <button onClick={() => void load()} disabled={loading} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer" }}>
             <RefreshCw size={14} style={{ display: "block" }} />
           </button>
-          <button onClick={openNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "none", background: "#3b82f6", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          <button onClick={openNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "none", background: "var(--brand)", color: "white", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
             <Plus size={14} /> Nuevo lead
           </button>
         </div>
@@ -340,7 +340,7 @@ export default function LeadsPage() {
               <button onClick={() => setShowForm(false)} style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13 }}>
                 Cancelar
               </button>
-              <button onClick={() => void handleSave()} disabled={saving || !form.name.trim()} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#3b82f6", color: "white", fontWeight: 700, fontSize: 13, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
+              <button onClick={() => void handleSave()} disabled={saving || !form.name.trim()} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "var(--brand)", color: "white", fontWeight: 700, fontSize: 13, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
                 {saving ? "Guardando..." : editingLead ? "Guardar cambios" : "Crear lead"}
               </button>
             </div>
@@ -451,7 +451,7 @@ function LeadCard({
               <span style={{ fontSize: 10, fontWeight: 700, color: "#34d399", textTransform: "uppercase" }}>Mensaje generado (WhatsApp)</span>
               <button
                 onClick={() => handleCopy(generatedMsg)}
-                style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, border: "none", background: copied ? "#10b981" : "rgba(255,255,255,.1)", color: copied ? "white" : "#34d399", cursor: "pointer", fontSize: 10, fontWeight: 700 }}
+                style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 6, border: "none", background: copied ? "var(--ok)" : "rgba(255,255,255,.1)", color: copied ? "white" : "#34d399", cursor: "pointer", fontSize: 10, fontWeight: 700 }}
               >
                 {copied ? <Check size={10} /> : <Copy size={10} />}
                 {copied ? "Copiado" : "Copiar"}

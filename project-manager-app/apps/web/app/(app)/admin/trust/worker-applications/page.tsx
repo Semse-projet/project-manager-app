@@ -70,8 +70,8 @@ const VERIFICATION_TYPE_LABEL: Record<string, string> = {
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   submitted: { label: "Nueva", color: "#818cf8", bg: "rgba(99,102,241,.12)" },
   reviewing: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  approved: { label: "Aprobada", color: "#10b981", bg: "rgba(16,185,129,.12)" },
-  rejected: { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
+  approved: { label: "Aprobada", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
+  rejected: { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
 };
 
 function statusMeta(status: string) {
@@ -120,7 +120,7 @@ function ApplicationRow({ application, onReview, busy }: {
               {application.yearsExperience != null ? ` · ${application.yearsExperience} años` : ""}
             </span>
             {application.jobId ? (
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#3b82f6", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <Briefcase size={10} /> vacante {application.jobId.slice(0, 10)}…
               </span>
             ) : (
@@ -133,7 +133,7 @@ function ApplicationRow({ application, onReview, busy }: {
             {application.city ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {application.city}</span> : null}
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Clock size={11} /> {formatDate(application.createdAt)}</span>
             {application.proposedRate != null ? (
-              <span style={{ fontWeight: 700, color: "#10b981" }}>Propone: ${Number(application.proposedRate).toLocaleString("en-US")}</span>
+              <span style={{ fontWeight: 700, color: "var(--ok)" }}>Propone: ${Number(application.proposedRate).toLocaleString("en-US")}</span>
             ) : null}
           </div>
         </div>
@@ -173,7 +173,7 @@ function ApplicationRow({ application, onReview, busy }: {
             type="button"
             disabled={busy}
             onClick={() => { if (window.confirm(`¿Aprobar la postulación de ${application.email}? Esto la admite al marketplace de profesionales.`)) void onReview(application.id, "approved", notes.trim() || undefined); }}
-            style={actionButton("#10b981")}
+            style={actionButton("var(--ok)")}
           >
             <CheckCircle2 size={12} /> Aprobar
           </button>
@@ -181,7 +181,7 @@ function ApplicationRow({ application, onReview, busy }: {
             type="button"
             disabled={busy}
             onClick={() => { if (window.confirm(`¿Rechazar la postulación de ${application.email}? Esto la marca como resuelta de forma terminal.`)) void onReview(application.id, "rejected", notes.trim() || undefined); }}
-            style={actionButton("#ef4444")}
+            style={actionButton("var(--error)")}
           >
             <XCircle size={12} /> Rechazar
           </button>
@@ -310,7 +310,7 @@ export default function WorkerApplicationsAdminPage() {
         title="Workers — Aplicaciones y Verificación"
         subtitle="Aplicaciones públicas de /worker/apply y verificación de identidad de la red"
         icon={UserPlus}
-        iconColor="#10b981"
+        iconColor="var(--ok)"
         iconBg="rgba(16,185,129,.15)"
         backHref="/admin/trust"
         backLabel="Trust Scores"
@@ -327,9 +327,9 @@ export default function WorkerApplicationsAdminPage() {
         {[
           { label: "Nuevas", value: stats?.submitted ?? "—", icon: UserPlus, color: "#818cf8" },
           { label: "En revisión", value: stats?.reviewing ?? "—", icon: Clock, color: "#f59e0b" },
-          { label: "Aprobadas", value: stats?.approved ?? "—", icon: CheckCircle2, color: "#10b981" },
-          { label: "Rechazadas", value: stats?.rejected ?? "—", icon: XCircle, color: "#ef4444" },
-          { label: "Workers verificados", value: verification ? `${verification.verifiedCount}/${verification.totalWorkers}` : "—", icon: BadgeCheck, color: "#3b82f6" },
+          { label: "Aprobadas", value: stats?.approved ?? "—", icon: CheckCircle2, color: "var(--ok)" },
+          { label: "Rechazadas", value: stats?.rejected ?? "—", icon: XCircle, color: "var(--error)" },
+          { label: "Workers verificados", value: verification ? `${verification.verifiedCount}/${verification.totalWorkers}` : "—", icon: BadgeCheck, color: "var(--brand)" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -345,7 +345,7 @@ export default function WorkerApplicationsAdminPage() {
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {[["", "Todas"], ["submitted", "Nuevas"], ["reviewing", "En revisión"], ["approved", "Aprobadas"], ["rejected", "Rechazadas"]].map(([value, label]) => (
           <button key={value} onClick={() => setStatusFilter(value)}
-            style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${statusFilter === value ? "#10b981" : "var(--border)"}`, background: statusFilter === value ? "rgba(16,185,129,.15)" : "rgba(255,255,255,.03)", color: statusFilter === value ? "#10b981" : "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${statusFilter === value ? "var(--ok)" : "var(--border)"}`, background: statusFilter === value ? "rgba(16,185,129,.15)" : "rgba(255,255,255,.03)", color: statusFilter === value ? "var(--ok)" : "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
             {label}
           </button>
         ))}
@@ -401,7 +401,7 @@ export default function WorkerApplicationsAdminPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void handleReviewRequest(req.userId, req.verificationType, "approved")}
-                style={actionButton("#10b981")}
+                style={actionButton("var(--ok)")}
               >
                 <CheckCircle2 size={12} /> Aprobar
               </button>
@@ -409,7 +409,7 @@ export default function WorkerApplicationsAdminPage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void handleReviewRequest(req.userId, req.verificationType, "rejected")}
-                style={actionButton("#ef4444")}
+                style={actionButton("var(--error)")}
               >
                 <XCircle size={12} /> Rechazar
               </button>
@@ -421,7 +421,7 @@ export default function WorkerApplicationsAdminPage() {
       {/* Unverified workers */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-          <ShieldCheck size={14} color="#3b82f6" />
+          <ShieldCheck size={14} color="var(--brand)" />
           <span style={{ fontSize: 12, fontWeight: 800 }}>Workers sin verificar ({unverified.length})</span>
           {verification ? (
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)" }}>
@@ -447,7 +447,7 @@ export default function WorkerApplicationsAdminPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void handleVerify(worker.id)}
-                  style={actionButton("#3b82f6")}
+                  style={actionButton("var(--brand)")}
                 >
                   <UserCheck size={12} /> Iniciar verificación
                 </button>

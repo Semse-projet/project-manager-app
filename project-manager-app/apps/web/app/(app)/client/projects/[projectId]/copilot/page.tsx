@@ -280,7 +280,7 @@ function TemplatePicker({ onPick }: { onPick: (prompt: string) => void }) {
             )}
 
             {error && (
-              <div style={{ color: "#ef4444", fontSize: 13, padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
+              <div style={{ color: "var(--error)", fontSize: 13, padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
                 {error}
               </div>
             )}
@@ -334,14 +334,14 @@ function TemplatePicker({ onPick }: { onPick: (prompt: string) => void }) {
 
 // ── WorkPlanCard ──────────────────────────────────────────────────────────────
 
-const RISK_COLORS: Record<string, string> = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
+const RISK_COLORS: Record<string, string> = { low: "var(--ok)", medium: "#f59e0b", high: "var(--error)" };
 const STEP_STATUS_COLORS: Record<string, string> = {
   pending: "var(--faint)",
   ready: "#818cf8",
   executing: "#6366f1",
-  completed: "#10b981",
+  completed: "var(--ok)",
   blocked: "#f59e0b",
-  failed: "#ef4444",
+  failed: "var(--error)",
   skipped: "#64748b",
 };
 
@@ -472,9 +472,9 @@ function WorkPlanCard({
               ? "rgba(239,68,68,.1)"
               : "rgba(99,102,241,.1)",
             color: plan.status === "approved" || plan.status === "executing"
-              ? "#10b981"
+              ? "var(--ok)"
               : plan.status === "rejected" || plan.status === "cancelled"
-              ? "#ef4444"
+              ? "var(--error)"
               : "#818cf8",
           }}>
             {statusLabel}
@@ -512,7 +512,7 @@ function WorkPlanCard({
           <div style={{
             width: `${progress.percent}%`,
             height: "100%",
-            background: "linear-gradient(90deg, #818cf8 0%, #10b981 100%)",
+            background: "linear-gradient(90deg, #818cf8 0%, var(--ok) 100%)",
           }} />
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: "var(--muted)" }}>
@@ -572,7 +572,7 @@ function WorkPlanCard({
                 </p>
               ) : null}
               {buildCopilotPlanStepFacts(step).map((fact) => (
-                <p key={`${step.id}-${fact}`} style={{ fontSize: 11, color: fact.startsWith("Bloqueo:") ? "#ef4444" : "var(--ink)", margin: "4px 0 0", lineHeight: 1.5 }}>
+                <p key={`${step.id}-${fact}`} style={{ fontSize: 11, color: fact.startsWith("Bloqueo:") ? "var(--error)" : "var(--ink)", margin: "4px 0 0", lineHeight: 1.5 }}>
                   {fact}
                 </p>
               ))}
@@ -597,7 +597,7 @@ function WorkPlanCard({
                       disabled={stepBusyId === step.id}
                       style={{
                         padding: "6px 10px", borderRadius: 8, border: "none",
-                        background: "#10b981", color: "#fff", fontSize: 11, fontWeight: 700,
+                        background: "var(--ok)", color: "#fff", fontSize: 11, fontWeight: 700,
                         cursor: stepBusyId === step.id ? "not-allowed" : "pointer",
                       }}
                     >
@@ -656,7 +656,7 @@ function WorkPlanCard({
             disabled={acting !== null}
             style={{
               padding: "8px 16px", borderRadius: 9, border: "none",
-              background: acting ? "var(--border)" : "#10b981",
+              background: acting ? "var(--border)" : "var(--ok)",
               color: "#fff", fontSize: 12, fontWeight: 700,
               cursor: acting ? "not-allowed" : "pointer", opacity: acting === "approving" ? 0.7 : 1,
             }}
@@ -669,7 +669,7 @@ function WorkPlanCard({
             style={{
               padding: "8px 16px", borderRadius: 9,
               border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)",
-              color: "#ef4444", fontSize: 12, fontWeight: 700,
+              color: "var(--error)", fontSize: 12, fontWeight: 700,
               cursor: acting ? "not-allowed" : "pointer",
             }}
           >
@@ -691,7 +691,7 @@ function WorkPlanCard({
           ) : null}
         </div>
       ) : plan.status === "approved" || plan.status === "executing" ? (
-        <p style={{ fontSize: 12, color: "#10b981", fontWeight: 700, margin: 0 }}>
+        <p style={{ fontSize: 12, color: "var(--ok)", fontWeight: 700, margin: 0 }}>
           ✓ Plan activo — las acciones de alto riesgo solo deben ejecutarse dentro de este plan.
         </p>
       ) : null}
@@ -1068,14 +1068,14 @@ export default function ProjectCopilotPage() {
       label: "Disputas",
       note: signals.openDisputeCount > 0 ? `${signals.openDisputeCount} abierta(s)` : "sin bloqueos activos",
       icon: AlertTriangle,
-      color: "#ef4444"
+      color: "var(--error)"
     },
     {
       href: CLIENT_ROUTES.payments,
       label: "Pagos",
       note: signals.escrowGap > 0 ? `$${signals.escrowGap.toLocaleString()} por revisar` : "vista general",
       icon: Wallet,
-      color: "#10b981"
+      color: "var(--ok)"
     },
     {
       href: CLIENT_ROUTES.milestones,
@@ -1195,10 +1195,10 @@ export default function ProjectCopilotPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
             {[
               { label: "Facturado", value: `$${financeSummary.totalInvoiced.toLocaleString()}` },
-              { label: "Cobrado", value: `$${financeSummary.totalPaid.toLocaleString()}`, color: "#10b981" },
+              { label: "Cobrado", value: `$${financeSummary.totalPaid.toLocaleString()}`, color: "var(--ok)" },
               { label: "Por cobrar", value: `$${financeSummary.totalPending.toLocaleString()}`, color: "#fbbf24" },
               { label: "Gastos", value: `$${financeSummary.totalExpenses.toLocaleString()}`, color: "#f87171" },
-              ...(financeSummary.margin !== null ? [{ label: "Margen", value: `${financeSummary.margin.toFixed(1)}%`, color: financeSummary.margin > 20 ? "#10b981" : "#fbbf24" }] : []),
+              ...(financeSummary.margin !== null ? [{ label: "Margen", value: `${financeSummary.margin.toFixed(1)}%`, color: financeSummary.margin > 20 ? "var(--ok)" : "#fbbf24" }] : []),
             ].map(item => (
               <div key={item.label} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--border)", background: "rgba(255,255,255,.02)" }}>
                 <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 4 }}>{item.label}</div>
@@ -1264,7 +1264,7 @@ export default function ProjectCopilotPage() {
       </div>
 
       {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "#ef4444", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       )}
@@ -1274,7 +1274,7 @@ export default function ProjectCopilotPage() {
           padding: "12px 16px", borderRadius: 12, fontSize: 13,
           background: actionFeedback.kind === "pending" ? "rgba(245,158,11,.08)" : actionFeedback.kind === "error" ? "rgba(239,68,68,.08)" : "rgba(16,185,129,.08)",
           border: `1px solid ${actionFeedback.kind === "pending" ? "rgba(245,158,11,.22)" : actionFeedback.kind === "error" ? "rgba(239,68,68,.18)" : "rgba(16,185,129,.18)"}`,
-          color: actionFeedback.kind === "pending" ? "#fbbf24" : actionFeedback.kind === "error" ? "#ef4444" : "#34d399",
+          color: actionFeedback.kind === "pending" ? "#fbbf24" : actionFeedback.kind === "error" ? "var(--error)" : "#34d399",
         }}>
           {actionFeedback.kind === "pending" && <span style={{ fontWeight: 700, marginRight: 6 }}>⏳ Pendiente de aprobación:</span>}
           {actionFeedback.kind === "executed" && <span style={{ fontWeight: 700, marginRight: 6 }}>✓ Ejecutado:</span>}
@@ -1347,7 +1347,7 @@ export default function ProjectCopilotPage() {
                     {msg.proposedActions.map((action, actionIndex) => {
                       const actionKey = action.id ?? `${msgIndex}-${actionIndex}`;
                       const isBusy = actionBusyId === actionKey;
-                      const riskColors: Record<string, string> = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
+                      const riskColors: Record<string, string> = { low: "var(--ok)", medium: "#f59e0b", high: "var(--error)" };
                       const riskColor = riskColors[action.riskLevel] ?? "var(--muted)";
                       return (
                         <div key={actionKey} style={{
@@ -1392,7 +1392,7 @@ export default function ProjectCopilotPage() {
                 )}
                 {msg.role === "assistant" && msg.blockedActions && msg.blockedActions.length > 0 && (
                   <div style={{ maxWidth: "78%", display: "grid", gap: 6, marginTop: 4 }}>
-                    <div style={{ fontSize: 10, color: "#ef4444", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                    <div style={{ fontSize: 10, color: "var(--error)", fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>
                       Acciones bloqueadas por policy
                     </div>
                     {msg.blockedActions.map((action) => (
@@ -1404,7 +1404,7 @@ export default function ProjectCopilotPage() {
                           display: "grid", gap: 4,
                         }}
                       >
-                        <strong style={{ fontSize: 12, color: "#ef4444" }}>{action.summary}</strong>
+                        <strong style={{ fontSize: 12, color: "var(--error)" }}>{action.summary}</strong>
                         <div style={{ fontSize: 11, color: "var(--ink)", lineHeight: 1.5 }}>{action.reason}</div>
                       </div>
                     ))}
@@ -1433,7 +1433,7 @@ export default function ProjectCopilotPage() {
                       fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em",
                       padding: "2px 6px", borderRadius: 4,
                       background: msg.mode === "llm" ? "rgba(99,102,241,.12)" : msg.mode === "local" ? "rgba(16,185,129,.12)" : "rgba(156,163,175,.1)",
-                      color: msg.mode === "llm" ? "#818cf8" : msg.mode === "local" ? "#10b981" : "var(--faint)",
+                      color: msg.mode === "llm" ? "#818cf8" : msg.mode === "local" ? "var(--ok)" : "var(--faint)",
                     }}>
                       {msg.mode === "fallback" ? "template" : (msg.provider ?? msg.mode)}
                       {msg.model ? ` · ${msg.model.split("-").slice(0, 2).join("-")}` : ""}
@@ -1774,7 +1774,7 @@ export default function ProjectCopilotPage() {
               </div>
 
               {profileSaving && (
-                <div style={{ fontSize: 12, color: "#10b981" }}>Guardando…</div>
+                <div style={{ fontSize: 12, color: "var(--ok)" }}>Guardando…</div>
               )}
 
               <div style={{ fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 12 }}>

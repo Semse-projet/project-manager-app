@@ -206,7 +206,7 @@ export default function WorkerPaymentsPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {paymentReadiness.rails.filter((rail) => rail.professionalPayout).map((rail) => (
-                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "#10b981" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
                   {rail.label}{rail.automatic ? "" : " · manual"}
                 </span>
               ))}
@@ -236,7 +236,7 @@ export default function WorkerPaymentsPage() {
       <HtmlInCanvasPanel as="section" style={{ ...card, padding: "18px 20px", marginBottom: "20px" }} canvasClassName="rounded-2xl" minHeight={80}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: connectAccount?.status === "active" ? "rgba(16,185,129,.15)" : "rgba(99,102,241,.12)", display: "grid", placeItems: "center" }}>
-            <BadgeDollarSign size={16} color={connectAccount?.status === "active" ? "#10b981" : "#818cf8"} />
+            <BadgeDollarSign size={16} color={connectAccount?.status === "active" ? "var(--ok)" : "#818cf8"} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)" }}>Cuenta Stripe Connect</div>
@@ -249,13 +249,13 @@ export default function WorkerPaymentsPage() {
             </div>
           </div>
           {connectAccount?.status === "active" && (
-            <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "#10b981", fontWeight: 800 }}>
+            <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "var(--ok)", fontWeight: 800 }}>
               Activa
             </span>
           )}
         </div>
         {connectError && (
-          <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, marginBottom: 10 }}>
+          <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, marginBottom: 10 }}>
             {connectError}
           </div>
         )}
@@ -314,9 +314,9 @@ export default function WorkerPaymentsPage() {
       {/* Escrow notice */}
       {totalEscrow > 0 && (
         <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 18px", marginBottom: "20px", background: "rgba(16,185,129,.07)", borderColor: "rgba(16,185,129,.25)", display: "flex", alignItems: "center", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={66}>
-          <ArrowDownLeft size={18} color="#10b981" style={{ flexShrink: 0 }} />
+          <ArrowDownLeft size={18} color="var(--ok)" style={{ flexShrink: 0 }} />
           <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
-            <strong style={{ color: "#10b981" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan cuando el cliente aprueba cada milestone.
+            <strong style={{ color: "var(--ok)" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan cuando el cliente aprueba cada milestone.
             Configura tu método de cobro para recibir los fondos automáticamente.
           </p>
         </HtmlInCanvasPanel>
@@ -370,7 +370,7 @@ export default function WorkerPaymentsPage() {
               return (
                 <div data-testid={`worker-payments-row-${p.id}`} key={p.id} style={{ ...card, display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px", borderColor: isDisputed ? "rgba(239,68,68,.28)" : "var(--border)", background: isDisputed ? "rgba(239,68,68,.03)" : "var(--surface)" }}>
                   <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isDisputed || p.status === "failed" ? "rgba(239,68,68,.12)" : p.status === "released" ? "rgba(16,185,129,.12)" : p.status === "in_escrow" ? "rgba(59,130,246,.12)" : "rgba(251,191,36,.12)" }}>
-                    {isDisputed ? <Scale size={16} color="#ef4444" /> : <Icon size={16} color={p.status === "failed" ? "#ef4444" : p.status === "released" ? "#10b981" : p.status === "in_escrow" ? "#3b82f6" : "#fbbf24"} />}
+                    {isDisputed ? <Scale size={16} color="var(--error)" /> : <Icon size={16} color={p.status === "failed" ? "var(--error)" : p.status === "released" ? "var(--ok)" : p.status === "in_escrow" ? "var(--brand)" : "#fbbf24"} />}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.description}</p>
@@ -379,11 +379,11 @@ export default function WorkerPaymentsPage() {
                     </p>
                   </div>
                   <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "5px" }}>
-                    <p style={{ fontSize: "15px", fontWeight: 800, color: p.status === "released" ? "#10b981" : (isDisputed || p.status === "failed") ? "#ef4444" : "var(--ink)", margin: 0 }}>
+                    <p style={{ fontSize: "15px", fontWeight: 800, color: p.status === "released" ? "var(--ok)" : (isDisputed || p.status === "failed") ? "var(--error)" : "var(--ink)", margin: 0 }}>
                       ${p.amount.toLocaleString()}
                     </p>
                     {isDisputed ? (
-                      <Link href="/worker/disputes?status=open" style={{ fontSize: "11px", fontWeight: 800, color: "#ef4444", textDecoration: "none", display: "flex", alignItems: "center", gap: "3px", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
+                      <Link href="/worker/disputes?status=open" style={{ fontSize: "11px", fontWeight: 800, color: "var(--error)", textDecoration: "none", display: "flex", alignItems: "center", gap: "3px", padding: "3px 8px", borderRadius: "6px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
                         <Scale size={10} /> En disputa
                       </Link>
                     ) : (

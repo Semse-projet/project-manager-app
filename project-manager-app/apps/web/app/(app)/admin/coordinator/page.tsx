@@ -15,17 +15,17 @@ import {
 const STATUS_META: Record<DelegationStatus, { label: string; color: string; bg: string; icon: typeof CheckCircle }> = {
   pending:   { label: "Pendiente",  color: "#94a3b8", bg: "rgba(148,163,184,.1)",  icon: Clock        },
   executing: { label: "Ejecutando", color: "#6366f1", bg: "rgba(99,102,241,.12)",  icon: Activity     },
-  completed: { label: "Completado", color: "#10b981", bg: "rgba(16,185,129,.12)",  icon: CheckCircle  },
-  failed:    { label: "Fallido",    color: "#ef4444", bg: "rgba(239,68,68,.12)",    icon: XCircle      },
+  completed: { label: "Completado", color: "var(--ok)", bg: "rgba(16,185,129,.12)",  icon: CheckCircle  },
+  failed:    { label: "Fallido",    color: "var(--error)", bg: "rgba(239,68,68,.12)",    icon: XCircle      },
   rejected:  { label: "Rechazado",  color: "#f59e0b", bg: "rgba(245,158,11,.12)",  icon: AlertTriangle },
 };
 
 const AGENT_COLORS: Record<string, string> = {
-  "field-ops":        "#10b981",
+  "field-ops":        "var(--ok)",
   "trust-match":      "#818cf8",
   "pricing":          "#f59e0b",
   "evidence-coach":   "#06b6d4",
-  "dispute":          "#ef4444",
+  "dispute":          "var(--error)",
   "project-copilot":  "#c084fc",
   "backend-agent":    "#34d399",
   "frontend-agent":   "#60a5fa",
@@ -112,7 +112,7 @@ function DelegationRow({ d }: { d: DelegationRecord }) {
           background: "rgba(16,185,129,.04)",
           fontSize: 12, color: "var(--ink)", lineHeight: 1.6,
         }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: ".06em" }}>Resultado</span>
+          <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ok)", textTransform: "uppercase", letterSpacing: ".06em" }}>Resultado</span>
           <pre style={{ margin: "6px 0 0", fontSize: 11, color: "var(--muted)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
             {JSON.stringify(d.resultJson as object, null, 2).slice(0, 1200)}
           </pre>
@@ -123,7 +123,7 @@ function DelegationRow({ d }: { d: DelegationRecord }) {
         <div style={{
           padding: "10px 14px", borderTop: "1px solid var(--border)",
           background: "rgba(239,68,68,.04)",
-          fontSize: 12, color: "#ef4444", lineHeight: 1.6,
+          fontSize: 12, color: "var(--error)", lineHeight: 1.6,
         }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em" }}>Error</span>
           <p style={{ margin: "6px 0 0", fontSize: 11 }}>{d.error}</p>
@@ -256,7 +256,7 @@ export default function CoordinatorDashboardPage() {
                 display: "flex", alignItems: "center", gap: 6,
                 padding: "9px 14px", borderRadius: 10, border: "none",
                 background: liveMode ? "rgba(16,185,129,.15)" : "rgba(148,163,184,.1)",
-                color: liveMode ? "#10b981" : "var(--muted)",
+                color: liveMode ? "var(--ok)" : "var(--muted)",
                 fontSize: 12, fontWeight: 700, cursor: "pointer",
               }}
             >
@@ -333,7 +333,7 @@ export default function CoordinatorDashboardPage() {
 
       {/* Error */}
       {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "#ef4444", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       )}

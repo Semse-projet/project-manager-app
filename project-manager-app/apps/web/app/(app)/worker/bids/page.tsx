@@ -9,8 +9,8 @@ type FilterKey = "all" | "submitted" | "accepted" | "rejected";
 
 const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }> = {
   submitted: { label: "Enviada",   bg: "rgba(99,102,241,.12)",  color: "#818cf8" },
-  accepted:  { label: "Aceptada",  bg: "rgba(16,185,129,.12)",  color: "#10b981" },
-  rejected:  { label: "Rechazada", bg: "rgba(239,68,68,.12)",   color: "#ef4444" },
+  accepted:  { label: "Aceptada",  bg: "rgba(16,185,129,.12)",  color: "var(--ok)" },
+  rejected:  { label: "Rechazada", bg: "rgba(239,68,68,.12)",   color: "var(--error)" },
 };
 
 // Was missing posted/reserved/review/dispute (2.30 in
@@ -21,13 +21,13 @@ const JOB_STATUS_STYLE: Record<string, { label: string; color: string }> = {
   posted:      { label: "Publicado",   color: "#94a3b8" },
   published:   { label: "Publicado",   color: "#94a3b8" },
   reserved:    { label: "Reservado",   color: "#f59e0b" },
-  accepted:    { label: "Adjudicado",  color: "#10b981" },
-  awarded:     { label: "Adjudicado",  color: "#10b981" },
+  accepted:    { label: "Adjudicado",  color: "var(--ok)" },
+  awarded:     { label: "Adjudicado",  color: "var(--ok)" },
   in_progress: { label: "En progreso", color: "#f59e0b" },
   review:      { label: "En revisión", color: "#f59e0b" },
-  dispute:     { label: "En disputa",  color: "#ef4444" },
-  completed:   { label: "Completado",  color: "#10b981" },
-  cancelled:   { label: "Cancelado",   color: "#ef4444" },
+  dispute:     { label: "En disputa",  color: "var(--error)" },
+  completed:   { label: "Completado",  color: "var(--ok)" },
+  cancelled:   { label: "Cancelado",   color: "var(--error)" },
 };
 
 function formatCurrency(n: number | undefined): string {
@@ -124,7 +124,7 @@ export default function WorkerBidsPage() {
       )}
 
       {!loading && error && (
-        <div style={{ padding: "16px", borderRadius: "12px", background: "#fef2f2", color: "#ef4444", fontSize: "13px", marginBottom: "12px" }}>
+        <div style={{ padding: "16px", borderRadius: "12px", background: "#fef2f2", color: "var(--error)", fontSize: "13px", marginBottom: "12px" }}>
           {error}
         </div>
       )}
@@ -208,7 +208,7 @@ export default function WorkerBidsPage() {
                   {bid.status === "accepted" && (
                     <Link
                       href={`/worker/jobs/${bid.jobId}`}
-                      style={{ fontSize: "12px", fontWeight: 700, color: "#10b981", textDecoration: "none" }}
+                      style={{ fontSize: "12px", fontWeight: 700, color: "var(--ok)", textDecoration: "none" }}
                     >
                       Ver trabajo →
                     </Link>

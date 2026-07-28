@@ -227,7 +227,7 @@ export default function WorkerProfilePage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
               <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>{loading ? "Cargando…" : displayName}</h2>
-              {isVerified ? <Shield size={16} color="#10b981" /> : null}
+              {isVerified ? <Shield size={16} color="var(--ok)" /> : null}
             </div>
             <div style={{ display: "grid", gap: "6px", marginBottom: "10px" }}>
               <span style={{ fontSize: "12px", color: "var(--muted)", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -250,11 +250,11 @@ export default function WorkerProfilePage() {
               ))}
               <span
                 title={trustTitle}
-                style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#10b981", fontSize: "12px", fontWeight: 700, cursor: "help" }}
+                style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "var(--ok)", fontSize: "12px", fontWeight: 700, cursor: "help" }}
               >
                 {trustLabel}
               </span>
-              <span style={{ padding: "5px 10px", borderRadius: "999px", background: profile?.availability ? "rgba(16,185,129,.10)" : "rgba(156,163,175,.12)", color: profile?.availability ? "#10b981" : "var(--muted)", fontSize: "12px", fontWeight: 700 }}>
+              <span style={{ padding: "5px 10px", borderRadius: "999px", background: profile?.availability ? "rgba(16,185,129,.10)" : "rgba(156,163,175,.12)", color: profile?.availability ? "var(--ok)" : "var(--muted)", fontSize: "12px", fontWeight: 700 }}>
                 {profile?.availability ? "Disponible" : "No disponible"}
               </span>
             </div>
@@ -295,7 +295,7 @@ export default function WorkerProfilePage() {
           </div>
 
           {saveError ? (
-            <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "12px" }}>{saveError}</p>
+            <p style={{ fontSize: "12px", color: "var(--error)", marginBottom: "12px" }}>{saveError}</p>
           ) : null}
 
           {editing ? (
@@ -353,7 +353,7 @@ export default function WorkerProfilePage() {
                 <label style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)" }}>Disponible para trabajos</label>
                 <button
                   onClick={() => setDraft((p) => ({ ...p, availability: !p.availability }))}
-                  style={{ width: "40px", height: "22px", borderRadius: "999px", border: "none", background: draft.availability ? "#10b981" : "var(--border)", cursor: "pointer", position: "relative", transition: "background 0.2s" }}
+                  style={{ width: "40px", height: "22px", borderRadius: "999px", border: "none", background: draft.availability ? "var(--ok)" : "var(--border)", cursor: "pointer", position: "relative", transition: "background 0.2s" }}
                 >
                   <span style={{ position: "absolute", top: "3px", left: draft.availability ? "20px" : "3px", width: "16px", height: "16px", borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
                 </button>
@@ -387,7 +387,7 @@ export default function WorkerProfilePage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
             {[
               { label: "Cuenta", value: formatStatusLabel(currentUser?.status ?? "active") },
-              { label: "Verificación", value: formatVerificationLabel(currentUser?.verificationStatus ?? "unverified"), color: isVerified ? "#10b981" : "#f59e0b" },
+              { label: "Verificación", value: formatVerificationLabel(currentUser?.verificationStatus ?? "unverified"), color: isVerified ? "var(--ok)" : "#f59e0b" },
               { label: "Miembro desde", value: memberSince },
               { label: "Risk", value: currentUser?.riskLevel ?? "low" },
               { label: "Flags", value: String(currentUser?.flags.length ?? 0) },
@@ -435,8 +435,8 @@ export default function WorkerProfilePage() {
                 <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Los profesionales verificados reciben 3× más propuestas.</p>
               </div>
             </div>
-            {verifyError && <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "10px" }}>{verifyError}</p>}
-            {verifyDone && <p style={{ fontSize: "12px", color: "#10b981", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}><CheckCircle2 size={13} />Solicitud enviada. El equipo revisará tu {verifyDone === "id_document" ? "documento de identidad" : verifyDone === "background_check" ? "antecedentes" : verifyDone}.</p>}
+            {verifyError && <p style={{ fontSize: "12px", color: "var(--error)", marginBottom: "10px" }}>{verifyError}</p>}
+            {verifyDone && <p style={{ fontSize: "12px", color: "var(--ok)", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}><CheckCircle2 size={13} />Solicitud enviada. El equipo revisará tu {verifyDone === "id_document" ? "documento de identidad" : verifyDone === "background_check" ? "antecedentes" : verifyDone}.</p>}
             <div style={{ display: "grid", gap: "8px" }}>
               {([
                 { type: "id_document",      label: "Documento de identidad",    desc: "Pasaporte, licencia de conducir o cédula" },
@@ -452,7 +452,7 @@ export default function WorkerProfilePage() {
                     type="button"
                     disabled={verifyBusy || verifyDone === item.type}
                     onClick={() => void requestVerification(item.type)}
-                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "#10b981" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
+                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "var(--ok)" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
                   >
                     {verifyDone === item.type ? "✓ Enviado" : "Solicitar"}
                   </button>
@@ -465,9 +465,9 @@ export default function WorkerProfilePage() {
         {isVerified && (
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(16,185,129,.04)", borderColor: "rgba(16,185,129,.2)" }} canvasClassName="rounded-2xl" minHeight={60}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <BadgeCheck size={17} color="#10b981" />
+              <BadgeCheck size={17} color="var(--ok)" />
               <div>
-                <p style={{ fontSize: "13px", fontWeight: 700, color: "#10b981", margin: 0 }}>Perfil verificado</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ok)", margin: 0 }}>Perfil verificado</p>
                 <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Tu identidad fue confirmada. Apareces como profesional de confianza.</p>
               </div>
             </div>
@@ -478,13 +478,13 @@ export default function WorkerProfilePage() {
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(239,68,68,.04)", borderColor: "rgba(239,68,68,.2)" }} canvasClassName="rounded-2xl" minHeight={70}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <Scale size={18} color="#ef4444" />
+                <Scale size={18} color="var(--error)" />
                 <div>
-                  <p style={{ fontSize: "13px", fontWeight: 700, color: "#ef4444" }}>{openDisputes} disputa{openDisputes > 1 ? "s" : ""} activa{openDisputes > 1 ? "s" : ""}</p>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--error)" }}>{openDisputes} disputa{openDisputes > 1 ? "s" : ""} activa{openDisputes > 1 ? "s" : ""}</p>
                   <p style={{ fontSize: "11px", color: "var(--muted)" }}>Disputas activas en el tenant canónico.</p>
                 </div>
               </div>
-              <Link href="/worker/disputes?status=open" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "9px", border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: "12px", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+              <Link href="/worker/disputes?status=open" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "9px", border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: "12px", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
                 Ver →
               </Link>
             </div>
@@ -541,7 +541,7 @@ export default function WorkerProfilePage() {
 
         <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(59,130,246,.05)", borderColor: "rgba(59,130,246,.2)" }} canvasClassName="rounded-2xl" minHeight={60}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-            <AlertTriangle size={16} color="#3b82f6" />
+            <AlertTriangle size={16} color="var(--brand)" />
             <p style={{ fontSize: "12px", color: "var(--muted)" }}>
               Teléfono y foto de perfil requieren contrato canónico pendiente. Esta página muestra y edita solo lo estructurado hoy.
             </p>

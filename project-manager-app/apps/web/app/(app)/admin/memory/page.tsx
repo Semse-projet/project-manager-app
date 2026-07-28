@@ -194,7 +194,7 @@ export default function AdminMemoryPage() {
       {error && (
         <div style={{
           padding: "12px 16px", borderRadius: 12, fontSize: 13,
-          background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444",
+          background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)",
         }}>
           {error}
         </div>

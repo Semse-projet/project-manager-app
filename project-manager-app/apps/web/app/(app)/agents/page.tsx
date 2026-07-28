@@ -14,10 +14,10 @@ import { useAgentPanelState, type PanelAgentId } from "../../../components/ai/ag
 // ──────────────────────────────────────────────────────────────────────────────
 
 const NAMED_AGENTS = [
-  { id: "assistant",      name: "Prometeo",       emoji: "◈",  color: "#3b82f6", role: "Asistente general",           desc: "Orquestador principal del ecosistema SEMSE" },
+  { id: "assistant",      name: "Prometeo",       emoji: "◈",  color: "var(--brand)", role: "Asistente general",           desc: "Orquestador principal del ecosistema SEMSE" },
   { id: "marta",          name: "Marta",           emoji: "⚖", color: "#8b5cf6", role: "Legal & Compliance",          desc: "Contratos, cláusulas y cumplimiento normativo" },
   { id: "planner",        name: "Planner",         emoji: "🗓", color: "#06b6d4", role: "Planificación",              desc: "Crea planes de trabajo y cronogramas" },
-  { id: "felix",          name: "Félix",           emoji: "🔍", color: "#10b981", role: "Evidencias",                desc: "Fotos, documentos y verificación de trabajo" },
+  { id: "felix",          name: "Félix",           emoji: "🔍", color: "var(--ok)", role: "Evidencias",                desc: "Fotos, documentos y verificación de trabajo" },
   { id: "escrow",         name: "Escrow",          emoji: "🏦", color: "#f59e0b", role: "Operaciones escrow",        desc: "Monitorea el estado de fondos retenidos" },
   { id: "justus",         name: "Justus",          emoji: "⚡", color: "#f59e0b", role: "Finanzas & Disputas",       desc: "Escrow, facturas, cobros y resolución de conflictos" },
   { id: "legal",          name: "Legal",           emoji: "📜", color: "#6366f1", role: "Marco legal",               desc: "Referencia de contratos y cumplimiento normativo" },
@@ -35,11 +35,11 @@ const NAMED_AGENTS = [
 const SPECIALIZED_AGENTS = [
   { id: "pricing",        name: "Pricing Engine",   emoji: "💰", color: "#f59e0b", desc: "Estimación inteligente de precios por categoría" },
   { id: "job-planner",    name: "Job Planner",       emoji: "📋", color: "#06b6d4", desc: "Generación automática de milestones y cronogramas" },
-  { id: "trust-match",    name: "Trust Match",       emoji: "🤝", color: "#10b981", desc: "Matching de clientes y profesionales por confianza" },
+  { id: "trust-match",    name: "Trust Match",       emoji: "🤝", color: "var(--ok)", desc: "Matching de clientes y profesionales por confianza" },
   { id: "evidence-coach", name: "Evidence Coach BE", emoji: "🔬", color: "#14b8a6", desc: "Validación y clasificación de evidencia fotográfica" },
-  { id: "risk",           name: "Risk Analyzer",     emoji: "⚠", color: "#ef4444", desc: "Evaluación de riesgo en contratos y transacciones" },
+  { id: "risk",           name: "Risk Analyzer",     emoji: "⚠", color: "var(--error)", desc: "Evaluación de riesgo en contratos y transacciones" },
   { id: "dispute",        name: "Dispute Resolver",  emoji: "⚖", color: "#8b5cf6", desc: "Análisis y sugerencias para resolución de disputas" },
-  { id: "orchestrator",   name: "Orchestrator",      emoji: "◈", color: "#3b82f6", desc: "Coordinación de flujos multi-agente del backend" },
+  { id: "orchestrator",   name: "Orchestrator",      emoji: "◈", color: "var(--brand)", desc: "Coordinación de flujos multi-agente del backend" },
   { id: "ecv",            name: "ECV Agent",         emoji: "✓",  color: "#22c55e", desc: "Verificación electrónica de credenciales" },
 ] as const;
 
@@ -156,7 +156,7 @@ export default function AgentsPage() {
 
               {/* Active indicator */}
               <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "5px" }}>
-                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#10b981" }} />
+                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--ok)" }} />
                 <span style={{ fontSize: "10px", color: "var(--faint)" }}>
                   {tab === "Conversacionales"
                     ? directChat

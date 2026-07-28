@@ -15,7 +15,7 @@ function formatRelative(iso: string): string {
 }
 
 const SEVERITY_ICON = {
-  critical: <ShieldAlert size={14} style={{ color: "#ef4444" }} />,
+  critical: <ShieldAlert size={14} style={{ color: "var(--error)" }} />,
   warning:  <AlertTriangle size={14} style={{ color: "#f59e0b" }} />,
   info:     <Info size={14} style={{ color: "#6366f1" }} />,
 };
@@ -61,7 +61,7 @@ export function ProjectActivityFeed({ projectId, limit = 40 }: Props) {
 
   if (error) {
     return (
-      <div style={{ padding: "16px", borderRadius: "12px", background: "#fef2f2", color: "#ef4444", fontSize: "13px" }}>
+      <div style={{ padding: "16px", borderRadius: "12px", background: "#fef2f2", color: "var(--error)", fontSize: "13px" }}>
         {error}
       </div>
     );

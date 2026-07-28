@@ -139,7 +139,7 @@ export default function ClientProjectsPage() {
 
       {/* Content */}
       {error ? (
-        <HtmlInCanvasPanel as="section" style={{ padding: "16px 18px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "#ef4444", fontSize: 13 }} canvasClassName="rounded-2xl" minHeight={72}>
+        <HtmlInCanvasPanel as="section" style={{ padding: "16px 18px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }} canvasClassName="rounded-2xl" minHeight={72}>
           {error}
         </HtmlInCanvasPanel>
       ) : loading ? (

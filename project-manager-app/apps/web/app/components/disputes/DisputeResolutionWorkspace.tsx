@@ -117,8 +117,8 @@ function formatDate(value?: string) {
 }
 
 function EvidenceKindIcon({ kind }: { kind?: string }) {
-  if (kind === "PHOTO") return <ImageIcon size={14} color="#10b981" />;
-  if (kind === "VIDEO") return <Video size={14} color="#3b82f6" />;
+  if (kind === "PHOTO") return <ImageIcon size={14} color="var(--ok)" />;
+  if (kind === "VIDEO") return <Video size={14} color="var(--brand)" />;
   return <FileText size={14} color="#8b5cf6" />;
 }
 
@@ -197,7 +197,7 @@ export function DisputeResolutionWorkspace({
         kind: "state",
         title: "Escrow liberado desde workspace",
         detail: `Milestone ${milestoneId} — fondos liberados al profesional.`,
-        tone: "#10b981",
+        tone: "var(--ok)",
       });
       await refreshEvidenceContext();
     } catch (error) {
@@ -212,7 +212,7 @@ export function DisputeResolutionWorkspace({
       return {
         title: "Disputa cerrada",
         detail: "Verifica la resolución acordada y conserva el paquete de evidencia por trazabilidad.",
-        tone: "#10b981"
+        tone: "var(--ok)"
       };
     }
 
@@ -220,7 +220,7 @@ export function DisputeResolutionWorkspace({
       return {
         title: "Mesa de tercero — revisa evidencia antes de decidir",
         detail: "Lee la razón del bloqueo, revisa la evidencia aportada y el criterio del copiloto. Cuando tengas suficiente contexto, aprueba o rechaza la intervención desde el panel de aprobaciones pendientes.",
-        tone: "#ef4444"
+        tone: "var(--error)"
       };
     }
 
@@ -262,7 +262,7 @@ export function DisputeResolutionWorkspace({
         detail: dispute.status === "resolved"
           ? `La disputa ya figura resuelta. ${dispute.resolution ? `Resolución: ${dispute.resolution}` : ""}`.trim()
           : `Estado actual: ${dispute.status}. Razón base: ${dispute.reason}`,
-        tone: dispute.status === "resolved" ? "#10b981" : "#f59e0b",
+        tone: dispute.status === "resolved" ? "var(--ok)" : "#f59e0b",
       }
     ]);
     setLatestApproval(null);
@@ -364,7 +364,7 @@ export function DisputeResolutionWorkspace({
             ? "Copiloto recomienda autogestión"
             : "Copiloto deja señal mixta",
         detail: message,
-        tone: decision === "needs_third_party" ? "#ef4444" : decision === "self_resolve" ? "#10b981" : "#f59e0b",
+        tone: decision === "needs_third_party" ? "var(--error)" : decision === "self_resolve" ? "var(--ok)" : "#f59e0b",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo obtener criterio del copiloto.";
@@ -373,7 +373,7 @@ export function DisputeResolutionWorkspace({
         kind: "copilot",
         title: "Falló el análisis del copiloto",
         detail: message,
-        tone: "#ef4444",
+        tone: "var(--error)",
       });
     } finally {
       setCopilotBusy(false);
@@ -403,7 +403,7 @@ export function DisputeResolutionWorkspace({
         kind: "escalation",
         title: "Escalación solicitada",
         detail: `${message}${approvalId ? ` Approval ${approvalId} · modo ${approvalMode} · estado ${approvalStatus}.` : ""}`,
-        tone: approvalStatus === "approved" ? "#10b981" : approvalStatus === "rejected" ? "#ef4444" : "#f59e0b",
+        tone: approvalStatus === "approved" ? "var(--ok)" : approvalStatus === "rejected" ? "var(--error)" : "#f59e0b",
       });
       if (approvalId) {
         try {
@@ -413,7 +413,7 @@ export function DisputeResolutionWorkspace({
             kind: "approval",
             title: "Approval registrada",
             detail: `${approval.title}. Riesgo ${approval.riskLevel}. Estado ${approval.status}.`,
-            tone: approval.status === "approved" ? "#10b981" : approval.status === "rejected" ? "#ef4444" : "#6366f1",
+            tone: approval.status === "approved" ? "var(--ok)" : approval.status === "rejected" ? "var(--error)" : "#6366f1",
           });
         } catch {
           setLatestApproval({ id: approvalId, status: approvalStatus, approvalMode });
@@ -426,7 +426,7 @@ export function DisputeResolutionWorkspace({
         kind: "escalation",
         title: "Falló la escalación",
         detail: message,
-        tone: "#ef4444",
+        tone: "var(--error)",
       });
     } finally {
       void refreshApprovals();
@@ -521,7 +521,7 @@ export function DisputeResolutionWorkspace({
         kind: "state",
         title: `${authorLabel} dejó un comentario`,
         detail: text.length > 80 ? text.slice(0, 80) + "…" : text,
-        tone: audience === "admin" ? "#ef4444" : audience === "client" ? "#6366f1" : "#8b5cf6",
+        tone: audience === "admin" ? "var(--error)" : audience === "client" ? "#6366f1" : "#8b5cf6",
       });
       await loadComments();
     } catch (error) {
@@ -545,7 +545,7 @@ export function DisputeResolutionWorkspace({
         kind: "approval",
         title: decision === "approved" ? "Tercero aprobó intervención" : "Tercero rechazó intervención",
         detail: `Aprobación ${approvalId} marcada como ${decision}.`,
-        tone: decision === "approved" ? "#10b981" : "#ef4444",
+        tone: decision === "approved" ? "var(--ok)" : "var(--error)",
       });
       setApprovalActionNote({ id: approvalId, message: decision === "approved" ? "Aprobado y ejecutado." : "Rechazado.", ok: true });
       await refreshApprovals();
@@ -631,9 +631,9 @@ export function DisputeResolutionWorkspace({
               <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   {copilotDecision === "needs_third_party" ? (
-                    <StatusPill color="#ef4444" label="Requiere tercero" />
+                    <StatusPill color="var(--error)" label="Requiere tercero" />
                   ) : copilotDecision === "self_resolve" ? (
-                    <StatusPill color="#10b981" label="Puede resolverse entre partes" />
+                    <StatusPill color="var(--ok)" label="Puede resolverse entre partes" />
                   ) : (
                     <StatusPill color="#f59e0b" label="Señal mixta" />
                   )}
@@ -645,7 +645,7 @@ export function DisputeResolutionWorkspace({
                   <button
                     onClick={() => void onResolve(resolutionDraft.trim())}
                     disabled={resolveBusy || resolutionDraft.trim().length < 8}
-                    style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: resolveBusy || resolutionDraft.trim().length < 8 ? 0.7 : 1 }}
+                    style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: resolveBusy || resolutionDraft.trim().length < 8 ? 0.7 : 1 }}
                   >
                     {resolveBusy ? "Resolviendo..." : "Cerrar por acuerdo"}
                   </button>
@@ -653,7 +653,7 @@ export function DisputeResolutionWorkspace({
                 <button
                   onClick={() => void handleEscalateToThirdParty()}
                   disabled={escalationBusy}
-                  style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   {escalationBusy ? "Escalando..." : "Pedir tercero humano"}
                 </button>
@@ -674,7 +674,7 @@ export function DisputeResolutionWorkspace({
             />
           ) : null}
           {escalationMessage ? (
-            <p style={{ margin: 0, fontSize: 12, color: escalationMessage.toLowerCase().includes("error") ? "#ef4444" : "var(--muted)" }}>
+            <p style={{ margin: 0, fontSize: 12, color: escalationMessage.toLowerCase().includes("error") ? "var(--error)" : "var(--muted)" }}>
               {escalationMessage}
             </p>
           ) : null}
@@ -703,7 +703,7 @@ export function DisputeResolutionWorkspace({
                 <strong style={{ fontSize: 13, color: "var(--ink)" }}>
                   {asString(latestApproval.title) ?? `Approval ${asString(latestApproval.id) ?? "registrada"}`}
                 </strong>
-                <span style={{ fontSize: 11, fontWeight: 800, color: asString(latestApproval.status) === "approved" ? "#10b981" : asString(latestApproval.status) === "rejected" ? "#ef4444" : "#f59e0b" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: asString(latestApproval.status) === "approved" ? "var(--ok)" : asString(latestApproval.status) === "rejected" ? "var(--error)" : "#f59e0b" }}>
                   {asString(latestApproval.status) ?? "pending"}
                 </span>
               </div>
@@ -732,13 +732,13 @@ export function DisputeResolutionWorkspace({
                     </div>
                     <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{approval.reason}</p>
                     {note ? (
-                      <p style={{ margin: 0, fontSize: 12, color: note.ok ? "#10b981" : "#ef4444" }}>{note.message}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: note.ok ? "var(--ok)" : "var(--error)" }}>{note.message}</p>
                     ) : null}
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button
                         onClick={() => void handleApprovalDecision(approval.id, "approved")}
                         disabled={!!decidingApprovalId}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.10)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.10)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
                       >
                         {isBusy ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <CheckCircle2 size={12} />}
                         {isBusy ? "Procesando..." : "Aprobar y ejecutar"}
@@ -746,7 +746,7 @@ export function DisputeResolutionWorkspace({
                       <button
                         onClick={() => void handleApprovalDecision(approval.id, "rejected")}
                         disabled={!!decidingApprovalId}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
                       >
                         <AlertTriangle size={12} />
                         Rechazar
@@ -804,7 +804,7 @@ export function DisputeResolutionWorkspace({
             </div>
           ) : null}
           {uploadMessage ? (
-            <p style={{ margin: 0, fontSize: 12, color: uploadMessage.toLowerCase().includes("no se pudo") ? "#ef4444" : "var(--muted)" }}>
+            <p style={{ margin: 0, fontSize: 12, color: uploadMessage.toLowerCase().includes("no se pudo") ? "var(--error)" : "var(--muted)" }}>
               {uploadMessage}
             </p>
           ) : null}
@@ -860,14 +860,14 @@ export function DisputeResolutionWorkspace({
                 <button
                   onClick={() => void handleRegisterEvidenceReference()}
                   disabled={registeringEvidence}
-                  style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.08)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.08)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   {registeringEvidence ? "Registrando..." : "Registrar"}
                 </button>
               </div>
 
               {evidenceNote ? (
-                <p style={{ margin: 0, fontSize: 12, color: evidenceNote.toLowerCase().includes("no se pudo") || evidenceNote.toLowerCase().includes("válida") ? "#ef4444" : "var(--muted)" }}>
+                <p style={{ margin: 0, fontSize: 12, color: evidenceNote.toLowerCase().includes("no se pudo") || evidenceNote.toLowerCase().includes("válida") ? "var(--error)" : "var(--muted)" }}>
                   {evidenceNote}
                 </p>
               ) : null}
@@ -895,7 +895,7 @@ export function DisputeResolutionWorkspace({
                               <EvidenceKindIcon kind={asString(item.kind)} />
                               <strong style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</strong>
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: validation === "approved" ? "#10b981" : validation === "rejected" ? "#ef4444" : "#f59e0b" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: validation === "approved" ? "var(--ok)" : validation === "rejected" ? "var(--error)" : "#f59e0b" }}>
                               {validation}
                             </span>
                           </div>
@@ -941,7 +941,7 @@ export function DisputeResolutionWorkspace({
         <HtmlInCanvasPanel as="section" style={{ padding: "16px 18px" }} canvasClassName="rounded-2xl" minHeight={120}>
           <div style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Wallet size={16} color="#10b981" />
+              <Wallet size={16} color="var(--ok)" />
               <strong style={{ fontSize: 14, color: "var(--ink)" }}>Liberar escrow — milestones del trabajo</strong>
             </div>
             <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
@@ -959,7 +959,7 @@ export function DisputeResolutionWorkspace({
                 const alreadyReleased = escrowStatus === "released" || status === "completed";
                 return (
                   <div key={mid} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, border: `1px solid ${alreadyReleased ? "rgba(16,185,129,.22)" : "var(--border)"}`, background: alreadyReleased ? "rgba(16,185,129,.04)" : "var(--surface)" }}>
-                    <DollarSign size={16} color={alreadyReleased ? "#10b981" : "#fbbf24"} />
+                    <DollarSign size={16} color={alreadyReleased ? "var(--ok)" : "#fbbf24"} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{title}</p>
                       <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--faint)", display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -967,19 +967,19 @@ export function DisputeResolutionWorkspace({
                         {escrowStatus !== "unknown" ? <span>Escrow: {escrowStatus}</span> : null}
                         {amount !== null ? <span>${amount.toLocaleString()}</span> : null}
                       </p>
-                      {note ? <p style={{ margin: "4px 0 0", fontSize: 11, color: note.ok ? "#10b981" : "#ef4444" }}>{note.message}</p> : null}
+                      {note ? <p style={{ margin: "4px 0 0", fontSize: 11, color: note.ok ? "var(--ok)" : "var(--error)" }}>{note.message}</p> : null}
                     </div>
                     {!alreadyReleased ? (
                       <button
                         onClick={() => void handleReleaseEscrow(mid)}
                         disabled={!!releasingMilestoneId}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.1)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: releasingMilestoneId ? 0.5 : 1, whiteSpace: "nowrap" }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.1)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: releasingMilestoneId ? 0.5 : 1, whiteSpace: "nowrap" }}
                       >
                         {isBusy ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Wallet size={12} />}
                         {isBusy ? "Liberando..." : "Liberar escrow"}
                       </button>
                     ) : (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981" }}>✓ Liberado</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--ok)" }}>✓ Liberado</span>
                     )}
                   </div>
                 );
@@ -1039,7 +1039,7 @@ export function DisputeResolutionWorkspace({
           </div>
 
           {commentNote ? (
-            <p style={{ margin: 0, fontSize: 12, color: commentNote.toLowerCase().includes("no se pudo") ? "#ef4444" : "var(--muted)" }}>
+            <p style={{ margin: 0, fontSize: 12, color: commentNote.toLowerCase().includes("no se pudo") ? "var(--error)" : "var(--muted)" }}>
               {commentNote}
             </p>
           ) : null}
@@ -1053,7 +1053,7 @@ export function DisputeResolutionWorkspace({
           ) : comments.length > 0 ? (
             <div style={{ display: "grid", gap: 8 }}>
               {comments.map((comment, index) => {
-                const roleColor = comment.role === "admin" ? "#ef4444" : comment.role === "client" ? "#6366f1" : comment.role === "worker" ? "#8b5cf6" : "var(--muted)";
+                const roleColor = comment.role === "admin" ? "var(--error)" : comment.role === "client" ? "#6366f1" : comment.role === "worker" ? "#8b5cf6" : "var(--muted)";
                 const roleLabel = comment.role === "admin" ? "Ops" : comment.role === "client" ? "Cliente" : comment.role === "worker" ? "Profesional" : comment.author ?? "Sistema";
                 return (
                   <div key={comment.id ?? index} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", display: "grid", gap: 6 }}>
@@ -1093,7 +1093,7 @@ function StatusPill({ color, label }: { color: string; label: string }) {
         fontWeight: 800
       }}
     >
-      {color === "#10b981" ? <CheckCircle2 size={12} /> : color === "#ef4444" ? <AlertTriangle size={12} /> : <ShieldAlert size={12} />}
+      {color === "var(--ok)" ? <CheckCircle2 size={12} /> : color === "var(--error)" ? <AlertTriangle size={12} /> : <ShieldAlert size={12} />}
       {label}
     </span>
   );

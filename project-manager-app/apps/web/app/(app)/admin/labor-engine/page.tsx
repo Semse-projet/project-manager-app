@@ -116,7 +116,7 @@ function fmtElapsed(seconds: number) {
 function entryTarget(entry: AdminTimeEntry, jobById: Map<string, JobOption>) {
   if (entry.jobId) {
     const job = jobById.get(entry.jobId);
-    return { label: job ? job.title : `Job ${entry.jobId.slice(0, 10)}…`, color: "#3b82f6" };
+    return { label: job ? job.title : `Job ${entry.jobId.slice(0, 10)}…`, color: "var(--brand)" };
   }
   if (entry.freeProjectId) return { label: "Proyecto libre", color: "#f59e0b" };
   return { label: "Personal", color: "#94a3b8" };
@@ -313,7 +313,7 @@ export default function AdminLaborEnginePage() {
           </>
         }
         icon={Activity}
-        iconColor="#3b82f6"
+        iconColor="var(--brand)"
         iconBg="rgba(59,130,246,.15)"
         actions={
           <button onClick={() => void load()} disabled={loading}
@@ -330,11 +330,11 @@ export default function AdminLaborEnginePage() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginBottom: 22 }}>
         {[
-          { label: "Timers activos", value: overview ? String(overview.activeTimers.length) : "—", icon: Timer, color: "#10b981" },
-          { label: "Horas equipo (semana)", value: overview ? fmtHours(totalTeamMinutes) : "—", icon: Clock, color: "#3b82f6" },
+          { label: "Timers activos", value: overview ? String(overview.activeTimers.length) : "—", icon: Timer, color: "var(--ok)" },
+          { label: "Horas equipo (semana)", value: overview ? fmtHours(totalTeamMinutes) : "—", icon: Clock, color: "var(--brand)" },
           { label: "Workers con horas", value: overview ? String(overview.team.length) : "—", icon: Users, color: "#8b5cf6" },
           { label: "Costo estimado", value: overview ? fmtMoney(totalTeamCost) : "—", icon: DollarSign, color: "#f59e0b" },
-          { label: "Alertas QualityGuard", value: overview ? String(overview.alerts.length) : "—", icon: AlertTriangle, color: overview && overview.alerts.length > 0 ? "#ef4444" : "#10b981" },
+          { label: "Alertas QualityGuard", value: overview ? String(overview.alerts.length) : "—", icon: AlertTriangle, color: overview && overview.alerts.length > 0 ? "var(--error)" : "var(--ok)" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -354,12 +354,12 @@ export default function AdminLaborEnginePage() {
       {overview && overview.alerts.length > 0 ? (
         <div style={{ background: "var(--surface)", border: "1px solid rgba(239,68,68,.25)", borderRadius: 14, overflow: "hidden", marginBottom: 22 }}>
           <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-            <ShieldAlert size={14} color="#ef4444" />
+            <ShieldAlert size={14} color="var(--error)" />
             <span style={{ fontSize: 12, fontWeight: 800 }}>QualityGuard — {overview.alerts.length} alerta(s)</span>
           </div>
           {overview.alerts.map((alert, index) => {
             const meta = ALERT_META[alert.type];
-            const color = alert.severity === "critical" ? "#ef4444" : "#f59e0b";
+            const color = alert.severity === "critical" ? "var(--error)" : "#f59e0b";
             const workerLabel = displayName(alert.workerId);
             const canAct = Boolean(alert.entryId);
             return (
@@ -403,7 +403,7 @@ export default function AdminLaborEnginePage() {
         {/* Active timers */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-            <Timer size={14} color="#10b981" />
+            <Timer size={14} color="var(--ok)" />
             <span style={{ fontSize: 12, fontWeight: 800 }}>Timers activos ({overview?.activeTimers.length ?? 0})</span>
           </div>
           {!overview || overview.activeTimers.length === 0 ? (
@@ -416,14 +416,14 @@ export default function AdminLaborEnginePage() {
               const running = entry.status === "running";
               return (
                 <div key={entry.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderBottom: "1px solid var(--border)" }}>
-                  {running ? <Play size={13} color="#10b981" /> : <Pause size={13} color="#f59e0b" />}
+                  {running ? <Play size={13} color="var(--ok)" /> : <Pause size={13} color="#f59e0b" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {displayName(entry.createdBy)}
                     </p>
                     <p style={{ margin: 0, fontSize: 10, color: target.color, fontWeight: 700 }}>{target.label}</p>
                   </div>
-                  <span style={{ fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: running ? "#10b981" : "#f59e0b" }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: running ? "var(--ok)" : "#f59e0b" }}>
                     {fmtElapsed(entryElapsedSeconds(entry, nowMs))}
                   </span>
                 </div>
@@ -457,7 +457,7 @@ export default function AdminLaborEnginePage() {
                   </p>
                   <p style={{ margin: 0, fontSize: 10, color: "var(--muted)" }}>{member.totalEntries} entrada(s)</p>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 800, color: "#3b82f6" }}>{fmtHours(member.totalMinutes)}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--brand)" }}>{fmtHours(member.totalMinutes)}</span>
                 <span style={{ fontSize: 12, fontWeight: 800, color: "#f59e0b", minWidth: 64, textAlign: "right" }}>
                   {fmtMoney(member.estimatedCost)}
                 </span>
@@ -471,7 +471,7 @@ export default function AdminLaborEnginePage() {
       {/* SmartMatch */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Search size={14} color="#3b82f6" />
+          <Search size={14} color="var(--brand)" />
           <span style={{ fontSize: 12, fontWeight: 800 }}>SmartMatch — candidatos para un job</span>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
             <select
@@ -488,7 +488,7 @@ export default function AdminLaborEnginePage() {
               type="button"
               onClick={() => void runMatch()}
               disabled={!matchJobId || matchLoading}
-              style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(59,130,246,.4)", background: "rgba(59,130,246,.12)", color: "#3b82f6", fontSize: 11, fontWeight: 800, cursor: "pointer", opacity: !matchJobId || matchLoading ? 0.6 : 1 }}
+              style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(59,130,246,.4)", background: "rgba(59,130,246,.12)", color: "var(--brand)", fontSize: 11, fontWeight: 800, cursor: "pointer", opacity: !matchJobId || matchLoading ? 0.6 : 1 }}
             >
               {matchLoading ? "Calculando…" : "Ejecutar match"}
             </button>
@@ -520,7 +520,7 @@ export default function AdminLaborEnginePage() {
                     <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {candidate.email}
                       {candidate.verificationStatus === "verified" ? (
-                        <BadgeCheck size={12} color="#10b981" style={{ marginLeft: 6, verticalAlign: "-2px" }} />
+                        <BadgeCheck size={12} color="var(--ok)" style={{ marginLeft: 6, verticalAlign: "-2px" }} />
                       ) : null}
                     </p>
                     <p style={{ margin: 0, fontSize: 10, color: "var(--muted)" }}>
@@ -529,9 +529,9 @@ export default function AdminLaborEnginePage() {
                   </div>
                   <div style={{ width: 120, display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ flex: 1, height: 6, background: "rgba(148,163,184,.18)", borderRadius: 99, overflow: "hidden" }}>
-                      <div style={{ width: `${Math.round(candidate.score * 100)}%`, height: "100%", background: "#3b82f6" }} />
+                      <div style={{ width: `${Math.round(candidate.score * 100)}%`, height: "100%", background: "var(--brand)" }} />
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: "#3b82f6", minWidth: 30, textAlign: "right" }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "var(--brand)", minWidth: 30, textAlign: "right" }}>
                       {Math.round(candidate.score * 100)}
                     </span>
                   </div>

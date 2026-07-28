@@ -33,10 +33,10 @@ type DisputeRow = {
 };
 
 const STATUS_META: Record<DisputeRow["status"], { variant: "error" | "warning" | "success"; label: string; tone: string }> = {
-  open: { variant: "error", label: "Abierta", tone: "#ef4444" },
+  open: { variant: "error", label: "Abierta", tone: "var(--error)" },
   assigned: { variant: "warning", label: "Asignada", tone: "#f59e0b" },
   under_review: { variant: "warning", label: "En revisión", tone: "#f59e0b" },
-  resolved: { variant: "success", label: "Resuelta", tone: "#10b981" },
+  resolved: { variant: "success", label: "Resuelta", tone: "var(--ok)" },
   rejected: { variant: "error", label: "Rechazada", tone: "#94a3b8" }
 };
 
@@ -241,8 +241,8 @@ export default function WorkerDisputesPage() {
 
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }} canvasClassName="rounded-2xl" minHeight={120}>
         {[
-          { label: "Abiertas", value: activeDisputes.length, color: "#ef4444", icon: AlertTriangle },
-          { label: "Resueltas", value: disputes.filter((item) => item.status === "resolved" || item.status === "rejected").length, color: "#10b981", icon: ShieldAlert },
+          { label: "Abiertas", value: activeDisputes.length, color: "var(--error)", icon: AlertTriangle },
+          { label: "Resueltas", value: disputes.filter((item) => item.status === "resolved" || item.status === "rejected").length, color: "var(--ok)", icon: ShieldAlert },
           { label: "Trabajos elegibles", value: eligibleJobs.length, color: "#6366f1", icon: MessageSquare }
         ].map((item) => {
           const Icon = item.icon;
@@ -334,7 +334,7 @@ export default function WorkerDisputesPage() {
       </HtmlInCanvasPanel>
 
       {error ? (
-        <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: 13 }}>
+        <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       ) : null}
@@ -370,7 +370,7 @@ export default function WorkerDisputesPage() {
                           {item.projectStatus ? <span style={{ fontSize: 11, color: "var(--muted)" }}>Proyecto {item.projectStatus}</span> : null}
                         </div>
                         <p style={{ margin: 0, fontSize: 13, color: "var(--ink)", lineHeight: 1.6 }}>{item.reason}</p>
-                        {item.resolution ? <p style={{ margin: 0, fontSize: 12, color: "#10b981" }}>Resolución: {item.resolution}</p> : null}
+                        {item.resolution ? <p style={{ margin: 0, fontSize: 12, color: "var(--ok)" }}>Resolución: {item.resolution}</p> : null}
                       </div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <button

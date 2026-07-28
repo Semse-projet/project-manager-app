@@ -18,13 +18,13 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   draft:       { label: "Borrador",    color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  posted:      { label: "Publicado",   color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  posted:      { label: "Publicado",   color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   reserved:    { label: "Reservado",   color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   accepted:    { label: "Aceptado",    color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
   in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)"  },
   review:      { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  dispute:     { label: "En disputa",  color: "#ef4444", bg: "rgba(239,68,68,.12)"  },
-  completed:   { label: "Completado",  color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  dispute:     { label: "En disputa",  color: "var(--error)", bg: "rgba(239,68,68,.12)"  },
+  completed:   { label: "Completado",  color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   cancelled:   { label: "Cancelado",   color: "#64748b", bg: "rgba(100,116,139,.12)"},
 };
 
@@ -198,7 +198,7 @@ export default function ClientJobsPage() {
           ))}
         </div>
       ) : apiError ? (
-        <div style={{ padding: "20px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "12px", color: "#ef4444", fontSize: "13px" }}>
+        <div style={{ padding: "20px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "12px", color: "var(--error)", fontSize: "13px" }}>
           {apiError} — configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.
         </div>
       ) : filtered.length === 0 ? (

@@ -104,7 +104,7 @@ export default function DataDeletionPage() {
                 width: 44,
                 height: 44,
                 borderRadius: 12,
-                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -145,7 +145,7 @@ export default function DataDeletionPage() {
           <div style={{ fontWeight: 700, fontSize: 16, color: "#1e40af", marginBottom: 4 }}>
             Envía tu solicitud ahora
           </div>
-          <div style={{ fontSize: 14, color: "#3b82f6" }}>privacy@semseproject.com</div>
+          <div style={{ fontSize: 14, color: "var(--brand)" }}>privacy@semseproject.com</div>
         </div>
         <a
           href="mailto:privacy@semseproject.com?subject=Solicitud%20de%20eliminaci%C3%B3n%20de%20datos&body=Hola%2C%20solicito%20la%20eliminaci%C3%B3n%20de%20mis%20datos%20personales.%0A%0ACorreo%20de%20cuenta%3A%20"
@@ -239,7 +239,7 @@ export default function DataDeletionPage() {
           justifyContent: "space-between",
         }}
       >
-        <Link href="/privacy" style={{ fontSize: 14, color: "#3b82f6", textDecoration: "none", fontWeight: 600 }}>
+        <Link href="/privacy" style={{ fontSize: 14, color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}>
           ← Política de Privacidad
         </Link>
         <Link href="/terms" style={{ fontSize: 14, color: "#64748b", textDecoration: "none" }}>

@@ -132,7 +132,7 @@ export default function ContractorRatesPage() {
       {/* Header */}
       <div style={{ ...card, display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ width: 42, height: 42, borderRadius: 14, background: "rgba(16,185,129,.15)", display: "grid", placeItems: "center" }}>
-          <BadgeDollarSign size={20} color="#10b981" />
+          <BadgeDollarSign size={20} color="var(--ok)" />
         </div>
         <div>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>Mis Tarifas</h1>
@@ -141,20 +141,20 @@ export default function ContractorRatesPage() {
           </p>
         </div>
         {status?.hasCustomRates && (
-          <span style={{ marginLeft: "auto", fontSize: 10, padding: "4px 10px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "#10b981", fontWeight: 800 }}>
+          <span style={{ marginLeft: "auto", fontSize: 10, padding: "4px 10px", borderRadius: 20, background: "rgba(16,185,129,.12)", color: "var(--ok)", fontWeight: 800 }}>
             Activas
           </span>
         )}
       </div>
 
       {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "#ef4444", fontSize: 13 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
           {error}
         </div>
       )}
 
       {saved && (
-        <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "#10b981", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "var(--ok)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
           <Check size={14} /> Tarifas guardadas. Se usarán en el estimado de cualquier trabajo que se te asigne a partir de ahora.
         </div>
       )}
@@ -218,7 +218,7 @@ export default function ContractorRatesPage() {
             suffix="%"
           />
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,.06)", fontSize: 12, color: "var(--ink)" }}>
-            Factor aplicado: <strong style={{ color: "#10b981" }}>{derivedMatMult}×</strong>
+            Factor aplicado: <strong style={{ color: "var(--ok)" }}>{derivedMatMult}×</strong>
             {" "}sobre el costo base de materiales BLS
           </div>
         </div>
@@ -250,7 +250,7 @@ export default function ContractorRatesPage() {
           disabled={saving || loading}
           style={{
             flex: 1, padding: "13px 24px", borderRadius: 12, border: "none",
-            background: saving ? "var(--border)" : "linear-gradient(135deg,#10b981,#059669)",
+            background: saving ? "var(--border)" : "linear-gradient(135deg,var(--ok),#059669)",
             color: "#fff", fontSize: 14, fontWeight: 800,
             cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,

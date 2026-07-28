@@ -133,7 +133,7 @@ export default function ClientReviewsPage() {
           ))}
         </div>
       ) : error ? (
-        <HtmlInCanvasPanel as="section" style={{ ...card, color: "#ef4444", background: "rgba(239,68,68,.06)", borderColor: "rgba(239,68,68,.2)" }} canvasClassName="rounded-2xl" minHeight={90}>
+        <HtmlInCanvasPanel as="section" style={{ ...card, color: "var(--error)", background: "rgba(239,68,68,.06)", borderColor: "rgba(239,68,68,.2)" }} canvasClassName="rounded-2xl" minHeight={90}>
           {error}
         </HtmlInCanvasPanel>
       ) : reviews.length === 0 ? (

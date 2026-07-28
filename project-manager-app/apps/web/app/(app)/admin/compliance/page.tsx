@@ -24,17 +24,17 @@ interface ComplianceItem {
 }
 
 const STATUS_MAP: Record<ComplianceStatus, { variant: "success" | "warning" | "error" | "info"; label: string; icon: ReactNode }> = {
-  compliant: { variant: "success", label: "Cumple",    icon: <CheckCircle size={15} color="#10b981" /> },
+  compliant: { variant: "success", label: "Cumple",    icon: <CheckCircle size={15} color="var(--ok)" /> },
   warning:   { variant: "warning", label: "Alerta",    icon: <AlertTriangle size={15} color="#fbbf24" /> },
-  violation: { variant: "error",   label: "Violación", icon: <AlertTriangle size={15} color="#ef4444" /> },
-  pending:   { variant: "info",    label: "Pendiente", icon: <Clock size={15} color="#3b82f6" /> },
+  violation: { variant: "error",   label: "Violación", icon: <AlertTriangle size={15} color="var(--error)" /> },
+  pending:   { variant: "info",    label: "Pendiente", icon: <Clock size={15} color="var(--brand)" /> },
 };
 
 const CAT_LABEL: Record<ComplianceCategory, string> = {
   legal: "Legal", license: "Licencia", insurance: "Seguro", escrow: "Escrow", data: "Datos",
 };
 const CAT_COLOR: Record<ComplianceCategory, string> = {
-  legal: "#8b5cf6", license: "#3b82f6", insurance: "#10b981", escrow: "#f59e0b", data: "#ec4899",
+  legal: "#8b5cf6", license: "var(--brand)", insurance: "var(--ok)", escrow: "#f59e0b", data: "#ec4899",
 };
 
 async function buildChecks(): Promise<ComplianceItem[]> {
@@ -185,7 +185,7 @@ export default function AdminCompliancePage() {
         title={t("page.compliance")}
         subtitle="Estado regulatorio y legal del ecosistema SEMSE"
         icon={Shield}
-        iconColor="#10b981"
+        iconColor="var(--ok)"
         iconBg="rgba(16,185,129,0.12)"
         panel
         actions={
@@ -206,9 +206,9 @@ export default function AdminCompliancePage() {
       {/* Score cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "12px", marginBottom: "20px" }}>
         <div style={{ ...card, padding: "16px", background: "rgba(16,185,129,.07)", borderColor: "rgba(16,185,129,.25)", display: "flex", alignItems: "center", gap: "12px" }}>
-          <Shield size={24} color="#10b981" />
+          <Shield size={24} color="var(--ok)" />
           <div>
-            <p style={{ fontSize: "24px", fontWeight: 900, color: "#10b981" }}>{loading ? "—" : compliant}</p>
+            <p style={{ fontSize: "24px", fontWeight: 900, color: "var(--ok)" }}>{loading ? "—" : compliant}</p>
             <p style={{ fontSize: "12px", color: "var(--muted)" }}>Controles en cumplimiento</p>
           </div>
         </div>

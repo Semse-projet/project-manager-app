@@ -116,7 +116,7 @@ export function EstimateModal({ lead, onClose, onCreated }: Props) {
                 href={getInvoicePdfUrl(createdInvoice.id, "estimate")}
                 target="_blank"
                 rel="noreferrer"
-                style={{ padding: "8px 18px", borderRadius: 8, background: "#3b82f6", color: "white", fontWeight: 700, fontSize: 13, textDecoration: "none" }}
+                style={{ padding: "8px 18px", borderRadius: 8, background: "var(--brand)", color: "white", fontWeight: 700, fontSize: 13, textDecoration: "none" }}
               >
                 Descargar PDF
               </a>
@@ -253,7 +253,7 @@ export function EstimateModal({ lead, onClose, onCreated }: Props) {
               <button
                 onClick={() => void handleCreate()}
                 disabled={creating || items.length === 0}
-                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: items.length === 0 ? "var(--border)" : "#3b82f6", color: items.length === 0 ? "var(--muted)" : "white", fontWeight: 700, fontSize: 13, cursor: creating || items.length === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: items.length === 0 ? "var(--border)" : "var(--brand)", color: items.length === 0 ? "var(--muted)" : "white", fontWeight: 700, fontSize: 13, cursor: creating || items.length === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}
               >
                 {creating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : null}
                 {creating ? "Creando..." : `Crear estimado${subtotal > 0 ? ` · $${subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : ""}`}

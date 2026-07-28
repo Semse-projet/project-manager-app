@@ -82,11 +82,11 @@ interface PanelAgent {
 }
 
 const PANEL_AGENT_FALLBACKS: Record<AgentId, Omit<PanelAgent, "id">> = {
-  assistant: { name: "Prometeo", emoji: "◈", color: "#3b82f6", desc: "Orquestador principal del ecosistema SEMSE" },
+  assistant: { name: "Prometeo", emoji: "◈", color: "var(--brand)", desc: "Orquestador principal del ecosistema SEMSE" },
   marta: { name: "Marta", emoji: "⚖", color: "#8b5cf6", desc: "Legal, cumplimiento y contratos" },
-  felix: { name: "Felix", emoji: "🔍", color: "#10b981", desc: "Evidencia, documentos y verificación" },
+  felix: { name: "Felix", emoji: "🔍", color: "var(--ok)", desc: "Evidencia, documentos y verificación" },
   pulse: { name: "Pulse", emoji: "📊", color: "#f97316", desc: "Métricas, salud operativa y actividad" },
-  justus: { name: "Justus", emoji: "⚡", color: "#ef4444", desc: "Pagos, escrow y disputas" },
+  justus: { name: "Justus", emoji: "⚡", color: "var(--error)", desc: "Pagos, escrow y disputas" },
   planner: { name: "Planner", emoji: "🗓", color: "#06b6d4", desc: "Agenda, hitos y próximos pasos" },
 };
 
@@ -337,7 +337,7 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
           <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
             {mission.steps.slice(0, 5).map((step) => (
               <div key={step.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "rgba(255,255,255,0.58)" }}>
-                <span style={{ width: 7, height: 7, borderRadius: 99, background: step.status === "completed" ? "#10b981" : step.status === "pending" ? "#f59e0b" : "rgba(255,255,255,0.25)" }} />
+                <span style={{ width: 7, height: 7, borderRadius: 99, background: step.status === "completed" ? "var(--ok)" : step.status === "pending" ? "#f59e0b" : "rgba(255,255,255,0.25)" }} />
                 <span>{step.label}</span>
               </div>
             ))}
@@ -1182,7 +1182,7 @@ export function AgentChatPanel() {
             <span style={{
               position: "absolute", top: -4, right: -4,
               width: 20, height: 20, borderRadius: "50%",
-              background: "#ef4444", color: "white",
+              background: "var(--error)", color: "white",
               fontSize: 10, fontWeight: 800,
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>

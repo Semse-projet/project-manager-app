@@ -24,8 +24,8 @@ interface DocRow {
 }
 
 const KIND_COLOR: Record<string, string> = {
-  PHOTO:    "#10b981",
-  VIDEO:    "#3b82f6",
+  PHOTO:    "var(--ok)",
+  VIDEO:    "var(--brand)",
   DOCUMENT: "#8b5cf6",
   CONTRACT: "#f59e0b",
 };
@@ -195,7 +195,7 @@ export default function ClientDocumentsPage() {
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "10px", marginBottom: "16px" }} canvasClassName="rounded-2xl" minHeight={108}>
         {[
           { label: "Archivos totales", value: String(docs.length), color: "var(--brand)" },
-          { label: "Con acceso directo", value: String(withDirectUrl), color: "#10b981" },
+          { label: "Con acceso directo", value: String(withDirectUrl), color: "var(--ok)" },
           { label: "Validados", value: String(approvedDocs), color: "#8b5cf6" },
         ].map((item) => (
           <div key={item.label} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px 16px" }}>
@@ -223,7 +223,7 @@ export default function ClientDocumentsPage() {
             ))}
           </div>
         ) : error ? (
-          <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: "13px" }}>
+          <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: "13px" }}>
             {error}
           </div>
         ) : filtered.length === 0 ? (
@@ -254,7 +254,7 @@ export default function ClientDocumentsPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px", flexWrap: "wrap" }}>
                       <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "320px" }}>{doc.name}</p>
                       <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: `${color}14`, color, fontWeight: 600 }}>{KIND_LABEL[doc.kind] ?? doc.kind}</span>
-                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: doc.accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: doc.accessMode === "direct" ? "#10b981" : "#64748b", fontWeight: 700 }}>
+                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: doc.accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: doc.accessMode === "direct" ? "var(--ok)" : "#64748b", fontWeight: 700 }}>
                         {doc.accessMode === "direct" ? "Acceso directo" : "Desde proyecto"}
                       </span>
                     </div>

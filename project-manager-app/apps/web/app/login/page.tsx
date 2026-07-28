@@ -25,14 +25,14 @@ const PRESETS = [
   {
     label: "Profesional",
     email: "worker@demo.semse",
-    color: "#10b981",
+    color: "var(--ok)",
     icon: "🪖",
     desc: "Field Ops · Time Tracker · Evidencia",
   },
   {
     label: "Cliente",
     email: "client@demo.semse",
-    color: "#3b82f6",
+    color: "var(--brand)",
     icon: "🏢",
     desc: "Publicar trabajos · Milestones · Pagos",
   },
@@ -124,7 +124,7 @@ export default function LoginPage() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -327,7 +327,7 @@ export default function LoginPage() {
                   borderRadius: "8px",
                   background: "rgba(239,68,68,.12)",
                   border: "1px solid rgba(239,68,68,.3)",
-                  color: "#ef4444",
+                  color: "var(--error)",
                   fontSize: "13px",
                   marginBottom: "16px",
                 }}
@@ -346,7 +346,7 @@ export default function LoginPage() {
                 border: "none",
                 background: loading
                   ? "var(--faint, #4b6280)"
-                  : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+                  : "linear-gradient(135deg, var(--brand), #8b5cf6)",
                 color: "#fff",
                 fontSize: "14px",
                 fontWeight: 700,

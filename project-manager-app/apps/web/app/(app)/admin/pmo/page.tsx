@@ -22,7 +22,7 @@ const LEVEL_CONFIG: Record<string, { color: string; bg: string; icon: typeof Ale
 };
 
 const RISK_COLOR: Record<string, string> = {
-  low: "#10b981", medium: "#fbbf24", high: "#fb923c", critical: "#f87171",
+  low: "var(--ok)", medium: "#fbbf24", high: "#fb923c", critical: "#f87171",
 };
 
 function fmt(n: number) {
@@ -131,7 +131,7 @@ function AlertFeed({ alerts }: { alerts: PmoAlert[] }) {
   if (alerts.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: 32, color: "var(--muted)", fontSize: 13 }}>
-        <CheckCircle size={32} color="#10b981" style={{ margin: "0 auto 12px", display: "block" }} />
+        <CheckCircle size={32} color="var(--ok)" style={{ margin: "0 auto 12px", display: "block" }} />
         Sin alertas críticas activas
       </div>
     );
@@ -266,7 +266,7 @@ export default function PmoPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
           <KpiCard label="Proyectos activos" value={dashboard.summary.activeProjects} sub={`de ${dashboard.summary.totalProjects} totales`} icon={Building2} />
           <KpiCard label="Escrow total" value={fmt(dashboard.summary.totalEscrow)} sub="en custodia" icon={DollarSign} color="#a78bfa" />
-          <KpiCard label="Por liberar" value={fmt(dashboard.summary.pendingRelease)} sub="elegibles" icon={TrendingUp} color="#10b981" />
+          <KpiCard label="Por liberar" value={fmt(dashboard.summary.pendingRelease)} sub="elegibles" icon={TrendingUp} color="var(--ok)" />
           <KpiCard label="En riesgo alto" value={dashboard.summary.highRiskProjects} sub="proyectos" icon={AlertTriangle} color="#fb923c" alert={dashboard.summary.highRiskProjects > 0} />
           <KpiCard label="Disputas abiertas" value={dashboard.summary.openDisputes} sub="requieren atención" icon={Shield} color="#f87171" alert={dashboard.summary.openDisputes > 0} />
           <KpiCard label="Alertas activas" value={dashboard.summary.totalAlerts} sub="del sistema" icon={Zap} color="#fbbf24" alert={dashboard.summary.totalAlerts > 3} />

@@ -17,7 +17,7 @@ interface EscrowFundModalProps {
 const PROVIDERS: { id: Provider; label: string; description: string; icon: typeof CreditCard; color: string }[] = [
   { id: "stripe",        label: "Stripe",         description: "Tarjeta de crédito/débito segura",     icon: CreditCard,  color: "#635bff" },
   { id: "paypal",        label: "PayPal",          description: "Cuenta PayPal o tarjeta vinculada",    icon: Globe,       color: "#003087" },
-  { id: "bank-transfer", label: "Transferencia",   description: "ACH / SEPA / transferencia bancaria",  icon: Building2,   color: "#10b981" },
+  { id: "bank-transfer", label: "Transferencia",   description: "ACH / SEPA / transferencia bancaria",  icon: Building2,   color: "var(--ok)" },
   { id: "adyen",         label: "Adyen",           description: "Pagos globales multi-canal",           icon: Wallet,      color: "#0abf53" },
   { id: "mock",          label: "Sandbox",         description: "Simulación para pruebas y desarrollo", icon: CheckCircle, color: "#8b5cf6" },
 ];
@@ -99,7 +99,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
   if (step === "success") return (
     <div style={overlay}>
       <div style={{ ...modal, padding: "48px 32px", textAlign: "center" }}>
-        <CheckCircle size={48} color="#10b981" style={{ margin: "0 auto 16px" }} />
+        <CheckCircle size={48} color="var(--ok)" style={{ margin: "0 auto 16px" }} />
         <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>¡Escrow fondeado!</h2>
         <p style={{ fontSize: "13px", color: "var(--muted)" }}>${parseFloat(amount).toLocaleString()} {currency} procesados via {selectedProvider.label}.</p>
         <p style={{ fontSize: "12px", color: "var(--faint)", marginTop: "6px" }}>El profesional puede comenzar el trabajo.</p>
@@ -124,8 +124,8 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
         <div style={{ padding: "20px 24px 24px" }}>
           {step === "error" && (
             <div style={{ padding: "12px 14px", borderRadius: "10px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <AlertTriangle size={14} color="#ef4444" />
-              <p style={{ fontSize: "13px", color: "#ef4444" }}>{errMsg}</p>
+              <AlertTriangle size={14} color="var(--error)" />
+              <p style={{ fontSize: "13px", color: "var(--error)" }}>{errMsg}</p>
             </div>
           )}
 
@@ -208,14 +208,14 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
 
               {/* Security note */}
               <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "9px", background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.15)" }}>
-                <Lock size={12} color="#10b981" style={{ flexShrink: 0 }} />
+                <Lock size={12} color="var(--ok)" style={{ flexShrink: 0 }} />
                 <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.5 }}>
                   Los fondos quedan retenidos en escrow hasta que apruebes el trabajo. No se liberan sin tu autorización.
                 </p>
               </div>
 
               {errMsg && step === "form" && (
-                <p style={{ fontSize: "12px", color: "#ef4444" }}>{errMsg}</p>
+                <p style={{ fontSize: "12px", color: "var(--error)" }}>{errMsg}</p>
               )}
 
               <button data-testid="escrow-fund-continue" onClick={handleSubmit} style={{ padding: "12px", borderRadius: "10px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "14px", fontWeight: 700, cursor: "pointer" }}>
@@ -244,7 +244,7 @@ export function EscrowFundModal({ jobId, jobTitle, suggestedAmount, onClose, onS
                 <button data-testid="escrow-fund-back" onClick={() => setStep("form")} style={{ padding: "11px", borderRadius: "10px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>
                   ← Volver
                 </button>
-                <button data-testid="escrow-fund-confirm" onClick={handleConfirm} disabled={loading} style={{ padding: "11px", borderRadius: "10px", border: "none", background: loading ? "var(--muted)" : "#10b981", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
+                <button data-testid="escrow-fund-confirm" onClick={handleConfirm} disabled={loading} style={{ padding: "11px", borderRadius: "10px", border: "none", background: loading ? "var(--muted)" : "var(--ok)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
                   {loading ? "Procesando..." : "✓ Confirmar pago"}
                 </button>
               </div>

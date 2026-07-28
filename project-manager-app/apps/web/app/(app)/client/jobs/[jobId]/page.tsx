@@ -52,14 +52,14 @@ type PreferredProfessional = NonNullable<JobRecordView["preferredProfessional"]>
 
 const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: "Borrador", color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  posted: { label: "Publicado", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
-  published: { label: "Publicado", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  posted: { label: "Publicado", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
+  published: { label: "Publicado", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   reserved: { label: "Reservado", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   accepted: { label: "Aceptado", color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
   in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)" },
   review: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  dispute: { label: "En disputa", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
-  completed: { label: "Completado", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  dispute: { label: "En disputa", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
+  completed: { label: "Completado", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   awarded: { label: "Adjudicado", color: "#6366f1", bg: "rgba(99,102,241,.12)" },
   cancelled: { label: "Cancelado", color: "#64748b", bg: "rgba(100,116,139,.12)" }
 };
@@ -68,23 +68,23 @@ const MILESTONE_STATUS_META: Record<string, { label: string; color: string; bg: 
   DRAFT: { label: "Borrador", color: "#64748b", bg: "rgba(100,116,139,.12)" },
   AWAITING_REVIEW: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   SUBMITTED: { label: "Enviado", color: "#06b6d4", bg: "rgba(6,182,212,.12)" },
-  APPROVED: { label: "Aprobado", color: "#10b981", bg: "rgba(16,185,129,.12)" },
-  REJECTED: { label: "Rechazado", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
+  APPROVED: { label: "Aprobado", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
+  REJECTED: { label: "Rechazado", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
   PAID: { label: "Pagado", color: "#22c55e", bg: "rgba(34,197,94,.12)" }
 };
 
 const PAYMENT_TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
   DEPOSIT: { label: "Depósito", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
-  RELEASE: { label: "Liberación", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  RELEASE: { label: "Liberación", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   HOLDBACK: { label: "Retención", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   FEE: { label: "Fee", color: "#8b5cf6", bg: "rgba(139,92,246,.12)" },
-  REFUND: { label: "Reembolso", color: "#ef4444", bg: "rgba(239,68,68,.12)" }
+  REFUND: { label: "Reembolso", color: "var(--error)", bg: "rgba(239,68,68,.12)" }
 };
 
 const BID_STATUS_META: Record<BidView["status"], { label: string; color: string; bg: string }> = {
-  submitted: { label: "Enviada", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
-  accepted: { label: "Aceptada", color: "#10b981", bg: "rgba(16,185,129,.12)" },
-  rejected: { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
+  submitted: { label: "Enviada", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
+  accepted: { label: "Aceptada", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
+  rejected: { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
   withdrawn: { label: "Retirada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
 };
 
@@ -462,12 +462,12 @@ export default function ClientJobDetailPage() {
     published:   { label: "Esperando candidatos", detail: "El trabajo está publicado. Revisa propuestas cuando lleguen.", tone: "#60a5fa" },
     reserved:    { label: "Acepta o rechaza la reserva", detail: "Un profesional reservó el trabajo. Acepta para avanzar o libera la reserva.", tone: "#fbbf24" },
     accepted:    escrowStatus === "FUNDED" || escrowStatus === "ACTIVE"
-      ? { label: "Escrow fondeado — esperando al profesional", detail: "Los fondos ya están protegidos. El profesional puede iniciar el trabajo en cualquier momento.", tone: "#10b981" }
+      ? { label: "Escrow fondeado — esperando al profesional", detail: "Los fondos ya están protegidos. El profesional puede iniciar el trabajo en cualquier momento.", tone: "var(--ok)" }
       : { label: "Fondea el escrow", detail: "El trabajo fue aceptado. Fondea el escrow para que el profesional pueda comenzar.", tone: "#f59e0b" },
     in_progress: { label: "Revisa el avance", detail: "El profesional está trabajando. Revisa milestones y evidencia.", tone: "#06b6d4" },
     review:      { label: "Aprueba o pide cambios", detail: "El profesional envió para revisión. Aprueba el milestone o solicita cambios.", tone: "#8b5cf6" },
-    dispute:     { label: "Disputa activa", detail: "Hay una disputa abierta. El equipo de ops está revisando. Puedes aportar evidencia.", tone: "#ef4444" },
-    completed:   { label: "Trabajo completado", detail: "El trabajo se cerró correctamente. Puedes dejar una calificación.", tone: "#10b981" },
+    dispute:     { label: "Disputa activa", detail: "Hay una disputa abierta. El equipo de ops está revisando. Puedes aportar evidencia.", tone: "var(--error)" },
+    completed:   { label: "Trabajo completado", detail: "El trabajo se cerró correctamente. Puedes dejar una calificación.", tone: "var(--ok)" },
     cancelled:   { label: "Trabajo cancelado", detail: "Este trabajo fue cancelado.", tone: "#64748b" }
   };
   const nextActionGuide = job ? (JOB_NEXT_ACTION[normalizedJobStatus] ?? null) : null;
@@ -547,7 +547,7 @@ export default function ClientJobDetailPage() {
           ))}
         </div>
       ) : error ? (
-        <div style={{ padding: "18px 20px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: "14px", color: "#ef4444", fontSize: "13px" }}>
+        <div style={{ padding: "18px 20px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: "14px", color: "var(--error)", fontSize: "13px" }}>
           {error}
         </div>
       ) : (
@@ -573,7 +573,7 @@ export default function ClientJobDetailPage() {
                   <div style={{ marginTop: 10 }}>
                     <Link
                       href={clientDisputesHref({ status: "open" })}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 11px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       Abrir panel de disputas
                     </Link>
@@ -583,7 +583,7 @@ export default function ClientJobDetailPage() {
                   <div style={{ marginTop: 10 }}>
                     <Link
                       href={`/client/jobs/${jobId}/rate`}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.1)", color: "#10b981", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(16,185,129,.35)", background: "rgba(16,185,129,.1)", color: "var(--ok)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       ⭐ Calificar al profesional
                     </Link>
@@ -690,14 +690,14 @@ export default function ClientJobDetailPage() {
                         ) : null}
 
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", flexWrap: "wrap", marginTop: "12px" }}>
-                          <span style={{ fontSize: "11px", color: isAccepted ? "#10b981" : "var(--faint)" }}>
+                          <span style={{ fontSize: "11px", color: isAccepted ? "var(--ok)" : "var(--faint)" }}>
                             {isAccepted ? "Este profesional quedó adjudicado al trabajo." : acceptedBid ? "Ya hay una propuesta aceptada." : "Lista para decisión del cliente."}
                           </span>
                           {isActionable ? (
                             <button
                               onClick={() => void handleAcceptBid(bid)}
                               disabled={isBusy}
-                              style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "#10b981", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: isBusy ? "wait" : "pointer", opacity: isBusy ? 0.75 : 1 }}
+                              style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "var(--ok)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: isBusy ? "wait" : "pointer", opacity: isBusy ? 0.75 : 1 }}
                             >
                               {isBusy ? "Aceptando..." : "Aceptar propuesta"}
                             </button>
@@ -743,10 +743,10 @@ export default function ClientJobDetailPage() {
                   {asString(job?.urgency) ?? "normal"} · abrir contexto →
                 </div>
               </button>
-              <button type="button" onClick={() => setActiveInsight("evidence")} style={summaryButtonStyle("#10b981")} onMouseOver={e => { e.currentTarget.style.borderColor = "#10b981"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(16,185,129,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
+              <button type="button" onClick={() => setActiveInsight("evidence")} style={summaryButtonStyle("var(--ok)")} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--ok)"; e.currentTarget.style.boxShadow = "0 2px 8px rgba(16,185,129,.1)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.boxShadow = ""; }}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Evidencias</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>{evidence.length}</div>
-                <div style={{ fontSize: "11px", color: "#10b981", marginTop: "4px" }}>
+                <div style={{ fontSize: "11px", color: "var(--ok)", marginTop: "4px" }}>
                   {(asString(job?.location) ?? asString(job?.city)) ? `${asString(job?.city) ?? asString(job?.location)} · ` : ""}abrir contexto →
                 </div>
               </button>
@@ -778,7 +778,7 @@ export default function ClientJobDetailPage() {
                 </button>
               </div>
               {rateEstimateError ? (
-                <p style={{ fontSize: "12px", color: "#ef4444", margin: "0 0 8px" }}>{rateEstimateError}</p>
+                <p style={{ fontSize: "12px", color: "var(--error)", margin: "0 0 8px" }}>{rateEstimateError}</p>
               ) : null}
               {rateAdjustedEstimate ? (
                 <div>
@@ -969,7 +969,7 @@ export default function ClientJobDetailPage() {
                             <button
                               onClick={() => void handleMilestoneAction(milestoneId, "approve")}
                               disabled={isBusy}
-                              style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "#10b981", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+                              style={{ padding: "8px 12px", borderRadius: "8px", border: "none", background: "var(--ok)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
                             >
                               Aprobar
                             </button>
@@ -1052,7 +1052,7 @@ export default function ClientJobDetailPage() {
                         <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
                           {key}
                         </div>
-                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: accessMode === "direct" ? "#10b981" : "#64748b", fontWeight: 700 }}>
+                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: accessMode === "direct" ? "var(--ok)" : "#64748b", fontWeight: 700 }}>
                           {accessMode === "direct" ? "Acceso directo" : "Desde proyecto"}
                         </span>
                       </div>
@@ -1288,7 +1288,7 @@ export default function ClientJobDetailPage() {
         onClose={() => setActiveInsight(null)}
         title="Evidencias y respaldo"
         subtitle="Estado de archivos, última captura y si tienes material suficiente para aprobar con menos fricción."
-        tone="#10b981"
+        tone="var(--ok)"
       >
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}>
           {[
@@ -1349,7 +1349,7 @@ export default function ClientJobDetailPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <button onClick={() => scrollToSection("evidence-section")} style={{ padding: "9px 12px", borderRadius: "10px", border: "none", background: "#10b981", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
+          <button onClick={() => scrollToSection("evidence-section")} style={{ padding: "9px 12px", borderRadius: "10px", border: "none", background: "var(--ok)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}>
             Ir al bloque evidencias
           </button>
           <Link href={CLIENT_ROUTES.documents} style={{ padding: "9px 12px", borderRadius: "10px", border: "1px solid var(--border)", background: "transparent", color: "var(--ink)", fontSize: "12px", fontWeight: 700, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>

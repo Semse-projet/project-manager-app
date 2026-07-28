@@ -245,10 +245,10 @@ function trackerHistoryFileLabel(range: TrackerHistoryRange, target: string) {
 }
 
 const ENTRY_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  running: { label: "Corriendo", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  running: { label: "Corriendo", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   paused: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   completed: { label: "Completada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  pending_review: { label: "En revisión", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  pending_review: { label: "En revisión", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   approved: { label: "Aprobada", color: "#059669", bg: "rgba(5,150,105,.12)" },
 };
 
@@ -1113,7 +1113,7 @@ export default function WorkerTrackerPage() {
                     width: "7px",
                     height: "7px",
                     borderRadius: "999px",
-                    background: activeEntry.status === "running" ? "#10b981" : "#f59e0b",
+                    background: activeEntry.status === "running" ? "var(--ok)" : "#f59e0b",
                     boxShadow: activeEntry.status === "running" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
                   }}
                 />
@@ -1356,7 +1356,7 @@ export default function WorkerTrackerPage() {
               data-testid="tracker-start-button"
               onClick={() => void handleStart()}
               disabled={startDisabled}
-              style={primaryButton("#10b981", startDisabled)}
+              style={primaryButton("var(--ok)", startDisabled)}
             >
               <Play size={16} fill="#fff" /> {saving ? "Iniciando..." : "Iniciar"}
             </button>
@@ -1384,7 +1384,7 @@ export default function WorkerTrackerPage() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
-        <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="#10b981" />
+        <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="var(--ok)" />
         <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="#8b5cf6" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
       </div>
@@ -1484,7 +1484,7 @@ export default function WorkerTrackerPage() {
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px" }}>
                 <MiniStat label="Estado job" value={currentJob?.status ?? "—"} icon={<Clock size={14} color="var(--brand)" />} />
-                <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="#10b981" />} />
+                <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="var(--ok)" />} />
                 <MiniStat label="Fondeado" value={formatMoney(fundedAmount)} icon={<Receipt size={14} color="var(--accent)" />} />
               </div>
 
@@ -1568,7 +1568,7 @@ export default function WorkerTrackerPage() {
                 Descanso (minutos)
                 <input value={manualBreak} onChange={(event) => setManualBreak(event.target.value)} type="number" min="0" step="5" style={inputStyle()} />
               </label>
-              <p style={{ fontSize: "12px", color: manualPreviewSeconds === null ? "#ef4444" : "var(--muted)", margin: 0 }}>
+              <p style={{ fontSize: "12px", color: manualPreviewSeconds === null ? "var(--error)" : "var(--muted)", margin: 0 }}>
                 Duración neta: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
@@ -1589,7 +1589,7 @@ export default function WorkerTrackerPage() {
 
           <div style={{ marginTop: "16px", display: "grid", gap: "8px" }}>
             <MiniStat label="Pagos" value={String(payments.length)} icon={<Receipt size={14} color="var(--brand)" />} />
-            <MiniStat label="Contrato" value={contract ? "Disponible" : "Sin contrato"} icon={<ShieldCheck size={14} color="#10b981" />} />
+            <MiniStat label="Contrato" value={contract ? "Disponible" : "Sin contrato"} icon={<ShieldCheck size={14} color="var(--ok)" />} />
           </div>
         </div>
       </div>
@@ -1697,7 +1697,7 @@ export default function WorkerTrackerPage() {
               {loading ? "Cargando tracker..." : "Cargando historial..."}
             </div>
           ) : error ? (
-            <div style={{ ...card, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
+            <div style={{ ...card, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
               {error}
             </div>
           ) : entries.length === 0 ? (
@@ -1821,7 +1821,7 @@ function dangerButton(): CSSProperties {
     borderRadius: "10px",
     background: "#ef444415",
     border: "1px solid #ef444430",
-    color: "#ef4444",
+    color: "var(--error)",
     fontSize: "14px",
     fontWeight: 600,
     cursor: "pointer",
