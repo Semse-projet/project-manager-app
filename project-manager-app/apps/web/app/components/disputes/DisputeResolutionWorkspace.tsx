@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, Bot, CheckCircle2, DollarSign, Eye, FileArchive, FileText, ImageIcon, MessageSquare, RefreshCw, Send, ShieldAlert, UploadCloud, Video, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Bot, CheckCircle2, DollarSign, Eye, FileArchive, FileText, ImageIcon, MessageSquare, RefreshCw, Send, ShieldAlert, Video, Wallet } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchAgentApproval,
   fetchPendingApprovals,
   decideAgentApproval,
-  completeMultipartUploadSession,
-  createMultipartUploadSession,
   fetchJobEvidence,
   fetchJobMilestones,
   fetchDisputeComments,
@@ -18,10 +16,15 @@ import {
   registerJobEvidence,
   releaseMilestoneEscrow,
   runProjectCopilot,
-  uploadMultipartPart,
   type AgentApprovalItem,
   type DisputeComment
 } from "../../semse-api";
+
+function mimeToEvidenceKind(mime: string): "PHOTO" | "VIDEO" | "DOCUMENT" {
+  if (mime.startsWith("image/")) return "PHOTO";
+  if (mime.startsWith("video/")) return "VIDEO";
+  return "DOCUMENT";
+}
 
 type DisputeWorkspaceRow = {
   id: string;
@@ -43,18 +46,6 @@ type UploadPlanView = Record<string, unknown> & {
     recommendedPartCount?: number;
     requiresOutOfBandTransfer?: boolean;
   } | null;
-};
-
-type MultipartSessionView = UploadPlanView & {
-  sessionId?: string;
-  provider?: string;
-  expiresAt?: string;
-  parts?: Array<{
-    partNumber?: number;
-    startByte?: number;
-    endByte?: number;
-    uploadUrl?: string;
-  }>;
 };
 
 type EvidenceView = Record<string, unknown>;
@@ -168,13 +159,9 @@ export function DisputeResolutionWorkspace({
   const [copilotMessage, setCopilotMessage] = useState<string | null>(null);
   const [escalationBusy, setEscalationBusy] = useState(false);
   const [escalationMessage, setEscalationMessage] = useState<string | null>(null);
-  const [uploadName, setUploadName] = useState("dispute-evidence-bundle.zip");
-  const [uploadSizeMb, setUploadSizeMb] = useState("12");
+  const [packageFile, setPackageFile] = useState<File | null>(null);
   const [planningUpload, setPlanningUpload] = useState(false);
   const [uploadPlan, setUploadPlan] = useState<UploadPlanView | null>(null);
-  const [multipartSession, setMultipartSession] = useState<MultipartSessionView | null>(null);
-  const [multipartProgress, setMultipartProgress] = useState<Record<number, "pending" | "uploading" | "uploaded">>({});
-  const [completingMultipart, setCompletingMultipart] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [approvalSummary, setApprovalSummary] = useState<string | null>(null);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
@@ -447,76 +434,57 @@ export function DisputeResolutionWorkspace({
     }
   }
 
-  async function handlePlanAttachment() {
+  // Real upload, mirroring the pattern already fixed for /worker/evidence and
+  // /worker/travel (0.34): plan → PUT the actual file bytes to the presigned
+  // key → register it as real job evidence. The previous version declared a
+  // filename/size by hand and never sent any bytes at all — for files over
+  // the single-PUT limit it even "completed" a fake multipart session with
+  // fabricated etags. There is no working large-file upload path server-side
+  // yet, so that case fails clearly here instead of pretending to succeed.
+  async function handleUploadEvidencePackage() {
+    if (!packageFile || !dispute.jobId || planningUpload) return;
     setPlanningUpload(true);
     setUploadMessage(null);
     try {
-      const sizeMb = Math.max(1, Number(uploadSizeMb || "0"));
-      const filename = uploadName.trim() || "dispute-evidence-bundle.zip";
-      const result = (await planUpload({
+      const file = packageFile;
+      const contentType = file.type || "application/octet-stream";
+      const plan = (await planUpload({
         domain: "dispute",
-        filename,
-        contentType: /\.zip$/i.test(filename) ? "application/zip" : "application/pdf",
-        fileSizeBytes: sizeMb * 1024 * 1024,
-        source: sizeMb > 25 ? "external_transfer" : "local_device"
+        filename: file.name,
+        contentType,
+        fileSizeBytes: file.size,
+        source: "local_device"
       })) as UploadPlanView;
-      setUploadPlan(result);
+      setUploadPlan(plan);
 
-      if (result.recommendedStrategy === "external_transfer") {
-        const session = (await createMultipartUploadSession({
-          domain: "dispute",
-          filename,
-          contentType: /\.zip$/i.test(filename) ? "application/zip" : "application/pdf",
-          fileSizeBytes: sizeMb * 1024 * 1024,
-          source: "external_transfer"
-        })) as MultipartSessionView;
-        setMultipartSession(session);
-        setMultipartProgress(
-          Object.fromEntries((session.parts ?? []).map((part, index) => [part.partNumber ?? index + 1, "pending"]))
-        );
-      } else {
-        setMultipartSession(null);
-        setMultipartProgress({});
+      const key = String(plan.key ?? "");
+      if (plan.recommendedStrategy === "external_transfer" || !key) {
+        throw new Error(`"${file.name}" es demasiado grande para subir aquí todavía (límite temporal ~25MB). Usa un archivo más pequeño o divídelo.`);
       }
+
+      const uploadRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
+        method: "PUT",
+        headers: { "content-type": contentType, "content-length": String(file.size) },
+        body: file
+      });
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => "");
+        throw new Error(`No se pudo subir "${file.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
+      }
+
+      await registerJobEvidence(dispute.jobId, {
+        key,
+        kind: mimeToEvidenceKind(contentType),
+        filename: file.name
+      });
+
+      setUploadMessage(`"${file.name}" se subió y quedó registrado como evidencia del trabajo.`);
+      setPackageFile(null);
+      await refreshEvidenceContext();
     } catch (error) {
-      setUploadMessage(error instanceof Error ? error.message : "No se pudo planificar el paquete.");
-      setMultipartSession(null);
-      setMultipartProgress({});
+      setUploadMessage(error instanceof Error ? error.message : "No se pudo subir el paquete de evidencia.");
     } finally {
       setPlanningUpload(false);
-    }
-  }
-
-  async function handleCompleteMultipart() {
-    if (!multipartSession?.sessionId || !multipartSession.parts?.length || completingMultipart) return;
-    setCompletingMultipart(true);
-    setUploadMessage(null);
-    try {
-      for (const [index, part] of multipartSession.parts.entries()) {
-        const partNumber = part.partNumber ?? index + 1;
-        const bytes = typeof part.endByte === "number" && typeof part.startByte === "number"
-          ? Math.max(1, part.endByte - part.startByte + 1)
-          : 1024 * 1024;
-        setMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        await uploadMultipartPart({
-          sessionId: multipartSession.sessionId,
-          partNumber,
-          contentLength: bytes
-        });
-        setMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
-      }
-      await completeMultipartUploadSession({
-        sessionId: multipartSession.sessionId,
-        parts: multipartSession.parts.map((part, index) => ({
-          partNumber: part.partNumber ?? index + 1,
-          etag: `etag-part-${part.partNumber ?? index + 1}`
-        }))
-      });
-      setUploadMessage("Sesión multipart completada. Ya tienes el paquete listo para compartir con ops o adjuntar en siguiente paso.");
-    } catch (error) {
-      setUploadMessage(error instanceof Error ? error.message : "No se pudo completar la sesión multipart.");
-    } finally {
-      setCompletingMultipart(false);
     }
   }
 
@@ -811,66 +779,28 @@ export function DisputeResolutionWorkspace({
             <strong style={{ fontSize: 14, color: "var(--ink)" }}>Paquete de evidencia</strong>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
-            Prepara un bundle de disputa para compartir pruebas, documentos o exportes grandes. Si el paquete es pesado, el sistema te guía hacia transferencia multipart.
+            Sube un archivo real (foto, documento o export) como evidencia de esta disputa — queda registrado en el trabajo vinculado.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px auto", gap: 10, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center" }}>
             <input
-              value={uploadName}
-              onChange={(event) => setUploadName(event.target.value)}
-              placeholder="dispute-evidence-bundle.zip"
-              style={{ height: 40, borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", padding: "0 12px", fontSize: 13 }}
-            />
-            <input
-              value={uploadSizeMb}
-              onChange={(event) => setUploadSizeMb(event.target.value)}
-              placeholder="12"
-              style={{ height: 40, borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", padding: "0 12px", fontSize: 13 }}
+              type="file"
+              onChange={(event) => setPackageFile(event.target.files?.[0] ?? null)}
+              style={{ fontSize: 13, color: "var(--ink)" }}
             />
             <button
-              onClick={() => void handlePlanAttachment()}
-              disabled={planningUpload}
+              onClick={() => void handleUploadEvidencePackage()}
+              disabled={planningUpload || !packageFile || !dispute.jobId}
               style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--ink)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
             >
-              {planningUpload ? "Planeando..." : "Preparar paquete"}
+              {planningUpload ? "Subiendo..." : "Subir evidencia"}
             </button>
           </div>
-          {uploadPlan ? (
-            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", display: "grid", gap: 4, fontSize: 12 }}>
-              <div style={{ fontWeight: 700, color: "#f59e0b" }}>
-                Estrategia: {String(uploadPlan.recommendedStrategy ?? "single_put")}
-              </div>
-              <div style={{ color: "var(--ink)" }}>{String(uploadPlan.uploadGuidance ?? "Sin guía adicional.")}</div>
-              {typeof uploadPlan.maxSingleUploadBytes === "number" ? (
-                <div style={{ color: "var(--muted)" }}>
-                  Límite sugerido por subida simple: {Math.round(uploadPlan.maxSingleUploadBytes / (1024 * 1024))} MB
-                </div>
-              ) : null}
-            </div>
+          {!dispute.jobId ? (
+            <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>Esta disputa no tiene un trabajo vinculado — no se puede registrar evidencia aquí.</p>
           ) : null}
-          {multipartSession?.sessionId ? (
-            <div style={{ display: "grid", gap: 8, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(16,185,129,.22)", background: "rgba(16,185,129,.08)" }}>
-              <div style={{ fontSize: 12, color: "var(--ink)" }}>
-                Sesión multipart: <code>{multipartSession.sessionId}</code>
-              </div>
-              <div style={{ display: "grid", gap: 4, fontSize: 11, color: "var(--muted)" }}>
-                {(multipartSession.parts ?? []).slice(0, 4).map((part, index) => {
-                  const partNumber = part.partNumber ?? index + 1;
-                  return (
-                    <div key={partNumber}>
-                      Parte {partNumber}: {multipartProgress[partNumber] ?? "pending"}
-                    </div>
-                  );
-                })}
-                {(multipartSession.parts?.length ?? 0) > 4 ? <div>... y más partes</div> : null}
-              </div>
-              <button
-                onClick={() => void handleCompleteMultipart()}
-                disabled={completingMultipart}
-                style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.10)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-              >
-                {completingMultipart ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <UploadCloud size={13} />}
-                {completingMultipart ? "Completando..." : "Completar sesión multipart"}
-              </button>
+          {uploadPlan?.recommendedStrategy === "external_transfer" ? (
+            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", fontSize: 12, color: "#f59e0b" }}>
+              Archivos grandes (transferencia externa) todavía no tienen una ruta de subida real — usa un archivo más chico por ahora.
             </div>
           ) : null}
           {uploadMessage ? (

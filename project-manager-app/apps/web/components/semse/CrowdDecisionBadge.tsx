@@ -56,7 +56,6 @@ export function CrowdDecisionBadge({
       {decision.blockers.length > 0 && (
         <span style={{ color: "var(--muted)", fontSize: 9 }}>({decision.blockers.length} bloq.)</span>
       )}
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

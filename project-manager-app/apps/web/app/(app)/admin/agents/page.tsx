@@ -412,7 +412,6 @@ export default function AgentsPage() {
       <PlaygroundSection />
 
       <style>{`
-        @keyframes spin  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
       `}</style>
     </div>

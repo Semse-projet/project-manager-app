@@ -5,8 +5,11 @@
  *    _prisma_migrations, marca las migraciones existentes como aplicadas via
  *    SQL directo + checksums, y sincroniza con prisma db push. Si SI hay
  *    historial no se baseliza nada: las no registradas son pendientes.
- * 2. Deduplica filas que violarian constraints unicos.
- * 3. Aplica las migraciones pendientes con prisma migrate deploy.
+ * 2. Repara migraciones fantasma: registradas como aplicadas por el bug
+ *    anterior a #447, pero sin ejecutar su SQL. Las reabre para que el paso 4
+ *    las aplique de verdad.
+ * 3. Deduplica filas que violarian constraints unicos.
+ * 4. Aplica las migraciones pendientes con prisma migrate deploy.
  *
  * El paso 3 es la unica via por la que el SQL de una migracion se ejecuta en
  * produccion. Antes no existia, y el paso 1 marcaba como aplicada cualquier
@@ -175,6 +178,81 @@ async function baselineIfNeeded() {
 }
 
 // ---------------------------------------------------------------------------
+// Reparar migraciones fantasma
+// ---------------------------------------------------------------------------
+//
+// Antes de #447, cualquier migracion nueva no registrada se marcaba como
+// aplicada en `_prisma_migrations` SIN ejecutar su SQL (ver baselineIfNeeded
+// pre-#447). Eso dejo migraciones fantasma: registradas como hechas, pero su
+// tabla o columna nunca se creo. `migrate deploy` las ve "ya aplicadas" y las
+// salta para siempre, asi que el bug no se autocorrige solo con el fix del
+// mecanismo.
+//
+// Detectados en produccion via error de runtime real (Prisma reportando
+// "column/table does not exist"), no por sospecha:
+//   - TimeEntry.clientEventId ausente -> /worker/tracker no puede
+//     iniciar/leer el timer (LaborEngineService.startTimer, getActiveTimer,
+//     listEntries tocan TimeEntry entero, asi que Prisma siempre selecciona
+//     la columna fantasma).
+//   - TenantSettings ausente -> /admin/settings tira 500 en cada carga.
+//
+// Cada entrada verifica por introspeccion real (information_schema) si el
+// efecto de la migracion existe. Si no, borra su fila de _prisma_migrations
+// para que el migrate deploy de mas abajo la aplique de verdad. Es una lista
+// explicita y revisada a mano -no un parser generico de SQL- para no
+// arriesgar falsos positivos sobre las otras ~70 migraciones del repo. Sirve
+// como red permanente: cualquier migracion que caiga en el mismo patron en el
+// futuro se autorepara en el siguiente arranque en vez de quedar fantasma
+// para siempre.
+const PHANTOM_MIGRATION_CHECKS = [
+  {
+    migration: "20260722010000_time_entry_client_idempotency",
+    describe: "columna TimeEntry.clientEventId",
+    exists: async () => {
+      const rows = await prisma.$queryRaw`
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'TimeEntry' AND column_name = 'clientEventId'
+      `;
+      return rows.length > 0;
+    },
+  },
+  {
+    migration: "20260723000000_tenant_settings",
+    describe: "tabla TenantSettings",
+    exists: async () => {
+      const rows = await prisma.$queryRaw`
+        SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'TenantSettings'
+      `;
+      return rows.length > 0;
+    },
+  },
+];
+
+async function repairPhantomMigrations() {
+  const dbRows = await prisma.$queryRaw`SELECT migration_name FROM "_prisma_migrations"`;
+  const recorded = new Set(dbRows.map((r) => r.migration_name));
+
+  for (const check of PHANTOM_MIGRATION_CHECKS) {
+    if (!recorded.has(check.migration)) continue; // pendiente de verdad, migrate deploy ya la aplicara
+
+    const present = await check.exists().catch((err) => {
+      console.warn(`  [pre-migrate] warn: no se pudo verificar ${check.describe}:`, err?.message ?? err);
+      return true; // ante la duda, no tocar el registro
+    });
+
+    if (!present) {
+      console.warn(
+        `  [pre-migrate] ⚠ migracion fantasma detectada: ${check.migration} registrada como aplicada, pero falta ${check.describe} — reabriendo`,
+      );
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM "_prisma_migrations" WHERE migration_name = $1`,
+        check.migration,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Dedup rows that would block unique-constraint migrations
 // ---------------------------------------------------------------------------
 
@@ -258,6 +336,12 @@ try {
   process.exit(1); // Fail loudly — do not proceed to migrate deploy
 }
 clearTimeout(hangTimer);
+
+try {
+  await repairPhantomMigrations();
+} catch (err) {
+  console.warn("[pre-migrate] warn: repair de migraciones fantasma fallo:", err?.message ?? err);
+}
 
 try {
   await runDedup();
