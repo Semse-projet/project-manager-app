@@ -134,6 +134,7 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       // ── Modules ───────────────────────────────────────────────────────────
       { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity,        section: "section.modules" },
       { labelKey: "nav.workops",        href: "/admin/workops",          icon: Wrench },
+      { labelKey: "nav.laborEngine",    href: "/admin/labor-engine",     icon: Clock },
       { labelKey: "nav.marketplace",    href: "/admin/marketplace",      icon: Store },
       { labelKey: "nav.finance",        href: "/admin/finance",          icon: DollarSign },
       { labelKey: "nav.trust",          href: "/admin/trust",            icon: ShieldCheck },
