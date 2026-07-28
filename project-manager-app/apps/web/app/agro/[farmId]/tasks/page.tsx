@@ -1,14 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Play, CheckCircle2, Ban, XCircle, CheckSquare, ChevronRight } from "lucide-react";
 import { farmTabs } from "../farm-tabs";
+import { useAgroSync } from "../../AgroSyncProvider";
+import { AgroSyncHttpError, shouldPreserveAgroLocalEvent } from "../../agroSyncUi";
+import type { AgroPendingEvent } from "../../agroLocalStore";
 
 interface Task {
   id: string; title: string; type: string; status: string;
   priority: string; dueAt?: string; assignedToId?: string; blockReason?: string;
+  /** true si esta fila refleja un evento que aun no confirmo el servidor. */
+  pendingSync?: boolean;
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -32,6 +37,7 @@ const FILTERS     = ["ALL","PENDING","IN_PROGRESS","BLOCKED","COMPLETED","CANCEL
 export default function TasksPage() {
   const { farmId }  = useParams<{ farmId: string }>();
   const pathname    = usePathname();
+  const { state: syncState, enqueue } = useAgroSync();
   const [tasks, setTasks]     = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
@@ -60,22 +66,71 @@ export default function TasksPage() {
     finally { setLoading(false); }
   }
 
-  const filtered = filter === "ALL" ? tasks : tasks.filter(t => t.status === filter);
+  // Fusiona el trabajo local aun no confirmado con la lista del servidor —
+  // sin esto una tarea creada/completada/bloqueada offline es invisible hasta
+  // sincronizar (el mismo bug que AUDIT_REMEDIATION_PLAN.md 2.3 corrigio para
+  // el Time Tracker). "start" y "cancel" no estan entre las acciones offline
+  // que AgroSyncService soporta, asi que solo create/complete/block se fusionan.
+  const displayTasks = useMemo<Task[]>(() => {
+    const pendingForFarm = syncState.pendingEvents.filter(e => e.farmId === farmId);
+    const pendingCreates = pendingForFarm.filter(e => e.action === "farm_task.create");
+    const pendingByTaskId = new Map<string, AgroPendingEvent>();
+    for (const e of pendingForFarm) {
+      if (e.action !== "farm_task.complete" && e.action !== "farm_task.block") continue;
+      const taskId = String(e.payload.taskId ?? "");
+      if (taskId) pendingByTaskId.set(taskId, e);
+    }
+
+    const pseudoCreated: Task[] = pendingCreates.map(e => ({
+      id: `pending:${e.id}`,
+      title: String(e.payload.title ?? "Tarea"),
+      type: String(e.payload.type ?? "OTHER"),
+      status: "PENDING",
+      priority: String(e.payload.priority ?? "MEDIUM"),
+      dueAt: e.payload.dueAt ? String(e.payload.dueAt) : undefined,
+      pendingSync: true,
+    }));
+
+    const merged: Task[] = tasks.map(t => {
+      const pending = pendingByTaskId.get(t.id);
+      if (!pending) return t;
+      if (pending.action === "farm_task.complete") return { ...t, status: "COMPLETED", pendingSync: true };
+      return {
+        ...t,
+        status: "BLOCKED",
+        blockReason: pending.payload.reason ? String(pending.payload.reason) : t.blockReason,
+        pendingSync: true,
+      };
+    });
+
+    return [...pseudoCreated, ...merged];
+  }, [tasks, syncState.pendingEvents, farmId]);
+
+  const filtered = filter === "ALL" ? displayTasks : displayTasks.filter(t => t.status === filter);
   function closeModal() { setModal(null); setFormError(null); setBusy(false); setReason(""); }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault(); if (!newTitle.trim()) return;
     setBusy(true); setFormError(null);
+    const payload = { title: newTitle, type: newType, priority: newPriority, dueAt: newDue || undefined };
     try {
       const res = await fetch(`/api/semse/agro/farms/${farmId}/tasks`, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title: newTitle, type: newType, priority: newPriority, dueAt: newDue || undefined }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new AgroSyncHttpError(res.status, json?.error?.message ?? `HTTP ${res.status}`);
       setNewTitle(""); setNewType("FEEDING"); setNewPrio("MEDIUM"); setNewDue("");
       closeModal(); void load();
-    } catch (err: any) { setFormError(err?.message); } finally { setBusy(false); }
+    } catch (err: any) {
+      if (shouldPreserveAgroLocalEvent(err)) {
+        enqueue({ farmId: String(farmId), action: "farm_task.create", payload });
+        setNewTitle(""); setNewType("FEEDING"); setNewPrio("MEDIUM"); setNewDue("");
+        closeModal();
+      } else {
+        setFormError(err?.message);
+      }
+    } finally { setBusy(false); }
   }
 
   async function taskAction(taskId: string, action: "start" | "complete" | "block" | "cancel", body?: object) {
@@ -86,9 +141,23 @@ export default function TasksPage() {
         body: JSON.stringify(body ?? {}),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new AgroSyncHttpError(res.status, json?.error?.message ?? `HTTP ${res.status}`);
       closeModal(); void load();
-    } catch (err: any) { setFormError(err?.message); setBusy(false); }
+    } catch (err: any) {
+      // Solo complete/block son acciones offline reales (SUPPORTED_ACTIONS de
+      // AgroSyncService no incluye start/cancel); esas dos se quedan
+      // online-only, igual que antes.
+      if ((action === "complete" || action === "block") && shouldPreserveAgroLocalEvent(err)) {
+        enqueue({
+          farmId: String(farmId),
+          action: action === "complete" ? "farm_task.complete" : "farm_task.block",
+          payload: { taskId, ...(body ?? {}) },
+        });
+        closeModal();
+      } else {
+        setFormError(err?.message); setBusy(false);
+      }
+    }
   }
 
   const tabs = farmId ? farmTabs(farmId) : [];
@@ -171,6 +240,19 @@ export default function TasksPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)", marginBottom: 4 }}>{task.title}</p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                      {task.pendingSync && (
+                        <span
+                          title="Guardado en este dispositivo, todavía no confirmado en SEMSE"
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                            padding: "2px 7px", borderRadius: 999,
+                            border: "1px solid rgba(245,158,11,.4)", background: "rgba(245,158,11,.12)",
+                            color: "#b45309", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap",
+                          }}
+                        >
+                          Pendiente de sincronizar
+                        </span>
+                      )}
                       <span style={{ fontSize: 11, color: "var(--faint)" }}>{task.type.replace(/_/g, " ")}</span>
                       {task.dueAt && (
                         <span style={{ fontSize: 11, color: overdue ? "#fca5a5" : "var(--muted)" }}>
@@ -192,7 +274,12 @@ export default function TasksPage() {
                   </div>
                 </div>
 
-                {/* Action buttons */}
+                {/* Action buttons — ninguna accion sobre una fila que ya tiene
+                    un cambio esperando sincronizar: una tarea recien creada
+                    offline no tiene id real todavia, y una que ya tiene un
+                    complete/block encolado no debe recibir un segundo cambio
+                    hasta que el primero se confirme. */}
+                {!task.pendingSync && (
                 <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
                   {task.status === "PENDING" && (
                     <button onClick={() => void taskAction(task.id, "start")} disabled={busy}
@@ -219,6 +306,7 @@ export default function TasksPage() {
                     </>
                   )}
                 </div>
+                )}
               </div>
             );
           })}
