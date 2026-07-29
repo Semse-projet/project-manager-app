@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
 
 const TASKS = {
   "build:packages": [
@@ -39,7 +40,16 @@ const TASKS = {
 function run(command, args) {
   const label = `${command} ${args.join(" ")}`;
   console.log(`\n[workspace-runner] ${label}`);
-  const result = spawnSync(command, args, {
+  const isWindowsPnpm = process.platform === "win32" && command === "pnpm";
+  const executable = isWindowsPnpm ? process.execPath : command;
+  const executableArgs = isWindowsPnpm
+    ? [
+        resolve(dirname(process.execPath), "node_modules", "corepack", "dist", "corepack.js"),
+        "pnpm",
+        ...args,
+      ]
+    : args;
+  const result = spawnSync(executable, executableArgs, {
     stdio: "inherit",
     env: process.env,
   });

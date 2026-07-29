@@ -1,8 +1,8 @@
 # SEMSEproject — Constitución del Proyecto
-**Versión:** 1.0
-**Fecha:** 2026-05-20
+**Versión:** 1.1
+**Fecha:** 2026-07-28
 **Estado:** APROBADO
-**Rama de origen:** feat/spec-kit-sdd-governance
+**Alineada con:** SDD 2.0, `docs/SDD_GOVERNANCE.md`, arquitectura F0-F9 y producción Railway
 **Sintetizada desde:** labosemse/vision_core.md, VISION_PRINCIPLES_FOR_PRODUCT.md, VISION_DECISIONS_LOCKED.md
 
 > Esta constitución es la fuente de verdad para todos los agentes de IA que trabajan en SEMSEproject.
@@ -99,6 +99,25 @@ Los docs no son un extra. Son parte del sistema.
 `README.md`, `SEMSE_CONTEXT.md`, `ROADMAP.md` y `SPEC_INDEX.md` deben mantenerse alineados cuando cambia la arquitectura.
 Si se mueven carpetas críticas o cambia la canonicidad, se documenta el plan antes de ejecutar.
 
+### Artículo XIII — La entrega tiene estados independientes
+Un archivo de código no demuestra implementación completa. Un merge no demuestra
+deploy. Un deploy sano no demuestra activación ni resultado funcional.
+
+Toda capacidad SDD 2.0 registra por separado:
+
+- estado del spec;
+- estado del código;
+- CI;
+- merge y SHA;
+- deploy terminal;
+- activación/canary;
+- migración;
+- evidencia de producción.
+
+`VERIFIED` sólo se usa cuando la capacidad está fusionada, desplegada, activa y
+verificada con evidencia reproducible. Si no se puede observar un estado, se
+registra como no verificado; nunca se infiere.
+
 ---
 
 ## Decisiones de arquitectura bloqueadas (inamovibles)
@@ -133,8 +152,7 @@ Si se mueven carpetas críticas o cambia la canonicidad, se documenta el plan an
 ```
 Backend:          NestJS 11 + Fastify + TypeScript
 Base de datos:    PostgreSQL + Prisma ORM
-Portal interno:   React 19 + Vite + tRPC + Drizzle (caché local)
-Web público:      Next.js 16+
+Web/BFF canónico: Next.js 16+ (consume apps/api; no contiene lógica de dominio)
 Workers:          BullMQ
 LLM cloud:        OpenAI (Vercel AI SDK)
 LLM local:        Ollama (para privacyCritical)
@@ -158,3 +176,5 @@ Cuando trabajes en SEMSEproject:
 8. **No destruyas trabajo existente.** Preferir cambios pequeños, reversibles y bien explicados.
 9. **No expongas secretos ni `.env` files.**
 10. **Documenta las decisiones** en `docs/adrs/` si son cambios arquitectónicos.
+11. **Separa evidencia de código, CI, merge, deploy y activación.** No marques
+    `VERIFIED` por compilación, existencia de archivos o healthcheck solamente.

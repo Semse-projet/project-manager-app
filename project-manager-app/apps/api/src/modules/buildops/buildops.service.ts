@@ -225,19 +225,49 @@ export class BuildOpsService {
       orderBy: { updatedAt: "desc" },
     })) as StoredBuildOpsProject[];
 
-    return projects.map((project) => this.toDto(project));
+    const canonicalProjects = await this.prisma.project.findMany({
+      where: {
+        tenantId,
+        promotedFromBuildOpsProjectId: {
+          in: projects.map((project) => project.id)
+        }
+      },
+      select: {
+        id: true,
+        promotedFromBuildOpsProjectId: true
+      }
+    });
+    const canonicalProjectIds = new Map(
+      canonicalProjects
+        .filter(
+          (project): project is typeof project & { promotedFromBuildOpsProjectId: string } =>
+            project.promotedFromBuildOpsProjectId !== null
+        )
+        .map((project) => [project.promotedFromBuildOpsProjectId, project.id])
+    );
+
+    return projects.map((project) => this.toDto(project, canonicalProjectIds.get(project.id) ?? null));
   }
 
   async getProject(tenantId: string, projectId: string): Promise<BuildOpsProjectDto> {
-    const project = (await this.prisma.buildOpsProject.findFirst({
-      where: { tenantId, id: projectId },
-    })) as StoredBuildOpsProject | null;
+    const [project, canonicalProject] = await Promise.all([
+      this.prisma.buildOpsProject.findFirst({
+        where: { tenantId, id: projectId }
+      }),
+      this.prisma.project.findFirst({
+        where: {
+          tenantId,
+          promotedFromBuildOpsProjectId: projectId
+        },
+        select: { id: true }
+      })
+    ]);
 
     if (!project) {
       throw new NotFoundException("BuildOps project not found");
     }
 
-    return this.toDto(project);
+    return this.toDto(project as StoredBuildOpsProject, canonicalProject?.id ?? null);
   }
 
   async getProjectHealth(tenantId: string, projectId: string) {
@@ -617,12 +647,16 @@ export class BuildOpsService {
     return this.toTaskDto(task);
   }
 
-  private toDto(project: StoredBuildOpsProject): BuildOpsProjectDto {
+  private toDto(
+    project: StoredBuildOpsProject,
+    canonicalProjectId: string | null = null
+  ): BuildOpsProjectDto {
     return {
       id: project.id,
       tenantId: project.tenantId,
       orgId: project.orgId,
       jobId: project.jobId,
+      canonicalProjectId,
       createdBy: project.createdBy,
       title: project.title,
       description: project.description,

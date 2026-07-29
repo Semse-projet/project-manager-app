@@ -49,6 +49,23 @@ export class ProjectsController {
     return ok(resolveRequestId(req.headers ?? {}), project);
   }
 
+  @Get(":projectId/projection")
+  @RequirePermissions("projects:financials:read")
+  async lifecycleProjection(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("projectId") projectId: string
+  ) {
+    const actor = resolveRequestContext(req);
+    const projection = await this.projectsService.lifecycleProjection({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      projectId
+    });
+    return ok(resolveRequestId(req.headers ?? {}), projection);
+  }
+
   @Get(":projectId/payments")
   @RequirePermissions("projects:financials:read")
   async payments(@Req() req: { headers?: Record<string, unknown> }, @Param("projectId") projectId: string) {

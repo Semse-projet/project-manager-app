@@ -9,9 +9,9 @@
     "build": "nest build",
     "lint": "eslint \"src/**/*.ts\"",
     "test": "jest",
-    "test:unit": "pnpm build && node --experimental-strip-types --test $(find test -name '*.test.ts' ! -name '*-integration.test.ts' | sort)",
-    "test:integration": "node --experimental-strip-types --test --test-concurrency=1 test/*-integration.test.ts",
-    "test:coverage": "node ../../node_modules/c8/bin/c8.js --reporter=text --reporter=text-summary --reporter=html --reporter=lcov --reporter=json-summary --include=src/**/*.ts --exclude=test/**/*.test.ts --exclude=**/*.d.ts --check-coverage --lines 70 --functions 65 --branches 80 --statements 70 node --experimental-strip-types --test $(find test -name '*.test.ts' ! -name '*-integration.test.ts' | sort)"
+    "test:unit": "pnpm build && node ./scripts/run-tests.mjs",
+    "test:integration": "node ./scripts/run-tests.mjs --integration",
+    "test:coverage": "node ./scripts/run-tests.mjs --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

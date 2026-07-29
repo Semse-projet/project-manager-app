@@ -9,6 +9,7 @@ import { Badge, Card } from "@/components/ui";
 import { buildOpsProjectStatusLabel, buildOpsProjectTypeLabel, buildOpsRiskLabel, buildOpsTradeLabel } from "../../../../lib/buildops-i18n";
 import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
 import { OperationalRagQueryPanel } from "@/components/buildops/OperationalRagQueryPanel";
+import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
 import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 import {
   fetchBuildOpsProject,
@@ -24,6 +25,8 @@ const fallbackProject: BuildOpsProject = {
   id: "loading",
   tenantId: "",
   orgId: "",
+  jobId: null,
+  canonicalProjectId: null,
   createdBy: "",
   title: "Loading...",
   description: null,
@@ -202,6 +205,13 @@ export default function BuildOpsProjectDetailPage() {
         {isLoaded && project.id !== "loading" && (
           <OperationalRagQueryPanel projectId={project.id} />
         )}
+
+        {isLoaded && project.id !== "loading" ? (
+          <ProjectLifecycleProjectionPanel
+            projectId={project.canonicalProjectId}
+            refreshKey={healthRefreshKey}
+          />
+        ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[

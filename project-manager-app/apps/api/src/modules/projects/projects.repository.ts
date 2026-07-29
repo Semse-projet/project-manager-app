@@ -1,4 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
+import type { ProjectLifecycleProjection } from "@semse/schemas";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { type EscrowRecord, type PaymentTxnRecord, type ProjectRecord } from "../../common/domain-store.js";
@@ -9,6 +11,10 @@ import {
   type ProjectLifecycleSnapshot,
   type ProjectOwnership
 } from "./projects.policy.js";
+import {
+  buildProjectLifecycleProjection,
+  isProjectLifecyclePersistenceEnabled
+} from "./project-lifecycle-projection.js";
 
 const projectStatusMap = {
   open: "OPEN",
@@ -272,6 +278,303 @@ export class ProjectsRepository {
       totalRefunded,
       available: totalDeposited - totalReleased - totalRefunded
     };
+  }
+
+  async getLifecycleProjection(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    projectId: string;
+  }): Promise<ProjectLifecycleProjection> {
+    await this.actorContextService.ensureActorContext(input);
+
+    const sources = await this.prisma.$transaction(
+      async (transaction) => {
+        const project = await transaction.project.findFirst({
+          where: {
+            id: input.projectId,
+            tenantId: input.tenantId,
+            job: {
+              deletedAt: null
+            }
+          },
+          select: {
+            id: true,
+            tenantId: true,
+            jobId: true,
+            assignedProOrgId: true,
+            status: true,
+            startAt: true,
+            dueAt: true,
+            createdAt: true,
+            updatedAt: true,
+            job: {
+              select: {
+                title: true,
+                status: true,
+                deadline: true,
+                clientOrgId: true,
+                updatedAt: true,
+                contract: {
+                  where: { deletedAt: null },
+                  select: {
+                    signedClientAt: true,
+                    signedProAt: true,
+                    updatedAt: true
+                  }
+                },
+                bids: {
+                  where: { status: "ACCEPTED" },
+                  select: { id: true }
+                }
+              }
+            }
+          }
+        });
+
+        if (!project) {
+          throw new NotFoundException(`Project '${input.projectId}' not found`);
+        }
+
+        assertProjectFinancialsReadable(this.toActor(input), {
+          clientOrgId: project.job.clientOrgId,
+          assignedProOrgId: project.assignedProOrgId
+        });
+
+        const [milestones, evidence, disputes, escrow, expenses, risk] = await Promise.all([
+          transaction.milestone.findMany({
+            where: {
+              projectId: input.projectId,
+              deletedAt: null
+            },
+            select: {
+              id: true,
+              amount: true,
+              status: true,
+              updatedAt: true,
+              evidenceItems: {
+                select: {
+                  id: true,
+                  required: true,
+                  status: true,
+                  updatedAt: true
+                }
+              }
+            }
+          }),
+          transaction.evidence.findMany({
+            where: {
+              tenantId: input.tenantId,
+              projectId: input.projectId
+            },
+            select: {
+              id: true,
+              validationStatus: true,
+              updatedAt: true
+            }
+          }),
+          transaction.dispute.findMany({
+            where: {
+              tenantId: input.tenantId,
+              projectId: input.projectId,
+              deletedAt: null
+            },
+            select: {
+              id: true,
+              status: true,
+              reason: true,
+              updatedAt: true
+            }
+          }),
+          transaction.paymentEscrow.findFirst({
+            where: {
+              projectId: input.projectId,
+              deletedAt: null,
+              project: {
+                tenantId: input.tenantId
+              }
+            },
+            select: {
+              status: true,
+              currency: true,
+              updatedAt: true,
+              transactions: {
+                select: {
+                  id: true,
+                  type: true,
+                  amount: true,
+                  status: true,
+                  createdAt: true
+                }
+              }
+            }
+          }),
+          transaction.projectExpense.findMany({
+            where: {
+              tenantId: input.tenantId,
+              projectId: input.projectId
+            },
+            select: {
+              id: true,
+              amount: true,
+              currency: true,
+              status: true,
+              isDuplicate: true,
+              updatedAt: true
+            }
+          }),
+          transaction.projectRiskScore.findFirst({
+            where: {
+              tenantId: input.tenantId,
+              projectId: input.projectId
+            },
+            select: {
+              overallScore: true,
+              disputeRisk: true,
+              budgetOverrunRisk: true,
+              scheduleRisk: true,
+              calculatedAt: true,
+              updatedAt: true
+            }
+          })
+        ]);
+
+        return { project, milestones, evidence, disputes, escrow, expenses, risk };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead
+      }
+    );
+
+    const projection = buildProjectLifecycleProjection({
+      project: {
+        id: sources.project.id,
+        tenantId: sources.project.tenantId,
+        jobId: sources.project.jobId,
+        title: sources.project.job.title,
+        jobStatus: sources.project.job.status,
+        status: sources.project.status.toLowerCase() as ProjectRecord["status"],
+        ownerOrgId: sources.project.assignedProOrgId,
+        startAt: sources.project.startAt,
+        dueAt: sources.project.dueAt,
+        deadline: sources.project.job.deadline,
+        acceptedBidCount: sources.project.job.bids.length,
+        contract: sources.project.job.contract,
+        jobUpdatedAt: sources.project.job.updatedAt,
+        createdAt: sources.project.createdAt,
+        updatedAt: sources.project.updatedAt
+      },
+      milestones: sources.milestones.map((milestone) => ({
+        id: milestone.id,
+        amount: milestone.amount.toNumber(),
+        status: milestone.status,
+        updatedAt: milestone.updatedAt,
+        evidenceItems: milestone.evidenceItems
+      })),
+      evidence: sources.evidence.map((item) => ({
+        id: item.id,
+        validationStatus: item.validationStatus,
+        updatedAt: item.updatedAt
+      })),
+      disputes: sources.disputes,
+      escrow: sources.escrow
+        ? {
+            status: sources.escrow.status,
+            currency: sources.escrow.currency,
+            updatedAt: sources.escrow.updatedAt,
+            transactions: sources.escrow.transactions.map((transaction) => ({
+              ...transaction,
+              amount: transaction.amount.toNumber()
+            }))
+          }
+        : null,
+      expenses: sources.expenses.map((expense) => ({
+        ...expense,
+        amount: expense.amount.toNumber()
+      })),
+      risk: sources.risk
+        ? {
+            ...sources.risk,
+            disputeRisk: sources.risk.disputeRisk.toNumber(),
+            budgetOverrunRisk: sources.risk.budgetOverrunRisk.toNumber(),
+            scheduleRisk: sources.risk.scheduleRisk.toNumber()
+          }
+        : null
+    });
+
+    if (isProjectLifecyclePersistenceEnabled()) {
+      await this.persistLifecycleProjection(input, projection);
+    }
+
+    return projection;
+  }
+
+  /** Rebuildable read model; source tables remain the only write authority. */
+  private async persistLifecycleProjection(
+    input: { tenantId: string; projectId: string },
+    projection: ProjectLifecycleProjection
+  ): Promise<void> {
+    const sourceUpdatedAt = new Date(projection.sourceUpdatedAt);
+    const data = {
+      tenantId: input.tenantId,
+      schemaVersion: projection.schemaVersion,
+      revision: projection.revision,
+      snapshotJson: projection as unknown as Prisma.InputJsonValue,
+      sourceUpdatedAt,
+      generatedAt: new Date(projection.generatedAt)
+    };
+    let current = await this.prisma.projectLifecycleProjection.findUnique({
+      where: { projectId: input.projectId },
+      select: { id: true, revision: true, sourceUpdatedAt: true }
+    });
+
+    if (
+      current?.revision === projection.revision ||
+      (current && current.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime())
+    ) {
+      return;
+    }
+
+    if (!current) {
+      try {
+        await this.prisma.projectLifecycleProjection.create({
+          data: {
+            projectId: input.projectId,
+            ...data
+          }
+        });
+        return;
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+          throw error;
+        }
+        current = await this.prisma.projectLifecycleProjection.findUnique({
+          where: { projectId: input.projectId },
+          select: { id: true, revision: true, sourceUpdatedAt: true }
+        });
+      }
+    }
+
+    if (
+      !current ||
+      current.revision === projection.revision ||
+      current.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime()
+    ) {
+      return;
+    }
+
+    await this.prisma.projectLifecycleProjection.updateMany({
+      where: {
+        id: current.id,
+        projectId: input.projectId,
+        revision: current.revision,
+        sourceUpdatedAt: {
+          lte: sourceUpdatedAt
+        }
+      },
+      data
+    });
   }
 
   async getStatusChangeContext(input: {

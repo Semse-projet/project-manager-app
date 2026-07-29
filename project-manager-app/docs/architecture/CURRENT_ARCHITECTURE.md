@@ -1,8 +1,8 @@
 # Arquitectura vigente de SEMSEproject
 
 **Estado:** CANONICA
-**Corte verificado:** 2026-07-16
-**Codigo/produccion verificados:** `main@6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`
+**Corte verificado:** 2026-07-29
+**Código/producción verificados:** `main@39f6ecbdb0d6e08c51b7c8651e0ad855444d3c5e`
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
 
@@ -10,6 +10,9 @@ Este documento describe la arquitectura vigente y la direccion aprobada. No
 reemplaza los contratos SDD, modelos Prisma ni tests. Su funcion es ordenar esas
 fuentes y evitar que documentos historicos vuelvan a describir el repositorio
 como una app local sin backend.
+
+El aterrizaje de la síntesis transversal sobre componentes actuales vive en
+[`PRODUCTION_CONVERGENCE_MAP.md`](PRODUCTION_CONVERGENCE_MAP.md).
 
 ## 1. Tesis de producto
 
@@ -148,17 +151,18 @@ en los modulos actuales.
 | Sistema | Estado | Hecho verificado | Brecha principal |
 | --- | --- | --- | --- |
 | Domain Events | Implementado/parcial (F1-D) | Envelope v2, `evidence.uploaded.v1`, producer atomico, dispatcher BullMQ y consumer idempotente de Evidence | Falta Ops/replay, trace extendido, canary y adopcion dominio por dominio |
-| Transactional Outbox | Implementado/parcial (F1-D) | Evidence + outbox comparten transaccion; dispatcher usa leases y jobId deterministico; effect + receipt del consumer son atomicos | Feature flags siguen default-off; faltan replay operativo, canary y producers adicionales |
+| Transactional Outbox | Implementado/parcial (F1-E) | Evidence + outbox comparten transacción; dispatcher usa leases; effect + receipt son atómicos; ops/replay está en `main` | Falta canary/activación y producers adicionales |
 | BullMQ y loops | Implementado/parcial | Worker, retries, backpressure, kill switch y agent runs dead-lettered | Falta unificar observabilidad, replay y DLQ por evento |
 | Prometeo Runtime P2 | Implementado y desplegado | Misiones persistentes sobre `AgentWorkPlan`, aprobacion y checkpoints | Mutaciones, compensacion, budgets y verificacion transversal pendientes |
-| Prometeo Tool Registry | Parcial | 23 tools read y 7 write declaradas; 17 casos read cableados | Write bloqueado; tools declaradas sin adapter; permisos por tool aun dispersos |
+| Prometeo Tool Registry | Implementado/parcial | 31 descriptors; 23/24 read y 7/7 write cableados; policy/audit/approval gobiernan escritura | `vision.analyze_video` y verification/compensación explícita |
 | Evidence provenance | Parcial | Evidence, checksum, metadata, geo, analisis visual y storage abstraction | Chain of custody, firmas, retencion y acceso no estan unificados |
 | Economic Ledger | Pendiente como sistema comun | `PaymentTxn` y ledgers verticales registran movimientos operativos | No existe double-entry compartido, cuentas, lineas, reversals ni trial balance |
 | Policy/Approval | Parcial | RBAC default-deny y aprobaciones en Prometeo, BuildOps y Payments | No existe decision engine transversal versionado |
 | Mission Control | Parcial | UI, signals, incidents, SSE, AI health y acciones operativas | Las colas y workspaces siguen fragmentados; no hay cockpit unico de eventos/DLQ |
+| Project Lifecycle Projection | Implementado local/no desplegado (F3) | SQL/modelo/API/CAS/BuildOps/BFF/UI y pruebas verdes en rama; tabla productiva vacía | CI, merge, migración aditiva, canary y replay |
 | Product Intelligence | Implementado/parcial (PI-00..PI-06) | SDK separado, contratos, modelos, ingesta, retencion, instrumentacion auth/wizard y funnels de experiencia/economico | Activacion de flags no verificada; PI-07 Friction Engine y fases PI-08..PI-11 pendientes |
 | Workspace/Context Bridge | Parcial | Developer runtime, context bridge panel y capas de contexto existentes | Registry de terminales, shared mission context y scopes uniformes |
-| SDD/Blueprint Engine | Parcial | Specs, preflight, developer runtime y flujos de plan | Pipeline idea->spec->tasks->PR->deploy gobernado de punta a punta |
+| SDD/Blueprint Engine | Implementado/parcial | 97 specs; strict 0/0; templates SDD 2.0; estados code/CI/merge/deploy/activation separados | Migrar specs al tocarlas y cerrar evidencia de producción |
 | Observabilidad | Parcial | Sentry, metricas Prometheus, health/readiness y auditoria | No hay trazas OTel end-to-end ni SLOs de negocio completos |
 | Storage | Parcial | Storage service con local y S3/R2, MinIO local, Evidence bucket keys | Debe verificarse provider y politicas de retencion en cada ambiente |
 | Offline | Parcial | Mobile offline store y Agro sync service | No hay sincronizacion compartida completa ni UX offline uniforme |
