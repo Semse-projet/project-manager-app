@@ -58,7 +58,7 @@ date: "2026-07-28"
 ## Fase 6 — Producción
 
 - [ ] [T-060] PR/CI/merge
-- [ ] [T-061] Crear flags OFF
+- [x] [T-061] Crear flags OFF
 - [ ] [T-062] Deploy API/Web terminal
 - [ ] [T-063] Canary tenant cálculo
 - [ ] [T-064] Canary persistencia + mismatch

@@ -46,13 +46,15 @@ Web existentes relacionados:
 - `NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED`
 - `NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED`
 
-Flags F3 planeados y todavía ausentes:
+Flags F3 creados en API sin disparar deploy:
 
 - `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED`
 - `SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED`
 - `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS`
 
-Los valores de variables no se imprimieron ni se documentan aquí.
+Los dos flags están OFF y el allowlist usa un sentinel deshabilitado hasta el
+canary. Los valores de las demás variables no se imprimieron ni se documentan
+aquí. El deployment API permaneció en `89677ecd-439c-46d2-945f-4482042ff9f1`.
 
 ## Estado F0-F9
 

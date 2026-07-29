@@ -20,6 +20,7 @@ production_evidence:
   - railway:production:sha:39f6ecbd
   - railway:production:api:89677ecd-439c-46d2-945f-4482042ff9f1:SUCCESS
   - railway:production:web:e377f738-a6b4-4de6-b95a-f60ed0b8d5d2:SUCCESS
+  - railway:api:variables:f3-projection-persistence-off:2026-07-29
 related_files:
   - AGENTS.md
   - ROADMAP.md

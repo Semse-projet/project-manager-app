@@ -76,7 +76,8 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
 2. La tabla F3 tiene cero filas; no existe activación ni adopción.
 3. `Evidence.validationStatus` era mutable sin `updatedAt`; la migración
    aditiva pendiente cierra ese reloj antes de activar persistencia.
-4. Los flags F3 todavía no existen en Railway y el código los trata como OFF.
+4. Los flags F3 existen en Railway, permanecen OFF y el allowlist está
+   deshabilitado; el cambio no disparó deploy.
 5. F3-F9 se ejecutan como child specs secuenciales, no como big bang.
 6. Health 200 confirma arranque, no journey funcional ni activación.
 

@@ -20,6 +20,7 @@ feature_flags:
 production_evidence:
   - railway:postgres:migration:20260728000000_project_lifecycle_projection:finished
   - railway:postgres:table:ProjectLifecycleProjection:rows=0
+  - railway:api:variables:f3-projection-persistence-off:2026-07-29
 related_files:
   - apps/api/src/modules/projects/project-lifecycle-projection.ts
   - apps/api/src/modules/projects/projects.repository.ts
