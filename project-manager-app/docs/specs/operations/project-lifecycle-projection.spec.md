@@ -8,7 +8,7 @@ status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "critical"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
@@ -18,6 +18,7 @@ feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS
 production_evidence:
+  - github:pr:472:sha:19472b7892e0fe56975c2d618bf50dc6e0091922:checks-passed
   - railway:postgres:migration:20260728000000_project_lifecycle_projection:finished
   - railway:postgres:table:ProjectLifecycleProjection:rows=0
   - railway:api:variables:f3-projection-persistence-off:2026-07-29

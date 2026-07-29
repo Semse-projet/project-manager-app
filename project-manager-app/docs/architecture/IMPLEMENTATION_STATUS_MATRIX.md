@@ -44,7 +44,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
 | Mission Control F4 | PARCIAL | incidents, signals, SSE, health | Cockpit gobernado tras gate F3 |
-| Project Lifecycle Projection F3 | IMPLEMENTADO LOCAL / NO DESPLEGADO | SQL restaurado; schema/builder/API/CAS/BuildOps/BFF/UI y pruebas verdes en rama F3 | CI, merge, migración aditiva, deploy y canary |
+| Project Lifecycle Projection F3 | IMPLEMENTADO + CI VERDE / NO DESPLEGADO | SQL restaurado; schema/builder/API/CAS/BuildOps/BFF/UI; PR `#472` verde en `19472b78` | Merge, migración aditiva, deploy y canary |
 | Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-06 | Verificar flags/activación |
 | Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |
 | SDD/Blueprint Engine | IMPLEMENTADO/PARCIAL | 97 specs; strict 0/0; SDD 2.0 | Migrar specs al tocarlas + delivery evidence |

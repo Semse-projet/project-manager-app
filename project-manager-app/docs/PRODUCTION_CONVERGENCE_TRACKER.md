@@ -63,7 +63,7 @@ aquí. El deployment API permaneció en `89677ecd-439c-46d2-945f-4482042ff9f1`.
 | F0 Truth sync | completo | completo | n/a | `main` | verificado | n/a | Revalidado 2026-07-28 |
 | F1 Event Backbone | `APPROVED` | parcial | histórico | `main` | desplegado | no verificada | Falta canary/adopción |
 | F2 Tool Registry | `APPROVED` | gobernanza completa | histórico | `main` | desplegado | parcial/no verificada | Video temporal pendiente |
-| F3 Lifecycle Projection | `APPROVED` SDD 2.0 | implementado local | local verde; CI pendiente | no fusionado | no desplegado | inactivo | Migración `Evidence.updatedAt` pendiente |
+| F3 Lifecycle Projection | `APPROVED` SDD 2.0 | implementado local | CI/E2E verde en `19472b78` | no fusionado | no desplegado | inactivo | Migración `Evidence.updatedAt` pendiente |
 | F4 Mission Control 2.0 | child spec pendiente | no iniciado | — | — | — | — | Después de gate F3 |
 | F5 Shared Ledger | child spec pendiente | no iniciado | — | — | — | — | Después de F4 |
 | F6 Agenda/Dispatch | child spec pendiente | no iniciado | — | — | — | — | Después de F5 |
@@ -93,6 +93,8 @@ aquí. El deployment API permaneció en `89677ecd-439c-46d2-945f-4482042ff9f1`.
 - Build kit portable en Windows/Linux para workspace, seeds y tests API.
 - F3 implementado localmente con 20 pruebas focalizadas, 2,005 pruebas API y
   957 pruebas unitarias de repositorio sin fallas.
+- PR `#472` validado en `19472b78`: CodeQL, quality gates, cobertura,
+  integración, Operación Asistida, Autonomy Staged y E2E pasaron.
 
 ### Backlog
 
