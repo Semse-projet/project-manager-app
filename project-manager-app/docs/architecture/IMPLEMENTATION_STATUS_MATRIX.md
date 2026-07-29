@@ -22,7 +22,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | API | deployment `89677ecd-439c-46d2-945f-4482042ff9f1`, `39f6ecbd`, `SUCCESS`, health `/v1/health` |
 | Web | deployment `e377f738-a6b4-4de6-b95a-f60ed0b8d5d2`, `39f6ecbd`, `SUCCESS`, health `/api/semse/healthz` |
 | Worker/Postgres/Redis/Vision | `SUCCESS` al corte |
-| Dominio API | DNS sincronizado; certificado aún validando ownership |
+| Dominio API | `api.semseproject.com` con `sync_status: ACTIVE` |
 | PostgreSQL F3 | migración de proyección aplicada, tabla vacía; `Evidence.updatedAt` pendiente |
 
 ## Matriz

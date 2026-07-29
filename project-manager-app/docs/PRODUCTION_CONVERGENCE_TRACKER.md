@@ -12,7 +12,7 @@
 | API Railway | `39f6ecbd`, deployment `89677ecd-439c-46d2-945f-4482042ff9f1`, `SUCCESS` |
 | Web Railway | `39f6ecbd`, deployment `e377f738-a6b4-4de6-b95a-f60ed0b8d5d2`, `SUCCESS` |
 | Worker/Postgres/Redis/Vision | `SUCCESS` al corte |
-| `api.semseproject.com` | DNS sincronizado; certificado aún validando ownership |
+| `api.semseproject.com` | Dominio personalizado `ACTIVE` en Railway |
 
 ## Drift F3 confirmado
 
