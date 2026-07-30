@@ -38,6 +38,17 @@ type PersistenceRepository = {
   ): Promise<void>;
 };
 
+type RebuildRepository = {
+  rebuildLifecycleProjection(input: {
+    tenantId: string;
+    projectId: string;
+  }): Promise<{
+    effect: "updated" | "no_op";
+    revision: string;
+    sourceUpdatedAt: string;
+  }>;
+};
+
 test("projection persistence uses revision and source timestamp compare-and-swap guards", async () => {
   const writes: Array<Record<string, unknown>> = [];
   const currentSourceUpdatedAt = new Date("2026-07-27T12:00:00.000Z");
@@ -254,4 +265,90 @@ test("project lookup is tenant scoped and missing cross-tenant ids never persist
 
   assert.equal(lookupWhere?.tenantId, "tenant_request");
   assert.equal(persistenceReadCount, 0);
+});
+
+test("internal rebuild bypasses actor ownership, persists once and is idempotent", async () => {
+  let actorContextCount = 0;
+  let durable:
+    | {
+        id: string;
+        revision: string;
+        sourceUpdatedAt: Date;
+      }
+    | undefined;
+  const transaction = {
+    project: {
+      async findFirst() {
+        return {
+          id: "proj_1",
+          tenantId: "tenant_1",
+          jobId: "job_1",
+          assignedProOrgId: "org_pro_1",
+          status: "IN_PROGRESS",
+          startAt: null,
+          dueAt: null,
+          createdAt: sourceUpdatedAt,
+          updatedAt: sourceUpdatedAt,
+          job: {
+            title: "Kitchen remodel",
+            status: "IN_PROGRESS",
+            deadline: null,
+            clientOrgId: "org_client_1",
+            updatedAt: sourceUpdatedAt,
+            contract: null,
+            bids: [],
+          },
+        };
+      },
+    },
+    milestone: { async findMany() { return []; } },
+    evidence: { async findMany() { return []; } },
+    dispute: { async findMany() { return []; } },
+    paymentEscrow: { async findFirst() { return null; } },
+    projectExpense: { async findMany() { return []; } },
+    projectRiskScore: { async findFirst() { return null; } },
+  };
+  const prisma = {
+    async $transaction(callback: (client: typeof transaction) => Promise<unknown>) {
+      return callback(transaction);
+    },
+    projectLifecycleProjection: {
+      async findUnique() {
+        return durable;
+      },
+      async create({ data }: { data: { revision: string; sourceUpdatedAt: Date } }) {
+        durable = {
+          id: "snapshot_1",
+          revision: data.revision,
+          sourceUpdatedAt: data.sourceUpdatedAt,
+        };
+        return durable;
+      },
+      async updateMany() {
+        throw new Error("an idempotent second rebuild must not update");
+      },
+    },
+  };
+  const repository = new ProjectsRepository(
+    prisma as never,
+    {
+      async ensureActorContext() {
+        actorContextCount += 1;
+      },
+    } as never,
+  ) as unknown as RebuildRepository;
+
+  const first = await repository.rebuildLifecycleProjection({
+    tenantId: "tenant_1",
+    projectId: "proj_1",
+  });
+  const second = await repository.rebuildLifecycleProjection({
+    tenantId: "tenant_1",
+    projectId: "proj_1",
+  });
+
+  assert.equal(first.effect, "updated");
+  assert.equal(second.effect, "no_op");
+  assert.equal(first.revision, second.revision);
+  assert.equal(actorContextCount, 0);
 });

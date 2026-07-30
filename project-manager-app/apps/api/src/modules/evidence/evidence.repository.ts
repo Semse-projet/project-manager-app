@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import {
   EVIDENCE_UPLOADED_V1_SCHEMA_REF,
@@ -17,6 +18,7 @@ import {
   normalizeStorageKey,
 } from "../../infrastructure/storage/storage-key.js";
 import { OutboxRepository } from "../domain-events/outbox.repository.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import {
   findProjectLinkByJobIdOrThrow,
   findProjectLinkByProjectIdOrThrow,
@@ -89,6 +91,8 @@ export class EvidenceRepository {
     private readonly prisma: PrismaService,
     private readonly actorContextService: ActorContextService,
     private readonly outboxRepository: OutboxRepository,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async create(input: CreateEvidenceInput): Promise<EvidenceView> {
@@ -155,6 +159,18 @@ export class EvidenceRepository {
         });
 
         await this.outboxRepository.create(tx, event);
+        await this.lifecycleProjectionEvents?.record(tx, {
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          projectId: scope.projectId,
+          sourceEventType: "evidence.uploaded",
+          sourceEntityType: "Evidence",
+          sourceEntityId: created.id,
+          actorType: "user",
+          actorId: input.userId,
+          correlationId: input.requestId,
+          causationId: event.eventId,
+        });
         return created;
       });
 

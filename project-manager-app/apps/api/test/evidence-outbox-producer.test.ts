@@ -2,9 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { OutboxRepository } from "../dist/modules/domain-events/outbox.repository.js";
+import { ProjectLifecycleProjectionEventProducer } from "../dist/modules/domain-events/project-lifecycle-projection-event-producer.service.js";
 import { EvidenceRepository } from "../dist/modules/evidence/evidence.repository.js";
 
-function makeHarness(options: { failOutbox?: boolean } = {}) {
+function makeHarness(
+  options: { failOutbox?: boolean; failLifecycleOutbox?: boolean } = {},
+) {
   const evidenceRows: Array<Record<string, unknown>> = [];
   const outboxRows: Array<Record<string, unknown>> = [];
 
@@ -45,7 +48,13 @@ function makeHarness(options: { failOutbox?: boolean } = {}) {
         },
         domainOutboxEvent: {
           create: async ({ data }: { data: Record<string, unknown> }) => {
-            if (options.failOutbox) {
+            if (
+              options.failOutbox ||
+              (
+                options.failLifecycleOutbox &&
+                data.eventType === "project.lifecycle-source-changed.v1"
+              )
+            ) {
               throw new Error("simulated outbox failure");
             }
             stagedOutbox.push(data);
@@ -62,10 +71,15 @@ function makeHarness(options: { failOutbox?: boolean } = {}) {
   };
 
   const actorContext = { ensureActorContext: async () => undefined };
+  const outboxRepository = new OutboxRepository();
   const repository = new EvidenceRepository(
     prisma as never,
     actorContext as never,
-    new OutboxRepository(),
+    outboxRepository,
+    new ProjectLifecycleProjectionEventProducer(
+      prisma as never,
+      outboxRepository,
+    ),
   );
 
   return { repository, evidenceRows, outboxRows };
@@ -135,3 +149,52 @@ test("F1-B producer: invalid requestId fails before any transaction write", asyn
   assert.equal(harness.evidenceRows.length, 0);
   assert.equal(harness.outboxRows.length, 0);
 });
+
+test("F3 Evidence source and lifecycle invalidation commit atomically", async () => {
+  const previous = {
+    projection: process.env.SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED,
+    tenants: process.env.SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS,
+    events: process.env.SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED,
+  };
+  process.env.SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED = "true";
+  process.env.SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS = "tenant_1";
+  process.env.SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED = "true";
+
+  try {
+    const harness = makeHarness();
+    await harness.repository.create(command);
+    assert.deepEqual(
+      harness.outboxRows.map((row) => row.eventType),
+      [
+        "evidence.uploaded.v1",
+        "project.lifecycle-source-changed.v1",
+      ],
+    );
+
+    const failing = makeHarness({ failLifecycleOutbox: true });
+    await assert.rejects(
+      () => failing.repository.create(command),
+      /simulated outbox failure/,
+    );
+    assert.equal(failing.evidenceRows.length, 0);
+    assert.equal(failing.outboxRows.length, 0);
+  } finally {
+    restoreEnvironment(
+      "SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED",
+      previous.projection,
+    );
+    restoreEnvironment(
+      "SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS",
+      previous.tenants,
+    );
+    restoreEnvironment(
+      "SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED",
+      previous.events,
+    );
+  }
+});
+
+function restoreEnvironment(name: string, value: string | undefined) {
+  if (value === undefined) delete process.env[name];
+  else process.env[name] = value;
+}
