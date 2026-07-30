@@ -338,6 +338,9 @@
   - `workspace/page.tsx` (`<title>` de la pestaña del navegador) y el comentario de `globals.css`.
   - **Deliberadamente fuera de alcance, documentado para no repetir la búsqueda a ciegas después:** `apps/angular` y `apps/assistant-portal` (dos apps separadas en el monorepo, ninguna de las dos aparece en el `CLAUDE.md` como servicio desplegado en Railway — a diferencia de `apps/web`, no se confirmó que sean parte del producto en vivo; tocar su branding sin esa confirmación es riesgo innecesario). Tampoco se tocó el subsistema interno `admin/consciousness` (`consciousness.service.ts`/`consciousness.types.ts`/su test) — ahí "SEMSE OS" es un identificador propio de esa feature de introspección/auto-referencia (ya marcada como métricas mayormente sintéticas en 3.29), no una superficie de marca de cara al cliente. Igual se dejaron intactos comentarios internos sin audiencia de usuario (`packages/db/prisma/seed.ts`, `packages/schemas/src/domain-events.schema.ts`, prompts del curador en `apps/worker`, los `.md` de skills de `apps/api/skills/`).
   - `tsc --noEmit`/`eslint` limpios en `@semse/api` y `@semse/web`. Suite completa de `@semse/api`: 1972/1972 tests en verde (cero test dependía de los strings de marca que se tocaron — sí existe un test que verifica el identificador interno `"SEMSE OS"` de `consciousness.types.ts`, que a propósito no se tocó). Pendiente verificación visual en vivo de las 4 pantallas de auth + el footer de PDF generado.
+  - **Hallazgo nuevo (2026-07-29, pasada de re-verificación por código):** quedó una instancia no documentada de "SEMSE OS" en `apps/api/src/modules/ops/ops.controller.ts:159` — `systemPrompt: "You are a SEMSE OS health check assistant."` dentro del endpoint admin-only `POST ai-mission-control/ollama/test`. Impacto bajo: ese texto nunca se muestra a un usuario (la respuesta solo expone `provider`/`model`/`latencyMs`); no es una regresión de ningún merge posterior, es un caso que el pase original de búsqueda no cubrió. [ ] Pendiente — trivial, un cambio de string.
+
+**Re-verificación de código (2026-07-29):** tras los merges grandes de fines de julio (PR #470 agro offline, #471 sidebar Labor Engine, #472 Project Lifecycle Projection), se re-leyó el código actual de 1.5, 1.6, 1.8, 1.9, 1.10, 1.11c, 1.19, 1.21 — los 8 siguen con el comportamiento descrito, sin regresión introducida por esos merges. La parte de verificación visual en pantalla (temas, padding en mobile, etc.) sigue **sin confirmar en vivo** — no se pudo usar el navegador esta sesión (extensión Claude in Chrome inestable); queda pendiente para una sesión con navegador funcional.
 
 ---
 
@@ -449,6 +452,8 @@
 - [x] ~~Probar el chat de Prometeo y los agentes especializados como se hizo con Cliente~~ — hecho 2026-07-21: roto para PRO, causa raíz confirmada, ver **0.33** y **2.1e**.
 - [x] ~~Recorrer las pantallas que faltaron: Tareas, Evidencia, Materiales, Incidencias, Movilidad, Reseñas~~ — hecho 2026-07-21, ver arriba. Evidencia reveló el bug crítico **0.34**.
 
+**Re-verificación de código (2026-07-29):** tras los merges grandes de fines de julio (PR #470 agro offline, #471 sidebar Labor Engine, #472 Project Lifecycle Projection), se re-leyó el código actual de 2.1, 2.1c, 2.6, 2.24, 2.25, 2.28, 2.38, 2.40, 2.44, 2.45 — los 10 siguen con el comportamiento descrito, sin regresión introducida por esos merges (incluida una verificación puntual del pipeline de Stripe Elements de 2.44 contra el backend real). No se pudo confirmar en pantalla — sin navegador funcional esta sesión.
+
 ---
 
 ## Sección 3 — Módulo Admin (pendiente de auditoría dedicada)
@@ -530,6 +535,8 @@ Lo que ya sabemos, encontrado en la ronda inicial de UX (solo análisis de códi
 - [x] Conseguir credencial de OPS_ADMIN para repetir la navegación en vivo completa — verificación realizada el 2026-07-27 con la cuenta demo documentada, sin ejecutar acciones mutantes.
 - [x] Lanzar la misma ronda de agentes enfocada en `apps/web/app/(app)/admin/**` — Crew G ya cubrió los hallazgos de código; esta sesión añadió una ronda E2E de navegación sobre las 59 páginas actuales (incluidas rutas dinámicas con IDs de prueba): 59/59 PASS, sin errores de render ni redirecciones.
 - [x] Verificar en vivo el bug de "cero en 5 pantallas" (1.4) desde el lado admin — el 2026-07-27 Admin mostró 3 trabajos activos de 12 en `/admin/dashboard` y `/admin/jobs`; `/admin/workops` mostró 1 activo y 8 pendientes. El cero de `/admin/labor-engine` correspondió a 0 timers activos reales, no al conteo de trabajos.
+
+**Re-verificación de código (2026-07-29):** tras los merges grandes de fines de julio (PR #470 agro offline, #471 sidebar Labor Engine, #472 Project Lifecycle Projection), se re-leyó el código actual de 3.0, 3.1, 3.2, 3.3, 3.5, 3.17, 3.18, 3.23, 3.26, 3.36, 3.37, 3.38, 3.41, 3.44 — los 14 siguen con el comportamiento descrito, sin regresión de esos merges (`git show d065a2f2 --stat` confirma que el PR #472 no toca ninguno de los archivos de estos hallazgos). Ítem **3.1 doblemente confirmado**: tanto el fix viejo de Crew G en `admin-navigation.ts` como el nuevo de hoy en el sidebar persistente (`layout.tsx`, PR #471) siguen presentes. **Ojo:** esto NO reemplaza la verificación en vivo con credencial OPS_ADMIN que el spec `admin-flows-remediation.spec.md` exige antes de poder considerar estos ítems realmente cerrados — es una confirmación de que el código no se rompió, no una confirmación visual nueva. No se pudo usar navegador esta sesión.
 
 ---
 
