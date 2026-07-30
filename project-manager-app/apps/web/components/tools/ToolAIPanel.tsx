@@ -269,7 +269,7 @@ export function ToolAIPanel({ result }: { result: SemseToolResult }) {
                       justifyContent: "center",
                     }}
                   >
-                    <Loader2 size={12} color="#fff" style={{ animation: "spin 1s linear infinite" }} />
+                    <Loader2 size={12} color="#fff" className="animate-spin" />
                   </div>
                   <span style={{ fontSize: 13, color: "#64748b" }}>Pensando…</span>
                 </div>
@@ -314,7 +314,7 @@ export function ToolAIPanel({ result }: { result: SemseToolResult }) {
                 fontSize: 13,
               }}
             >
-              {loading ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
             </button>
           </div>
 

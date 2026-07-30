@@ -200,7 +200,7 @@ export default function WorkerEvidencePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <NotificationBanner audience="worker" />
           <button onClick={() => selectedJobId && void loadMilestonesAndEvidence(selectedJobId)} disabled={loadingEvidence} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
-            <RefreshCw size={15} style={{ animation: loadingEvidence ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={loadingEvidence ? "animate-spin" : undefined} />
           </button>
         </div>
       </HtmlInCanvasPanel>
@@ -305,7 +305,7 @@ export default function WorkerEvidencePage() {
               <button onClick={() => void handleUpload()} disabled={uploading || !selectedJobId}
                 style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "10px 18px", borderRadius: "9px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: uploading || !selectedJobId ? "not-allowed" : "pointer", opacity: uploading || !selectedJobId ? 0.7 : 1 }}
               >
-                {uploading ? <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={14} />}
+                {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
                 {uploading ? "Registrando..." : `Registrar ${files.length} archivo${files.length > 1 ? "s" : ""}`}
               </button>
               <button onClick={() => setFiles([])} style={{ padding: "10px 14px", borderRadius: "9px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", cursor: "pointer" }}>

@@ -47,7 +47,7 @@ export function CrowdDecisionBadge({
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 99, background: `${color}15`, border: `1px solid ${color}30`, fontSize: 11 }}>
       {loading
-        ? <RefreshCw size={10} color="var(--muted)" style={{ animation: "spin 1s linear infinite" }} />
+        ? <RefreshCw size={10} color="var(--muted)" className="animate-spin" />
         : <Icon size={10} color={color} />
       }
       <span style={{ fontWeight: 700, color }}>

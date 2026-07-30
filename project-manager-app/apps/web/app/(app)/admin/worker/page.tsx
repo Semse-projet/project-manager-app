@@ -106,7 +106,7 @@ export default function WorkerPage() {
             </div>
             <button onClick={load} disabled={loading}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 12, color: "var(--muted)" }}>
-              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
             </button>
           </>
         }

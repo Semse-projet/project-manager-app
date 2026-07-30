@@ -439,7 +439,7 @@ export default function AdminDisputesPage() {
                 color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: "pointer",
               }}
             >
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
               Refrescar
             </button>
           </>

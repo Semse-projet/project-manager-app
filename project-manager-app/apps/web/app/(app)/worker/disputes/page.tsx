@@ -233,7 +233,7 @@ export default function WorkerDisputesPage() {
             disabled={loading}
             style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
           >
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
             Recargar
           </button>
         </div>

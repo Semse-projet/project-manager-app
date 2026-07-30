@@ -273,7 +273,7 @@ export default function CoordinatorDashboardPage() {
                 opacity: loading ? 0.6 : 1,
               }}
             >
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
               {loading ? "Cargando…" : "Actualizar"}
             </button>
           </div>

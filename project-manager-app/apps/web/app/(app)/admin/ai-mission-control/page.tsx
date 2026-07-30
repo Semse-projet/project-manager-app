@@ -219,7 +219,7 @@ export default function AiMissionControlPage() {
               disabled={loading}
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
             >
-              <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
               {loading ? "Cargando..." : "Actualizar"}
             </button>
           }

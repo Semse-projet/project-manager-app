@@ -347,7 +347,7 @@ export function MilestoneEvidenceUploader({ milestoneId, onUploaded, showAll = f
                   }}
                 >
                   {isBusy ? (
-                    <RefreshCw size={11} style={{ animation: "spin 1s linear infinite" }} />
+                    <RefreshCw size={11} className="animate-spin" />
                   ) : (
                     <Upload size={11} />
                   )}

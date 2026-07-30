@@ -217,7 +217,7 @@ export default function WorkerTravelPage() {
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <NotificationBanner audience="worker" />
           <button onClick={() => void load()} disabled={loading} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }} title="Recargar">
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
           </button>
           <button onClick={() => setShowForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "10px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
             <Plus size={15} /> Nuevo viaje

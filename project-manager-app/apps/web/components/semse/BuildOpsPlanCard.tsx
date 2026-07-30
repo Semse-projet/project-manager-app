@@ -53,7 +53,7 @@ export function BuildOpsPlanCard({ trade, estimatedHours }: { trade: string; est
         {plan && <span style={{ fontSize: 11, color: "var(--muted)" }}>{plan.totalDays} días · {plan.phases.length} fases</span>}
         <button onClick={load} disabled={loading}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
-          <RefreshCw size={11} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          <RefreshCw size={11} className={loading ? "animate-spin" : undefined} />
         </button>
       </div>
 

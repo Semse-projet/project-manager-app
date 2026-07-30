@@ -297,7 +297,7 @@ export default function ClientPaymentsPage() {
               style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
               title="Recargar"
             >
-              <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
             </button>
             <Link
               href={CLIENT_ROUTES.newJob}

@@ -127,7 +127,7 @@ export default function FinancePage() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={() => void load()} disabled={loading} style={btnStyle("#334155", "#94a3b8")}>
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
           </button>
           <button onClick={() => setShowExpenseForm(true)} style={btnStyle("#1e293b", "#94a3b8")}>
             <Receipt size={14} /> Registrar gasto
