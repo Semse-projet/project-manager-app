@@ -1,7 +1,7 @@
 # Matriz de implementación de la arquitectura SEMSE
 
-**Corte:** 2026-07-29
-**Git/producción:** `main@39f6ecbd`
+**Corte:** 2026-07-30
+**Git/producción:** `main@d065a2f2`
 **Tracker:** [`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md)
 
 ## Leyenda
@@ -19,19 +19,19 @@ Para specs SDD 2.0 mandan las columnas separadas de
 
 | Superficie | Evidencia |
 |---|---|
-| API | deployment `89677ecd-439c-46d2-945f-4482042ff9f1`, `39f6ecbd`, `SUCCESS`, health `/v1/health` |
-| Web | deployment `e377f738-a6b4-4de6-b95a-f60ed0b8d5d2`, `39f6ecbd`, `SUCCESS`, health `/api/semse/healthz` |
+| API | rollback deployment `537892e7-f6b9-4cee-a972-ceacd8e7ab77`, `d065a2f2`, `SUCCESS`, health `/v1/health` |
+| Web | deployment `ed9e4238-24d9-486b-a3b6-91cef022a2f1`, `d065a2f2`, `SUCCESS`, health `/api/semse/healthz` |
 | Worker/Postgres/Redis/Vision | `SUCCESS` al corte |
-| Dominio API | `api.semseproject.com` con `sync_status: ACTIVE` |
-| PostgreSQL F3 | migración de proyección aplicada, tabla vacía; `Evidence.updatedAt` pendiente |
+| Dominio API | DNS propagado; TLS todavía validando propiedad y certificado no coincide |
+| PostgreSQL F3 | migraciones de proyección/reloj aplicadas, tabla vacía; repair Evidence pendiente |
 
 ## Matriz
 
 | Capacidad | Estado real | Evidencia | Siguiente gate |
 |---|---|---|---|
 | Monorepo pnpm | IMPLEMENTADO | `pnpm-workspace.yaml`; runners Node portables para workspace, seeds y tests API | Mantener workspace verde |
-| Web/BFF | IMPLEMENTADO/DESPLEGADO | Next.js + Railway `39f6ecbd` | SLO y journeys autenticados |
-| API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `39f6ecbd` | Trazas y migration gates |
+| Web/BFF | IMPLEMENTADO/DESPLEGADO | Next.js + Railway `d065a2f2` | SLO y journeys autenticados |
+| API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `d065a2f2` | Trazas y migration gates |
 | Worker/BullMQ | IMPLEMENTADO/DESPLEGADO | worker Railway `SUCCESS` | Consola común lag/retries/DLQ |
 | Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
 | Prometeo Runtime | IMPLEMENTADO/DESPLEGADO | missions, work plans, BFF | Verify/learn/budgets/compensación |
@@ -44,7 +44,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
 | Mission Control F4 | PARCIAL | incidents, signals, SSE, health | Cockpit gobernado tras gate F3 |
-| Project Lifecycle Projection F3 | IMPLEMENTADO + CI VERDE / NO DESPLEGADO | SQL restaurado; schema/builder/API/CAS/BuildOps/BFF/UI; PR `#472` verde en `19472b78` | Merge, migración aditiva, deploy y canary |
+| Project Lifecycle Projection F3 | DESPLEGADO / CANARY ROLLED BACK | `d065a2f2`; canary detectó `Evidence.tenantId` ausente; rollback `537892e7` sano y 0 snapshots | Aplicar repair Evidence y repetir cálculo/persistencia |
 | Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-06 | Verificar flags/activación |
 | Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |
 | SDD/Blueprint Engine | IMPLEMENTADO/PARCIAL | 97 specs; strict 0/0; SDD 2.0 | Migrar specs al tocarlas + delivery evidence |
@@ -71,13 +71,13 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
 
 ## Hallazgos vinculantes
 
-1. Git y producción siguen en `39f6ecbd`; el SQL F3 aplicado se restauró
-   byte por byte en la rama y conserva su checksum.
+1. Git y producción están en `d065a2f2`; el SQL F3 aplicado conserva su
+   checksum y F3 permanece desactivado tras rollback.
 2. La tabla F3 tiene cero filas; no existe activación ni adopción.
-3. `Evidence.validationStatus` era mutable sin `updatedAt`; la migración
-   aditiva pendiente cierra ese reloj antes de activar persistencia.
-4. Los flags F3 existen en Railway, permanecen OFF y el allowlist está
-   deshabilitado; el cambio no disparó deploy.
+3. `Evidence.updatedAt` ya está aplicado; el canary reveló drift anterior en
+   las columnas canónicas tenant/context de Evidence y requiere repair aditivo.
+4. Los flags F3 existen en Railway; cálculo y persistencia están OFF tras un
+   rollback verificado, con `tenant_default` conservado como allowlist.
 5. F3-F9 se ejecutan como child specs secuenciales, no como big bang.
 6. Health 200 confirma arranque, no journey funcional ni activación.
 
