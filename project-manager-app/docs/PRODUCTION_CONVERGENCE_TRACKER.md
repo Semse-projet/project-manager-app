@@ -1,18 +1,18 @@
 # Production Convergence Tracker
 
-**Corte:** 2026-07-29
+**Corte:** 2026-07-30
 **Programa:** `platform.production-convergence-f3-f9`
-**Rama de trabajo:** `feat/production-convergence-f3`
+**Rama de trabajo:** `fix/f3-evidence-schema-drift`
 
 ## Verdad desplegada
 
 | Superficie | Estado |
 |---|---|
-| `origin/main` | `39f6ecbd` |
-| API Railway | `39f6ecbd`, deployment `89677ecd-439c-46d2-945f-4482042ff9f1`, `SUCCESS` |
-| Web Railway | `39f6ecbd`, deployment `e377f738-a6b4-4de6-b95a-f60ed0b8d5d2`, `SUCCESS` |
+| `origin/main` | `d065a2f2` |
+| API Railway | `d065a2f2`, rollback deployment `537892e7-f6b9-4cee-a972-ceacd8e7ab77`, `SUCCESS` |
+| Web Railway | `d065a2f2`, deployment `ed9e4238-24d9-486b-a3b6-91cef022a2f1`, `SUCCESS` |
 | Worker/Postgres/Redis/Vision | `SUCCESS` al corte |
-| `api.semseproject.com` | Dominio personalizado `ACTIVE` en Railway |
+| `api.semseproject.com` | DNS propagado; certificado sigue validando propiedad y no coincide con el hostname |
 
 ## Drift F3 confirmado
 
@@ -29,8 +29,16 @@
 - La rama `feat/production-convergence-f3` ya restaura el SQL exacto e
   implementa contrato, builder, endpoint, CAS, enlace BuildOps, BFF y paneles.
 - La migración aditiva
-  `20260729000000_evidence_updated_at_for_lifecycle_projection` está pendiente
-  de deploy; agrega el reloj requerido para ordenar cambios de validación.
+  `20260729000000_evidence_updated_at_for_lifecycle_projection` fue aplicada y
+  agrega el reloj requerido para ordenar cambios de validación.
+- Canary autenticado de cálculo devolvió 500 porque la migración canónica de
+  Evidence figura aplicada con checksum correcto, pero producción no conserva
+  sus nueve columnas tenant/context. El rollback por flag terminó en
+  `537892e7`; F3 vuelve a 404 y la tabla de proyección conserva cero filas.
+- `20260730010000_repair_evidence_canonical_schema` repara ese drift de forma
+  aditiva antes de reintentar el canary. El SQL exacto se ejecutó dos veces
+  contra una tabla legacy en una transacción de PostgreSQL, verificó nueve
+  columnas, backfill, FKs e índices y terminó con `ROLLBACK`.
 
 ## Inventario de flags
 
@@ -46,15 +54,16 @@ Web existentes relacionados:
 - `NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED`
 - `NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED`
 
-Flags F3 creados en API sin disparar deploy:
+Flags F3 desplegados y ejercitados en API:
 
 - `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED`
 - `SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED`
 - `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS`
 
-Los dos flags están OFF y el allowlist usa un sentinel deshabilitado hasta el
-canary. Los valores de las demás variables no se imprimieron ni se documentan
-aquí. El deployment API permaneció en `89677ecd-439c-46d2-945f-4482042ff9f1`.
+Los dos flags están OFF tras rollback y el allowlist conserva
+`tenant_default` para repetir el canary después del hotfix. Los valores de las
+demás variables no se imprimieron ni se documentan aquí. El rollback terminó
+en el deployment `537892e7-f6b9-4cee-a972-ceacd8e7ab77`.
 
 ## Estado F0-F9
 
@@ -63,7 +72,7 @@ aquí. El deployment API permaneció en `89677ecd-439c-46d2-945f-4482042ff9f1`.
 | F0 Truth sync | completo | completo | n/a | `main` | verificado | n/a | Revalidado 2026-07-28 |
 | F1 Event Backbone | `APPROVED` | parcial | histórico | `main` | desplegado | no verificada | Falta canary/adopción |
 | F2 Tool Registry | `APPROVED` | gobernanza completa | histórico | `main` | desplegado | parcial/no verificada | Video temporal pendiente |
-| F3 Lifecycle Projection | `APPROVED` SDD 2.0 | implementado local | CI/E2E verde en `19472b78` | no fusionado | no desplegado | inactivo | Migración `Evidence.updatedAt` pendiente |
+| F3 Lifecycle Projection | `APPROVED` SDD 2.0 | implementado | CI/E2E verde | `d065a2f2` | desplegado; rollback sano | `ROLLED_BACK` | Hotfix de drift Evidence pendiente |
 | F4 Mission Control 2.0 | child spec pendiente | no iniciado | — | — | — | — | Después de gate F3 |
 | F5 Shared Ledger | child spec pendiente | no iniciado | — | — | — | — | Después de F4 |
 | F6 Agenda/Dispatch | child spec pendiente | no iniciado | — | — | — | — | Después de F5 |
@@ -91,7 +100,7 @@ aquí. El deployment API permaneció en `89677ecd-439c-46d2-945f-4482042ff9f1`.
 - Spec Kit/Spec-Driven alineado a SDD 2.0 con templates, checklist, índice y
   validador strict.
 - Build kit portable en Windows/Linux para workspace, seeds y tests API.
-- F3 implementado localmente con 20 pruebas focalizadas, 2,005 pruebas API y
+- F3 fusionado y desplegado con 20 pruebas focalizadas, 2,005 pruebas API y
   957 pruebas unitarias de repositorio sin fallas.
 - PR `#472` validado en `19472b78`: CodeQL, quality gates, cobertura,
   integración, Operación Asistida, Autonomy Staged y E2E pasaron.

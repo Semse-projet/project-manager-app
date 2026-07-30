@@ -57,12 +57,13 @@ date: "2026-07-28"
 
 ## Fase 6 — Producción
 
-- [ ] [T-060] PR/CI/merge
+- [x] [T-060] PR/CI/merge
 - [x] [T-061] Crear flags OFF
-- [ ] [T-062] Deploy API/Web terminal
+- [x] [T-062] Deploy API/Web terminal
 - [ ] [T-063] Canary tenant cálculo
 - [ ] [T-064] Canary persistencia + mismatch
-- [ ] [T-065] Activar o rollback
+- [x] [T-065] Rollback por flag tras detectar drift `Evidence.tenantId`
+- [ ] [T-066] Aplicar migración reparadora de schema Evidence
 
 ## Fase 7 — Cierre F3
 

@@ -9,9 +9,9 @@ owner: "semse-core"
 risk: "critical"
 code_status: "COMPLETE"
 ci_status: "PASS"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
+activation_status: "ROLLED_BACK"
 migration_status: "PENDING"
 feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED
@@ -19,8 +19,15 @@ feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS
 production_evidence:
   - github:pr:472:sha:19472b7892e0fe56975c2d618bf50dc6e0091922:checks-passed
+  - github:pr:472:merge:d065a2f21127a808ee640354a1840baf5605a47d
+  - railway:api:deployment:b676b5e4-6249-4952-b0ed-8918ad62423e:success
+  - railway:web:deployment:ed9e4238-24d9-486b-a3b6-91cef022a2f1:success
+  - railway:api:canary:calculation:500:evidence-tenant-column-drift
+  - railway:api:rollback:537892e7-f6b9-4cee-a972-ceacd8e7ab77:success
+  - railway:postgres:repair-transaction:two-runs-verified-then-rolled-back
   - railway:postgres:migration:20260728000000_project_lifecycle_projection:finished
   - railway:postgres:table:ProjectLifecycleProjection:rows=0
+  - railway:postgres:migration:20260729000000_evidence_updated_at_for_lifecycle_projection:finished
   - railway:api:variables:f3-projection-persistence-off:2026-07-29
 related_files:
   - apps/api/src/modules/projects/project-lifecycle-projection.ts
@@ -36,6 +43,7 @@ related_files:
   - packages/schemas/src/project.schema.ts
   - packages/db/prisma/migrations/20260728000000_project_lifecycle_projection/migration.sql
   - packages/db/prisma/migrations/20260729000000_evidence_updated_at_for_lifecycle_projection/migration.sql
+  - packages/db/prisma/migrations/20260730010000_repair_evidence_canonical_schema/migration.sql
 related_tests:
   - apps/api/test/project-lifecycle-projection.test.ts
   - apps/api/test/project-lifecycle-projection-persistence.test.ts

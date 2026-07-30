@@ -33,8 +33,8 @@ date: "2026-07-28"
 
 ## Producción
 
-- [ ] CI/merge/deploy registrados
+- [x] CI/merge/deploy registrados
 - [ ] Canary tenant autenticado
 - [ ] Mismatch y latencia observables
-- [ ] Rollback por flags probado/documentado
+- [x] Rollback por flags probado/documentado
 - [ ] Activación separada del healthcheck
