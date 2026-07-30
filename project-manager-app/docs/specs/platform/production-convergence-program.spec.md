@@ -16,11 +16,16 @@ migration_status: "PENDING"
 feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED
+  - SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS
 production_evidence:
   - railway:production:sha:39f6ecbd
   - railway:production:api:89677ecd-439c-46d2-945f-4482042ff9f1:SUCCESS
   - railway:production:web:e377f738-a6b4-4de6-b95a-f60ed0b8d5d2:SUCCESS
   - railway:api:variables:f3-projection-persistence-off:2026-07-29
+  - github:pr:473:merge:35f6bda3387e6d17b8dcf094f2e790e43b751021
+  - railway:production:sha:35f6bda3387e6d17b8dcf094f2e790e43b751021
+  - railway:production-health-gate:30509069492:success
+  - railway:f3:activation:tenant_default:calculation-and-persistence-canary
 related_files:
   - AGENTS.md
   - ROADMAP.md
@@ -47,7 +52,7 @@ related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-28"
+last_verified: "2026-07-30"
 ---
 
 # Spec: Programa de convergencia de producción F3-F9
@@ -76,6 +81,11 @@ los módulos actuales, sin reescritura masiva ni backend paralelo.
 
 F3 es el único child slice autorizado para implementación inmediata. F4-F9
 requieren spec, plan, tasks, analyze y checklist propios en `APPROVED`.
+
+Al corte 2026-07-30, F3 está fusionado, desplegado y activo en canary para
+`tenant_default`. Su gate funcional de cálculo/persistencia pasó, pero el child
+permanece `IMPLEMENTED` hasta verificar rebuild, invalidación por eventos y
+replay; por eso F4 aún no está autorizado para implementación.
 
 ## 3. Principios de aterrizaje
 

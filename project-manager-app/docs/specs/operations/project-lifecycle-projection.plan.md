@@ -5,19 +5,23 @@ domain: "operations"
 spec: "docs/specs/operations/project-lifecycle-projection.spec.md"
 version: "2.0"
 status: "APPROVED"
-branch: "feat/production-convergence-f3"
-date: "2026-07-28"
+branch: "main"
+date: "2026-07-30"
 ---
 
 # Plan técnico: Project Lifecycle Projection F3
 
 ## 1. Snapshot
 
-- Git/producción: `39f6ecbd`.
-- PostgreSQL: migración F3 aplicada y tabla vacía.
-- Código F3: sólo en stashes WIP, no en `main`.
-- SQL: recuperado con checksum registrado.
-- Flags F3: ausentes en Railway.
+- Git/producción: `35f6bda3`.
+- API/Web/Worker/Vision: deployments terminales `SUCCESS` del mismo SHA.
+- PostgreSQL: migraciones F3, reloj Evidence y repair canónico aplicados.
+- Evidence: nueve columnas tenant/context, cero tenant nulo, dos FKs y tres
+  índices verificados.
+- F3: cálculo y persistencia activos sólo para `tenant_default`.
+- Proyección durable: una fila canary, revisión estable y mismatch cero.
+- El primer canary falló por drift Evidence; rollback y forward-fix quedaron
+  probados antes del canary exitoso.
 
 ## 2. Rescate selectivo
 

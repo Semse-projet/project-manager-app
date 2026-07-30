@@ -5,26 +5,28 @@ domain: "platform"
 spec: "docs/specs/platform/production-convergence-program.spec.md"
 version: "2.0"
 status: "APPROVED"
-branch: "feat/production-convergence-f3"
-date: "2026-07-28"
+branch: "main"
+date: "2026-07-30"
 ---
 
 # Plan técnico: Programa de convergencia de producción F3-F9
 
 ## Snapshot de verdad
 
-- `origin/main`: `39f6ecbd`.
-- API y Web Railway: `39f6ecbd`, estado `SUCCESS`.
-- F3: migración aplicada manualmente, tabla vacía, código ausente de `main`.
-- SQL original F3: recuperado de stash Git; debe restaurarse sin editar.
-- Flags F3: no existen todavía en Railway.
+- `origin/main`: `35f6bda3`.
+- API, Web, Worker y Vision Railway: `35f6bda3`, estado `SUCCESS`.
+- F3: código y migraciones en `main`; repair Evidence y canary durable
+  verificados.
+- SQL original F3: restaurado sin editar y checksum histórico reconciliado.
+- Flags F3: cálculo y persistencia activos sólo para `tenant_default`.
 - Dominio API personalizado: DNS sincronizado; certificado aún no verificado al
   corte.
 
 ## Estrategia
 
 1. Alinear SDD 2.0 y eliminar contradicciones de estado.
-2. Reconciliar F3 con producción y desplegarlo mediante canary.
+2. Reconciliar F3 con producción y desplegarlo mediante canary. Completado para
+   cálculo/persistencia; pendiente rebuild/event replay.
 3. Actualizar la verdad arquitectónica.
 4. Crear/aprobar el child spec siguiente sólo después del gate de salida.
 
