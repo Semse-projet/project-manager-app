@@ -289,6 +289,49 @@ export class ProjectsRepository {
   }): Promise<ProjectLifecycleProjection> {
     await this.actorContextService.ensureActorContext(input);
 
+    const projection = await this.calculateLifecycleProjection(input, true);
+    if (isProjectLifecyclePersistenceEnabled()) {
+      await this.persistLifecycleProjection(input, projection);
+    }
+    return projection;
+  }
+
+  async rebuildLifecycleProjection(input: {
+    tenantId: string;
+    projectId: string;
+  }): Promise<{
+    effect: "updated" | "no_op";
+    revision: string;
+    sourceUpdatedAt: string;
+  }> {
+    const projection = await this.calculateLifecycleProjection(
+      {
+        tenantId: input.tenantId,
+        orgId: "system",
+        userId: "project-lifecycle-projection-consumer",
+        roles: ["OPS_ADMIN"],
+        projectId: input.projectId,
+      },
+      false,
+    );
+    const effect = await this.persistLifecycleProjection(input, projection);
+    return {
+      effect,
+      revision: projection.revision,
+      sourceUpdatedAt: projection.sourceUpdatedAt,
+    };
+  }
+
+  private async calculateLifecycleProjection(
+    input: {
+      tenantId: string;
+      orgId: string;
+      userId: string;
+      roles: string[];
+      projectId: string;
+    },
+    assertFinancialOwnership: boolean,
+  ): Promise<ProjectLifecycleProjection> {
     const sources = await this.prisma.$transaction(
       async (transaction) => {
         const project = await transaction.project.findFirst({
@@ -337,10 +380,12 @@ export class ProjectsRepository {
           throw new NotFoundException(`Project '${input.projectId}' not found`);
         }
 
-        assertProjectFinancialsReadable(this.toActor(input), {
-          clientOrgId: project.job.clientOrgId,
-          assignedProOrgId: project.assignedProOrgId
-        });
+        if (assertFinancialOwnership) {
+          assertProjectFinancialsReadable(this.toActor(input), {
+            clientOrgId: project.job.clientOrgId,
+            assignedProOrgId: project.assignedProOrgId
+          });
+        }
 
         const [milestones, evidence, disputes, escrow, expenses, risk] = await Promise.all([
           transaction.milestone.findMany({
@@ -503,10 +548,6 @@ export class ProjectsRepository {
         : null
     });
 
-    if (isProjectLifecyclePersistenceEnabled()) {
-      await this.persistLifecycleProjection(input, projection);
-    }
-
     return projection;
   }
 
@@ -514,7 +555,7 @@ export class ProjectsRepository {
   private async persistLifecycleProjection(
     input: { tenantId: string; projectId: string },
     projection: ProjectLifecycleProjection
-  ): Promise<void> {
+  ): Promise<"updated" | "no_op"> {
     const sourceUpdatedAt = new Date(projection.sourceUpdatedAt);
     const data = {
       tenantId: input.tenantId,
@@ -533,7 +574,7 @@ export class ProjectsRepository {
       current?.revision === projection.revision ||
       (current && current.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime())
     ) {
-      return;
+      return "no_op";
     }
 
     if (!current) {
@@ -544,7 +585,7 @@ export class ProjectsRepository {
             ...data
           }
         });
-        return;
+        return "updated";
       } catch (error) {
         if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
           throw error;
@@ -561,10 +602,10 @@ export class ProjectsRepository {
       current.revision === projection.revision ||
       current.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime()
     ) {
-      return;
+      return "no_op";
     }
 
-    await this.prisma.projectLifecycleProjection.updateMany({
+    const updated = await this.prisma.projectLifecycleProjection.updateMany({
       where: {
         id: current.id,
         projectId: input.projectId,
@@ -575,6 +616,7 @@ export class ProjectsRepository {
       },
       data
     });
+    return updated.count === 1 ? "updated" : "no_op";
   }
 
   async getStatusChangeContext(input: {

@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { databaseEnabled } from "../../infrastructure/persistence/persistence-mode.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { findProjectLinkByJobIdOrThrow, findProjectLinkByProjectIdOrThrow } from "../projects/project-link.repository.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import {
   approveMilestoneMemory,
   createMilestoneMemory,
@@ -96,7 +97,9 @@ function toMilestoneRecord(milestone: StoredMilestone, tenantId: string): Milest
 export class MilestonesRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly actorContextService: ActorContextService
+    private readonly actorContextService: ActorContextService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async create(input: {
@@ -633,6 +636,14 @@ export class MilestonesRepository {
         afterJson:   { status: "archived", archiveReason: input.archiveReason, archivedAt: new Date().toISOString() } as object,
       },
     });
+    await this.emitEvidenceItemLifecycleEvent({
+      tenantId: input.tenantId,
+      milestoneId: input.milestoneId,
+      itemId: input.itemId,
+      sourceEventType: "milestone.evidence.archived",
+      actorId: input.actorUserId,
+      correlationId: `milestone-evidence:${input.itemId}:${updated.updatedAt.toISOString()}`,
+    });
 
     return { updated, previousStatus };
   }
@@ -679,6 +690,14 @@ export class MilestonesRepository {
         afterJson:   { status: "submitted",    evidenceId: input.newEvidenceId, replacedReason: input.replacedReason } as object,
       },
     });
+    await this.emitEvidenceItemLifecycleEvent({
+      tenantId: input.tenantId,
+      milestoneId: input.milestoneId,
+      itemId: input.itemId,
+      sourceEventType: "milestone.evidence.replaced",
+      actorId: input.actorUserId,
+      correlationId: `milestone-evidence:${input.itemId}:${updated.updatedAt.toISOString()}`,
+    });
 
     return { updated, previousStatus, previousEvidenceId };
   }
@@ -709,6 +728,23 @@ export class MilestonesRepository {
       })),
       skipDuplicates: true,
     });
+    const milestone = await this.prisma.milestone.findUnique({
+      where: { id: milestoneId },
+      select: { projectId: true, project: { select: { tenantId: true } } },
+    });
+    if (milestone) {
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId: milestone.project.tenantId,
+        orgId: "system",
+        projectId: milestone.projectId,
+        sourceEventType: "milestone.evidence.seeded",
+        sourceEntityType: "Milestone",
+        sourceEntityId: milestoneId,
+        actorType: "system",
+        actorId: "milestones-repository",
+        correlationId: `milestone-evidence:${milestoneId}:seeded`,
+      });
+    }
   }
 
   async updateEvidenceItemStatus(input: {
@@ -745,7 +781,49 @@ export class MilestonesRepository {
     });
     if (count === 0) return null;
 
-    return this.prisma.milestoneEvidenceItem.findUnique({ where: { id: input.itemId } });
+    const updated = await this.prisma.milestoneEvidenceItem.findUnique({ where: { id: input.itemId } });
+    if (updated) {
+      await this.emitEvidenceItemLifecycleEvent({
+        tenantId: input.tenantId,
+        milestoneId: input.milestoneId,
+        itemId: input.itemId,
+        sourceEventType: `milestone.evidence.${input.status}`,
+        actorId: input.reviewedById ?? "milestones-repository",
+        correlationId: `milestone-evidence:${input.itemId}:${updated.updatedAt.toISOString()}`,
+      });
+    }
+    return updated;
+  }
+
+  private async emitEvidenceItemLifecycleEvent(input: {
+    tenantId: string;
+    milestoneId: string;
+    itemId: string;
+    sourceEventType: string;
+    actorId: string;
+    correlationId: string;
+  }): Promise<void> {
+    if (!this.lifecycleProjectionEvents) return;
+    const milestone = await this.prisma.milestone.findFirst({
+      where: {
+        id: input.milestoneId,
+        project: { tenantId: input.tenantId },
+      },
+      select: { projectId: true },
+    });
+    if (!milestone) return;
+    await this.lifecycleProjectionEvents.emit({
+      tenantId: input.tenantId,
+      orgId: "system",
+      projectId: milestone.projectId,
+      sourceEventType: input.sourceEventType,
+      sourceEntityType: "MilestoneEvidenceItem",
+      sourceEntityId: input.itemId,
+      actorType:
+        input.actorId === "milestones-repository" ? "system" : "user",
+      actorId: input.actorId,
+      correlationId: input.correlationId,
+    });
   }
 
   // ── Payment Readiness ────────────────────────────────────────────────────────

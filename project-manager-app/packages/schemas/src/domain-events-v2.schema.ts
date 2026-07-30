@@ -4,6 +4,8 @@ import { evidenceUploadedEventSchema } from "./domain-events.schema.js";
 
 export const EVIDENCE_UPLOADED_V1_SCHEMA_REF =
   "semse://schemas/events/evidence.uploaded.v1" as const;
+export const PROJECT_LIFECYCLE_SOURCE_CHANGED_V1_SCHEMA_REF =
+  "semse://schemas/events/project.lifecycle-source-changed.v1" as const;
 
 const nonEmptyId = z.string().trim().min(1).max(255);
 const eventTypeSchema = z
@@ -150,6 +152,47 @@ export const evidenceUploadedV1EventSchema =
 
 export type EvidenceUploadedV1Event = z.infer<
   typeof evidenceUploadedV1EventSchema
+>;
+
+export const projectLifecycleSourceChangedV1PayloadSchema = z
+  .object({
+    projectId: nonEmptyId,
+    sourceEventType: nonEmptyId,
+    sourceEntityType: nonEmptyId,
+    sourceEntityId: nonEmptyId,
+  })
+  .strict();
+
+const projectLifecycleSourceChangedV1EventObjectSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("project.lifecycle-source-changed.v1"),
+    version: z.literal(1),
+    envelopeVersion: z.literal(2),
+    module: z.literal("projects"),
+    entityType: z.literal("Project"),
+    schemaRef: z.literal(PROJECT_LIFECYCLE_SOURCE_CHANGED_V1_SCHEMA_REF),
+    payload: projectLifecycleSourceChangedV1PayloadSchema,
+  });
+
+export const projectLifecycleSourceChangedV1EventSchema =
+  projectLifecycleSourceChangedV1EventObjectSchema.superRefine(
+    (value, ctx) => {
+      validateEnvelopeV2(value, ctx);
+
+      if (
+        value.entityId !== value.payload.projectId
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["entityId"],
+          message: "entityId must match payload.projectId",
+        });
+      }
+    },
+  );
+
+export type ProjectLifecycleSourceChangedV1Event = z.infer<
+  typeof projectLifecycleSourceChangedV1EventSchema
 >;
 
 export function toLegacySemseEventV1(event: EvidenceUploadedV1Event) {

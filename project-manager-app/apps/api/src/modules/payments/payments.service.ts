@@ -13,6 +13,7 @@ import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { StripeConnectService } from "./stripe-connect.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -61,6 +62,8 @@ export class PaymentsService {
     private readonly workspaceMemory: WorkspaceMemoryRepository,
     @Optional() private readonly sse?: SseEventBusService,
     @Optional() private readonly stripeConnect?: StripeConnectService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -398,6 +401,17 @@ export class PaymentsService {
       amount: input.amount,
       providerRef: reservationRef
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: input.projectId,
+      sourceEventType: "payment.deposit.reserved",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: reservation.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     const fundingIntent = await paymentProvider.createFundingIntent({
       tenantId: input.tenantId,
@@ -457,6 +471,17 @@ export class PaymentsService {
       currency,
       action: "funded",
     }));
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: input.projectId,
+      sourceEventType: "payment.deposit.finalized",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: transaction.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return {
       escrow,
@@ -680,6 +705,17 @@ export class PaymentsService {
       amount,
       providerRef: reservationRef
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: milestone.projectId,
+      sourceEventType: "payment.release.reserved",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: reservation.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     let payoutIntent;
     try {
@@ -764,6 +800,17 @@ export class PaymentsService {
       currency: escrow.currency,
       transactionId: transaction.id,
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: milestone.projectId,
+      sourceEventType: "payment.release.finalized",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: transaction.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return {
       transaction,
@@ -809,6 +856,17 @@ export class PaymentsService {
       escrowId: context.escrowId,
       amount: input.amount,
       providerRef: reservationRef
+    });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "payment.refund.reserved",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: reservation.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
     });
 
     let refundIntent;
@@ -896,6 +954,17 @@ export class PaymentsService {
       currency: context.currency,
       transactionId: transaction.id,
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "payment.refund.finalized",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: transaction.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return {
       ...escrowSummary,
@@ -940,6 +1009,19 @@ export class PaymentsService {
     }
 
     const result = await this.paymentsRepository.reconcileTransactionStatus({ providerRef, status: targetStatus });
+    if (result.reconciled && result.transaction) {
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId: result.transaction.tenantId,
+        orgId: "system",
+        projectId: result.transaction.projectId,
+        sourceEventType: `payment.webhook.${eventType}`,
+        sourceEntityType: "PaymentTxn",
+        sourceEntityId: result.transaction.id,
+        actorType: "webhook",
+        actorId: providerRef,
+        correlationId: input.requestId,
+      });
+    }
     return {
       accepted: true,
       event: eventType,

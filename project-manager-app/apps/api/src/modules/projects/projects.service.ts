@@ -6,6 +6,7 @@ import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-co
 import { buildProjectWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { MilestonesRepository } from "../milestones/milestones.repository.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import { isProjectLifecycleProjectionEnabled } from "./project-lifecycle-projection.js";
 import { ProjectsRepository } from "./projects.repository.js";
 import {
@@ -23,6 +24,8 @@ export class ProjectsService {
     private readonly workspaceMemoryRepository: WorkspaceMemoryRepository,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async list(input: {
@@ -160,6 +163,17 @@ export class ProjectsService {
       projectId: project.id,
       source: "project.status.update",
       reason: `project status changed to ${project.status}`,
+    });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: project.id,
+      sourceEventType: "project.status.updated",
+      sourceEntityType: "Project",
+      sourceEntityId: project.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
     });
 
     return project;
