@@ -42,6 +42,7 @@ test("projects controller declares correct @RequirePermissions", () => {
   const expectations: Array<[string, string]> = [
     ["list",          "projects:read"],
     ["detail",        "projects:read"],
+    ["lifecycleProjection", "projects:financials:read"],
     ["payments",      "projects:financials:read"],
     ["escrow",        "projects:financials:read"],
     ["milestones",    "projects:read"],
@@ -112,6 +113,32 @@ test("projects controller: detail routes projectId to service", async () => {
   const result = await controller.detail(makeReq() as never, "proj_abc");
   assert.equal(result.data.id, "proj_abc");
   assert.equal(calls[0], "proj_abc");
+});
+
+test("projects controller: lifecycle projection routes tenant actor and projectId", async () => {
+  const calls: Record<string, unknown>[] = [];
+  const projection = {
+    schemaVersion: 1,
+    revision: `project-lifecycle.v1:${"a".repeat(64)}`,
+  };
+  const controller = new ProjectsController({
+    async lifecycleProjection(input: Record<string, unknown>) {
+      calls.push(input);
+      return projection;
+    },
+  } as never);
+
+  const result = await controller.lifecycleProjection(makeReq() as never, "proj_projection");
+
+  assert.equal(result.requestId, "req_proj_1");
+  assert.equal(result.data, projection);
+  assert.deepEqual(calls[0], {
+    tenantId: "tenant_1",
+    orgId: "org_client_1",
+    userId: "usr_client_1",
+    roles: ["CLIENT"],
+    projectId: "proj_projection",
+  });
 });
 
 // ── milestones ────────────────────────────────────────────────────────────────

@@ -9,6 +9,9 @@ const verified = [];
 const withoutRelatedFiles = [];
 const withoutTests = [];
 const highRiskNotVerified = [];
+const sddV2 = [];
+const deployed = [];
+const active = [];
 
 for (const spec of specs) {
   const coverage = classifyCoverage(spec);
@@ -31,6 +34,10 @@ for (const spec of specs) {
   if (["high", "critical"].includes(metadata.risk) && metadata.status !== "VERIFIED") {
     highRiskNotVerified.push(spec);
   }
+
+  if (metadata.sdd_version === "2.0") sddV2.push(spec);
+  if (metadata.deploy_status === "DEPLOYED") deployed.push(spec);
+  if (metadata.activation_status === "ACTIVE") active.push(spec);
 }
 
 printSection("SEMSE Spec Coverage");
@@ -40,6 +47,9 @@ console.log(`Specs VERIFIED: ${formatPercent(verified.length, specs.length)}`);
 console.log(`Specs without related_files: ${withoutRelatedFiles.length}`);
 console.log(`Specs without related_tests: ${withoutTests.length}`);
 console.log(`High/critical risk specs not VERIFIED: ${highRiskNotVerified.length}`);
+console.log(`Specs on SDD 2.0 delivery metadata: ${formatPercent(sddV2.length, specs.length)}`);
+console.log(`Specs declared DEPLOYED: ${deployed.length}`);
+console.log(`Specs declared ACTIVE: ${active.length}`);
 
 printPaths("Specs without related_files", withoutRelatedFiles);
 printPaths("Specs without related_tests", withoutTests);

@@ -33,24 +33,28 @@ Si la sesión es de feature coding, también leer:
 
 ---
 
-## Comandos SDD Disponibles
+## Flujo SDD Disponible
 
-Usar la secuencia completa. No saltear pasos.
+Usar la secuencia completa. No saltear pasos. Spec Kit puede aparecer como
+slash commands, skills o no estar instalado en la superficie actual. Si el
+comando no existe, producir el mismo artefacto desde las plantillas SEMSE.
 
-| Comando | Acción | Output |
+| Etapa | Acción | Output |
 |---------|--------|--------|
-| `/speckit.constitution` | Leer/actualizar constitución | `.specify/memory/constitution.md` |
-| `/speckit.specify` | Crear spec de nuevo feature | `docs/specs/[dominio]/[feature].spec.md` |
-| `/speckit.plan` | Generar plan técnico desde spec | `docs/specs/[dominio]/[feature].plan.md` |
-| `/speckit.tasks` | Convertir plan en tareas | `docs/specs/[dominio]/[feature].tasks.md` |
-| `/speckit.analyze` | Verificar consistencia spec↔código | Reporte de gaps |
-| `/speckit.checklist` | Lista de verificación pre-merge | `docs/specs/[dominio]/[feature].checklist.md` |
-| `/speckit.implement` | Implementar desde spec aprobado | Código en `apps/` o `packages/` |
+| constitution | Leer/actualizar constitución | `.specify/memory/constitution.md` |
+| specify + clarify | Crear y cerrar ambigüedades | `docs/specs/[dominio]/[feature].spec.md` |
+| plan | Generar plan técnico | `docs/specs/[dominio]/[feature].plan.md` |
+| tasks | Convertir plan en tareas | `docs/specs/[dominio]/[feature].tasks.md` |
+| analyze | Verificar consistencia spec↔plan↔tasks↔constitución | Reporte de gaps |
+| checklist | Verificar calidad y delivery gates | `docs/specs/[dominio]/[feature].checklist.md` |
+| implement | Implementar sólo desde spec aprobado | Código en `apps/` o `packages/` |
+| validate + deliver | Tests, CI, merge, deploy, canary y evidencia | Metadata SDD 2.0 + reporte |
 
 Templates SEMSE: `.specify/templates/overrides/`
 - `semse-spec.md` — Template de spec con campos SEMSE obligatorios
 - `semse-plan.md` — Template de plan técnico
 - `semse-tasks.md` — Template de tareas por fases
+- `semse-checklist.md` — Gates de seguridad, datos y producción
 
 ---
 
@@ -59,15 +63,16 @@ Templates SEMSE: `.specify/templates/overrides/`
 ```
 NO HACER:  "Implementa el endpoint de pagos"
 SÍ HACER:
-  1. /speckit.specify → crear docs/specs/api/payments.spec.md
+  1. specify → crear docs/specs/api/payments.spec.md
   2. Revisar spec contra STATE_MACHINES.md y DOMAIN_INVARIANTS.md
-  3. /speckit.plan    → crear docs/specs/api/payments.plan.md
-  4. /speckit.tasks   → crear docs/specs/api/payments.tasks.md
+  3. plan    → crear docs/specs/api/payments.plan.md
+  4. tasks   → crear docs/specs/api/payments.tasks.md
   5. Escribir tests (T-002 antes de código)
-  6. /speckit.implement → generar código
-  7. Correr pnpm test
-  8. /speckit.checklist → verificar completitud
-  9. Crear reporte en docs/reportes/
+  6. implement → generar código
+  7. Correr tests + pnpm spec:validate:strict
+  8. checklist → verificar completitud
+  9. Separar CI, merge, deploy y activación en metadata SDD 2.0
+  10. Crear reporte en docs/reportes/
 ```
 
 ---
@@ -151,6 +156,6 @@ La unica matriz vigente es `docs/SPEC_INDEX.md`, regenerada con
 
 1. localizar el spec del bounded context en ese indice;
 2. confirmar que su estado autoriza implementacion;
-3. revisar contratos, tests y `lastVerified` enlazados;
-4. detenerse y completar el flujo SDD si el spec esta `DRAFT`, `PARTIAL`,
-   `MISSING` o `REVIEW_REQUIRED`.
+3. revisar contratos, tests, delivery metadata y `last_verified`;
+4. detenerse y completar el flujo SDD si el spec está `DRAFT` o `REVIEW`;
+5. no inferir activación desde código, merge, deploy o healthcheck.

@@ -22,8 +22,8 @@ function buildGeneratedIndex(specs) {
     "",
     "> Bloque generado por `pnpm spec:index`. Editar metadata en cada spec, no esta tabla.",
     "",
-    "| Spec ID | Domain | Status | Risk | API | UI | Tests | Related Files | Last Verified |",
-    "|---|---|---|---|---|---|---|---|---|",
+    "| Spec ID | Domain | Spec | Code | CI | Merge | Deploy | Activation | Risk | Tests | Last Verified |",
+    "|---|---|---|---|---|---|---|---|---|---|---|",
   ];
 
   for (const spec of specs) {
@@ -34,11 +34,13 @@ function buildGeneratedIndex(specs) {
         link(metadata.id, relative(dirname(INDEX_PATH), spec.relativePath).replaceAll("\\", "/")),
         metadata.domain || "missing",
         metadata.status || "missing",
+        metadata.code_status || "legacy",
+        metadata.ci_status || "legacy",
+        metadata.merge_status || "legacy",
+        metadata.deploy_status || "legacy",
+        metadata.activation_status || "legacy",
         metadata.risk || "missing",
-        coverage.api ? "yes" : "no",
-        coverage.ui ? "yes" : "no",
         coverage.tests ? "yes" : "no",
-        String(coverage.relatedFiles),
         metadata.last_verified || "missing",
       ].join(" | ").replace(/^/, "| ").replace(/$/, " |"),
     );

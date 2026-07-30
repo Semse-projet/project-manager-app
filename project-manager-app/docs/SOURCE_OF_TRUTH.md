@@ -1,26 +1,28 @@
 # SOURCE OF TRUTH — Fuentes de verdad de SEMSEproject
 
-- **Version:** 2.0
-- **Corte:** 2026-07-16
+- **Version:** 2.1
+- **Corte:** 2026-07-29
 - **Repositorio:** `Semse-projet/project-manager-app`
 - **Raiz canónica de desarrollo:** `project-manager-app/`
 
 Este archivo define precedencia y ownership. No sustituye los contratos SDD.
 
-## Jerarquia oficial
+## Ejes oficiales de verdad
 
-En caso de contradiccion se aplica este orden:
+No existe una sola precedencia que permita borrar una contradicción:
 
-1. **Codigo actual de `main`.** Es el comportamiento implementado.
-2. **Specs y contratos aprobados.** Incluye SDD, Zod, Prisma, migrations,
-   eventos, tests, criterios de aceptacion y ADR vigentes.
-3. **Produccion comprobada.** Determina que parte del codigo ya fue desplegada;
-   no convierte por si sola una feature flag en activa.
-4. **Documentacion operativa vigente.** Debe reflejar las tres capas anteriores.
-5. **Conversaciones y vision de producto.** Definen intencion que debe
-   convertirse en specs verificables.
-6. **Investigacion externa.** Informa decisiones sin sobrescribir componentes
-   existentes innecesariamente.
+1. **Constitución + specs aprobados:** intención autorizada y criterios.
+2. **Código actual de `main`:** comportamiento implementado/versionado.
+3. **Producción comprobada:** runtime, configuración y datos realmente
+   desplegados.
+4. **Contratos ejecutables:** Zod, Prisma, migrations, eventos y tests.
+5. **Documentación operativa:** debe reconciliar los cuatro ejes anteriores.
+6. **Visión/conversaciones/investigación:** informan trabajo futuro y primero
+   se convierten en spec/ADR.
+
+Si producción tiene una migración que Git no contiene, producción no “gana” ni
+Git “gana”: existe drift y se detiene el siguiente deploy hasta reconciliar el
+historial de forma segura.
 
 Codigo, test local, CI, merge, deploy y activacion son estados distintos. Toda
 afirmacion de capacidad debe declarar cual de ellos fue verificado.
@@ -39,7 +41,9 @@ afirmacion de capacidad debe declarar cual de ellos fue verificado.
 | Frontend web canónico | `apps/web/` | Usuarios finales |
 | Procesamiento asincrono | `apps/worker/` | Colas y loops |
 | Contratos SDD | `docs/specs/` + `docs/SPEC_INDEX.md` | Equipo y agentes |
+| Plantillas SDD | `.specify/templates/overrides/` | Specs/planes/tareas/checklists nuevos |
 | Arquitectura vigente | `docs/architecture/CURRENT_ARCHITECTURE.md` | Equipo y agentes |
+| Mapa de convergencia | `docs/architecture/PRODUCTION_CONVERGENCE_MAP.md` | Programa F3-F9 |
 | Estado de capacidades | `docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md` | Planificacion y auditoria |
 | Roadmap | `ROADMAP.md` | Ejecucion F0-F9 |
 
@@ -96,5 +100,5 @@ packages/db/prisma/schema.prisma + migrations > SQL o modelos legacy
 ## Snapshot vigente
 
 El snapshot verificable más reciente se registra en
-[`reportes/F0_TRUTH_SYNC_2026-07-16.md`](reportes/F0_TRUTH_SYNC_2026-07-16.md).
-No copiar su SHA a documentos futuros sin repetir la verificacion.
+[`PRODUCTION_CONVERGENCE_TRACKER.md`](PRODUCTION_CONVERGENCE_TRACKER.md).
+No copiar su SHA a documentos futuros sin repetir la verificación.

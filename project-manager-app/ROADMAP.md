@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-07-16
+**Actualizado:** 2026-07-29
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -14,12 +14,14 @@ actual sin reescritura ni renombramiento masivo.
 - Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge e Integrations
   tienen implementacion real en distintos grados.
 - Prometeo Runtime P2 esta fusionado y desplegado.
-- CI, Railway Deploy y Production Health Gate estan verdes para
-  `main@6a8b4a0`; API y Web responden 200 en el corte F0 revalidado.
+- Git y Railway producción coinciden en `main@39f6ecbd`; API y Web tienen
+  deployments terminales `SUCCESS` y health configurado.
 - F1-D y Product Intelligence PI-00..PI-06 estan integrados y contenidos en el
-  deploy. Sus feature flags/allowlists de Railway no fueron verificadas.
+  deploy. Se verificó el inventario de nombres de flags, no su activación.
+- El programa F3-F9 está gobernado por
+  `docs/specs/platform/production-convergence-program.spec.md`.
 
-## F0 — Sincronizar la verdad (COMPLETADO; REVALIDADO 2026-07-16)
+## F0 — Sincronizar la verdad (COMPLETADO; REVALIDADO 2026-07-28)
 
 Entregables:
 
@@ -35,8 +37,8 @@ Gate de salida:
 - ningun documento canónico afirma que el repo carece de API/DB/monorepo;
 - Prometeo P2 aparece como desplegado;
 - cada sistema transversal distingue estado real de arquitectura objetivo.
-- la linea base documentada mantiene 65 specs, 0 errores y 0 warnings; CI del
-  SHA de corte esta verde.
+- la línea base mantiene 97 specs y `spec:validate:strict` reporta 0 errores y
+  0 warnings;
 - el snapshot registra por separado `main`, checkout local, CI, deploy,
   endpoints y configuracion no verificable.
 
@@ -74,17 +76,17 @@ Estado del corte:
 - F1-E: outbox list/delivery/replay, RBAC (`domain-events:read`/`domain-events:replay`
   + `OPS_ADMIN`), redaccion y trace extendido, completado en `main`
   (PR #354, #355; reporte `docs/reportes/F1E_OPS_DLQ_REPLAY_2026-07-19.md`);
-- F1-F: switches OFF, canary, SLO y cierre de produccion, pendiente — requiere
-  acceso a Railway y autorizacion explicita, no intentado todavia.
+- F1-F: switches, canary, SLO y cierre de producción siguen pendientes; el
+  acceso Railway ya está disponible, pero esta rama no altera esos flags.
 - receipt y efecto se confirman en la misma transaccion;
 - duplicados, crash/retry, no-op sin milestone y dead letter fueron probados
   contra PostgreSQL y Redis reales;
 - `Milestone.status`, `paymentReadiness` y Payments no son mutados.
 
-El codigo F1-D y F1-E fue mergeado en el SHA del corte, pero no se declara
-activo: los switches (`SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED`,
-`SEMSE_EVENT_CONSUMERS_ENABLED`) son default-off y sus valores Railway no
-pudieron inspeccionarse desde este entorno.
+El código F1-D y F1-E está mergeado/desplegado, pero no se declara activo:
+esta auditoría no leyó ni modificó los valores de
+`SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED` y
+`SEMSE_EVENT_CONSUMERS_ENABLED`.
 
 Gate de salida:
 
@@ -132,6 +134,22 @@ Gate de salida:
 - [ ] "verification status" explicito — no implementado como campo separado, ver nota arriba.
 
 ## F3 — Project Lifecycle Projection
+
+Contrato ejecutable:
+
+- [`docs/specs/operations/project-lifecycle-projection.spec.md`](docs/specs/operations/project-lifecycle-projection.spec.md)
+- [`docs/specs/operations/project-lifecycle-projection.plan.md`](docs/specs/operations/project-lifecycle-projection.plan.md)
+- [`docs/specs/operations/project-lifecycle-projection.tasks.md`](docs/specs/operations/project-lifecycle-projection.tasks.md)
+
+Estado del corte:
+
+- spec SDD 2.0 `APPROVED`;
+- PostgreSQL tiene la migración aplicada y una tabla vacía;
+- el SQL exacto, modelo, contrato, API, CAS, enlace BuildOps, BFF y UI están
+  implementados y validados en `feat/production-convergence-f3`;
+- `Evidence.updatedAt` tiene una migración aditiva pendiente de deploy para
+  sostener el orden del CAS;
+- CI, merge, deploy y activación F3 siguen pendientes.
 
 Crear un read model por proyecto que responda:
 

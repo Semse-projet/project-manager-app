@@ -1,3 +1,5 @@
+import type { ProjectLifecycleProjection } from "@semse/schemas";
+
 export type BuildOpsProjectStatus =
   | "draft"
   | "estimating"
@@ -21,6 +23,8 @@ export type BuildOpsProject = {
   id: string;
   tenantId: string;
   orgId: string;
+  jobId: string | null;
+  canonicalProjectId: string | null;
   createdBy: string;
   title: string;
   description: string | null;
@@ -131,6 +135,16 @@ export async function fetchBuildOpsProjects(): Promise<BuildOpsProject[]> {
 export async function fetchBuildOpsProject(projectId: string): Promise<BuildOpsProject> {
   const response = await fetch(`/api/semse/buildops/projects/${encodeURIComponent(projectId)}`, { cache: "no-store" });
   return parseBuildOpsResponse<BuildOpsProject>(response);
+}
+
+export async function fetchProjectLifecycleProjection(
+  projectId: string,
+): Promise<ProjectLifecycleProjection> {
+  const response = await fetch(
+    `/api/semse/projects/${encodeURIComponent(projectId)}/projection`,
+    { cache: "no-store" },
+  );
+  return parseBuildOpsResponse<ProjectLifecycleProjection>(response);
 }
 
 export async function fetchBuildOpsTasks(): Promise<BuildOpsTask[]> {

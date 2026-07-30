@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const SPEC_ROOT = "docs/specs";
+export const SDD_VERSION = "2.0";
 
 export const CANONICAL_STATUSES = new Set([
   "DRAFT",
@@ -31,13 +32,38 @@ export const CANONICAL_METADATA_FIELDS = [
   "last_verified",
 ];
 
+export const DELIVERY_METADATA_FIELDS = [
+  "sdd_version",
+  "code_status",
+  "ci_status",
+  "merge_status",
+  "deploy_status",
+  "activation_status",
+  "migration_status",
+  "feature_flags",
+  "production_evidence",
+];
+
+export const DELIVERY_STATUS_VALUES = {
+  code_status: new Set(["NOT_STARTED", "IN_PROGRESS", "COMPLETE"]),
+  ci_status: new Set(["NOT_RUN", "PASS", "FAIL"]),
+  merge_status: new Set(["UNMERGED", "MERGED"]),
+  deploy_status: new Set(["NOT_DEPLOYED", "DEPLOYING", "DEPLOYED", "FAILED", "ROLLED_BACK"]),
+  activation_status: new Set(["INACTIVE", "CANARY", "ACTIVE", "PAUSED", "ROLLED_BACK"]),
+  migration_status: new Set(["NOT_APPLICABLE", "PENDING", "APPLIED", "VERIFIED", "ROLLED_BACK"]),
+};
+
 const LIST_METADATA_FIELDS = new Set([
   "related_files",
   "related_tests",
   "related_endpoints",
   "related_events",
   "related_agents",
+  "feature_flags",
+  "production_evidence",
 ]);
+
+const textSearchCache = new Map();
 
 export function findSpecFiles(rootDir = SPEC_ROOT) {
   const files = [];
@@ -91,6 +117,15 @@ export function readSpec(filePath) {
       related_events: normalizeList(frontmatter.related_events),
       related_agents: normalizeList(frontmatter.related_agents),
       last_verified: normalizeScalar(frontmatter.last_verified),
+      sdd_version: normalizeScalar(frontmatter.sdd_version),
+      code_status: normalizeStatus(frontmatter.code_status),
+      ci_status: normalizeStatus(frontmatter.ci_status),
+      merge_status: normalizeStatus(frontmatter.merge_status),
+      deploy_status: normalizeStatus(frontmatter.deploy_status),
+      activation_status: normalizeStatus(frontmatter.activation_status),
+      migration_status: normalizeStatus(frontmatter.migration_status),
+      feature_flags: normalizeList(frontmatter.feature_flags),
+      production_evidence: normalizeList(frontmatter.production_evidence),
     },
     rawFrontmatter: frontmatter,
   };
@@ -174,6 +209,15 @@ export function missingCanonicalMetadata(spec) {
   return CANONICAL_METADATA_FIELDS.filter((field) => !present.has(field));
 }
 
+export function missingDeliveryMetadata(spec) {
+  const present = new Set(hasMetadataFields(spec, DELIVERY_METADATA_FIELDS));
+  return DELIVERY_METADATA_FIELDS.filter((field) => !present.has(field));
+}
+
+export function isSddV2(spec) {
+  return spec.metadata.sdd_version === SDD_VERSION;
+}
+
 export function toPosix(value) {
   return value.split(path.sep).join("/");
 }
@@ -193,9 +237,14 @@ export function searchRepo(paths, needles) {
   const normalizedNeedles = normalizeList(needles).filter(Boolean);
   if (normalizedNeedles.length === 0) return true;
 
-  const haystack = [];
-  for (const searchPath of paths) {
-    collectTextFiles(searchPath, haystack);
+  const cacheKey = [...paths].sort().join("\u0000");
+  let haystack = textSearchCache.get(cacheKey);
+  if (!haystack) {
+    haystack = [];
+    for (const searchPath of paths) {
+      collectTextFiles(searchPath, haystack);
+    }
+    textSearchCache.set(cacheKey, haystack);
   }
 
   if (haystack.length === 0) return false;
@@ -255,6 +304,17 @@ function parseLegacyMetadata(content) {
   }
 
   return legacy;
+}
+
+function hasMetadataFields(spec, fields) {
+  return fields.filter((field) => {
+    if (LIST_METADATA_FIELDS.has(field) && Object.prototype.hasOwnProperty.call(spec.rawFrontmatter, field)) {
+      return true;
+    }
+
+    const value = spec.metadata[field];
+    return Array.isArray(value) ? value.length > 0 : Boolean(value);
+  });
 }
 
 function parseScalar(value) {

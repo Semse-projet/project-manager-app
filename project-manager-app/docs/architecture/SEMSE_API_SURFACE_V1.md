@@ -50,6 +50,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/jobs/:jobId/milestones`
 - `GET /v1/projects`
 - `GET /v1/projects/:projectId`
+- `GET /v1/projects/:projectId/projection` (F3; `projects:financials:read`; client owner u `OPS_ADMIN`; requiere flag global + tenant allowlisted; persistencia CAS opcional mediante flag separado)
 - `PATCH /v1/projects/:projectId/status`
 - `GET /v1/projects/:projectId/escrow`
 - `GET /v1/projects/:projectId/payments`

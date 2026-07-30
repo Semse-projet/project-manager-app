@@ -19,7 +19,6 @@ related_files:
   - apps/web/app/(app)/client/leads/page.tsx
   - apps/web/app/(app)/client/marketplace/page.tsx
   - apps/web/app/(app)/client/protools/page.tsx
-  - apps/web/app/dashboard/dashboard-client.tsx
   - apps/api/src/modules/bids/bids.repository.ts
   - apps/api/src/modules/payments
   - apps/api/src/modules/auth/auth.service.ts
@@ -66,10 +65,10 @@ El rol CLIENT vive bajo `/client/*` (no `/jobs/*`, que es código huérfano de u
 ## Gaps encontrados (reemplaza la sección "Flujos" del spec anterior, que describía rutas huérfanas)
 
 ### G-CLI-00 — CRÍTICO — Causa raíz: `JobStatus` en mayúsculas comparado contra literales en minúsculas
-**Archivos:** `client/dashboard/page.tsx:119`, `client/jobs/page.tsx:22-24,113`, `client/jobs/[jobId]/page.tsx`, `apps/web/app/dashboard/dashboard-client.tsx`.
+**Archivos actuales:** `client/dashboard/page.tsx`, `client/jobs/page.tsx` y `client/jobs/[jobId]/page.tsx`. La antigua superficie `apps/web/app/dashboard/dashboard-client.tsx` fue retirada durante la consolidación del dashboard y ya no forma parte del remediation scope.
 **Contrato roto:** el enum real (`packages/db/prisma/schema.prisma:11-23`) es `ACCEPTED`/`IN_PROGRESS`/etc. El filtro `["in_progress","reserved","accepted","review"].includes(j.status)` nunca hace match contra un valor real. **Trabajos activos** siempre reporta 0; la pestaña "Activos" siempre está vacía; los badges de estado caen al color/label por defecto.
 **Impacto:** el cliente no puede ver, desde ningún KPI, qué trabajos tiene realmente en curso. Mismo patrón que **G-PRO-00** y **G-ADM-00** — un solo bug, tres specs lo referencian.
-**Fix esperado:** comparar/mapear contra los valores reales del enum `JobStatus` (mayúsculas) en los 4 archivos de este módulo. Preferir importar un tipo/const compartido desde `packages/schemas` en vez de mantener 8 copias locales del mismo mapa.
+**Fix esperado:** comparar/mapear contra los valores reales del enum `JobStatus` (mayúsculas) en las tres superficies vigentes. Preferir importar un tipo/const compartido desde `packages/schemas` en vez de mantener copias locales del mismo mapa.
 
 ### G-CLI-01 — CRÍTICO — Fondear escrow / liberar pago sin confirmación ni monto visible
 **Archivos:** `client/jobs/[jobId]/page.tsx` (`handleFundEscrow:288-301`, `handleRelease:333-350`, botones `728-745,923-930`); duplicado en `apps/web/app/jobs/[jobId]/escrow/page.tsx:75-94` y `packages/ui/src/components/EscrowTimeline.tsx:256-264`.
@@ -151,7 +150,6 @@ required_behavior:
 
 ### Web
 - `apps/web/app/(app)/client/**`
-- `apps/web/app/dashboard/dashboard-client.tsx`
 - `packages/ui/src/components/EscrowTimeline.tsx`
 - `apps/web/app/components/payments/EscrowFundModal.tsx`
 

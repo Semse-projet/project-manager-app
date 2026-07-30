@@ -1,91 +1,88 @@
-# Matriz de implementacion de la arquitectura SEMSE
+# Matriz de implementación de la arquitectura SEMSE
 
-**Corte:** 2026-07-17
-**Base codigo/produccion:** `main@646528c64cfb774c74bef119522d73b1b2578bd8`
-**Limitacion:** deploy exact-SHA y superficies públicas fueron verificados por
-Railway/GitHub; flags, allowlists y servicios privados no fueron inspeccionados.
+**Corte:** 2026-07-29
+**Git/producción:** `main@39f6ecbd`
+**Tracker:** [`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md)
 
 ## Leyenda
 
-- **IMPLEMENTADO:** existe en codigo y tiene evidencia de validacion relevante.
-- **PARCIAL:** existe una parte util, pero falta el contrato transversal o el
-  criterio de cierre.
-- **PENDIENTE:** no existe como capacidad comun verificable.
-- **DESPLEGADO:** verificado en produccion para el SHA del corte.
-- **ACTIVO:** feature flag/allowlist verificada. No se infiere de
-  **DESPLEGADO**.
+- **IMPLEMENTADO:** código y validación relevante; no implica merge/deploy.
+- **DESPLEGADO:** SHA verificado en un deployment terminal.
+- **ACTIVO:** flag/allowlist y journey funcional verificados.
+- **PARCIAL:** existe una parte útil, falta el gate transversal.
+- **PENDIENTE:** no existe como capacidad común verificable.
+
+Para specs SDD 2.0 mandan las columnas separadas de
+`docs/SPEC_INDEX.md`; esta matriz resume capacidades, no sustituye evidencia.
+
+## Producción observada
+
+| Superficie | Evidencia |
+|---|---|
+| API | deployment `89677ecd-439c-46d2-945f-4482042ff9f1`, `39f6ecbd`, `SUCCESS`, health `/v1/health` |
+| Web | deployment `e377f738-a6b4-4de6-b95a-f60ed0b8d5d2`, `39f6ecbd`, `SUCCESS`, health `/api/semse/healthz` |
+| Worker/Postgres/Redis/Vision | `SUCCESS` al corte |
+| Dominio API | `api.semseproject.com` con `sync_status: ACTIVE` |
+| PostgreSQL F3 | migración de proyección aplicada, tabla vacía; `Evidence.updatedAt` pendiente |
 
 ## Matriz
 
-| Capacidad | Estado | Evidencia actual | Criterio de cierre siguiente |
-| --- | --- | --- | --- |
-| Monorepo pnpm | IMPLEMENTADO | `pnpm-workspace.yaml`, `apps/*`, `packages/*` | Mantener `pnpm verify:workspace` verde |
-| Web/BFF | IMPLEMENTADO/DESPLEGADO | `apps/web`, Route Handlers, Railway Web HTTP 200 | SLO y trazas por journey |
-| API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | `apps/api`, `packages/db`, `/v1/health` HTTP 200 | Telemetria end-to-end y ownership por bounded context |
-| Worker/BullMQ | IMPLEMENTADO | `apps/worker`, queues, scheduled jobs, autonomy loops | Consola comun de retries/DLQ y event lag |
-| Nueve dominios | IMPLEMENTADO/DESPLEGADO como superficies canónicas | `pnpm verify:modules`; 9 probes API protegidos + 9 páginas web verdes en Production Health `29599005110` | Mantener ownership, profundidad honesta y gate 9/9 |
-| Prometeo Runtime P2 | IMPLEMENTADO/DESPLEGADO | `PrometeoMissionService`, `AgentWorkPlan`, controllers/BFF; PR #289 | Verify/learn, budgets, timeout y compensacion |
-| Tool Registry | PARCIAL | 31 descriptors (24 read + 7 write). Gobernanza F2 completa y en `main` (PRs #369/#371/#372): `evaluatePrometeoToolPolicy` gatea el 100% de invocaciones (no solo `agents:run:create`), `PrometeoToolInvocationAudit` registra cada intento, `PrometeoProposedAction` exige aprobacion humana antes de ejecutar escritura de riesgo medio/alto/critico. 23/24 read cableados (los 5 `vision.*` restantes se cablearon post-F2, llaman a `VisionService.runAnalysis/matchReference/detectMaterial/classifySpace/checkSafetyEnriched` reales), 7/7 write cableados (incluye `payments.propose_release` -> `PaymentsService.release()` real via aprobacion) | Solo `vision.analyze_video` queda `adapter_pending` — requiere un pipeline temporal que no existe hoy |
-| Video tool | PENDIENTE | Descriptor `vision.analyze_video` marcado `adapter_pending` | Pipeline temporal, storage, limits y review humano |
-| Domain Event schema | IMPLEMENTADO para slice Evidence | `domain-events-v2.schema.ts`, envelope v2 y `evidence.uploaded.v1` | Ampliar catalogo versionado dominio por dominio |
-| Domain Event bus | PARCIAL (F1-D); DESPLEGADO; ACTIVACION NO VERIFICADA | Evidence state+outbox, dispatcher BullMQ, worker y receipt/efecto atomico | Ops/replay, trace extendido, canary y adopcion multi-dominio |
-| Event Catalog | PARCIAL | `docs/foundation/EVENT_CATALOG.md` | Alinear nombres al schema, versionar y mapear producers/consumers |
-| Transactional Outbox general | PARCIAL (F1-D); DESPLEGADO; ACTIVACION NO VERIFICADA | Contratos v2, producer Evidence atomico, dispatcher con leases, BullMQ ingress y `evidence-readiness.v1` | Replay/operacion F1-E, canary F1-F y mas producers |
-| Communications delivery outbox | PARCIAL | Delivery row + adapter WhatsApp | Separar persistencia de envio; worker/retry/circuit breaker durable |
-| Idempotencia transversal | PARCIAL | Unique producer key y receipt `(eventId, consumerName)` probados con concurrencia/crash | Replay autorizado y adopcion por cada consumer |
-| Event DLQ/replay | PARCIAL | Outbox y consumer alcanzan `DEAD_LETTER`; BullMQ corta 4xx terminal | Replay RBAC/tenant/auditado y operacion desde Mission Control |
-| Payment orchestration | IMPLEMENTADO/PARCIAL | `PaymentEscrow`, `PaymentTxn`, Stripe, payment governance | Reconciliacion integral y lenguaje legal consistente |
-| Shared Economic Ledger | PENDIENTE | PaymentTxn y credit ledgers verticales no son double-entry comun | Accounts, entries, balanced lines, reversals y trial balance |
-| Evidence provenance | PARCIAL | checksum, metadata, geo, validation, Vision, bucketKey | Chain of custody, signatures, retention y access history unificados |
-| Object storage abstraction | PARCIAL | `StorageService` local/S3-R2 y MinIO local | Verificar provider/retention/backups por ambiente |
-| Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, trust, governance credits, compliance, disputes | Rulebook versionado y explicacion/apelacion universal |
-| RBAC boundary | IMPLEMENTADO | `@RequirePermissions`, guard default-deny, specs | Tests de resource authorization y step-up para acciones criticas |
-| Policy/Approval Engine | PARCIAL | Aprobaciones verticales y reglas locales | Contrato comun principal/action/resource/context + decision reason |
-| Mission Control | PARCIAL | `/admin/mission-control`, signals, incidents, SSE y AI health | Cockpit unico de exceptions, events, queues, approvals y runbooks |
-| Project Lifecycle Projection | PENDIENTE como proyeccion unica | Datos existen en projects, milestones, evidence y payments | Read model versionado con bloqueo, owner, fecha, costo y next action |
-| Product Intelligence | IMPLEMENTADO/PARCIAL (PI-00..PI-06); DESPLEGADO; ACTIVACION NO VERIFICADA | `@semse/product-events`, modelos/ingesta/retencion, auth-wizard funnel y funnel economico | Activar/verificar flags; PI-07 Friction Engine y PI-08..PI-11 |
-| Workspace/Context Bridge | PARCIAL | developer runtime, context bridge panel y contexto operacional | Terminal registry, shared mission context y policy de scopes |
-| SDD/Blueprint Engine | PARCIAL | specs, preflight, developer runtime y plan mode | Flujo gobernado idea->spec->tasks->PR->deploy->observacion |
-| Knowledge/RAG | IMPLEMENTADO/PARCIAL | documents, chunks, hybrid retrieval, embeddings, Graphify, feedback | Learning loop, source governance y evaluation set transversal |
-| Vision | IMPLEMENTADO/PARCIAL | servicio, analyzers, persistence y UI | Validacion continua con evidencia real y thresholds por vertical |
-| Agro | IMPLEMENTADO/PARCIAL | modelos y servicios de fincas, animales, grupos, costos, tareas y sync | Offline completo, ledger comun y flows productivos restantes |
-| Labor Engine | IMPLEMENTADO/PARCIAL | tracker, sesiones, rates, admin y worker flows | Cost posting comun, approvals y payroll/export governance |
-| Agenda/Dispatch | PARCIAL | reservations, disponibilidad/field ops y weather/travel dispersos | Calendar canónico, conflicts, routing, reminders y rescheduling |
-| Observabilidad | PARCIAL | Sentry, Prometheus, health/readiness y audit | OTel traces, correlation y SLOs de negocio |
-| Backup/DR | PARCIAL | BCP/restore simulations para operacion asistida | Restore real DB/storage, PITR y evidencia RPO/RTO |
-| CI/CD | IMPLEMENTADO/DESPLEGADO | CI, CodeQL, smoke, integration, deploy exact-SHA `29598805544` y health gate `29599005110` verdes para `646528c` | Mantener pipeline <15 min o justificar excepcion; migration gates |
-| Salud SDD | IMPLEMENTADO | baseline: 66 specs, 0 errores, 0 warnings; 61/66 con tests y 45/66 VERIFIED; CI del corte verde | Mantener metadata/evidencia; completar T-016 y validacion/canary F1-E/F |
+| Capacidad | Estado real | Evidencia | Siguiente gate |
+|---|---|---|---|
+| Monorepo pnpm | IMPLEMENTADO | `pnpm-workspace.yaml`; runners Node portables para workspace, seeds y tests API | Mantener workspace verde |
+| Web/BFF | IMPLEMENTADO/DESPLEGADO | Next.js + Railway `39f6ecbd` | SLO y journeys autenticados |
+| API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `39f6ecbd` | Trazas y migration gates |
+| Worker/BullMQ | IMPLEMENTADO/DESPLEGADO | worker Railway `SUCCESS` | Consola común lag/retries/DLQ |
+| Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
+| Prometeo Runtime | IMPLEMENTADO/DESPLEGADO | missions, work plans, BFF | Verify/learn/budgets/compensación |
+| Tool Registry F2 | IMPLEMENTADO/PARCIAL | policy/audit/approval; adapters reales | video temporal + verification explícita |
+| Event Backbone F1 | PARCIAL/DESPLEGADO | outbox Evidence, dispatcher, worker, receipts, replay ops | Flags/canary + adopción multi-dominio |
+| Event Catalog | PARCIAL | catálogo y envelope v2 | Producer/consumer/deploy/activation por evento |
+| Communications | IMPLEMENTADO/PARCIAL | modelo canónico y delivery vertical | outbox/retry/circuit breaker durable |
+| Payment orchestration | IMPLEMENTADO/PARCIAL | escrow, Stripe, governance | reconciliación y lenguaje legal |
+| Shared Economic Ledger F5 | PENDIENTE | PaymentTxn no es double-entry | Child spec después de F4 |
+| Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
+| Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
+| Mission Control F4 | PARCIAL | incidents, signals, SSE, health | Cockpit gobernado tras gate F3 |
+| Project Lifecycle Projection F3 | IMPLEMENTADO + CI VERDE / NO DESPLEGADO | SQL restaurado; schema/builder/API/CAS/BuildOps/BFF/UI; PR `#472` verde en `19472b78` | Merge, migración aditiva, deploy y canary |
+| Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-06 | Verificar flags/activación |
+| Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |
+| SDD/Blueprint Engine | IMPLEMENTADO/PARCIAL | 97 specs; strict 0/0; SDD 2.0 | Migrar specs al tocarlas + delivery evidence |
+| Knowledge/RAG | IMPLEMENTADO/PARCIAL | documents/chunks/retrieval/feedback | eval set y source governance |
+| Vision | IMPLEMENTADO/PARCIAL/DESPLEGADO | servicio Railway y analyzers | evidencia real, thresholds y video |
+| Agro | IMPLEMENTADO/PARCIAL | fincas, animales, tareas, costos, sync | tenancy/offline/ledger común |
+| Labor Engine | IMPLEMENTADO/PARCIAL | tracker, sesiones, rates, admin | approvals + economic posting |
+| Agenda/Dispatch F6 | PARCIAL | reservas/field ops/weather dispersos | calendario/conflictos/routing |
+| Observabilidad | PARCIAL | Sentry, Prometheus, health | OTel/correlation/SLOs |
+| Backup/DR F9 | PARCIAL | docs/simulaciones | restore real y evidencia RPO/RTO |
+| CI/CD | IMPLEMENTADO/DESPLEGADO | GitHub + Railway autodeploy/health | Environments, concurrency, migration gate |
 
-## Hallazgos que cambian documentos anteriores
+## Salud SDD
 
-1. `SEMSEPROJECT_BLUEPRINT.md` y el `ROADMAP.md` anterior describian una app
-   local sin API. Esa descripcion ya no es valida.
-2. Prometeo Runtime P2 esta en `main` y en Railway. `/v1/prometeo/tools` no es
-   404; requiere autenticacion y responde 401 sin Bearer token.
-3. El Event Backbone no debe marcarse como inexistente: F1-A-F1-D implementan
-   un slice durable de Evidence. Tampoco debe marcarse como cerrado o activo:
-   replay operacional, canary y adopcion multi-dominio siguen pendientes.
-4. `CommunicationsOutboxService` es una capacidad vertical; no sustituye la
-   outbox de plataforma.
-5. `PaymentTxn` registra movimientos de pago, pero no implementa contabilidad
-   double-entry compartida.
-6. Prometeo tiene registry real; a partir de F2 (PRs #369/#371/#372, 2026-07-20)
-   la gobernanza (policy, audit, aprobacion humana para escritura) esta
-   cerrada — la brecha restante es cobertura de adapters (vision:run) y
-   ejecucion completa, no gobernanza ni catalogo.
-7. Product Intelligence ya no es solo analytics disperso: PI-00..PI-06 tienen
-   SDK, persistencia, ingesta e interfaces. Su activacion en Railway no fue
-   verificada.
+```text
+Specs:                              97
+Spec validate strict:               0 errores / 0 warnings
+Specs con related_tests:            86/97 (89%)
+Specs VERIFIED:                     44/97 (45%)
+Specs high/critical no VERIFIED:    34
+Specs SDD 2.0:                       2/97
+Tiempo validator estricto:          ~2.1 s (antes ~106 s)
+```
 
-## Protocolo para actualizar esta matriz
+## Hallazgos vinculantes
 
-Cada cambio de estado debe registrar:
+1. Git y producción siguen en `39f6ecbd`; el SQL F3 aplicado se restauró
+   byte por byte en la rama y conserva su checksum.
+2. La tabla F3 tiene cero filas; no existe activación ni adopción.
+3. `Evidence.validationStatus` era mutable sin `updatedAt`; la migración
+   aditiva pendiente cierra ese reloj antes de activar persistencia.
+4. Los flags F3 existen en Railway, permanecen OFF y el allowlist está
+   deshabilitado; el cambio no disparó deploy.
+5. F3-F9 se ejecutan como child specs secuenciales, no como big bang.
+6. Health 200 confirma arranque, no journey funcional ni activación.
 
-- SHA de codigo;
-- spec/test que demuestra el comportamiento;
-- estado de PR/merge;
-- estado de produccion cuando aplique;
-- criterio pendiente si permanece PARCIAL.
+## Protocolo de actualización
 
-No se acepta marcar **IMPLEMENTADO** solo porque exista un archivo o una UI de
-demostracion.
+Cada cambio de estado registra spec/test, SHA, CI, merge, deployment, flags,
+canary y evidencia. No se acepta “implementado” por existencia de archivo,
+“desplegado” por build en cola ni “activo” por healthcheck.

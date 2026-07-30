@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, RefreshCw, ShieldCheck, Activity, FileText, ChevronRight, Bot } from "lucide-react";
 import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
 import { ProjectActivityFeed } from "@/components/buildops/ProjectActivityFeed";
+import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
 import { fetchBuildOpsProject, type BuildOpsProject } from "../../../../lib/buildops-api";
 
 type MilestoneRow = {
@@ -184,6 +185,9 @@ export default function ClientProjectDetailPage() {
       {/* Tab content */}
       {tab === "overview" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <ProjectLifecycleProjectionPanel projectId={project.canonicalProjectId} />
+          </div>
           <BuildOpsProjectHealthPanel projectId={projectId} />
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ padding: "16px", borderRadius: "14px", background: "var(--bg)", border: "1px solid var(--border)" }}>

@@ -1,7 +1,7 @@
 # Contexto operativo canónico de SEMSEproject
 
 **Leer antes de planificar o modificar SEMSE.**
-**Corte verificado:** 2026-07-16 (`main@6a8b4a0` y deploy exacto verificados)
+**Corte verificado:** 2026-07-29 (`main@39f6ecbd` sigue desplegado; F3 validado localmente)
 
 ## Identidad
 
@@ -18,14 +18,9 @@ conocimiento e IA.
 
 ## Fuentes de verdad
 
-Orden obligatorio:
-
-1. `main` actual.
-2. Specs, Zod, Prisma, migrations y tests.
-3. Produccion verificada.
-4. Documentacion vigente.
-5. Vision/conversaciones.
-6. Investigacion externa.
+Usar los ejes de `SOURCE_OF_TRUTH.md`: intención autorizada, código `main`,
+producción observada y contratos ejecutables se registran por separado. Una
+contradicción es drift a reconciliar, no permiso para ignorar uno de los ejes.
 
 No afirmar que una capacidad esta en produccion solo porque esta en codigo.
 
@@ -67,27 +62,31 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 ## Estado verificado importante
 
 - Prometeo Runtime P2 esta implementado, fusionado y desplegado.
-- SHA de produccion del corte: `6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`.
+- SHA de producción del corte: `39f6ecbdb0d6e08c51b7c8651e0ad855444d3c5e`.
 - `/v1/prometeo/tools` existe y requiere Bearer token.
-- Tool Registry: 23 herramientas read, 7 write; 17 casos read cableados.
-- Write tools de Prometeo siguen bloqueadas por el runtime actual.
+- Tool Registry: 31 descriptors (24 read, 7 write); 23/24 read y 7/7 write
+  tienen adapter, con policy/audit/approval para escritura.
+- `vision.analyze_video` permanece `adapter_pending`.
 - El slice Evidence del Event Backbone tiene envelope v2, producer atomico,
   outbox, dispatcher BullMQ, worker y consumer idempotente con receipt atomico.
   Ops/replay, canary y adopcion general siguen pendientes.
 - Hay movimientos `PaymentTxn`, pero no ledger double-entry compartido.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
-- La linea base SDD esta saneada: `pnpm spec:validate -- --strict` pasa con
-  65 specs, 0 errores y 0 warnings.
-- F1 Event Backbone tiene spec, plan, tasks y ADR aprobados. F1-A-F1-D estan en
-  `main`; F1-E (Ops/replay/RBAC/trace) y F1-F (canary/cierre) siguen pendientes.
+- La línea base SDD está saneada: 97 specs y
+  `pnpm spec:validate:strict` pasa con 0 errores/0 warnings.
+- F1 Event Backbone tiene F1-A..F1-E en `main`; F1-F
+  (flags/canary/cierre) sigue pendiente.
 - Product Intelligence PI-00..PI-06 esta implementado: SDK separado de domain
   events, contratos/modelos, ingesta/retencion, instrumentacion auth/wizard y
   funnels de experiencia/economico. PI-07 Friction Engine es el siguiente
   incremento.
-- El deploy contiene F1-D y PI-06, pero activacion y allowlists no se pudieron
-  verificar porque Railway CLI no estaba autenticada. No confundir codigo
-  desplegado con feature activa.
+- Railway CLI está autenticada. Se inventariaron nombres de flags sin leer ni
+  publicar valores; activación F1/PI sigue no verificada.
+- F3 tiene la migración de proyección aplicada y tabla vacía en producción.
+  Su SQL/modelo/código ya están reconciliados en la rama F3; la migración
+  aditiva `Evidence.updatedAt`, CI, merge, deploy y activación siguen
+  pendientes bajo SDD `operations.project-lifecycle-projection`.
 
 ## Reglas de Prometeo
 
@@ -141,8 +140,8 @@ Todo evento nuevo debe declarar:
 
 ## Secuencia activa
 
-1. F0: sincronizar documentacion y verdad (revalidado 2026-07-16).
-2. F1: Event Backbone (F1-E siguiente; F1-F cierra con canary).
+1. F0: sincronizar documentación y verdad (revalidado 2026-07-28).
+2. F1: Event Backbone (F1-F cierra con canary).
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection.
 5. F4: Mission Control 2.0.

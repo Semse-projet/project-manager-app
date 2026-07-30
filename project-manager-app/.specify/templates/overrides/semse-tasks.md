@@ -2,92 +2,83 @@
 type: tasks
 feature: "[FEATURE_NAME]"
 domain: "[DOMAIN]"
-plan: "docs/specs/[dominio]/[feature].plan.md"
-version: "1.0"
-status: "[PENDING | IN_PROGRESS | DONE]"
+plan: "docs/specs/[domain]/[feature].plan.md"
+version: "2.0"
+status: "PENDING"
 branch: "feat/[feature-slug]"
 date: "[YYYY-MM-DD]"
 ---
 
 # Tareas: [FEATURE_NAME]
 
-> **Prerequisito:** El plan `[feature].plan.md` debe estar APPROVED.
-> Convención de estado: `[ ]` pendiente · `[x]` completado · `[~]` bloqueado
-> Convención de paralelismo: `[P]` puede ejecutarse en paralelo con otras `[P]`
+> Prerrequisito: plan aprobado y análisis spec↔plan↔constitución sin gaps.
+> `[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
 
----
+## Fase 0 — SDD y verdad
 
-## Fase 1 — Setup
+- [ ] [T-001] Confirmar spec `APPROVED` e indexado
+- [ ] [T-002] Registrar SHA Git/producción, migraciones y flags actuales
+- [ ] [T-003] Completar plan, análisis y checklist
+- [ ] [T-004] Registrar investigación externa y decisiones
 
-- [ ] [T-001] Crear rama `feat/[feature-slug]` desde `main`
-- [ ] [T-002] Escribir tests del spec ANTES de implementar (ver sección Tests del spec)
-- [ ] [T-003] [P] Crear migración Prisma si aplica: `pnpm db:generate`
-- [ ] [T-004] [P] Crear schema Zod en `packages/schemas/src/[dominio].ts`
+## Fase 1 — Tests y contratos
 
----
+- [ ] [T-010] Escribir tests rojos de escenarios P1 y seguridad
+- [ ] [T-011] [P] Crear/actualizar schemas compartidos
+- [ ] [T-012] [P] Definir fixtures de idempotencia/concurrencia
+- [ ] [T-013] Confirmar que el fallo inicial demuestra el gap
 
-## Fase 2 — Foundational ⚠️ COMPLETAR ANTES DE CONTINUAR
+## Fase 2 — Datos y dominio
 
-> Esta fase es bloqueante. No avanzar a Fase 3 sin completarla.
+- [ ] [T-020] Crear/restaurar migración Prisma reproducible
+- [ ] [T-021] Verificar SQL, checksum y compatibilidad hacia atrás
+- [ ] [T-022] Implementar dominio/repositorio sin violar ownership
+- [ ] [T-023] Implementar eventos/outbox/receipts si aplica
+- [ ] [T-024] Pasar tests unitarios y de persistencia
 
-- [ ] [T-010] Implementar service `[NombreModulo]Service.[método]`
-  - Archivo: `apps/api/src/modules/[nombre]/[nombre].service.ts`
-  - Debe respetar: `DOMAIN_INVARIANTS.md`
-  - Debe usar: estados de `STATE_MACHINES.md`
-- [ ] [T-011] Verificar que los tests de T-002 pasen con la implementación del service
-- [ ] [T-012] Correr `pnpm test:unit` — todos deben pasar
+## Fase 3 — API/BFF/UI
 
----
+- [ ] [T-030] Implementar endpoint con permiso backend
+- [ ] [T-031] Implementar BFF sin exponer secretos
+- [ ] [T-032] Implementar UI con loading/empty/forbidden/degraded/error
+- [ ] [T-033] Actualizar API surface y documentación afectada
+- [ ] [T-034] Pasar pruebas de contrato y UI
 
-## Fase 3 — API Contract
+## Fase 4 — Verificación local
 
-- [ ] [T-020] Agregar endpoint al controller
-  - Archivo: `apps/api/src/modules/[nombre]/[nombre].controller.ts`
-  - Decorar con: `@Roles([ROL])`, `@UseGuards(AuthGuard, RolesGuard)`
-  - Validar input con schema Zod de T-004
-- [ ] [T-021] Registrar endpoint en `docs/architecture/SEMSE_API_SURFACE_V1.md`
-- [ ] [T-022] Correr tests de integración del endpoint
-- [ ] [T-023] Verificar que errores 400/403/404/409 retornan correctamente
+- [ ] [T-040] Tests dirigidos
+- [ ] [T-041] Regresión proporcional al riesgo
+- [ ] [T-042] Build/typecheck/lint
+- [ ] [T-043] `pnpm spec:validate:strict`
+- [ ] [T-044] `pnpm spec:coverage` y `pnpm spec:index`
+- [ ] [T-045] Actualizar spec a `code_status: COMPLETE` y `status: IMPLEMENTED`
 
----
+## Fase 5 — PR, CI y merge
 
-## Fase 4 — Efectos del Dominio
+- [ ] [T-050] Revisar diff y secretos
+- [ ] [T-051] Abrir PR con migración, rollback y evidencia
+- [ ] [T-052] Esperar CI terminal y registrar `ci_status`
+- [ ] [T-053] Resolver review sin ampliar scope
+- [ ] [T-054] Fusionar y registrar SHA; actualizar `merge_status`
 
-- [ ] [T-030] Emitir evento audit `[aggregate.action]` en el servicio
-  - Verificar formato con `docs/foundation/EVENT_CATALOG.md`
-- [ ] [T-031] [P] Emitir SSE si el spec lo requiere
-  - Canal: `apps/api/src/modules/[nombre]/[nombre]-sse.service.ts`
-- [ ] [T-032] [P] Emitir notificación si el spec lo requiere
-- [ ] [T-033] Si toca pagos: verificar Payment Governance harness
-  - Referencia: `docs/agents/harnesses/contrato_tecnico_payments_harness_semse_2026-04-05.md`
+## Fase 6 — Deploy y activación
 
----
-
-## Fase 5 — Frontend (si aplica)
-
-- [ ] [T-040] Crear/modificar página en `apps/web/app/[ruta]/page.tsx`
-- [ ] [T-041] [P] Crear BFF route si el page necesita llamada server-side
-- [ ] [T-042] [P] Crear componentes en `apps/web/components/` o `packages/ui/`
-- [ ] [T-043] Verificar con `pnpm typecheck` — sin errores TypeScript
-
----
-
-## Fase 6 — Polish y Cierre
-
-- [ ] [T-050] Correr suite completa: `pnpm test`
-- [ ] [T-051] Correr typecheck: `pnpm typecheck`
-- [ ] [T-052] Verificar lint: `pnpm lint`
-- [ ] [T-053] Actualizar `docs/SPEC_INDEX.md`: cambiar status del spec a `APPROVED`
-- [ ] [T-054] Crear reporte de sesión: `docs/reportes/[feature]_[fecha].md`
-- [ ] [T-055] Commit con mensaje descriptivo siguiendo convención del repo
-- [ ] [T-056] Abrir PR a `main` si está listo para review
-
----
+- [ ] [T-060] Verificar pre-deploy/migración
+- [ ] [T-061] Esperar deployment terminal API/Web/Worker afectado
+- [ ] [T-062] Verificar health/readiness y logs
+- [ ] [T-063] Activar canary/flag de forma gradual
+- [ ] [T-064] Ejecutar smoke autenticado y validar tenant/ownership
+- [ ] [T-065] Validar métricas/SLO y señal de rollback
+- [ ] [T-066] Promover a `ACTIVE` o revertir/pausar
+- [ ] [T-067] Registrar `production_evidence`, `last_verified` y `status: VERIFIED`
 
 ## Criterio de Done
 
-- [ ] Todos los tests del spec pasan en CI
-- [ ] El endpoint está en `SEMSE_API_SURFACE_V1.md`
-- [ ] El spec está en `APPROVED` en `SPEC_INDEX.md`
-- [ ] No hay regresiones en la suite existente (`pnpm test`)
-- [ ] El reporte de sesión fue creado
+- [ ] Código completo y tests verdes
+- [ ] CI `PASS`
+- [ ] Merge `MERGED`
+- [ ] Deploy `DEPLOYED`
+- [ ] Activación `ACTIVE`
+- [ ] Migración `VERIFIED` o `NOT_APPLICABLE`
+- [ ] Evidencia de producción enlazada
+- [ ] Índice/matriz/roadmap actualizados

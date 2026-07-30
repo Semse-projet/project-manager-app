@@ -128,6 +128,7 @@ model Tenant {
   orgs                          Org[]
   jobs                          Job[]
   projects                      Project[]
+  lifecycleProjections          ProjectLifecycleProjection[]
   disputes                      Dispute[]
   auditLogs                     AuditLog[]
   domainOutboxEvents            DomainOutboxEvent[]
@@ -530,6 +531,7 @@ model Project {
   milestones                    Milestone[]
   evidence                      Evidence[]
   disputes                      Dispute[]
+  lifecycleProjection           ProjectLifecycleProjection?
   escrow                        PaymentEscrow?
   communicationThreads           CommunicationThread[]
   tenant                        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -544,6 +546,26 @@ model Project {
 
   @@index([tenantId, status])
   @@index([tenantId, promotedFromBuildOpsProjectId])
+}
+
+/// Durable, rebuildable snapshot for the canonical project lifecycle.
+model ProjectLifecycleProjection {
+  id              String   @id @default(cuid())
+  tenantId        String
+  projectId       String   @unique
+  schemaVersion   Int      @default(1)
+  revision        String
+  snapshotJson    Json
+  sourceUpdatedAt DateTime
+  generatedAt     DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, updatedAt])
+  @@index([projectId, revision])
 }
 
 model Milestone {
@@ -669,6 +691,7 @@ model Evidence {
   uploadedBy                    User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   farm                          AgroFarm?    @relation("EvidenceToFarm", fields: [farmId], references: [id], onDelete: SetNull)
   createdAt                     DateTime     @default(now())
+  updatedAt                     DateTime     @updatedAt
 
   @@unique([projectId, promotedFromBuildOpsProjectId, bucketKey])
   @@index([tenantId, createdAt])
