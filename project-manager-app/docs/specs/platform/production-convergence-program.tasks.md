@@ -5,8 +5,8 @@ domain: "platform"
 plan: "docs/specs/platform/production-convergence-program.plan.md"
 version: "2.0"
 status: "IN_PROGRESS"
-branch: "feat/production-convergence-f3"
-date: "2026-07-28"
+branch: "main"
+date: "2026-07-30"
 ---
 
 # Tareas: Programa de convergencia de producción F3-F9
@@ -22,7 +22,7 @@ date: "2026-07-28"
 
 ## Child slices
 
-- [~] [T-100] F3 — en progreso en sus artefactos propios
+- [~] [T-100] F3 — canary durable activo; cierre event/replay pendiente
 - [ ] [T-200] F4 — crear spec después del gate F3
 - [ ] [T-300] F5 — crear spec después del gate F4
 - [ ] [T-400] F6 — crear spec después del gate F5

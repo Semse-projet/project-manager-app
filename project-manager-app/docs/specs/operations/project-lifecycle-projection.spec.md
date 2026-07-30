@@ -3,7 +3,7 @@ id: "operations.project-lifecycle-projection"
 title: "Project Lifecycle Projection F3"
 domain: "operations"
 sdd_version: "2.0"
-version: "1.0"
+version: "1.1"
 status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "critical"
@@ -11,8 +11,8 @@ code_status: "COMPLETE"
 ci_status: "PASS"
 merge_status: "MERGED"
 deploy_status: "DEPLOYED"
-activation_status: "ROLLED_BACK"
-migration_status: "PENDING"
+activation_status: "CANARY"
+migration_status: "VERIFIED"
 feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED
@@ -25,8 +25,22 @@ production_evidence:
   - railway:api:canary:calculation:500:evidence-tenant-column-drift
   - railway:api:rollback:537892e7-f6b9-4cee-a972-ceacd8e7ab77:success
   - railway:postgres:repair-transaction:two-runs-verified-then-rolled-back
+  - github:pr:473:sha:96318d8f4fc6800fc52fb74fa7e2015506f42292:checks-passed
+  - github:pr:473:merge:35f6bda3387e6d17b8dcf094f2e790e43b751021
+  - github:actions:production-health-gate:30509069492:success
+  - railway:api:deployment:2b0cb689-5bf8-42c0-a86a-b6076a1be36d:success
+  - railway:web:deployment:239ea013-84b5-48cc-90dd-eed3e76b2c99:success
+  - railway:worker:deployment:4e91525c-20f5-406a-9d59-d1fbeaf365b0:success
+  - railway:vision:deployment:174e569e-d79e-41ac-a414-96ee2bd11fda:success
+  - railway:postgres:migration:20260730010000_repair_evidence_canonical_schema:finished
+  - railway:postgres:evidence-context:columns=9:null-tenant=0:fks=2:indexes=3
+  - railway:api:canary-calculation:85299c98-c84e-4c07-b8f2-d17c3e1a44f9:success
+  - railway:api:canary-persistence:7450784e-c6e2-44c6-82ae-61c3a567fe15:success
+  - railway:api:canary:client=200x2:pro=403:outside-tenant=404:revision-stable
+  - railway:postgres:ProjectLifecycleProjection:rows=1:mismatch=0
+  - railway:health:api=200:web=200:2026-07-30
   - railway:postgres:migration:20260728000000_project_lifecycle_projection:finished
-  - railway:postgres:table:ProjectLifecycleProjection:rows=0
+  - railway:postgres:table:ProjectLifecycleProjection:baseline-before-canary:rows=0
   - railway:postgres:migration:20260729000000_evidence_updated_at_for_lifecycle_projection:finished
   - railway:api:variables:f3-projection-persistence-off:2026-07-29
 related_files:
@@ -56,7 +70,7 @@ related_endpoints:
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-28"
+last_verified: "2026-07-30"
 ---
 
 # Spec: Project Lifecycle Projection F3
@@ -235,9 +249,10 @@ ProjectLifecycleProjection
   snapshotJson, sourceUpdatedAt, generatedAt, createdAt, updatedAt
 ```
 
-La migración `20260728000000_project_lifecycle_projection` ya está aplicada en
-producción y la tabla está vacía. El archivo SQL debe restaurarse byte por byte
-desde Git y su SHA-256 debe coincidir con
+La migración `20260728000000_project_lifecycle_projection` está aplicada en
+producción. La tabla partió vacía y contiene exactamente un snapshot después
+del canary durable de `tenant_default`. El archivo SQL se restauró byte por
+byte desde Git y su SHA-256 coincide con
 `1616b63c7c44bfa0526e5ce2e4857565c9375b6c48eed5ed1b3a7389832f6699`.
 
 No se ejecuta otra `CREATE TABLE`. El Prisma schema incorpora el modelo y sus
@@ -247,14 +262,19 @@ relaciones. `migrate status` debe quedar reconciliado antes del deploy.
 actualización. La migración aditiva
 `20260729000000_evidence_updated_at_for_lifecycle_projection` agrega
 `Evidence.updatedAt`; la consulta F3 usa ese valor para que `sourceUpdatedAt` y
-el guard CAS distingan validaciones nuevas de snapshots antiguos. Esta segunda
-migración permanece `PENDING` hasta el deploy de F3.
+el guard CAS distingan validaciones nuevas de snapshots antiguos.
+
+El primer canary reveló drift histórico: la migración canónica de Evidence
+figuraba aplicada, pero faltaban nueve columnas tenant/context. La migración
+idempotente `20260730010000_repair_evidence_canonical_schema` quedó aplicada y
+verificada en producción: nueve columnas, cero `tenantId` nulos sobre cuatro
+filas, dos claves foráneas y tres índices. No se alteraron checksums históricos.
 
 ## 7. Flags y activación
 
-- `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED=false` por defecto.
-- `SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED=false` por defecto.
-- `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS` vacío por defecto.
+- Los dos flags booleanos conservan `false` como valor seguro por defecto.
+- Producción está en canary con cálculo y persistencia habilitados únicamente
+  para `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS=tenant_default`.
 - Primero habilitar cálculo para un tenant allowlisted.
 - Después habilitar persistencia y comparar snapshot calculado/durable.
 - Activación global sólo con error rate, latencia y mismatch dentro de SLO.
@@ -282,15 +302,15 @@ puede estar `IMPLEMENTED` y activo como read-through, no `VERIFIED`.
 - [x] CAS concurrente e idempotente
 - [x] BFF y UI states
 - [x] Migración/checksum
-- [ ] Canary autenticado
+- [x] Canary autenticado
 
 ## 10. Gates de cierre
 
 - [x] SQL/checksum reconciliado
 - [x] Tests y regresión verdes
 - [x] API surface actualizada; event catalog sin cambios hasta invalidación
-- [ ] CI/merge/deploy registrados
+- [x] CI/merge/deploy registrados
 - [x] Flags documentados OFF por defecto
-- [ ] Canary tenant verificado
-- [ ] Persistencia y mismatch observables
+- [x] Canary tenant verificado
+- [x] Persistencia verificada y mismatch durable/calculado = 0
 - [ ] Rebuild/event invalidation verificados para elevar a `VERIFIED`

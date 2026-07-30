@@ -143,13 +143,16 @@ Contrato ejecutable:
 
 Estado del corte:
 
-- spec SDD 2.0 `APPROVED`;
-- PostgreSQL tiene la migración aplicada y una tabla vacía;
-- el SQL exacto, modelo, contrato, API, CAS, enlace BuildOps, BFF y UI están
-  implementados y validados en `feat/production-convergence-f3`;
-- `Evidence.updatedAt` tiene una migración aditiva pendiente de deploy para
-  sostener el orden del CAS;
-- CI, merge, deploy y activación F3 siguen pendientes.
+- spec SDD 2.0 `IMPLEMENTED`, CI/E2E `PASS`, merge/deploy completos;
+- `main@35f6bda3` está desplegado en API/Web/Worker/Vision con health 200;
+- PostgreSQL tiene las tres migraciones F3 aplicadas, incluida la reparación
+  canónica de Evidence verificada con nueve columnas, cero tenant nulo, dos FKs
+  y tres índices;
+- cálculo y persistencia están activos sólo para `tenant_default`;
+- el canary autenticado produjo revisión estable y un snapshot durable con
+  mismatch cero;
+- faltan rebuild idempotente, invalidación por eventos y replay antes de elevar
+  F3 a `VERIFIED` y abrir el gate de implementación F4.
 
 Crear un read model por proyecto que responda:
 

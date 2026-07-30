@@ -5,8 +5,8 @@ domain: "operations"
 plan: "docs/specs/operations/project-lifecycle-projection.plan.md"
 version: "2.0"
 status: "IN_PROGRESS"
-branch: "feat/production-convergence-f3"
-date: "2026-07-28"
+branch: "main"
+date: "2026-07-30"
 ---
 
 # Tareas: Project Lifecycle Projection F3
@@ -60,10 +60,10 @@ date: "2026-07-28"
 - [x] [T-060] PR/CI/merge
 - [x] [T-061] Crear flags OFF
 - [x] [T-062] Deploy API/Web terminal
-- [ ] [T-063] Canary tenant cálculo
-- [ ] [T-064] Canary persistencia + mismatch
+- [x] [T-063] Canary tenant cálculo
+- [x] [T-064] Canary persistencia + mismatch
 - [x] [T-065] Rollback por flag tras detectar drift `Evidence.tenantId`
-- [ ] [T-066] Aplicar migración reparadora de schema Evidence
+- [x] [T-066] Aplicar y verificar migración reparadora de schema Evidence
 
 ## Fase 7 — Cierre F3
 

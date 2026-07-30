@@ -3,7 +3,7 @@ type: checklist
 feature: "Project Lifecycle Projection F3"
 spec: "docs/specs/operations/project-lifecycle-projection.spec.md"
 version: "2.0"
-date: "2026-07-28"
+date: "2026-07-30"
 ---
 
 # Checklist: Project Lifecycle Projection F3
@@ -25,7 +25,7 @@ date: "2026-07-28"
 
 ## Persistencia
 
-- [x] Tabla de producción vacía confirmada
+- [x] Baseline vacío y snapshot canary único confirmados
 - [x] SQL y checksum coinciden
 - [x] CAS evita downgrade
 - [x] Flags OFF por defecto
@@ -34,7 +34,8 @@ date: "2026-07-28"
 ## Producción
 
 - [x] CI/merge/deploy registrados
-- [ ] Canary tenant autenticado
-- [ ] Mismatch y latencia observables
+- [x] Canary tenant autenticado
+- [x] Mismatch durable/calculado observado en cero
+- [ ] Latencia y error rate observados durante una ventana SLO
 - [x] Rollback por flags probado/documentado
-- [ ] Activación separada del healthcheck
+- [x] Activación separada del healthcheck
