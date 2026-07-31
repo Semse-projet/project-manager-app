@@ -498,7 +498,7 @@ export default function GovernancePage() {
             </button>
             <button onClick={load} disabled={loading}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
-              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
               Actualizar
             </button>
           </>

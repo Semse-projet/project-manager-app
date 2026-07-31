@@ -197,7 +197,7 @@ export default function AdminQAPage() {
           <>
             <NotificationBanner audience="admin" />
             <button onClick={() => void runChecks()} disabled={running} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "10px", border: "none", background: running ? "var(--muted)" : "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: running ? "not-allowed" : "pointer" }}>
-              {running ? <RefreshCw size={15} style={{ animation: "spin 1s linear infinite" }} /> : <ShieldCheck size={15} />}
+              {running ? <RefreshCw size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
               {running ? "Ejecutando..." : "Ejecutar todos"}
             </button>
           </>

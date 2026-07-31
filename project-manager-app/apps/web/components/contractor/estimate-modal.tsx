@@ -144,7 +144,7 @@ export function EstimateModal({ lead, onClose, onCreated }: Props) {
                 disabled={suggesting}
                 style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: "#4f46e5", color: "white", fontWeight: 700, fontSize: 12, cursor: suggesting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6, opacity: suggesting ? 0.7 : 1 }}
               >
-                {suggesting ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Bot size={12} />}
+                {suggesting ? <Loader2 size={12} className="animate-spin" /> : <Bot size={12} />}
                 {suggesting ? "Generando..." : items.length > 0 ? "Regenerar" : "Generar items"}
               </button>
             </div>
@@ -255,7 +255,7 @@ export function EstimateModal({ lead, onClose, onCreated }: Props) {
                 disabled={creating || items.length === 0}
                 style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: items.length === 0 ? "var(--border)" : "var(--brand)", color: items.length === 0 ? "var(--muted)" : "white", fontWeight: 700, fontSize: 13, cursor: creating || items.length === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 6 }}
               >
-                {creating ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : null}
+                {creating ? <Loader2 size={13} className="animate-spin" /> : null}
                 {creating ? "Creando..." : `Crear estimado${subtotal > 0 ? ` · $${subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 })}` : ""}`}
               </button>
             </div>

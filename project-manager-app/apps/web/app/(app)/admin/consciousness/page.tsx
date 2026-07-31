@@ -182,7 +182,7 @@ export default function ConsciousnessPage() {
         actions={
           <button onClick={load} disabled={loading}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(167,139,250,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#a78bfa", fontWeight: 700 }}>
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
             Actualizar
           </button>
         }

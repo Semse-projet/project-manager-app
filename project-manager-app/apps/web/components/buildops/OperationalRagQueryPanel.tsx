@@ -101,7 +101,7 @@ export function OperationalRagQueryPanel({ projectId, milestoneId }: Props) {
             />
             <button type="button" disabled={loading || !question.trim()} onClick={() => void ask(question)}
               style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: loading ? "rgba(99,102,241,.1)" : "rgba(99,102,241,.2)", color: "#818cf8", fontSize: 12, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
-              {loading ? <Loader size={13} style={{ animation: "spin 1s linear infinite" }} /> : <BookOpen size={13} />}
+              {loading ? <Loader size={13} className="animate-spin" /> : <BookOpen size={13} />}
             </button>
           </div>
 

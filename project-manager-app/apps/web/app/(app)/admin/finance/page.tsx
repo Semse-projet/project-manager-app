@@ -194,7 +194,7 @@ export default function AdminFinancePage() {
             display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px",
             borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: "pointer",
           }}>
-            <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
             {loading ? "Cargando..." : "Actualizar"}
           </button>
         }

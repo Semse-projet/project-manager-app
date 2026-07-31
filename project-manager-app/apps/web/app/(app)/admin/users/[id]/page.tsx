@@ -171,7 +171,7 @@ export default function CitizenProfilePage() {
         actions={
           <button onClick={() => void load()} disabled={loading}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(99,102,241,.12)", border: "none", cursor: loading ? "wait" : "pointer", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
             Actualizar
           </button>
         }

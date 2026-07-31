@@ -8,8 +8,6 @@ import { NotificationBanner } from "../../../components/notifications/Notificati
 import { fetchAdminSettings, updateAdminSettings } from "../../../semse-api";
 import type { AdminSettings } from "@semse/schemas";
 
-const spinStyle = { animation: "spin 1s linear infinite" };
-
 type SettingSection = "general" | "notifications" | "security" | "integrations";
 
 const SECTIONS: { id: SettingSection; label: string; labelEn: string; icon: typeof Settings }[] = [
@@ -134,7 +132,7 @@ export default function AdminSettingsPage() {
         <div style={{ border: "1px solid var(--border)", borderRadius: "20px", background: "var(--surface)", padding: "28px" }}>
           {loading ? (
             <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)" }}>
-              <Loader2 size={16} style={spinStyle} /> Cargando ajustes…
+              <Loader2 size={16} className="animate-spin" /> Cargando ajustes…
             </div>
           ) : (
             <>
@@ -146,7 +144,7 @@ export default function AdminSettingsPage() {
               <div style={{ marginTop: "24px", display: "flex", alignItems: "center", gap: "12px", justifyContent: "flex-end" }}>
                 {saving ? (
                   <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--muted)", fontSize: "0.875rem" }}>
-                    <Loader2 size={14} style={spinStyle} /> Guardando…
+                    <Loader2 size={14} className="animate-spin" /> Guardando…
                   </span>
                 ) : saveStatus === "saved" ? (
                   <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "#34d399", fontSize: "0.875rem" }}>

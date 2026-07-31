@@ -141,7 +141,7 @@ export default function WorkerRateJobPage() {
 
       {phase === "loading" && (
         <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", minHeight: "180px", color: "var(--muted)" }}>
-          <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+          <Loader2 size={20} className="animate-spin" />
           Cargando…
         </div>
       )}
@@ -290,7 +290,7 @@ export default function WorkerRateJobPage() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                    <Loader2 size={16} className="animate-spin" />
                     Enviando…
                   </>
                 ) : (

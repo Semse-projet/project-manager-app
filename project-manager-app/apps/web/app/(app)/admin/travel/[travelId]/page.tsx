@@ -261,7 +261,7 @@ export default function AdminTravelDetailPage() {
             <NotificationBanner audience="admin" />
             <StatusBadge variant={STATUS_VARIANT[status] ?? "neutral"} text={STATUS_LABEL[status] ?? status} size="sm" />
             <button onClick={() => void load()} disabled={busy} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
-              <RefreshCw size={15} style={{ animation: busy ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={15} className={busy ? "animate-spin" : undefined} />
             </button>
           </div>
         }

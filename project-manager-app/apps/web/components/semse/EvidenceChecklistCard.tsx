@@ -66,7 +66,7 @@ export function EvidenceChecklistCard({
         </span>
         <button onClick={load} disabled={loading}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 }}>
-          <RefreshCw size={10} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          <RefreshCw size={10} className={loading ? "animate-spin" : undefined} />
         </button>
       </div>
 

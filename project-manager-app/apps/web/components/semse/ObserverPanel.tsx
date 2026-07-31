@@ -154,7 +154,7 @@ export function ObserverPanel() {
         </div>
         <button onClick={() => fetch(true)} disabled={loading}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
-          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
           Observar ahora
         </button>
       </div>

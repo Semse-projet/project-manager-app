@@ -115,7 +115,7 @@ function PatchCard({ patch, onApply }: { patch: SimPatch; onApply: (id: string) 
               color: isSafe ? "#86efac" : "#475569",
               opacity: applying ? 0.6 : 1,
             }}>
-            {applying ? <RefreshCw size={11} style={{ animation: "spin 1s linear infinite" }} /> : isSafe ? <CheckCircle2 size={11} /> : <Lock size={11} />}
+            {applying ? <RefreshCw size={11} className="animate-spin" /> : isSafe ? <CheckCircle2 size={11} /> : <Lock size={11} />}
             {applying ? "Aplicando…" : isSafe ? "Aplicar" : "No seguro"}
           </button>
         )}
@@ -250,7 +250,7 @@ export function SimulationPanel() {
         </div>
         <button onClick={load} disabled={loading}
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 10, background: "rgba(99,102,241,.15)", border: "none", cursor: "pointer", fontSize: 12, color: "#818cf8", fontWeight: 700 }}>
-          <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
           Simular
         </button>
       </div>

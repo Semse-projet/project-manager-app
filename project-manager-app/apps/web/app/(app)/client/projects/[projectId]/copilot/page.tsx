@@ -1544,7 +1544,7 @@ export default function ProjectCopilotPage() {
             disabled={busy}
             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 20px", borderRadius: 12, border: "none", background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#fff", fontWeight: 700, cursor: "pointer", width: "fit-content", opacity: busy ? 0.6 : 1 }}
           >
-            <RefreshCw size={15} style={{ animation: busy ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={busy ? "animate-spin" : undefined} />
             {busy ? "Actualizando..." : "Actualizar estado del proyecto"}
           </button>
 

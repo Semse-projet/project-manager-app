@@ -539,7 +539,7 @@ export default function AdminCommunicationsPage() {
                   opacity: loading ? 0.65 : 1,
                 }}
               >
-                <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+                <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
                 Refrescar
               </button>
             </div>
@@ -585,7 +585,7 @@ export default function AdminCommunicationsPage() {
               <h2 style={{ fontSize: "16px", color: "var(--ink)", fontWeight: 850, margin: 0 }}>Conversaciones</h2>
               <p style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{visibleThreads.length} visibles</p>
             </div>
-            {loading ? <RefreshCw size={15} style={{ color: "var(--muted)", animation: "spin 1s linear infinite" }} /> : null}
+            {loading ? <RefreshCw size={15} style={{ color: "var(--muted)" }} className="animate-spin" /> : null}
           </div>
 
           <div className="communications-filters" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 132px", gap: "8px", marginBottom: "12px" }}>
@@ -715,7 +715,7 @@ export default function AdminCommunicationsPage() {
                 {messagesLoading ? (
                   <div style={{ minHeight: "260px", display: "grid", placeItems: "center", color: "var(--muted)", fontSize: "13px" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-                      <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} />
+                      <RefreshCw size={14} className="animate-spin" />
                       Cargando conversacion
                     </span>
                   </div>
@@ -800,7 +800,7 @@ export default function AdminCommunicationsPage() {
                     disabled={sending || !reply.trim()}
                     style={primaryButtonStyle(sending || !reply.trim())}
                   >
-                    {sending ? <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={14} />}
+                    {sending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
                     Enviar
                   </button>
                 </div>
@@ -845,7 +845,7 @@ export default function AdminCommunicationsPage() {
             <p style={{ fontSize: "12px", color: manualFeedback.kind === "ok" ? "#5eead4" : "#fca5a5" }}>{manualFeedback.message}</p>
           ) : null}
           <button type="submit" disabled={manualLoading || !manualPhone.trim() || !manualBody.trim()} style={primaryButtonStyle(manualLoading || !manualPhone.trim() || !manualBody.trim())}>
-            {manualLoading ? <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Phone size={14} />}
+            {manualLoading ? <RefreshCw size={14} className="animate-spin" /> : <Phone size={14} />}
             Registrar inbound
           </button>
         </form>

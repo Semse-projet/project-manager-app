@@ -622,7 +622,7 @@ export function DisputeResolutionWorkspace({
               disabled={copilotBusy}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(99,102,241,0.22)", background: "rgba(99,102,241,0.10)", color: "#818cf8", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
             >
-              {copilotBusy ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Bot size={13} />}
+              {copilotBusy ? <RefreshCw size={13} className="animate-spin" /> : <Bot size={13} />}
               {copilotBusy ? "Analizando..." : "Pedir criterio"}
             </button>
           </div>
@@ -740,7 +740,7 @@ export function DisputeResolutionWorkspace({
                         disabled={!!decidingApprovalId}
                         style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.10)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
                       >
-                        {isBusy ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <CheckCircle2 size={12} />}
+                        {isBusy ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                         {isBusy ? "Procesando..." : "Aprobar y ejecutar"}
                       </button>
                       <button
@@ -975,7 +975,7 @@ export function DisputeResolutionWorkspace({
                         disabled={!!releasingMilestoneId}
                         style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.1)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: releasingMilestoneId ? 0.5 : 1, whiteSpace: "nowrap" }}
                       >
-                        {isBusy ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Wallet size={12} />}
+                        {isBusy ? <RefreshCw size={12} className="animate-spin" /> : <Wallet size={12} />}
                         {isBusy ? "Liberando..." : "Liberar escrow"}
                       </button>
                     ) : (
@@ -1001,7 +1001,7 @@ export function DisputeResolutionWorkspace({
               disabled={loadingComments}
               style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
             >
-              <RefreshCw size={11} style={{ animation: loadingComments ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={11} className={loadingComments ? "animate-spin" : undefined} />
               Recargar
             </button>
           </div>
@@ -1033,7 +1033,7 @@ export function DisputeResolutionWorkspace({
               disabled={sendingComment || commentDraft.trim().length < 2}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(99,102,241,.28)", background: "rgba(99,102,241,.10)", color: "#6366f1", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: sendingComment || commentDraft.trim().length < 2 ? 0.6 : 1, alignSelf: "flex-start", marginTop: 2 }}
             >
-              {sendingComment ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={13} />}
+              {sendingComment ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
               {sendingComment ? "Enviando..." : "Enviar"}
             </button>
           </div>

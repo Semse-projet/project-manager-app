@@ -312,7 +312,7 @@ function PayoutMethodFormInner({ currentMethod, onSave }: PayoutMethodFormProps)
           transition: "background 0.2s",
         }}
       >
-        {saving  ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Guardando...</> :
+        {saving  ? <><Loader2 size={15} className="animate-spin" /> Guardando...</> :
          saved   ? <><Check size={16} /> Guardado</> :
          "Guardar método de cobro"}
       </button>
