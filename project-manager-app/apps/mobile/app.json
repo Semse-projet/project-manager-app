@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "SEMSE Worker",
+    "slug": "semse-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "semse-mobile",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.semse.mobile",
+      "infoPlist": {
+        "UIBackgroundModes": ["location"]
+      }
+    },
+    "android": {
+      "package": "com.semse.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SEMSE usa tu ubicación para avisarte cuando llegas a un job o proyecto y ofrecerte iniciar el reloj automáticamente, incluso con la app en segundo plano.",
+          "locationWhenInUsePermission": "SEMSE usa tu ubicación para avisarte cuando llegas a un job o proyecto y ofrecerte iniciar el reloj.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-notifications",
+      "expo-task-manager",
+      "expo-secure-store"
+    ]
+  }
+}
