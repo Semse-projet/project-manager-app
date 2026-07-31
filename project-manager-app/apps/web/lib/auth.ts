@@ -15,6 +15,23 @@ export type SessionPayload = RequestIdentity & {
 const DEV_SESSION_SECRET = "semse-dev-session-secret";
 const HMAC_ALGORITHM = { name: "HMAC", hash: "SHA-256" } as const;
 const textEncoder = new TextEncoder();
+const LEGACY_DEMO_USER_IDS = new Set([
+  "usr_client_001",
+  "usr_worker_001",
+  "usr_admin_001",
+]);
+
+function isDisabledDemoSession(payload: SessionPayload): boolean {
+  const legacyDemoEnabled =
+    process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
+  if (LEGACY_DEMO_USER_IDS.has(payload.userId) && !legacyDemoEnabled) {
+    return true;
+  }
+
+  const agroDemoEnabled =
+    process.env.DEMO_MODE_ENABLED === "true" || process.env.NODE_ENV !== "production";
+  return payload.roles.includes("DEMO_AGRO") && !agroDemoEnabled;
+}
 
 function resolveSessionSecret(): string | null {
   const explicit = process.env.SEMSE_WEB_SESSION_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
@@ -153,6 +170,7 @@ export async function decodeSession(cookie: string): Promise<SessionPayload | nu
     const parsed = JSON.parse(json) as SessionPayload;
     const now = Math.floor(Date.now() / 1000);
     if (parsed.exp < now) return null;
+    if (isDisabledDemoSession(parsed)) return null;
     return parsed;
   } catch {
     return null;
