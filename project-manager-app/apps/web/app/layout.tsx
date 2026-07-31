@@ -4,7 +4,10 @@ import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.semseproject.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: {
     default: "SEMSE Project — Profesionales verificados y pagos seguros",
     template: "%s · SEMSE",
@@ -14,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_MX",
-    url: "https://semse-web-production.up.railway.app",
+    url: appUrl,
     siteName: "SEMSE Project",
     title: "SEMSE Project — Profesionales verificados y pagos seguros",
     description: "Conecta con profesionales verificados. Pagos seguros con escrow. Gestión con IA.",

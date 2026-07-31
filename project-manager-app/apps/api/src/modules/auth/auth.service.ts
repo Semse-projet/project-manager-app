@@ -12,6 +12,11 @@ import { SemseLoggerService } from "../../infrastructure/observability/semse-log
 import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../../common/auth-password.js";
 import { signToken, verifyToken } from "../../common/auth-token.js";
 import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
+import {
+  isDisabledDemoIdentity,
+  isLegacyDemoLoginEnabled,
+  LEGACY_DEMO_ACCOUNTS,
+} from "./auth-demo-mode.js";
 import { AuthRepository } from "./auth.repository.js";
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
@@ -125,6 +130,10 @@ export class AuthService {
       throw new UnauthorizedException({ message: "Session-bound auth token required" });
     }
 
+    if (isDisabledDemoIdentity(claims.userId, claims.roles)) {
+      throw new UnauthorizedException({ message: "Demo sessions are disabled" });
+    }
+
     // Skip DB session lookup — JWT signature verification is sufficient for auth.
     // DB lookup was causing 15s hangs when Postgres is slow (Railway prod issue).
     // Token revocation relies on short TTLs. Session cleanup runs in the background.
@@ -197,6 +206,10 @@ export class AuthService {
     const session = await this.authRepository.findSessionByRefreshTokenHash(sha256(input.refreshToken));
     if (!session || session.refreshExpiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException("Invalid or expired refresh token");
+    }
+
+    if (isDisabledDemoIdentity(session.userId, session.roles)) {
+      throw new UnauthorizedException("Demo sessions are disabled");
     }
 
     const refreshToken = generateOpaqueToken();
@@ -419,6 +432,16 @@ export class AuthService {
 
   async loginWithPassword(input: { email: string; password: string; requestId: string }) {
     const normalizedEmail = input.email.toLowerCase().trim();
+    const demoModeEnabled = isLegacyDemoLoginEnabled();
+
+    if (!demoModeEnabled && normalizedEmail in LEGACY_DEMO_ACCOUNTS) {
+      this.semseLogger.warn("auth.login failed", {
+        reason: "demo_account_disabled",
+        email: normalizedEmail,
+      });
+      throw new UnauthorizedException("Credenciales incorrectas");
+    }
+
     const user = await this.authRepository.findUserByEmail(normalizedEmail);
 
     if (!user) {
@@ -451,20 +474,11 @@ export class AuthService {
       });
     }
 
-    const demoModeEnabled =
-      process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
-
     if (!demoModeEnabled) {
       throw new UnauthorizedException("Credenciales incorrectas");
     }
 
-    const DEMO_ACCOUNTS: Record<string, { userId: string; tenantId: string; orgId: string; roles: string[] }> = {
-      "client@demo.semse": { userId: "usr_client_001", tenantId: "tenant_default", orgId: "org_client_001", roles: ["CLIENT"] },
-      "worker@demo.semse": { userId: "usr_worker_001", tenantId: "tenant_default", orgId: "org_pro_001", roles: ["PRO"] },
-      "admin@demo.semse":  { userId: "usr_admin_001",  tenantId: "tenant_default", orgId: "org_admin_001", roles: ["OPS_ADMIN"] },
-    };
-
-    const account = DEMO_ACCOUNTS[normalizedEmail];
+    const account = LEGACY_DEMO_ACCOUNTS[normalizedEmail];
     if (!account || input.password !== "demo1234") {
       throw new UnauthorizedException("Credenciales incorrectas");
     }
