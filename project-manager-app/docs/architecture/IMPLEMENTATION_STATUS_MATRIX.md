@@ -1,7 +1,7 @@
 # Matriz de implementación de la arquitectura SEMSE
 
 **Corte:** 2026-07-31
-**Git/producción:** `main@3c2ac45d`; F3 merge `f1234291`
+**Git/producción:** `main@114cb9ca`; F3 merge `f1234291`
 **Tracker:** [`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md)
 
 ## Leyenda
@@ -19,11 +19,11 @@ Para specs SDD 2.0 mandan las columnas separadas de
 
 | Superficie | Evidencia |
 |---|---|
-| API | `425b8526-4374-450b-ae75-53881791e6bc`, `3c2ac45d`, `SUCCESS`; health Railway `/v1/health` = 200 |
-| Web | `00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7`, `3c2ac45d`, `SUCCESS`; health custom/Railway = 200 |
-| Worker/Vision | `7d5f6279` / `5e1155a6`, `3c2ac45d`, `SUCCESS` |
+| API | `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, `114cb9ca`, `SUCCESS`; health Railway/custom `/v1/health` = 200 |
+| Web | `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, `114cb9ca`, `SUCCESS`; health custom/Railway = 200 |
+| Worker/Vision | `8fe3b3fc` / `bf804e3b`, `114cb9ca`, `SUCCESS` |
 | Postgres/Redis | `SUCCESS` al corte |
-| Dominio API | Railway reporta sync `ACTIVE`; TLS público todavía falla por hostname/certificado |
+| Dominio API | Railway sync `ACTIVE`; TLS estricto válido; `/v1/health` = 200 |
 | PostgreSQL F3 | repair Evidence verificado: 9 columnas, 0 tenant nulo, 2 FKs, 3 índices; 1 snapshot canary y mismatch 0 |
 
 ## Matriz
@@ -31,8 +31,8 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Capacidad | Estado real | Evidencia | Siguiente gate |
 |---|---|---|---|
 | Monorepo pnpm | IMPLEMENTADO | `pnpm-workspace.yaml`; runners Node portables para workspace, seeds y tests API | Mantener workspace verde |
-| Web/BFF | IMPLEMENTADO/DESPLEGADO | Next.js + Railway `3c2ac45d` | SLO y journeys autenticados |
-| API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `3c2ac45d` | Trazas y migration gates |
+| Web/BFF | IMPLEMENTADO/DESPLEGADO | Next.js + Railway `114cb9ca` | SLO y journeys autenticados |
+| API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `114cb9ca` | Trazas y migration gates |
 | Worker/BullMQ | IMPLEMENTADO/DESPLEGADO | worker Railway `SUCCESS` | Consola común lag/retries/DLQ |
 | Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
 | Prometeo Runtime | IMPLEMENTADO/DESPLEGADO | missions, work plans, BFF | Verify/learn/budgets/compensación |
@@ -72,7 +72,7 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
 
 ## Hallazgos vinculantes
 
-1. `origin/main` y producción están en `3c2ac45d`; F3 event-driven entró por
+1. `origin/main` y producción están en `114cb9ca`; F3 event-driven entró por
    `f1234291` y los cuatro servicios están en deployments `SUCCESS`.
 2. La tabla F3 contiene exactamente un snapshot canary, con revisión durable
    igual a la calculada y cero mismatch de tenant/proyecto.

@@ -35,6 +35,10 @@ production_evidence:
   - railway:f3:replay:5173120d-f312-4d8e-880e-2d2adee8d3b8:no_op:duplicate
   - github:pr:480:merge:3c2ac45d4f5d3c43a081767c54405eb08d31c788
   - railway:current-production:sha:3c2ac45d4f5d3c43a081767c54405eb08d31c788:all-services-success
+  - github:pr:481:merge:114cb9ca4007d32bf3fbbfc9c36d54b1e862236a
+  - github:actions:railway-deploy:30597913257:success
+  - railway:current-production:sha:114cb9ca4007d32bf3fbbfc9c36d54b1e862236a:all-services-success
+  - railway:custom-domain:api.semseproject.com:active:tls-valid:health=200
 related_files:
   - AGENTS.md
   - ROADMAP.md

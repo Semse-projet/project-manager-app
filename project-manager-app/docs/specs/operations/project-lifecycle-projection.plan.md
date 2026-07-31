@@ -14,7 +14,7 @@ date: "2026-07-31"
 ## 1. Snapshot
 
 - F3 mergeado: `f1234291`; `origin/main` y los cuatro servicios están en
-  `3c2ac45d`, que contiene F3.
+  `114cb9ca`, que contiene F3.
 - PostgreSQL: migraciones F3, reloj Evidence y repair canónico aplicados.
 - Evidence: nueve columnas tenant/context, cero tenant nulo, dos FKs y tres
   índices verificados.

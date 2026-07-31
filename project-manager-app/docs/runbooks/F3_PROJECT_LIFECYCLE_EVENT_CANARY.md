@@ -75,8 +75,12 @@ identidad de servicio con rol `EVENT_CONSUMER` y permiso
   `62c69537f62515bbaabbfa0b29d2750d9d9c5b0e`.
 - Worker corregido: `d706d7ad-3661-437c-8492-18b7791a0345`, éxito,
   `62c69537f62515bbaabbfa0b29d2750d9d9c5b0e`.
-- Producción acumulada actual: `3c2ac45d4f5d3c43a081767c54405eb08d31c788`,
+- Producción acumulada actual: `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`,
   cuatro servicios `SUCCESS`; contiene F3 y conserva su configuración canary.
+- Deployments actuales: API `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, Web
+  `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, Worker
+  `8fe3b3fc-c10a-4843-82cf-d4a2e79297ec` y Vision
+  `bf804e3b-9a56-4b94-b1ad-6e6bcafd57cd`.
 - Resultado: 5 outbox `PUBLISHED`, 5 receipts `COMPLETED`, cero
   pending/claimed/failed/dead-letter.
 - Evento de replay:
@@ -136,10 +140,8 @@ consumer lag, retries, dead-letter y mismatch durable/calculado dentro del SLO.
 
 ## Dominio público
 
-Al corte, el health por dominio Railway de API responde 200. El dominio
-`api.semseproject.com` figura sincronizado en Railway, pero el cliente TLS
-todavía recibe un certificado cuyo nombre no coincide. Usar el dominio Railway
-para probes operativos hasta corregir la emisión TLS en la sesión dedicada de
-dominio/DNS documentada en
+Al cierre, el health API responde 200 tanto por el dominio Railway como por
+`api.semseproject.com`; el hostname personalizado figura `ACTIVE` y valida TLS
+estricto. La cronología del incidente y sus criterios de cierre están en
 [`API_CUSTOM_DOMAIN_TLS_HANDOFF.md`](API_CUSTOM_DOMAIN_TLS_HANDOFF.md).
 `app.semseproject.com` y su health responden 200.

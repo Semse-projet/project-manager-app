@@ -13,7 +13,7 @@ date: "2026-07-31"
 
 ## Snapshot de verdad
 
-- `origin/main` y API/Web/Worker/Vision Railway: `3c2ac45d`, estado `SUCCESS`;
+- `origin/main` y API/Web/Worker/Vision Railway: `114cb9ca`, estado `SUCCESS`;
   contiene F3 en `f1234291`.
 - F3: código y migraciones en `main`; repair Evidence y canary durable
   verificados.
@@ -21,8 +21,7 @@ date: "2026-07-31"
 - Flags F3: cálculo y persistencia activos sólo para `tenant_default`.
 - Evento/consumer F3: activos sólo para el tenant/type/consumer allowlisted;
   5 publicaciones, 5 consumos y replay `no_op` verificados.
-- Dominio API personalizado: DNS sincronizado; certificado aún no verificado al
-  corte.
+- Dominio API personalizado: DNS/Railway `ACTIVE`, TLS válido y health 200.
 
 ## Estrategia
 
