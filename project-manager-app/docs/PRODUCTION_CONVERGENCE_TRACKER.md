@@ -1,132 +1,193 @@
 # Production Convergence Tracker
 
-**Corte:** 2026-07-30
+**Corte:** 2026-07-31
 **Programa:** `platform.production-convergence-f3-f9`
-**Rama de trabajo:** `docs/f3-production-canary-evidence`
+**Rama documental:** `docs/f3-event-production-evidence`
 
 ## Verdad desplegada
 
 | Superficie | Estado |
 |---|---|
-| `origin/main` | `35f6bda3` |
-| API Railway | `35f6bda3`, deployment `2b0cb689-5bf8-42c0-a86a-b6076a1be36d`, `SUCCESS` |
-| Web Railway | `35f6bda3`, deployment `239ea013-84b5-48cc-90dd-eed3e76b2c99`, `SUCCESS` |
-| Worker/Vision | `35f6bda3`, deployments `4e91525c` / `174e569e`, `SUCCESS` |
-| Postgres/Redis | `SUCCESS`; repair F3 aplicado y auditado por red privada |
-| `api.semseproject.com` | DNS propagado; certificado sigue validando propiedad y no coincide con el hostname |
+| `origin/main` | `3c2ac45d4f5d3c43a081767c54405eb08d31c788` |
+| F3 event merge | PR `#477`, `f1234291fc190c6611d3f2258630ac08315bd060` |
+| API Railway | `425b8526-4374-450b-ae75-53881791e6bc`, `3c2ac45d`, `SUCCESS` |
+| Web Railway | `00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7`, `3c2ac45d`, `SUCCESS` |
+| Worker Railway | `7d5f6279-3554-4a03-bd9d-2960722bce97`, `3c2ac45d`, `SUCCESS` |
+| Vision Railway | `5e1155a6-9efc-46f6-95da-6552798994fc`, `3c2ac45d`, `SUCCESS` |
+| Postgres/Redis | `SUCCESS`; migraciones/repair F3 reconciliados |
+| Health API Railway | `/v1/health` = 200 |
+| Health Web custom/Railway | `/api/semse/healthz` = 200 |
+| `api.semseproject.com` | DNS y Railway sync activos; TLS público falla por hostname/certificado |
 
-## Drift F3 confirmado
+`3c2ac45d` es descendiente de `f1234291`; endurece dominios/demo auth y no
+retira F3.
 
-- `_prisma_migrations` contiene
-  `20260728000000_project_lifecycle_projection`, aplicada exitosamente el
-  2026-07-28.
-- Checksum PostgreSQL:
+## F3 — estado final del child
+
+| Etapa | Estado | Evidencia |
+|---|---|---|
+| Spec | `VERIFIED`, scope canary | `operations.project-lifecycle-projection` |
+| Código | `COMPLETE` | PR `#472`, repair `#473`, events/replay `#477` |
+| CI | `PASS` | unit, API integration PostgreSQL, E2E, CodeQL, coverage |
+| Merge | `MERGED` | `f1234291` para cierre event-driven |
+| Deploy | `DEPLOYED` | workflow `30542950757`; cuatro servicios `SUCCESS` |
+| Migraciones | `VERIFIED` | projection, Evidence clock y repair canónico |
+| Activación | `CANARY` | sólo `tenant_default` |
+| Snapshot | verificado | 1 fila, revisión estable, mismatch 0 |
+| Eventos | verificados | 5 `PUBLISHED`, 5 `COMPLETED`, 0 failed/dead-letter |
+| Replay | verificado | `no_op`, una proyección, sin error |
+
+F3 no está promovido globalmente. Su gate child se cerró porque el scope
+aprobado era un canary productivo y la metadata distingue `CANARY` de `ACTIVE`.
+
+## Migraciones y drift F3
+
+- `20260728000000_project_lifecycle_projection` conserva el SQL exacto y
+  checksum
   `1616b63c7c44bfa0526e5ce2e4857565c9375b6c48eed5ed1b3a7389832f6699`.
-- La tabla `ProjectLifecycleProjection` existe con índices/FKs esperados; partió
-  con cero filas y conserva una única fila después del canary durable.
-- `origin/main@39f6ecbd` no contiene modelo, migración ni código F3.
-- Git conserva el SQL y WIP en stashes de seguridad; se rescata por archivo,
-  no mediante `stash apply`.
-- La rama `feat/production-convergence-f3` ya restaura el SQL exacto e
-  implementa contrato, builder, endpoint, CAS, enlace BuildOps, BFF y paneles.
-- La migración aditiva
-  `20260729000000_evidence_updated_at_for_lifecycle_projection` fue aplicada y
-  agrega el reloj requerido para ordenar cambios de validación.
-- Canary autenticado de cálculo devolvió 500 porque la migración canónica de
-  Evidence figura aplicada con checksum correcto, pero producción no conserva
-  sus nueve columnas tenant/context. El rollback por flag terminó en
-  `537892e7`; F3 vuelve a 404 y la tabla de proyección conserva cero filas.
-- `20260730010000_repair_evidence_canonical_schema` repara ese drift de forma
-  aditiva antes de reintentar el canary. El SQL exacto se ejecutó dos veces
-  contra una tabla legacy en una transacción de PostgreSQL, verificó nueve
-  columnas, backfill, FKs e índices y terminó con `ROLLBACK`.
-- PR `#473` pasó CI/CodeQL/integración/E2E y fue fusionado como `35f6bda3`.
-- La migración reparadora quedó aplicada una vez con checksum
-  `3e0bf135554de41e44db8b8bd7d46deb22a93352219d96eeff395180b8197898`.
-  Producción tiene nueve columnas contextuales, cuatro filas Evidence, cero
-  `tenantId` nulos, dos FKs y tres índices.
-- El canary de cálculo (`85299c98`) y el de persistencia (`7450784e`) terminaron
-  `SUCCESS`. Cliente owner respondió 200 dos veces con revisión estable; PRO sin
-  ownership financiero respondió 403 y tenant fuera de allowlist respondió 404.
-- La proyección durable coincide en tenant, proyecto, `schemaVersion`, revisión
-  y `sourceUpdatedAt`; filas = 1 y mismatch = 0.
+- `20260729000000_evidence_updated_at_for_lifecycle_projection` agregó el reloj
+  Evidence necesario para revision/CAS.
+- El primer canary reveló que la migración canónica Evidence figuraba aplicada,
+  pero faltaban nueve columnas tenant/context.
+- El rollback por flags terminó en deployment `537892e7`; no se borró la tabla.
+- `20260730010000_repair_evidence_canonical_schema` reparó de forma aditiva el
+  drift sin reescribir historial.
+- Producción terminó con nueve columnas contextuales, cuatro filas Evidence,
+  cero `tenantId` nulos, dos FKs y tres índices.
+- Canary de cálculo `85299c98` y persistencia `7450784e`: `SUCCESS`; client
+  owner 200, PRO sin ownership financiero 403, tenant fuera de allowlist 404,
+  revisión estable y mismatch 0.
 
-## Inventario de flags
+## Event-driven canary
 
-API existentes relacionados:
+Contrato:
 
-- `AUTONOMY_LOOPS_ENABLED`
-- `PRODUCT_INTELLIGENCE_ENABLED`
-- `SATELLITE_TOKENS_ENABLED`
+- evento `project.lifecycle-source-changed.v1`;
+- consumer `project-lifecycle-projection.v1`;
+- rebuild tenant-scoped;
+- persistencia CAS;
+- AuditLog y receipt idempotente;
+- producer default-off y allowlists.
 
-Web existentes relacionados:
+Resultado al cierre:
 
-- `NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED`
-- `NEXT_PUBLIC_SEMSE_DEMO_LOGIN_ENABLED`
-- `NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED`
+- outbox total observado: 5 `PUBLISHED`;
+- outbox `PENDING/CLAIMED/FAILED/DEAD_LETTER`: 0;
+- consumos `COMPLETED`: 5;
+- consumos `FAILED/DEAD_LETTER`: 0;
+- eventos automáticos:
+  `d48cf482-4e38-4fd2-a222-5e558db3b41a`,
+  `0b114154-f26b-4569-90e3-8cf8d79fce15`,
+  `5173120d-f312-4d8e-880e-2d2adee8d3b8`.
 
-Flags F3 desplegados y ejercitados en API:
+Replay final:
+
+```text
+eventId:         5173120d-f312-4d8e-880e-2d2adee8d3b8
+projectId:       cmrsjhzgh007nps01r6gnx090
+outbox:          PUBLISHED
+consumer:        COMPLETED
+replayCount:     1
+attempts:        1
+duplicate:       true
+effect:          no_op
+lastError:       null
+revision:        project-lifecycle.v1:0f8f7c9fb7c45d9fbd55bb733bb3b06e5265782b6113a1e622a675679a7d244d
+```
+
+## Incidente de rol y reconciliación
+
+Los dos primeros jobs recibieron 403 porque el Worker sólo tenía
+`OPS_ADMIN,WORKER`; el endpoint interno exige `EVENT_CONSUMER` y
+`domain-events:consume`.
+
+Eventos afectados:
+
+- `f893805f-6cd9-4ded-8a75-c3ee58dd4a37`
+- `dab442a8-c747-45c2-9f5a-fef3869fd935`
+
+Se agregó `EVENT_CONSUMER`, se desplegó el Worker corregido y ambos eventos se
+procesaron una sola vez. Después se observaron tres consumos automáticos. No
+quedaron errores de deployment ni receipts fallidos.
+
+## Atomicidad declarada
+
+- Evidence registra estado + `evidence.uploaded.v1` + invalidación F3 en la
+  misma transacción.
+- Project, Milestone, Dispute, Payment, Finance, Risk y promoción BuildOps
+  emiten la invalidación F3 post-commit y son best-effort.
+- Read-through, rebuild idempotente y eventos posteriores son la recuperación
+  actual.
+- La adopción de outbox transaccional por cada dominio permanece en el Event
+  Backbone/hardening; no se declara como capacidad ya existente.
+
+## Inventario de flags F3
+
+API:
 
 - `SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED`
 - `SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED`
 - `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS`
+- `SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED`
+- `SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED`
+- `SEMSE_EVENT_CONSUMERS_ENABLED`
+- `SEMSE_EVENT_CONSUMER_ALLOWLIST`
+- `SEMSE_EVENT_TYPE_ALLOWLIST`
 
-Cálculo y persistencia están ON únicamente para el allowlist
-`tenant_default`. Los valores de las demás variables no se imprimieron ni se
-documentan aquí. El rollback previo terminó en `537892e7` y el forward-fix
-canary quedó en `7450784e`.
+Worker:
+
+- `SEMSE_EVENT_CONSUMERS_ENABLED`
+- `SEMSE_ROLES` con `EVENT_CONSUMER`
+
+El scope sigue siendo `tenant_default`. No se documentan secretos ni variables
+ajenas al flujo.
 
 ## Estado F0-F9
 
 | Slice | Spec | Código | CI | Merge | Deploy | Activación | Nota |
 |---|---|---|---|---|---|---|---|
-| F0 Truth sync | completo | completo | n/a | `main` | verificado | n/a | Revalidado 2026-07-28 |
-| F1 Event Backbone | `APPROVED` | parcial | histórico | `main` | desplegado | no verificada | Falta canary/adopción |
+| F0 Truth sync | completo | completo | n/a | `main` | verificado | n/a | Revalidado 2026-07-31 |
+| F1 Event Backbone | `APPROVED` | parcial | histórico + F3 verde | `main` | desplegado | canary acotado | F1-F transversal pendiente |
 | F2 Tool Registry | `APPROVED` | gobernanza completa | histórico | `main` | desplegado | parcial/no verificada | Video temporal pendiente |
-| F3 Lifecycle Projection | `IMPLEMENTED` SDD 2.0 | implementado | CI/E2E verde | `35f6bda3` | desplegado | `CANARY` | Repair y canary durable verificados; faltan rebuild/event replay |
-| F4 Mission Control 2.0 | child spec pendiente | no iniciado | — | — | — | — | Después de gate F3 |
+| F3 Lifecycle Projection | `VERIFIED` SDD 2.0 | completo | PASS | `f1234291` | desplegado | `CANARY` | Gate child cerrado para `tenant_default` |
+| F4 Mission Control 2.0 | child spec pendiente | no iniciado | — | — | — | — | Siguiente slice autorizado |
 | F5 Shared Ledger | child spec pendiente | no iniciado | — | — | — | — | Después de F4 |
 | F6 Agenda/Dispatch | child spec pendiente | no iniciado | — | — | — | — | Después de F5 |
 | F7 Prometeo Multimodal | child spec pendiente | no iniciado | — | — | — | — | Después de F6 |
 | F8 Domain Loops | child specs pendientes | no iniciado | — | — | — | — | BuildOps/Agro/Labor |
-| F9 Hardening | child spec pendiente | no iniciado | — | — | — | — | Cierre SLO/DR/security |
+| F9 Hardening | child spec pendiente | no iniciado | — | — | — | — | SLO/DR/security/global rollout |
 
-## Investigación externa
+## Investigación externa aplicada
 
-1. GitHub Spec Kit — ciclo constitution/specify/plan/tasks/implement y “spec of
-   specs” para programas grandes.
-2. Prisma Migrate — historial de migraciones en Git, no editar/eliminar
-   migraciones aplicadas y usar `migrate deploy` en producción.
-3. Railway — pre-deploy para migraciones, deployment terminal y healthcheck
-   antes de tráfico.
-4. GitHub Actions — environments/concurrency/deployment status para separar CI
-   y entrega.
+1. GitHub Spec Kit: ciclo constitution/specify/plan/tasks/analyze/implement y
+   descomposición de programas en slices.
+2. Prisma Migrate: historial versionado, migraciones aplicadas inmutables y
+   `migrate deploy` para producción.
+3. Railway: pre-deploy, deployment terminal y health antes de verificación
+   funcional separada.
+4. GitHub Actions: checks por SHA, environments y concurrency para separar CI
+   de entrega.
 
-### Aplicado ahora
+Decisiones aplicadas: metadata separada por etapa, SQL histórico restaurado en
+vez de duplicado, forward-fix aditivo, canary default-off, child specs
+secuenciales y evidencia de activación separada del healthcheck.
 
-- Programa F3-F9 descompuesto en child specs.
-- Metadata separada para código/CI/merge/deploy/activación.
-- Restauración del SQL exacto en vez de una migración duplicada.
-- Plan de pre-deploy + health + smoke/canary.
-- Spec Kit/Spec-Driven alineado a SDD 2.0 con templates, checklist, índice y
-  validador strict.
-- Build kit portable en Windows/Linux para workspace, seeds y tests API.
-- F3 fusionado y desplegado con 20 pruebas focalizadas, 2,005 pruebas API y
-  957 pruebas unitarias de repositorio sin fallas.
-- PR `#472` validado en `19472b78`: CodeQL, quality gates, cobertura,
-  integración, Operación Asistida, Autonomy Staged y E2E pasaron.
-- PR `#473` validado en `96318d8f` y fusionado como `35f6bda3`; Railway Deploy
-  y Production Health Gate `30509069492` terminaron en éxito.
-- Repair Evidence, cálculo canary, persistencia canary, aislamiento tenant/org y
-  revisión durable fueron comprobados contra producción.
+## Backlog vinculante
 
-### Backlog
+- Corregir certificado/hostname de `api.semseproject.com` en la sesión dedicada
+  de dominio/DNS siguiendo
+  [`runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md`](runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md).
+- Medir ventana sostenida de P95, 5xx, lag, retries, DLQ y mismatch antes de
+  promoción global F3.
+- Completar F1-F transversal.
+- Crear y aprobar el child SDD F4 antes de implementar Mission Control 2.0.
+- Configurar GitHub Environment `production` con protection/concurrency si no
+  existe.
+- Añadir uptime externo; health de Railway sólo cubre arranque.
 
-- GitHub Environment `production` con protection/concurrency si no existe.
-- Continuous uptime externo: Railway healthcheck sólo cubre el arranque.
+## Descartado
 
-### Descartado
-
-- Abrir un proxy público permanente a PostgreSQL.
+- Abrir PostgreSQL permanentemente a Internet.
 - Aplicar stashes completos.
 - Un PR big-bang para F3-F9.
+- Presentar `CANARY` como `ACTIVE`.

@@ -1,7 +1,7 @@
 # Contexto operativo canónico de SEMSEproject
 
 **Leer antes de planificar o modificar SEMSE.**
-**Corte verificado:** 2026-07-29 (`main@39f6ecbd` sigue desplegado; F3 validado localmente)
+**Corte verificado:** 2026-07-31 (`main/producción@3c2ac45d`; F3 verificado en canary)
 
 ## Identidad
 
@@ -62,14 +62,16 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 ## Estado verificado importante
 
 - Prometeo Runtime P2 esta implementado, fusionado y desplegado.
-- SHA de producción del corte: `39f6ecbdb0d6e08c51b7c8651e0ad855444d3c5e`.
+- SHA actual de `main` y producción: `3c2ac45d4f5d3c43a081767c54405eb08d31c788`;
+  F3 event-driven fue mergeado en `f1234291`.
 - `/v1/prometeo/tools` existe y requiere Bearer token.
 - Tool Registry: 31 descriptors (24 read, 7 write); 23/24 read y 7/7 write
   tienen adapter, con policy/audit/approval para escritura.
 - `vision.analyze_video` permanece `adapter_pending`.
-- El slice Evidence del Event Backbone tiene envelope v2, producer atomico,
-  outbox, dispatcher BullMQ, worker y consumer idempotente con receipt atomico.
-  Ops/replay, canary y adopcion general siguen pendientes.
+- El Event Backbone tiene envelope v2, producer atómico Evidence, outbox,
+  dispatcher BullMQ, worker, consumers idempotentes y ops/replay. F3 ejercitó
+  cinco publicaciones/consumos y replay en canary; F1-F transversal sigue
+  pendiente.
 - Hay movimientos `PaymentTxn`, pero no ledger double-entry compartido.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
@@ -81,12 +83,15 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
   events, contratos/modelos, ingesta/retencion, instrumentacion auth/wizard y
   funnels de experiencia/economico. PI-07 Friction Engine es el siguiente
   incremento.
-- Railway CLI está autenticada. Se inventariaron nombres de flags sin leer ni
-  publicar valores; activación F1/PI sigue no verificada.
-- F3 tiene la migración de proyección aplicada y tabla vacía en producción.
-  Su SQL/modelo/código ya están reconciliados en la rama F3; la migración
-  aditiva `Evidence.updatedAt`, CI, merge, deploy y activación siguen
-  pendientes bajo SDD `operations.project-lifecycle-projection`.
+- Railway CLI está autenticada. La activación del Event Backbone está acotada
+  por allowlists para Evidence/F3; PI sigue sin activación verificada.
+- F3 está `VERIFIED` con `activation_status: CANARY` para `tenant_default`:
+  snapshot durable, mismatch cero, rebuild tenant-scoped, consumer
+  `project-lifecycle-projection.v1`, duplicado y replay `no_op`.
+- Evidence + outbox son atómicos. Los demás hooks F3 son post-commit
+  best-effort y usan read-through/rebuild como recuperación.
+- `api.semseproject.com` sigue pendiente por certificado/hostname aunque DNS y
+  Railway indiquen sync activo; usar el dominio Railway para probes API.
 
 ## Reglas de Prometeo
 
@@ -116,9 +121,9 @@ domain transaction + outbox row
   -> Mission Control
 ```
 
-El bus actual es parcial. La atomicidad solo esta demostrada para el producer y
-consumer del slice Evidence F1; el resto de dominios conserva contratos y
-routing anteriores hasta su migracion explicita.
+El bus actual es parcial. La atomicidad está demostrada para Evidence y para el
+effect+receipt de consumers. F3 adoptó eventos/replay en canary, pero sus hooks
+fuera de Evidence son post-commit hasta la migración explícita de cada dominio.
 
 Todo evento nuevo debe declarar:
 
@@ -143,8 +148,8 @@ Todo evento nuevo debe declarar:
 1. F0: sincronizar documentación y verdad (revalidado 2026-07-28).
 2. F1: Event Backbone (F1-F cierra con canary).
 3. F2: Prometeo Tool Registry gobernado.
-4. F3: Project Lifecycle Projection.
-5. F4: Mission Control 2.0.
+4. F3: Project Lifecycle Projection (`VERIFIED` en canary).
+5. F4: Mission Control 2.0 (siguiente child; SDD pendiente).
 6. F5: Shared Economic Ledger.
 7. F6: Agenda y Dispatch.
 8. F7: Prometeo Multimodal.

@@ -6,6 +6,7 @@ import {
   DELIVERY_METADATA_FIELDS,
   DELIVERY_STATUS_VALUES,
   SDD_VERSION,
+  deliveryStateErrors,
   findSpecFiles,
   isSddV2,
   isFile,
@@ -83,7 +84,7 @@ for (const file of specFiles) {
       }
     }
 
-    validateDeliveryState(label, metadata);
+    errors.push(...deliveryStateErrors(label, metadata));
   }
 
   for (const relatedFile of metadata.related_files) {
@@ -134,37 +135,6 @@ if (errors.length > 0) {
 
 function requireField(label, field, value) {
   if (!value) errors.push(`${label}: missing required metadata field "${field}"`);
-}
-
-function validateDeliveryState(label, metadata) {
-  if (["IMPLEMENTED", "VERIFIED"].includes(metadata.status) && metadata.code_status !== "COMPLETE") {
-    errors.push(`${label}: ${metadata.status} requires code_status COMPLETE`);
-  }
-
-  if (metadata.status === "VERIFIED") {
-    if (metadata.ci_status !== "PASS") errors.push(`${label}: VERIFIED requires ci_status PASS`);
-    if (metadata.merge_status !== "MERGED") errors.push(`${label}: VERIFIED requires merge_status MERGED`);
-    if (metadata.deploy_status !== "DEPLOYED") errors.push(`${label}: VERIFIED requires deploy_status DEPLOYED`);
-    if (metadata.activation_status !== "ACTIVE") errors.push(`${label}: VERIFIED requires activation_status ACTIVE`);
-  }
-
-  if (metadata.deploy_status === "DEPLOYED") {
-    if (metadata.ci_status !== "PASS") errors.push(`${label}: DEPLOYED requires ci_status PASS`);
-    if (metadata.merge_status !== "MERGED") errors.push(`${label}: DEPLOYED requires merge_status MERGED`);
-  }
-
-  if (["CANARY", "ACTIVE"].includes(metadata.activation_status) && metadata.deploy_status !== "DEPLOYED") {
-    errors.push(`${label}: ${metadata.activation_status} activation requires deploy_status DEPLOYED`);
-  }
-
-  if (metadata.activation_status === "ACTIVE") {
-    if (metadata.production_evidence.length === 0) {
-      errors.push(`${label}: ACTIVE requires at least one production_evidence entry`);
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(metadata.last_verified)) {
-      errors.push(`${label}: ACTIVE requires last_verified in YYYY-MM-DD format`);
-    }
-  }
 }
 
 function validateTemplateParity(canonicalPath, mirrorPath) {

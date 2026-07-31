@@ -4,24 +4,31 @@ feature: "Project Lifecycle Projection F3"
 domain: "operations"
 spec: "docs/specs/operations/project-lifecycle-projection.spec.md"
 version: "2.0"
-status: "APPROVED"
+status: "COMPLETE"
 branch: "main"
-date: "2026-07-30"
+date: "2026-07-31"
 ---
 
 # Plan técnico: Project Lifecycle Projection F3
 
 ## 1. Snapshot
 
-- Git/producción: `35f6bda3`.
-- API/Web/Worker/Vision: deployments terminales `SUCCESS` del mismo SHA.
+- F3 mergeado: `f1234291`; `origin/main` y los cuatro servicios están en
+  `3c2ac45d`, que contiene F3.
 - PostgreSQL: migraciones F3, reloj Evidence y repair canónico aplicados.
 - Evidence: nueve columnas tenant/context, cero tenant nulo, dos FKs y tres
   índices verificados.
 - F3: cálculo y persistencia activos sólo para `tenant_default`.
 - Proyección durable: una fila canary, revisión estable y mismatch cero.
+- Evento `project.lifecycle-source-changed.v1`, consumer
+  `project-lifecycle-projection.v1` y rebuild tenant-scoped desplegados.
+- Canary event-driven: 5 outbox `PUBLISHED`, 5 receipts `COMPLETED`, cero
+  pending/failed/dead-letter; replay idempotente `no_op`.
 - El primer canary falló por drift Evidence; rollback y forward-fix quedaron
   probados antes del canary exitoso.
+- Los dos primeros jobs del canary event-driven fallaron 403 porque el Worker
+  no tenía `EVENT_CONSUMER`; el rol se corrigió y ambos eventos se
+  reconciliaron una sola vez antes de verificar consumo automático.
 
 ## 2. Rescate selectivo
 
@@ -50,12 +57,18 @@ No rescatar cambios ajenos de móvil, disputas, tracker, layout o deploy scripts
 packages/db/prisma/schema.prisma
 packages/db/prisma/migrations/20260728000000_project_lifecycle_projection/migration.sql
 packages/schemas/src/project.schema.ts
+packages/schemas/src/domain-events-v2.schema.ts
+packages/shared/src/index.ts
 apps/api/src/modules/projects/project-lifecycle-projection.ts
 apps/api/src/modules/projects/projects.repository.ts
 apps/api/src/modules/projects/projects.service.ts
 apps/api/src/modules/projects/projects.controller.ts
+apps/api/src/modules/domain-events/project-lifecycle-projection-event-producer.service.ts
+apps/api/src/modules/domain-events/domain-event-consumer.service.ts
+apps/api/src/modules/domain-events/domain-events.module.ts
 apps/api/test/project-lifecycle-projection*.test.ts
 apps/api/test/projects.controller.test.ts
+apps/api/test/evidence-outbox-producer.test.ts
 apps/api/src/modules/buildops/buildops.service.ts
 apps/api/src/modules/buildops/buildops.types.ts
 apps/api/test/buildops-project-canonical-link.test.ts
@@ -100,12 +113,24 @@ rollback.
 
 ### G — Rebuild/event invalidation
 
-Añadir rebuild idempotente y adopción de eventos necesarios antes de marcar
-F3 `VERIFIED`.
+Completado: contrato versionado, hooks de fuentes, rebuild tenant-scoped,
+consumer/receipt/audit idempotentes y replay. Evidence registra su invalidación
+en la misma transacción; los demás hooks son post-commit best-effort y usan el
+read-through/rebuild como recuperación.
+
+### H — Canary event-driven
+
+Desplegar default-off; activar producer/dispatcher/consumer/type allowlists
+para `tenant_default`; confirmar rol `EVENT_CONSUMER`; provocar eventos,
+verificar outbox y receipt; repetir entrega; ejecutar replay y confirmar
+`no_op`, revisión estable y ausencia de errores.
 
 ## 5. Rollback
 
-- Flags OFF detienen endpoint/persistencia.
+- Flags de proyección OFF detienen endpoint/persistencia read-through.
+- `SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED=false` detiene nuevos eventos F3.
+- Retirar el evento/consumer de allowlists pausa dispatch/consumo sin borrar
+  outbox ni receipts.
 - Código anterior sigue compatible porque migración es aditiva.
 - No borrar tabla en rollback.
 - Si checksum no coincide, detener deploy y reconciliar; no usar `resolve` sobre
@@ -118,3 +143,7 @@ F3 `VERIFIED`.
 - Cero fugas cross-tenant/org.
 - Snapshot mismatch durable/calculado = 0 para revisiones iguales.
 - Cero escrituras Payment/Project/Milestone desde el endpoint.
+
+El gate F3 se verificó para el canary `tenant_default`. P95 y error rate de una
+ventana sostenida siguen siendo condición para promoción global, no evidencia
+para afirmar que el canary actual ya es global.

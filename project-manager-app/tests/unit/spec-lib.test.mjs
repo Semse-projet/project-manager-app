@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  deliveryStateErrors,
   isSddV2,
   missingDeliveryMetadata,
   searchRepo,
@@ -44,4 +45,39 @@ test("SDD 2.0 delivery metadata treats explicit empty lists as present", () => {
 
   assert.equal(isSddV2(spec), true);
   assert.deepEqual(missingDeliveryMetadata(spec), []);
+});
+
+test("VERIFIED accepts an evidenced production canary without claiming global activation", () => {
+  assert.deepEqual(
+    deliveryStateErrors("f3", {
+      status: "VERIFIED",
+      code_status: "COMPLETE",
+      ci_status: "PASS",
+      merge_status: "MERGED",
+      deploy_status: "DEPLOYED",
+      activation_status: "CANARY",
+      production_evidence: ["railway:f3:tenant_default:verified"],
+      last_verified: "2026-07-31",
+    }),
+    [],
+  );
+});
+
+test("CANARY requires production evidence and a verification date", () => {
+  assert.deepEqual(
+    deliveryStateErrors("feature", {
+      status: "IMPLEMENTED",
+      code_status: "COMPLETE",
+      ci_status: "PASS",
+      merge_status: "MERGED",
+      deploy_status: "DEPLOYED",
+      activation_status: "CANARY",
+      production_evidence: [],
+      last_verified: "",
+    }),
+    [
+      "feature: CANARY requires at least one production_evidence entry",
+      "feature: CANARY requires last_verified in YYYY-MM-DD format",
+    ],
+  );
 });

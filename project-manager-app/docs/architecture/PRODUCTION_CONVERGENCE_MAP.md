@@ -1,7 +1,7 @@
 # Mapa de convergencia de producción SEMSE
 
-**Corte:** 2026-07-28
-**Base observada:** `main/production@39f6ecbd`
+**Corte:** 2026-07-31
+**Base observada:** `main/production@3c2ac45d`; F3 contenido en `f1234291` y activo en canary
 **Programa:** `platform.production-convergence-f3-f9`
 
 ## 1. Tesis aterrizada
@@ -31,7 +31,7 @@ bounded contexts existentes.
 | Policy/Approval | Role/Permission, guards, `PolicyRule`, payment governance, Prometeo approvals | Adaptar a `PolicyInput/PolicyDecision`; no retirar policies locales al inicio | F4/F5 |
 | Project/Operation | `Job/Bid/Contract/Project/Milestone`, `BuildOpsProject` | `Project` canónico; BuildOps se enlaza por promoción controlada | F3 |
 | Tasks/Labor | `JobTask`, `BuildOpsTask`, `AgroFarmTask`, `TimeEntry`, Labor Engine | `JobTask` como tarea canónica; adapters por vertical | F8 |
-| Events | `DomainOutboxEvent`, `DomainEventConsumption`, BullMQ worker, F1 ops/replay | Expandir productor por productor; mantener `ProductEvent` separado | F3/F4/F8 |
+| Events | `DomainOutboxEvent`, `DomainEventConsumption`, BullMQ worker, F1 ops/replay; F3 `project.lifecycle-source-changed.v1` verificado en canary | Expandir productor por productor; mantener `ProductEvent` separado | F3/F4/F8 |
 | Evidence | `Evidence`, evidence gateway, Vision, `MilestoneEvidenceItem`, Agro evidence | Evolucionar mediante expand/contract a subject/review/custody común | F8 |
 | Payments | `PaymentEscrow`, `PaymentTxn`, Stripe, payment governance | Conservar como provider/release orchestration; no llamarlo ledger | F3/F5 |
 | Finance/Ledger | invoices, expenses, credit ledgers verticales | Crear double-entry compartido y postings idempotentes | F5 |
@@ -150,6 +150,12 @@ DATOS/MEMORIA
 | F7 Prometeo | multimodal + tools + context + approvals + sources | No acceso Prisma/secretos |
 | F8 Domain Loops | loops/retries/receipts por vertical | No autonomía crítica sin review |
 | F9 Hardening | SLO/OTel/DR/security/canary/retention | No declara cierre sin drills |
+
+F3 cerró su gate para `tenant_default`: el read model es reconstruible mediante
+`project-lifecycle-projection.v1`, con CAS, receipt, duplicado y replay
+verificados. El producer de Evidence es transaccional; los demás hooks F3 son
+post-commit best-effort y no sustituyen la adopción gradual de outbox por cada
+dominio propietario.
 
 ## 8. Decisiones bloqueadas
 

@@ -6,19 +6,21 @@ spec: "docs/specs/platform/production-convergence-program.spec.md"
 version: "2.0"
 status: "APPROVED"
 branch: "main"
-date: "2026-07-30"
+date: "2026-07-31"
 ---
 
 # Plan técnico: Programa de convergencia de producción F3-F9
 
 ## Snapshot de verdad
 
-- `origin/main`: `35f6bda3`.
-- API, Web, Worker y Vision Railway: `35f6bda3`, estado `SUCCESS`.
+- `origin/main` y API/Web/Worker/Vision Railway: `3c2ac45d`, estado `SUCCESS`;
+  contiene F3 en `f1234291`.
 - F3: código y migraciones en `main`; repair Evidence y canary durable
   verificados.
 - SQL original F3: restaurado sin editar y checksum histórico reconciliado.
 - Flags F3: cálculo y persistencia activos sólo para `tenant_default`.
+- Evento/consumer F3: activos sólo para el tenant/type/consumer allowlisted;
+  5 publicaciones, 5 consumos y replay `no_op` verificados.
 - Dominio API personalizado: DNS sincronizado; certificado aún no verificado al
   corte.
 
@@ -26,9 +28,9 @@ date: "2026-07-30"
 
 1. Alinear SDD 2.0 y eliminar contradicciones de estado.
 2. Reconciliar F3 con producción y desplegarlo mediante canary. Completado para
-   cálculo/persistencia; pendiente rebuild/event replay.
+   cálculo, persistencia, rebuild, eventos, consumo y replay.
 3. Actualizar la verdad arquitectónica.
-4. Crear/aprobar el child spec siguiente sólo después del gate de salida.
+4. Crear/aprobar F4 y ejecutar su ciclo sólo después de fusionar esta evidencia.
 
 Cada child usa rama/PR independiente después de F3. La documentación de programa
 no autoriza mutaciones de base o activaciones de F4-F9.

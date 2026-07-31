@@ -218,6 +218,42 @@ export function isSddV2(spec) {
   return spec.metadata.sdd_version === SDD_VERSION;
 }
 
+export function deliveryStateErrors(label, metadata) {
+  const errors = [];
+
+  if (["IMPLEMENTED", "VERIFIED"].includes(metadata.status) && metadata.code_status !== "COMPLETE") {
+    errors.push(`${label}: ${metadata.status} requires code_status COMPLETE`);
+  }
+
+  if (metadata.status === "VERIFIED") {
+    if (metadata.ci_status !== "PASS") errors.push(`${label}: VERIFIED requires ci_status PASS`);
+    if (metadata.merge_status !== "MERGED") errors.push(`${label}: VERIFIED requires merge_status MERGED`);
+    if (metadata.deploy_status !== "DEPLOYED") errors.push(`${label}: VERIFIED requires deploy_status DEPLOYED`);
+    if (!["CANARY", "ACTIVE"].includes(metadata.activation_status)) {
+      errors.push(`${label}: VERIFIED requires activation_status CANARY or ACTIVE`);
+    }
+  }
+
+  if (metadata.deploy_status === "DEPLOYED") {
+    if (metadata.ci_status !== "PASS") errors.push(`${label}: DEPLOYED requires ci_status PASS`);
+    if (metadata.merge_status !== "MERGED") errors.push(`${label}: DEPLOYED requires merge_status MERGED`);
+  }
+
+  if (["CANARY", "ACTIVE"].includes(metadata.activation_status)) {
+    if (metadata.deploy_status !== "DEPLOYED") {
+      errors.push(`${label}: ${metadata.activation_status} activation requires deploy_status DEPLOYED`);
+    }
+    if (metadata.production_evidence.length === 0) {
+      errors.push(`${label}: ${metadata.activation_status} requires at least one production_evidence entry`);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(metadata.last_verified)) {
+      errors.push(`${label}: ${metadata.activation_status} requires last_verified in YYYY-MM-DD format`);
+    }
+  }
+
+  return errors;
+}
+
 export function toPosix(value) {
   return value.split(path.sep).join("/");
 }

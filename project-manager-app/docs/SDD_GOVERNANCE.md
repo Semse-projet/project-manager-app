@@ -42,6 +42,10 @@ reversible. F0-F9 no se implementa como un único PR.
 7. `docs/architecture/SEMSE_API_SURFACE_V1.md`
 8. Spec, plan, tasks y checklist del slice
 
+`analyze` es el gate de consistencia entre constitución, spec, plan y tasks.
+Su resultado se registra en el checklist, PR o reporte del slice; no exige un
+quinto contrato paralelo si no existe una plantilla canónica.
+
 Un reporte histórico informa; no autoriza implementación si contradice estas
 fuentes o el estado actual de producción.
 
@@ -99,7 +103,9 @@ Invariantes:
 - `DEPLOYED` requiere CI `PASS` y merge `MERGED`.
 - `CANARY` o `ACTIVE` requiere deploy `DEPLOYED`.
 - `VERIFIED` requiere código completo, CI verde, merge, deploy, activación
-  `ACTIVE`, `last_verified` y evidencia de producción.
+  `CANARY` o `ACTIVE`, `last_verified` y evidencia de producción. `CANARY`
+  sólo cierra el alcance explícitamente aprobado para ese canary y nunca se
+  presenta como activación global.
 - Una migración aplicada manualmente sigue siendo deuda hasta que su archivo,
   schema y checksum estén reconciliados en Git.
 

@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-07-29
+**Actualizado:** 2026-07-31
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -14,10 +14,11 @@ actual sin reescritura ni renombramiento masivo.
 - Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge e Integrations
   tienen implementacion real en distintos grados.
 - Prometeo Runtime P2 esta fusionado y desplegado.
-- Git y Railway producción coinciden en `main@39f6ecbd`; API y Web tienen
-  deployments terminales `SUCCESS` y health configurado.
-- F1-D y Product Intelligence PI-00..PI-06 estan integrados y contenidos en el
-  deploy. Se verificó el inventario de nombres de flags, no su activación.
+- `origin/main` y API/Web/Worker/Vision están en `3c2ac45d`, todos con
+  deployments terminales `SUCCESS`; ese SHA contiene F3 (`f1234291`).
+- F1-D y Product Intelligence PI-00..PI-06 están integrados. Los switches del
+  Event Backbone se activaron con allowlists acotadas para Evidence y F3; esto
+  no equivale al cierre global F1-F.
 - El programa F3-F9 está gobernado por
   `docs/specs/platform/production-convergence-program.spec.md`.
 
@@ -42,7 +43,7 @@ Gate de salida:
 - el snapshot registra por separado `main`, checkout local, CI, deploy,
   endpoints y configuracion no verificable.
 
-## F1 — Event Backbone (F1-A..F1-E EN MAIN; F1-F canary/deploy SIGUIENTE)
+## F1 — Event Backbone (F1-A..F1-E EN MAIN; F1-F CIERRE TRANSVERSAL PENDIENTE)
 
 Contrato ejecutable:
 
@@ -76,17 +77,16 @@ Estado del corte:
 - F1-E: outbox list/delivery/replay, RBAC (`domain-events:read`/`domain-events:replay`
   + `OPS_ADMIN`), redaccion y trace extendido, completado en `main`
   (PR #354, #355; reporte `docs/reportes/F1E_OPS_DLQ_REPLAY_2026-07-19.md`);
-- F1-F: switches, canary, SLO y cierre de producción siguen pendientes; el
-  acceso Railway ya está disponible, pero esta rama no altera esos flags.
+- F1-F: los switches y allowlists se ejercitaron mediante el canary F3, pero el
+  canary/SLO transversal y el cierre global F1 siguen pendientes.
 - receipt y efecto se confirman en la misma transaccion;
 - duplicados, crash/retry, no-op sin milestone y dead letter fueron probados
   contra PostgreSQL y Redis reales;
 - `Milestone.status`, `paymentReadiness` y Payments no son mutados.
 
-El código F1-D y F1-E está mergeado/desplegado, pero no se declara activo:
-esta auditoría no leyó ni modificó los valores de
-`SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED` y
-`SEMSE_EVENT_CONSUMERS_ENABLED`.
+El código F1-D/F1-E está mergeado/desplegado. Dispatcher y consumers están
+activos sólo para types/consumers allowlisted; no se declara el backbone
+globalmente cerrado.
 
 Gate de salida:
 
@@ -133,7 +133,7 @@ Gate de salida:
 - [x] cada ejecucion deja `auditRef` y `resultado` reales;
 - [ ] "verification status" explicito — no implementado como campo separado, ver nota arriba.
 
-## F3 — Project Lifecycle Projection
+## F3 — Project Lifecycle Projection (VERIFIED EN CANARY)
 
 Contrato ejecutable:
 
@@ -143,16 +143,17 @@ Contrato ejecutable:
 
 Estado del corte:
 
-- spec SDD 2.0 `IMPLEMENTED`, CI/E2E `PASS`, merge/deploy completos;
-- `main@35f6bda3` está desplegado en API/Web/Worker/Vision con health 200;
+- spec SDD 2.0 `VERIFIED`, CI/E2E/integración `PASS`, merge/deploy completos;
+- código event-driven mergeado en `f1234291`; `origin/main@3c2ac45d` lo contiene;
 - PostgreSQL tiene las tres migraciones F3 aplicadas, incluida la reparación
   canónica de Evidence verificada con nueve columnas, cero tenant nulo, dos FKs
   y tres índices;
 - cálculo y persistencia están activos sólo para `tenant_default`;
 - el canary autenticado produjo revisión estable y un snapshot durable con
   mismatch cero;
-- faltan rebuild idempotente, invalidación por eventos y replay antes de elevar
-  F3 a `VERIFIED` y abrir el gate de implementación F4.
+- rebuild idempotente, evento/consumer, consumo automático, duplicado y replay
+  quedaron verificados: 5 publicaciones, 5 consumos y cero estados fallidos;
+- F3 queda cerrado para el scope canary, no promovido globalmente.
 
 Crear un read model por proyecto que responda:
 
@@ -165,10 +166,14 @@ Crear un read model por proyecto que responda:
 - pago retenido;
 - trust/risk signals.
 
-Gate de salida: Connect, BuildOps, Payments, Evidence y Trust producen una vista
-coherente y reconstituible por replay.
+Gate de salida: cumplido para `tenant_default`; la vista es coherente y
+reconstituible por replay. F4 es el siguiente child y debe aprobar su propio SDD
+antes de implementación.
 
 ## F4 — Mission Control 2.0
+
+**Siguiente slice autorizado para especificación/planificación; child SDD
+pendiente.**
 
 Unificar exceptions y acciones de:
 

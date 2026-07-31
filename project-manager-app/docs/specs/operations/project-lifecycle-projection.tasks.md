@@ -4,9 +4,9 @@ feature: "Project Lifecycle Projection F3"
 domain: "operations"
 plan: "docs/specs/operations/project-lifecycle-projection.plan.md"
 version: "2.0"
-status: "IN_PROGRESS"
+status: "COMPLETE"
 branch: "main"
-date: "2026-07-30"
+date: "2026-07-31"
 ---
 
 # Tareas: Project Lifecycle Projection F3
@@ -67,7 +67,10 @@ date: "2026-07-30"
 
 ## Fase 7 — Cierre F3
 
-- [ ] [T-070] Rebuild idempotente
-- [ ] [T-071] Event invalidation/consumer
-- [ ] [T-072] Replay verificado
-- [ ] [T-073] Elevar a `VERIFIED`
+- [x] [T-070] Rebuild idempotente tenant-scoped con CAS
+- [x] [T-071] Event invalidation/consumer versionados y default-off
+- [x] [T-072] Replay local PostgreSQL y canary de producción verificados
+- [x] [T-073] Elevar a `VERIFIED` con alcance `tenant_default`
+- [x] [T-074] Corregir rol Worker `EVENT_CONSUMER` y reconciliar los dos 403
+- [x] [T-075] Registrar cinco publicaciones/consumos y cero estados fallidos
+- [x] [T-076] Alinear spec/plan/tasks/checklist, arquitectura, catálogo y runbook

@@ -3,7 +3,7 @@ id: "platform.production-convergence-f3-f9"
 title: "Programa de convergencia de producción F3-F9"
 domain: "platform"
 sdd_version: "2.0"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -17,6 +17,9 @@ feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS
+  - SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED
+  - SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED
+  - SEMSE_EVENT_CONSUMERS_ENABLED
 production_evidence:
   - railway:production:sha:39f6ecbd
   - railway:production:api:89677ecd-439c-46d2-945f-4482042ff9f1:SUCCESS
@@ -26,6 +29,12 @@ production_evidence:
   - railway:production:sha:35f6bda3387e6d17b8dcf094f2e790e43b751021
   - railway:production-health-gate:30509069492:success
   - railway:f3:activation:tenant_default:calculation-and-persistence-canary
+  - github:pr:477:merge:f1234291fc190c6611d3f2258630ac08315bd060
+  - railway:production-deploy-workflow:30542950757:success
+  - railway:f3:event-canary:published=5:completed=5:failed=0:dead-letter=0
+  - railway:f3:replay:5173120d-f312-4d8e-880e-2d2adee8d3b8:no_op:duplicate
+  - github:pr:480:merge:3c2ac45d4f5d3c43a081767c54405eb08d31c788
+  - railway:current-production:sha:3c2ac45d4f5d3c43a081767c54405eb08d31c788:all-services-success
 related_files:
   - AGENTS.md
   - ROADMAP.md
@@ -36,9 +45,14 @@ related_files:
   - .specify/templates/overrides/semse-checklist.md
   - docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md
   - docs/architecture/PRODUCTION_CONVERGENCE_MAP.md
+  - docs/architecture/CURRENT_ARCHITECTURE.md
+  - docs/architecture/SEMSE_API_SURFACE_V1.md
+  - docs/foundation/EVENT_CATALOG.md
   - docs/SDD_GOVERNANCE.md
   - docs/SPEC_INDEX.md
   - docs/PRODUCTION_CONVERGENCE_TRACKER.md
+  - docs/runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md
+  - docs/runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md
   - scripts/spec-lib.mjs
   - scripts/spec-validate.mjs
   - scripts/spec-index.mjs
@@ -52,7 +66,7 @@ related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-30"
+last_verified: "2026-07-31"
 ---
 
 # Spec: Programa de convergencia de producción F3-F9
@@ -79,13 +93,15 @@ los módulos actuales, sin reescritura masiva ni backend paralelo.
 | F8 | Domain Loops | BuildOps/Agro/Labor sobre contratos comunes |
 | F9 | Production Hardening | SLO, DR, seguridad, canaries y rollback |
 
-F3 es el único child slice autorizado para implementación inmediata. F4-F9
-requieren spec, plan, tasks, analyze y checklist propios en `APPROVED`.
+Cada child requiere spec, plan, tasks, analyze y checklist propios antes de
+implementarse. `analyze` es un gate de consistencia y puede registrarse en el
+checklist/PR sin crear un contrato paralelo.
 
-Al corte 2026-07-30, F3 está fusionado, desplegado y activo en canary para
-`tenant_default`. Su gate funcional de cálculo/persistencia pasó, pero el child
-permanece `IMPLEMENTED` hasta verificar rebuild, invalidación por eventos y
-replay; por eso F4 aún no está autorizado para implementación.
+Al corte 2026-07-31, F3 está `VERIFIED`, desplegado y activo en canary para
+`tenant_default`: cálculo/persistencia, rebuild, invalidación por eventos,
+consumo automático, duplicado y replay pasaron. Esto abre F4 como siguiente
+child autorizado para recorrer su propio ciclo SDD; no autoriza F5-F9 ni una
+activación global de F3.
 
 ## 3. Principios de aterrizaje
 

@@ -78,7 +78,7 @@ date: "[YYYY-MM-DD]"
 - [ ] CI `PASS`
 - [ ] Merge `MERGED`
 - [ ] Deploy `DEPLOYED`
-- [ ] Activación `ACTIVE`
+- [ ] Activación `CANARY` o `ACTIVE` según el gate aprobado
 - [ ] Migración `VERIFIED` o `NOT_APPLICABLE`
 - [ ] Evidencia de producción enlazada
 - [ ] Índice/matriz/roadmap actualizados

@@ -1,7 +1,7 @@
 # SOURCE OF TRUTH — Fuentes de verdad de SEMSEproject
 
-- **Version:** 2.1
-- **Corte:** 2026-07-29
+- **Version:** 2.2
+- **Corte:** 2026-07-31
 - **Repositorio:** `Semse-projet/project-manager-app`
 - **Raiz canónica de desarrollo:** `project-manager-app/`
 
@@ -26,6 +26,10 @@ historial de forma segura.
 
 Codigo, test local, CI, merge, deploy y activacion son estados distintos. Toda
 afirmacion de capacidad debe declarar cual de ellos fue verificado.
+
+`VERIFIED + CANARY` significa que el gate aprobado se comprobó en producción
+dentro de un scope explícito; no equivale a `activation_status: ACTIVE` ni
+autoriza promoción global.
 
 ## Ownership canónico en este repositorio
 

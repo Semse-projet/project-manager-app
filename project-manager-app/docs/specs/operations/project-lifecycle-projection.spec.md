@@ -3,8 +3,8 @@ id: "operations.project-lifecycle-projection"
 title: "Project Lifecycle Projection F3"
 domain: "operations"
 sdd_version: "2.0"
-version: "1.1"
-status: "IMPLEMENTED"
+version: "1.2"
+status: "VERIFIED"
 owner: "semse-core"
 risk: "critical"
 code_status: "COMPLETE"
@@ -13,10 +13,16 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "CANARY"
 migration_status: "VERIFIED"
+verification_scope: "production-canary:tenant_default"
 feature_flags:
   - SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED
   - SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS
+  - SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED
+  - SEMSE_EVENT_OUTBOX_DISPATCH_ENABLED
+  - SEMSE_EVENT_CONSUMERS_ENABLED
+  - SEMSE_EVENT_CONSUMER_ALLOWLIST
+  - SEMSE_EVENT_TYPE_ALLOWLIST
 production_evidence:
   - github:pr:472:sha:19472b7892e0fe56975c2d618bf50dc6e0091922:checks-passed
   - github:pr:472:merge:d065a2f21127a808ee640354a1840baf5605a47d
@@ -43,34 +49,78 @@ production_evidence:
   - railway:postgres:table:ProjectLifecycleProjection:baseline-before-canary:rows=0
   - railway:postgres:migration:20260729000000_evidence_updated_at_for_lifecycle_projection:finished
   - railway:api:variables:f3-projection-persistence-off:2026-07-29
+  - github:pr:477:head:b77b45f9b60171a8f8c826368f27662a6a959f14:checks-passed
+  - github:pr:477:merge:f1234291fc190c6611d3f2258630ac08315bd060
+  - github:actions:railway-deploy:30542950757:success
+  - railway:api:deployment:5d4a79ae-6c70-4e0f-b65b-3998e5d29523:success
+  - railway:web:deployment:55100d11-e811-4bf3-bba0-7c9b89c91771:success
+  - railway:worker:deployment:60f2662e-ee70-4ab0-bffe-65d642b09c0d:success
+  - railway:vision:deployment:eb3d3eef-0e81-4cf9-981b-8fb233011f00:success
+  - railway:api:activation-deployment:d896be44-4b27-48b8-8324-159599ab8e1a:sha:62c69537f62515bbaabbfa0b29d2750d9d9c5b0e:success
+  - railway:worker:activation-deployment:d706d7ad-3661-437c-8492-18b7791a0345:sha:62c69537f62515bbaabbfa0b29d2750d9d9c5b0e:success
+  - railway:worker:roles:OPS_ADMIN,WORKER,EVENT_CONSUMER:consumer-enabled
+  - railway:f3:outbox:published=5:pending=0:claimed=0:failed=0:dead-letter=0
+  - railway:f3:consumer:completed=5:failed=0:dead-letter=0
+  - railway:f3:role-gap:events=f893805f-6cd9-4ded-8a75-c3ee58dd4a37,dab442a8-c747-45c2-9f5a-fef3869fd935:http=403:reconciled-once
+  - railway:f3:automatic-consumption:events=d48cf482-4e38-4fd2-a222-5e558db3b41a,0b114154-f26b-4569-90e3-8cf8d79fce15,5173120d-f312-4d8e-880e-2d2adee8d3b8
+  - railway:f3:replay:event=5173120d-f312-4d8e-880e-2d2adee8d3b8:replay-count=1:attempts=1:duplicate=true:effect=no_op
+  - railway:f3:replay:revision=project-lifecycle.v1:0f8f7c9fb7c45d9fbd55bb733bb3b06e5265782b6113a1e622a675679a7d244d:last-error=null
+  - railway:health:api-railway=200:web-custom=200:web-railway=200:2026-07-31
+  - railway:current-production:sha:3c2ac45d4f5d3c43a081767c54405eb08d31c788:contains-f3
+  - railway:current-production:api=425b8526-4374-450b-ae75-53881791e6bc:web=00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7:success
+  - railway:current-production:worker=7d5f6279-3554-4a03-bd9d-2960722bce97:vision=5e1155a6-9efc-46f6-95da-6552798994fc:success
 related_files:
   - apps/api/src/modules/projects/project-lifecycle-projection.ts
   - apps/api/src/modules/projects/projects.repository.ts
   - apps/api/src/modules/projects/projects.service.ts
   - apps/api/src/modules/projects/projects.controller.ts
+  - apps/api/src/modules/domain-events/project-lifecycle-projection-event-producer.service.ts
+  - apps/api/src/modules/domain-events/domain-event-consumer.service.ts
+  - apps/api/src/modules/domain-events/domain-event-bus.service.ts
+  - apps/api/src/modules/domain-events/domain-events.module.ts
+  - apps/api/src/modules/milestones/milestones.repository.ts
+  - apps/api/src/modules/evidence/evidence.repository.ts
+  - apps/api/src/modules/disputes/disputes.service.ts
+  - apps/api/src/modules/payments/payments.service.ts
+  - apps/api/src/modules/finance/finance.service.ts
+  - apps/api/src/modules/intelligence/risk-scoring.service.ts
   - apps/api/src/modules/buildops/buildops.service.ts
+  - apps/api/src/modules/buildops/buildops-legacy-promotion.service.ts
   - apps/web/components/projects/ProjectLifecycleProjectionPanel.tsx
   - apps/web/app/(app)/buildops/projects/[projectId]/page.tsx
   - apps/web/app/(app)/client/projects/[projectId]/page.tsx
   - apps/web/app/api/semse/projects/[projectId]/projection/route.ts
   - packages/db/prisma/schema.prisma
   - packages/schemas/src/project.schema.ts
+  - packages/schemas/src/domain-events-v2.schema.ts
+  - packages/shared/src/index.ts
   - packages/db/prisma/migrations/20260728000000_project_lifecycle_projection/migration.sql
   - packages/db/prisma/migrations/20260729000000_evidence_updated_at_for_lifecycle_projection/migration.sql
   - packages/db/prisma/migrations/20260730010000_repair_evidence_canonical_schema/migration.sql
+  - docs/runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md
+  - docs/foundation/EVENT_CATALOG.md
+  - docs/architecture/SEMSE_API_SURFACE_V1.md
 related_tests:
   - apps/api/test/project-lifecycle-projection.test.ts
   - apps/api/test/project-lifecycle-projection-persistence.test.ts
+  - apps/api/test/project-lifecycle-projection-events.test.ts
+  - apps/api/test/project-lifecycle-projection-events-integration.test.ts
+  - apps/api/test/evidence-outbox-producer.test.ts
   - apps/api/test/projects.controller.test.ts
   - apps/api/test/buildops-project-canonical-link.test.ts
   - tests/unit/project-lifecycle-migration.test.mjs
 related_endpoints:
   - GET /v1/projects/:projectId/projection
   - GET /api/semse/projects/:projectId/projection
-related_events: []
+  - GET /v1/domain-events/outbox
+  - GET /v1/domain-events/:eventId/deliveries
+  - POST /v1/domain-events/:eventId/process
+  - POST /v1/domain-events/:eventId/replay
+related_events:
+  - project.lifecycle-source-changed.v1
 related_agents:
   - prometeo
-last_verified: "2026-07-30"
+last_verified: "2026-07-31"
 ---
 
 # Spec: Project Lifecycle Projection F3
@@ -275,18 +325,47 @@ filas, dos claves foráneas y tres índices. No se alteraron checksums históric
 - Los dos flags booleanos conservan `false` como valor seguro por defecto.
 - Producción está en canary con cálculo y persistencia habilitados únicamente
   para `SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS=tenant_default`.
+- El productor F3 exige además
+  `SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED=true`; dispatcher y consumo conservan
+  sus kill switches globales y allowlists de consumer/event type.
+- Producción permite `project-lifecycle-projection.v1` y
+  `project.lifecycle-source-changed.v1` junto al slice Evidence existente.
+- El Worker debe incluir el rol de servicio `EVENT_CONSUMER` además de
+  `OPS_ADMIN,WORKER`; sin ese rol el endpoint interno responde 403.
 - Primero habilitar cálculo para un tenant allowlisted.
 - Después habilitar persistencia y comparar snapshot calculado/durable.
+- Después habilitar producer, dispatcher y consumer sólo para el evento y
+  consumer allowlisted; verificar outbox, receipt, duplicado y replay.
 - Activación global sólo con error rate, latencia y mismatch dentro de SLO.
-- Rollback: flags OFF; la tabla aditiva permanece para forward-fix.
+- Rollback: apagar producer, dispatcher/consumer o los flags de proyección; la
+  tabla aditiva y los receipts permanecen para forward-fix/replay.
 
 ## 8. Eventos y reconstrucción
 
-F3-A/B usa cálculo canónico + persistencia CAS. Para cerrar F3 como
-`VERIFIED`, un rebuild debe poder regenerar snapshots y los eventos de Project,
-Milestone, Evidence, Dispute, Payments, Expense y Risk deben invalidar o
-actualizar la proyección mediante consumer idempotente. Hasta entonces el spec
-puede estar `IMPLEMENTED` y activo como read-through, no `VERIFIED`.
+El contrato canónico es `project.lifecycle-source-changed.v1`; transporta el
+proyecto afectado, fuente, actor, tenant/org, correlation, causation e
+idempotency key. Los hooks adoptados cubren Project, Milestone/Evidence,
+Dispute, Payments, Finance, Risk y promoción BuildOps.
+
+`project-lifecycle-projection.v1` recupera el evento durable por `eventId`,
+recalcula desde las tablas propietarias y fuerza persistencia tenant-scoped con
+CAS aunque el flag de persistencia read-through esté apagado. Una revisión ya
+persistida produce `no_op`; una entrega ya completada devuelve
+`duplicate: true`; effect, AuditLog y receipt terminal se confirman juntos.
+
+El producer de Evidence registra Evidence + sus eventos de outbox en la misma
+transacción. Los demás hooks F3 se emiten post-commit y son best-effort; no se
+declara atomicidad inexistente. La recuperación de ese límite es cálculo
+read-through, rebuild idempotente y un evento posterior. Convertir cada dominio
+propietario a outbox atómica sigue perteneciendo a la adopción progresiva del
+Event Backbone, no a la autoridad de escritura de esta proyección.
+
+Canary de producción: cinco eventos quedaron `PUBLISHED` y cinco receipts
+`COMPLETED`, sin pending/failed/dead-letter. Los dos primeros jobs revelaron un
+403 por rol faltante; tras agregar `EVENT_CONSUMER` se reconciliaron una sola
+vez. Tres eventos posteriores se consumieron automáticamente. El replay del
+evento `5173120d-f312-4d8e-880e-2d2adee8d3b8` terminó `no_op`, `replayCount=1`,
+`attempts=1`, `duplicate=true` y sin errores, conservando una sola proyección.
 
 ## 9. Tests requeridos
 
@@ -303,14 +382,20 @@ puede estar `IMPLEMENTED` y activo como read-through, no `VERIFIED`.
 - [x] BFF y UI states
 - [x] Migración/checksum
 - [x] Canary autenticado
+- [x] Schema/event producer y allowlists default-off
+- [x] Rebuild tenant-scoped forzado y CAS
+- [x] Consumer/receipt/audit idempotentes
+- [x] Integración PostgreSQL: primera entrega, duplicado y replay
+- [x] Canary de outbox, consumo automático y replay en producción
 
 ## 10. Gates de cierre
 
 - [x] SQL/checksum reconciliado
 - [x] Tests y regresión verdes
-- [x] API surface actualizada; event catalog sin cambios hasta invalidación
+- [x] API surface y event catalog actualizados
 - [x] CI/merge/deploy registrados
 - [x] Flags documentados OFF por defecto
 - [x] Canary tenant verificado
 - [x] Persistencia verificada y mismatch durable/calculado = 0
-- [ ] Rebuild/event invalidation verificados para elevar a `VERIFIED`
+- [x] Rebuild/event invalidation/replay verificados en canary de producción
+- [x] Alcance de verificación limitado explícitamente a `tenant_default`
