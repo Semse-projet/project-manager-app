@@ -22,6 +22,8 @@ date: "2026-07-31"
 - Replay de eventos ya exige reason y AuditLog; sirve como adapter de referencia.
 - Retry/requeue AgentRun, pause/resume loops y ejecución nominal de runbook no
   comparten reason, idempotency o receipt.
+- `OpsRepository.retryAgentRun/requeueAgentRun` muta por `id` sin filtrar
+  `tenantId`; el actor se valida, pero el target no.
 - `reportIncident` de Ops sólo crea AuditLog y retorna un ID efímero; no es un
   incidente operacional durable.
 - El stream Mission Control es `@Public` y mezcla un canal global; el servicio de
@@ -70,6 +72,8 @@ date: "2026-07-31"
 - Acción: `ops:dashboard:write`; replay además aplica policy OPS_ADMIN y adapter
   `domain-events:replay`.
 - Tenant se deriva de sesión; target cross-tenant devuelve 404.
+- Antes de crear adapters F4, cerrar retry/requeue a `id + tenantId` y probar
+  que un run ID de otro tenant no cambia.
 - Loops son scope global explícito, sólo IDs canónicos.
 - Reason/runbook/idempotency obligatorios; no comandos libres.
 - Receipt/AuditLog no guardan secretos ni payloads completos.

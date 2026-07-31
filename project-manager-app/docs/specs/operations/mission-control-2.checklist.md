@@ -35,6 +35,9 @@ Hallazgos vinculantes del análisis:
 7. `OpsService.reportIncident` sólo audita y devuelve un ID generado; no
    persiste un incidente operacional consultable.
 8. Los módulos existentes son suficientes; no se crea un backend paralelo.
+9. `OpsRepository.retryAgentRun/requeueAgentRun` actualiza por `id` sin
+   `tenantId`; F4 no puede delegar a esos métodos hasta cerrar el gap y probar
+   404 cross-tenant.
 
 ## Requisitos y UX
 

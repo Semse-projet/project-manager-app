@@ -26,6 +26,7 @@ date: "2026-07-31"
 - [ ] [T-012] [P] Escribir tests policy/runbook/action/target
 - [ ] [T-013] [P] Escribir tests idempotency hash, duplicate y lease
 - [ ] [T-014] [P] Escribir tests 404 cross-tenant y SSE tenant/global
+- [ ] [T-014A] [P] Escribir regresión retry/requeue `AgentRun` cross-tenant
 - [ ] [T-015] Confirmar que los tests fallan por los gaps F4, no por fixtures
 
 ## Fase 2 — Datos y dominio
@@ -37,6 +38,7 @@ date: "2026-07-31"
 - [ ] [T-024] Implementar catálogo de runbooks allowlisted
 - [ ] [T-025] Implementar adapters ACK/RESOLVE/DISMISS/PAUSE/RESUME
 - [ ] [T-026] Implementar adapters RETRY/REQUEUE/REPLAY
+- [ ] [T-026A] Corregir ownership de retry/requeue a `id + tenantId`
 - [ ] [T-027] Implementar ESCALATE con incidente durable
 - [ ] [T-028] Endurecer SSE tenant/global y reconnect por GET
 - [ ] [T-029] Pasar tests unitarios e integración PostgreSQL

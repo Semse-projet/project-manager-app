@@ -179,6 +179,8 @@ Casos borde:
 
 - [ ] key duplicada con payload distinto produce 409.
 - [ ] target cross-tenant produce 404, no fuga 403 descriptiva.
+- [ ] retry/requeue valida `AgentRun.tenantId`; conocer un run ID ajeno no
+  autoriza mutarlo.
 - [ ] action no permitida por target/estado produce 409.
 - [ ] error del adapter no deja receipt `SUCCEEDED`.
 - [ ] lease vencido se recupera de forma auditable.
@@ -373,6 +375,7 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
 - [ ] Servicio real de summary/nextAction; retirar la prueba que copia lógica.
 - [ ] Contrato GET exceptions/runbooks y POST actions.
 - [ ] Permisos, rol OPS_ADMIN y 404 cross-tenant.
+- [ ] Regresión de retry/requeue por `id + tenantId`.
 - [ ] Idempotency key igual/diferente y reclaim de lease.
 - [ ] Estados target incompatibles, adapter failure y no-op.
 - [ ] Migración desde schema previo con incidentes AI existentes.
