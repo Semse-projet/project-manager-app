@@ -17,6 +17,8 @@ Just: log in, see/toggle the active timer, toggle proximity tracking, and set th
 cp .env.example .env   # then set EXPO_PUBLIC_SEMSE_API_BASE_URL to a reachable apps/api URL
 pnpm install            # from the repo root — this is a pnpm workspace member
 pnpm dev:mobile          # or: pnpm --filter @semse/mobile start
+pnpm check:mobile        # typecheck (tsc --noEmit)
+pnpm --filter @semse/mobile test   # jest — geo/proximity logic only, no native rendering
 ```
 
 `EXPO_PUBLIC_SEMSE_API_BASE_URL` must be reachable from the **device/simulator**, not
