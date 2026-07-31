@@ -28,6 +28,7 @@ const TASKS = {
     ["pnpm", ["exec", "tsc", "--noEmit", "--project", "apps/api/tsconfig.json"]],
     ["pnpm", ["exec", "tsc", "--noEmit", "--project", "apps/web/tsconfig.json"]],
     ["pnpm", ["run", "check:worker"]],
+    ["pnpm", ["run", "check:mobile"]],
   ],
   "railway:preflight": [
     ["pnpm", ["run", "validate:workspace"]],
