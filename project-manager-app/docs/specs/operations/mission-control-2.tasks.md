@@ -68,7 +68,7 @@ date: "2026-07-31"
 ## Fase 5 — PR, CI y merge
 
 - [x] [T-050] Revisar diff, secretos, payloads y rollback
-- [ ] [T-051] Abrir PR F4 implementable/reversible
+- [x] [T-051] Abrir PR F4 implementable/reversible (`#486`)
 - [ ] [T-052] Esperar CI/CodeQL/E2E terminales
 - [ ] [T-053] Resolver review sin ampliar scope
 - [ ] [T-054] Fusionar y registrar SHA
