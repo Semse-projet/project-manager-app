@@ -150,7 +150,7 @@ ajenas al flujo.
 | F1 Event Backbone | `APPROVED` | parcial | histórico + F3 verde | `main` | desplegado | canary acotado | F1-F transversal pendiente |
 | F2 Tool Registry | `APPROVED` | gobernanza completa | histórico | `main` | desplegado | parcial/no verificada | Video temporal pendiente |
 | F3 Lifecycle Projection | `VERIFIED` SDD 2.0 | completo | PASS | `f1234291` | desplegado | `CANARY` | Gate child cerrado para `tenant_default` |
-| F4 Mission Control 2.0 | child spec pendiente | no iniciado | — | — | — | — | Siguiente slice autorizado |
+| F4 Mission Control 2.0 | `APPROVED` SDD 2.0 | no iniciado | — | — | — | `INACTIVE` | Spec/plan/tasks/analyze/checklist coherentes |
 | F5 Shared Ledger | child spec pendiente | no iniciado | — | — | — | — | Después de F4 |
 | F6 Agenda/Dispatch | child spec pendiente | no iniciado | — | — | — | — | Después de F5 |
 | F7 Prometeo Multimodal | child spec pendiente | no iniciado | — | — | — | — | Después de F6 |
@@ -181,7 +181,8 @@ secuenciales y evidencia de activación separada del healthcheck.
 - Medir ventana sostenida de P95, 5xx, lag, retries, DLQ y mismatch antes de
   promoción global F3.
 - Completar F1-F transversal.
-- Crear y aprobar el child SDD F4 antes de implementar Mission Control 2.0.
+- Implementar Mission Control 2.0 sólo desde el child SDD F4 aprobado, con
+  tests primero, migración aditiva, flags default-off y canary acotado.
 - Configurar GitHub Environment `production` con protection/concurrency si no
   existe.
 - Añadir uptime externo; health de Railway sólo cubre arranque.

@@ -157,6 +157,11 @@ verificados. El producer de Evidence es transaccional; los demás hooks F3 son
 post-commit best-effort y no sustituyen la adopción gradual de outbox por cada
 dominio propietario.
 
+F4 tiene el child `operations.mission-control-2` aprobado y analizado. La
+implementación reutiliza las autoridades anteriores, normaliza excepciones y
+añade receipts/runbooks/idempotencia sin convertir Mission Control en write
+authority de los dominios.
+
 ## 8. Decisiones bloqueadas
 
 - No big-bang rewrite.

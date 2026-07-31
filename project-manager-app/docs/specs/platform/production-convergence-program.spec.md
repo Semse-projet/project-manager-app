@@ -57,6 +57,10 @@ related_files:
   - docs/PRODUCTION_CONVERGENCE_TRACKER.md
   - docs/runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md
   - docs/runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md
+  - docs/specs/operations/mission-control-2.spec.md
+  - docs/specs/operations/mission-control-2.plan.md
+  - docs/specs/operations/mission-control-2.tasks.md
+  - docs/specs/operations/mission-control-2.checklist.md
   - scripts/spec-lib.mjs
   - scripts/spec-validate.mjs
   - scripts/spec-index.mjs
@@ -104,8 +108,10 @@ checklist/PR sin crear un contrato paralelo.
 Al corte 2026-07-31, F3 está `VERIFIED`, desplegado y activo en canary para
 `tenant_default`: cálculo/persistencia, rebuild, invalidación por eventos,
 consumo automático, duplicado y replay pasaron. Esto abre F4 como siguiente
-child autorizado para recorrer su propio ciclo SDD; no autoriza F5-F9 ni una
-activación global de F3.
+child autorizado. F4 ya tiene el contrato
+[`../operations/mission-control-2.spec.md`](../operations/mission-control-2.spec.md)
+`APPROVED`, con plan/tasks/analyze/checklist coherentes; esto autoriza su
+implementación reversible, no F5-F9 ni una activación global de F3.
 
 ## 3. Principios de aterrizaje
 

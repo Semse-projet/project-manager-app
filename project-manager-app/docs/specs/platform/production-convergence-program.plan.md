@@ -22,6 +22,8 @@ date: "2026-07-31"
 - Evento/consumer F3: activos sólo para el tenant/type/consumer allowlisted;
   5 publicaciones, 5 consumos y replay `no_op` verificados.
 - Dominio API personalizado: DNS/Railway `ACTIVE`, TLS válido y health 200.
+- F4: child `operations.mission-control-2` SDD 2.0 aprobado; implementación aún
+  no iniciada y flags F4 todavía inexistentes.
 
 ## Estrategia
 
@@ -29,7 +31,7 @@ date: "2026-07-31"
 2. Reconciliar F3 con producción y desplegarlo mediante canary. Completado para
    cálculo, persistencia, rebuild, eventos, consumo y replay.
 3. Actualizar la verdad arquitectónica.
-4. Crear/aprobar F4 y ejecutar su ciclo sólo después de fusionar esta evidencia.
+4. Implementar F4 desde su child aprobado sólo después de fusionar el SDD.
 
 Cada child usa rama/PR independiente después de F3. La documentación de programa
 no autoriza mutaciones de base o activaciones de F4-F9.
