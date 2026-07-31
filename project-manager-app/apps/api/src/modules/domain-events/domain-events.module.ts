@@ -44,6 +44,7 @@ import { ProjectsRepository } from "../projects/projects.repository.js";
     DomainEventBus,
     DomainEventsService,
     OutboxRepository,
+    OutboxOpsService,
     ProjectLifecycleProjectionEventProducer,
   ],
 })

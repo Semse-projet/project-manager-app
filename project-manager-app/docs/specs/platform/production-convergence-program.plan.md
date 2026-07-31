@@ -22,8 +22,9 @@ date: "2026-07-31"
 - Evento/consumer F3: activos sólo para el tenant/type/consumer allowlisted;
   5 publicaciones, 5 consumos y replay `no_op` verificados.
 - Dominio API personalizado: DNS/Railway `ACTIVE`, TLS válido y health 200.
-- F4: child `operations.mission-control-2` SDD 2.0 aprobado; implementación aún
-  no iniciada y flags F4 todavía inexistentes.
+- F4: child `operations.mission-control-2` SDD 2.0 implementado localmente;
+  migración completa verificada y flags declarados default-off. CI, merge,
+  deploy y canary siguen pendientes.
 
 ## Estrategia
 

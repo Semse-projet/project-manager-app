@@ -24,13 +24,15 @@ import { EvolutionFeedbackService } from "./evolution-feedback.service.js";
 import { EcosystemMetricsService } from "./ecosystem-metrics.service.js";
 import { SemseAgentsModule } from "../semse-agents/semse-agents.module.js";
 import { LoopsService } from "./loops.service.js";
+import { MissionControlController } from "./mission-control/mission-control.controller.js";
+import { MissionControlService } from "./mission-control/mission-control.service.js";
 
 const providers = [
   OpsRepository, OpsService, TrustRepository, TrustService,
   ConsciousnessIndexService, SystemObserverService, BehavioralObserverService,
   RecommendationEngineService, SimulationEngineService, ApplyEngineService,
   EvolutionEngineService, EvolutionFeedbackService, EcosystemMetricsService,
-  LoopsService,
+  LoopsService, MissionControlService,
 ];
 
 @Module({
@@ -40,7 +42,7 @@ const providers = [
     forwardRef(() => PrometeoModule),
     forwardRef(() => OperationalIntelligenceModule),
   ],
-  controllers: [OpsController],
+  controllers: [OpsController, MissionControlController],
   providers,
   exports: [
     OpsService, ConsciousnessIndexService, SystemObserverService, BehavioralObserverService,

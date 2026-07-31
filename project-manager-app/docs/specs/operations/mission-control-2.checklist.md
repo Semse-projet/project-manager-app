@@ -67,9 +67,9 @@ Hallazgos vinculantes del análisis:
 
 ## Entrega pendiente
 
-- [ ] Tests rojos confirman los gaps.
-- [ ] Implementación y migración pasan PostgreSQL real.
-- [ ] Build/typecheck/lint/workspace y Spec Kit pasan.
+- [x] Tests rojos confirman los gaps.
+- [x] Implementación y migración pasan PostgreSQL real.
+- [x] Build/typecheck/lint/workspace y Spec Kit pasan.
 - [ ] CI, merge, deploy y activación tienen evidencia separada.
 - [ ] Health no sustituye el smoke OPS_ADMIN.
 - [ ] Canary/rollback y métricas se verifican en producción.
@@ -78,5 +78,5 @@ Hallazgos vinculantes del análisis:
 ## Documentación pendiente
 
 - [x] Spec index regenerado con F4.
-- [ ] API surface/matriz/roadmap/runbook actualizados en implementación.
+- [x] API surface/matriz/roadmap/runbook actualizados en implementación.
 - [x] Investigación externa y decisiones registradas.

@@ -44,7 +44,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Shared Economic Ledger F5 | PENDIENTE | PaymentTxn no es double-entry | Child spec después de F4 |
 | Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
-| Mission Control F4 | PARCIAL / SDD 2.0 APPROVED | summary, signals, SSE, incidents y acciones fragmentadas; child `operations.mission-control-2` analizado | Cola unificada + receipts/runbooks/idempotencia en canary |
+| Mission Control F4 | IMPLEMENTADO LOCAL / SDD 2.0 APPROVED | cola normalizada multi-fuente, catálogo allowlisted, receipt key+hash+lease, adapters, migración aditiva, BFF/UI exception-first y SSE autenticado; historial PostgreSQL limpio aplicado | CI/merge/deploy y canary `tenant_default` pendientes |
 | Project Lifecycle Projection F3 | VERIFIED / CANARY ACTIVO | `f1234291`; repair, cálculo/persistencia, rebuild/event consumer; 5 `PUBLISHED`, 5 `COMPLETED`, replay `no_op`, mismatch 0 | Ventana SLO y promoción global; outbox atómica por dominio |
 | Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-06 | Verificar flags/activación |
 | Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |

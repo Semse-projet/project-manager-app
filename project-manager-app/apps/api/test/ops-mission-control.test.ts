@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { OpsService } from "../dist/modules/ops/ops.service.js";
 
 /**
  * Mission Control Summary — pure logic tests.
@@ -19,71 +20,89 @@ type MCInput = {
   openChangeOrders: number;
 };
 
-function resolveNextAction(input: MCInput): string {
-  const { activeDisputes, criticalSignals, blockedPayments, pendingMilestones, openChangeOrders, pendingEvidence } = input;
-  if (activeDisputes > 0)    return `Resolve ${activeDisputes} active dispute(s) to unblock payments`;
-  if (criticalSignals > 0)   return `Review ${criticalSignals} critical signal(s) in Mission Control`;
-  if (blockedPayments > 0)   return `Release payment for ${blockedPayments} approved milestone(s)`;
-  if (pendingMilestones > 0) return `Review ${pendingMilestones} milestone(s) pending approval`;
-  if (openChangeOrders > 0)  return `Process ${openChangeOrders} open change order(s)`;
-  if (pendingEvidence > 0)   return `Review ${pendingEvidence} pending evidence item(s)`;
-  return "System healthy — no urgent actions required";
+async function getProductionSummary(input: MCInput) {
+  const prisma = {
+    operationalSignal: {
+      async count({ where }: { where: { severity?: unknown } }) {
+        return where.severity ? input.criticalSignals : input.openSignals;
+      },
+    },
+    milestone: {
+      async count({ where }: { where: { status?: unknown } }) {
+        return where.status === "APPROVED" ? input.blockedPayments : input.pendingMilestones;
+      },
+    },
+    dispute: { async count() { return input.activeDisputes; } },
+    evidence: { async count() { return input.pendingEvidence; } },
+    changeOrderCandidate: { async count() { return input.openChangeOrders; } },
+  };
+  const service = new OpsService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    prisma as never,
+  );
+  return service.getMissionControlSummary("tenant_1");
 }
 
-test("MC.1: disputes take highest priority over all other signals", () => {
-  const action = resolveNextAction({
+test("MC.1: disputes take highest priority over all other signals", async () => {
+  const summary = await getProductionSummary({
     openSignals: 10, criticalSignals: 5, blockedPayments: 3,
     activeDisputes: 2, pendingMilestones: 4, pendingEvidence: 6, openChangeOrders: 1,
   });
-  assert.ok(action.startsWith("Resolve 2 active dispute(s)"), `Got: ${action}`);
+  assert.ok(summary.nextAction.startsWith("Resolve 2 active dispute(s)"), `Got: ${summary.nextAction}`);
 });
 
-test("MC.2: critical signals are P2 when no disputes", () => {
-  const action = resolveNextAction({
+test("MC.2: critical signals are P2 when no disputes", async () => {
+  const summary = await getProductionSummary({
     openSignals: 5, criticalSignals: 3, blockedPayments: 2,
     activeDisputes: 0, pendingMilestones: 1, pendingEvidence: 2, openChangeOrders: 0,
   });
-  assert.ok(action.startsWith("Review 3 critical signal(s)"), `Got: ${action}`);
+  assert.ok(summary.nextAction.startsWith("Review 3 critical signal(s)"), `Got: ${summary.nextAction}`);
 });
 
-test("MC.3: blocked payments are P3 when no disputes or critical signals", () => {
-  const action = resolveNextAction({
+test("MC.3: blocked payments are P3 when no disputes or critical signals", async () => {
+  const summary = await getProductionSummary({
     openSignals: 2, criticalSignals: 0, blockedPayments: 4,
     activeDisputes: 0, pendingMilestones: 2, pendingEvidence: 0, openChangeOrders: 1,
   });
-  assert.ok(action.startsWith("Release payment for 4 approved milestone(s)"), `Got: ${action}`);
+  assert.ok(summary.nextAction.startsWith("Release payment for 4 approved milestone(s)"), `Got: ${summary.nextAction}`);
 });
 
-test("MC.4: pending milestones are P4", () => {
-  const action = resolveNextAction({
+test("MC.4: pending milestones are P4", async () => {
+  const summary = await getProductionSummary({
     openSignals: 1, criticalSignals: 0, blockedPayments: 0,
     activeDisputes: 0, pendingMilestones: 7, pendingEvidence: 3, openChangeOrders: 2,
   });
-  assert.ok(action.startsWith("Review 7 milestone(s) pending"), `Got: ${action}`);
+  assert.ok(summary.nextAction.startsWith("Review 7 milestone(s) pending"), `Got: ${summary.nextAction}`);
 });
 
-test("MC.5: change orders are P5", () => {
-  const action = resolveNextAction({
+test("MC.5: change orders are P5", async () => {
+  const summary = await getProductionSummary({
     openSignals: 0, criticalSignals: 0, blockedPayments: 0,
     activeDisputes: 0, pendingMilestones: 0, pendingEvidence: 5, openChangeOrders: 3,
   });
-  assert.ok(action.startsWith("Process 3 open change order(s)"), `Got: ${action}`);
+  assert.ok(summary.nextAction.startsWith("Process 3 open change order(s)"), `Got: ${summary.nextAction}`);
 });
 
-test("MC.6: pending evidence is P6", () => {
-  const action = resolveNextAction({
+test("MC.6: pending evidence is P6", async () => {
+  const summary = await getProductionSummary({
     openSignals: 0, criticalSignals: 0, blockedPayments: 0,
     activeDisputes: 0, pendingMilestones: 0, pendingEvidence: 8, openChangeOrders: 0,
   });
-  assert.ok(action.startsWith("Review 8 pending evidence item(s)"), `Got: ${action}`);
+  assert.ok(summary.nextAction.startsWith("Review 8 pending evidence item(s)"), `Got: ${summary.nextAction}`);
 });
 
-test("MC.7: healthy system when all counts are zero", () => {
-  const action = resolveNextAction({
+test("MC.7: healthy system when all counts are zero", async () => {
+  const summary = await getProductionSummary({
     openSignals: 0, criticalSignals: 0, blockedPayments: 0,
     activeDisputes: 0, pendingMilestones: 0, pendingEvidence: 0, openChangeOrders: 0,
   });
-  assert.equal(action, "System healthy — no urgent actions required");
+  assert.equal(summary.nextAction, "System healthy — no urgent actions required");
 });
 
 // ── Vision summary aggregation logic ────────────────────────────────────────

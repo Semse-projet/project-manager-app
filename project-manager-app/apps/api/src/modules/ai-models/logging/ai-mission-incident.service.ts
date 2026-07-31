@@ -69,7 +69,6 @@ export class AiMissionIncidentService {
     if (input.severity === "critical" || input.severity === "high") {
       const channel = input.tenantId ? `mission-control:${input.tenantId}` : "mission-control:global";
       this.sseBus?.emit(channel, "mission-incident", view);
-      this.sseBus?.emit("mission-control:global", "mission-incident", view);
       this.logger.warn(`[mission-incident] posture=${input.posture} severity=${input.severity} source=${input.source}`);
     }
 
