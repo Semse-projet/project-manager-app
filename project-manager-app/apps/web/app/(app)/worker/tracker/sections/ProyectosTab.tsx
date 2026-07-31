@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, Archive, FolderOpen, LocateFixed, Pencil, Plus } from "lucide-react";
+import { ArrowRightLeft, Archive, FolderOpen, Pencil, Plus } from "lucide-react";
+import LocationPickerMap from "../../../../components/maps/LocationPickerMap";
 import {
   archiveFreeProject,
   convertFreeProjectToJob,
@@ -44,7 +45,6 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
   const [formColor, setFormColor] = useState(FREE_PROJECT_SWATCHES[0]);
   const [formLocation, setFormLocation] = useState("");
   const [formCoords, setFormCoords] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [locatingForm, setLocatingForm] = useState(false);
   const [formDescription, setFormDescription] = useState("");
 
   const load = useCallback(async () => {
@@ -99,19 +99,6 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
     setFormLocation("");
     setFormCoords(null);
     setFormDescription("");
-  }
-
-  function useCurrentLocation() {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
-    setLocatingForm(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-        setLocatingForm(false);
-      },
-      () => setLocatingForm(false),
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
-    );
   }
 
   async function handleSubmit() {
@@ -208,28 +195,20 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
               </div>
               <div>
                 <label style={fieldLabel()}>Ubicación</label>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <input
-                    value={formLocation}
-                    onChange={(event) => { setFormLocation(event.target.value); setFormCoords(null); }}
-                    placeholder="Opcional"
-                    style={{ ...fieldInput(), flex: 1 }}
+                <input
+                  value={formLocation}
+                  onChange={(event) => { setFormLocation(event.target.value); setFormCoords(null); }}
+                  placeholder="Opcional"
+                  style={fieldInput()}
+                />
+                <div style={{ marginTop: "8px" }}>
+                  <LocationPickerMap
+                    latitude={formCoords?.latitude}
+                    longitude={formCoords?.longitude}
+                    onChange={({ latitude, longitude }) => setFormCoords({ latitude, longitude })}
+                    height={180}
                   />
-                  <button
-                    type="button"
-                    onClick={useCurrentLocation}
-                    disabled={locatingForm}
-                    title="Usar mi ubicación actual"
-                    style={ghostButton(locatingForm)}
-                  >
-                    <LocateFixed size={12} /> {locatingForm ? "Ubicando..." : "Usar mi ubicación"}
-                  </button>
                 </div>
-                {formCoords ? (
-                  <p style={{ fontSize: "10px", color: "var(--muted)", margin: "4px 0 0" }}>
-                    Coordenadas guardadas ({formCoords.latitude.toFixed(5)}, {formCoords.longitude.toFixed(5)})
-                  </p>
-                ) : null}
               </div>
             </div>
             <div>

@@ -223,6 +223,8 @@ export type JobWizardDraft = {
   description: string;
   locationType: JobLocationType;
   city: string;
+  latitude: number | null;
+  longitude: number | null;
   budgetType: JobBudgetType;
   budgetMin: number;
   budgetMax: number;
@@ -257,6 +259,8 @@ export function loadJobWizardDraft(): JobWizardDraft | null {
         ? (parsed.locationType as JobLocationType)
         : "on_site",
       city: String(parsed.city ?? ""),
+      latitude: typeof parsed.latitude === "number" && Number.isFinite(parsed.latitude) ? parsed.latitude : null,
+      longitude: typeof parsed.longitude === "number" && Number.isFinite(parsed.longitude) ? parsed.longitude : null,
       budgetType: ["fixed", "range", "hourly"].includes(parsed.budgetType as string)
         ? (parsed.budgetType as JobBudgetType)
         : "range",

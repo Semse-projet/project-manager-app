@@ -15,6 +15,7 @@ import {
   Globe, Home, AlertCircle, Sparkles,
 } from "lucide-react";
 import { ClientPageHeader } from "../../../../components/client/ClientPageHeader";
+import LocationPickerMap from "../../../../components/maps/LocationPickerMap";
 import { CLIENT_ROUTES } from "../../../../lib/client-routes";
 import { trackProductEvent } from "../../../../../lib/product-intelligence";
 import { suggestBudget, type BudgetSuggestion } from "../../../../semse-api";
@@ -139,6 +140,8 @@ export default function NewJobPage() {
   const [description, setDescription] = useState(prefill.description);
   const [locationType, setLocationType] = useState<"remote" | "on_site" | "hybrid">(prefill.locationType);
   const [city, setCity] = useState(prefill.city);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
 
   // Step 3
@@ -188,6 +191,8 @@ export default function NewJobPage() {
     setDescription(draft.description);
     setLocationType(draft.locationType);
     setCity(draft.city);
+    setLatitude(draft.latitude);
+    setLongitude(draft.longitude);
     setBudgetType(draft.budgetType);
     setBudgetMin(draft.budgetMin);
     setBudgetMax(draft.budgetMax);
@@ -217,6 +222,8 @@ export default function NewJobPage() {
         description,
         locationType,
         city,
+        latitude,
+        longitude,
         budgetType,
         budgetMin,
         budgetMax,
@@ -232,7 +239,7 @@ export default function NewJobPage() {
         draftSaveTimeoutRef.current = null;
       }
     };
-  }, [step, categoryId, subcategoryId, title, description, locationType, city, budgetType, budgetMin, budgetMax, urgency, deadline]);
+  }, [step, categoryId, subcategoryId, title, description, locationType, city, latitude, longitude, budgetType, budgetMin, budgetMax, urgency, deadline]);
 
   useEffect(() => {
     let cancelled = false;
@@ -319,6 +326,7 @@ export default function NewJobPage() {
         urgency,
         locationType,
         ...(city ? { city } : {}),
+        ...(locationType !== "remote" && latitude != null && longitude != null ? { latitude, longitude } : {}),
         ...(deadline ? { deadline } : {}),
         ...(preferredProfessional ? {
           preferredProfessional: {
@@ -346,6 +354,7 @@ export default function NewJobPage() {
             budgetMin,
             budgetMax: budgetType === "range" ? budgetMax : budgetMin,
             ...(city ? { city } : {}),
+            ...(locationType !== "remote" && latitude != null && longitude != null ? { latitude, longitude } : {}),
             ...(deadline ? { deadline } : {}),
             ...(preferredProfessional ? {
               preferredProfessional: {
@@ -591,6 +600,13 @@ export default function NewJobPage() {
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--muted)", marginBottom: "8px" }}>CIUDAD / DIRECCIÓN</label>
                 <input style={input} value={city} onChange={e => setCity(e.target.value)} placeholder="Ej: Miami, FL" />
+                <div style={{ marginTop: "10px" }}>
+                  <LocationPickerMap
+                    latitude={latitude}
+                    longitude={longitude}
+                    onChange={({ latitude: lat, longitude: lng }) => { setLatitude(lat); setLongitude(lng); }}
+                  />
+                </div>
               </div>
             )}
 
