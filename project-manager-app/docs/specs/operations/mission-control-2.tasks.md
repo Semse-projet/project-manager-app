@@ -4,7 +4,7 @@ feature: "Mission Control 2.0 F4"
 domain: "operations"
 plan: "docs/specs/operations/mission-control-2.plan.md"
 version: "2.0"
-status: "PENDING"
+status: "IN_PROGRESS"
 branch: "feat/f4-mission-control-2"
 date: "2026-07-31"
 ---
@@ -17,57 +17,57 @@ date: "2026-07-31"
 - [x] [T-002] Inventariar UI/API/SSE/señales/eventos/runs/loops/incidentes actuales
 - [x] [T-003] Completar plan, análisis y checklist sin gaps bloqueantes
 - [x] [T-004] Registrar cuatro fuentes primarias y decisiones
-- [ ] [T-005] Fusionar el SDD y crear rama de implementación desde `main`
+- [x] [T-005] Fusionar el SDD y crear rama de implementación desde `main`
 
 ## Fase 1 — Tests y contratos
 
-- [ ] [T-010] Reemplazar la prueba de nextAction copiada por prueba al servicio real
-- [ ] [T-011] [P] Escribir tests del normalizador y cursor
-- [ ] [T-012] [P] Escribir tests policy/runbook/action/target
-- [ ] [T-013] [P] Escribir tests idempotency hash, duplicate y lease
-- [ ] [T-014] [P] Escribir tests 404 cross-tenant y SSE tenant/global
-- [ ] [T-014A] [P] Escribir regresión retry/requeue `AgentRun` cross-tenant
-- [ ] [T-015] Confirmar que los tests fallan por los gaps F4, no por fixtures
+- [x] [T-010] Reemplazar la prueba de nextAction copiada por prueba al servicio real
+- [x] [T-011] [P] Escribir tests del normalizador y cursor
+- [x] [T-012] [P] Escribir tests policy/runbook/action/target
+- [x] [T-013] [P] Escribir tests idempotency hash, duplicate y lease
+- [x] [T-014] [P] Escribir tests 404 cross-tenant y SSE tenant/global
+- [x] [T-014A] [P] Escribir regresión retry/requeue `AgentRun` cross-tenant
+- [x] [T-015] Confirmar que los tests fallan por los gaps F4, no por fixtures
 
 ## Fase 2 — Datos y dominio
 
-- [ ] [T-020] Añadir schema y migración aditiva F4
-- [ ] [T-021] Verificar SQL/checksum e historial PostgreSQL completo
-- [ ] [T-022] Implementar repositorio de receipts con key/hash/lease
-- [ ] [T-023] Implementar read model normalizado tenant-safe
-- [ ] [T-024] Implementar catálogo de runbooks allowlisted
-- [ ] [T-025] Implementar adapters ACK/RESOLVE/DISMISS/PAUSE/RESUME
-- [ ] [T-026] Implementar adapters RETRY/REQUEUE/REPLAY
-- [ ] [T-026A] Corregir ownership de retry/requeue a `id + tenantId`
-- [ ] [T-027] Implementar ESCALATE con incidente durable
-- [ ] [T-028] Endurecer SSE tenant/global y reconnect por GET
-- [ ] [T-029] Pasar tests unitarios e integración PostgreSQL
+- [x] [T-020] Añadir schema y migración aditiva F4
+- [x] [T-021] Verificar SQL/checksum e historial PostgreSQL completo
+- [x] [T-022] Implementar repositorio de receipts con key/hash/lease
+- [x] [T-023] Implementar read model normalizado tenant-safe
+- [x] [T-024] Implementar catálogo de runbooks allowlisted
+- [x] [T-025] Implementar adapters ACK/RESOLVE/DISMISS/PAUSE/RESUME
+- [x] [T-026] Implementar adapters RETRY/REQUEUE/REPLAY
+- [x] [T-026A] Corregir ownership de retry/requeue a `id + tenantId`
+- [x] [T-027] Implementar ESCALATE con incidente durable
+- [x] [T-028] Endurecer SSE tenant/global y reconnect por GET
+- [x] [T-029] Pasar tests unitarios e integración PostgreSQL
 
 ## Fase 3 — API/BFF/UI
 
-- [ ] [T-030] GET exceptions con filtros/cursor/counts/sourceErrors
-- [ ] [T-031] GET catálogo de runbooks
-- [ ] [T-032] POST action con permiso, reason, receipt e idempotencia
-- [ ] [T-033] BFF server-side para los tres contratos
-- [ ] [T-034] UI loading/empty/forbidden/degraded/error
-- [ ] [T-035] Diálogo de acción con riesgo/runbook/reason/confirmación
-- [ ] [T-036] Receipt live/poll y deep links al workspace propietario
-- [ ] [T-037] Actualizar API surface, arquitectura, roadmap y runbook
-- [ ] [T-038] Pasar pruebas de contrato/UI/E2E
+- [x] [T-030] GET exceptions con filtros/cursor/counts/sourceErrors
+- [x] [T-031] GET catálogo de runbooks
+- [x] [T-032] POST action con permiso, reason, receipt e idempotencia
+- [x] [T-033] BFF server-side para los tres contratos
+- [x] [T-034] UI loading/empty/forbidden/degraded/error
+- [x] [T-035] Diálogo de acción con riesgo/runbook/reason/confirmación
+- [x] [T-036] Receipt live/poll y deep links al workspace propietario
+- [x] [T-037] Actualizar API surface, arquitectura, roadmap y runbook
+- [x] [T-038] Pasar pruebas de contrato/UI/E2E
 
 ## Fase 4 — Verificación local
 
-- [ ] [T-040] Tests dirigidos F4
-- [ ] [T-041] Regresión Ops/domain-events/auth/SSE
-- [ ] [T-042] Build/typecheck/lint/workspace verify
-- [ ] [T-043] `pnpm spec:validate:strict`
-- [ ] [T-044] `pnpm spec:index` y `pnpm spec:coverage`
-- [ ] [T-045] Prisma audit y migración reproducible
-- [ ] [T-046] Marcar código `COMPLETE` y spec `IMPLEMENTED`
+- [x] [T-040] Tests dirigidos F4
+- [x] [T-041] Regresión Ops/domain-events/auth/SSE
+- [x] [T-042] Build/typecheck/lint/workspace verify
+- [x] [T-043] `pnpm spec:validate:strict`
+- [x] [T-044] `pnpm spec:index` y `pnpm spec:coverage`
+- [x] [T-045] Prisma audit y migración reproducible
+- [x] [T-046] Marcar código `COMPLETE` y spec `IMPLEMENTED`
 
 ## Fase 5 — PR, CI y merge
 
-- [ ] [T-050] Revisar diff, secretos, payloads y rollback
+- [x] [T-050] Revisar diff, secretos, payloads y rollback
 - [ ] [T-051] Abrir PR F4 implementable/reversible
 - [ ] [T-052] Esperar CI/CodeQL/E2E terminales
 - [ ] [T-053] Resolver review sin ampliar scope

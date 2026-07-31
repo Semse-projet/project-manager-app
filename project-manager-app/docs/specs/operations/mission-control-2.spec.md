@@ -4,15 +4,15 @@ title: "Mission Control 2.0 F4"
 domain: "operations"
 sdd_version: "2.0"
 version: "1.0"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "PENDING"
+migration_status: "VERIFIED"
 feature_flags:
   - SEMSE_MISSION_CONTROL_V2_ENABLED
   - SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS
@@ -20,6 +20,9 @@ production_evidence: []
 related_files:
   - apps/api/src/modules/ops/ops.controller.ts
   - apps/api/src/modules/ops/ops.service.ts
+  - apps/api/src/modules/ops/mission-control/mission-control.controller.ts
+  - apps/api/src/modules/ops/mission-control/mission-control.service.ts
+  - apps/api/src/modules/ops/mission-control/mission-control.policy.ts
   - apps/api/src/modules/ops/loops.service.ts
   - apps/api/src/modules/ops/observer.service.ts
   - apps/api/src/modules/operational-intelligence/operational-signals.service.ts
@@ -29,14 +32,24 @@ related_files:
   - apps/api/src/infrastructure/sse/sse.controller.ts
   - apps/web/app/(app)/admin/mission-control/page.tsx
   - apps/web/app/api/semse/ops/mission-control/summary/route.ts
+  - apps/web/app/api/semse/ops/mission-control/exceptions/route.ts
+  - apps/web/app/api/semse/ops/mission-control/runbooks/route.ts
+  - apps/web/app/api/semse/ops/mission-control/actions/route.ts
   - apps/web/app/api/semse/sse/mission-control/route.ts
+  - packages/db/prisma/migrations/20260731033000_mission_control_2/migration.sql
+  - docs/runbooks/MISSION_CONTROL_2.md
 related_tests:
+  - apps/api/test/mission-control-2.test.ts
   - apps/api/test/ops-mission-control.test.ts
   - apps/api/test/operational-intelligence.controller.test.ts
   - apps/api/test/domain-events.controller.test.ts
   - tests/unit/web-bff-auth-policy.test.ts
+  - tests/unit/mission-control-2-web.test.ts
 related_endpoints:
   - v1/ops/mission-control/summary
+  - v1/ops/mission-control/exceptions
+  - v1/ops/mission-control/runbooks
+  - v1/ops/mission-control/actions
   - v1/operational-intelligence/signals
   - v1/domain-events/outbox
   - v1/ops/agent-runtime
@@ -429,8 +442,8 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
 
 - [x] Spec enlazado por `pnpm spec:index`.
 - [x] Spec, plan, tasks, analyze y checklist coherentes antes de código.
-- [ ] Tests derivados del spec y verdes.
-- [ ] Migración reproducible y rollback/forward-fix documentado.
+- [x] Tests derivados del spec y verdes localmente.
+- [x] Migración reproducible y rollback/forward-fix documentado.
 - [ ] CI `PASS`, PR fusionado y SHA registrado.
 - [ ] Deployment terminal de API/Web y migración aplicada.
 - [ ] Canary `tenant_default` verificado separado de health.

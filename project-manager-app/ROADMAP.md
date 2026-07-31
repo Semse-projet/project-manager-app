@@ -172,8 +172,8 @@ abre la implementación reversible.
 
 ## F4 — Mission Control 2.0
 
-**Child SDD 2.0 `operations.mission-control-2` aprobado y analizado;
-implementación pendiente.**
+**Child SDD 2.0 `operations.mission-control-2` aprobado; implementación local
+completa y pendiente de CI, merge, deploy y canary.**
 
 Contrato ejecutable:
 
@@ -194,6 +194,16 @@ Unificar exceptions y acciones de:
 
 Gate de salida: pause/resume/retry/replay/escalate tienen permisos, motivo,
 auditoria y runbook.
+
+Estado local al 2026-07-31:
+
+- cola tenant-safe desde signals, outbox/consumers, AgentRuns, approvals, loops,
+  incidents, health/Observer y worker queue;
+- catálogo versionado de runbooks;
+- receipt durable con key/hash/lease y estados terminales;
+- adapters gobernados sin absorber autoridad económica ni de Railway;
+- migración aditiva aplicada desde cero sobre PostgreSQL efímero;
+- BFF/UI exception-first y SSE autenticado sin duplicación tenant→global.
 
 ## F5 — Shared Economic Ledger
 

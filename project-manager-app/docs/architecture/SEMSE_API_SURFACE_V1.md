@@ -127,6 +127,10 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `GET /v1/ops/risk-scores`
 - `GET /v1/ops/trust-overview`
 - `GET /v1/ops/dashboard`
+- `GET /v1/ops/mission-control/summary` (legacy-compatible aggregate)
+- `GET /v1/ops/mission-control/exceptions` (F4; `ops:dashboard:read`; normalized, paginated and tenant-scoped read model with partial-source errors)
+- `GET /v1/ops/mission-control/runbooks` (F4; approved code-versioned catalog)
+- `POST /v1/ops/mission-control/actions` (F4; `ops:dashboard:write` + `OPS_ADMIN`; reason, allowlisted runbook, idempotency key, lease, durable receipt and owning-domain adapter)
 - `POST /v1/ops/approvals/:approvalId/decision`
 
 ## Agents

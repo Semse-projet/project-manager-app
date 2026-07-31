@@ -149,7 +149,7 @@ Todo evento nuevo debe declarar:
 2. F1: Event Backbone (F1-F cierra con canary).
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection (`VERIFIED` en canary).
-5. F4: Mission Control 2.0 (siguiente child; SDD 2.0 aprobado y analizado).
+5. F4: Mission Control 2.0 (implementación local completa; falta CI, merge, deploy y canary).
 6. F5: Shared Economic Ledger.
 7. F6: Agenda y Dispatch.
 8. F7: Prometeo Multimodal.

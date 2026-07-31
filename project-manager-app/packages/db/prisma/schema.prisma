@@ -120,6 +120,14 @@ enum DomainConsumptionStatus {
   DEAD_LETTER
 }
 
+enum MissionControlActionReceiptStatus {
+  REQUESTED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  NO_OP
+}
+
 model Tenant {
   id                            String                            @id @default(cuid())
   slug                          String                            @unique
@@ -2256,18 +2264,67 @@ model WorkerApplication {
 
 /// Persistent log of AI system posture incidents detected by Mission Control.
 model MissionControlIncident {
-  id        String   @id @default(cuid())
-  tenantId  String?
-  source    String
-  posture   String
-  severity  String
-  title     String
-  detail    String
-  alertIds  String[]
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  tenantId        String?
+  source          String
+  posture         String
+  severity        String
+  title           String
+  detail          String
+  alertIds        String[]
+  kind            String   @default("ai")
+  orgId           String?
+  status          String   @default("OPEN")
+  actorUserId     String?
+  targetType      String?
+  targetId        String?
+  reason          String?
+  runbookId       String?
+  actionReceiptId String?
+  resolvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([tenantId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([targetType, targetId])
   @@index([severity, createdAt])
+}
+
+/// Durable, idempotent receipt for a governed Mission Control 2.0 action.
+model MissionControlActionReceipt {
+  id             String                            @id @default(cuid())
+  tenantId       String
+  orgId          String
+  actorUserId    String
+  action         String
+  targetType     String
+  targetId       String
+  scope          String                            @default("tenant")
+  reason         String
+  runbookId      String
+  idempotencyKey String
+  intentHash     String
+  status         MissionControlActionReceiptStatus @default(REQUESTED)
+  dryRun         Boolean                           @default(false)
+  optionsJson    Json?
+  beforeJson     Json?
+  resultJson     Json?
+  errorCode      String?
+  errorMessage   String?
+  requestId      String
+  correlationId  String
+  incidentId     String?
+  leaseExpiresAt DateTime?
+  attempts       Int                               @default(1)
+  createdAt      DateTime                          @default(now())
+  updatedAt      DateTime                          @updatedAt
+  completedAt    DateTime?
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, createdAt])
+  @@index([targetType, targetId])
+  @@index([correlationId])
 }
 
 // ── SEMSE Operational Context ──────────────────────────────────────────────────

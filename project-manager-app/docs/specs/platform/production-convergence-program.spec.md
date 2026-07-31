@@ -110,8 +110,9 @@ Al corte 2026-07-31, F3 está `VERIFIED`, desplegado y activo en canary para
 consumo automático, duplicado y replay pasaron. Esto abre F4 como siguiente
 child autorizado. F4 ya tiene el contrato
 [`../operations/mission-control-2.spec.md`](../operations/mission-control-2.spec.md)
-`APPROVED`, con plan/tasks/analyze/checklist coherentes; esto autoriza su
-implementación reversible, no F5-F9 ni una activación global de F3.
+`IMPLEMENTED` localmente, con plan/tasks/analyze/checklist coherentes, migración
+reproducible y tests locales verdes. CI, merge, deploy y canary permanecen como
+gates separados; esto no autoriza F5-F9 ni una activación global de F3.
 
 ## 3. Principios de aterrizaje
 

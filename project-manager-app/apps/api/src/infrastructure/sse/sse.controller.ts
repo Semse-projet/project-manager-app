@@ -1,4 +1,4 @@
-import { Controller, Headers, MessageEvent, Param, Query, Sse } from "@nestjs/common";
+import { Controller, Headers, MessageEvent, Param, Query, Req, Sse } from "@nestjs/common";
 import { Observable, from, interval, merge, of } from "rxjs";
 import { catchError, filter, map, startWith, switchMap } from "rxjs/operators";
 import { Public } from "../../common/public.decorator.js";
@@ -7,6 +7,7 @@ import { HealthService } from "../../modules/health/health.service.js";
 import { AgentWorkPlanService } from "../../modules/agents/agent-work-plan.service.js";
 import { AgentDelegationService } from "../../modules/agents/agent-delegation.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { resolveRequestContext } from "../../common/request-context.js";
 
 const KEEPALIVE_MS = 20_000;
 
@@ -148,18 +149,24 @@ export class SseController {
   }
 
   @Sse("mission-control")
-  @Public()
   missionControlStream(
-    @Headers("x-tenant-id") tenantId: string,
+    @Req() req: {
+      headers?: Record<string, unknown>;
+      authContext?: {
+        userId: string;
+        tenantId: string;
+        orgId: string;
+        roles: string[];
+      };
+    },
   ): Observable<MessageEvent> {
+    const { tenantId } = resolveRequestContext(req);
     const global$ = this.bus.on<unknown>("mission-control:global").pipe(
       map(e => toMsgEvent(e.data, e.event)),
     );
-    const tenant$ = tenantId
-      ? this.bus.on<unknown>(`mission-control:${tenantId}`).pipe(
-          map(e => toMsgEvent(e.data, e.event)),
-        )
-      : new Observable<MessageEvent>();
+    const tenant$ = this.bus.on<unknown>(`mission-control:${tenantId}`).pipe(
+      map(e => toMsgEvent(e.data, e.event)),
+    );
 
     return merge(global$, tenant$, keepalive$());
   }
