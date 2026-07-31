@@ -4,7 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
-import { buildShellNavItems, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
+import { buildShellNavItems, isNewNavSection, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
@@ -266,8 +266,7 @@ function Sidebar({
           // bids), which previously sat in one undifferentiated list and were
           // a real source of "which hat am I wearing" confusion. See
           // AUDIT_REMEDIATION_PLAN.md 1.5.
-          const previousSection = idx > 0 ? nav.items[idx - 1].section : undefined;
-          const showSectionHeader = item.section && item.section !== previousSection && (!collapsed || mobile);
+          const showSectionHeader = isNewNavSection(nav.items, idx) && (!collapsed || mobile);
 
           return (
             <div key={item.href}>
@@ -508,10 +507,10 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
             // Mirrors the section-header grouping added to the mobile Sidebar
             // component (AUDIT_REMEDIATION_PLAN.md 1.5) — this is the separate
             // desktop AppShell nav renderer (see 1.17 for the known, deliberately
-            // deferred duplication between the two), so it needs the same
-            // section-change logic applied independently.
-            const previousSection = idx > 0 ? (shellNavModel[idx - 1] as ShellNavLink).section : undefined;
-            const showSectionHeader = navItem.section && navItem.section !== previousSection && !collapsed;
+            // deferred duplication between the two). The boundary-detection
+            // logic itself is shared via isNewNavSection; only the surrounding
+            // collapse/JSX differs per renderer.
+            const showSectionHeader = isNewNavSection(shellNavModel as ShellNavLink[], idx) && !collapsed;
             return {
               key: navItem.key,
               label: navItem.label,
