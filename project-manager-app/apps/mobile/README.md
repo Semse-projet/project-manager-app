@@ -18,7 +18,7 @@ cp .env.example .env   # then set EXPO_PUBLIC_SEMSE_API_BASE_URL to a reachable 
 pnpm install            # from the repo root — this is a pnpm workspace member
 pnpm dev:mobile          # or: pnpm --filter @semse/mobile start
 pnpm check:mobile        # typecheck (tsc --noEmit)
-pnpm --filter @semse/mobile test   # jest — geo/proximity logic only, no native rendering
+pnpm --filter @semse/mobile test   # jest-expo + @testing-library/react-native — geo/proximity logic and screens
 ```
 
 `EXPO_PUBLIC_SEMSE_API_BASE_URL` must be reachable from the **device/simulator**, not
