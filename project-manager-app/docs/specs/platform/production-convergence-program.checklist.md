@@ -14,6 +14,7 @@ date: "2026-07-31"
 - [x] Plantillas y estados SDD unificados
 - [~] Cada child entregado cabe en un PR reversible
 - [x] Ningún child iniciado avanzó sin spec aprobado
+- [x] F4 tiene spec/plan/tasks/analyze/checklist aprobados antes de código
 - [~] Migraciones y flags tienen inventario/evidencia por child entregado
 - [x] Activación F3 se verificó separada del deploy/health
 - [x] F3 cerró rebuild, consumo automático, duplicado y replay en canary

@@ -38,7 +38,7 @@ Gate de salida:
 - ningun documento canónico afirma que el repo carece de API/DB/monorepo;
 - Prometeo P2 aparece como desplegado;
 - cada sistema transversal distingue estado real de arquitectura objetivo.
-- la línea base mantiene 97 specs y `spec:validate:strict` reporta 0 errores y
+- la línea base mantiene 98 specs y `spec:validate:strict` reporta 0 errores y
   0 warnings;
 - el snapshot registra por separado `main`, checkout local, CI, deploy,
   endpoints y configuracion no verificable.
@@ -167,13 +167,20 @@ Crear un read model por proyecto que responda:
 - trust/risk signals.
 
 Gate de salida: cumplido para `tenant_default`; la vista es coherente y
-reconstituible por replay. F4 es el siguiente child y debe aprobar su propio SDD
-antes de implementación.
+reconstituible por replay. F4 es el siguiente child; su SDD ya está aprobado y
+abre la implementación reversible.
 
 ## F4 — Mission Control 2.0
 
-**Siguiente slice autorizado para especificación/planificación; child SDD
-pendiente.**
+**Child SDD 2.0 `operations.mission-control-2` aprobado y analizado;
+implementación pendiente.**
+
+Contrato ejecutable:
+
+- [`docs/specs/operations/mission-control-2.spec.md`](docs/specs/operations/mission-control-2.spec.md)
+- [`docs/specs/operations/mission-control-2.plan.md`](docs/specs/operations/mission-control-2.plan.md)
+- [`docs/specs/operations/mission-control-2.tasks.md`](docs/specs/operations/mission-control-2.tasks.md)
+- [`docs/specs/operations/mission-control-2.checklist.md`](docs/specs/operations/mission-control-2.checklist.md)
 
 Unificar exceptions y acciones de:
 

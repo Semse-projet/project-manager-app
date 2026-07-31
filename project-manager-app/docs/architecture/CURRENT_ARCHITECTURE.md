@@ -156,11 +156,11 @@ en los modulos actuales.
 | Evidence provenance | Parcial | Evidence, checksum, metadata, geo, analisis visual y storage abstraction | Chain of custody, firmas, retencion y acceso no estan unificados |
 | Economic Ledger | Pendiente como sistema comun | `PaymentTxn` y ledgers verticales registran movimientos operativos | No existe double-entry compartido, cuentas, lineas, reversals ni trial balance |
 | Policy/Approval | Parcial | RBAC default-deny y aprobaciones en Prometeo, BuildOps y Payments | No existe decision engine transversal versionado |
-| Mission Control | Parcial | UI, signals, incidents, SSE, AI health y acciones operativas | Las colas y workspaces siguen fragmentados; no hay cockpit unico de eventos/DLQ |
+| Mission Control | Parcial; F4 SDD 2.0 aprobado | UI, signals, incidents, SSE, AI health y acciones operativas | Implementar cola normalizada, receipts idempotentes, runbooks y aislamiento SSE del child F4 |
 | Project Lifecycle Projection | Verificado en canary (F3) | API/BFF/UI, snapshot durable, rebuild tenant-scoped, evento/consumer, CAS, duplicado y replay verificados para `tenant_default` | Ventana SLO y promoción global; outbox atómica por dominio |
 | Product Intelligence | Implementado/parcial (PI-00..PI-06) | SDK separado, contratos, modelos, ingesta, retencion, instrumentacion auth/wizard y funnels de experiencia/economico | Activacion de flags no verificada; PI-07 Friction Engine y fases PI-08..PI-11 pendientes |
 | Workspace/Context Bridge | Parcial | Developer runtime, context bridge panel y capas de contexto existentes | Registry de terminales, shared mission context y scopes uniformes |
-| SDD/Blueprint Engine | Implementado/parcial | 97 specs; strict 0/0; templates SDD 2.0; estados code/CI/merge/deploy/activation separados | Migrar specs al tocarlas y cerrar evidencia de producción |
+| SDD/Blueprint Engine | Implementado/parcial | 98 specs; strict 0/0; templates SDD 2.0; estados code/CI/merge/deploy/activation separados | Migrar specs al tocarlas y cerrar evidencia de producción |
 | Observabilidad | Parcial | Sentry, metricas Prometheus, health/readiness y auditoria | No hay trazas OTel end-to-end ni SLOs de negocio completos |
 | Storage | Parcial | Storage service con local y S3/R2, MinIO local, Evidence bucket keys | Debe verificarse provider y politicas de retencion en cada ambiente |
 | Offline | Parcial | Mobile offline store y Agro sync service | No hay sincronizacion compartida completa ni UX offline uniforme |
@@ -336,7 +336,7 @@ El orden aprobado es F0-F9 y se mantiene en [`../../ROADMAP.md`](../../ROADMAP.m
 2. F1: Event Backbone.
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection.
-5. F4: Mission Control 2.0.
+5. F4: Mission Control 2.0 — child SDD aprobado; implementación siguiente.
 6. F5: Shared Economic Ledger.
 7. F6: Agenda y Dispatch.
 8. F7: Prometeo Multimodal.

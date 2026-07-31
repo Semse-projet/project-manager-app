@@ -44,11 +44,11 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Shared Economic Ledger F5 | PENDIENTE | PaymentTxn no es double-entry | Child spec después de F4 |
 | Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
-| Mission Control F4 | PARCIAL | incidents, signals, SSE, health | Cockpit gobernado tras gate F3 |
+| Mission Control F4 | PARCIAL / SDD 2.0 APPROVED | summary, signals, SSE, incidents y acciones fragmentadas; child `operations.mission-control-2` analizado | Cola unificada + receipts/runbooks/idempotencia en canary |
 | Project Lifecycle Projection F3 | VERIFIED / CANARY ACTIVO | `f1234291`; repair, cálculo/persistencia, rebuild/event consumer; 5 `PUBLISHED`, 5 `COMPLETED`, replay `no_op`, mismatch 0 | Ventana SLO y promoción global; outbox atómica por dominio |
 | Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-06 | Verificar flags/activación |
 | Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |
-| SDD/Blueprint Engine | IMPLEMENTADO/PARCIAL | 97 specs; strict 0/0; SDD 2.0 | Migrar specs al tocarlas + delivery evidence |
+| SDD/Blueprint Engine | IMPLEMENTADO/PARCIAL | 98 specs; strict 0/0; SDD 2.0 | Migrar specs al tocarlas + delivery evidence |
 | Knowledge/RAG | IMPLEMENTADO/PARCIAL | documents/chunks/retrieval/feedback | eval set y source governance |
 | Vision | IMPLEMENTADO/PARCIAL/DESPLEGADO | servicio Railway y analyzers | evidencia real, thresholds y video |
 | Agro | IMPLEMENTADO/PARCIAL | fincas, animales, tareas, costos, sync | tenancy/offline/ledger común |
@@ -61,12 +61,12 @@ Para specs SDD 2.0 mandan las columnas separadas de
 ## Salud SDD
 
 ```text
-Specs:                              97
+Specs:                              98
 Spec validate strict:               0 errores / 0 warnings
-Specs con related_tests:            86/97 (89%)
-Specs VERIFIED:                     45/97 (46%)
-Specs high/critical no VERIFIED:    33
-Specs SDD 2.0:                       2/97
+Specs con related_tests:            87/98 (89%)
+Specs VERIFIED:                     45/98 (46%)
+Specs high/critical no VERIFIED:    34
+Specs SDD 2.0:                       3/98
 Tiempo validator estricto:          ~2.1 s (antes ~106 s)
 ```
 

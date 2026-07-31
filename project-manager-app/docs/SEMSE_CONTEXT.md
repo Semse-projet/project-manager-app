@@ -75,7 +75,7 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 - Hay movimientos `PaymentTxn`, pero no ledger double-entry compartido.
 - Mission Control, observabilidad, storage, offline y DR son capacidades
   parciales, no ausentes ni completas.
-- La línea base SDD está saneada: 97 specs y
+- La línea base SDD está saneada: 98 specs y
   `pnpm spec:validate:strict` pasa con 0 errores/0 warnings.
 - F1 Event Backbone tiene F1-A..F1-E en `main`; F1-F
   (flags/canary/cierre) sigue pendiente.
@@ -149,7 +149,7 @@ Todo evento nuevo debe declarar:
 2. F1: Event Backbone (F1-F cierra con canary).
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection (`VERIFIED` en canary).
-5. F4: Mission Control 2.0 (siguiente child; SDD pendiente).
+5. F4: Mission Control 2.0 (siguiente child; SDD 2.0 aprobado y analizado).
 6. F5: Shared Economic Ledger.
 7. F6: Agenda y Dispatch.
 8. F7: Prometeo Multimodal.

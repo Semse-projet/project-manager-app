@@ -23,7 +23,7 @@ date: "2026-07-31"
 ## Child slices
 
 - [x] [T-100] F3 — cálculo, persistencia, rebuild, eventos y replay verificados en canary
-- [ ] [T-200] F4 — siguiente child; crear/aprobar SDD después de fusionar el cierre F3
+- [x] [T-200] F4 — child SDD 2.0 creado, analizado y aprobado; implementación pendiente
 - [ ] [T-300] F5 — crear spec después del gate F4
 - [ ] [T-400] F6 — crear spec después del gate F5
 - [ ] [T-500] F7 — crear spec después del gate F6
