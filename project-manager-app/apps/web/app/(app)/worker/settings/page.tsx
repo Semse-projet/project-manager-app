@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, Check, ChevronDown, Globe, Layers, MessageSquare, Save, Settings, Zap } from "lucide-react";
+import { Bot, Check, ChevronDown, Globe, Layers, MapPin, MessageSquare, Save, Settings, Zap } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchMyProfile,
@@ -9,6 +9,7 @@ import {
   type AssistantLanguage,
   type AssistantTone,
   type AssistantVerbosity,
+  type ProximityCheckInMode,
   type UserProfileView,
 } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -31,6 +32,12 @@ const VERBOSITY_OPTIONS: { value: AssistantVerbosity; label: string; desc: strin
   { value: "short",    label: "Corto",      desc: "Respuestas concisas, máximo 2 líneas" },
   { value: "balanced", label: "Balanceado", desc: "Respuestas medianas, contexto razonable" },
   { value: "detailed", label: "Detallado",  desc: "Respuestas completas con ejemplos" },
+];
+
+const PROXIMITY_OPTIONS: { value: ProximityCheckInMode; label: string; desc: string }[] = [
+  { value: "ask",  label: "Preguntar siempre", desc: "Te avisa cuando estás cerca de un job o proyecto y confirmas antes de iniciar el reloj." },
+  { value: "auto", label: "Iniciar automático", desc: "Inicia el reloj solo al detectar que estás en el sitio, sin pedirte confirmación." },
+  { value: "off",  label: "Desactivado",        desc: "SEMSE no solicita tu ubicación ni sugiere iniciar el reloj por proximidad." },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -139,6 +146,7 @@ export default function WorkerSettingsPage() {
   const [verbosity,  setVerbosity]  = useState<AssistantVerbosity>("balanced");
   const [unified,    setUnified]    = useState(false);
   const [expert,     setExpert]     = useState(false);
+  const [proximityMode, setProximityMode] = useState<ProximityCheckInMode>("ask");
 
   useEffect(() => {
     setLoading(true);
@@ -150,6 +158,7 @@ export default function WorkerSettingsPage() {
         setVerbosity(p.assistantVerbosity ?? "balanced");
         setUnified(p.unifiedMode ?? false);
         setExpert(p.expertMode ?? false);
+        setProximityMode(p.proximityCheckInMode ?? "ask");
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Error al cargar perfil."))
       .finally(() => setLoading(false));
@@ -166,6 +175,7 @@ export default function WorkerSettingsPage() {
         assistantVerbosity: verbosity,
         unifiedMode: unified,
         expertMode: expert,
+        proximityCheckInMode: proximityMode,
       });
       setProfile(updated);
       setSaved(true);
@@ -257,6 +267,13 @@ export default function WorkerSettingsPage() {
               onChange={setExpert}
             />
           </div>
+        </Section>
+      </HtmlInCanvasPanel>
+
+      {/* Proximity check-in */}
+      <HtmlInCanvasPanel style={card} minHeight={60}>
+        <Section icon={<MapPin size={14} color="#ef4444" />} title="Check-in automático por ubicación">
+          <OptionCard<ProximityCheckInMode> options={PROXIMITY_OPTIONS} value={proximityMode} onChange={setProximityMode} />
         </Section>
       </HtmlInCanvasPanel>
 

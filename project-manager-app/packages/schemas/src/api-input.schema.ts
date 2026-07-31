@@ -115,6 +115,7 @@ export const userProfileUpdateBodySchema = z.object({
   assistantVerbosity: z.enum(["short", "balanced", "detailed"]).optional(),
   unifiedMode: z.boolean().optional(),
   expertMode: z.boolean().optional(),
+  proximityCheckInMode: z.enum(["ask", "auto", "off"]).optional(),
 });
 
 export const ratingCreateSchema = z.object({

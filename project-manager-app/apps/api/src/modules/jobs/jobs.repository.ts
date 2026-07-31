@@ -30,6 +30,9 @@ type StoredJob = {
   budgetMin: { toNumber(): number } | null;
   budgetMax: { toNumber(): number } | null;
   location: string | null;
+  latitude: { toNumber(): number } | null;
+  longitude: { toNumber(): number } | null;
+  locationSource: string | null;
   urgency: string | null;
   deadline: Date | null;
 };
@@ -155,6 +158,9 @@ export class JobsRepository {
     budgetMin?: number;
     budgetMax?: number;
     location?: string;
+    latitude?: number;
+    longitude?: number;
+    locationSource?: "geocoded" | "manual";
     urgency?: string;
     deadline?: Date;
   }): Promise<JobRecord> {
@@ -171,6 +177,9 @@ export class JobsRepository {
         budgetMin: input.budgetMin,
         budgetMax: input.budgetMax,
         location: input.location,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        locationSource: input.locationSource,
         urgency: input.urgency,
         deadline: input.deadline,
       }
@@ -275,6 +284,9 @@ export class JobsRepository {
       urgency: string;
       deadline: string;
       location: string;
+      latitude: number;
+      longitude: number;
+      locationSource: "geocoded" | "manual";
     }>;
   }): Promise<JobRecord> {
     const existing = await this.prisma.job.findFirst({
@@ -391,6 +403,9 @@ export class JobsRepository {
       budgetMin: job.budgetMin?.toNumber(),
       budgetMax: job.budgetMax?.toNumber(),
       location: job.location ?? undefined,
+      latitude: job.latitude?.toNumber(),
+      longitude: job.longitude?.toNumber(),
+      locationSource: (job.locationSource as "geocoded" | "manual" | null) ?? undefined,
       urgency: job.urgency ?? undefined,
       deadline: job.deadline?.toISOString(),
     };

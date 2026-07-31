@@ -28,6 +28,7 @@ type StoredUserProfile = {
   assistantVerbosity: string | null;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -78,6 +79,7 @@ export type UserProfileRecord = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: "ask" | "auto" | "off";
   updatedAt: Date;
 };
 
@@ -261,7 +263,7 @@ export class UsersRepository {
     data: {
       displayName?: string; bio?: string; location?: string; trades?: string[]; availability?: boolean;
       assistantTone?: string; assistantLanguage?: string; assistantVerbosity?: string;
-      unifiedMode?: boolean; expertMode?: boolean;
+      unifiedMode?: boolean; expertMode?: boolean; proximityCheckInMode?: "ask" | "auto" | "off";
     }
   ): Promise<UserProfileRecord> {
     const profile = (await this.prisma.userProfile.upsert({
@@ -278,6 +280,7 @@ export class UsersRepository {
         assistantVerbosity: data.assistantVerbosity ?? null,
         unifiedMode: data.unifiedMode ?? false,
         expertMode: data.expertMode ?? false,
+        proximityCheckInMode: data.proximityCheckInMode ?? "ask",
       },
       update: {
         ...(data.displayName !== undefined && { displayName: data.displayName }),
@@ -290,6 +293,7 @@ export class UsersRepository {
         ...(data.assistantVerbosity !== undefined && { assistantVerbosity: data.assistantVerbosity }),
         ...(data.unifiedMode !== undefined && { unifiedMode: data.unifiedMode }),
         ...(data.expertMode !== undefined && { expertMode: data.expertMode }),
+        ...(data.proximityCheckInMode !== undefined && { proximityCheckInMode: data.proximityCheckInMode }),
       }
     })) as StoredUserProfile;
 
@@ -309,6 +313,7 @@ export class UsersRepository {
       assistantVerbosity: (profile.assistantVerbosity as AssistantVerbosity | undefined) ?? undefined,
       unifiedMode: profile.unifiedMode,
       expertMode: profile.expertMode,
+      proximityCheckInMode: (profile.proximityCheckInMode as "ask" | "auto" | "off" | null) ?? "ask",
       updatedAt: profile.updatedAt
     };
   }

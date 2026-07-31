@@ -39,6 +39,10 @@ export type TimeEntryRecord = {
   hourlyRate: number | null;
   currency: string;
   location: string | null;
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  checkInDistanceMeters: number | null;
+  checkInMethod: string | null;
   notes: string | null;
   editedBy: string | null;
   editReason: string | null;
@@ -56,6 +60,9 @@ export type FreeProjectRecord = {
   name: string;
   color: string;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationSource: string | null;
   description: string | null;
   status: string;
   convertedJobId: string | null;
@@ -84,6 +91,10 @@ export class LaborEngineRepository {
     hourlyRate?: number;
     currency?: string;
     location?: string;
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkInDistanceMeters?: number;
+    checkInMethod?: string;
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
@@ -115,6 +126,10 @@ export class LaborEngineRepository {
       hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,
       currency: data.currency ?? "MXN",
       location: data.location ?? null,
+      checkInLatitude: data.checkInLatitude ?? null,
+      checkInLongitude: data.checkInLongitude ?? null,
+      checkInDistanceMeters: data.checkInDistanceMeters ?? null,
+      checkInMethod: data.checkInMethod ?? null,
       notes: data.notes ?? null,
       contextEntityType: data.contextEntityType ?? null,
       contextEntityId: data.contextEntityId ?? null,
@@ -171,6 +186,25 @@ export class LaborEngineRepository {
     return project !== null;
   }
 
+  /** Site coordinates for a Job/FreeProject, used to compute check-in distance. Null if not geocoded/set. */
+  async getJobCoordinates(tenantId: string, jobId: string): Promise<{ latitude: number; longitude: number } | null> {
+    const job = await this.prisma.job.findFirst({
+      where: { id: jobId, tenantId },
+      select: { latitude: true, longitude: true },
+    }) as { latitude: { toNumber(): number } | null; longitude: { toNumber(): number } | null } | null;
+    if (!job?.latitude || !job.longitude) return null;
+    return { latitude: job.latitude.toNumber(), longitude: job.longitude.toNumber() };
+  }
+
+  async getFreeProjectCoordinates(tenantId: string, freeProjectId: string): Promise<{ latitude: number; longitude: number } | null> {
+    const project = await this.prisma.freeProject.findFirst({
+      where: { id: freeProjectId, tenantId },
+      select: { latitude: true, longitude: true },
+    }) as { latitude: { toNumber(): number } | null; longitude: { toNumber(): number } | null } | null;
+    if (!project?.latitude || !project.longitude) return null;
+    return { latitude: project.latitude.toNumber(), longitude: project.longitude.toNumber() };
+  }
+
   async startRealtimeEntry(data: {
     tenantId: string;
     orgId: string;
@@ -179,6 +213,10 @@ export class LaborEngineRepository {
     jobId?: string;
     freeProjectId?: string;
     notes?: string;
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkInDistanceMeters?: number;
+    checkInMethod?: string;
     contextEntityType?: string;
     contextEntityId?: string;
     clientEventId?: string;
@@ -433,6 +471,9 @@ export class LaborEngineRepository {
     name: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
+    locationSource?: "geocoded" | "manual";
     description?: string;
   }): Promise<FreeProjectRecord> {
     const now = new Date();
@@ -444,6 +485,9 @@ export class LaborEngineRepository {
         name: data.name,
         color: data.color ?? "#3B82F6",
         location: data.location ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        locationSource: data.locationSource ?? null,
         description: data.description ?? null,
         status: "active",
         createdAt: now,
@@ -463,6 +507,9 @@ export class LaborEngineRepository {
     name?: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
+    locationSource?: "geocoded" | "manual";
     description?: string;
     status?: string;
     convertedJobId?: string;

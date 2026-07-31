@@ -1070,6 +1070,7 @@ export async function updateUserStatus(
 export type AssistantTone      = "friendly" | "formal" | "technical" | "executive";
 export type AssistantLanguage  = "es" | "en";
 export type AssistantVerbosity = "short" | "balanced" | "detailed";
+export type ProximityCheckInMode = "ask" | "auto" | "off";
 
 export type UserProfileView = {
   userId: string;
@@ -1083,6 +1084,7 @@ export type UserProfileView = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: ProximityCheckInMode;
   updatedAt: string;
 };
 
@@ -1097,6 +1099,7 @@ export type UserProfileUpdateInput = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode?: boolean;
   expertMode?: boolean;
+  proximityCheckInMode?: ProximityCheckInMode;
 };
 
 export async function fetchMyProfile(): Promise<UserProfileView> {

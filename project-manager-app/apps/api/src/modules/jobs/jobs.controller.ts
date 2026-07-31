@@ -81,6 +81,8 @@ export class JobsController {
       budgetMax: parsed.data.budgetMax,
       locationType: parsed.data.locationType,
       city: parsed.data.city,
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
       urgency: parsed.data.urgency,
       deadline: parsed.data.deadline,
       preferredProfessional: parsed.data.preferredProfessional,

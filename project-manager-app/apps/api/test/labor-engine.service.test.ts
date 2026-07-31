@@ -48,6 +48,12 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
     async isFreeProjectOwnedByWorker(...args: unknown[]) {
       return record("isFreeProjectOwnedByWorker", args, true);
     },
+    async getJobCoordinates(...args: unknown[]) {
+      return record("getJobCoordinates", args, null);
+    },
+    async getFreeProjectCoordinates(...args: unknown[]) {
+      return record("getFreeProjectCoordinates", args, null);
+    },
     ...overrides,
   };
   return repo;
@@ -339,4 +345,120 @@ void test("getAdminOverview returns empty alerts for a quiet week", async () => 
   assert.deepEqual(overview.alerts, []);
   assert.equal(typeof overview.period.from, "string");
   assert.equal(overview.thresholds.staleTimerHours, 12);
+});
+
+// ── Proximity check-in ──────────────────────────────────────────────────────
+
+void test("startTimer without checkIn never touches site coordinates", async () => {
+  const { service, repo } = createService();
+
+  await service.startTimer({ tenantId: "tnt", orgId: "org", createdBy: "user-1", purpose: "personal" });
+
+  assert.ok(!repo.calls.some((c) => c.method === "getJobCoordinates" || c.method === "getFreeProjectCoordinates"));
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, undefined);
+});
+
+void test("startTimer with checkIn but no site coordinates records position without distance", async () => {
+  const { service, repo } = createService();
+
+  await service.startTimer({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "payable",
+    freeProjectId: "fp1",
+    checkIn: { latitude: 19.4326, longitude: -99.1332, method: "proximity_confirmed" },
+  });
+
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, 19.4326);
+  assert.equal(payload.checkInLongitude, -99.1332);
+  assert.equal(payload.checkInMethod, "proximity_confirmed");
+  assert.equal(payload.checkInDistanceMeters, undefined);
+});
+
+void test("startTimer with checkIn and known site coordinates computes distance and never blocks on it", async () => {
+  const { service, repo } = createService({
+    async getFreeProjectCoordinates() {
+      return { latitude: 19.4363, longitude: -99.0721 }; // ~6-9km from the checkIn below
+    },
+  });
+
+  const entry = await service.startTimer({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "payable",
+    freeProjectId: "fp1",
+    checkIn: { latitude: 19.4326, longitude: -99.1332, method: "proximity_auto" },
+  });
+
+  assert.ok(entry, "far-away checkIn must not block starting the timer");
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(typeof payload.checkInDistanceMeters, "number");
+  assert.ok((payload.checkInDistanceMeters as number) > 1000);
+});
+
+void test("startTimer ignores an invalid checkIn coordinate", async () => {
+  const { service, repo } = createService();
+
+  await service.startTimer({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "personal",
+    checkIn: { latitude: 999, longitude: 0, method: "proximity_confirmed" },
+  });
+
+  const startCall = repo.calls.find((c) => c.method === "startRealtimeEntry");
+  const payload = startCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, undefined);
+});
+
+void test("createManualEntry with checkIn always tags method as manual_tagged", async () => {
+  const { service, repo } = createService({
+    async getJobCoordinates() {
+      return { latitude: 19.4326, longitude: -99.1332 };
+    },
+  });
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "job_linked",
+    jobId: "job-9",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+    checkIn: { latitude: 19.4326, longitude: -99.1332 },
+  });
+
+  const createCall = repo.calls.find((c) => c.method === "createTimeEntry");
+  const payload = createCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInMethod, "manual_tagged");
+  assert.equal(payload.checkInDistanceMeters, 0);
+});
+
+void test("createManualEntry without checkIn omits all check-in fields", async () => {
+  const { service, repo } = createService();
+
+  await service.createManualEntry({
+    tenantId: "tnt",
+    orgId: "org",
+    createdBy: "user-1",
+    purpose: "personal",
+    date: "2026-07-08",
+    startTime: "09:00",
+    endTime: "13:00",
+  });
+
+  const createCall = repo.calls.find((c) => c.method === "createTimeEntry");
+  const payload = createCall!.args[0] as Record<string, unknown>;
+  assert.equal(payload.checkInLatitude, undefined);
+  assert.equal(payload.checkInMethod, undefined);
 });

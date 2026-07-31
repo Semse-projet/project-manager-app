@@ -24,6 +24,9 @@ export type JobRecord = {
   budgetMin?: number;
   budgetMax?: number;
   location?: string;
+  latitude?: number;
+  longitude?: number;
+  locationSource?: "geocoded" | "manual";
   urgency?: string;
   deadline?: string;
   clientOrgId?: string;

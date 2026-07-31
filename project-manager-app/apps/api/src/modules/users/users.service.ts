@@ -243,6 +243,7 @@ export class UsersService {
       availability: true,
       unifiedMode: false,
       expertMode: false,
+      proximityCheckInMode: "ask",
       updatedAt: new Date()
     };
   }
@@ -251,7 +252,7 @@ export class UsersService {
     data: {
       displayName?: string; bio?: string; location?: string; trades?: string[]; availability?: boolean;
       assistantTone?: string; assistantLanguage?: string; assistantVerbosity?: string;
-      unifiedMode?: boolean; expertMode?: boolean;
+      unifiedMode?: boolean; expertMode?: boolean; proximityCheckInMode?: "ask" | "auto" | "off";
     };
     requestId: string;
   }): Promise<UserProfileRecord> {

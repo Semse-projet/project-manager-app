@@ -296,6 +296,8 @@ model UserProfile {
   assistantVerbosity String? // short | balanced | detailed
   unifiedMode        Boolean  @default(false)
   expertMode         Boolean  @default(false)
+  // Time Tracker proximity check-in preference: "ask" | "auto" | "off"
+  proximityCheckInMode String? @default("ask")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 }
@@ -424,6 +426,9 @@ model Job {
   budgetMin           Decimal?             @db.Decimal(12, 2)
   budgetMax           Decimal?             @db.Decimal(12, 2)
   location            String?
+  latitude            Decimal?             @db.Decimal(10, 7)
+  longitude           Decimal?             @db.Decimal(10, 7)
+  locationSource      String? // "geocoded" | "manual"
   // ── Active-model fields ──────────────────────────────────────────────────
   urgency             String? // low | medium | high | urgent
   deadline            DateTime?
@@ -1411,6 +1416,9 @@ model FreeProject {
   name           String
   color          String   @default("#3B82F6")
   location       String?
+  latitude       Decimal? @db.Decimal(10, 7)
+  longitude      Decimal? @db.Decimal(10, 7)
+  locationSource String? // "geocoded" | "manual"
   description    String?
   status         String   @default("active") // active | archived | converted
   convertedJobId String?
@@ -1447,6 +1455,10 @@ model TimeEntry {
   hourlyRate         Decimal?  @db.Decimal(10, 2)
   currency           String    @default("MXN")
   location           String?
+  checkInLatitude       Decimal? @db.Decimal(10, 7)
+  checkInLongitude      Decimal? @db.Decimal(10, 7)
+  checkInDistanceMeters Int?
+  checkInMethod         String? // "proximity_confirmed" | "proximity_auto" | "manual_tagged"
   notes              String?
   editedBy           String?
   editReason         String?
