@@ -103,6 +103,26 @@ export function buildAdminSidebarGroups(items: ShellNavItem[]): AdminNavGroup[] 
   })).filter((group) => group.items.length > 0);
 }
 
+/**
+ * Whether `items[idx]` starts a new visually-grouped section — i.e. it
+ * declares a `section` different from the previous item's. Shared by the
+ * two nav renderers that group by the raw `section` field (mobile Sidebar,
+ * desktop AppShell for worker/client) so the "new section" boundary logic
+ * lives in one place instead of two copies of the same ternary.
+ *
+ * The desktop AppShell admin renderer does NOT use this — it groups via
+ * `buildAdminSidebarGroups`/`adminGroupForHref` instead, a separate
+ * grouping keyed off href rather than the declared `section` field. See
+ * AUDIT_REMEDIATION_PLAN.md 1.17 for why these two grouping systems for
+ * admin (mobile vs desktop) aren't the same and haven't been unified.
+ */
+export function isNewNavSection(items: Array<{ section?: string }>, idx: number): boolean {
+  const current = items[idx];
+  if (!current?.section) return false;
+  const previous = idx > 0 ? items[idx - 1] : undefined;
+  return current.section !== previous?.section;
+}
+
 export function buildShellNavItems({
   role,
   items,
