@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bot, Check, ChevronDown, Globe, Layers, MapPin, MessageSquare, Save, Settings, Zap } from "lucide-react";
+import { Bot, Check, ChevronDown, Globe, Layers, MapPin, MessageSquare, Save, Settings } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchMyProfile,
