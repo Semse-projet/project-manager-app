@@ -38,8 +38,9 @@ Si una acción importante no produce evento ni deja audit log, está incompleta.
 Los siguientes nombres están reservados por
 [`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md),
 El slice Evidence F1-A..F1-D ya está integrado en `main`: contrato v2, productor
-atómico, outbox, dispatcher BullMQ y consumer idempotente. Sigue contenido por
-kill switch/allowlist hasta el canary F1-F:
+atómico, outbox, dispatcher BullMQ y consumer idempotente. Sigue controlado por
+kill switches/allowlists; los switches se ejercitaron durante F3, pero F1-F
+transversal aún no está cerrado:
 
 - `evidence.uploaded.v1`
 
@@ -53,6 +54,40 @@ de payload y auditoría con `replayCount`. Se registra como AuditLog
 La convención v1 sin suffix permanece activa para código existente. La
 migración es productor por productor y usa adapter explícito; no se hace
 dual-write.
+
+## Project Lifecycle Projection F3
+
+Contrato canónico desplegado y verificado en canary para `tenant_default`:
+
+- Evento: `project.lifecycle-source-changed.v1`
+- Schema ref:
+  `semse://schemas/events/project.lifecycle-source-changed.v1`
+- Módulo/agregado: `projects` / `Project`
+- Consumer: `project-lifecycle-projection.v1`
+- Resultado: rebuild tenant-scoped, persistencia CAS, AuditLog y receipt
+  `DomainEventConsumption`
+
+Payload:
+
+```yaml
+projectId: string
+sourceEventType: string
+sourceEntityType: string
+sourceEntityId: string
+```
+
+El envelope v2 conserva actor, tenant, org, correlation, causation e
+idempotency key. Los hooks cubren cambios relevantes de Project,
+Milestone/Evidence, Dispute, Payment, Expense, Risk y promoción BuildOps.
+
+Evidence registra su mutación y outbox F3 en la misma transacción. Los demás
+hooks actuales son post-commit best-effort; el cálculo read-through y el
+rebuild idempotente son la recuperación documentada. No se atribuye atomicidad
+a esos productores hasta que su bounded context adopte outbox transaccional.
+
+Canary de producción: cinco eventos `PUBLISHED`, cinco consumos `COMPLETED`,
+cero estados failed/dead-letter y replay `no_op` sin efecto duplicado. La
+activación sigue limitada por flags y allowlists; no es rollout global.
 
 ## Auth / Identity
 

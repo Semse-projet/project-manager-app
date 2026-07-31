@@ -3,7 +3,7 @@ type: checklist
 feature: "Programa de convergencia de producción F3-F9"
 spec: "docs/specs/platform/production-convergence-program.spec.md"
 version: "2.0"
-date: "2026-07-30"
+date: "2026-07-31"
 ---
 
 # Checklist: Programa de convergencia de producción F3-F9
@@ -16,4 +16,6 @@ date: "2026-07-30"
 - [x] Ningún child iniciado avanzó sin spec aprobado
 - [~] Migraciones y flags tienen inventario/evidencia por child entregado
 - [x] Activación F3 se verificó separada del deploy/health
+- [x] F3 cerró rebuild, consumo automático, duplicado y replay en canary
+- [x] `VERIFIED + CANARY` está acotado a `tenant_default`, no a rollout global
 - [~] Matriz/roadmap/index actualizados para cada gate entregado

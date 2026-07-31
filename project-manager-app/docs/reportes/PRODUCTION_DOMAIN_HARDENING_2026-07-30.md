@@ -38,8 +38,8 @@ The local hardening branch now:
 - rejects existing signed web sessions for those IDs;
 - rejects `DEMO_AGRO` sessions unless its separate demo flag is enabled.
 
-This code is local only until an explicitly authorized GitHub publish flow is
-completed.
+This code was local at the initial cut. The post-merge update below records its
+subsequent publication and production state.
 
 ## Domain and TLS evidence
 
@@ -96,3 +96,22 @@ files; targeted lint, typecheck, and tests passed.
   requests it.
 - The local code branch can be discarded without affecting production until it
   is published and merged.
+
+## Post-merge production update — 2026-07-31
+
+- PR `#480` merged as
+  `3c2ac45d4f5d3c43a081767c54405eb08d31c788`.
+- API Integration, CI quality gates/unit coverage/E2E, CodeQL, Operación
+  Asistida, Autonomy Staged and review checks all passed.
+- API `425b8526-4374-450b-ae75-53881791e6bc`, Web
+  `00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7`, Worker
+  `7d5f6279-3554-4a03-bd9d-2960722bce97` and Vision
+  `5e1155a6-9efc-46f6-95da-6552798994fc` reached `SUCCESS`.
+- Railway API `/v1/health` and custom Web health return 200.
+- The API custom hostname remains unresolved after the deployment: strict TLS
+  fails hostname verification and an insecure GET reaches a 404. The dedicated
+  handoff is
+  [`../runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md`](../runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md).
+
+The original rollback note about discarding the local branch no longer applies
+after merge; rollback now requires a normal code/config rollback.
