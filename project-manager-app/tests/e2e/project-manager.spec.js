@@ -99,10 +99,13 @@ test("vista calendario muestra proyectos por fecha límite", async ({ page }) =>
 });
 
 test("vista calendario marca celdas próximas a vencer", async ({ page }) => {
-  const nearDate = await page.evaluate(() => {
+  const { nearDate, crossesMonth } = await page.evaluate(() => {
     const now = new Date();
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    return d.toISOString().slice(0, 10);
+    return {
+      nearDate: d.toISOString().slice(0, 10),
+      crossesMonth: d.getMonth() !== now.getMonth(),
+    };
   });
 
   await page.locator("#name").fill("Entrega Cercana");
@@ -112,6 +115,9 @@ test("vista calendario marca celdas próximas a vencer", async ({ page }) => {
   await page.getByRole("button", { name: "Guardar proyecto" }).click();
 
   await page.locator("#view-calendar").click();
+  if (crossesMonth) {
+    await page.locator("#calendar-next").click();
+  }
   await expect(page.locator(".calendar-cell-due-soon .calendar-chip").first()).toContainText("Entrega Cercana");
 });
 
