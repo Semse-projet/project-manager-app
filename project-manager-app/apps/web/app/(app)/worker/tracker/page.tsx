@@ -9,9 +9,12 @@ import {
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
+  fetchMyProfile,
   fetchTimeTrackerJobs,
   type JobRecordView,
+  type ProximityCheckInMode,
 } from "../../../semse-api";
+import { useProximityCheckIn, type ProximityCheckIn, type ProximitySite } from "./useProximityCheckIn";
 import {
   createManualEntry,
   elapsedSeconds,
@@ -163,6 +166,10 @@ function localSessionToEntry(session: TrackerLocalSession): TimeEntryView {
     hourlyRate: null,
     currency: "MXN",
     location: null,
+    checkInLatitude: null,
+    checkInLongitude: null,
+    checkInDistanceMeters: null,
+    checkInMethod: null,
     notes: session.notes ?? null,
     createdAt: session.startedAt,
     updatedAt: session.updatedAt,
@@ -336,6 +343,7 @@ export default function WorkerTrackerPage() {
   const [manualEnd, setManualEnd] = useState("13:00");
   const [manualBreak, setManualBreak] = useState("0");
   const [manualNotes, setManualNotes] = useState("");
+  const [manualLocationAccuracy, setManualLocationAccuracy] = useState<number | null>(null);
   const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
   const [historyTarget, setHistoryTarget] = useState<TrackerTargetKey>("all");
   const [historyStatus, setHistoryStatus] = useState<TrackerHistoryStatus>("all");
@@ -349,6 +357,7 @@ export default function WorkerTrackerPage() {
   const [isOnline, setIsOnline] = useState(true);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [autoSyncStopped, setAutoSyncStopped] = useState(false);
+  const [proximityCheckInMode, setProximityCheckInMode] = useState<ProximityCheckInMode>("ask");
   const autoSyncAttemptsRef = useRef(0);
 
   const persistTrackerLocalState = useCallback((nextState: TrackerLocalState) => {
@@ -372,18 +381,20 @@ export default function WorkerTrackerPage() {
       .then((value) => ({ ok: true as const, value }))
       .catch((caught: unknown) => ({ ok: false as const, error: caught }));
 
-    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth] = await Promise.all([
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
       activeTimerFetch,
       fetchWeeklySummary().catch(() => null),
       fetchMonthlySummary().catch(() => null),
+      fetchMyProfile().catch(() => null),
     ]);
 
     setJobs(nextJobs);
     setFreeProjects(nextFreeProjects);
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
+    if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
 
     if (activeTimerResult.ok) {
       const nextActive = activeTimerResult.value;
@@ -782,19 +793,39 @@ export default function WorkerTrackerPage() {
     await loadFilteredHistory();
     setShowForm(false);
     setManualNotes("");
+    setManualLocationAccuracy(null);
   }
 
-  async function handleStart() {
-    if (startDisabled) return;
+  /** One-shot, best-effort position for "Solo calcular" manual entries — silent on denial/timeout. */
+  async function captureManualCheckIn(): Promise<{ latitude: number; longitude: number } | undefined> {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return undefined;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setManualLocationAccuracy(position.coords.accuracy);
+          resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        },
+        () => resolve(undefined),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+      );
+    });
+  }
+
+  async function handleStart(overrides?: {
+    jobId?: string;
+    freeProjectId?: string;
+    checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
+  }) {
+    const jobId = overrides ? overrides.jobId : (mode === "job" ? selectedJob : undefined);
+    const freeProjectId = overrides ? overrides.freeProjectId : (mode === "free" ? selectedFreeProject : undefined);
+    const purpose = overrides ? (jobId ? "job_linked" : "payable") as TrackerPurpose : MODE_META[mode].purpose;
+    if (!overrides && startDisabled) return;
     if (activeEntry || trackerLocalState.activeSession) {
       setError("Ya hay una sesión activa. Pausa o detén la sesión actual antes de iniciar otra.");
       return;
     }
     setSaving(true);
     setError(null);
-    const purpose = MODE_META[mode].purpose;
-    const jobId = mode === "job" ? selectedJob : undefined;
-    const freeProjectId = mode === "free" ? selectedFreeProject : undefined;
     const localStart = startTrackerLocalSession(readTrackerLocalState(window.localStorage), {
       purpose,
       jobId,
@@ -807,7 +838,7 @@ export default function WorkerTrackerPage() {
     setActiveEntry(localSessionToEntry(localStart.localSession));
     setElapsed(0);
     try {
-      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, clientEventId: localStart.event.id });
+      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, checkIn: overrides?.checkIn, clientEventId: localStart.event.id });
       const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
       persistTrackerLocalState({
         ...localStart.state,
@@ -833,6 +864,32 @@ export default function WorkerTrackerPage() {
       setSaving(false);
     }
   }
+
+  function handleProximityStart(site: ProximitySite, checkIn: ProximityCheckIn) {
+    if (site.kind === "job") {
+      setMode("job");
+      setSelectedJob(site.id);
+    } else {
+      setMode("free");
+      setSelectedFreeProject(site.id);
+    }
+    void handleStart({
+      jobId: site.kind === "job" ? site.id : undefined,
+      freeProjectId: site.kind === "free" ? site.id : undefined,
+      checkIn,
+    });
+    if (checkIn.method === "proximity_auto") {
+      setSyncNotice(`Reloj iniciado automáticamente: estás cerca de "${site.name}". Detenlo desde el timer si fue un error.`);
+    }
+  }
+
+  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner } = useProximityCheckIn({
+    enabled: tab === "timer" && !activeEntry && !trackerLocalState.activeSession,
+    mode: proximityCheckInMode,
+    jobs,
+    freeProjects,
+    onStart: handleProximityStart,
+  });
 
   async function handlePause() {
     if (!activeEntry || saving) return;
@@ -989,6 +1046,7 @@ export default function WorkerTrackerPage() {
       localTimestamp,
     };
     try {
+      const checkIn = target.purpose === "personal" ? await captureManualCheckIn() : undefined;
       await createManualEntry({
         purpose: target.purpose,
         jobId: target.jobId,
@@ -998,6 +1056,7 @@ export default function WorkerTrackerPage() {
         endTime: manualEnd,
         breakMinutes: manualBreakMinutes,
         notes: manualNotes.trim() || undefined,
+        checkIn,
         clientEventId: event.id,
       });
       await refreshAfterMutation();
@@ -1175,6 +1234,46 @@ export default function WorkerTrackerPage() {
             ? `${activeStatusMeta.label}: ${activeTitle}`
             : "Elige el modo, selecciona el destino y presiona Iniciar"}
         </p>
+
+        {!activeEntry && proximityBanner ? (
+          <div
+            data-testid="tracker-proximity-banner"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              padding: "12px 16px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--brand)",
+              background: "rgba(37,99,235,.08)",
+            }}
+          >
+            <span style={{ fontSize: "13px", fontWeight: 600 }}>
+              Estás en {proximityBanner.site.name}, ¿iniciar el reloj?
+            </span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                data-testid="tracker-proximity-accept"
+                onClick={acceptProximityBanner}
+                style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Iniciar
+              </button>
+              <button
+                type="button"
+                data-testid="tracker-proximity-dismiss"
+                onClick={dismissProximityBanner}
+                style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--muted)", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {!activeEntry ? (
           <div data-testid="tracker-mode-selector" style={{ display: "flex", justifyContent: "center", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
@@ -1572,6 +1671,11 @@ export default function WorkerTrackerPage() {
                 Duración neta: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
+              {manualTarget === "personal" && manualLocationAccuracy !== null ? (
+                <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>
+                  Ubicación registrada (~{Math.round(manualLocationAccuracy)}m de precisión)
+                </p>
+              ) : null}
               <div style={{ display: "flex", gap: "8px" }}>
                 <button onClick={() => void handleManualSave()} disabled={manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", manualPreviewSeconds === null || saving)}>
                   {saving ? "Guardando..." : "Guardar"}

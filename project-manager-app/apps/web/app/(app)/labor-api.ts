@@ -44,6 +44,10 @@ export type TimeEntryView = {
   hourlyRate: number | null;
   currency: string;
   location: string | null;
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  checkInDistanceMeters: number | null;
+  checkInMethod: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -55,6 +59,9 @@ export type FreeProjectView = {
   name: string;
   color: string;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationSource: "geocoded" | "manual" | null;
   description: string | null;
   status: "active" | "archived" | "converted";
   convertedJobId: string | null;
@@ -101,7 +108,7 @@ export async function fetchFreeProjects(): Promise<FreeProjectView[]> {
 }
 
 export async function createFreeProject(input: {
-  name: string; color?: string; location?: string; description?: string;
+  name: string; color?: string; location?: string; latitude?: number; longitude?: number; description?: string;
 }): Promise<FreeProjectView> {
   return mutateLabor<FreeProjectView>("/api/semse/labor/free-projects", input);
 }
@@ -129,6 +136,8 @@ export async function startLaborTimer(input: {
   jobId?: string;
   freeProjectId?: string;
   notes?: string;
+  /** Worker's current position at start, for proximity check-in — never blocks the start. */
+  checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
   /** Idempotency key (Time Tracker local queue event id) — lets a retried sync resolve to the same entry instead of creating a duplicate. */
   clientEventId?: string;
 }): Promise<TimeEntryView> {
@@ -164,6 +173,8 @@ export async function createManualEntry(input: {
   hourlyRate?: number;
   currency?: string;
   location?: string;
+  /** Best-effort one-shot position captured when saving a manual "Solo calcular" entry. */
+  checkIn?: { latitude: number; longitude: number };
   notes?: string;
   /** Idempotency key (Time Tracker local queue event id) — lets a retried sync resolve to the same entry instead of creating a duplicate. */
   clientEventId?: string;

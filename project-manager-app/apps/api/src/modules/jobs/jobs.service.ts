@@ -5,6 +5,8 @@ import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { geocodeAddressSafe } from "../../integrations/google-maps.js";
+import { isValidCoordinate } from "../../integrations/geo-distance.js";
 import {
   buildJobPreferredProfessionalWorkspaceMemoryRecord,
   buildJobWorkspaceMemoryRecord,
@@ -192,6 +194,8 @@ export class JobsService {
       city: string;
       urgency: string;
       deadline: string;
+      latitude: number;
+      longitude: number;
     }>;
     requestId: string;
   }): Promise<JobRecord> {
@@ -210,6 +214,15 @@ export class JobsService {
         })
       : undefined;
 
+    const manualCoords = input.patch.latitude !== undefined && input.patch.longitude !== undefined
+      && isValidCoordinate(input.patch.latitude, input.patch.longitude)
+      ? { latitude: input.patch.latitude, longitude: input.patch.longitude, locationSource: "manual" as const }
+      : undefined;
+
+    const geocoded = !manualCoords && input.patch.city
+      ? await geocodeAddressSafe(input.patch.city)
+      : null;
+
     const job = await this.jobsRepository.updateFields({
       tenantId: input.tenantId,
       jobId: input.jobId,
@@ -223,6 +236,9 @@ export class JobsService {
         ...(input.patch.urgency !== undefined && { urgency: input.patch.urgency }),
         ...(input.patch.deadline !== undefined && { deadline: input.patch.deadline }),
         ...(storedLocation !== undefined && { location: storedLocation }),
+        ...(manualCoords ?? (geocoded?.latitude !== undefined && geocoded.longitude !== undefined
+          ? { latitude: geocoded.latitude, longitude: geocoded.longitude, locationSource: "geocoded" as const }
+          : {})),
       },
     });
 
@@ -285,6 +301,8 @@ export class JobsService {
     budgetMax?: number;
     locationType?: "remote" | "on_site" | "hybrid";
     city?: string;
+    latitude?: number;
+    longitude?: number;
     urgency?: string;
     deadline?: string;
     preferredProfessional?: {
@@ -307,6 +325,16 @@ export class JobsService {
       throw new BadRequestException("deadline is invalid");
     }
 
+    const manualCoords = input.latitude !== undefined && input.longitude !== undefined
+      && isValidCoordinate(input.latitude, input.longitude)
+      ? { latitude: input.latitude, longitude: input.longitude, locationSource: "manual" as const }
+      : undefined;
+
+    const geocoded = !manualCoords && input.city ? await geocodeAddressSafe(input.city) : null;
+    const coords = manualCoords ?? (geocoded?.latitude !== undefined && geocoded.longitude !== undefined
+      ? { latitude: geocoded.latitude, longitude: geocoded.longitude, locationSource: "geocoded" as const }
+      : undefined);
+
     this.logger.log(`[POST /v1/jobs] creating job tenantId=${input.tenantId} userId=${input.userId} category=${input.category ?? "none"}`);
 
     const job = await this.jobsRepository.create({
@@ -320,6 +348,9 @@ export class JobsService {
       budgetMin: input.budgetMin,
       budgetMax: input.budgetMax,
       location: storedLocation,
+      latitude: coords?.latitude,
+      longitude: coords?.longitude,
+      locationSource: coords?.locationSource,
       urgency: input.urgency,
       deadline: storedDeadline,
     });
