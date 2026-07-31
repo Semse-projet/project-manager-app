@@ -117,7 +117,7 @@ concreto:
 | # | Capacidad | Spec derivado (tentativo) | Encaja en |
 |---|---|---|---|
 | 1 | Unificar `AiModelGatewayService`/`LLMOrchestrator` en un único `resolveModel` versionado, con tabla de criterios costo/latencia/capacidad/privacidad explícita | `SPEC-GTW-001` | Precede a F7 (Prometeo Multimodal) |
-| 2 | `ToolResult` multimodal tipado (text/image/pdf/csv/annotation/approval_request) en `packages/schemas`, pilotado en `vision.analyze_image` y un export de evidencia | `SPEC-AGT-002` | Child spec de F7; depende de SPEC-GTW-001 |
+| 2 | `ToolResult` multimodal tipado (text/image/pdf/csv/annotation/approval_request) en `packages/schemas`, pilotado en `vision.analyze_image` y un export de evidencia | `SPEC-AGT-004` | Child spec de F7; depende de SPEC-GTW-001 |
 | 3 | Cache-control declarativo por tool/parte de mensaje, cross-provider (hoy solo existe en `anthropic.provider.ts`) | `SPEC-GTW-002` | Child spec de F7; depende de SPEC-GTW-001 |
 | 4 | Retrieval de `AgentDecision` vía Prometeo (cerrar `ADR-021 §4.4`; hoy solo lo usa `ops/loops.service.ts`) | `SPEC-AGT-003` | Child spec de F8 (Domain Loops) |
 | 5 | CLI Agent Adapter (Codex CLI/Claude CLI como tool nodes, sandbox, allowlist de comandos, diff review) + MCP Gateway externo — cierra el pendiente de `ADR-022` | `SPEC-INT-001` | Extiende `ADR-022-browser-agent-obscura.md`; child spec de SEMSE Integrations |
@@ -187,13 +187,20 @@ no se autoriza como consecuencia implícita de esta ADR.
 
 ## 6. Specs derivados
 
-- `SPEC-GTW-001` — Unificación del Model Gateway.
-- `SPEC-AGT-002` — `ToolResult` multimodal tipado (spec adjunto: `docs/specs/agents/prometeo-core.spec.md` lo referencia como dependencia).
-- `SPEC-GTW-002` — Cache-control declarativo.
+- `SPEC-GTW-001` — Unificación del Model Gateway. **Escrito y mergeado**:
+  `docs/specs/prometeo/model-gateway-unification.spec.md` (PR #495).
+- `SPEC-AGT-004` — `ToolResult` multimodal tipado (spec adjunto:
+  `docs/specs/agents/prometeo-core.spec.md` lo referencia como dependencia).
+  Renumerado de `SPEC-AGT-002` a `SPEC-AGT-004`: ese ID ya lo ocupa
+  `docs/specs/agents/prometeo-core.spec.md` (`id: agt-002-prometeo-core`);
+  `SPEC-AGT-003` está reservado para el ítem siguiente. Corrección de drift
+  propio, documentada aquí para no repetirla.
+- `SPEC-GTW-002` — Cache-control declarativo. **Escrito**:
+  `docs/specs/prometeo/cache-control.spec.md`.
 - `SPEC-AGT-003` — Retrieval de `AgentDecision` vía Prometeo.
 - `SPEC-INT-001` — CLI Agent Adapter + MCP Gateway externo.
 - `docs/specs/agents/prometeo-core.spec.md` — spec de la capa de persona/orquestación (Sistema B), adjunto a esta ADR.
 
-Registrar los cinco specs pendientes en `docs/SPEC_INDEX.md` (vía
+Registrar los specs pendientes en `docs/SPEC_INDEX.md` (vía
 `pnpm spec:index`, no a mano — el índice es generado) cuando cada uno pase de
 `DRAFT` a `APPROVED`.
