@@ -112,6 +112,19 @@ test("vista calendario marca celdas próximas a vencer", async ({ page }) => {
   await page.getByRole("button", { name: "Guardar proyecto" }).click();
 
   await page.locator("#view-calendar").click();
+
+  // "Mañana" puede caer en el mes siguiente (ej. si hoy es el último día del
+  // mes) — la grilla del calendario abre mostrando el mes actual, así que
+  // hay que navegar antes de buscar la celda si el vencimiento quedó afuera.
+  const crossedMonth = await page.evaluate((iso) => {
+    const now = new Date();
+    const target = new Date(`${iso}T00:00:00`);
+    return target.getFullYear() !== now.getFullYear() || target.getMonth() !== now.getMonth();
+  }, nearDate);
+  if (crossedMonth) {
+    await page.locator("#calendar-next").click();
+  }
+
   await expect(page.locator(".calendar-cell-due-soon .calendar-chip").first()).toContainText("Entrega Cercana");
 });
 
