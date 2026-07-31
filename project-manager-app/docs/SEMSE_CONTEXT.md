@@ -1,7 +1,7 @@
 # Contexto operativo canónico de SEMSEproject
 
 **Leer antes de planificar o modificar SEMSE.**
-**Corte verificado:** 2026-07-31 (`main/producción@3c2ac45d`; F3 verificado en canary)
+**Corte verificado:** 2026-07-31 (`main/producción@114cb9ca`; F3 verificado en canary)
 
 ## Identidad
 
@@ -62,7 +62,7 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
 ## Estado verificado importante
 
 - Prometeo Runtime P2 esta implementado, fusionado y desplegado.
-- SHA actual de `main` y producción: `3c2ac45d4f5d3c43a081767c54405eb08d31c788`;
+- SHA actual de `main` y producción: `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`;
   F3 event-driven fue mergeado en `f1234291`.
 - `/v1/prometeo/tools` existe y requiere Bearer token.
 - Tool Registry: 31 descriptors (24 read, 7 write); 23/24 read y 7/7 write
@@ -90,8 +90,8 @@ transicion. No cambiar la raiz canónica ni hacer rename big-bang.
   `project-lifecycle-projection.v1`, duplicado y replay `no_op`.
 - Evidence + outbox son atómicos. Los demás hooks F3 son post-commit
   best-effort y usan read-through/rebuild como recuperación.
-- `api.semseproject.com` sigue pendiente por certificado/hostname aunque DNS y
-  Railway indiquen sync activo; usar el dominio Railway para probes API.
+- `api.semseproject.com` tiene sync Railway `ACTIVE`, TLS válido y
+  `/v1/health` 200; el dominio Railway directo también permanece 200.
 
 ## Reglas de Prometeo
 

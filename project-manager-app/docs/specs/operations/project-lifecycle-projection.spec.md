@@ -69,6 +69,12 @@ production_evidence:
   - railway:current-production:sha:3c2ac45d4f5d3c43a081767c54405eb08d31c788:contains-f3
   - railway:current-production:api=425b8526-4374-450b-ae75-53881791e6bc:web=00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7:success
   - railway:current-production:worker=7d5f6279-3554-4a03-bd9d-2960722bce97:vision=5e1155a6-9efc-46f6-95da-6552798994fc:success
+  - github:pr:481:merge:114cb9ca4007d32bf3fbbfc9c36d54b1e862236a
+  - github:actions:railway-deploy:30597913257:success
+  - railway:current-production:sha:114cb9ca4007d32bf3fbbfc9c36d54b1e862236a:contains-f3
+  - railway:current-production:api=575a82f1-ac99-4d60-a5d2-e6aeb645e096:web=3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489:success
+  - railway:current-production:worker=8fe3b3fc-c10a-4843-82cf-d4a2e79297ec:vision=bf804e3b-9a56-4b94-b1ad-6e6bcafd57cd:success
+  - railway:custom-domain:api.semseproject.com:tls-valid:health=200
 related_files:
   - apps/api/src/modules/projects/project-lifecycle-projection.ts
   - apps/api/src/modules/projects/projects.repository.ts

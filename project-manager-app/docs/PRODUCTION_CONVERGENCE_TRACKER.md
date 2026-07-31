@@ -2,25 +2,25 @@
 
 **Corte:** 2026-07-31
 **Programa:** `platform.production-convergence-f3-f9`
-**Rama documental:** `docs/f3-event-production-evidence`
+**Base documental:** PR `#481`, merge `114cb9ca`
 
 ## Verdad desplegada
 
 | Superficie | Estado |
 |---|---|
-| `origin/main` | `3c2ac45d4f5d3c43a081767c54405eb08d31c788` |
+| `origin/main` | `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a` |
 | F3 event merge | PR `#477`, `f1234291fc190c6611d3f2258630ac08315bd060` |
-| API Railway | `425b8526-4374-450b-ae75-53881791e6bc`, `3c2ac45d`, `SUCCESS` |
-| Web Railway | `00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7`, `3c2ac45d`, `SUCCESS` |
-| Worker Railway | `7d5f6279-3554-4a03-bd9d-2960722bce97`, `3c2ac45d`, `SUCCESS` |
-| Vision Railway | `5e1155a6-9efc-46f6-95da-6552798994fc`, `3c2ac45d`, `SUCCESS` |
+| API Railway | `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, `114cb9ca`, `SUCCESS` |
+| Web Railway | `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, `114cb9ca`, `SUCCESS` |
+| Worker Railway | `8fe3b3fc-c10a-4843-82cf-d4a2e79297ec`, `114cb9ca`, `SUCCESS` |
+| Vision Railway | `bf804e3b-9a56-4b94-b1ad-6e6bcafd57cd`, `114cb9ca`, `SUCCESS` |
 | Postgres/Redis | `SUCCESS`; migraciones/repair F3 reconciliados |
 | Health API Railway | `/v1/health` = 200 |
 | Health Web custom/Railway | `/api/semse/healthz` = 200 |
-| `api.semseproject.com` | DNS y Railway sync activos; TLS público falla por hostname/certificado |
+| `api.semseproject.com` | Railway sync `ACTIVE`; TLS estricto válido; `/v1/health` = 200 |
 
-`3c2ac45d` es descendiente de `f1234291`; endurece dominios/demo auth y no
-retira F3.
+`114cb9ca` es descendiente de `f1234291`; contiene el hardening y la evidencia
+SDD de F3 sin retirar su configuración canary.
 
 ## F3 — estado final del child
 
@@ -174,8 +174,9 @@ secuenciales y evidencia de activación separada del healthcheck.
 
 ## Backlog vinculante
 
-- Corregir certificado/hostname de `api.semseproject.com` en la sesión dedicada
-  de dominio/DNS siguiendo
+- Habilitar registrar lock como hardening administrativo del dominio después de
+  confirmar el procedimiento/rollback con el registrador. No afecta el DNS/TLS
+  ya resuelto; la cronología está en
   [`runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md`](runbooks/API_CUSTOM_DOMAIN_TLS_HANDOFF.md).
 - Medir ventana sostenida de P95, 5xx, lag, retries, DLQ y mismatch antes de
   promoción global F3.

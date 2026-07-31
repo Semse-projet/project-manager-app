@@ -115,3 +115,22 @@ files; targeted lint, typecheck, and tests passed.
 
 The original rollback note about discarding the local branch no longer applies
 after merge; rollback now requires a normal code/config rollback.
+
+## Final API TLS closure — 2026-07-31
+
+- PR `#481` merged as
+  `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`.
+- Railway Deploy workflow `30597913257` passed, including its health gate.
+- API `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, Web
+  `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, Worker
+  `8fe3b3fc-c10a-4843-82cf-d4a2e79297ec` and Vision
+  `bf804e3b-9a56-4b94-b1ad-6e6bcafd57cd` reached `SUCCESS`.
+- `https://api.semseproject.com/v1/health` now validates strict TLS and returns
+  200. Railway reports the custom domain `ACTIVE` on target port 3000.
+- The direct API Railway domain and both custom/Railway Web health endpoints
+  continue to return 200.
+
+The failure recorded above remains the incident timeline, not the current
+state. The exact moment or internal trigger for certificate issuance was not
+observable; completion after port alignment and the fresh deployment is a
+temporal correlation, not a proven root cause.

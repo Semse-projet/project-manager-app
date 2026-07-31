@@ -14,7 +14,7 @@ actual sin reescritura ni renombramiento masivo.
 - Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge e Integrations
   tienen implementacion real en distintos grados.
 - Prometeo Runtime P2 esta fusionado y desplegado.
-- `origin/main` y API/Web/Worker/Vision están en `3c2ac45d`, todos con
+- `origin/main` y API/Web/Worker/Vision están en `114cb9ca`, todos con
   deployments terminales `SUCCESS`; ese SHA contiene F3 (`f1234291`).
 - F1-D y Product Intelligence PI-00..PI-06 están integrados. Los switches del
   Event Backbone se activaron con allowlists acotadas para Evidence y F3; esto
@@ -144,7 +144,7 @@ Contrato ejecutable:
 Estado del corte:
 
 - spec SDD 2.0 `VERIFIED`, CI/E2E/integración `PASS`, merge/deploy completos;
-- código event-driven mergeado en `f1234291`; `origin/main@3c2ac45d` lo contiene;
+- código event-driven mergeado en `f1234291`; `origin/main@114cb9ca` lo contiene;
 - PostgreSQL tiene las tres migraciones F3 aplicadas, incluida la reparación
   canónica de Evidence verificada con nueve columnas, cero tenant nulo, dos FKs
   y tres índices;

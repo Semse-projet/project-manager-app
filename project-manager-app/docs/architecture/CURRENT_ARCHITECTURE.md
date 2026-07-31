@@ -2,7 +2,7 @@
 
 **Estado:** CANONICA
 **Corte verificado:** 2026-07-31
-**Código/producción verificados:** `main@3c2ac45d4f5d3c43a081767c54405eb08d31c788`
+**Código/producción verificados:** `main@114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`
 **F3 desplegado/activo en canary:** contenido desde `f1234291`
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
@@ -303,23 +303,22 @@ su cuenta.
 Verificado el 2026-07-31:
 
 - `origin/main` y producción:
-  `3c2ac45d4f5d3c43a081767c54405eb08d31c788`.
+  `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`.
 - F3 events: PR #477, merge
   `f1234291fc190c6611d3f2258630ac08315bd060`; CI, CodeQL, integración
   PostgreSQL y E2E verdes.
-- Railway Deploy workflow `30542950757`: éxito.
-- API `425b8526-4374-450b-ae75-53881791e6bc`, Web
-  `00a3e13b-c86c-4edf-b2a2-a2e1f4f274f7`, Worker
-  `7d5f6279-3554-4a03-bd9d-2960722bce97` y Vision
-  `5e1155a6-9efc-46f6-95da-6552798994fc`: `SUCCESS`, `3c2ac45d`.
+- Railway Deploy workflow `30597913257`: éxito.
+- API `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, Web
+  `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, Worker
+  `8fe3b3fc-c10a-4843-82cf-d4a2e79297ec` y Vision
+  `bf804e3b-9a56-4b94-b1ad-6e6bcafd57cd`: `SUCCESS`, `114cb9ca`.
 - El Worker conserva rol `EVENT_CONSUMER`.
-- API health por dominio Railway = 200; Web health por dominio custom y Railway
-  = 200.
+- API health por dominio Railway y `api.semseproject.com` = 200; Web health por
+  dominio custom y Railway = 200.
 - F3: 5 outbox `PUBLISHED`, 5 receipts `COMPLETED`, cero
   pending/failed/dead-letter; replay idempotente `no_op`.
-- `api.semseproject.com` figura sincronizado, pero la verificación TLS todavía
-  falla por hostname/certificado. No usarlo como probe canónico hasta corregir
-  la emisión TLS; `app.semseproject.com` sí responde health 200.
+- `api.semseproject.com` figura `ACTIVE`, valida TLS estricto y responde health
+  200; `app.semseproject.com` también responde health 200.
 
 La evidencia operativa detallada vive en
 [`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md)

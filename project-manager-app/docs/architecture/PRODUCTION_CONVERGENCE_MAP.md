@@ -1,7 +1,7 @@
 # Mapa de convergencia de producción SEMSE
 
 **Corte:** 2026-07-31
-**Base observada:** `main/production@3c2ac45d`; F3 contenido en `f1234291` y activo en canary
+**Base observada:** `main/production@114cb9ca`; F3 contenido en `f1234291` y activo en canary
 **Programa:** `platform.production-convergence-f3-f9`
 
 ## 1. Tesis aterrizada
