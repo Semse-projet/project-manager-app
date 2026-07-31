@@ -4,7 +4,13 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
-import { buildShellNavItems, isNewNavSection, type ShellNavItem, type ShellNavLink } from "../../lib/navigation-shell";
+import {
+  buildAdminSidebarGroups,
+  buildShellNavItems,
+  isNewNavSection,
+  type ShellNavItem,
+  type ShellNavLink,
+} from "../../lib/navigation-shell";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
@@ -128,11 +134,16 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     labelKey: "role.admin",
     color: "#c58af9",
     icon: ShieldCheck,
+    // No per-item `section` markers here (unlike worker/client below): admin
+    // nav is grouped by `buildAdminSidebarGroups()`/`adminGroupForHref()` in
+    // navigation-shell.ts instead, keyed off each item's href — the same
+    // function used for both the mobile Sidebar and the desktop AppShell
+    // renderer, so an admin sees identical group labels at both breakpoints.
+    // See AUDIT_REMEDIATION_PLAN.md 1.17 — before 2026-07-31 mobile grouped
+    // by a separate, hardcoded 4-section taxonomy that didn't match desktop.
     items: [
-      // ── Core ──────────────────────────────────────────────────────────────
-      { labelKey: "nav.dashboard",      href: "/admin/dashboard",        icon: LayoutDashboard, section: "section.core" },
-      // ── Modules ───────────────────────────────────────────────────────────
-      { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity,        section: "section.modules" },
+      { labelKey: "nav.dashboard",      href: "/admin/dashboard",        icon: LayoutDashboard },
+      { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity },
       { labelKey: "nav.workops",        href: "/admin/workops",          icon: Wrench },
       { labelKey: "nav.laborEngine",    href: "/admin/labor-engine",     icon: Clock },
       { labelKey: "nav.marketplace",    href: "/admin/marketplace",      icon: Store },
@@ -143,12 +154,10 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.verticals",      href: "/admin/verticals",        icon: Layers },
       { labelKey: "nav.settings",       href: "/admin/settings",         icon: Settings },
       { labelKey: "nav.accountSecurity", href: "/admin/account",          icon: User },
-      // ── Verticals ─────────────────────────────────────────────────────────
-      { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf,            section: "section.verticals" },
+      { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf },
       { labelKey: "nav.buildOps",       href: "/buildops",               icon: FolderKanban },
       { labelKey: "nav.semseTools",     href: "/tools",                  icon: Wrench },
-      // ── Quick access ──────────────────────────────────────────────────────
-      { labelKey: "nav.users",          href: "/admin/users",            icon: Users,           section: "section.quick" },
+      { labelKey: "nav.users",          href: "/admin/users",            icon: Users },
       { labelKey: "nav.communications", href: "/admin/communications",   icon: MessageSquare },
       { labelKey: "nav.agents",         href: "/agents",                 icon: Bot },
     ],
@@ -256,56 +265,55 @@ function Sidebar({
       </div>
 
       <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
-        {nav.items.map((item, idx) => {
-          const Icon = item.icon;
-          const active = (pathname ?? "").startsWith(item.href);
-          const label = t(item.labelKey);
-          // A section marker starts a new visual group in the sidebar — e.g.
-          // splitting the Client role's buyer tools (post a job, projects,
-          // milestones) from its contractor tools (leads, marketplace, my
-          // bids), which previously sat in one undifferentiated list and were
-          // a real source of "which hat am I wearing" confusion. See
-          // AUDIT_REMEDIATION_PLAN.md 1.5.
-          const showSectionHeader = isNewNavSection(nav.items, idx) && (!collapsed || mobile);
+        {role === "admin"
+          ? // Grouped via the same buildAdminSidebarGroups()/adminGroupForHref()
+            // taxonomy the desktop AppShell renderer below uses — see the
+            // comment on NAV.admin.items and AUDIT_REMEDIATION_PLAN.md 1.17.
+            buildAdminSidebarGroups(nav.items).map((group, groupIdx) => (
+              <div key={group.key}>
+                {(!collapsed || mobile) && (
+                  <SidebarSectionHeader label={t(group.labelKey)} first={groupIdx === 0} />
+                )}
+                {group.items.map((item) => (
+                  <SidebarNavLink
+                    key={item.href}
+                    item={item}
+                    active={(pathname ?? "").startsWith(item.href)}
+                    label={t(item.labelKey)}
+                    color={nav.color}
+                    collapsed={collapsed}
+                    mobile={mobile}
+                    onClose={onClose}
+                  />
+                ))}
+              </div>
+            ))
+          : nav.items.map((item, idx) => {
+              // A section marker starts a new visual group in the sidebar —
+              // e.g. splitting the Client role's buyer tools (post a job,
+              // projects, milestones) from its contractor tools (leads,
+              // marketplace, my bids), which previously sat in one
+              // undifferentiated list and were a real source of "which hat am
+              // I wearing" confusion. See AUDIT_REMEDIATION_PLAN.md 1.5.
+              const showSectionHeader = isNewNavSection(nav.items, idx) && (!collapsed || mobile);
 
-          return (
-            <div key={item.href}>
-              {showSectionHeader && (
-                <div style={{
-                  fontSize: "10px", fontWeight: 800, color: "var(--faint, #6b7280)",
-                  textTransform: "uppercase", letterSpacing: "0.06em",
-                  padding: idx === 0 ? "2px 10px 6px" : "14px 10px 6px",
-                }}>
-                  {t(item.section!)}
+              return (
+                <div key={item.href}>
+                  {showSectionHeader && (
+                    <SidebarSectionHeader label={t(item.section!)} first={idx === 0} />
+                  )}
+                  <SidebarNavLink
+                    item={item}
+                    active={(pathname ?? "").startsWith(item.href)}
+                    label={t(item.labelKey)}
+                    color={nav.color}
+                    collapsed={collapsed}
+                    mobile={mobile}
+                    onClose={onClose}
+                  />
                 </div>
-              )}
-              <Link
-                href={item.href}
-                onClick={onClose}
-                title={collapsed && !mobile ? label : undefined}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "9px 10px",
-                  borderRadius: "8px",
-                  marginBottom: "2px",
-                  textDecoration: "none",
-                  background: active ? `${nav.color}18` : "transparent",
-                  color: active ? nav.color : "var(--muted)",
-                  fontWeight: active ? 700 : 500,
-                  fontSize: "13px",
-                  transition: "background 0.12s, color 0.12s",
-                  whiteSpace: "nowrap",
-                  overflow: "hidden",
-                }}
-              >
-                <Icon size={16} style={{ flexShrink: 0 }} />
-                {(!collapsed || mobile) && <span>{label}</span>}
-              </Link>
-            </div>
-          );
-        })}
+              );
+            })}
       </nav>
 
       {(!collapsed || mobile) && (
@@ -330,6 +338,69 @@ function Sidebar({
         </div>
       )}
     </aside>
+  );
+}
+
+function SidebarSectionHeader({ label, first }: { label: string; first: boolean }) {
+  return (
+    <div
+      style={{
+        fontSize: "10px",
+        fontWeight: 800,
+        color: "var(--faint, #6b7280)",
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        padding: first ? "2px 10px 6px" : "14px 10px 6px",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function SidebarNavLink({
+  item,
+  active,
+  label,
+  color,
+  collapsed,
+  mobile,
+  onClose,
+}: {
+  item: NavItem;
+  active: boolean;
+  label: string;
+  color: string;
+  collapsed: boolean;
+  mobile?: boolean;
+  onClose?: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClose}
+      title={collapsed && !mobile ? label : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "9px 10px",
+        borderRadius: "8px",
+        marginBottom: "2px",
+        textDecoration: "none",
+        background: active ? `${color}18` : "transparent",
+        color: active ? color : "var(--muted)",
+        fontWeight: active ? 700 : 500,
+        fontSize: "13px",
+        transition: "background 0.12s, color 0.12s",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+      }}
+    >
+      <Icon size={16} style={{ flexShrink: 0 }} />
+      {(!collapsed || mobile) && <span>{label}</span>}
+    </Link>
   );
 }
 
