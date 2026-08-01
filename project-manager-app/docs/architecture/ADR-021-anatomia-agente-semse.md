@@ -1,7 +1,15 @@
 # ADR-021 — Anatomía del Agente SEMSE: mapeo del canon agéntico a la arquitectura existente
 
-**Estado:** PROPOSED
+**Estado:** ACCEPTED (actualizado 2026-08-01 — ver nota)
 **Fecha:** 2026-07-02
+
+> **Nota de actualización (2026-08-01):** ambos specs derivados de esta ADR
+> (`SPEC-AGT-001` — Verification Loop, `SPEC-AUT-001` — Permanent Loops)
+> figuran `IMPLEMENTED` en `docs/SPEC_INDEX.md` desde 2026-07-04. El estado
+> `PROPOSED` había quedado desactualizado frente al código real; se corrige
+> a `ACCEPTED` para que la ADR no contradiga su propio resultado. El gap de
+> memoria episódica (§4.4) fue cerrado por `SPEC-AGT-003` (ver
+> `ADR-023-sense-agentic-architecture-v1.md`).
 **Contexto de origen:** análisis del canon "cómo funciona por dentro un agente de IA" (agent loop de referencia: Claude Code) aterrizado contra `project-manager-app`.
 **Ubicación sugerida en repo:** `project-manager-app/docs/architecture/`
 **Relacionado con:** `docs/AGENTIC_HARNESS.md`, `packages/agents/README.md`, `docs/SDD_GOVERNANCE.md`
