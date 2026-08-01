@@ -120,7 +120,32 @@ concreto:
 | 2 | `ToolResult` multimodal tipado (text/image/pdf/csv/annotation/approval_request) en `packages/schemas`, pilotado en `vision.analyze_image` y un export de evidencia | `SPEC-AGT-004` | Child spec de F7; depende de SPEC-GTW-001 |
 | 3 | Cache-control declarativo por tool/parte de mensaje, cross-provider (hoy solo existe en `anthropic.provider.ts`) | `SPEC-GTW-002` | Child spec de F7; depende de SPEC-GTW-001 |
 | 4 | Retrieval de `AgentDecision` vía Prometeo (cerrar `ADR-021 §4.4`; hoy solo lo usa `ops/loops.service.ts`) | `SPEC-AGT-003` | Child spec de F8 (Domain Loops) |
-| 5 | CLI Agent Adapter (Codex CLI/Claude CLI como tool nodes, sandbox, allowlist de comandos, diff review) + MCP Gateway externo — cierra el pendiente de `ADR-022` | `SPEC-INT-001` | Extiende `ADR-022-browser-agent-obscura.md`; child spec de SEMSE Integrations |
+| 5 | ~~CLI Agent Adapter + MCP Gateway externo~~ — **descartado, no es un gap** (ver nota abajo) | `SPEC-INT-001` (no se escribe) | N/A |
+
+**Nota sobre el ítem 5 (corrección posterior, 2026-07-31):** esta fila
+asumía que "CLI Agent Adapter" y "MCP Gateway externo" eran la misma pieza
+pendiente. Investigación más profunda mostró que son dos cosas distintas y
+que **ninguna de las dos es un gap real**:
+
+- El CLI Agent Adapter (agentes de código con sandbox, permisos por rol,
+  aprobación) ya existe: `packages/agents/src/developer-runtime.ts` define 9
+  roles (`diagnostic-agent`, `runtime-agent`, `backend-agent`,
+  `frontend-agent`, `devops-agent`, `qa-agent`, `doc-agent`,
+  `governance-agent`, `architect-agent`) con `allowedTools`,
+  `maxAutonomyLevel` y `defaultRiskLevel`, y el módulo NestJS completo vive
+  en `apps/api/src/modules/developer-runtime/` (service, approval,
+  validation, shell, storage, repository, controller).
+- El MCP Gateway externo ya está completamente especificado — no construido
+  todavía, pero no falta especificarlo — como ítem #12 de
+  `ADR-022-browser-agent-obscura.md` (24 sistemas, `PROPOSED`,
+  2026-07-14), con su propio roadmap `OB-00` a `OB-10` y modelos Prisma
+  propuestos. Es específico del Browser Agent (Obscura/Playwright), no del
+  agente de código — otra razón por la que no era la misma pieza que el CLI
+  Agent Adapter.
+
+La acción real pendiente no es escribir `SPEC-INT-001`: es que un humano
+revise y decida sobre `ADR-022` (sigue en `PROPOSED`). Escribir un spec
+nuevo aquí habría duplicado ese trabajo ya hecho.
 
 Cada una se especifica y aprueba por separado siguiendo
 `docs/SDD_GOVERNANCE.md` antes de escribir código (regla de cambio de
@@ -197,9 +222,19 @@ no se autoriza como consecuencia implícita de esta ADR.
   propio, documentada aquí para no repetirla.
 - `SPEC-GTW-002` — Cache-control declarativo. **Escrito**:
   `docs/specs/prometeo/cache-control.spec.md`.
-- `SPEC-AGT-003` — Retrieval de `AgentDecision` vía Prometeo.
-- `SPEC-INT-001` — CLI Agent Adapter + MCP Gateway externo.
+- `SPEC-AGT-003` — Retrieval de `AgentDecision` vía Prometeo. **Escrito**:
+  `docs/specs/prometeo/agent-decision-retrieval.spec.md`.
+- `SPEC-INT-001` — **descartado** (ver §2.3 ítem 5). No se escribe: el CLI
+  Agent Adapter ya existe (`packages/agents/src/developer-runtime.ts` +
+  `apps/api/src/modules/developer-runtime/`) y el MCP Gateway externo ya
+  está especificado en `ADR-022-browser-agent-obscura.md` §12. La acción
+  pendiente es revisión/aprobación humana de `ADR-022`, no un spec nuevo.
 - `docs/specs/agents/prometeo-core.spec.md` — spec de la capa de persona/orquestación (Sistema B), adjunto a esta ADR.
+
+Con esto, la cadena de specs derivados de esta ADR queda cerrada: 3 escritos
+y mergeados (`SPEC-GTW-001`, `SPEC-GTW-002`, `SPEC-AGT-003`), 1 renumerado
+por drift propio (`SPEC-AGT-004`, pendiente de escribirse cuando F7 lo
+requiera), y 1 descartado por ya estar cubierto (`SPEC-INT-001`).
 
 Registrar los specs pendientes en `docs/SPEC_INDEX.md` (vía
 `pnpm spec:index`, no a mano — el índice es generado) cuando cada uno pase de
