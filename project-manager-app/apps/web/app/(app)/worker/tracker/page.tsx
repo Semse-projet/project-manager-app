@@ -22,6 +22,7 @@ import {
   fetchFreeProjects,
   fetchLaborEntries,
   fetchMonthlySummary,
+  fetchProximityConfig,
   fetchWeeklySummary,
   pauseLaborTimer,
   resumeLaborTimer,
@@ -30,6 +31,7 @@ import {
   updateLaborTimerNotes,
   type FreeProjectView,
   type MonthlySummaryView,
+  type ProximityConfigView,
   type TimeEntryView,
   type WeeklySummaryView,
 } from "../../labor-api";
@@ -67,6 +69,10 @@ import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/
 const AUTO_SYNC_RETRY_BASE_MS = 5_000;
 const AUTO_SYNC_RETRY_MAX_MS = 5 * 60_000;
 const AUTO_SYNC_MAX_ATTEMPTS = 6;
+
+/** Shown once, before the proximity feature ever asks for a location
+ * permission, so the "why" isn't a surprise buried in a browser prompt. */
+const PROXIMITY_EXPLAINER_DISMISSED_KEY = "semse.tracker.proximity.explainer.dismissed";
 
 function autoSyncRetryDelay(attempts: number) {
   const exponent = Math.max(0, attempts - 1);
@@ -358,7 +364,21 @@ export default function WorkerTrackerPage() {
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [autoSyncStopped, setAutoSyncStopped] = useState(false);
   const [proximityCheckInMode, setProximityCheckInMode] = useState<ProximityCheckInMode>("ask");
+  const [proximityConfig, setProximityConfig] = useState<ProximityConfigView | null>(null);
+  const [proximityExplainerDismissed, setProximityExplainerDismissed] = useState(true);
   const autoSyncAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setProximityExplainerDismissed(window.localStorage.getItem(PROXIMITY_EXPLAINER_DISMISSED_KEY) === "1");
+  }, []);
+
+  function dismissProximityExplainer() {
+    setProximityExplainerDismissed(true);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PROXIMITY_EXPLAINER_DISMISSED_KEY, "1");
+    }
+  }
 
   const persistTrackerLocalState = useCallback((nextState: TrackerLocalState) => {
     setTrackerLocalState(nextState);
@@ -381,13 +401,14 @@ export default function WorkerTrackerPage() {
       .then((value) => ({ ok: true as const, value }))
       .catch((caught: unknown) => ({ ok: false as const, error: caught }));
 
-    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile] = await Promise.all([
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
       activeTimerFetch,
       fetchWeeklySummary().catch(() => null),
       fetchMonthlySummary().catch(() => null),
       fetchMyProfile().catch(() => null),
+      fetchProximityConfig().catch(() => null),
     ]);
 
     setJobs(nextJobs);
@@ -395,6 +416,7 @@ export default function WorkerTrackerPage() {
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
     if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
+    if (nextProximityConfig) setProximityConfig(nextProximityConfig);
 
     if (activeTimerResult.ok) {
       const nextActive = activeTimerResult.value;
@@ -883,12 +905,14 @@ export default function WorkerTrackerPage() {
     }
   }
 
-  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, locationError: proximityLocationError } = useProximityCheckIn({
+  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, locationError: proximityLocationError, isWatching: proximityIsWatching } = useProximityCheckIn({
     enabled: tab === "timer" && !activeEntry && !trackerLocalState.activeSession,
     mode: proximityCheckInMode,
     jobs,
     freeProjects,
     onStart: handleProximityStart,
+    radiusMeters: proximityConfig?.radiusMeters,
+    cooldownMs: proximityConfig ? proximityConfig.cooldownMinutes * 60_000 : undefined,
   });
 
   async function handlePause() {
@@ -1235,6 +1259,38 @@ export default function WorkerTrackerPage() {
             : "Elige el modo, selecciona el destino y presiona Iniciar"}
         </p>
 
+        {!activeEntry && proximityCheckInMode !== "off" && !proximityExplainerDismissed ? (
+          <div
+            data-testid="tracker-proximity-explainer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+            }}
+          >
+            <span style={{ fontSize: "12px", color: "var(--muted)", flex: 1, minWidth: "200px" }}>
+              Vamos a pedirte permiso de ubicación para avisarte (o iniciar el reloj) cuando
+              llegues a un job o proyecto libre. Solo se usa con el tracker abierto, nunca en
+              segundo plano. Puedes cambiarlo en Configuración cuando quieras.
+            </span>
+            <button
+              type="button"
+              data-testid="tracker-proximity-explainer-dismiss"
+              onClick={dismissProximityExplainer}
+              style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "12px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+            >
+              Entendido
+            </button>
+          </div>
+        ) : null}
+
         {!activeEntry && proximityBanner ? (
           <div
             data-testid="tracker-proximity-banner"
@@ -1294,6 +1350,35 @@ export default function WorkerTrackerPage() {
             {proximityLocationError === "denied"
               ? "No podemos detectar cuándo llegas al sitio: el navegador tiene bloqueado el permiso de ubicación. Habilítalo en la configuración del sitio para que el check-in automático funcione."
               : "No pudimos obtener tu ubicación ahora mismo. El check-in por proximidad se reintentará automáticamente."}
+          </div>
+        ) : null}
+
+        {!activeEntry && !proximityBanner && !proximityLocationError && proximityIsWatching ? (
+          <div
+            data-testid="tracker-proximity-watching"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 10px",
+              marginBottom: "14px",
+              borderRadius: "999px",
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              fontSize: "11px",
+              color: "var(--muted)",
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: "var(--ok, #22c55e)",
+                flexShrink: 0,
+              }}
+            />
+            Ubicación activa para check-in
           </div>
         ) : null}
 

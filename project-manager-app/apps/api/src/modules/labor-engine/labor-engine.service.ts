@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/com
 import { LaborEngineRepository } from "./labor-engine.repository.js";
 import { geocodeAddressSafe } from "../../integrations/google-maps.js";
 import { distanceMeters, isValidCoordinate } from "../../integrations/geo-distance.js";
+import { AdminService } from "../admin/admin.service.js";
 
 // Calendario lunes-domingo / día 1-fin de mes. Usado a propósito por los KPIs
 // que se etiquetan como "Esta semana"/"Este mes"/"Semana actual" y por la
@@ -45,7 +46,17 @@ function rollingWindowBounds(days: number): { from: Date; to: Date } {
 
 @Injectable()
 export class LaborEngineService {
-  constructor(private readonly repo: LaborEngineRepository) {}
+  constructor(
+    private readonly repo: LaborEngineRepository,
+    private readonly adminService: AdminService,
+  ) {}
+
+  /** Per-org proximity check-in radius/cooldown (falls back to the defaults
+   * baked into adminSettingsSchema when the tenant hasn't customized them). */
+  async getProximityConfig(tenantId: string): Promise<{ radiusMeters: number; cooldownMinutes: number }> {
+    const settings = await this.adminService.getSettings(tenantId);
+    return settings.proximity;
+  }
 
   // ── FreeProject ────────────────────────────────────────────────────────────
 

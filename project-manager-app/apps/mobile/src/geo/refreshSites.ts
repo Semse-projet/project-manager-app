@@ -1,6 +1,6 @@
-import { fetchFreeProjects, fetchJobs } from "../api/labor";
+import { fetchFreeProjects, fetchJobs, fetchProximityConfig } from "../api/labor";
 import { fetchProfile } from "../api/profile";
-import { saveProximityMode, saveSites, type ProximitySite } from "./siteCache";
+import { saveProximityConfig, saveProximityMode, saveSites, type ProximitySite } from "./siteCache";
 
 /**
  * Best-effort refresh of the site list + proximity preference the background
@@ -9,10 +9,11 @@ import { saveProximityMode, saveSites, type ProximitySite } from "./siteCache";
  * web tracker's own load-on-mount pattern.
  */
 export async function refreshProximitySites(): Promise<void> {
-  const [jobs, freeProjects, profile] = await Promise.all([
+  const [jobs, freeProjects, profile, proximityConfig] = await Promise.all([
     fetchJobs().catch(() => []),
     fetchFreeProjects().catch(() => []),
     fetchProfile().catch(() => null),
+    fetchProximityConfig().catch(() => null),
   ]);
 
   const sites: ProximitySite[] = [];
@@ -29,4 +30,5 @@ export async function refreshProximitySites(): Promise<void> {
 
   await saveSites(sites);
   if (profile) await saveProximityMode(profile.proximityCheckInMode);
+  if (proximityConfig) await saveProximityConfig(proximityConfig);
 }

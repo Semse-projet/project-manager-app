@@ -2,12 +2,14 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchActiveTimer, startTimer, stopTimer, type ActiveTimer } from "../api/labor";
+import { PermissionPrimerModal } from "../components/PermissionPrimerModal";
 import {
   isProximityTrackingActive,
   requestProximityPermissions,
   startProximityTracking,
   stopProximityTracking,
 } from "../geo/backgroundLocation";
+import { hasSeenProximityPrimer, markProximityPrimerSeen } from "../geo/permissionPrimer";
 import { refreshProximitySites } from "../geo/refreshSites";
 import { loadProximityMode } from "../geo/siteCache";
 import { registerProximityNotificationCategory, requestNotificationPermissions } from "../notifications/notifications";
@@ -19,6 +21,7 @@ export default function TimerScreen() {
   const [error, setError] = useState<string | null>(null);
   const [trackingEnabled, setTrackingEnabled] = useState(false);
   const [togglingTracking, setTogglingTracking] = useState(false);
+  const [showPermissionPrimer, setShowPermissionPrimer] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,43 +75,76 @@ export default function TimerScreen() {
   }
 
   async function handleToggleTracking(next: boolean) {
+    if (!next) {
+      setTogglingTracking(true);
+      setError(null);
+      try {
+        await stopProximityTracking();
+        setTrackingEnabled(false);
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "No se pudo actualizar el rastreo de ubicación.");
+      } finally {
+        setTogglingTracking(false);
+      }
+      return;
+    }
+
+    setError(null);
+    const mode = await loadProximityMode();
+    if (mode === "off") {
+      setError('El check-in por proximidad está "Desactivado" en Ajustes — cámbialo ahí primero.');
+      return;
+    }
+
+    // First time enabling this on the device: explain why before the OS
+    // permission dialogs show up, rather than letting them be the only
+    // explanation the worker ever sees.
+    if (!(await hasSeenProximityPrimer())) {
+      setShowPermissionPrimer(true);
+      return;
+    }
+
+    await enableProximityTracking();
+  }
+
+  async function enableProximityTracking() {
     setTogglingTracking(true);
     setError(null);
     try {
-      if (next) {
-        const mode = await loadProximityMode();
-        if (mode === "off") {
-          setError('El check-in por proximidad está "Desactivado" en Ajustes — cámbialo ahí primero.');
-          return;
-        }
-        const [locationPermission, notificationsGranted] = await Promise.all([
-          requestProximityPermissions(),
-          requestNotificationPermissions(),
-        ]);
-        if (!locationPermission.granted) {
-          setError(
-            locationPermission.reason === "background"
-              ? 'Necesitamos permiso de ubicación "Siempre" para avisarte con la app cerrada.'
-              : "Necesitamos permiso de ubicación para esta función.",
-          );
-          return;
-        }
-        if (!notificationsGranted) {
-          setError("Necesitamos permiso de notificaciones para avisarte cuando estés cerca de un sitio.");
-          return;
-        }
-        await registerProximityNotificationCategory();
-        await startProximityTracking();
-        setTrackingEnabled(true);
-      } else {
-        await stopProximityTracking();
-        setTrackingEnabled(false);
+      const [locationPermission, notificationsGranted] = await Promise.all([
+        requestProximityPermissions(),
+        requestNotificationPermissions(),
+      ]);
+      if (!locationPermission.granted) {
+        setError(
+          locationPermission.reason === "background"
+            ? 'Necesitamos permiso de ubicación "Siempre" para avisarte con la app cerrada.'
+            : "Necesitamos permiso de ubicación para esta función.",
+        );
+        return;
       }
+      if (!notificationsGranted) {
+        setError("Necesitamos permiso de notificaciones para avisarte cuando estés cerca de un sitio.");
+        return;
+      }
+      await registerProximityNotificationCategory();
+      await startProximityTracking();
+      setTrackingEnabled(true);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo actualizar el rastreo de ubicación.");
     } finally {
       setTogglingTracking(false);
     }
+  }
+
+  function handlePrimerConfirm() {
+    setShowPermissionPrimer(false);
+    void markProximityPrimerSeen();
+    void enableProximityTracking();
+  }
+
+  function handlePrimerCancel() {
+    setShowPermissionPrimer(false);
   }
 
   if (loading) {
@@ -148,6 +184,12 @@ export default function TimerScreen() {
           <Switch value={trackingEnabled} onValueChange={(next) => void handleToggleTracking(next)} disabled={togglingTracking} />
         </View>
       </View>
+
+      <PermissionPrimerModal
+        visible={showPermissionPrimer}
+        onConfirm={handlePrimerConfirm}
+        onCancel={handlePrimerCancel}
+      />
     </ScrollView>
   );
 }

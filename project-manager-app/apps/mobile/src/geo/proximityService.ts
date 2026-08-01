@@ -2,10 +2,7 @@ import { startTimer } from "../api/labor";
 import { presentProximityNotification, PROXIMITY_CATEGORY } from "../notifications/notifications";
 import { isCoolingDown, markCooldown } from "./cooldownStore";
 import { distanceMeters, isValidCoordinate } from "./distance";
-import { loadProximityMode, loadSites, type ProximitySite } from "./siteCache";
-
-/** Same radius as the web tracker's useProximityCheckIn hook. */
-const PROXIMITY_RADIUS_METERS = 150;
+import { loadProximityConfig, loadProximityMode, loadSites, type ProximitySite } from "./siteCache";
 
 function siteKey(site: ProximitySite): string {
   return `${site.kind}:${site.id}`;
@@ -24,11 +21,12 @@ export async function evaluateLocation(point: { latitude: number; longitude: num
   const sites = await loadSites();
   if (sites.length === 0) return;
 
-  const nearby = sites.find((site) => distanceMeters(point, site) <= PROXIMITY_RADIUS_METERS);
+  const { radiusMeters, cooldownMinutes } = await loadProximityConfig();
+  const nearby = sites.find((site) => distanceMeters(point, site) <= radiusMeters);
   if (!nearby) return;
 
   const key = siteKey(nearby);
-  if (await isCoolingDown(key)) return;
+  if (await isCoolingDown(key, cooldownMinutes)) return;
   await markCooldown(key);
 
   try {
