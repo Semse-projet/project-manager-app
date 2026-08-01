@@ -416,15 +416,16 @@ export class LaborEngineService {
 
   async getAdminOverview(tenantId: string) {
     const { from, to } = weekBounds();
-    const [activeTimers, team, longEntries] = await Promise.all([
+    const [activeTimers, team, longEntries, offSiteCheckIns] = await Promise.all([
       this.repo.listActiveEntriesForTenant(tenantId),
       this.repo.getTeamSummary({ tenantId, from, to }),
       this.repo.listLongEntries({ tenantId, from, to, minMinutes: QUALITY_GUARD.longEntryMinutes }),
+      this.repo.listOffSiteCheckIns({ tenantId, from, to, minDistanceMeters: QUALITY_GUARD.farFromSiteMeters }),
     ]);
 
     const now = Date.now();
     const alerts: Array<{
-      type: "stale_timer" | "overtime" | "long_entry";
+      type: "stale_timer" | "overtime" | "long_entry" | "off_site_checkin";
       severity: "warning" | "critical";
       workerId: string;
       entryId?: string;
@@ -467,6 +468,18 @@ export class LaborEngineService {
       });
     }
 
+    for (const entry of offSiteCheckIns) {
+      const distanceMeters = entry.checkInDistanceMeters ?? 0;
+      const distanceLabel = distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`;
+      alerts.push({
+        type: "off_site_checkin",
+        severity: distanceMeters >= QUALITY_GUARD.farFromSiteMeters * 2 ? "critical" : "warning",
+        workerId: entry.createdBy,
+        entryId: entry.id,
+        detail: `Check-in a ${distanceLabel} del sitio del job/proyecto — revisa si corresponde.`,
+      });
+    }
+
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
       activeTimers,
@@ -482,4 +495,7 @@ const QUALITY_GUARD = {
   staleTimerHours: 12,
   overtimeWeekMinutes: 48 * 60,
   longEntryMinutes: 12 * 60,
+  /** Meters — well past GPS noise around the 150m proximity-check-in radius,
+   * so this flags a check-in that plausibly happened somewhere else entirely. */
+  farFromSiteMeters: 500,
 };

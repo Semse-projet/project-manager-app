@@ -431,6 +431,21 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord[];
   }
 
+  /** Entradas cuyo check-in de proximidad quedó lejos del sitio del job/proyecto (QualityGuard).
+   * Excluye "personal" igual que listLongEntries — ahí no hay sitio formal que respetar. */
+  async listOffSiteCheckIns(params: { tenantId: string; from: Date; to: Date; minDistanceMeters: number }): Promise<TimeEntryRecord[]> {
+    return this.prisma.timeEntry.findMany({
+      where: {
+        tenantId: params.tenantId,
+        startedAt: { gte: params.from, lte: params.to },
+        checkInDistanceMeters: { gte: params.minDistanceMeters },
+        purpose: { not: "personal" },
+      },
+      orderBy: { checkInDistanceMeters: "desc" },
+      take: 50,
+    }) as unknown as TimeEntryRecord[];
+  }
+
   async getLaborSummary(params: {
     tenantId: string;
     workerId: string;

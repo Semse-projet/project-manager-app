@@ -28,6 +28,12 @@ type ProximityBannerState = {
   longitude: number;
 } | null;
 
+/** "denied": the worker said no to the permission prompt (or it's blocked at
+ * the OS/browser level) — proximity check-in can't work until they change it.
+ * "unavailable": a transient failure (no GPS fix, timeout) that may recover
+ * on the next watch tick, so it's worth wording differently. */
+export type ProximityLocationError = "denied" | "unavailable" | null;
+
 function siteKey(site: ProximitySite): string {
   return `${site.kind}:${site.id}`;
 }
@@ -57,6 +63,7 @@ export function useProximityCheckIn(params: {
   onStart: (site: ProximitySite, checkIn: ProximityCheckIn) => void;
 }) {
   const [banner, setBanner] = useState<ProximityBannerState>(null);
+  const [locationError, setLocationError] = useState<ProximityLocationError>(null);
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const onStartRef = useRef(params.onStart);
   onStartRef.current = params.onStart;
@@ -74,11 +81,13 @@ export function useProximityCheckIn(params: {
   }, [params.jobs, params.freeProjects]);
 
   useEffect(() => {
+    setLocationError(null);
     if (!params.enabled || params.mode === "off" || sites.length === 0) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        setLocationError(null);
         const here = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         const nearby = sites.find((site) => {
           const cooledAt = cooldownRef.current.get(siteKey(site));
@@ -94,8 +103,12 @@ export function useProximityCheckIn(params: {
         }
         setBanner({ site: nearby, ...here });
       },
-      () => {
-        // Permission denied / position unavailable — proximity is a convenience, stay silent.
+      (positionError) => {
+        // Proximity check-in is a convenience, so a failure never blocks the
+        // tracker — but staying completely silent left workers with no idea
+        // why the prompt never showed up. code 1 = PERMISSION_DENIED; treat
+        // everything else (2 = POSITION_UNAVAILABLE, 3 = TIMEOUT) as transient.
+        setLocationError(positionError.code === 1 ? "denied" : "unavailable");
       },
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 20_000 },
     );
@@ -114,5 +127,5 @@ export function useProximityCheckIn(params: {
     setBanner(null);
   }, [banner]);
 
-  return { banner, acceptBanner, dismissBanner };
+  return { banner, acceptBanner, dismissBanner, locationError };
 }
