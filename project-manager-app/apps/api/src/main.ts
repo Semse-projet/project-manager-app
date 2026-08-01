@@ -4,6 +4,7 @@ process.stdout.write(`[main] process started pid=${process.pid} node=${process.v
 import { config as dotenvConfig } from "dotenv";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { IncomingMessage } from "node:http";
 const _mainDir = dirname(fileURLToPath(import.meta.url));
 dotenvConfig({ path: resolve(_mainDir, "..", ".env"), override: false });
 dotenvConfig({ path: resolve(_mainDir, "..", "..", "..", "packages", "db", ".env"), override: false });
@@ -79,6 +80,19 @@ async function bootstrap(): Promise<void> {
     ]
   });
   const fastify = app.getHttpAdapter().getInstance();
+  // Fastify only auto-parses application/json and *-urlencoded bodies; any
+  // other Content-Type (image/png, application/pdf, etc.) is rejected with a
+  // framework-level 415 before the request ever reaches a controller. The
+  // raw file PUT (uploads.controller.ts putFile) needs the untouched byte
+  // stream, so this parser hands the payload straight through unread —
+  // putFile's own async-iteration + magic-byte sniffing is still what
+  // validates/streams it, this only stops Fastify from 415ing first.
+  fastify.addContentTypeParser(
+    "*",
+    (_request: FastifyRequest, payload: IncomingMessage, done: (err: Error | null, body?: unknown) => void) => {
+      done(null, payload);
+    }
+  );
   fastify.get("/", async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send({
       data: {
