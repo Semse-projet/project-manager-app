@@ -12,6 +12,30 @@
 
 ---
 
+## 0. Nota de estado real (verificado 2026-08-01, no cambia la propuesta)
+
+Esta ADR sigue `PROPOSED`, pero **ya existe una implementación parcial** que
+predata cualquier aprobación formal de este documento — quien la revise para
+decidir `APPROVED`/`REJECTED` debe partir de esto, no de un lienzo en blanco:
+
+| Sistema (de los 24 en §3) | Estado real verificado | Evidencia |
+|---|---|---|
+| #1 Browser Mission Orchestrator | Parcial — misiones/pasos persistidos, sin estados completos de la máquina descrita (`DRAFT`→...→`EXPIRED`) | `packages/db/prisma/schema.prisma` (`BrowserMission`, `BrowserMissionStep`); `apps/api/src/modules/browser-agent/browser-agent.service.ts` |
+| #7 Secure Network Gateway | Implementado (parcial): `isUrlSafe()` bloquea loopback, rangos privados IPv4 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `100.64.0.0/10`) y prefijos privados IPv6 — pero no bloquea explícitamente `file://`/`ftp://` más allá del check de protocolo http(s), ni hay Secure Network Gateway como proxy de egreso separado | `browser-agent.service.ts:9-67` |
+| #5/#6 Policy Engine / Approval Gateway (como componentes de este dominio) | No implementados como tales — la inspección de URL reutiliza el framework gobernado de `AgentsService` (mismo `AgentRun` de `SPEC-AGT-001`), no un Policy/Approval Gateway propio del Browser Agent | `browser-agent.service.ts:90-109` |
+| Motor Obscura | **No integrado.** `BrowserMissionStep.engineUsed` tiene `@default("PLAYWRIGHT")` — el motor que esta ADR propone como preferente nunca se conectó | `schema.prisma` (`BrowserMissionStep`) |
+| `BrowserSession` (modelo propuesto §4) | No existe en el schema | ausencia confirmada |
+| #4 Browser Session Manager, #8 Sandbox Runtime, #9 Untrusted Content Firewall, #10 Browser Tool Registry, #11 CDP Gateway, #12 MCP Gateway, #13 Network Recorder/HAR, #17 Download Security, #18 Secrets Broker | Sin evidencia de implementación — cero coincidencias de las palabras clave correspondientes (`sandbox`, `mcp`, `cdp`, etc.) en `browser-agent.service.ts` | ausencia confirmada por grep |
+
+**Conclusión:** existe una capacidad real y acotada (inspección de URL con
+SSRF-blocking básico, corriendo sobre el `AgentRun` ya gobernado), pero el
+grueso de los 24 sistemas — y en particular Obscura como motor, que le da
+nombre a esta ADR — sigue sin construirse. Esto no cambia la decisión
+propuesta en esta ADR; solo corrige la premisa de "no existe nada todavía"
+para quien la revise.
+
+---
+
 ## 1. Contexto y Visión General
 
 SEMSEproject requiere capacidades avanzadas de navegación web para que sus agentes autónomos (especialmente **Prometeo** en tareas de investigación de precios, regulaciones, manuales, y validación de cotizaciones) operen en sitios web públicos. Sin embargo, no se debe clonar el código de navegadores headless ni construir otro producto independiente y aislado.
