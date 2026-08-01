@@ -42,6 +42,9 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
     async listLongEntries(...args: unknown[]) {
       return record("listLongEntries", args, []);
     },
+    async listOffSiteCheckIns(...args: unknown[]) {
+      return record("listOffSiteCheckIns", args, []);
+    },
     async isJobAssignedToWorker(...args: unknown[]) {
       return record("isJobAssignedToWorker", args, true);
     },
@@ -325,6 +328,11 @@ void test("getAdminOverview flags stale timers, overtime and long entries", asyn
         { id: "te-long", createdBy: "worker-3", durationMinutes: 13 * 60 },
       ];
     },
+    async listOffSiteCheckIns() {
+      return [
+        { id: "te-offsite", createdBy: "worker-4", checkInDistanceMeters: 2200 },
+      ];
+    },
   });
 
   const overview = await service.getAdminOverview("tnt");
@@ -336,6 +344,7 @@ void test("getAdminOverview flags stale timers, overtime and long entries", asyn
   assert.ok(types.includes("stale_timer:worker-1"), "should flag the 14h running timer");
   assert.ok(types.includes("overtime:worker-1"), "should flag 50h week as overtime");
   assert.ok(types.includes("long_entry:worker-3"), "should flag the 13h single entry");
+  assert.ok(types.includes("off_site_checkin:worker-4"), "should flag the 2.2km off-site check-in");
   assert.ok(!types.some((t: string) => t.endsWith(":worker-2")), "worker-2 has no alerts");
 });
 
@@ -345,6 +354,25 @@ void test("getAdminOverview returns empty alerts for a quiet week", async () => 
   assert.deepEqual(overview.alerts, []);
   assert.equal(typeof overview.period.from, "string");
   assert.equal(overview.thresholds.staleTimerHours, 12);
+  assert.equal(overview.thresholds.farFromSiteMeters, 500);
+});
+
+void test("getAdminOverview marks off-site check-ins as critical past 2x the threshold, warning otherwise", async () => {
+  const { service } = createService({
+    async listOffSiteCheckIns() {
+      return [
+        { id: "te-warning", createdBy: "worker-5", checkInDistanceMeters: 600 },
+        { id: "te-critical", createdBy: "worker-6", checkInDistanceMeters: 1500 },
+      ];
+    },
+  });
+
+  const overview = await service.getAdminOverview("tnt");
+  const byWorker = Object.fromEntries(
+    overview.alerts.map((alert: { workerId: string; severity: string }) => [alert.workerId, alert.severity]),
+  );
+  assert.equal(byWorker["worker-5"], "warning");
+  assert.equal(byWorker["worker-6"], "critical");
 });
 
 // ── Proximity check-in ──────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
-  Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, Pause, Play,
+  Activity, AlertTriangle, BadgeCheck, Clock, DollarSign, MapPin, Pause, Play,
   RefreshCw, Search, ShieldAlert, Timer, Users,
 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
@@ -37,7 +37,7 @@ type TeamMember = {
 };
 
 type QualityAlert = {
-  type: "stale_timer" | "overtime" | "long_entry";
+  type: "stale_timer" | "overtime" | "long_entry" | "off_site_checkin";
   severity: "warning" | "critical";
   workerId: string;
   entryId?: string;
@@ -49,7 +49,7 @@ type AdminOverview = {
   activeTimers: AdminTimeEntry[];
   team: TeamMember[];
   alerts: QualityAlert[];
-  thresholds: { staleTimerHours: number; overtimeWeekMinutes: number; longEntryMinutes: number };
+  thresholds: { staleTimerHours: number; overtimeWeekMinutes: number; longEntryMinutes: number; farFromSiteMeters: number };
   generatedAt: string;
 };
 
@@ -126,6 +126,7 @@ const ALERT_META: Record<QualityAlert["type"], { label: string; icon: typeof Ale
   stale_timer: { label: "Timer olvidado", icon: Timer },
   overtime: { label: "Overtime", icon: Clock },
   long_entry: { label: "Jornada excesiva", icon: ShieldAlert },
+  off_site_checkin: { label: "Check-in fuera de sitio", icon: MapPin },
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────

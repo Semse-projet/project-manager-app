@@ -883,7 +883,7 @@ export default function WorkerTrackerPage() {
     }
   }
 
-  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner } = useProximityCheckIn({
+  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, locationError: proximityLocationError } = useProximityCheckIn({
     enabled: tab === "timer" && !activeEntry && !trackerLocalState.activeSession,
     mode: proximityCheckInMode,
     jobs,
@@ -1272,6 +1272,28 @@ export default function WorkerTrackerPage() {
                 Descartar
               </button>
             </div>
+          </div>
+        ) : null}
+
+        {!activeEntry && !proximityBanner && proximityLocationError ? (
+          <div
+            data-testid="tracker-proximity-location-error"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+              fontSize: "12px",
+              color: "var(--muted)",
+            }}
+          >
+            {proximityLocationError === "denied"
+              ? "No podemos detectar cuándo llegas al sitio: el navegador tiene bloqueado el permiso de ubicación. Habilítalo en la configuración del sitio para que el check-in automático funcione."
+              : "No pudimos obtener tu ubicación ahora mismo. El check-in por proximidad se reintentará automáticamente."}
           </div>
         ) : null}
 
