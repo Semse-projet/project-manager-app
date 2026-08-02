@@ -5,12 +5,11 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
 import {
-  buildAdminSidebarGroups,
   buildShellNavItems,
   isNewNavSection,
   type ShellNavItem,
-  type ShellNavLink,
 } from "../../lib/navigation-shell";
+import { ADMIN_MODULES } from "../../lib/admin/admin-navigation";
 import { AgentChatPanel } from "../../components/ai/agent-chat-panel";
 import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
@@ -50,7 +49,6 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  MessageSquare,
   Package,
   DollarSign,
   Infinity,
@@ -71,6 +69,36 @@ type NavRole = "worker" | "client" | "admin";
 type ThemePreference = "dark" | "light";
 
 interface NavItem extends ShellNavItem {}
+
+// Icon per ADMIN_MODULES id — same icon each route already used in the
+// hand-curated list this replaces (see AUDIT_REMEDIATION_PLAN.md 1.17 and
+// the Epic A1 admin-navigation.ts spec).
+const ADMIN_MODULE_ICONS: Record<string, typeof HardHat> = {
+  "mission-control": Activity,
+  workops: Wrench,
+  marketplace: Store,
+  finance: DollarSign,
+  trust: ShieldCheck,
+  intelligence: Brain,
+  "tool-hub": Package,
+  verticals: Layers,
+  settings: Settings,
+};
+
+const ADMIN_NAV_ITEMS: NavItem[] = [
+  ...ADMIN_MODULES.map((module) => ({
+    labelKey: module.label,
+    href: module.href,
+    icon: ADMIN_MODULE_ICONS[module.id] ?? LayoutDashboard,
+  })),
+  // Routes not represented as an ADMIN_MODULES module or child — kept as
+  // quick links so this sidebar swap doesn't drop functionality.
+  { labelKey: "nav.accountSecurity", href: "/admin/account", icon: User },
+  { labelKey: "nav.agro", href: "/agro", icon: Leaf },
+  { labelKey: "nav.buildOps", href: "/buildops", icon: FolderKanban },
+  { labelKey: "nav.semseTools", href: "/tools", icon: Wrench },
+  { labelKey: "nav.agents", href: "/agents", icon: Bot },
+];
 
 const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardHat; items: NavItem[] }> = {
   worker: {
@@ -134,33 +162,16 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
     labelKey: "role.admin",
     color: "#c58af9",
     icon: ShieldCheck,
-    // No per-item `section` markers here (unlike worker/client below): admin
-    // nav is grouped by `buildAdminSidebarGroups()`/`adminGroupForHref()` in
-    // navigation-shell.ts instead, keyed off each item's href — the same
-    // function used for both the mobile Sidebar and the desktop AppShell
-    // renderer, so an admin sees identical group labels at both breakpoints.
-    // See AUDIT_REMEDIATION_PLAN.md 1.17 — before 2026-07-31 mobile grouped
-    // by a separate, hardcoded 4-section taxonomy that didn't match desktop.
-    items: [
-      { labelKey: "nav.dashboard",      href: "/admin/dashboard",        icon: LayoutDashboard },
-      { labelKey: "nav.missionControl", href: "/admin/mission-control",  icon: Activity },
-      { labelKey: "nav.workops",        href: "/admin/workops",          icon: Wrench },
-      { labelKey: "nav.laborEngine",    href: "/admin/labor-engine",     icon: Clock },
-      { labelKey: "nav.marketplace",    href: "/admin/marketplace",      icon: Store },
-      { labelKey: "nav.finance",        href: "/admin/finance",          icon: DollarSign },
-      { labelKey: "nav.trust",          href: "/admin/trust",            icon: ShieldCheck },
-      { labelKey: "nav.intelligence",   href: "/admin/intelligence",     icon: Brain },
-      { labelKey: "nav.toolHub",        href: "/admin/tool-hub",         icon: Package },
-      { labelKey: "nav.verticals",      href: "/admin/verticals",        icon: Layers },
-      { labelKey: "nav.settings",       href: "/admin/settings",         icon: Settings },
-      { labelKey: "nav.accountSecurity", href: "/admin/account",          icon: User },
-      { labelKey: "nav.agro",           href: "/agro",                   icon: Leaf },
-      { labelKey: "nav.buildOps",       href: "/buildops",               icon: FolderKanban },
-      { labelKey: "nav.semseTools",     href: "/tools",                  icon: Wrench },
-      { labelKey: "nav.users",          href: "/admin/users",            icon: Users },
-      { labelKey: "nav.communications", href: "/admin/communications",   icon: MessageSquare },
-      { labelKey: "nav.agents",         href: "/agents",                 icon: Bot },
-    ],
+    // Derived from ADMIN_MODULES (apps/web/lib/admin/admin-navigation.ts) —
+    // the single source of truth also used by the /admin/* hub pages. No
+    // per-item `section` markers: admin now renders as a flat list through
+    // the same path worker/client already use (see isNewNavSection below),
+    // instead of its own buildAdminSidebarGroups()-grouped branch. Legacy
+    // leaf routes (Jobs, Users, Contractors, etc.) are reachable as cards on
+    // each module's hub page rather than as direct sidebar links — see
+    // AUDIT_REMEDIATION_PLAN.md 1.17 for why this reduces (not reopens) the
+    // nav-renderer duplication documented there.
+    items: ADMIN_NAV_ITEMS,
   },
 };
 
@@ -265,55 +276,34 @@ function Sidebar({
       </div>
 
       <nav style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
-        {role === "admin"
-          ? // Grouped via the same buildAdminSidebarGroups()/adminGroupForHref()
-            // taxonomy the desktop AppShell renderer below uses — see the
-            // comment on NAV.admin.items and AUDIT_REMEDIATION_PLAN.md 1.17.
-            buildAdminSidebarGroups(nav.items).map((group, groupIdx) => (
-              <div key={group.key}>
-                {(!collapsed || mobile) && (
-                  <SidebarSectionHeader label={t(group.labelKey)} first={groupIdx === 0} />
-                )}
-                {group.items.map((item) => (
-                  <SidebarNavLink
-                    key={item.href}
-                    item={item}
-                    active={(pathname ?? "").startsWith(item.href)}
-                    label={t(item.labelKey)}
-                    color={nav.color}
-                    collapsed={collapsed}
-                    mobile={mobile}
-                    onClose={onClose}
-                  />
-                ))}
-              </div>
-            ))
-          : nav.items.map((item, idx) => {
-              // A section marker starts a new visual group in the sidebar —
-              // e.g. splitting the Client role's buyer tools (post a job,
-              // projects, milestones) from its contractor tools (leads,
-              // marketplace, my bids), which previously sat in one
-              // undifferentiated list and were a real source of "which hat am
-              // I wearing" confusion. See AUDIT_REMEDIATION_PLAN.md 1.5.
-              const showSectionHeader = isNewNavSection(nav.items, idx) && (!collapsed || mobile);
+        {nav.items.map((item, idx) => {
+          // A section marker starts a new visual group in the sidebar —
+          // e.g. splitting the Client role's buyer tools (post a job,
+          // projects, milestones) from its contractor tools (leads,
+          // marketplace, my bids), which previously sat in one
+          // undifferentiated list and were a real source of "which hat am
+          // I wearing" confusion. See AUDIT_REMEDIATION_PLAN.md 1.5. Admin
+          // has no `section` markers (flat list from ADMIN_MODULES), so this
+          // is always false for that role.
+          const showSectionHeader = isNewNavSection(nav.items, idx) && (!collapsed || mobile);
 
-              return (
-                <div key={item.href}>
-                  {showSectionHeader && (
-                    <SidebarSectionHeader label={t(item.section!)} first={idx === 0} />
-                  )}
-                  <SidebarNavLink
-                    item={item}
-                    active={(pathname ?? "").startsWith(item.href)}
-                    label={t(item.labelKey)}
-                    color={nav.color}
-                    collapsed={collapsed}
-                    mobile={mobile}
-                    onClose={onClose}
-                  />
-                </div>
-              );
-            })}
+          return (
+            <div key={item.href}>
+              {showSectionHeader && (
+                <SidebarSectionHeader label={t(item.section!)} first={idx === 0} />
+              )}
+              <SidebarNavLink
+                item={item}
+                active={(pathname ?? "").startsWith(item.href)}
+                label={t(item.labelKey)}
+                color={nav.color}
+                collapsed={collapsed}
+                mobile={mobile}
+                onClose={onClose}
+              />
+            </div>
+          );
+        })}
       </nav>
 
       {(!collapsed || mobile) && (
@@ -534,83 +524,44 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
   const shellNavItems = useMemo(
     () =>
-      role === "admin"
-        ? shellNavModel.map((group) => {
-            const navGroup = group as unknown as { key: string; label: string; items: ShellNavLink[] };
-            return {
-              key: navGroup.key,
-              label: navGroup.label,
-              node: (
-                <div className="space-y-2">
-                  {!collapsed ? (
-                    <div className="px-3 pt-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                      {navGroup.label}
-                    </div>
-                  ) : null}
-                  <div className="space-y-1">
-                    {navGroup.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={`${item.href}-${item.labelKey}`}
-                          href={item.href}
-                          title={collapsed ? item.label : undefined}
-                          className={[
-                            "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                            item.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
-                          ].join(" ")}
-                        >
-                          <span className="flex h-5 w-5 items-center justify-center">
-                            <Icon size={16} />
-                          </span>
-                          {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                        </Link>
-                      );
-                    })}
-                  </div>
+      shellNavModel.map((navItem, idx) => {
+        const Icon = navItem.icon;
+        // Mirrors the section-header grouping in the mobile Sidebar component
+        // (AUDIT_REMEDIATION_PLAN.md 1.5). Admin now shares this same flat
+        // renderer with worker/client instead of its own grouped branch (see
+        // AUDIT_REMEDIATION_PLAN.md 1.17) — the boundary-detection logic
+        // itself is shared via isNewNavSection; only the surrounding
+        // collapse/JSX differs between this renderer and the mobile Sidebar.
+        const showSectionHeader = isNewNavSection(shellNavModel, idx) && !collapsed;
+        return {
+          key: navItem.key,
+          label: navItem.label,
+          active: navItem.active,
+          node: (
+            <div key={navItem.key}>
+              {showSectionHeader && (
+                <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                  {t(navItem.section!)}
                 </div>
-              ),
-            };
-          })
-        : shellNavModel.map((item, idx) => {
-            const navItem = item as ShellNavLink;
-            const Icon = navItem.icon;
-            // Mirrors the section-header grouping added to the mobile Sidebar
-            // component (AUDIT_REMEDIATION_PLAN.md 1.5) — this is the separate
-            // desktop AppShell nav renderer (see 1.17 for the known, deliberately
-            // deferred duplication between the two). The boundary-detection
-            // logic itself is shared via isNewNavSection; only the surrounding
-            // collapse/JSX differs per renderer.
-            const showSectionHeader = isNewNavSection(shellNavModel as ShellNavLink[], idx) && !collapsed;
-            return {
-              key: navItem.key,
-              label: navItem.label,
-              active: navItem.active,
-              node: (
-                <div key={navItem.key}>
-                  {showSectionHeader && (
-                    <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                      {t(navItem.section!)}
-                    </div>
-                  )}
-                  <Link
-                    href={navItem.href}
-                    title={collapsed ? navItem.label : undefined}
-                    className={[
-                      "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                      navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
-                    ].join(" ")}
-                  >
-                    <span className="flex h-5 w-5 items-center justify-center">
-                      <Icon size={16} />
-                    </span>
-                    {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
-                  </Link>
-                </div>
-              ),
-            };
-          }),
-    [shellNavModel, role, collapsed, t],
+              )}
+              <Link
+                href={navItem.href}
+                title={collapsed ? navItem.label : undefined}
+                className={[
+                  "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
+                  navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
+                ].join(" ")}
+              >
+                <span className="flex h-5 w-5 items-center justify-center">
+                  <Icon size={16} />
+                </span>
+                {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
+              </Link>
+            </div>
+          ),
+        };
+      }),
+    [shellNavModel, collapsed, t],
   );
 
   return (
