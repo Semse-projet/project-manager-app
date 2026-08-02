@@ -113,6 +113,30 @@ El codigo PI-06 esta desplegado. La activacion de
 `PRODUCT_INTELLIGENCE_ENABLED` y
 `NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` no fue verificada.
 
+## Programa transversal — Consolidación Cognitiva (ADR-023)
+
+Reconcilia el vocabulario de una propuesta de arquitectura agéntica externa
+(Business Kernel, Prometeo Core, Agent Runtime, Model Gateway, etc.) contra
+el código y la taxonomía ya vigentes, sin renombrar ni reordenar F0-F9.
+
+Contrato: [`docs/architecture/ADR-023-sense-agentic-architecture-v1.md`](docs/architecture/ADR-023-sense-agentic-architecture-v1.md)
+(`ACCEPTED`).
+
+- `SPEC-GTW-001` (unificación del Model Gateway) y `SPEC-GTW-002`
+  (cache-control declarativo): escritos, `DRAFT`, precede/child spec de F7.
+- `SPEC-AGT-003` (retrieval de `AgentDecision` vía Prometeo): escrito,
+  `DRAFT`, child spec de F8.
+- `SPEC-AGT-004` (`ToolResult` multimodal tipado): escrito, `DRAFT`, child
+  spec de F7.
+- `SPEC-INT-001` (CLI Agent Adapter + MCP Gateway externo): retirado — ya
+  cubierto por `packages/agents/src/developer-runtime.ts` y por
+  `ADR-022-browser-agent-obscura.md` §12 (pendiente de revisión humana, no
+  de spec nuevo).
+
+Los cuatro specs escritos siguen `DRAFT`, pendientes de sign-off humano
+antes de `APPROVED` y de seguir el flujo `/speckit.plan` → `/speckit.tasks`
+→ `/speckit.implement`.
+
 ## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
 
 Entregables:
