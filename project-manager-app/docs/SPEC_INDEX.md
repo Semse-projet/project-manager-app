@@ -128,7 +128,7 @@ retroactiva.
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-19 |
-| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
+| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-02 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | DRAFT | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
