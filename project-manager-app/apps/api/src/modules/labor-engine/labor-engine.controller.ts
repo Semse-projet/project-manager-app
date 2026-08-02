@@ -40,6 +40,18 @@ export class LaborEngineController {
     private readonly chat: LaborChatService,
   ) {}
 
+  // ── Proximity check-in config ────────────────────────────────────────────
+
+  /** Read-only, worker-scoped (field-ops:read) — never the full admin
+   * settings blob, only the proximity radius/cooldown the tracker needs. */
+  @Get("proximity-config")
+  @RequirePermissions("field-ops:read")
+  async getProximityConfig(@Req() req: { headers?: Record<string, unknown> }) {
+    const a = actor(req);
+    const data = await this.svc.getProximityConfig(a.tenantId);
+    return ok(rid(req), data);
+  }
+
   // ── Free Projects ─────────────────────────────────────────────────────────
 
   @Get("free-projects")

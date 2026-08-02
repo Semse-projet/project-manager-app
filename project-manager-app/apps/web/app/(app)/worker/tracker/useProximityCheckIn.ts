@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JobRecordView } from "../../../semse-api";
 import type { FreeProjectView } from "../../labor-api";
 
-const PROXIMITY_RADIUS_METERS = 150;
+/** Fallback used until the org's configured value loads (or if it never does). */
+const DEFAULT_PROXIMITY_RADIUS_METERS = 150;
 /** Don't re-prompt for the same site right after a dismiss/accept, or while lingering inside the radius. */
-const COOLDOWN_MS = 20 * 60 * 1000;
+const DEFAULT_COOLDOWN_MS = 20 * 60 * 1000;
 
 export type ProximitySite = {
   kind: "job" | "free";
@@ -61,12 +62,19 @@ export function useProximityCheckIn(params: {
   jobs: JobRecordView[];
   freeProjects: FreeProjectView[];
   onStart: (site: ProximitySite, checkIn: ProximityCheckIn) => void;
+  /** Org-configured overrides (from GET /v1/labor/proximity-config) — fall
+   * back to the hardcoded defaults until that loads, or if it never does. */
+  radiusMeters?: number;
+  cooldownMs?: number;
 }) {
   const [banner, setBanner] = useState<ProximityBannerState>(null);
   const [locationError, setLocationError] = useState<ProximityLocationError>(null);
+  const [isWatching, setIsWatching] = useState(false);
   const cooldownRef = useRef<Map<string, number>>(new Map());
   const onStartRef = useRef(params.onStart);
   onStartRef.current = params.onStart;
+  const radiusMeters = params.radiusMeters ?? DEFAULT_PROXIMITY_RADIUS_METERS;
+  const cooldownMs = params.cooldownMs ?? DEFAULT_COOLDOWN_MS;
 
   const sites = useMemo<ProximitySite[]>(() => {
     const jobSites: ProximitySite[] = params.jobs
@@ -82,8 +90,15 @@ export function useProximityCheckIn(params: {
 
   useEffect(() => {
     setLocationError(null);
-    if (!params.enabled || params.mode === "off" || sites.length === 0) return;
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (!params.enabled || params.mode === "off" || sites.length === 0) {
+      setIsWatching(false);
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setIsWatching(false);
+      return;
+    }
+    setIsWatching(true);
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
@@ -91,8 +106,8 @@ export function useProximityCheckIn(params: {
         const here = { latitude: position.coords.latitude, longitude: position.coords.longitude };
         const nearby = sites.find((site) => {
           const cooledAt = cooldownRef.current.get(siteKey(site));
-          if (cooledAt && Date.now() - cooledAt < COOLDOWN_MS) return false;
-          return distanceMeters(here, site) <= PROXIMITY_RADIUS_METERS;
+          if (cooledAt && Date.now() - cooledAt < cooldownMs) return false;
+          return distanceMeters(here, site) <= radiusMeters;
         });
         if (!nearby) return;
 
@@ -113,8 +128,11 @@ export function useProximityCheckIn(params: {
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 20_000 },
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [params.enabled, params.mode, sites]);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      setIsWatching(false);
+    };
+  }, [params.enabled, params.mode, sites, radiusMeters, cooldownMs]);
 
   const acceptBanner = useCallback(() => {
     if (!banner) return;
@@ -127,5 +145,5 @@ export function useProximityCheckIn(params: {
     setBanner(null);
   }, [banner]);
 
-  return { banner, acceptBanner, dismissBanner, locationError };
+  return { banner, acceptBanner, dismissBanner, locationError, isWatching };
 }

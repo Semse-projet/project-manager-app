@@ -125,6 +125,14 @@ export async function convertFreeProjectToJob(id: string, jobId: string): Promis
   return mutateLabor<FreeProjectView>(`/api/semse/labor/free-projects/${encodeURIComponent(id)}/convert`, { jobId });
 }
 
+// ── Proximity check-in config ───────────────────────────────────────────────
+
+export type ProximityConfigView = { radiusMeters: number; cooldownMinutes: number };
+
+export async function fetchProximityConfig(): Promise<ProximityConfigView> {
+  return fetchLabor<ProximityConfigView>("/api/semse/labor/proximity-config");
+}
+
 // ── Timer ─────────────────────────────────────────────────────────────────────
 
 export async function fetchActiveTimer(): Promise<TimeEntryView | null> {

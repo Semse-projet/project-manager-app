@@ -273,6 +273,12 @@ export default function WorkerSettingsPage() {
       {/* Proximity check-in */}
       <HtmlInCanvasPanel style={card} minHeight={60}>
         <Section icon={<MapPin size={14} color="#ef4444" />} title="Check-in automático por ubicación">
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px", lineHeight: 1.5 }}>
+            Si activas esta opción, el navegador te pedirá permiso de ubicación para detectar
+            cuándo llegas a un job o proyecto libre. Solo se usa mientras tienes el Time Tracker
+            abierto — nunca en segundo plano ni fuera de esta pantalla — y solo para
+            iniciar/sugerir el reloj, no para rastrear tu recorrido.
+          </p>
           <OptionCard<ProximityCheckInMode> options={PROXIMITY_OPTIONS} value={proximityMode} onChange={setProximityMode} />
         </Section>
       </HtmlInCanvasPanel>

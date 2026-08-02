@@ -62,9 +62,19 @@ function createRepoStub(overrides: Partial<Record<string, unknown>> = {}) {
   return repo;
 }
 
-function createService(overrides: Partial<Record<string, unknown>> = {}) {
+function createAdminServiceStub(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    async getSettings(..._args: unknown[]) {
+      return { proximity: { radiusMeters: 150, cooldownMinutes: 20 } };
+    },
+    ...overrides,
+  };
+}
+
+function createService(overrides: Partial<Record<string, unknown>> = {}, adminOverrides: Partial<Record<string, unknown>> = {}) {
   const repo = createRepoStub(overrides);
-  const service = new LaborEngineService(repo as never);
+  const adminService = createAdminServiceStub(adminOverrides);
+  const service = new LaborEngineService(repo as never, adminService as never);
   return { service, repo };
 }
 
@@ -489,4 +499,24 @@ void test("createManualEntry without checkIn omits all check-in fields", async (
   const payload = createCall!.args[0] as Record<string, unknown>;
   assert.equal(payload.checkInLatitude, undefined);
   assert.equal(payload.checkInMethod, undefined);
+});
+
+void test("getProximityConfig returns the tenant's configured radius/cooldown", async () => {
+  const { service } = createService({}, {
+    async getSettings() {
+      return { proximity: { radiusMeters: 300, cooldownMinutes: 45 } };
+    },
+  });
+
+  const config = await service.getProximityConfig("tnt");
+
+  assert.deepEqual(config, { radiusMeters: 300, cooldownMinutes: 45 });
+});
+
+void test("getProximityConfig falls back to schema defaults for a tenant with no custom settings", async () => {
+  const { service } = createService();
+
+  const config = await service.getProximityConfig("tnt");
+
+  assert.deepEqual(config, { radiusMeters: 150, cooldownMinutes: 20 });
 });

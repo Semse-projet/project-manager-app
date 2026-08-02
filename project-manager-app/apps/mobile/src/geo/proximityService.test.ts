@@ -2,7 +2,7 @@ import { evaluateLocation } from "./proximityService";
 import { startTimer } from "../api/labor";
 import { presentProximityNotification } from "../notifications/notifications";
 import { isCoolingDown, markCooldown } from "./cooldownStore";
-import { loadProximityMode, loadSites, type ProximitySite } from "./siteCache";
+import { loadProximityConfig, loadProximityMode, loadSites, type ProximitySite } from "./siteCache";
 
 jest.mock("../api/labor", () => ({ startTimer: jest.fn() }));
 jest.mock("../notifications/notifications", () => ({
@@ -10,7 +10,7 @@ jest.mock("../notifications/notifications", () => ({
   PROXIMITY_CATEGORY: "proximity-checkin",
 }));
 jest.mock("./cooldownStore", () => ({ isCoolingDown: jest.fn(), markCooldown: jest.fn() }));
-jest.mock("./siteCache", () => ({ loadProximityMode: jest.fn(), loadSites: jest.fn() }));
+jest.mock("./siteCache", () => ({ loadProximityMode: jest.fn(), loadSites: jest.fn(), loadProximityConfig: jest.fn() }));
 
 const NEARBY_JOB: ProximitySite = { kind: "job", id: "job-1", name: "Casa Pérez", latitude: 19.4326, longitude: -99.1332 };
 const FAR_FREE_PROJECT: ProximitySite = { kind: "free", id: "free-1", name: "Remodelación propia", latitude: 40.7128, longitude: -74.006 };
@@ -19,6 +19,7 @@ const HERE = { latitude: 19.4326, longitude: -99.1332 }; // same point as NEARBY
 beforeEach(() => {
   jest.clearAllMocks();
   (isCoolingDown as jest.Mock).mockResolvedValue(false);
+  (loadProximityConfig as jest.Mock).mockResolvedValue({ radiusMeters: 150, cooldownMinutes: 20 });
 });
 
 it("does nothing for an invalid coordinate", async () => {

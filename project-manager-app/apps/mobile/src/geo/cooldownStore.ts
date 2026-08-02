@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const COOLDOWN_KEY = "semse.proximity.cooldowns";
-/** Don't re-prompt for the same site right after a dismiss/start, or while lingering inside the radius. */
-const COOLDOWN_MS = 20 * 60 * 1000;
+/** Fallback used only if the caller doesn't pass the org-configured value. */
+const DEFAULT_COOLDOWN_MINUTES = 20;
 
 async function readCooldowns(): Promise<Record<string, number>> {
   const raw = await AsyncStorage.getItem(COOLDOWN_KEY);
@@ -14,10 +14,13 @@ async function readCooldowns(): Promise<Record<string, number>> {
   }
 }
 
-export async function isCoolingDown(siteKey: string): Promise<boolean> {
+/** Don't re-prompt for the same site right after a dismiss/start, or while
+ * lingering inside the radius — `cooldownMinutes` comes from the org's
+ * configured proximity settings (see siteCache.loadProximityConfig). */
+export async function isCoolingDown(siteKey: string, cooldownMinutes: number = DEFAULT_COOLDOWN_MINUTES): Promise<boolean> {
   const cooldowns = await readCooldowns();
   const at = cooldowns[siteKey];
-  return typeof at === "number" && Date.now() - at < COOLDOWN_MS;
+  return typeof at === "number" && Date.now() - at < cooldownMinutes * 60 * 1000;
 }
 
 export async function markCooldown(siteKey: string): Promise<void> {
