@@ -1,9 +1,10 @@
-# ADR-022 — SEMSE Browser Agent & Web Operator: Plataforma de navegación y operación web gobernada basada en Obscura, Playwright e Intervención Humana
+# ADR-024 — SEMSE Browser Agent & Web Operator: Plataforma de navegación y operación web gobernada basada en Obscura, Playwright e Intervención Humana
 
 **Estado:** PROPOSED
 **Fecha:** 2026-07-14
+**Renumerado 2026-08-02:** este ADR se creó originalmente como "ADR-022", en colisión con `ADR-022-transactional-outbox-bullmq.md` (ACCEPTED, referenciado desde 2026-07-12 por ROADMAP.md y los specs de event-backbone). Se renumeró a ADR-024 por ser el más nuevo y el que aún no salió de PROPOSED; el contenido no cambió.
 **Contexto de origen:** Tesis reforzada sobre la absorción de capacidades de Obscura como motor especializado dentro de una plataforma gobernada y multi-motor para SEMSEproject.
-**Ubicación sugerida en repo:** `project-manager-app/docs/architecture/ADR-022-browser-agent-obscura.md`
+**Ubicación sugerida en repo:** `project-manager-app/docs/architecture/ADR-024-browser-agent-obscura.md`
 **Relacionado con:** 
 - [ADR-021 — Anatomía del Agente SEMSE](file:///home/yoni/labsemse/project-manager-app/docs/architecture/ADR-021-anatomia-agente-semse.md)
 - [Arquitectura de Agentes SEMSE OS](file:///home/yoni/labsemse/project-manager-app/docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md)

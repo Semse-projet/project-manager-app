@@ -12,7 +12,7 @@
 > `DRAFT` y requieren su propio sign-off antes de `APPROVED` — aceptar esta
 > ADR no aprueba automáticamente sus specs hijos.
 **Contexto de origen:** sesión de diseño conversacional sobre una "arquitectura agéntica" (SEMSE Workspace OS / Prometeo Core / Agent Runtime / Business Kernel / Tool & MCP Layer / Model Gateway / Memory System) aterrizada contra el código real de `project-manager-app`.
-**Relacionado con:** `docs/architecture/CURRENT_ARCHITECTURE.md`, `docs/architecture/ADR-021-anatomia-agente-semse.md`, `docs/architecture/ADR-022-browser-agent-obscura.md`, `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md`, `ROADMAP.md`
+**Relacionado con:** `docs/architecture/CURRENT_ARCHITECTURE.md`, `docs/architecture/ADR-021-anatomia-agente-semse.md`, `docs/architecture/ADR-024-browser-agent-obscura.md`, `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md`, `ROADMAP.md`
 
 ---
 
@@ -52,7 +52,7 @@ repositorio real mostró que:
 4. `MCP` (Model Context Protocol) fue evaluado y descartado explícitamente
    para el tool-calling interno de Prometeo
    (`docs/specs/ui/prometeo-multimodal-workspace.spec.md`), pero
-   `ADR-022-browser-agent-obscura.md` **ya planeaba** un "MCP Gateway" para
+   `ADR-024-browser-agent-obscura.md` **ya planeaba** un "MCP Gateway" para
    exponer herramientas externas al agente de navegador Obscura — nunca
    construido. Es la misma pieza pendiente que un "CLI Agent Adapter"
    (Codex CLI / Claude CLI como tool nodes), no dos decisiones distintas.
@@ -107,7 +107,7 @@ una fase futura si hay necesidad de negocio real):
 | Prometeo Core | Prometeo Runtime + capa de persona/orquestación (Sistema B) | `ai-models/orchestrator/prometeo-orchestrator.service.ts`, `prometeo/prometeo.service.ts` |
 | Business Kernel | Módulos de dominio (`jobs`, `projects`, `milestones`, `payments`, `evidence`, `disputes`, `contracts`, ...) | `apps/api/src/modules/*` |
 | Agent Runtime | `packages/agents` (runtime, registry, governance, delegate, verification) | `packages/agents/src/*` |
-| Tool & MCP Layer | Prometeo Tool Registry (tool-calling nativo) + MCP Gateway planeado (aún no construido) para agentes externos/CLI | `prometeo-tool-registry.ts`, `ADR-022-browser-agent-obscura.md` |
+| Tool & MCP Layer | Prometeo Tool Registry (tool-calling nativo) + MCP Gateway planeado (aún no construido) para agentes externos/CLI | `prometeo-tool-registry.ts`, `ADR-024-browser-agent-obscura.md` |
 | Model Gateway | `AiModelGatewayService` + `LLMOrchestrator` (hoy no unificados — ver §2.3) | `ai-models/gateway/ai-model-gateway.service.ts`, `infrastructure/llm/orchestrator.ts` |
 | Memory System | `agent-memory.service.ts` + `workspace-memory.repository.ts` + RAG de Prometeo | `modules/knowledge/*`, `modules/prometeo/embedding.service.ts` |
 | Context Engine | `context-engine.interface.ts` + `operational-context.service.ts` + `token-budget-engine.ts` | `ai-models/context/*` |
@@ -146,14 +146,14 @@ que **ninguna de las dos es un gap real**:
   validation, shell, storage, repository, controller).
 - El MCP Gateway externo ya está completamente especificado — no construido
   todavía, pero no falta especificarlo — como ítem #12 de
-  `ADR-022-browser-agent-obscura.md` (24 sistemas, `PROPOSED`,
+  `ADR-024-browser-agent-obscura.md` (24 sistemas, `PROPOSED`,
   2026-07-14), con su propio roadmap `OB-00` a `OB-10` y modelos Prisma
   propuestos. Es específico del Browser Agent (Obscura/Playwright), no del
   agente de código — otra razón por la que no era la misma pieza que el CLI
   Agent Adapter.
 
 La acción real pendiente no es escribir `SPEC-INT-001`: es que un humano
-revise y decida sobre `ADR-022` (sigue en `PROPOSED`). Escribir un spec
+revise y decida sobre `ADR-024` (sigue en `PROPOSED`). Escribir un spec
 nuevo aquí habría duplicado ese trabajo ya hecho.
 
 Cada una se especifica y aprueba por separado siguiendo
@@ -216,7 +216,7 @@ no se autoriza como consecuencia implícita de esta ADR.
   como el núcleo irreversible.
 - **Reabrir MCP para el tool-calling interno de Prometeo**: descartado, sigue
   vigente la decisión de `prometeo-multimodal-workspace.spec.md`. MCP solo se
-  retoma para el caso específico ya planeado en `ADR-022` (herramientas
+  retoma para el caso específico ya planeado en `ADR-024` (herramientas
   externas para agentes tipo CLI/browser), vía `SPEC-INT-001`.
 
 ## 6. Specs derivados
@@ -236,8 +236,8 @@ no se autoriza como consecuencia implícita de esta ADR.
 - `SPEC-INT-001` — **descartado** (ver §2.3 ítem 5). No se escribe: el CLI
   Agent Adapter ya existe (`packages/agents/src/developer-runtime.ts` +
   `apps/api/src/modules/developer-runtime/`) y el MCP Gateway externo ya
-  está especificado en `ADR-022-browser-agent-obscura.md` §12. La acción
-  pendiente es revisión/aprobación humana de `ADR-022`, no un spec nuevo.
+  está especificado en `ADR-024-browser-agent-obscura.md` §12. La acción
+  pendiente es revisión/aprobación humana de `ADR-024`, no un spec nuevo.
 - `docs/specs/agents/prometeo-core.spec.md` — spec de la capa de persona/orquestación (Sistema B), adjunto a esta ADR.
 
 Con esto, la cadena de specs derivados de esta ADR queda cerrada: 3 escritos
