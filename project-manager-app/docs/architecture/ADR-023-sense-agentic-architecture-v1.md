@@ -1,7 +1,16 @@
 # ADR-023 — Sense Agentic Architecture v1: reconciliación de vocabulario y capacidades reales pendientes
 
-**Estado:** PROPOSED
+**Estado:** ACCEPTED (actualizado 2026-08-01 — ver nota)
 **Fecha:** 2026-07-31
+
+> **Nota de actualización (2026-08-01):** la decisión de esta ADR (§2:
+> modelo de dos capas, glosario vocabulario↔código, no-rename) ya se aplicó
+> en la práctica en toda la serie de PRs derivados (#494-#507) sin objeción.
+> Se corrige el estado a `ACCEPTED` para la decisión de reconciliación en sí.
+> Esto es independiente del estado de los specs derivados individuales
+> (`SPEC-GTW-001`/`SPEC-GTW-002`/`SPEC-AGT-003`/`SPEC-AGT-004`), que siguen
+> `DRAFT` y requieren su propio sign-off antes de `APPROVED` — aceptar esta
+> ADR no aprueba automáticamente sus specs hijos.
 **Contexto de origen:** sesión de diseño conversacional sobre una "arquitectura agéntica" (SEMSE Workspace OS / Prometeo Core / Agent Runtime / Business Kernel / Tool & MCP Layer / Model Gateway / Memory System) aterrizada contra el código real de `project-manager-app`.
 **Relacionado con:** `docs/architecture/CURRENT_ARCHITECTURE.md`, `docs/architecture/ADR-021-anatomia-agente-semse.md`, `docs/architecture/ADR-022-browser-agent-obscura.md`, `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md`, `ROADMAP.md`
 
