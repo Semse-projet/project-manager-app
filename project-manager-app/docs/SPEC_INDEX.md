@@ -130,7 +130,7 @@ retroactiva.
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-19 |
 | [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-02 |
 | [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | REVIEW | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
-| [ui.admin-modular-navigation](specs/ui/admin-modular-navigation.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-02 |
+| [ui.admin-modular-navigation](specs/ui/admin-modular-navigation.spec.md) | ui | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-08-02 |
 | [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | DRAFT | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
