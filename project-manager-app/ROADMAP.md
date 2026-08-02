@@ -130,7 +130,7 @@ Contrato: [`docs/architecture/ADR-023-sense-agentic-architecture-v1.md`](docs/ar
   spec de F7.
 - `SPEC-INT-001` (CLI Agent Adapter + MCP Gateway externo): retirado — ya
   cubierto por `packages/agents/src/developer-runtime.ts` y por
-  `ADR-022-browser-agent-obscura.md` §12 (pendiente de revisión humana, no
+  `ADR-024-browser-agent-obscura.md` §12 (pendiente de revisión humana, no
   de spec nuevo).
 
 Los cuatro specs escritos siguen `DRAFT`, pendientes de sign-off humano
