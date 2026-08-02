@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAdminSidebarGroups, buildShellNavItems, type ShellNavItem } from "../../apps/web/lib/navigation-shell.ts";
+import { buildShellNavItems, type ShellNavItem } from "../../apps/web/lib/navigation-shell.ts";
 
 function icon() {
   return null;
@@ -15,22 +15,7 @@ const adminItems: ShellNavItem[] = [
   { labelKey: "nav.settings", href: "/admin/settings", icon },
 ];
 
-test("admin sidebar groups routes by OS instead of a flat list", () => {
-  const groups = buildAdminSidebarGroups(adminItems);
-
-  assert.deepEqual(
-    groups.map((group) => group.key),
-    ["mission-control", "operations", "marketplace", "governance", "ai", "system"],
-  );
-  assert.equal(groups.find((group) => group.key === "mission-control")?.items.length, 1);
-  assert.equal(groups.find((group) => group.key === "operations")?.items.length, 1);
-  assert.equal(groups.find((group) => group.key === "marketplace")?.items.length, 1);
-  assert.equal(groups.find((group) => group.key === "governance")?.items.length, 1);
-  assert.equal(groups.find((group) => group.key === "ai")?.items.length, 1);
-  assert.equal(groups.find((group) => group.key === "system")?.items.length, 1);
-});
-
-test("admin shell nav items render grouped nodes", () => {
+test("admin shell nav items render as a flat list, same shape as worker/client", () => {
   const navItems = buildShellNavItems({
     role: "admin",
     items: adminItems,
@@ -39,9 +24,10 @@ test("admin shell nav items render grouped nodes", () => {
     t: (key) => key,
   });
 
-  assert.equal(navItems.length, 6);
-  assert.ok(navItems.every((item) => "items" in item), "grouped admin nav should expose grouped data");
-  assert.equal(navItems[1].label, "os.operations");
+  assert.equal(navItems.length, adminItems.length);
+  assert.ok(navItems.every((item) => "href" in item && "active" in item), "admin nav should be flat ShellNavLink entries, not grouped");
+  assert.equal(navItems[1].label, "nav.operations");
+  assert.equal(navItems[1].active, true);
 });
 
 test("non-admin shell nav items remain flat", () => {
