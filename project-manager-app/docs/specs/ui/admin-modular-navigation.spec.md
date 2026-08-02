@@ -4,17 +4,18 @@ title: "Admin Modular Navigation (SDD Kit Epic A/B/C)"
 domain: "ui"
 sdd_version: "2.0"
 version: "1.0"
-status: "IMPLEMENTED"
+status: "VERIFIED"
 owner: "semse-core"
 risk: "medium"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
+activation_status: "ACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - "2026-08-02: sidebar de Admin en producción (app.semseproject.com, sesión OPS_ADMIN real) confirmado como lista plana de 9 módulos + 5 quick-links, sin headers de grupo — visto en /admin/settings, /admin/disputes y /admin/users tras el deploy de PR #513 (commit adbb6716)."
 related_files:
   - apps/web/lib/admin/admin-navigation.ts
   - apps/web/app/(app)/layout.tsx
@@ -129,10 +130,10 @@ layout ya protegido por `middleware.ts` para rutas `/admin/*` (rol `admin`).
 ## 9. Tests requeridos
 
 - [x] `tests/unit/navigation-shell.test.ts` — `buildShellNavItems({ role: "admin", ... })` devuelve una lista plana de `ShellNavLink[]`, mismo shape que worker/client.
-- [ ] Verificación visual en vivo (Playwright) del sidebar de Admin en
-      desktop y mobile — no realizada en esta sesión (requiere stack local
-      completo: Postgres, Redis, API, seed). Queda pendiente para una sesión
-      con ese stack disponible.
+- [x] Verificación visual en vivo del sidebar de Admin en producción
+      (2026-08-02, sesión OPS_ADMIN real vía app.semseproject.com, no
+      Playwright/local) — confirmado el sidebar plano de 9 módulos sin
+      headers de grupo, en varias rutas de Admin distintas.
 
 ## 10. Mapa de implementación
 
@@ -155,6 +156,6 @@ layout ya protegido por `middleware.ts` para rutas `/admin/*` (rol `admin`).
 - [x] `pnpm test:unit` (suite completa) verde
 - [x] TypeScript (`apps/web`) sin errores nuevos
 - [x] Build web (`next build`) limpio
-- [ ] Verificación visual en vivo (Playwright) — pendiente, ver sección 9
-- [ ] PR fusionado y SHA registrado
-- [ ] `status: VERIFIED` — solo después de la verificación visual en vivo
+- [x] Verificación visual en vivo — ver sección 9
+- [x] PR fusionado y SHA registrado — PR #513, commit `adbb6716874f30eaef03f2f20ecbbca068835cba`
+- [x] `status: VERIFIED`
