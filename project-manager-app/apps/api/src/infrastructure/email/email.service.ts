@@ -22,17 +22,27 @@ import { SemseLoggerService } from "../observability/semse-logger.service.js";
  * a real failure, not swallow it, so the gap is visible instead of
  * silently repeating the original bug.
  */
+/** Resend's default onboarding sender — issued automatically before any
+ * custom domain is verified. In that state Resend's API returns a normal
+ * success response for ANY recipient, but only actually delivers to the
+ * email address of the account that owns the API key; every other
+ * recipient silently gets nothing, with no error field to catch. This is
+ * indistinguishable from a real send by inspecting the API response alone. */
+const RESEND_SANDBOX_DOMAIN = "resend.dev";
+
 @Injectable()
 export class EmailService {
   private readonly resend: Resend | null;
   private readonly gmail: Transporter | null;
   private readonly from: string;
   private readonly gmailFrom: string;
+  private readonly resendUsable: boolean;
 
   constructor(private readonly logger: SemseLoggerService) {
     const apiKey = process.env.RESEND_API_KEY?.trim();
     this.resend = apiKey ? new Resend(apiKey) : null;
     this.from = process.env.EMAIL_FROM?.trim() || "SEMSE <no-reply@semseproject.com>";
+    this.resendUsable = this.resend !== null && !this.from.includes(RESEND_SANDBOX_DOMAIN);
 
     const gmailUser = process.env.GMAIL_USER?.trim();
     const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.trim();
@@ -46,26 +56,30 @@ export class EmailService {
 
     this.logger.info("email.providers configured", {
       resend: this.resend !== null,
+      resendUsable: this.resendUsable,
       gmail: this.gmail !== null,
       from: this.from,
     });
-    if (!this.resend && !this.gmail) {
+    if (this.resend && !this.resendUsable) {
+      this.logger.warn("email.providers resend is on the sandbox domain (resend.dev) — it will only deliver to the API key owner, so it's skipped in favor of Gmail until a real domain is verified and EMAIL_FROM is updated", { from: this.from });
+    }
+    if (!this.resendUsable && !this.gmail) {
       this.logger.warn("email.providers none configured — outgoing emails will not be sent");
     }
   }
 
   get isConfigured(): boolean {
-    return this.resend !== null || this.gmail !== null;
+    return this.resendUsable || this.gmail !== null;
   }
 
   async send(input: { to: string; subject: string; html: string; text?: string }): Promise<{ sent: boolean; error?: string }> {
-    if (!this.resend && !this.gmail) {
+    if (!this.resendUsable && !this.gmail) {
       this.logger.warn("email.send skipped — provider not configured", { subject: input.subject, to: input.to });
-      return { sent: false, error: "Email provider not configured (RESEND_API_KEY / GMAIL_USER+GMAIL_APP_PASSWORD missing)" };
+      return { sent: false, error: "Email provider not configured (RESEND_API_KEY needs a verified non-sandbox domain, or GMAIL_USER+GMAIL_APP_PASSWORD missing)" };
     }
 
     let resendError: string | undefined;
-    if (this.resend) {
+    if (this.resend && this.resendUsable) {
       try {
         const result = await this.resend.emails.send({
           from: this.from,
@@ -78,6 +92,7 @@ export class EmailService {
           resendError = result.error.message;
           this.logger.error("email.send resend rejected", { to: input.to, error: resendError });
         } else {
+          this.logger.info("email.send delivered via resend", { to: input.to });
           return { sent: true };
         }
       } catch (error) {
