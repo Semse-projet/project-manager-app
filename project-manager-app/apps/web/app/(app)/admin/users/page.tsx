@@ -53,9 +53,18 @@ const ROLE_CONFIG: Record<UserRole, { label: string; color: string }> = {
   admin:  { label: "Operaciones",  color: "#f59e0b"      },
 };
 
+// Todos los IDs de este schema son cuid() de Prisma: "c" + ~24 caracteres
+// alfanuméricos en minúscula, sin espacios. Si un `org.name` calza con ese
+// patrón es casi seguro un dato corrupto/de seed (el ID quedó guardado donde
+// debía ir el nombre real), no un nombre de organización legítimo — mostrarlo
+// tal cual es exactamente el bug de "IDs crudos en vez de nombres" (ver
+// AUDIT_REMEDIATION_PLAN.md 3.46/G-ADM-05). Mejor caer al nombre derivado del
+// email que mostrar el ID.
+const RAW_CUID_PATTERN = /^c[a-z0-9]{20,}$/;
+
 function deriveDisplayName(user: UserView, memberships: UserMembershipView[]): string {
   const primaryOrgName = memberships[0]?.org?.name?.trim();
-  if (primaryOrgName) {
+  if (primaryOrgName && !RAW_CUID_PATTERN.test(primaryOrgName)) {
     return primaryOrgName;
   }
 
