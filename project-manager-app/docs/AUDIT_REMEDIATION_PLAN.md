@@ -292,6 +292,21 @@
 - **Hallazgo adicional en la misma pantalla (UX/confirmación), ver también 3.2:** el botón "Liberar" del panel de escrow disparaba la liberación real de fondos con un solo clic, sin ningún paso de confirmación — a diferencia del botón "Reembolsar" en la misma pantalla, que sí abre un formulario con monto/razón antes de confirmar. Se agregó el mismo patrón de confirmación explícita a "Liberar". Además, los botones de aprobar/rechazar gasto y enviar/cobrar factura en esa misma pantalla ignoraban el resultado de la petición (`.catch(() => null)`, sin ningún error visible) — un fallo real quedaba indistinguible de un éxito; ahora cada fila muestra el error real si la acción falla.
 - **Estado:** [x] Corregido (Crew G, 2026-07-21). Validado: `@semse/api` typecheck limpio, suite completa de tests (104 tests dirigidos a payments/finance/escrow + suite completa 1984/1985, único fallo el preexistente no relacionado de `graphify.service.test.ts`) en verde. **No probado en vivo** — no hay credencial OPS_ADMIN ni sandbox de Stripe en esta sesión; el escenario exacto (depósito fallido seguido de intento de liberación) tampoco tiene un test unitario nuevo que lo reproduzca end-to-end, solo se corrigió por lectura de código contra el patrón ya correcto de `refundFunds`. Recomendado: agregar ese test de regresión específico antes de dar esto por cerrado del todo.
 
+**Cierre de la pasada de verificación en vivo de Sección 0 (2026-08-02):** se probaron contra producción real solo los ítems donde el peor caso de un fix roto seguía siendo de bajo riesgo (una petición rechazada, no datos reales expuestos ni dinero movido):
+
+- **0.1** — confirmado con `curl` (headers `x-semse-*` falsos + `x-semse-roles: OPS_ADMIN`, sin cookie) → `401`.
+- **0.2** — confirmado: `SEMSE_BOOTSTRAP_TOKEN` está configurado en Railway en `semse-API` y `semse-web` (chequeo por nombre de variable, no valor), y el código ya falla cerrado si faltara en producción.
+- **0.10** — confirmado, y de paso se encontró y arregló un incidente real: `VISION_SERVICE_API_KEY` nunca se había configurado, dejando el análisis de evidencia roto desde el 2026-07-22. Generada y seteada la key en ambos servicios, redeploy automático confirmado, re-verificado con `curl`.
+- **0.21** — mismo hallazgo que G-ADM-07 (idéntico archivo/texto), ya confirmado hoy en la pasada de Admin.
+
+**Deliberadamente no probado en vivo hoy — requiere datos de prueba reales o un entorno de staging, no solo cautela:**
+- **0.4, 0.5, 0.6, 0.7, 0.8** (IDOR/cross-tenant) — probarlos de verdad significa intentar leer/escribir datos de un tenant ajeno con IDs reales; sin un segundo tenant de prueba armado a propósito, el único resultado posible de un intento así contra producción es "no encontré nada" (inconclusivo) o, si el fix estuviera roto, exponer datos reales de otro tenant — ninguno de los dos vale el riesgo sin ese setup.
+- **0.3** (revocación de sesión/token) — necesita manipular tokens de sesión reales entre dos requests, no es un curl de un solo tiro.
+- **0.9** (verificación DID de worker) — ya documentado como stub sin resolver (decisión de producto pendiente), no hay nada que verificar en vivo todavía.
+- **0.11** (SSRF guard) — el mecanismo real (`_assert_safe_url`, resolución de hostname/IP) ya estaba bien antes de este fix; el bug era solo el atajo `"localhost" in url`, ya corregido y confirmado por lectura de código (usa `urlparse().hostname`, comparación exacta). Un test en vivo requeriría craftear URLs contra infraestructura interna real — no se intentó.
+- **0.12–0.17** (dinero: estado de transacción, webhooks de Stripe, escrow, payouts) — probar esto en vivo significa mover dinero real o simular eventos de un proveedor de pagos real. Fuera de alcance sin un sandbox de Stripe dedicado.
+- **0.18** (Forge policy), **0.19–0.20** (labor engine), **0.22** (race conditions en sweeps) — necesitan disparar flujos internos específicos (tasks de Forge, entradas de tiempo cronometradas, requests concurrentes) que no son un curl simple; quedan con la confirmación de código ya documentada en cada ítem.
+
 ---
 
 ## Sección 1 — Módulo Cliente (auditado completo, código + en vivo, 2026-07-20)
