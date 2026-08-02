@@ -85,13 +85,19 @@ type MultipartSessionView = UploadPlanView & {
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 
+// Claves alineadas al enum real `DisputeStatus` de Prisma (OPEN/ASSIGNED/
+// UNDER_REVIEW/RESOLVED/REJECTED, todo mayúsculas) — las claves en minúscula
+// que tenía antes (incluyendo "opened"/"escalated"/"closed"/"pending", que ni
+// siquiera existen como valores del enum) nunca calzaban con los datos reales
+// del backend, dejando cada badge en el fallback `label: d.status` (mostraba
+// "OPEN" crudo en vez de "Abierta") y los 3 conteos de KPI en cero. Ver
+// AUDIT_REMEDIATION_PLAN.md 3.45.
 const STATUS_CONFIG: Record<string, { variant: "error" | "warning" | "success" | "neutral" | "info"; label: string }> = {
-  escalated: { variant: "error",   label: "Escalada"  },
-  open:      { variant: "warning", label: "Abierta"   },
-  opened:    { variant: "warning", label: "Abierta"   },
-  resolved:  { variant: "success", label: "Resuelta"  },
-  pending:   { variant: "neutral", label: "Pendiente" },
-  closed:    { variant: "neutral", label: "Cerrada"   },
+  OPEN:         { variant: "warning", label: "Abierta"          },
+  ASSIGNED:     { variant: "error",   label: "Escalada"         },
+  UNDER_REVIEW: { variant: "error",   label: "En revisión"      },
+  RESOLVED:     { variant: "success", label: "Resuelta"         },
+  REJECTED:     { variant: "neutral", label: "Rechazada"        },
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -160,7 +166,7 @@ export default function AdminDisputesPage() {
       void fetchPendingApprovals().then(setPendingApprovals).catch(() => {});
       void Promise.all(
         rows
-          .filter(r => r.status !== "resolved" && r.status !== "closed")
+          .filter(r => r.status !== "RESOLVED" && r.status !== "REJECTED")
           .slice(0, 12)
           .map(async (r) => {
             try {
@@ -214,8 +220,8 @@ export default function AdminDisputesPage() {
 
   const filtered = useMemo(() => {
     return disputes.filter(d => {
-      if (tab === "open")     { if (d.status === "resolved" || d.status === "closed") return false; }
-      if (tab === "resolved") { if (d.status !== "resolved" && d.status !== "closed") return false; }
+      if (tab === "open")     { if (d.status === "RESOLVED" || d.status === "REJECTED") return false; }
+      if (tab === "resolved") { if (d.status !== "RESOLVED" && d.status !== "REJECTED") return false; }
       if (priorityFilter === "pending_approval") return disputeIdsWithPendingApproval.has(d.id);
       if (priorityFilter === "with_comments")    return (commentCounts[d.id] ?? 0) > 0;
       return true;
@@ -267,7 +273,7 @@ export default function AdminDisputesPage() {
         return;
       }
       setDisputes(prev =>
-        prev.map(d => d.id === targetId ? { ...d, status: "resolved", resolution: resolution.trim() } : d)
+        prev.map(d => d.id === targetId ? { ...d, status: "RESOLVED", resolution: resolution.trim() } : d)
       );
       setCustomResolution("");
 
@@ -374,7 +380,7 @@ export default function AdminDisputesPage() {
       id: raw.id,
       projectId: raw.jobId ?? raw.id,
       reason: raw.reason,
-      status: (raw.status === "resolved" || raw.status === "closed" ? "resolved" : raw.status === "escalated" ? "assigned" : "open") as "open" | "assigned" | "resolved",
+      status: (raw.status === "RESOLVED" || raw.status === "REJECTED" ? "resolved" : raw.status === "ASSIGNED" || raw.status === "UNDER_REVIEW" ? "assigned" : "open") as "open" | "assigned" | "resolved",
       resolution: raw.resolution,
       jobId: raw.jobId,
       jobTitle: raw.jobTitle ?? `Disputa #${raw.id.slice(0, 8)}`,
@@ -408,9 +414,9 @@ export default function AdminDisputesPage() {
   };
 
   // Derive KPIs from real data
-  const openCount      = disputes.filter(d => d.status === "open" || d.status === "opened").length;
-  const escalatedCount = disputes.filter(d => d.status === "escalated").length;
-  const resolvedCount  = disputes.filter(d => d.status === "resolved" || d.status === "closed").length;
+  const openCount      = disputes.filter(d => d.status === "OPEN").length;
+  const escalatedCount = disputes.filter(d => d.status === "ASSIGNED" || d.status === "UNDER_REVIEW").length;
+  const resolvedCount  = disputes.filter(d => d.status === "RESOLVED" || d.status === "REJECTED").length;
   const totalAmount    = disputes.reduce((a, d) => a + (d.amount ?? 0), 0);
 
   return (
