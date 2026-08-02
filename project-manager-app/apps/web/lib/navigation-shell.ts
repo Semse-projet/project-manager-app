@@ -19,102 +19,16 @@ export interface ShellNavLink {
   section?: string;
 }
 
-export interface AdminNavGroup {
-  key: string;
-  labelKey: string;
-  items: ShellNavItem[];
-}
-
-const ADMIN_GROUP_ORDER: Array<{ key: AdminNavGroup["key"]; labelKey: AdminNavGroup["labelKey"] }> = [
-  { key: "mission-control", labelKey: "os.missionControl" },
-  { key: "operations", labelKey: "os.operations" },
-  { key: "marketplace", labelKey: "os.marketplace" },
-  { key: "governance", labelKey: "os.governance" },
-  { key: "ai", labelKey: "os.ai" },
-  { key: "system", labelKey: "os.system" },
-];
-
-function adminGroupForHref(href: string): AdminNavGroup["key"] {
-  if (href === "/admin/dashboard" || href === "/admin/mission-control") return "mission-control";
-  if (href === "/admin/ai-mission-control" || href === "/admin/intelligence") return "ai";
-  if (
-    href.startsWith("/admin/ops") ||
-    href === "/admin/workops" ||
-    href === "/admin/field-ops" ||
-    href === "/admin/communications" ||
-    href === "/admin/domain-events" ||
-    href === "/admin/reports" ||
-    href === "/admin/coordinator"
-  ) {
-    return "operations";
-  }
-  if (
-    href === "/admin/marketplace" ||
-    href === "/admin/contractors" ||
-    href === "/buildops" ||
-    href === "/tools"
-  ) {
-    return "marketplace";
-  }
-  if (
-    href === "/admin/trust" ||
-    href === "/admin/disputes" ||
-    href === "/admin/compliance" ||
-    href === "/admin/finance" ||
-    href === "/admin/governance" ||
-    href === "/admin/qa"
-  ) {
-    return "governance";
-  }
-  if (
-    href === "/agents" ||
-    href === "/admin/agents" ||
-    href === "/admin/autonomy" ||
-    href === "/admin/developer-runtime" ||
-    href === "/admin/algorithm-engine" ||
-    href === "/admin/consciousness" ||
-    href === "/admin/ecosystem" ||
-    href === "/admin/tool-hub" ||
-    href === "/admin/llm-metrics" ||
-    href === "/admin/pmo" ||
-    href === "/admin/semse-x" ||
-    href === "/admin/memory" ||
-    href === "/admin/prometeo"
-  ) {
-    return "ai";
-  }
-  if (href === "/admin/verticals") return "system";
-  return "system";
-}
-
-export function buildAdminSidebarGroups(items: ShellNavItem[]): AdminNavGroup[] {
-  const grouped = new Map<AdminNavGroup["key"], ShellNavItem[]>();
-  for (const item of items) {
-    const key = adminGroupForHref(item.href);
-    const bucket = grouped.get(key);
-    if (bucket) bucket.push(item);
-    else grouped.set(key, [item]);
-  }
-
-  return ADMIN_GROUP_ORDER.map((group) => ({
-    key: group.key,
-    labelKey: group.labelKey,
-    items: grouped.get(group.key) ?? [],
-  })).filter((group) => group.items.length > 0);
-}
-
 /**
  * Whether `items[idx]` starts a new visually-grouped section — i.e. it
  * declares a `section` different from the previous item's. Shared by the
  * two nav renderers that group by the raw `section` field (mobile Sidebar,
- * desktop AppShell for worker/client) so the "new section" boundary logic
- * lives in one place instead of two copies of the same ternary.
- *
- * The desktop AppShell admin renderer does NOT use this — it groups via
- * `buildAdminSidebarGroups`/`adminGroupForHref` instead, a separate
- * grouping keyed off href rather than the declared `section` field. See
- * AUDIT_REMEDIATION_PLAN.md 1.17 for why these two grouping systems for
- * admin (mobile vs desktop) aren't the same and haven't been unified.
+ * desktop AppShell) so the "new section" boundary logic lives in one place
+ * instead of two copies of the same ternary. All three roles (worker,
+ * client, admin) go through this now — admin used to group via a separate
+ * href-keyed taxonomy (`buildAdminSidebarGroups`/`adminGroupForHref`); see
+ * AUDIT_REMEDIATION_PLAN.md 1.17 for why that was retired in favor of a flat
+ * list derived from `ADMIN_MODULES`.
  */
 export function isNewNavSection(items: Array<{ section?: string }>, idx: number): boolean {
   const current = items[idx];
@@ -124,9 +38,7 @@ export function isNewNavSection(items: Array<{ section?: string }>, idx: number)
 }
 
 export function buildShellNavItems({
-  role,
   items,
-  collapsed,
   pathname,
   t,
 }: {
@@ -135,33 +47,20 @@ export function buildShellNavItems({
   collapsed: boolean;
   pathname: string;
   t: (key: string) => string;
-}): Array<ShellNavLink | AdminNavGroup> {
-  if (role !== "admin") {
-    return items.map((item) => {
-      const Icon = item.icon;
-      const active = pathname.startsWith(item.href);
-      const label = t(item.labelKey);
+}): ShellNavLink[] {
+  return items.map((item) => {
+    const Icon = item.icon;
+    const active = pathname.startsWith(item.href);
+    const label = t(item.labelKey);
 
-      return {
-        key: item.href,
-        labelKey: item.labelKey,
-        label,
-        href: item.href,
-        active,
-        icon: Icon,
-        section: item.section,
-      };
-    });
-  }
-
-  const groups = buildAdminSidebarGroups(items);
-  return groups.map((group) => ({
-    ...group,
-    label: t(group.labelKey),
-    items: group.items.map((item) => ({
-      ...item,
-      label: t(item.labelKey),
-      active: pathname.startsWith(item.href),
-    })),
-  }));
+    return {
+      key: item.href,
+      labelKey: item.labelKey,
+      label,
+      href: item.href,
+      active,
+      icon: Icon,
+      section: item.section,
+    };
+  });
 }
