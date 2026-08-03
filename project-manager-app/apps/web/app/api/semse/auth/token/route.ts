@@ -10,7 +10,12 @@ import { resolveSafeRedirectPath } from "@/lib/safe-redirect";
 
 const TTL_SECONDS = 8 * 60 * 60;
 const LOGIN_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const LOGIN_RATE_LIMIT_MAX = 5;
+// Separate budgets per key: an email is one account (keep it tight — this is the
+// brute-force surface), while an IP can be a whole office, a NAT, or one person
+// retrying a password they mistyped. Sharing a single budget meant exhausting the
+// IP bucket locked out every account reachable from that connection.
+const LOGIN_RATE_LIMIT_MAX_EMAIL = 10;
+const LOGIN_RATE_LIMIT_MAX_IP = 30;
 const GENERIC_LOGIN_ERROR = "No se pudo iniciar sesión con esas credenciales";
 const DEMO_LOGIN_ENABLED =
   process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
@@ -72,15 +77,15 @@ function consumeLoginAttempt(req: NextRequest, email: string): { limited: boolea
     }
   }
 
-  const keys = [
-    `ip:${getClientIp(req)}`,
-    `email:${email.toLowerCase().trim()}`,
+  const limits = [
+    { key: `ip:${getClientIp(req)}`, max: LOGIN_RATE_LIMIT_MAX_IP },
+    { key: `email:${email.toLowerCase().trim()}`, max: LOGIN_RATE_LIMIT_MAX_EMAIL },
   ];
 
   let retryAfterSeconds = 0;
-  for (const key of keys) {
+  for (const { key, max } of limits) {
     const bucket = loginRateLimitBuckets.get(key);
-    if (bucket && bucket.count >= LOGIN_RATE_LIMIT_MAX && bucket.resetAt > now) {
+    if (bucket && bucket.count >= max && bucket.resetAt > now) {
       retryAfterSeconds = Math.max(retryAfterSeconds, Math.ceil((bucket.resetAt - now) / 1000));
     }
   }
@@ -89,7 +94,7 @@ function consumeLoginAttempt(req: NextRequest, email: string): { limited: boolea
     return { limited: true, retryAfterSeconds };
   }
 
-  for (const key of keys) {
+  for (const { key } of limits) {
     const bucket = loginRateLimitBuckets.get(key);
     if (!bucket || bucket.resetAt <= now) {
       loginRateLimitBuckets.set(key, { count: 1, resetAt: now + LOGIN_RATE_LIMIT_WINDOW_MS });
