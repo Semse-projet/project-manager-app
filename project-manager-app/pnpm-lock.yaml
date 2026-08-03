@@ -771,6 +771,9 @@ importers:
       pino:
         specifier: ^9.6.0
         version: 9.14.0
+      playwright:
+        specifier: ^1.61.1
+        version: 1.61.1
 
   packages/agents:
     dependencies:
@@ -806,6 +809,9 @@ importers:
       '@semse/shared':
         specifier: workspace:*
         version: link:../shared
+      playwright:
+        specifier: ^1.61.1
+        version: 1.61.1
     devDependencies:
       typescript:
         specifier: ^5.8.2

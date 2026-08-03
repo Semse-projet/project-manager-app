@@ -15,7 +15,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@semse/shared": "workspace:*"
+    "@semse/shared": "workspace:*",
+    "playwright": "^1.61.1"
   },
   "devDependencies": {
     "typescript": "^5.8.2"
