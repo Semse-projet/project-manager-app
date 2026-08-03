@@ -175,6 +175,137 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
   },
 };
 
+// Shared nav-content building blocks — used by both the mobile `Sidebar`
+// drawer and the desktop `AppShell` renderer in `AppLayoutInner` below, so
+// there is exactly one implementation of what a brand block / section
+// header / nav link / sign-out footer looks like. See
+// AUDIT_REMEDIATION_PLAN.md 1.17 for why these used to be two separate,
+// visually-diverging implementations (inline styles vs Tailwind classes).
+function NavBrand({
+  nav,
+  RoleIcon,
+  collapsed,
+  mobile,
+}: {
+  nav: (typeof NAV)[NavRole];
+  RoleIcon: typeof HardHat;
+  collapsed: boolean;
+  mobile?: boolean;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div
+        style={{
+          width: "28px",
+          height: "28px",
+          borderRadius: "8px",
+          background: nav.color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <RoleIcon size={15} color="#ecfffb" />
+      </div>
+      {(!collapsed || mobile) && (
+        <div>
+          <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
+          <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavSignOutFooter({ collapsed }: { collapsed: boolean }) {
+  const { t } = useLanguage();
+  if (collapsed) return null;
+  return (
+    <a
+      href="/logout"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "8px 10px",
+        borderRadius: "8px",
+        textDecoration: "none",
+        color: "var(--muted)",
+        fontSize: "13px",
+        fontWeight: 500,
+      }}
+    >
+      <LogOut size={15} />
+      {t("ui.signOut")}
+    </a>
+  );
+}
+
+function NavSectionHeader({ label, first }: { label: string; first: boolean }) {
+  return (
+    <div
+      style={{
+        fontSize: "10px",
+        fontWeight: 800,
+        color: "var(--faint, #6b7280)",
+        textTransform: "uppercase",
+        letterSpacing: "0.06em",
+        padding: first ? "2px 10px 6px" : "14px 10px 6px",
+      }}
+    >
+      {label}
+    </div>
+  );
+}
+
+function NavLink({
+  item,
+  active,
+  label,
+  color,
+  collapsed,
+  mobile,
+  onClose,
+}: {
+  item: NavItem;
+  active: boolean;
+  label: string;
+  color: string;
+  collapsed: boolean;
+  mobile?: boolean;
+  onClose?: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClose}
+      title={collapsed ? label : undefined}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        padding: "9px 10px",
+        borderRadius: "8px",
+        marginBottom: "2px",
+        textDecoration: "none",
+        background: active ? `${color}18` : "transparent",
+        color: active ? color : "var(--muted)",
+        fontWeight: active ? 700 : 500,
+        fontSize: "13px",
+        transition: "background 0.12s, color 0.12s",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+      }}
+    >
+      <Icon size={16} style={{ flexShrink: 0 }} />
+      {(!collapsed || mobile) && <span>{label}</span>}
+    </Link>
+  );
+}
+
 function Sidebar({
   role,
   collapsed,
@@ -220,43 +351,7 @@ function Sidebar({
           minHeight: "56px",
         }}
       >
-        {(!collapsed || mobile) && (
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <div
-              style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "8px",
-                background: nav.color,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-            >
-              <RoleIcon size={15} color="#ecfffb" />
-            </div>
-            <div>
-              <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
-              <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
-            </div>
-          </div>
-        )}
-        {collapsed && !mobile && (
-          <div
-            style={{
-              width: "28px",
-              height: "28px",
-              borderRadius: "8px",
-              background: nav.color,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <RoleIcon size={15} color="#ecfffb" />
-          </div>
-        )}
+        <NavBrand nav={nav} RoleIcon={RoleIcon} collapsed={collapsed} mobile={mobile} />
         <button
           onClick={mobile ? onClose : onToggle}
           style={{
@@ -290,9 +385,9 @@ function Sidebar({
           return (
             <div key={item.href}>
               {showSectionHeader && (
-                <SidebarSectionHeader label={t(item.section!)} first={idx === 0} />
+                <NavSectionHeader label={t(item.section!)} first={idx === 0} />
               )}
-              <SidebarNavLink
+              <NavLink
                 item={item}
                 active={(pathname ?? "").startsWith(item.href)}
                 label={t(item.labelKey)}
@@ -308,89 +403,10 @@ function Sidebar({
 
       {(!collapsed || mobile) && (
         <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)" }}>
-          <a
-            href="/logout"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "8px 10px",
-              borderRadius: "8px",
-              textDecoration: "none",
-              color: "var(--muted)",
-              fontSize: "13px",
-              fontWeight: 500,
-            }}
-          >
-            <LogOut size={15} />
-            {t("ui.signOut")}
-          </a>
+          <NavSignOutFooter collapsed={false} />
         </div>
       )}
     </aside>
-  );
-}
-
-function SidebarSectionHeader({ label, first }: { label: string; first: boolean }) {
-  return (
-    <div
-      style={{
-        fontSize: "10px",
-        fontWeight: 800,
-        color: "var(--faint, #6b7280)",
-        textTransform: "uppercase",
-        letterSpacing: "0.06em",
-        padding: first ? "2px 10px 6px" : "14px 10px 6px",
-      }}
-    >
-      {label}
-    </div>
-  );
-}
-
-function SidebarNavLink({
-  item,
-  active,
-  label,
-  color,
-  collapsed,
-  mobile,
-  onClose,
-}: {
-  item: NavItem;
-  active: boolean;
-  label: string;
-  color: string;
-  collapsed: boolean;
-  mobile?: boolean;
-  onClose?: () => void;
-}) {
-  const Icon = item.icon;
-  return (
-    <Link
-      href={item.href}
-      onClick={onClose}
-      title={collapsed && !mobile ? label : undefined}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "10px",
-        padding: "9px 10px",
-        borderRadius: "8px",
-        marginBottom: "2px",
-        textDecoration: "none",
-        background: active ? `${color}18` : "transparent",
-        color: active ? color : "var(--muted)",
-        fontWeight: active ? 700 : 500,
-        fontSize: "13px",
-        transition: "background 0.12s, color 0.12s",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-      }}
-    >
-      <Icon size={16} style={{ flexShrink: 0 }} />
-      {(!collapsed || mobile) && <span>{label}</span>}
-    </Link>
   );
 }
 
@@ -525,7 +541,6 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const shellNavItems = useMemo(
     () =>
       shellNavModel.map((navItem, idx) => {
-        const Icon = navItem.icon;
         // Mirrors the section-header grouping in the mobile Sidebar component
         // (AUDIT_REMEDIATION_PLAN.md 1.5). Admin now shares this same flat
         // renderer with worker/client instead of its own grouped branch (see
@@ -540,83 +555,32 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
           node: (
             <div key={navItem.key}>
               {showSectionHeader && (
-                <div className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                  {t(navItem.section!)}
-                </div>
+                <NavSectionHeader label={t(navItem.section!)} first={idx === 0} />
               )}
-              <Link
-                href={navItem.href}
-                title={collapsed ? navItem.label : undefined}
-                className={[
-                  "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition-colors",
-                  navItem.active ? "bg-blue-300/10 text-[color:var(--ink)]" : "text-slate-400 hover:bg-blue-300/5 hover:text-[color:var(--ink)]",
-                ].join(" ")}
-              >
-                <span className="flex h-5 w-5 items-center justify-center">
-                  <Icon size={16} />
-                </span>
-                {!collapsed ? <span className="truncate">{navItem.label}</span> : null}
-              </Link>
+              <NavLink
+                item={navItem}
+                active={navItem.active}
+                label={navItem.label}
+                color={nav.color}
+                collapsed={collapsed}
+              />
             </div>
           ),
         };
       }),
-    [shellNavModel, collapsed, t],
+    [shellNavModel, collapsed, t, nav.color],
   );
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
       <div className="desktop-sidebar">
         <AppShell
-          brand={
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div
-                style={{
-                  width: "28px",
-                  height: "28px",
-                  borderRadius: "8px",
-                  background: nav.color,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <RoleIcon size={15} color="#ecfffb" />
-              </div>
-              {!collapsed ? (
-                <div>
-                  <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
-                  <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
-                </div>
-              ) : null}
-            </div>
-          }
+          brand={<NavBrand nav={nav} RoleIcon={RoleIcon} collapsed={collapsed} />}
           navItems={shellNavItems}
           hideHeader
           collapsed={collapsed}
           onCollapsedChange={handleCollapsedChange}
-          sidebarFooter={
-            !collapsed ? (
-              <a
-                href="/logout"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  padding: "8px 10px",
-                  borderRadius: "8px",
-                  textDecoration: "none",
-                  color: "var(--muted)",
-                  fontSize: "13px",
-                  fontWeight: 500,
-                }}
-              >
-                <LogOut size={15} />
-                {t("ui.signOut")}
-              </a>
-            ) : null
-          }
+          sidebarFooter={<NavSignOutFooter collapsed={collapsed} />}
           className="min-h-screen"
           contentClassName="hidden"
         >

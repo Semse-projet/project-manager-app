@@ -53,21 +53,21 @@ export function AppShell({
   }
 
   return (
-    <div className={cn("min-h-screen bg-[#08101a] text-white", className)}>
+    <div className={cn("min-h-screen bg-[color:var(--bg)] text-[color:var(--ink)]", className)}>
       <div className="flex min-h-screen">
         <aside
           className={cn(
-            "border-r border-white/10 bg-[#0d1220] transition-[width] duration-200",
+            "border-r border-[color:var(--border)] bg-[color:var(--surface)] transition-[width] duration-200",
             collapsed ? "w-20" : "w-64",
             sidebarClassName
           )}
         >
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-4">
-            <div className={cn("min-w-0", collapsed && "sr-only")}>{brand}</div>
+          <div className="flex items-center justify-between border-b border-[color:var(--border)] px-4 py-4">
+            <div className="min-w-0">{brand}</div>
             <button
               type="button"
               onClick={() => setCollapsed(!collapsed)}
-              className="rounded-xl border border-white/10 px-2 py-1 text-xs text-slate-300"
+              className="rounded-xl border border-[color:var(--border)] px-2 py-1 text-xs text-[color:var(--muted)]"
             >
               {collapsed ? ">" : "<"}
             </button>
@@ -94,7 +94,7 @@ export function AppShell({
             )}
           </nav>
 
-          {sidebarFooter ? <div className="mt-auto border-t border-white/10 p-3">{sidebarFooter}</div> : null}
+          {sidebarFooter ? <div className="mt-auto border-t border-[color:var(--border)] p-3">{sidebarFooter}</div> : null}
         </aside>
 
         <div className={cn("flex min-h-screen min-w-0 flex-1 flex-col", contentClassName)}>
