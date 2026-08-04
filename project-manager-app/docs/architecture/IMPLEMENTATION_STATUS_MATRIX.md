@@ -61,7 +61,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Backup/DR F9 | PARCIAL | docs/simulaciones | restore real y evidencia RPO/RTO |
 | CI/CD | IMPLEMENTADO/DESPLEGADO | GitHub + Railway autodeploy/health | Environments, concurrency, migration gate |
 | Identidad universal multi-capacidad F10 | PENDIENTE / SDD 2.0 APPROVED | 0 código; spec `APPROVED` 2026-08-04 (`universal-identity-multi-role.spec.md`) | Confirmar decisiones de producto de Fase 0 (plan) antes de iniciar código |
-| Originador/facilitador F10 | PENDIENTE / SDD 2.0 APPROVED | 0 código; spec `APPROVED` 2026-08-04 (`originador-referral-program.spec.md`), risk `critical`; gate de pagos revisado (§12b) | Fase 3 (recompensa real) bloqueada por dependencia F5 (Shared Economic Ledger, `PENDIENTE`) |
+| Originador/facilitador F10 | PENDIENTE / SDD 2.0 APPROVED | 0 código; spec `APPROVED` 2026-08-04 (`originador-referral-program.spec.md`), risk `critical`; recompensa híbrida vía `StripeConnectAccount` (mismo mecanismo que `PRO`); gate de pagos revisado (§12b) | Fase 3 bloqueada por gate legal país por país (solo EE.UU. investigado); F5 ya no es dependencia dura |
 | Orquestación externa MCP F10 | PENDIENTE | 0 código; `SPEC-INT-001` retirado; ADR de reapertura en propuesta | Resolver ADR antes de registrar cualquier tool externa |
 
 ## Salud SDD

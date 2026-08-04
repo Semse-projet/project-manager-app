@@ -18,6 +18,8 @@ production_evidence: []
 related_files:
   - apps/api/src/modules/payments/payment-governance.service.ts
   - apps/api/src/modules/payments/escrow-release.service.ts
+  - apps/api/src/modules/payments/stripe-connect.service.ts
+  - packages/db/prisma/schema.prisma
   - apps/api/src/modules/jobs/
 related_tests: []
 related_endpoints: []
@@ -55,9 +57,44 @@ last_verified: "2026-08-04"
 > activar dinero real en ningún país sin su propia revisión legal, EE.UU.
 > incluido (ver Fase 3 del plan).
 >
+> **Actualización — Fase 0 completamente resuelta (2026-08-04):**
+>
+> 1. **Modelo de monto:** híbrido — bono fijo en el hito "primer milestone
+>    financiado" + un porcentaje pequeño sobre `platformFeeCents` (la
+>    comisión que SEMSE ya cobra, no el valor bruto del proyecto) al llegar
+>    a "proyecto completado". Esto garantiza que SEMSE nunca paga más de lo
+>    que gana en ese proyecto — el propio razonamiento del owner. Ambos
+>    montos arrancan como piloto pequeño, ajustable con datos reales, no
+>    fijos de entrada (ver §2, §4).
+> 2. **Documento de identidad fiscal → se delega a Stripe Connect**, no se
+>    construye recolección propia. `packages/db/prisma/schema.prisma` ya
+>    tiene `StripeConnectAccount` (usado hoy para pagos a `PRO`); el
+>    originador simplemente necesita su propia cuenta Connect igual que un
+>    profesional. El onboarding de Stripe ya recolecta y valida los datos
+>    fiscales (equivalente a W-9/W-8) y genera 1099 automáticamente para
+>    cuentas de EE.UU. — se reemplaza el modelo `TaxIdentityDocument`
+>    propuesto antes por reutilizar `StripeConnectAccount` (§7).
+> 3. **Países siguientes tras EE.UU.: Latinoamérica primero** (México,
+>    Colombia y similares) — no se investiga "todos los países" a la vez.
+> 4. **Elegibilidad — híbrido de las dos opciones planteadas:** registrarse
+>    como originador de un proyecto solo requiere una cuenta SEMSE
+>    verificada (fricción baja, como ya funciona hoy). Pero **ningún hito
+>    del catálogo empieza a contar para recompensa** hasta que el
+>    originador complete el onboarding de `StripeConnectAccount`
+>    (`payoutsEnabled: true`) — más temprano que "recién antes de pagar",
+>    para que no se puedan acumular hitos fantasma bajo una identidad no
+>    verificada (§3, §4).
+>
+> **Corrección sobre el gate de pagos original (§12b):** al confirmar que
+> Fase 3 reutiliza el mismo `StripeConnectAccount`/transfer que ya mueve
+> dinero real a profesionales hoy (no un riel de pagos nuevo), el bloqueo
+> original hacia el Shared Economic Ledger (F5) estaba sobre-cautelado —
+> SEMSE ya paga dinero real sin F5 para `PRO`. Se corrige en §12b en vez de
+> dejarlo inconsistente.
+>
 > Contrato ejecutable SDD 2.0. Origen:
 > `docs/vision/VISION_PROMETEO_OS_2026.md`. `risk: critical` porque toca
-> pagos reales (Stripe/escrow) en múltiples jurisdicciones.
+> pagos reales (Stripe Connect) en múltiples jurisdicciones.
 
 ## 1. Problema y resultado
 
@@ -85,37 +122,50 @@ calidad — riesgo explícito que motiva el gate `critical`).
   creación del proyecto.
 - Catálogo de eventos verificables que disparan recompensa (ver sección 4)
   y los que explícitamente NO la disparan.
-- Recompensa **monetaria real** (confirmado con el owner 2026-08-04), no
-  créditos de plataforma ni solo puntos de reputación — gateada por
-  recolección de un documento de identidad fiscal apropiado al país del
-  originador (ver §7).
+- Recompensa **monetaria real, modelo híbrido** (confirmado con el owner
+  2026-08-04): bono fijo en "primer milestone financiado" + porcentaje
+  pequeño sobre `platformFeeCents` en "proyecto completado" — nunca sobre
+  el valor bruto del proyecto, para que SEMSE siempre mantenga margen
+  positivo en cada proyecto originado. Lanza como piloto con montos
+  ajustables (ver §4, §8).
+- Elegibilidad para recompensa gateada por `StripeConnectAccount`
+  (`payoutsEnabled: true`) — se reutiliza el mecanismo que ya usan los
+  profesionales, sin construir recolección de documentos fiscales propia
+  (ver §7).
 - Alcance geográfico **multi-país desde el inicio** (confirmado con el
   owner 2026-08-04) — con el gate nuevo de revisión legal por país descrito
-  en §12b antes de activar dinero real en cualquiera.
-- Reglas de quién puede ser originador (verificación mínima, para evitar
-  auto-referidos fraudulentos).
+  en §12b antes de activar dinero real en cualquiera. Latinoamérica es la
+  prioridad después de EE.UU.
+- Reglas de quién puede ser originador: cuenta SEMSE verificada para
+  registrarse (fricción baja), `StripeConnectAccount` completo antes de
+  que cualquier hito empiece a contar para recompensa (fricción alta,
+  antes de que haya dinero en juego) — híbrido confirmado por el owner.
 
 ### Fuera de alcance
 
-- No se implementa en esta spec el mecanismo de pago en sí (Stripe
-  Connect/payout) — se reutiliza el mecanismo existente de
-  `escrow-release.service.ts` como fuente de fondos, con un nuevo tipo de
-  beneficiario, no un sistema de pagos paralelo.
+- No se implementa el mecanismo de pago en sí (Stripe Connect/payout) —
+  se reutiliza `StripeConnectAccount`/`stripe-connect.service.ts` y
+  `escrow-release.service.ts` como mecanismo único, con el originador como
+  un nuevo tipo de beneficiario, no un sistema de pagos paralelo.
+- No se construye recolección de documentos fiscales propia — se delega
+  por completo al onboarding de Stripe Connect (§7).
 - No se cambia el modelo de identidad multi-capacidad (spec separada:
   `docs/specs/core/universal-identity-multi-role.spec.md`), aunque
   "originador" se define como una capacidad más bajo ese modelo.
-- No se define aquí el porcentaje/monto exacto de la recompensa por país —
-  decisión de producto pendiente, ver plan Fase 0 (T-001).
+- No se define aquí el monto exacto del bono fijo ni el % sobre
+  `platformFeeCents` — decisión de producto pendiente para el piloto, ver
+  plan Fase 0 (T-001).
 - No se hace investigación legal/fiscal país por país en esta spec (solo
   EE.UU. está investigado, §11) — cada país requiere su propio cierre de
-  gate antes de activar Fase 3 ahí (§12b). Esta spec no sustituye asesoría
-  legal profesional.
+  gate antes de activar Fase 3 ahí (§12b), empezando por la lista de
+  Latinoamérica a priorizar en Fase 0 (T-004). Esta spec no sustituye
+  asesoría legal profesional.
 
 ## 3. Actores, permisos y límites
 
 | Actor | Permiso backend | Alcance tenant/org/resource | Puede | No puede |
 |---|---|---|---|---|
-| Originador | `project:originate` (nuevo) | proyectos donde quedó registrado como originador | ver el estado de recompensa de sus proyectos originados | aprobar su propia recompensa, editar el proyecto que originó sin ser su dueño |
+| Originador | `project:originate` (nuevo) | proyectos donde quedó registrado como originador | registrarse con solo cuenta verificada; ver el estado de recompensa de sus proyectos originados | acumular hitos recompensables sin `StripeConnectAccount.payoutsEnabled`; aprobar su propia recompensa; editar el proyecto que originó sin ser su dueño |
 | Dueño del proyecto | permisos existentes de owner | su propio proyecto | validar/rechazar que alguien lo originó | forzar una recompensa sin que el evento verificable ocurra |
 | OPS_ADMIN | `internal:architecture:read` + permisos de pagos existentes | tenant/org según política vigente | auditar y, si aplica, revertir una recompensa mal calculada | pagar recompensas fuera del catálogo de eventos verificables |
 
@@ -126,7 +176,11 @@ calidad — riesgo explícito que motiva el gate `critical`).
 - Step-up o aprobación humana: el dueño del proyecto debe validar
   explícitamente que fue ayudado por ese originador antes de que cualquier
   evento cuente para recompensa (evita que alguien se auto-asigne como
-  originador de un proyecto ajeno sin consentimiento).
+  originador de un proyecto ajeno sin consentimiento). Además, ningún
+  evento cuenta para recompensa hasta que `StripeConnectAccount.
+  payoutsEnabled === true` para ese originador (decisión de elegibilidad
+  híbrida del owner, 2026-08-04) — dos gates independientes, ambos
+  necesarios.
 - Datos `privacyCritical`: la relación originador↔proyecto es visible para
   ambas partes y para OPS_ADMIN, no pública.
 - Requisitos de auditoría: cada evento que dispara o niega recompensa
@@ -134,14 +188,24 @@ calidad — riesgo explícito que motiva el gate `critical`).
 
 ## 4. Escenarios y criterios de aceptación
 
-### P1 — Evento verificable dispara recompensa (con período de revisión)
+### P1a — Bono fijo en el primer milestone financiado (con período de revisión)
 
 ```gherkin
-DADO un proyecto con un originador validado por el dueño
+DADO un proyecto con un originador validado por el dueño y StripeConnectAccount.payoutsEnabled=true
 CUANDO el proyecto alcanza "primer milestone financiado"
-ENTONCES se registra un evento de recompensa en estado "pending_review" para el originador
-Y el evento queda auditado con el hito exacto y el monto/tipo de recompensa
+ENTONCES se registra un evento de recompensa de tipo "bono fijo" en estado "pending_review"
+Y el evento queda auditado con el hito exacto y el monto (piloto, ajustable — spec §2)
 Y la recompensa se libera solo si, tras 14 días, ningún flag de fraude/disputa la bloqueó (hallazgo de investigación externa, §11)
+```
+
+### P1b — Porcentaje de platformFeeCents al completar el proyecto
+
+```gherkin
+DADO el mismo proyecto, ya con el bono fijo de P1a liberado
+CUANDO el proyecto alcanza "proyecto completado"
+ENTONCES se registra un segundo evento de recompensa de tipo "porcentaje", calculado como (% piloto) × platformFeeCents del proyecto — nunca sobre el valor bruto
+Y sigue el mismo período de revisión de 14 días antes de liberarse
+Y si platformFeeCents es 0 o negativo (ej. proyecto con margen reducido), el monto de este evento es 0, nunca negativo
 ```
 
 ### P2 — Publicar el proyecto NO dispara recompensa por sí solo
@@ -153,14 +217,20 @@ ENTONCES no se genera ninguna recompensa
 Y el sistema no permite marcar "publicado" como hito recompensable
 ```
 
-Catálogo de eventos verificables que SÍ disparan recompensa (a definir el
-peso/orden exacto en la spec de `plan`):
+Catálogo de eventos verificables. Con el modelo híbrido confirmado
+(2026-08-04), solo dos de estos eventos disparan pago directamente — los
+demás son señal de progreso/anti-abuso, no gatillos de dinero:
 
-- proyecto validado por el dueño real (no solo creado);
-- primera propuesta recibida;
-- profesional contratado;
-- primer milestone financiado;
-- proyecto completado.
+- proyecto validado por el dueño real (no solo creado) — **no paga**, es
+  prerrequisito para que cualquier otro evento cuente (§3);
+- primera propuesta recibida — **no paga**, señal de progreso real;
+- profesional contratado — **no paga**, señal de progreso real;
+- **primer milestone financiado — paga el bono fijo (P1a)**;
+- **proyecto completado — paga el % de `platformFeeCents` (P1b)**.
+
+Un originador solo cobra si el proyecto llega hasta financiar un
+milestone y, más adelante, completarse — los eventos intermedios existen
+para auditoría y detección de abuso, no generan pago por sí mismos.
 
 Eventos que explícitamente NO disparan recompensa:
 
@@ -174,8 +244,9 @@ Casos borde:
 - [ ] dueño rechaza la validación del originador después de que ya hubo actividad (no se paga retroactivo)
 - [ ] proyecto se cancela/disputa después de pagar una recompensa (definir si es reversible, coordinando con `escrow-release.service.ts` y `payment-governance.service.ts`)
 - [ ] `payment-governance.service.ts` falla al liberar una recompensa ya aprobada — el evento queda en estado `release_failed` explícito, nunca en un estado ambiguo que un reporte pudiera contar como "pagado" (gate de pagos §12b)
-- [ ] originador acumula US$600+ en recompensas en el año fiscal sin W-9 recolectado (caso EE.UU.) — el sistema debe bloquear la liberación de la siguiente recompensa hasta recolectarlo, no pagar y perseguir el W-9 después (§7, hallazgo 1099-NEC)
-- [ ] originador de un país sin gate legal cerrado (§12b) intenta recibir recompensa monetaria — el sistema debe bloquear la liberación real y dejarla en `pending_review` indefinido con motivo "país sin revisión legal", nunca liberar "porque el mecanismo técnico ya funciona"
+- [ ] originador sin `StripeConnectAccount.payoutsEnabled` llega a "primer milestone financiado" — el evento de bono fijo se registra pero queda bloqueado (no `pending_review`, un estado distinto: `blocked_no_payout_account`) hasta que complete el onboarding; no se pierde el hito, pero tampoco arranca el período de revisión hasta que el gate de elegibilidad esté cerrado
+- [ ] `platformFeeCents` del proyecto es 0 o no calculable al momento de "proyecto completado" — el evento P1b se registra en monto 0, nunca se bloquea el evento de auditoría en sí, solo el monto es 0
+- [ ] originador de un país sin gate legal cerrado (§12b) intenta recibir recompensa monetaria — el sistema debe bloquear la liberación real y dejarla en `pending_review` indefinido con motivo "país sin revisión legal", nunca liberar "porque el mecanismo técnico ya funciona" (el `country` viene de `StripeConnectAccount.country`, ya limitado a los países que Stripe Connect soporta)
 
 ## 5. Contratos
 
@@ -255,23 +326,25 @@ forbidden_behavior:
   originatorUserId, status, validatedAt) y tabla de eventos de recompensa
   ligada a los mecanismos de pago existentes — diseño exacto en fase de
   `plan`, no en esta spec. El evento de recompensa declara como mínimo un
-  estado `pending_review | released | release_failed | reversed` (nunca
-  colapsar `release_failed` con `released`, hallazgo §11/§12b) y una fecha
-  de fin del período de revisión de 14 días.
-- Requisito de datos nuevo, generalizado a multi-país (decisión del owner
-  2026-08-04): antes de que un originador sea elegible para recompensa
-  monetaria, el sistema debe poder recolectar y almacenar un
-  `TaxIdentityDocument` (país, tipo de documento, referencia) — para
-  EE.UU. concretamente un W-9 con acumulado anual para disparar 1099-NEC
-  al cruzar US$600 (§11, ya investigado); para cualquier otro país, el
-  tipo de documento y umbral de reporte **no están investigados todavía**
-  y no se implementan hasta cerrar el gate de §12b para ese país
-  específicamente. El modelo no hardcodea "W-9" — declara un campo de
-  país + tipo de documento desde el diseño inicial, aunque solo EE.UU.
-  tenga lógica real detrás al lanzar.
-- El diseño exacto de dónde vive el acumulado anual (nuevo modelo vs.
-  extensión de uno existente de Finance) se decide en `plan`, coordinado
-  con el owner de payments/finance.
+  estado `pending_review | blocked_no_payout_account | released |
+  release_failed | reversed` (nunca colapsar `release_failed` con
+  `released`, hallazgo §11/§12b) y una fecha de fin del período de
+  revisión de 14 días, más un `type: "fixed_bonus" | "platform_fee_share"`
+  (modelo híbrido, §4) y el `platformFeeCents` de origen para el evento
+  tipo `platform_fee_share`.
+- **Identidad fiscal delegada a Stripe Connect (decisión del owner
+  2026-08-04):** no se crea un modelo nuevo de documento fiscal. Se
+  reutiliza `StripeConnectAccount` (`packages/db/prisma/schema.prisma`,
+  ya usado hoy para pagos a `PRO`) — el originador necesita su propia fila
+  con `payoutsEnabled: true` antes de que cualquier evento de recompensa
+  salga de `blocked_no_payout_account`. `StripeConnectAccount.country` es
+  la fuente de verdad para el gate legal por país de §12b; como Stripe
+  Connect no está disponible en todos los países, esto además acota de
+  entrada el conjunto de países donde esta feature es técnicamente
+  posible, antes incluso de considerar el gate legal.
+- El acumulado anual y el reporte 1099-NEC para EE.UU. los genera Stripe
+  Connect automáticamente sobre la cuenta conectada — no se construye un
+  acumulado propio en SEMSE para esto.
 - Migración: aditiva, sin tocar modelos de pago existentes directamente.
 - Estrategia expand/contract: expand-only en esta primera fase.
 - Backfill: no aplica (funcionalidad nueva, sin datos históricos que
@@ -296,7 +369,10 @@ forbidden_behavior:
   con `tenant_default` en modo solo-registro (sin pago real) antes de
   activar el pago.
 - Plan de canary: fase 1 solo registro/validación (sin dinero); fase 2
-  recompensa real, con aprobación explícita separada.
+  recompensa real en EE.UU. con montos piloto (bono fijo + % de
+  `platformFeeCents`), aprobación explícita separada; fase 3+ un país
+  nuevo a la vez, empezando por Latinoamérica, cada uno con su propio
+  gate legal cerrado (§12b) antes de habilitarse.
 - Evidencia de producción requerida: al menos un ciclo completo
   originador→hito verificado→recompensa pagada, auditado end-to-end.
 - Señal de rollback: cualquier recompensa pagada sin hito verificable
@@ -322,6 +398,7 @@ forbidden_behavior:
 
 - `apps/api/src/modules/jobs/` (o módulo nuevo `originator/`, a decidir en `plan`)
 - `apps/api/src/modules/payments/payment-governance.service.ts` (integración de liberación de recompensa)
+- `apps/api/src/modules/payments/stripe-connect.service.ts` (reutilizado para el `StripeConnectAccount` del originador, mismo patrón que `PRO`)
 
 ### Web
 
@@ -411,13 +488,14 @@ Revisión explícita, punto por punto, contra `docs/SDD_GOVERNANCE.md` §7:
 | Payment provider y ledger son responsabilidades separadas | La spec no reimplementa liberación de fondos: reutiliza `payment-governance.service.ts`/`escrow-release.service.ts` como único mecanismo (§5, §7 del spec). No se introduce un provider ni un ledger paralelo. |
 | Fallos/reversals no cuentan como dinero liberado o gastado | Nuevo requisito explícito (added below, §7): si `payment-governance.service.ts` falla al liberar la recompensa, `ProjectOriginator`/el evento de recompensa queda en estado explícito de fallo, nunca en un estado que un reporte pudiera confundir con "pagado". |
 | Reversals inmutables y moneda explícita | La recompensa se liga a la moneda del proyecto (no se introduce una moneda o unidad de valor nueva); cualquier reversal de una recompensa ya pagada se registra como un movimiento nuevo, nunca editando el registro original (mismo principio que migraciones, `SDD_GOVERNANCE.md` §8). |
-| Débitos y créditos balanceados cuando aplique ledger | SEMSE no tiene todavía un ledger double-entry general (`Shared Economic Ledger` es F5, `PENDIENTE` — ver `IMPLEMENTATION_STATUS_MATRIX.md`). Esta spec **no puede** cumplir balanceo double-entry porque esa capacidad no existe aún en el sistema. Se declara dependencia explícita: la Fase 3 (recompensa real) de esta spec no se activa en producción hasta que exista al menos un mecanismo de registro contable consistente con el resto de Payments (a definir en plan, coordinado con el owner de payments) — no se inventa un balanceo ad-hoc solo para este programa. |
-| Gate adicional — jurisdicción (decisión del owner 2026-08-04, multi-país) | Este gate no estaba en la versión original de `SDD_GOVERNANCE.md` §7, pero se declara aquí por la misma lógica de riesgo `critical`: **ningún país activa recompensa monetaria real sin su propia revisión legal/fiscal previa.** EE.UU. es el único país con esa revisión hecha en esta sesión (§11: RESPA como referencia de riesgo, 1099-NEC/W-9 como requisito concreto). Activar en cualquier otro país sin repetir esa investigación ahí sería exactamente el tipo de "excepción silenciosa" que este spec existe para evitar — no se hace. |
+| Débitos y créditos balanceados cuando aplique ledger | **Corregido 2026-08-04** (ver blockquote de apertura). Versión original de esta fila asumía que Fase 3 necesitaba F5 (Shared Economic Ledger, `PENDIENTE`) antes de mover dinero real. Al confirmarse que Fase 3 reutiliza `StripeConnectAccount`/transfer — el mismo mecanismo con el que SEMSE **ya paga dinero real a `PRO` hoy, sin F5** — ese razonamiento estaba sobre-cautelado: si F5 no bloquea los pagos a `PRO` que ya corren en producción, tampoco es coherente bloquear con F5 específicamente esta feature. **Ya no es gate duro de Fase 3.** Riesgo real que sí queda, más chico: el componente `platform_fee_share` reparte por primera vez una porción del ingreso propio de SEMSE (`platformFeeCents`) hacia un tercero — se registra explícitamente como tal en el evento de recompensa (§7) para que, cuando F5 exista, sea fácil de reconciliar; no se bloquea esperándolo. |
+| Gate adicional — jurisdicción (decisión del owner 2026-08-04, multi-país) | Este gate no estaba en la versión original de `SDD_GOVERNANCE.md` §7, pero se declara aquí por la misma lógica de riesgo `critical`: **ningún país activa recompensa monetaria real sin su propia revisión legal/fiscal previa Y sin que Stripe Connect esté disponible en ese país** (§7). EE.UU. es el único país con esa revisión hecha en esta sesión (§11: RESPA como referencia de riesgo, 1099-NEC/W-9 como requisito concreto, ambos cubiertos automáticamente por Stripe Connect). Activar en cualquier otro país sin repetir esa investigación ahí sería exactamente el tipo de "excepción silenciosa" que este spec existe para evitar — no se hace. |
 
 Con esto, el gate de riesgo `critical` queda revisado explícitamente
-punto por punto — incluyendo la dimensión de jurisdicción que introdujo la
-decisión de multi-país — no de forma genérica, cumpliendo lo que pedía el
-spec original antes de `APPROVED`.
+punto por punto — incluyendo la corrección del ítem de ledger y la
+dimensión de jurisdicción que introdujo la decisión de multi-país — no de
+forma genérica, cumpliendo lo que pedía el spec original antes de
+`APPROVED`.
 
 ## 12. Gates de cierre
 

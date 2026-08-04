@@ -12,19 +12,25 @@ date: "2026-08-04"
 # Plan técnico: Programa de recompensa para originador/facilitador
 
 > **Spec `APPROVED` 2026-08-04**, incluida la revisión punto por punto del
-> gate de riesgo `critical` de pagos (spec §12b). Este plan deja de ser
-> provisional para las Fases 0-2 (registro/validación, sin dinero). La
-> **Fase 3 (recompensa real) sigue bloqueada por dos dependencias reales**,
-> no por falta de aprobación del spec:
+> gate de riesgo `critical` de pagos (spec §12b) y su corrección posterior
+> (ver abajo). Este plan deja de ser provisional para las Fases 0-2
+> (registro/validación, sin dinero). La **Fase 3 (recompensa real) sigue
+> bloqueada por una sola dependencia real** — el gate legal por país, no
+> dos:
 >
-> 1. No existe todavía un mecanismo de registro contable (Shared Economic
->    Ledger, F5, `PENDIENTE`) con el que integrar el pago sin inventar un
->    balanceo ad-hoc.
-> 2. El owner confirmó recompensa **monetaria real, multi-país desde el
->    inicio** (2026-08-04) — pero solo EE.UU. tiene la investigación
->    legal/fiscal hecha (spec §11). Fase 3 se activa **país por país**, no
->    globalmente; cada país nuevo requiere su propio cierre de gate (spec
->    §12b) antes de mover dinero real ahí.
+> - El owner confirmó recompensa **monetaria real, modelo híbrido** (bono
+>   fijo en "primer milestone financiado" + % de `platformFeeCents` en
+>   "proyecto completado"), gateada por `StripeConnectAccount`
+>   (`payoutsEnabled: true`, mismo mecanismo que ya usan los profesionales
+>   — no un modelo de identidad fiscal propio), y **multi-país desde el
+>   inicio, con Latinoamérica como prioridad tras EE.UU.** (2026-08-04).
+>   Solo EE.UU. tiene la investigación legal/fiscal hecha (spec §11). Fase
+>   3 se activa **país por país**, no globalmente.
+> - **La dependencia hacia F5 (Shared Economic Ledger) se retiró como
+>   bloqueo duro** (spec §12b, corrección 2026-08-04): Fase 3 reutiliza el
+>   mismo `StripeConnectAccount`/transfer que ya paga dinero real a `PRO`
+>   hoy sin F5 — bloquear esta feature específicamente con F5 habría sido
+>   inconsistente con lo que ya corre en producción.
 
 ## 1. Resumen técnico
 
@@ -110,16 +116,38 @@ model ProjectOriginator {
   @@index([tenantId, originatorUserId])
 }
 
-// Generalizado a multi-país (decisión del owner 2026-08-04) — no hardcodea W-9.
-model OriginatorTaxIdentity {
-  id               String    @id @default(cuid())
-  originatorUserId String    @unique
-  country          String    // ISO 3166-1 alpha-2
-  documentType     String    // "W9" para US; otros países TBD en Fase 0 por país
-  documentRef      String    // referencia/almacenamiento seguro, no el documento crudo
-  collectedAt      DateTime  @default(now())
+enum OriginatorRewardType {
+  FIXED_BONUS
+  PLATFORM_FEE_SHARE
+}
 
-  @@index([country])
+enum OriginatorRewardStatus {
+  PENDING_REVIEW
+  BLOCKED_NO_PAYOUT_ACCOUNT
+  RELEASED
+  RELEASE_FAILED
+  REVERSED
+}
+
+// No se crea modelo de identidad fiscal propio — se reutiliza
+// StripeConnectAccount (ya existe, ver related_files del spec).
+model OriginatorReward {
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  projectOriginatorId String
+  type               OriginatorRewardType
+  triggerEvent       String   // "first_milestone_funded" | "project_completed"
+  amountCents        Int
+  platformFeeCentsSnapshot Int?  // solo para PLATFORM_FEE_SHARE, snapshot del cálculo
+  status             OriginatorRewardStatus   @default(PENDING_REVIEW)
+  reviewEndsAt       DateTime // ahora + 14 días
+  releasedAt         DateTime?
+  releaseFailedReason String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([tenantId, status])
+  @@index([projectOriginatorId])
 }
 ```
 
@@ -128,15 +156,14 @@ Notas:
 - `@@unique([projectId])` refleja la decisión del spec de un solo
   originador por proyecto (a confirmar en Fase 0; si se permite más de
   uno, este constraint cambia antes de migrar).
-- `OriginatorTaxIdentity.documentType`/`country` existen desde el diseño
-  inicial aunque, al lanzar, solo `country: "US"` tenga validación y
-  umbral (1099-NEC/US$600) implementados — cualquier otro país queda
-  rechazado explícitamente hasta que Fase 0 confirme su gate legal (spec
-  §12b), nunca aceptado "porque el campo ya existe".
-- El modelo de eventos de recompensa (qué tabla, si reutiliza
-  `PaymentTxn` o necesita una propia) se decide en Fase 0 junto con el
-  owner de payments — no se asume aquí para no prejuzgar el diseño del
-  ledger existente.
+- **Identidad fiscal:** el originador usa su propia fila de
+  `StripeConnectAccount` (mismo modelo que `PRO`, `packages/db/prisma/
+  schema.prisma:327`) — no se crea ningún modelo nuevo para esto. El gate
+  de país (spec §12b) lee `StripeConnectAccount.country`.
+- `OriginatorReward.status` empieza en `BLOCKED_NO_PAYOUT_ACCOUNT` si el
+  originador no tiene `StripeConnectAccount.payoutsEnabled` en el momento
+  del `triggerEvent`; pasa a `PENDING_REVIEW` (arrancando los 14 días)
+  recién cuando el gate de elegibilidad se cierra — no antes.
 - Ninguna tabla de pagos existente se modifica; esto es aditivo.
 
 ## 5. Fases propuestas
@@ -145,25 +172,33 @@ Notas:
 
 Resuelto por el owner (2026-08-04):
 
-- [x] Tipo de recompensa: monetaria real, gateada por documento de
-      identidad fiscal (no créditos).
-- [x] Alcance geográfico: multi-país desde el inicio.
+- [x] Tipo de recompensa: **modelo híbrido** — bono fijo en "primer
+      milestone financiado" + % de `platformFeeCents` en "proyecto
+      completado" (no créditos, no un solo monto único).
+- [x] Identidad fiscal: **delegada a Stripe Connect** (reutiliza
+      `StripeConnectAccount`), no se construye recolección propia.
+- [x] Alcance geográfico: multi-país desde el inicio, **Latinoamérica
+      priorizada** como primer destino tras EE.UU.
+- [x] Elegibilidad: híbrida — cuenta SEMSE verificada para registrarse
+      como originador; `StripeConnectAccount.payoutsEnabled` antes de que
+      cualquier hito empiece a contar para recompensa.
 
 Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 
-- [ ] Montos/porcentajes reales de recompensa (el spec deliberadamente no
-      los fija) — por país, dado que ya no hay un solo mercado objetivo.
-- [ ] Confirmar con el owner de payments/finance dónde vive el acumulado
-      anual por originador para 1099-NEC (spec §7) y el proceso de
-      recolección de `OriginatorTaxIdentity` para EE.UU.
-- [ ] Confirmar la verificación mínima para ser elegible como originador
-      (anti-fraude/anti-auto-referido).
-- [ ] **Nuevo, por la decisión multi-país:** priorizar la lista de países
-      a investigar legal/fiscalmente después de EE.UU. — cada uno abre su
-      propia línea de investigación externa (spec §11) antes de que Fase 3
-      pueda activarse ahí. No se investiga "todos los países" a la vez;
-      se prioriza por dónde el owner espera los primeros originadores
-      reales.
+- [ ] Monto exacto del bono fijo y % exacto sobre `platformFeeCents` para
+      el piloto (el spec deliberadamente no los fija) — empezar chico y
+      ajustar con datos reales, como sugirió el owner.
+- [ ] Confirmar con el owner de payments/finance el flujo operativo para
+      que el originador complete el onboarding de `StripeConnectAccount`
+      (mismo flujo que `PRO`, reutilizado — no debería requerir trabajo
+      nuevo de payments, pero se confirma antes de Fase 2).
+- [ ] Confirmar la verificación mínima para registrarse como originador
+      (cuenta verificada ya es el piso, spec §2 — confirmar si se necesita
+      algo más, ej. antigüedad mínima de cuenta).
+- [ ] Priorizar países concretos de Latinoamérica (¿México primero?
+      ¿Colombia? ¿todos a la vez?) y lanzar la investigación externa
+      (spec §11) para el primero de la lista — no se investiga "toda
+      Latinoamérica" a la vez.
 
 ### Fase 1 — Tests antes del código (anti-abuso primero)
 
@@ -177,8 +212,13 @@ Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
   (spec §4 P1, hallazgo §11).
 - Test: fallo de `payment-governance.service.ts` deja el evento en
   `release_failed`, nunca en un estado ambiguo con `released` (spec §12b).
-- Test: liberación bloqueada si el originador supera US$600 anuales sin
-  W-9 registrado (spec §4 caso borde, §7).
+- Test: evento de recompensa nace en `blocked_no_payout_account` si el
+  originador no tiene `StripeConnectAccount.payoutsEnabled`, y pasa a
+  `pending_review` (arrancando los 14 días) recién al completarse el
+  onboarding (spec §4 caso borde, §7).
+- Test: el evento `PLATFORM_FEE_SHARE` calcula el monto sobre
+  `platformFeeCents`, nunca sobre el valor bruto del proyecto; si
+  `platformFeeCents` es 0, el monto es 0, nunca negativo (spec §4 P1b).
 
 ### Fase 2 — Registro y validación (sin dinero)
 
@@ -187,23 +227,22 @@ Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 - Lanzar detrás de flag, fase "solo registro" — **sin pago real** — antes
   de tocar Fase 3.
 
-### Fase 3 — Recompensa real (bloqueada por F5 + gate legal por país, no por gobernanza)
+### Fase 3 — Recompensa real (bloqueada por gate legal por país, ya no por F5)
 
-- **Bloqueada hasta que exista un mecanismo de registro contable
-  consistente con Payments (spec §12b) — dependencia de F5 (Shared
-  Economic Ledger), hoy `PENDIENTE`.** No se activa con un balanceo
-  ad-hoc solo para este programa.
 - **Se activa país por país, nunca globalmente.** EE.UU. es el único país
   con investigación legal/fiscal hecha (spec §11). Cualquier otro país
-  necesita repetir esa investigación (Fase 0, ítem nuevo) antes de que
-  `OriginatorTaxIdentity.country` acepte ese país para pago real.
-- Conectar el catálogo de eventos verificables a la liberación real vía
-  `payment-governance.service.ts`.
-- Implementar recolección de `OriginatorTaxIdentity` y acumulado anual
-  (EE.UU. primero) antes de habilitar cualquier pago real (spec §7).
+  (empezando por la lista de Latinoamérica de Fase 0) necesita repetir esa
+  investigación antes de que `StripeConnectAccount.country` habilite ese
+  país para pago real.
+- Conectar el catálogo de eventos verificables (`OriginatorReward`) a la
+  liberación real vía `payment-governance.service.ts` +
+  `stripe-connect.service.ts`, transfiriendo al `StripeConnectAccount` del
+  originador — mismo mecanismo que ya paga a `PRO`.
+- Confirmar el onboarding de `StripeConnectAccount` para originadores
+  (reutilizar el flujo existente de `PRO`, no construir uno nuevo).
 - Requiere aprobación explícita y separada del owner antes de activar en
   cualquier tenant, incluso `tenant_default` — y antes de activar cada
-  país adicional después del primero.
+  país adicional después de EE.UU.
 
 ### Fase 4 — Validación y cierre
 
@@ -219,7 +258,8 @@ Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 | Auto-referido (dueño y originador son la misma persona con cuentas distintas) | media | alto | verificación mínima de elegibilidad en Fase 0; cruzar con Trust/risk scoring existente |
 | Recompensa pagada y luego proyecto cancelado/disputado | baja | medio | definir reversibilidad en Fase 0 antes de activar Fase 3, coordinado con `escrow-release.service.ts` |
 | Modelo de recompensa duplica lógica de `PaymentsService` en vez de extenderla | baja | alto | Fase 3 reutiliza `payment-governance.service.ts` explícitamente, sin lógica de liberación propia |
-| Activar pago real en un país sin revisión legal, asumiendo que "el mecanismo ya funciona en EE.UU." | media | crítico | `OriginatorTaxIdentity.country` rechaza explícitamente cualquier país sin gate cerrado (spec §12b); ningún flag global activa todos los países a la vez |
+| Activar pago real en un país sin revisión legal, asumiendo que "el mecanismo ya funciona en EE.UU." | media | crítico | `StripeConnectAccount.country` rechaza explícitamente cualquier país sin gate cerrado (spec §12b); ningún flag global activa todos los países a la vez |
+| `platform_fee_share` reparte ingreso propio de SEMSE sin reconciliación clara antes de que exista F5 | media | medio | el evento guarda `platformFeeCentsSnapshot` explícito (plan §4) para que sea reconciliable cuando F5 exista; no bloquea Fase 3, pero tampoco se pierde trazabilidad mientras tanto |
 
 ## 7. Gate antes de tasks/implementación
 
@@ -228,9 +268,11 @@ Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 - [x] Investigación externa completada (spec §11).
 - [ ] Modelo de datos de Fase 0 confirmado con owner de payments antes de
       iniciar Fase 2 (registro/validación).
-- [ ] Dependencia F5 (Shared Economic Ledger) resuelta antes de iniciar
-      Fase 3 (recompensa real) — bloqueo estructural, no de gobernanza.
+- [ ] Montos piloto (bono fijo + % de `platformFeeCents`) confirmados
+      antes de iniciar Fase 3.
 - [ ] Gate legal/fiscal de EE.UU. como primer país activado (ya
       investigado, spec §11) confirmado operable antes de iniciar Fase 3.
-- [ ] Lista priorizada de países siguientes (Fase 0, ítem nuevo) antes de
+- [ ] Lista priorizada de países de Latinoamérica (Fase 0) antes de
       planear cualquier expansión de Fase 3 más allá de EE.UU.
+- [x] Dependencia F5 (Shared Economic Ledger) **ya no es bloqueo
+      estructural** — corrección 2026-08-04, spec §12b.

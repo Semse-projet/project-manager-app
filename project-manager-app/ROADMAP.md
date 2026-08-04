@@ -347,7 +347,7 @@ estables durante canary.
 Contrato ejecutable:
 
 - [`docs/specs/core/universal-identity-multi-role.spec.md`](docs/specs/core/universal-identity-multi-role.spec.md) — `APPROVED` 2026-08-04
-- [`docs/specs/core/originador-referral-program.spec.md`](docs/specs/core/originador-referral-program.spec.md) — `APPROVED` 2026-08-04; Fase 3 (recompensa real) bloqueada por dependencia F5, ver spec §12b
+- [`docs/specs/core/originador-referral-program.spec.md`](docs/specs/core/originador-referral-program.spec.md) — `APPROVED` 2026-08-04; recompensa hibrida (bono fijo + % de `platformFeeCents`) gateada por `StripeConnectAccount`, multi-pais (Latinoamerica priorizada tras EE.UU.); Fase 3 bloqueada solo por el gate legal por pais (§12b), la dependencia F5 se retiro tras confirmar que reutiliza el mismo mecanismo de pago que ya usan los profesionales
 - [`docs/architecture/ADR-025-mcp-external-tool-gateway.md`](docs/architecture/ADR-025-mcp-external-tool-gateway.md) — decision de arquitectura, `PROPOSED`, no alcance activo
 
 `APPROVED` autoriza el contrato, no implica código: ambas specs siguen
