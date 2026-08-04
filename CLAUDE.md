@@ -43,8 +43,10 @@ Nine bounded-context domains own `apps/api/src/modules/`: SEMSE Core, Connect, P
 Run from `project-manager-app/` (CI's working directory is also `project-manager-app/`):
 
 ```bash
+docker compose -f infra/docker/compose.semse-mvp.yml up -d   # Postgres :5433, Redis :6379, MinIO :9000/:9001, MailHog :8025
 pnpm install --frozen-lockfile
 pnpm db:generate                     # generate Prisma client — needed before most dev/build tasks
+pnpm db:migrate                      # apply already-versioned migrations to your local DB
 
 pnpm dev:api                         # NestJS API, watch mode
 pnpm dev:web                         # Next.js web
@@ -56,7 +58,7 @@ pnpm lint                            # api + web eslint
 pnpm typecheck                       # workspace-wide tsc
 
 pnpm test:unit                       # root tests/unit/*.test.{mjs,ts} via node --test, no DB required
-pnpm --filter @semse/api test:unit   # API unit tests (jest via scripts/run-tests.mjs)
+pnpm --filter @semse/api test:unit   # API unit tests — also node --test under the hood (scripts/run-tests.mjs), not jest despite the package's separate `test` (jest) script
 pnpm --filter @semse/api test:integration
 pnpm test:e2e                        # full Playwright suite
 pnpm test:e2e:semse:health           # single-spec Playwright example — swap the spec path/name to target another
@@ -66,6 +68,8 @@ pnpm check                           # test:unit + prisma generate + build:api +
 ```
 
 Single root unit test file: `pnpm build:packages && node --experimental-strip-types --test tests/unit/<file>.test.ts`.
+
+Single API unit test file (many import from `apps/api/dist/`, so build first): `pnpm build:packages && pnpm --filter @semse/api build && node --experimental-strip-types --test apps/api/test/<file>.test.ts`.
 
 New Prisma model: edit `packages/db/prisma/schema.prisma` → `pnpm --filter @semse/db prisma migrate dev --name <name>` → `pnpm db:generate` → add types in `packages/schemas/src/`.
 
