@@ -1,144 +1,167 @@
 # Vision Prometeo OS 2026
 
-## Nota de copia operativa
-
-`docs/vision/` es la copia operativa de la vision. La fuente canonica vive
-fuera de este repositorio (`vision/`, ver `VISION_CHANGE_PROTOCOL.md`). Este
-documento se escribe aqui porque es donde vive el codigo y el kit SDD que
-debe alinearse con el; la reconciliacion con la fuente canonica externa
-queda pendiente de accion humana fuera de este repo.
-
-Este documento no reformula lo existente: documenta una evolucion de
-producto real, ya parcialmente desplegada en codigo (Prometeo Runtime P2),
-que `docs/vision/` todavia no reflejaba antes de esta fecha (2026-08-04).
-
 ## Objetivo
 
-Resolver una colision de nombres antes de que contradiga las decisiones
-bloqueadas: `VISION_GLOSSARY.md` define "Prometeo" como la capa 4
-institucional (DID, DAO, treasury, governance) — futura, fuera del MVP. El
-codigo real usa el mismo nombre para el orquestador conversacional
-(`apps/api/src/modules/ai-models/orchestrator/prometeo-orchestrator.service.ts`)
-que ya interpreta intencion y ejecuta trabajo hoy. Son dos cosas distintas
-con el mismo nombre. Este documento separa ambas explicitamente y ubica la
-segunda dentro de la vision activa ya definida en `VISION_BOUNDARIES.md`
-("agentes utiles para trabajo real" ya esta dentro de la vision activa).
+Nombrar y encuadrar formalmente algo que ya empezó a construirse sin tener
+un documento de vision propio: Prometeo como orquestador conversacional que
+unifica el uso de SEMSE, no solo como agente puntual dentro de un modulo.
 
-## Dos capas Prometeo, dos horizontes
+Este documento no reemplaza [VISION_FUSIONADA_SEMSE_PROMETEO.md](VISION_FUSIONADA_SEMSE_PROMETEO.md).
+Lo complementa distinguiendo dos capas de Prometeo con horizontes distintos,
+resolviendo una ambiguedad que ya existia entre el glosario y el codigo real
+(ver "Las dos capas de Prometeo" abajo).
 
-### Prometeo Operativo (esta sintesis — horizonte: ahora)
+## Por que este documento existe ahora
 
-Orquestador conversacional que interpreta la intencion del usuario —
-llegue por texto, voz, imagen o dashboard — y decide que capacidad interna
-de SEMSE usar. No reemplaza los modulos: los pone detras de una interfaz
-conversacional comun. Ya existe en runtime (P2):
+[VISION_PROMETEO_MAPPING.md](VISION_PROMETEO_MAPPING.md) (2026-05-25) ya
+detecto que la seccion 6, "Agentes Autonomos", era "el modulo mas avanzado
+del roadmap" frente a la vision civilizatoria completa. Desde esa fecha el
+codigo avanzo mas rapido que la vision documentada:
 
-- loop OBSERVE → INTERPRET → PLAN → APROBACION → EXECUTE → VERIFY → LEARN,
-  documentado en `docs/SEMSE_CONTEXT.md`;
-- Tool Registry gobernado con policy/audit/approval sobre las herramientas
-  internas (`docs/specs/prometeo/tool-registry-governance.spec.md`,
-  `status: APPROVED`);
-- ruteo de intencion a agentes internos (Marta/Felix/Pulse/Justus/Planner)
-  en diseno (`docs/specs/agents/prometeo-core.spec.md`, `status: DRAFT`).
+- Prometeo Runtime P2 esta implementado, fusionado y desplegado, con loop
+  `OBSERVE -> INTERPRET -> PLAN -> REQUEST APPROVAL -> EXECUTE -> VERIFY ->
+  LEARN` (`docs/SEMSE_CONTEXT.md`).
+- Existe un Tool Registry gobernado (31 tools, policy + audit + approval)
+  — `docs/specs/prometeo/tool-registry-governance.spec.md`, `APPROVED`.
+- Existe un enrutador de intencion hacia agentes internos especializados
+  (Marta/Felix/Pulse/Justus/Planner) — `docs/specs/agents/prometeo-core.spec.md`,
+  `DRAFT`.
+- Existe un workspace multimodal para adjuntos (imagen/video/audio/docs) en
+  el mismo chat — `docs/specs/ui/prometeo-multimodal-workspace.spec.md`,
+  `IMPLEMENTED`.
+- Existe precedente de canal adicional sin migrar nada: Alexa como "otro
+  cliente del mismo backend" — `docs/specs/satellites/SAT-002-alexa-voice-channel.spec.md`,
+  `APPROVED`.
 
-Acotado hoy a modulos y herramientas internas de SEMSE. Cero MCP, cero
-GitHub/Vercel/Railway/Docker — ver seccion "Orquestacion externa" abajo.
+Ninguno de estos documentos, individualmente, dice en voz alta lo que
+resulta de sumarlos: SEMSE ya tiene el nucleo de un sistema donde el usuario
+expresa una intencion y Prometeo decide que capacidad interna usar. Ese es
+el objeto de este documento.
 
-### Prometeo Institucional (`VISION_FUSIONADA_SEMSE_PROMETEO.md` §5.4 — sin cambios)
+## Las dos capas de Prometeo
 
-DID, wallet autocustodiado, DAO, treasury, governance programable. Sigue
-como norte institucional, sin tocar. `VISION_DECISIONS_LOCKED.md` #10 y
-`VISION_PILLARS.md` Pilar 7 siguen vigentes tal cual: no se implementa
-completo ahora, no debe contaminar el MVP. Este documento no cambia esa
-decision ni el orden de capas de `VISION_DECISIONS_LOCKED.md` #3
-(`Jobs → Ops → Trust → Prometeo`) — Prometeo Operativo sigue dependiendo
-del core operativo, no al reves.
+`VISION_GLOSSARY.md` define hoy "Prometeo" unicamente como la capa 4
+institucional (governance, identidad soberana, treasury, sub-DAOs) y
+`VISION_DECISIONS_LOCKED.md` #10 la fija como "norte institucional", fuera
+del MVP. Esa decision **no cambia** con este documento.
 
-## Los 5 principios de Prometeo Operativo
+Lo que este documento añade es que el nombre "Prometeo" ya se usa tambien,
+en el codigo y en los specs, para una segunda capa — mas cercana, ya
+parcialmente construida — que conviene nombrar por separado para no
+confundir "lo que ya existe" con "lo que sigue siendo norte de largo plazo":
 
-1. **El usuario nunca aprende modulos.** Interactua con Prometeo; Prometeo
-   decide si eso significa Marketplace, BuildOps, Evidence, Payments, CRM,
-   Planner o Mission Control. El usuario no necesita saber que modulo
-   resolvio su pedido.
-2. **Una cuenta, multiples capacidades, cualquier proyecto.** Un mismo
-   usuario puede ser cliente en un proyecto y profesional en otro, sin
-   fijar un rol unico por sesion. Detalle tecnico en la seccion
-   "Identidad universal" abajo.
-3. **Los modulos son organos; MCP es el sistema nervioso hacia afuera.**
-   Los modulos internos siguen siendo la unidad de dominio (cada uno
-   gobierna su propio schema). Prometeo los orquesta hacia adentro ya;
-   MCP es el mecanismo evaluado para orquestar herramientas externas
-   (GitHub, Vercel, Railway, Docker, sandboxes) — ver seccion abajo, no es
-   alcance activo todavia.
-4. **Ningun canal reemplaza a otro; se suman.** Dashboard, texto, voz,
-   imagen y video son clientes del mismo backend, no migraciones. Precedente
-   ya escrito: `docs/specs/satellites/SAT-002-alexa-voice-channel.spec.md`
-   dice explicitamente "Alexa es solo otro cliente del mismo backend, no se
-   migra nada" (`status: APPROVED`).
-5. **El nucleo del proyecto es universal; la ejecucion se especializa por
-   industria.** El orquestador y el modelo de datos no cambian entre
-   verticals; las skills/agentes de dominio si.
-
-## Mapa canal → capacidad
-
-| Canal | Estado | Referencia |
+| | Prometeo Operativo (este documento) | Prometeo Institucional (`VISION_FUSIONADA_SEMSE_PROMETEO.md`) |
 |---|---|---|
-| Dashboard | ✅ construido | UI existente por modulo |
-| Texto (chat Prometeo) | ✅ P2 desplegado | `docs/SEMSE_CONTEXT.md` |
-| Adjuntos multimodales (imagen/video/audio/docs en el chat) | ✅ `IMPLEMENTED` | `docs/specs/ui/prometeo-multimodal-workspace.spec.md` |
-| Voz nativa (satelite) | ✅ `APPROVED`, sin activar | `docs/specs/satellites/SAT-002-alexa-voice-channel.spec.md` |
-| Voz/camara/video nativos del workspace, streaming | ⏳ pendiente, F7 | `ROADMAP.md` — "F7 — Prometeo Multimodal" |
-| Vision-a-proyecto (foto → intencion) | ⏳ pendiente, F7 | idem |
-| Orquestacion de herramientas externas (MCP) | ⏳ decision pendiente, ADR nuevo | ver seccion siguiente |
+| Que es | Orquestador conversacional que interpreta intencion y decide que capacidad interna de SEMSE usar | Identidad soberana, DAO, treasury, gobernanza distribuida |
+| Horizonte | Ahora — ya en runtime (P2) | Largo plazo — norte institucional, fuera del MVP |
+| Autoridad de datos | Nunca reemplaza al modulo de dominio (regla ya vigente, `docs/SEMSE_CONTEXT.md`) | No aplica todavia |
+| Donde vive | `docs/specs/prometeo/`, `docs/specs/agents/prometeo-core.spec.md`, F2/F7 del roadmap | `docs/vision/VISION_FUSIONADA_SEMSE_PROMETEO.md`, capa 4 |
+| Relacion entre ambas | Es la base operativa sobre la que, eventualmente, se apoyaria la capa institucional (mismo orden de capas de `VISION_DECISIONS_LOCKED.md` #3: Jobs -> Ops -> Trust -> Prometeo) | Depende del core operativo, no al reves |
 
-## Identidad universal (una cuenta, multiples capacidades)
+Esta distincion no reabre la decision #10 ("Prometeo no se elimina, no se
+implementa completo ahora, se conserva como norte institucional") — la
+confirma. Lo que estaba sin nombrar es la parte de Prometeo que **si** se
+esta implementando ya, dentro del limite que las decisiones bloqueadas
+permiten (agentes utiles para trabajo real, ver `VISION_PILLARS.md` Pilar 5).
 
-El schema ya lo permite a nivel de datos: `Membership(userId, orgId,
-roleId)` tiene PK compuesta `[userId, orgId, roleId]`
-(`packages/db/prisma/schema.prisma`), es decir, un usuario ya puede tener
-mas de un rol por organizacion sin migracion. Lo que falta es
-producto/UX: hoy la sesion asume un rol fijo, y `docs/AUDIT_REMEDIATION_PLAN.md`
-ya documenta confusion de nombres de rol (`PRO` en DB vs "Profesional" en
-UI) como sintoma de esa asuncion. Este es un cambio de superficie de
-producto sobre una capacidad de datos que ya existe, no un cambio de
-schema. Detalle de alcance en
-`docs/specs/core/universal-identity-multi-role.spec.md` (a crear, ver
-seccion "Kit SDD" abajo — este documento de vision no lo desarrolla).
+## Principios (sintesis de la sesion de origen)
 
-## Orquestacion externa (MCP) — decision pendiente, no alcance activo
+1. **El usuario nunca aprende modulos.** No dice "voy a Marketplace" o "voy
+   a BuildOps" — dice lo que necesita, y Prometeo Operativo decide que
+   capacidad interna usar. Los modulos siguen existiendo y su UI/dashboards
+   no se tocan; ganan un segundo punto de entrada, no pierden el primero.
+2. **Ningun canal reemplaza a otro, se suman.** Dashboard, texto y voz son
+   clientes del mismo backend (patron ya validado en
+   `SAT-002-alexa-voice-channel.spec.md`: "no se migra nada, es solo otro
+   cliente"). Un cambio hecho por voz debe verse igual en el dashboard.
+3. **Los modulos son organos; las herramientas externas necesitan un
+   sistema nervioso separado.** Prometeo Operativo ya sabe hablar con los
+   modulos internos de SEMSE sin protocolo adicional. Hablar con el mundo
+   exterior (GitHub, Vercel, Railway, Docker, sandboxes) es una superficie
+   de riesgo distinta y **no esta resuelta** — ver
+   `docs/architecture/ADR-025-mcp-external-tool-gateway.md` (nuevo, en
+   propuesta) antes de asumir que esto es alcance activo.
+4. **Una cuenta, multiples capacidades, cualquier proyecto.** Hoy el
+   producto asume un rol fijo por sesion aunque el schema de `Membership`
+   ya permite mas de un rol por usuario (ver
+   `docs/specs/core/universal-identity-multi-role.spec.md`, nuevo). Este
+   principio no cambia permisos financieros existentes por si solo.
+5. **El nucleo del proyecto es universal; la ejecucion se especializa por
+   industria.** `docs/SEMSE_CONTEXT.md` ya declara 9 dominios transversales
+   (Core, Connect, Payments, Trust, AI, Agro, BuildOps, Knowledge,
+   Integrations) con la regla "no crear identidad, permisos, pagos,
+   evidencia o knowledge paralelos dentro de un vertical". BuildOps y Agro
+   ya demuestran que un mismo core soporta mas de una industria — este
+   principio documenta esa capacidad, no la inventa.
 
-MCP externo ya se evaluo una vez y se retiro: `SPEC-INT-001` (CLI Agent
-Adapter + MCP Gateway externo) figura como "retirado" en `ROADMAP.md`
-(seccion "Programa transversal — Consolidacion Cognitiva"), reemplazado
-por `packages/agents/src/developer-runtime.ts`. `ADR-024` §12 propone un
-"MCP Gateway" para Obscura (control de scopes, "confused deputy",
-auditoria inmutable) pero sin evidencia de implementacion. Revivir MCP no
-es agregar algo nuevo: es reabrir una decision ya cerrada, y por eso
-necesita su propio ADR explicito (`docs/architecture/ADR-025-mcp-external-tool-gateway.md`,
-a crear) en vez de asumirse como parte de esta vision. Mientras ese ADR no
-se apruebe, Prometeo Operativo no gana herramientas externas.
+## Mapa canal -> capacidad
 
-## Originador / facilitador (glosario nuevo)
+| Canal | Estado |
+|---|---|
+| Dashboard / UI | ✅ existente, sin cambios previstos |
+| Texto (chat Prometeo) | ✅ Runtime P2 desplegado |
+| Adjuntos multimodales (imagen/video/audio/doc) | ✅ `prometeo-multimodal-workspace.spec.md`, IMPLEMENTED |
+| Voz nativa (no solo Alexa) | ⏳ F7 — Prometeo Multimodal, PENDIENTE en roadmap |
+| Vision-a-proyecto (foto -> proyecto preliminar) | ⏳ F7 — Prometeo Multimodal, PENDIENTE |
+| Herramientas externas via MCP (GitHub/Vercel/Railway/Docker) | ⏳ decision de arquitectura pendiente — `ADR-025-mcp-external-tool-gateway.md`, revisita `SPEC-INT-001` (retirado) |
 
-Rol nuevo, sin precedente en ningun documento existente: un usuario que
-ayuda a un tercero a crear un proyecto en SEMSE (lo origina o facilita) y
-recibe una recompensa atada a hitos verificables del proyecto resultante —
-no a la sola publicacion. Ejemplos de hitos que si califican: proyecto
-validado por su dueño, primera propuesta recibida, profesional contratado,
-primer milestone financiado, proyecto completado. Publicar sin que nada de
-eso ocurra no genera recompensa. Toca dinero real (Stripe/escrow) y por
-eso su spec (`docs/specs/core/originador-referral-program.spec.md`, a
-crear) cae bajo el gate §7 "Economia" de `docs/SDD_GOVERNANCE.md`.
+## Conceptos nuevos (glosario)
 
-## Que no cambia
+### Originador / facilitador
 
-- El orden de capas `Jobs → Ops → Trust → Prometeo`
-  (`VISION_DECISIONS_LOCKED.md` #3).
-- La frontera institucional de Prometeo (`VISION_BOUNDARIES.md`,
-  "Frontera de Prometeo"): orienta arquitectura, trust e identidad,
-  governance futura — no es requisito de salida del MVP.
-- `Job` como entidad canonica del flujo comercial
-  (`VISION_DECISIONS_LOCKED.md` #4).
-- F0–F9 de `ROADMAP.md`: no se reordenan ni renumeran. Ver documento de
-  planeacion `docs/reportes/planning/plan_alineacion_prometeo_os_roadmap_sdd_2026-08-03.md`
-  para como se conecta esta vision con el roadmap y el kit SDD.
+Persona que ayuda a un tercero a crear y estructurar un proyecto en SEMSE
+(sin ser el dueno del proyecto ni el profesional que lo ejecuta) y recibe
+una recompensa **monetaria real** atada a hitos verificables del proyecto
+— no a publicarlo, y gateada por un documento de identidad fiscal
+apropiado a su pais (decision del owner, 2026-08-04). Alcance geografico:
+multi-pais desde el inicio, pero activado pais por pais — solo EE.UU.
+tiene la investigacion legal/fiscal hecha hoy. No existia antes en ningun
+spec ni en el glosario de vision. Desarrollo formal en
+`docs/specs/core/originador-referral-program.spec.md` (`APPROVED`
+2026-08-04; Fase 3 de recompensa real bloqueada por dependencia F5 + gate
+legal por pais, ver spec §12b).
+
+### Identidad universal / multi-capacidad
+
+Un mismo usuario puede tener mas de una capacidad activa entre las tres
+que ya existen como roles reales y distintos en `packages/auth/src/rbac.ts`
+— `CLIENT` (publica proyectos), `PRO` (profesional independiente) y
+`WORKER` (trabaja bajo el mando de una compania/contratista) — mas
+"originador" como cuarta capacidad, sin que el producto lo obligue a
+elegir una fija por sesion. El schema ya lo permite
+(`Membership(userId, orgId, roleId)`, PK compuesta); el gap es de
+producto/UX, documentado en
+`docs/specs/core/universal-identity-multi-role.spec.md` (`APPROVED`
+2026-08-04). La capacidad activa se deriva siempre del proyecto/org
+abierto, nunca de una preferencia guardada.
+
+## Que NO cambia con este documento
+
+- No se reabre `VISION_DECISIONS_LOCKED.md` #10 (Prometeo Institucional
+  sigue fuera del MVP).
+- No se compromete construccion de orquestacion externa via MCP — queda
+  como decision de arquitectura propuesta, no como alcance activo (ver
+  `docs/ROADMAP.md`, iniciativa transversal nueva).
+- No se tocan permisos financieros existentes al introducir el modelo
+  multi-capacidad; cualquier cambio de permisos de pago requiere su propio
+  spec bajo el gate de riesgo `critical` (`docs/SDD_GOVERNANCE.md` §7).
+- Los dashboards y flujos actuales no se remueven ni se reemplazan por el
+  canal conversacional.
+
+## Referencias
+
+- `docs/vision/VISION_FUSIONADA_SEMSE_PROMETEO.md` — capa institucional,
+  sin cambios.
+- `docs/vision/VISION_PROMETEO_MAPPING.md` — mapeo original que detecto la
+  seccion 6 (Agentes Autonomos) como la mas avanzada; este documento la
+  extiende con lo construido despues de 2026-05-25.
+- `docs/SEMSE_CONTEXT.md` — estado verificado del runtime P2 y reglas de
+  Prometeo.
+- `docs/ROADMAP.md` — iniciativa transversal nueva y su relacion con
+  F2/F7/Core.
+- `docs/specs/core/universal-identity-multi-role.spec.md`,
+  `docs/specs/core/originador-referral-program.spec.md` — `APPROVED`
+  2026-08-04 (contrato autorizado; código sin empezar, ver
+  `IMPLEMENTATION_STATUS_MATRIX.md`).
+- `docs/architecture/ADR-025-mcp-external-tool-gateway.md` — sigue
+  `PROPOSED`, decisión de arquitectura sin tomar.

@@ -48,16 +48,20 @@ Representa:
 
 ## Prometeo
 
-El nombre cubre dos capas con horizontes distintos — ver
-`VISION_PROMETEO_OS_2026.md` para el detalle:
+Nombre usado en dos capas distintas — ver
+[VISION_PROMETEO_OS_2026.md](VISION_PROMETEO_OS_2026.md) para el detalle
+completo de la distincion:
 
-- **Prometeo Operativo:** orquestador conversacional que ya corre en
-  runtime (P2), interpreta intencion del usuario y decide que capacidad
-  interna de SEMSE usar. Horizonte: ahora.
-- **Prometeo Institucional:** capa futura de evolucion institucional.
-  Representa governance, identidad soberana, treasury, coordinacion
-  distribuida, reglas programables, sub-DAOs. Horizonte: largo plazo, sin
-  cambios respecto a `VISION_FUSIONADA_SEMSE_PROMETEO.md` §5.4.
+- **Prometeo Institucional** (esta entrada original): capa futura de
+  evolucion institucional. Representa governance, identidad soberana,
+  treasury, coordinacion distribuida, reglas programables, sub-DAOs. Sigue
+  fuera del MVP (`VISION_DECISIONS_LOCKED.md` #10,
+  `VISION_FUSIONADA_SEMSE_PROMETEO.md` §5.4).
+- **Prometeo Operativo**: orquestador conversacional ya en runtime (P2) que
+  interpreta intencion y decide que capacidad interna de SEMSE usar, sin
+  reemplazar la autoridad de datos de cada modulo. Es la capa que hoy se
+  construye bajo el nombre "Prometeo" en `docs/specs/prometeo/` y
+  `docs/specs/agents/prometeo-core.spec.md`.
 
 ## Job
 
