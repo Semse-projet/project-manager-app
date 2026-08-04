@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Two-level layout — work in `project-manager-app/`, not here
 
-This checkout (`Semse-projet/project-manager-app`) has an unusual shape: the root you're in now is a **superseded staging area**, and the actively developed monorepo lives one directory down, in [`project-manager-app/`](project-manager-app/). Its own `README.md`, `ROADMAP.md`, and `SEMSE_CONTEXT.md` at this root are one-paragraph stubs that all say "supersedido desde 2026-07-16" and redirect to the same-named files under `project-manager-app/`.
+This checkout (`Semse-projet/project-manager-app`) has an unusual shape: the root you're in now is a **superseded staging area**, and the actively developed monorepo lives one directory down, in [`project-manager-app/`](project-manager-app/). `ROADMAP.md` and `SEMSE_CONTEXT.md` at this root are one-paragraph stubs that say "supersedido desde 2026-07-16" and redirect to the same-named files under `project-manager-app/`. `README.md` at this root is not a stub — it's still-valid guidance on canonicity, source-of-truth precedence, the nine domains, and contribution rules (no mass renames, no secrets, ask before destructive git ops); read it too.
 
 Everything that matters — source, tests, `package.json`, CI config, specs — lives under `project-manager-app/`. `cd` there before running any command below. Root-level content outside it (`SEMSE Pro Tools v2/`, `prompts/`, `reportes-semanales/`, `utils/`, the various dated `*_REPORT.md`/`*_CHECKPOINT.md` files) is historical prototypes and session logs kept as reference input — don't build features there and don't treat it as authorized architecture.
 
