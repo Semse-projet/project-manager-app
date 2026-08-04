@@ -5,24 +5,24 @@ domain: "core"
 plan: "docs/specs/core/universal-identity-multi-role.plan.md"
 version: "1.0"
 status: "PENDING"
-branch: "TBD — crear en T-003 tras cerrar T-001/T-002"
+branch: "TBD — crear en T-003"
 date: "2026-08-04"
 ---
 
 # Tareas: Identidad universal con múltiples capacidades por cuenta
 
-> Spec `APPROVED` 2026-08-04. Lo que queda bloqueando código real no es el
-> contrato (ya autorizado) sino las decisiones de producto de Fase 0
-> (T-001/T-002) — confirmarlas con el owner antes de T-003.
+> Spec `APPROVED` 2026-08-04, Fase 0 resuelta el mismo día. Listo para
+> empezar en Fase 1.
 
-## Fase 0 — Preflight (bloqueada)
+## Fase 0 — Preflight (RESUELTA 2026-08-04)
 
-- [ ] **T-001** Confirmar con el owner el alcance exacto de "capacidad
-      activa por contexto" (spec/plan Fase 0).
-- [ ] **T-002** Decidir si el hallazgo `PRO`/"Profesional" de
-      `AUDIT_REMEDIATION_PLAN.md` entra en este incremento.
-- [ ] **T-003** Crear rama de implementación desde `origin/main` limpio
-      solo después de T-001/T-002 y de que el spec esté `APPROVED`.
+- [x] **T-001** Capacidad activa se deriva 100% del proyecto/org abierto,
+      nunca de preferencia guardada.
+- [x] **T-002** `CLIENT`/`PRO`/`WORKER` confirmados como roles reales
+      distintos (cliente / profesional independiente / trabajador de
+      compañía-contratista); el hallazgo `PRO`/"Profesional" (URL/label)
+      queda fuera de este incremento.
+- [ ] **T-003** Crear rama de implementación desde `origin/main` limpio.
 
 ## Fase 1 — Tests antes del código
 

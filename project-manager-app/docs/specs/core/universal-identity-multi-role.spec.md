@@ -32,11 +32,13 @@ last_verified: "2026-08-04"
 
 > **APPROVED 2026-08-04.** El owner (Samuel) aprobó explícitamente tras
 > cerrar la investigación externa (§11) y confirmar que ninguna sección
-> quedaba pendiente. Autoriza avanzar `universal-identity-multi-role.plan.md`
-> y `.tasks.md` de "provisional" a activos — las decisiones de producto
-> pendientes marcadas en la Fase 0 del plan (alcance exacto del selector,
-> si el hallazgo `PRO`/"Profesional" entra en este incremento) siguen
-> abiertas y se resuelven ahí, no bloquean este `APPROVED`.
+> quedaba pendiente. En la misma sesión el owner resolvió las dos
+> decisiones de Fase 0 que quedaban abiertas: (1) la capacidad activa se
+> deriva 100% del proyecto/org abierto, nunca de una preferencia guardada;
+> (2) `CLIENT`/`PRO`/`WORKER` son tres roles reales y distintos (no un
+> bug de etiqueta) y no se tocan — el hallazgo de URL/label de `PRO` queda
+> fuera de alcance. Autoriza avanzar `universal-identity-multi-role.plan.md`
+> y `.tasks.md` directo a la Fase 1 (tests).
 >
 > Contrato ejecutable SDD 2.0. Origen:
 > `docs/vision/VISION_PROMETEO_OS_2026.md` (principio 4, "una cuenta,
@@ -46,20 +48,39 @@ last_verified: "2026-08-04"
 
 **Para quién:** cualquier usuario de SEMSE que participa en más de un
 proyecto con roles distintos (p. ej. cliente en un proyecto propio,
-profesional contratado en otro).
+profesional independiente contratado en otro, o trabajador de una
+compañía/contratista en un tercero).
 
-**Problema:** el modelo de datos (`Membership(userId, orgId, roleId)`, PK
-compuesta) ya permite más de un rol por usuario, pero el producto y la UX
-asumen hoy un rol fijo por sesión/cuenta. El propio
-`docs/AUDIT_REMEDIATION_PLAN.md` documenta síntomas de esta fricción (el
-rol `PRO` en DB se etiqueta "Profesional" en UI de forma inconsistente
-entre superficies). Un usuario que quiere operar con más de una capacidad
-tiene que crear cuentas separadas o forzar su identidad en un rol que no
-le corresponde en ese contexto.
+**Confirmado con el owner (2026-08-04) — taxonomía real de roles, no un
+bug de etiqueta:** `packages/auth/src/rbac.ts` ya modela **tres roles
+externos distintos y correctos**, no dos con un nombre confundido:
+
+- `CLIENT` — cualquier persona que publica un proyecto (ej. "mi vecino
+  tiene una gotera").
+- `PRO` — profesional **independiente**, trabaja por su propia cuenta.
+- `WORKER` — trabajador que opera **bajo el mando de una compañía o
+  contratista** (no es independiente).
+
+Esta distinción es intencional y **no se fusiona ni se toca** en esta
+spec. Lo que sí documentó `docs/AUDIT_REMEDIATION_PLAN.md` (nota de
+nomenclatura, hallazgo 1.21) es algo más chico y separado: el rol `PRO`
+vive bajo rutas `/worker/*` y su sidebar se etiqueta a sí mismo
+"Profesional" — una inconsistencia de URL/label, no de modelo de roles.
+Se deja fuera de alcance (ver abajo), confirmado explícitamente por el
+owner.
+
+**Problema real de esta spec:** el modelo de datos (`Membership(userId,
+orgId, roleId)`, PK compuesta) ya permite que un mismo usuario tenga
+`CLIENT` en una org, `PRO` en otra y/o `WORKER` en una tercera — pero el
+producto y la UX asumen hoy un rol fijo por sesión/cuenta. Un usuario que
+quiere operar con más de una capacidad (de las tres reales: cliente,
+profesional independiente, trabajador de compañía) tiene que crear
+cuentas separadas o forzar su identidad en un rol que no le corresponde
+en ese contexto.
 
 **Resultado esperado:** un usuario puede tener más de una capacidad activa
-(cliente, profesional, originador — ver
-`docs/specs/core/originador-referral-program.spec.md`) bajo la misma
+(cliente, profesional independiente, trabajador de compañía, originador —
+ver `docs/specs/core/originador-referral-program.spec.md`) bajo la misma
 cuenta, y la UI/Prometeo Operativo eligen la capacidad correcta según el
 proyecto o la conversación, sin exigir un cambio manual de "modo cuenta".
 
@@ -68,15 +89,23 @@ proyecto o la conversación, sin exigir un cambio manual de "modo cuenta".
 ### Incluido
 
 - Modelo de producto/UX para exponer y conmutar entre capacidades activas
-  de una misma cuenta.
+  de una misma cuenta, sobre los tres roles reales ya existentes
+  (`CLIENT`/`PRO`/`WORKER`) — sin crear roles nuevos ni fusionar los
+  existentes.
 - Reglas de qué capacidad aplica por contexto (proyecto, conversación con
-  Prometeo, superficie de UI).
-- Unificación de la etiqueta de rol mostrada en UI (ver hallazgo de
-  `AUDIT_REMEDIATION_PLAN.md` sobre `PRO`/"Profesional") como parte de esta
-  spec, no por separado.
+  Prometeo, superficie de UI): **100% derivada del proyecto/org abierto,
+  nunca de una preferencia guardada** (decisión confirmada con el owner
+  2026-08-04) — evita el riesgo de "capacidad pegada" incorrecta.
 
 ### Fuera de alcance
 
+- No se fusionan ni se rediseñan los roles `CLIENT`/`PRO`/`WORKER` — la
+  distinción profesional-independiente vs. trabajador-de-compañía es
+  intencional y se mantiene tal cual (confirmado por el owner 2026-08-04).
+- La inconsistencia de URL/label de `PRO` (rutas `/worker/*`, sidebar dice
+  "Profesional") **queda explícitamente fuera de este incremento** —
+  confirmado por el owner: es un hallazgo cosmético separado de
+  `AUDIT_REMEDIATION_PLAN.md`, no bloquea ni se resuelve aquí.
 - No se tocan permisos financieros existentes (Stripe/escrow/payouts) —
   cualquier cambio ahí requiere su propio spec bajo el gate de riesgo
   `critical` de `docs/SDD_GOVERNANCE.md` §7.
@@ -119,6 +148,7 @@ Casos borde:
 - [ ] usuario con la misma capacidad duplicada en dos orgs distintas (no debe confundirse)
 - [ ] usuario sin ninguna capacidad verificada intenta acceder a un proyecto (debe caer al flujo de onboarding existente, sin regresión)
 - [ ] cambio de capacidad a mitad de una conversación con Prometeo (debe resolverse por el proyecto/contexto activo, no por preferencia global)
+- [ ] usuario con `WORKER` en la org de un contratista y `PRO` en un proyecto propio como independiente: la UI nunca mezcla los dos — bajo `WORKER` actúa a nombre del contratista (permisos de `WORKER`), bajo `PRO` actúa por cuenta propia (permisos de `PRO`), sin que uno herede permisos del otro
 
 ## 5. Contratos
 

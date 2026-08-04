@@ -111,20 +111,29 @@ permiten (agentes utiles para trabajo real, ver `VISION_PILLARS.md` Pilar 5).
 
 Persona que ayuda a un tercero a crear y estructurar un proyecto en SEMSE
 (sin ser el dueno del proyecto ni el profesional que lo ejecuta) y recibe
-una recompensa atada a hitos verificables del proyecto — no a publicarlo.
-No existe hoy en ningun spec ni en el glosario de vision. Desarrollo formal
-en `docs/specs/core/originador-referral-program.spec.md` (`APPROVED`
-2026-08-04; Fase 3 de recompensa real bloqueada por dependencia F5).
+una recompensa **monetaria real** atada a hitos verificables del proyecto
+— no a publicarlo, y gateada por un documento de identidad fiscal
+apropiado a su pais (decision del owner, 2026-08-04). Alcance geografico:
+multi-pais desde el inicio, pero activado pais por pais — solo EE.UU.
+tiene la investigacion legal/fiscal hecha hoy. No existia antes en ningun
+spec ni en el glosario de vision. Desarrollo formal en
+`docs/specs/core/originador-referral-program.spec.md` (`APPROVED`
+2026-08-04; Fase 3 de recompensa real bloqueada por dependencia F5 + gate
+legal por pais, ver spec §12b).
 
 ### Identidad universal / multi-capacidad
 
-Un mismo usuario puede tener mas de una capacidad activa (cliente en un
-proyecto, profesional en otro, originador en un tercero) sin que el
-producto lo obligue a elegir un rol fijo por sesion. El schema ya lo
-permite (`Membership(userId, orgId, roleId)`, PK compuesta); el gap es de
+Un mismo usuario puede tener mas de una capacidad activa entre las tres
+que ya existen como roles reales y distintos en `packages/auth/src/rbac.ts`
+— `CLIENT` (publica proyectos), `PRO` (profesional independiente) y
+`WORKER` (trabaja bajo el mando de una compania/contratista) — mas
+"originador" como cuarta capacidad, sin que el producto lo obligue a
+elegir una fija por sesion. El schema ya lo permite
+(`Membership(userId, orgId, roleId)`, PK compuesta); el gap es de
 producto/UX, documentado en
 `docs/specs/core/universal-identity-multi-role.spec.md` (`APPROVED`
-2026-08-04).
+2026-08-04). La capacidad activa se deriva siempre del proyecto/org
+abierto, nunca de una preferencia guardada.
 
 ## Que NO cambia con este documento
 

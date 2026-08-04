@@ -11,12 +11,9 @@ date: "2026-08-04"
 
 # Plan técnico: Identidad universal con múltiples capacidades por cuenta
 
-> **Spec `APPROVED` 2026-08-04.** Este plan deja de ser provisional. La
-> Fase 0 (preflight) sigue siendo el punto de partida obligatorio — las
-> decisiones de producto que quedaron abiertas ahí (alcance exacto del
-> selector, si el hallazgo `PRO`/"Profesional" entra en este incremento)
-> no estaban bloqueando el `APPROVED` del contrato, pero sí bloquean el
-> inicio de código real.
+> **Spec `APPROVED` 2026-08-04.** Fase 0 ya está resuelta (ver decisiones
+> abajo, confirmadas por el owner el mismo día) — el plan pasa directo a
+> Fase 1.
 
 ## 1. Resumen técnico
 
@@ -78,21 +75,21 @@ infrastructure:
 
 ## 4. Cambios de base de datos
 
-Ninguno anticipado. `Membership` ya modela múltiples capacidades por
-usuario. Si en Fase 0 (preflight) se descubre necesidad real de persistir
-"última capacidad usada" u otro campo derivado, se documenta como
-migración aditiva en una revisión de este plan antes de codificar — no se
-asume aquí.
+Ninguno. `Membership` ya modela múltiples capacidades por usuario
+(`CLIENT`/`PRO`/`WORKER`). Confirmado con el owner (2026-08-04): la
+capacidad activa se deriva 100% del proyecto/org abierto, nunca de una
+preferencia guardada — no hace falta ningún campo nuevo tipo "última
+capacidad usada".
 
 ## 5. Fases propuestas
 
-### Fase 0 — Preflight (bloqueada hasta spec `APPROVED`)
+### Fase 0 — Preflight (RESUELTA 2026-08-04)
 
-- Confirmar con el owner el alcance exacto de "capacidad activa por
-  contexto" (¿se persiste preferencia, o se deriva 100% del proyecto
-  abierto?).
-- Confirmar si el hallazgo de `AUDIT_REMEDIATION_PLAN.md` sobre el rol
-  `PRO`/"Profesional" se resuelve dentro de este incremento o aparte.
+- [x] Alcance de "capacidad activa por contexto": se deriva 100% del
+      proyecto/org abierto, nunca de una preferencia guardada.
+- [x] El hallazgo `PRO`/"Profesional" (URL/label) queda fuera de este
+      incremento — `CLIENT`/`PRO`/`WORKER` son roles reales distintos,
+      no se tocan ni se fusionan.
 
 ### Fase 1 — Tests antes del código
 

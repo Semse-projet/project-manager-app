@@ -14,11 +14,17 @@ date: "2026-08-04"
 > **Spec `APPROVED` 2026-08-04**, incluida la revisión punto por punto del
 > gate de riesgo `critical` de pagos (spec §12b). Este plan deja de ser
 > provisional para las Fases 0-2 (registro/validación, sin dinero). La
-> **Fase 3 (recompensa real) sigue bloqueada** — no por falta de
-> aprobación del spec, sino por una dependencia real declarada en §12b:
-> no existe todavía un mecanismo de registro contable (Shared Economic
-> Ledger, F5, `PENDIENTE`) con el que integrar el pago sin inventar un
-> balanceo ad-hoc.
+> **Fase 3 (recompensa real) sigue bloqueada por dos dependencias reales**,
+> no por falta de aprobación del spec:
+>
+> 1. No existe todavía un mecanismo de registro contable (Shared Economic
+>    Ledger, F5, `PENDIENTE`) con el que integrar el pago sin inventar un
+>    balanceo ad-hoc.
+> 2. El owner confirmó recompensa **monetaria real, multi-país desde el
+>    inicio** (2026-08-04) — pero solo EE.UU. tiene la investigación
+>    legal/fiscal hecha (spec §11). Fase 3 se activa **país por país**, no
+>    globalmente; cada país nuevo requiere su propio cierre de gate (spec
+>    §12b) antes de mover dinero real ahí.
 
 ## 1. Resumen técnico
 
@@ -103,6 +109,18 @@ model ProjectOriginator {
   @@unique([projectId])
   @@index([tenantId, originatorUserId])
 }
+
+// Generalizado a multi-país (decisión del owner 2026-08-04) — no hardcodea W-9.
+model OriginatorTaxIdentity {
+  id               String    @id @default(cuid())
+  originatorUserId String    @unique
+  country          String    // ISO 3166-1 alpha-2
+  documentType     String    // "W9" para US; otros países TBD en Fase 0 por país
+  documentRef      String    // referencia/almacenamiento seguro, no el documento crudo
+  collectedAt      DateTime  @default(now())
+
+  @@index([country])
+}
 ```
 
 Notas:
@@ -110,6 +128,11 @@ Notas:
 - `@@unique([projectId])` refleja la decisión del spec de un solo
   originador por proyecto (a confirmar en Fase 0; si se permite más de
   uno, este constraint cambia antes de migrar).
+- `OriginatorTaxIdentity.documentType`/`country` existen desde el diseño
+  inicial aunque, al lanzar, solo `country: "US"` tenga validación y
+  umbral (1099-NEC/US$600) implementados — cualquier otro país queda
+  rechazado explícitamente hasta que Fase 0 confirme su gate legal (spec
+  §12b), nunca aceptado "porque el campo ya existe".
 - El modelo de eventos de recompensa (qué tabla, si reutiliza
   `PaymentTxn` o necesita una propia) se decide en Fase 0 junto con el
   owner de payments — no se asume aquí para no prejuzgar el diseño del
@@ -118,17 +141,29 @@ Notas:
 
 ## 5. Fases propuestas
 
-### Fase 0 — Preflight (spec ya `APPROVED`; estas son decisiones de producto, no de gobernanza)
+### Fase 0 — Preflight
 
-- Confirmar con el owner de producto los montos/porcentajes reales de
-  recompensa (el spec deliberadamente no los fija).
-- Confirmar con el owner de payments/finance dónde vive el acumulado anual
-  por originador para 1099-NEC (spec §7, hallazgo §11) y el proceso de
-  recolección de W-9.
-- Confirmar la verificación mínima para ser elegible como originador
-  (anti-fraude/anti-auto-referido).
-- Confirmar alcance geográfico inicial (el requisito 1099-NEC es
-  condicional a jurisdicción US, spec §11 "Descartado").
+Resuelto por el owner (2026-08-04):
+
+- [x] Tipo de recompensa: monetaria real, gateada por documento de
+      identidad fiscal (no créditos).
+- [x] Alcance geográfico: multi-país desde el inicio.
+
+Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
+
+- [ ] Montos/porcentajes reales de recompensa (el spec deliberadamente no
+      los fija) — por país, dado que ya no hay un solo mercado objetivo.
+- [ ] Confirmar con el owner de payments/finance dónde vive el acumulado
+      anual por originador para 1099-NEC (spec §7) y el proceso de
+      recolección de `OriginatorTaxIdentity` para EE.UU.
+- [ ] Confirmar la verificación mínima para ser elegible como originador
+      (anti-fraude/anti-auto-referido).
+- [ ] **Nuevo, por la decisión multi-país:** priorizar la lista de países
+      a investigar legal/fiscalmente después de EE.UU. — cada uno abre su
+      propia línea de investigación externa (spec §11) antes de que Fase 3
+      pueda activarse ahí. No se investiga "todos los países" a la vez;
+      se prioriza por dónde el owner espera los primeros originadores
+      reales.
 
 ### Fase 1 — Tests antes del código (anti-abuso primero)
 
@@ -152,18 +187,23 @@ Notas:
 - Lanzar detrás de flag, fase "solo registro" — **sin pago real** — antes
   de tocar Fase 3.
 
-### Fase 3 — Recompensa real (bloqueada por dependencia de F5, no por gobernanza)
+### Fase 3 — Recompensa real (bloqueada por F5 + gate legal por país, no por gobernanza)
 
 - **Bloqueada hasta que exista un mecanismo de registro contable
   consistente con Payments (spec §12b) — dependencia de F5 (Shared
   Economic Ledger), hoy `PENDIENTE`.** No se activa con un balanceo
   ad-hoc solo para este programa.
+- **Se activa país por país, nunca globalmente.** EE.UU. es el único país
+  con investigación legal/fiscal hecha (spec §11). Cualquier otro país
+  necesita repetir esa investigación (Fase 0, ítem nuevo) antes de que
+  `OriginatorTaxIdentity.country` acepte ese país para pago real.
 - Conectar el catálogo de eventos verificables a la liberación real vía
   `payment-governance.service.ts`.
-- Implementar recolección de W-9 y acumulado anual antes de habilitar
-  cualquier pago real (spec §7).
+- Implementar recolección de `OriginatorTaxIdentity` y acumulado anual
+  (EE.UU. primero) antes de habilitar cualquier pago real (spec §7).
 - Requiere aprobación explícita y separada del owner antes de activar en
-  cualquier tenant, incluso `tenant_default`.
+  cualquier tenant, incluso `tenant_default` — y antes de activar cada
+  país adicional después del primero.
 
 ### Fase 4 — Validación y cierre
 
@@ -179,6 +219,7 @@ Notas:
 | Auto-referido (dueño y originador son la misma persona con cuentas distintas) | media | alto | verificación mínima de elegibilidad en Fase 0; cruzar con Trust/risk scoring existente |
 | Recompensa pagada y luego proyecto cancelado/disputado | baja | medio | definir reversibilidad en Fase 0 antes de activar Fase 3, coordinado con `escrow-release.service.ts` |
 | Modelo de recompensa duplica lógica de `PaymentsService` en vez de extenderla | baja | alto | Fase 3 reutiliza `payment-governance.service.ts` explícitamente, sin lógica de liberación propia |
+| Activar pago real en un país sin revisión legal, asumiendo que "el mecanismo ya funciona en EE.UU." | media | crítico | `OriginatorTaxIdentity.country` rechaza explícitamente cualquier país sin gate cerrado (spec §12b); ningún flag global activa todos los países a la vez |
 
 ## 7. Gate antes de tasks/implementación
 
@@ -189,3 +230,7 @@ Notas:
       iniciar Fase 2 (registro/validación).
 - [ ] Dependencia F5 (Shared Economic Ledger) resuelta antes de iniciar
       Fase 3 (recompensa real) — bloqueo estructural, no de gobernanza.
+- [ ] Gate legal/fiscal de EE.UU. como primer país activado (ya
+      investigado, spec §11) confirmado operable antes de iniciar Fase 3.
+- [ ] Lista priorizada de países siguientes (Fase 0, ítem nuevo) antes de
+      planear cualquier expansión de Fase 3 más allá de EE.UU.
