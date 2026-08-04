@@ -86,7 +86,7 @@ embebido.
   `docs/architecture/ADR-025-mcp-external-tool-gateway.md` (`PROPOSED`),
   no algo que este spec pueda asumir. Mientras esa ADR no pase a
   `ACCEPTED`, el Tool Registry gobernado (§4, fila "Tool Registry + Policy
-  Guard") sigue acotado a herramientas internas de SEMSE.
+  Guard") sigue acotado a herramientas internas de SEMSE (ver también §7).
 
 ## 4. Componentes: estado real vs. objetivo
 
@@ -152,6 +152,21 @@ User request
   agentes de dominio nuevos requieren actualizar
   `docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md` en el mismo cambio,
   para no volver a divergir los dos rosters.
+
+### Fuera de alcance (2026-08): orquestación de herramientas externas
+
+El Tool Registry (§4) gobierna hoy únicamente tools internas de SEMSE. La
+posibilidad de que Prometeo Core invoque herramientas externas de uso
+general (GitHub, Vercel, Railway, Docker, sandboxes vía MCP) — parte de la
+visión descrita en `docs/vision/VISION_PROMETEO_OS_2026.md` — **no es
+alcance de este spec** mientras
+`docs/architecture/ADR-025-mcp-external-tool-gateway.md` siga en
+`PROPOSED`. Esto no es una omisión: es la misma decisión que ya se tomó al
+retirar `SPEC-INT-001` (ver `ROADMAP.md` §"Consolidación Cognitiva"), ahora
+declarada explícitamente aquí para que ningún cambio futuro a este spec dé
+por hecho que ese alcance ya fue aprobado. Si el ADR pasa a `ACCEPTED`, este
+spec requiere una revisión explícita antes de que cualquier tool externa se
+registre.
 
 ## 8. Criterios de aceptación
 

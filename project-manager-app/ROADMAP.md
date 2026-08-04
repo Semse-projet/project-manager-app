@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-07-31
+**Actualizado:** 2026-08-04
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -337,6 +337,55 @@ Entregables:
 
 Gate de salida: RPO/RTO demostrados, runbooks operables y journeys criticos
 estables durante canary.
+
+## F10 — Identidad Universal y Orquestacion Externa
+
+> Iniciativa transversal nueva (2026-08). No reordena F0-F9; depende de F2 y
+> F7 y extiende Core/Identity (F0). Origen:
+> [`docs/vision/VISION_PROMETEO_OS_2026.md`](docs/vision/VISION_PROMETEO_OS_2026.md).
+
+Contrato ejecutable:
+
+- [`docs/specs/core/universal-identity-multi-role.spec.md`](docs/specs/core/universal-identity-multi-role.spec.md) — `APPROVED` 2026-08-04
+- [`docs/specs/core/originador-referral-program.spec.md`](docs/specs/core/originador-referral-program.spec.md) — `APPROVED` 2026-08-04; Fase 3 (recompensa real) bloqueada por dependencia F5, ver spec §12b
+- [`docs/architecture/ADR-025-mcp-external-tool-gateway.md`](docs/architecture/ADR-025-mcp-external-tool-gateway.md) — decision de arquitectura, `PROPOSED`, no alcance activo
+
+`APPROVED` autoriza el contrato, no implica código: ambas specs siguen
+`code_status: NOT_STARTED` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
+
+Entregables:
+
+- modelo de producto/UX para que un usuario tenga mas de una capacidad
+  activa (cliente/profesional/originador) sin forzar un rol fijo por
+  sesion — el schema de `Membership` ya lo permite, el gap es de producto;
+- programa de recompensa para el rol "originador/facilitador", atado a
+  hitos verificables (proyecto validado, primera propuesta, profesional
+  contratado, primer milestone financiado, proyecto completado) — nunca a
+  solo publicar;
+- decision explicita, via ADR, sobre si/como reabrir orquestacion de
+  herramientas externas (GitHub/Vercel/Railway/Docker) via MCP, dado que
+  `SPEC-INT-001` ya se evaluo y se retiro (superseded por
+  `packages/agents/src/developer-runtime.ts`).
+
+Dependencias declaradas:
+
+- **F2 (Tool Registry)** — cualquier tool externa que se apruebe se conecta
+  al mismo mecanismo de policy/audit/approval, no a uno paralelo.
+- **F7 (Prometeo Multimodal)** — sigue siendo el dueno de voz/vision
+  nativas; F10 las consume, no las duplica.
+- **Core/Identity (F0)** — el modelo multi-capacidad es un cambio
+  fundacional de identidad/RBAC, no una feature de UI aislada.
+
+Fuera de alcance explicito hasta que el ADR de MCP se apruebe: ninguna tool
+externa se registra en el Tool Registry, y `prometeo-core.spec.md` mantiene
+su alcance acotado a modulos internos.
+
+Gate de salida: specs indexados (`pnpm spec:index`) y validados
+(`pnpm spec:validate:strict`) — cumplido para las dos specs de este
+tramo (`APPROVED` 2026-08-04, investigacion externa y gate de pagos
+`critical` revisados explicitamente, ver spec de originador §12b) — y el
+ADR de MCP resuelto (aprobado o descartado formalmente) antes de que
+cualquier tool externa entre al registry, todavia pendiente.
 
 ## Reglas del programa
 

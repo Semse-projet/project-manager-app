@@ -3,6 +3,14 @@
 > Documento vivo. Fecha: 2026-05-25.
 > Compara los componentes de la visión civilizatoria de Prometeo contra el estado real del monorepo.
 
+> **Actualización 2026-08:** la sección 6 (Agentes Autónomos) de este mapeo
+> ya identificaba el módulo de agentes como "el más avanzado del roadmap".
+> Desde esta fecha se construyó bastante más sobre esa misma base (Runtime
+> P2 desplegado, Tool Registry gobernado, workspace multimodal) — ver
+> [VISION_PROMETEO_OS_2026.md](VISION_PROMETEO_OS_2026.md) para el mapeo
+> actualizado de esa parte específicamente. El resto de este documento
+> (identidad soberana, DAO, token, post-quantum) no cambió de estado.
+
 ---
 
 ## Leyenda de estado

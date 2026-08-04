@@ -28,6 +28,11 @@ Define:
 - `VISION_DECISIONS_LOCKED.md`
 - `VISION_BOUNDARIES.md`
 
+### Extensión operativa (capa Prometeo que ya está en construcción)
+
+- `VISION_PROMETEO_OS_2026.md` — distingue Prometeo Operativo (ahora) de
+  Prometeo Institucional (núcleo soberano, sin cambios)
+
 ### Entrada y narrativa
 
 - `VISION_INDEX.md`
