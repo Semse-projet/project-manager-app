@@ -123,11 +123,12 @@ calidad — riesgo explícito que motiva el gate `critical`).
 - Catálogo de eventos verificables que disparan recompensa (ver sección 4)
   y los que explícitamente NO la disparan.
 - Recompensa **monetaria real, modelo híbrido** (confirmado con el owner
-  2026-08-04): bono fijo en "primer milestone financiado" + porcentaje
-  pequeño sobre `platformFeeCents` en "proyecto completado" — nunca sobre
-  el valor bruto del proyecto, para que SEMSE siempre mantenga margen
-  positivo en cada proyecto originado. Lanza como piloto con montos
-  ajustables (ver §4, §8).
+  2026-08-04): bono fijo de **US$25** en "primer milestone financiado" +
+  **5% de `platformFeeCents`** en "proyecto completado" — nunca sobre el
+  valor bruto del proyecto, para que SEMSE siempre mantenga margen
+  positivo en cada proyecto originado. Son montos de **piloto inicial**,
+  explícitamente ajustables con datos reales (ver §4, §8) — no un
+  contrato final e inamovible.
 - Elegibilidad para recompensa gateada por `StripeConnectAccount`
   (`payoutsEnabled: true`) — se reutiliza el mecanismo que ya usan los
   profesionales, sin construir recolección de documentos fiscales propia
@@ -152,9 +153,9 @@ calidad — riesgo explícito que motiva el gate `critical`).
 - No se cambia el modelo de identidad multi-capacidad (spec separada:
   `docs/specs/core/universal-identity-multi-role.spec.md`), aunque
   "originador" se define como una capacidad más bajo ese modelo.
-- No se define aquí el monto exacto del bono fijo ni el % sobre
-  `platformFeeCents` — decisión de producto pendiente para el piloto, ver
-  plan Fase 0 (T-001).
+- Los montos de piloto (US$25 fijo, 5% de `platformFeeCents`) son el
+  punto de partida confirmado por el owner (2026-08-04) — quedan sujetos
+  a ajuste con datos reales, no fijados como definitivos por esta spec.
 - No se hace investigación legal/fiscal país por país en esta spec (solo
   EE.UU. está investigado, §11) — cada país requiere su propio cierre de
   gate antes de activar Fase 3 ahí (§12b), empezando por la lista de
@@ -369,10 +370,10 @@ forbidden_behavior:
   con `tenant_default` en modo solo-registro (sin pago real) antes de
   activar el pago.
 - Plan de canary: fase 1 solo registro/validación (sin dinero); fase 2
-  recompensa real en EE.UU. con montos piloto (bono fijo + % de
-  `platformFeeCents`), aprobación explícita separada; fase 3+ un país
-  nuevo a la vez, empezando por Latinoamérica, cada uno con su propio
-  gate legal cerrado (§12b) antes de habilitarse.
+  recompensa real en EE.UU. con montos piloto (US$25 fijo + 5% de
+  `platformFeeCents`), aprobación explícita separada; México queda
+  investigado (§11b) pero **no** se activa hasta resolver retención
+  ISR/IVA y CFDI ante el SAT — no es solo "otro país con Stripe Connect".
 - Evidencia de producción requerida: al menos un ciclo completo
   originador→hito verificado→recompensa pagada, auditado end-to-end.
 - Señal de rollback: cualquier recompensa pagada sin hito verificable
@@ -479,6 +480,73 @@ ya no está abierta: el owner decidió multi-país desde el inicio
 investigación es el contenido legal de esa decisión para cualquier país
 que no sea EE.UU.
 
+## 11b. Investigación externa — México (primer país priorizado, 2026-08-04)
+
+Ejecutada como T-004/T-005 del plan, tras confirmar México como primer
+destino de expansión.
+
+1. "México persona física recibe comisión de plataforma digital
+   obligación fiscal retención ISR IVA 2026" — [Régimen de Plataformas
+   Digitales en México (2026): ISR e
+   IVA](https://grupofiscalcastroycia.com.mx/regimen-de-plataformas-digitales/)
+2. "Stripe Connect México onboarding requisitos identificación fiscal RFC
+   cuenta conectada" — [Stripe — Accounts from Mexico: Update your tax
+   information](https://support.stripe.com/questions/accounts-from-mexico-update-your-tax-information)
+3. "México regulación comisiones por referido intermediación servicios
+   plataformas digitales ley" — [SAT — Disposiciones fiscales para
+   Plataformas de
+   Intermediación](http://omawww.sat.gob.mx/plataformastecnologicas/Paginas/PlataformasTecnologicas_Intermediacion/documentos/DisposicionesFiscales_intermediacion.pdf)
+
+**Hallazgo central — México es materialmente más pesado que EE.UU., no un
+simple "mismo mecanismo, otro país":**
+
+México tiene un **Régimen de Plataformas Digitales** (LISR art. 113-A,
+LIVA Cap. III-BIS) que aplica específicamente a "servicios digitales de
+**intermediación** entre terceros oferentes y demandantes" — una
+descripción que encaja casi literalmente con lo que hace un originador
+(intermediar entre quien necesita un proyecto y quien lo ejecuta). Bajo
+este régimen, la plataforma (SEMSE, no Stripe) tiene obligación de:
+
+- **Retener ISR** sobre el pago a la persona física: 1% (con RFC) hasta
+  2.5% desde 2026 para "enajenación de bienes y prestación de servicios",
+  o **20% si el originador no proporciona su RFC**.
+- **Retener IVA**: 50% del IVA trasladado con RFC; hasta 100% si SEMSE no
+  tiene establecimiento en México o el pago va a una cuenta bancaria en el
+  extranjero.
+- **Enterar lo retenido al SAT mensualmente** (antes del día 17 del mes
+  siguiente) y **emitir un CFDI de retenciones** al originador dentro de
+  los 5 días siguientes al pago.
+
+Esto es un requisito **operativo y de registro fiscal para SEMSE misma**
+en México (posible alta ante el SAT como plataforma de intermediación,
+declaraciones mensuales, emisión de CFDI) — no algo que Stripe Connect
+resuelve por sí solo. Lo que Stripe Connect sí resuelve: onboarding con
+identificación fiscal real (México exige subir la "Constancia de
+Situación Fiscal" oficial del SAT, que debe coincidir con el RFC
+declarado en Stripe) — confirma que `StripeConnectAccount.country = "MX"`
+sigue siendo la fuente correcta de identidad fiscal, pero **no** cubre la
+obligación de retención/CFDI, que recae en SEMSE como plataforma.
+
+**Aplicado ahora:** ninguno — este hallazgo confirma que el gate de
+México (§12b) **no se cierra con investigación de una sesión**, requiere
+asesoría fiscal mexicana real antes de activar Fase 3 ahí. Se documenta
+la investigación para que quien retome esto no vuelva a partir de cero.
+
+**Backlog:** (a) confirmar con un contador/abogado fiscal mexicano si
+SEMSE necesita darse de alta como "plataforma tecnológica de
+intermediación" ante el SAT antes de pagar cualquier recompensa a un
+originador mexicano; (b) diseñar el flujo de retención + declaración
+mensual + emisión de CFDI (probablemente en `apps/api/src/modules/
+payments/`, coordinado con quien lleve la contabilidad de SEMSE); (c)
+confirmar si esto ya aplica hoy a pagos existentes a `PRO` mexicanos, si
+los hay — si SEMSE ya tiene profesionales mexicanos cobrando por Stripe
+Connect, esta obligación podría ya existir sin estar resuelta, ajeno a
+esta spec.
+
+**Descartado:** activar México en Fase 3 solo con `StripeConnectAccount`
+sin resolver retención/CFDI — confirmado como insuficiente por este
+hallazgo, no es una opción sobre la mesa.
+
 ## 12b. Revisión del gate de riesgo `critical` de pagos (SDD_GOVERNANCE §7 — Economía)
 
 Revisión explícita, punto por punto, contra `docs/SDD_GOVERNANCE.md` §7:
@@ -489,7 +557,7 @@ Revisión explícita, punto por punto, contra `docs/SDD_GOVERNANCE.md` §7:
 | Fallos/reversals no cuentan como dinero liberado o gastado | Nuevo requisito explícito (added below, §7): si `payment-governance.service.ts` falla al liberar la recompensa, `ProjectOriginator`/el evento de recompensa queda en estado explícito de fallo, nunca en un estado que un reporte pudiera confundir con "pagado". |
 | Reversals inmutables y moneda explícita | La recompensa se liga a la moneda del proyecto (no se introduce una moneda o unidad de valor nueva); cualquier reversal de una recompensa ya pagada se registra como un movimiento nuevo, nunca editando el registro original (mismo principio que migraciones, `SDD_GOVERNANCE.md` §8). |
 | Débitos y créditos balanceados cuando aplique ledger | **Corregido 2026-08-04** (ver blockquote de apertura). Versión original de esta fila asumía que Fase 3 necesitaba F5 (Shared Economic Ledger, `PENDIENTE`) antes de mover dinero real. Al confirmarse que Fase 3 reutiliza `StripeConnectAccount`/transfer — el mismo mecanismo con el que SEMSE **ya paga dinero real a `PRO` hoy, sin F5** — ese razonamiento estaba sobre-cautelado: si F5 no bloquea los pagos a `PRO` que ya corren en producción, tampoco es coherente bloquear con F5 específicamente esta feature. **Ya no es gate duro de Fase 3.** Riesgo real que sí queda, más chico: el componente `platform_fee_share` reparte por primera vez una porción del ingreso propio de SEMSE (`platformFeeCents`) hacia un tercero — se registra explícitamente como tal en el evento de recompensa (§7) para que, cuando F5 exista, sea fácil de reconciliar; no se bloquea esperándolo. |
-| Gate adicional — jurisdicción (decisión del owner 2026-08-04, multi-país) | Este gate no estaba en la versión original de `SDD_GOVERNANCE.md` §7, pero se declara aquí por la misma lógica de riesgo `critical`: **ningún país activa recompensa monetaria real sin su propia revisión legal/fiscal previa Y sin que Stripe Connect esté disponible en ese país** (§7). EE.UU. es el único país con esa revisión hecha en esta sesión (§11: RESPA como referencia de riesgo, 1099-NEC/W-9 como requisito concreto, ambos cubiertos automáticamente por Stripe Connect). Activar en cualquier otro país sin repetir esa investigación ahí sería exactamente el tipo de "excepción silenciosa" que este spec existe para evitar — no se hace. |
+| Gate adicional — jurisdicción (decisión del owner 2026-08-04, multi-país) | Este gate no estaba en la versión original de `SDD_GOVERNANCE.md` §7, pero se declara aquí por la misma lógica de riesgo `critical`: **ningún país activa recompensa monetaria real sin su propia revisión legal/fiscal previa Y sin que Stripe Connect esté disponible en ese país** (§7). EE.UU. es el único país con ese gate cerrable con lo investigado hasta ahora (§11: RESPA como referencia de riesgo, 1099-NEC/W-9 como requisito concreto, ambos cubiertos por Stripe Connect sin obligación operativa extra para SEMSE). **México, investigado en §11b, NO cierra este gate todavía** — a diferencia de EE.UU., México exige que la propia plataforma (SEMSE) retenga ISR/IVA y emita CFDI mensualmente como "plataforma de intermediación" ante el SAT; Stripe Connect resuelve la identidad fiscal pero no esa obligación. Activar cualquier país sin su propia investigación (y, si aplica, sin resolver requisitos operativos como los de México) sería exactamente el tipo de "excepción silenciosa" que este spec existe para evitar — no se hace. |
 
 Con esto, el gate de riesgo `critical` queda revisado explícitamente
 punto por punto — incluyendo la corrección del ítem de ledger y la

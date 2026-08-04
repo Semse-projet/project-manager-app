@@ -38,24 +38,31 @@ Resuelto por el owner (2026-08-04):
       registrarse, `StripeConnectAccount.payoutsEnabled` antes de que
       cualquier hito cuente para recompensa.
 
+Resuelto por el owner, segunda ronda (2026-08-04):
+
+- [x] **T-001** Montos de piloto: US$25 fijo + 5% de `platformFeeCents`.
+- [x] **T-003** Nada más allá de cuenta SEMSE verificada para registrarse
+      como originador — sin antigüedad mínima.
+- [x] **T-004** Primer país de Latinoamérica: México.
+- [x] **T-005** Investigación externa para México corrida (spec §11b).
+      **Resultado: el gate legal de México NO cierra con esto** — SEMSE
+      necesitaría registrarse como plataforma de intermediación ante el
+      SAT y resolver retención de ISR/IVA + CFDI mensual antes de activar
+      Fase 3 ahí. Ver T-007 nuevo.
+
 Todavía abierto:
 
-- [ ] **T-001** Confirmar monto exacto del bono fijo y % exacto sobre
-      `platformFeeCents` para el piloto inicial (empezar chico, ajustar
-      con datos reales — spec §2, §4).
 - [ ] **T-002** Confirmar con el owner de payments el flujo de onboarding
       de `StripeConnectAccount` para originadores (reutilizando el de
       `PRO` — confirmar que no requiere trabajo nuevo de payments).
-- [ ] **T-003** Confirmar si además de "cuenta SEMSE verificada" se
-      necesita algo más para registrarse como originador (ej. antigüedad
-      mínima de cuenta).
-- [ ] **T-004** Elegir el primer país de Latinoamérica a investigar
-      legal/fiscalmente (spec §11) — no se investiga toda la región a la
-      vez.
-- [ ] **T-005** Correr la investigación externa (spec §11) para el país
-      elegido en T-004, siguiendo el mismo formato usado para EE.UU.
-- [ ] **T-006** Crear rama de implementación solo después de
-      T-001/T-002/T-003.
+- [ ] **T-007** Conseguir asesoría fiscal mexicana real (contador/abogado
+      fiscal) antes de planear activar México en Fase 3 — fuera del
+      alcance de lo que investigación web puede resolver (spec §11b).
+- [ ] **T-008** Confirmar si SEMSE ya tiene `PRO` mexicanos cobrando por
+      Stripe Connect hoy — si los hay, la misma obligación de
+      retención/CFDI podría ya aplicar sin estar resuelta, ajeno a esta
+      spec (spec §11b, backlog).
+- [ ] **T-006** Crear rama de implementación solo después de T-002.
 
 ## Fase 1 — Tests antes del código (anti-abuso primero)
 
@@ -105,11 +112,13 @@ Todavía abierto:
 - [ ] **T-032** Definir y probar reversibilidad si el proyecto se
       cancela/disputa después de pagar (coordinado con
       `escrow-release.service.ts`).
-- [ ] **T-033** Para el país elegido en T-004 (Latinoamérica): repetir
-      investigación externa (spec §11, ya hecha en T-005) + revisión de
-      gate (§12b) + aprobación separada del owner antes de habilitar ese
-      `StripeConnectAccount.country`. Ninguna expansión de país es
-      automática.
+- [ ] **T-033** Activar México (spec §11b) — **bloqueada, no lista**:
+      investigación externa ya corrida (T-005), pero reveló que el gate
+      real no es solo investigación, es una obligación operativa (alta
+      ante el SAT, retención ISR/IVA, CFDI mensual). Requiere T-007
+      (asesoría fiscal mexicana) y probablemente trabajo de ingeniería
+      dedicado en `apps/api/src/modules/payments/`, no solo un flag. No
+      tratar como "ya investigado, listo para activar".
 
 ## Fase 4 — Validación y cierre
 

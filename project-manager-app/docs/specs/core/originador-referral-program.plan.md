@@ -116,6 +116,10 @@ model ProjectOriginator {
   @@index([tenantId, originatorUserId])
 }
 
+// Montos piloto confirmados por el owner (2026-08-04): FIXED_BONUS = 2500
+// (US$25.00 en centavos), PLATFORM_FEE_SHARE = 5% de platformFeeCents.
+// Configurables, no hardcodear como constantes sin flag — se ajustan con
+// datos reales del piloto.
 enum OriginatorRewardType {
   FIXED_BONUS
   PLATFORM_FEE_SHARE
@@ -183,22 +187,34 @@ Resuelto por el owner (2026-08-04):
       como originador; `StripeConnectAccount.payoutsEnabled` antes de que
       cualquier hito empiece a contar para recompensa.
 
+Resuelto por el owner, segunda ronda (2026-08-04):
+
+- [x] Montos de piloto: **US$25 fijo** + **5% de `platformFeeCents`**.
+- [x] Elegibilidad: cuenta verificada basta para registrarse, **nada más**
+      (no se exige antigüedad mínima).
+- [x] Primer país de Latinoamérica: **México**.
+
+Hecho (T-005 del tasks): investigación externa para México corrida y
+documentada en spec §11b. **Resultado: México NO cierra el gate legal
+todavía** — requiere que SEMSE se registre como plataforma de
+intermediación ante el SAT y resuelva retención de ISR/IVA + emisión de
+CFDI mensual, algo que Stripe Connect no cubre por sí solo. Es un
+hallazgo real, no una formalidad — no se activa Fase 3 en México sin
+asesoría fiscal mexicana dedicada.
+
 Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 
-- [ ] Monto exacto del bono fijo y % exacto sobre `platformFeeCents` para
-      el piloto (el spec deliberadamente no los fija) — empezar chico y
-      ajustar con datos reales, como sugirió el owner.
 - [ ] Confirmar con el owner de payments/finance el flujo operativo para
       que el originador complete el onboarding de `StripeConnectAccount`
       (mismo flujo que `PRO`, reutilizado — no debería requerir trabajo
       nuevo de payments, pero se confirma antes de Fase 2).
-- [ ] Confirmar la verificación mínima para registrarse como originador
-      (cuenta verificada ya es el piso, spec §2 — confirmar si se necesita
-      algo más, ej. antigüedad mínima de cuenta).
-- [ ] Priorizar países concretos de Latinoamérica (¿México primero?
-      ¿Colombia? ¿todos a la vez?) y lanzar la investigación externa
-      (spec §11) para el primero de la lista — no se investiga "toda
-      Latinoamérica" a la vez.
+- [ ] Conseguir asesoría fiscal mexicana real antes de siquiera planear
+      activar México en Fase 3 (spec §11b) — fuera del alcance de lo que
+      esta sesión puede resolver por investigación web.
+- [ ] Confirmar si SEMSE ya tiene profesionales (`PRO`) mexicanos
+      cobrando por Stripe Connect hoy — si los hay, esta misma obligación
+      de retención/CFDI podría ya aplicar sin estar resuelta, ajeno a
+      esta spec (spec §11b, backlog).
 
 ### Fase 1 — Tests antes del código (anti-abuso primero)
 
@@ -268,11 +284,12 @@ Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 - [x] Investigación externa completada (spec §11).
 - [ ] Modelo de datos de Fase 0 confirmado con owner de payments antes de
       iniciar Fase 2 (registro/validación).
-- [ ] Montos piloto (bono fijo + % de `platformFeeCents`) confirmados
-      antes de iniciar Fase 3.
+- [x] Montos piloto confirmados: US$25 fijo + 5% de `platformFeeCents`.
 - [ ] Gate legal/fiscal de EE.UU. como primer país activado (ya
       investigado, spec §11) confirmado operable antes de iniciar Fase 3.
-- [ ] Lista priorizada de países de Latinoamérica (Fase 0) antes de
-      planear cualquier expansión de Fase 3 más allá de EE.UU.
+- [x] Primer país de Latinoamérica elegido (México) e investigado (spec
+      §11b) — **gate NO cerrado**: México requiere resolver retención
+      ISR/IVA + CFDI ante el SAT antes de activarse, no solo
+      `StripeConnectAccount`.
 - [x] Dependencia F5 (Shared Economic Ledger) **ya no es bloqueo
       estructural** — corrección 2026-08-04, spec §12b.
