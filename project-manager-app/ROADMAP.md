@@ -137,6 +137,45 @@ Los cuatro specs escritos siguen `DRAFT`, pendientes de sign-off humano
 antes de `APPROVED` y de seguir el flujo `/speckit.plan` → `/speckit.tasks`
 → `/speckit.implement`.
 
+## Programa transversal — Prometeo OS: Identidad Universal y Orquestación Externa
+
+Alinea el roadmap con la síntesis de producto en
+[`docs/vision/VISION_PROMETEO_OS_2026.md`](docs/vision/VISION_PROMETEO_OS_2026.md):
+Prometeo como orquestador conversacional multicanal, identidad de usuario
+con múltiples capacidades por proyecto, y evaluación (no activación) de
+orquestación de herramientas externas vía MCP. No reordena ni renombra
+F0-F9. Outline previo:
+[`docs/reportes/planning/plan_alineacion_prometeo_os_roadmap_sdd_2026-08-03.md`](docs/reportes/planning/plan_alineacion_prometeo_os_roadmap_sdd_2026-08-03.md).
+
+Dependencias explícitas:
+
+- **F2** (Prometeo Tool Registry gobernado) — la orquestación de
+  herramientas externas, si se aprueba, se conecta al mecanismo de
+  policy/audit/approval que F2 ya construyó; no se levanta un mecanismo
+  paralelo.
+- **F7** (Prometeo Multimodal) — sigue siendo dueño de voz/cámara/video
+  nativos; este programa los consume, no los duplica.
+- **Sin dependencia hacia F0** — F0 ya cerró (sincronizar la verdad
+  documental) y no tiene relación temática con identidad. El cambio de
+  identidad multi-rol se referencia contra el módulo Core
+  (`Membership`/`Role`, `packages/db/prisma/schema.prisma`), no contra una
+  fase F.
+
+Specs nuevos (todos `DRAFT`, pendientes de creación y de sign-off humano
+antes de `APPROVED`):
+
+- `docs/specs/core/universal-identity-multi-role.spec.md` — una cuenta,
+  múltiples capacidades por proyecto. El schema (`Membership` con PK
+  compuesta `[userId, orgId, roleId]`) ya lo permite a nivel de datos; el
+  spec cubre el cambio de producto/UX, no de schema.
+- `docs/specs/core/originador-referral-program.spec.md` — rol
+  originador/facilitador con recompensa atada a hitos verificables (no a
+  publicar). `risk: critical` por el gate §7 "Economía" de
+  `docs/SDD_GOVERNANCE.md`.
+- `docs/architecture/ADR-025-mcp-external-tool-gateway.md` — decisión
+  formal, en estado de propuesta, de si/cómo reabrir `SPEC-INT-001`
+  (retirado más arriba). No es alcance activo hasta que se apruebe.
+
 ## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
 
 Entregables:

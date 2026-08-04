@@ -35,6 +35,9 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `114cb9ca` | Trazas y migration gates |
 | Worker/BullMQ | IMPLEMENTADO/DESPLEGADO | worker Railway `SUCCESS` | Consola común lag/retries/DLQ |
 | Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
+| Identidad universal multi-rol | PENDIENTE | `Membership(userId, orgId, roleId)` ya permite multi-rol a nivel de datos; UX/producto asume rol fijo | spec `docs/specs/core/universal-identity-multi-role.spec.md` (a crear) |
+| Originador/Facilitador (referral) | PENDIENTE | no existe spec ni código | spec `docs/specs/core/originador-referral-program.spec.md` (a crear), gate §7 Economía |
+| Orquestación externa (MCP) | PENDIENTE/RETIRADO PREVIO | `SPEC-INT-001` retirado; `ADR-024` §12 sin evidencia de código | `ADR-025-mcp-external-tool-gateway.md` (a crear), decisión de propuesta |
 | Prometeo Runtime | IMPLEMENTADO/DESPLEGADO | missions, work plans, BFF | Verify/learn/budgets/compensación |
 | Tool Registry F2 | IMPLEMENTADO/PARCIAL | policy/audit/approval; adapters reales | video temporal + verification explícita |
 | Event Backbone F1 | PARCIAL/DESPLEGADO/CANARY ACOTADO | Evidence + outbox, dispatcher, worker, receipts/replay; F3 ejercitó switches/allowlists | Cierre F1-F transversal + adopción transaccional multi-dominio |

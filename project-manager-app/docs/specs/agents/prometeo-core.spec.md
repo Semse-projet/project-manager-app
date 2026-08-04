@@ -78,6 +78,15 @@ embebido.
 - No mantiene una copia paralela del estado de negocio (principio ya vigente).
 - No decide el modelo por nombre fijo; decide por capacidad requerida
   (`taskType`, `riskLevel`, `requiresVision`) y el router resuelve.
+- **Fuera de alcance por ahora — herramientas externas vía MCP.** Prometeo
+  Core no orquesta GitHub, Vercel, Railway, Docker ni ningún servidor MCP
+  externo. `SPEC-INT-001` (CLI Agent Adapter + MCP Gateway externo) está
+  retirado (ver `ROADMAP.md`, "Programa transversal — Consolidación
+  Cognitiva"); reabrirlo es una decisión pendiente de
+  `docs/architecture/ADR-025-mcp-external-tool-gateway.md` (`PROPOSED`),
+  no algo que este spec pueda asumir. Mientras esa ADR no pase a
+  `ACCEPTED`, el Tool Registry gobernado (§4, fila "Tool Registry + Policy
+  Guard") sigue acotado a herramientas internas de SEMSE.
 
 ## 4. Componentes: estado real vs. objetivo
 

@@ -48,16 +48,16 @@ Representa:
 
 ## Prometeo
 
-Capa futura de evolucion institucional.
+El nombre cubre dos capas con horizontes distintos — ver
+`VISION_PROMETEO_OS_2026.md` para el detalle:
 
-Representa:
-
-- governance;
-- identidad soberana;
-- treasury;
-- coordinacion distribuida;
-- reglas programables;
-- sub-DAOs.
+- **Prometeo Operativo:** orquestador conversacional que ya corre en
+  runtime (P2), interpreta intencion del usuario y decide que capacidad
+  interna de SEMSE usar. Horizonte: ahora.
+- **Prometeo Institucional:** capa futura de evolucion institucional.
+  Representa governance, identidad soberana, treasury, coordinacion
+  distribuida, reglas programables, sub-DAOs. Horizonte: largo plazo, sin
+  cambios respecto a `VISION_FUSIONADA_SEMSE_PROMETEO.md` §5.4.
 
 ## Job
 
@@ -134,3 +134,10 @@ Superficie operativa desde la cual se observa, coordina y audita el comportamien
 ## Vertical Curado
 
 Segmento inicial del mercado que se selecciona de forma intencional para lanzar el MVP con menos caos y mas control.
+
+## Originador / Facilitador
+
+Usuario que ayuda a un tercero a crear un proyecto en SEMSE y recibe una
+recompensa atada a hitos verificables del proyecto resultante (validacion,
+primera propuesta, contratacion, financiamiento de milestone, cierre) — no
+a la sola publicacion. Ver `VISION_PROMETEO_OS_2026.md`.
