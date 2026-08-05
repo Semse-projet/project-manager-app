@@ -5,14 +5,15 @@ domain: "core"
 plan: "docs/specs/core/universal-identity-multi-role.plan.md"
 version: "1.0"
 status: "PENDING"
-branch: "TBD — crear en T-003"
-date: "2026-08-04"
+branch: "feat/f10-identity-capabilities-endpoint"
+date: "2026-08-05"
 ---
 
 # Tareas: Identidad universal con múltiples capacidades por cuenta
 
-> Spec `APPROVED` 2026-08-04, Fase 0 resuelta el mismo día. Listo para
-> empezar en Fase 1.
+> Spec `APPROVED` 2026-08-04. Fase 0 resuelta el mismo día. Fases 1-2
+> (endpoint de lectura) implementadas y verificadas 2026-08-05. Fase 3
+> (selector de UI) y Fase 4 (cierre) siguen pendientes.
 
 ## Fase 0 — Preflight (RESUELTA 2026-08-04)
 
@@ -22,20 +23,30 @@ date: "2026-08-04"
       distintos (cliente / profesional independiente / trabajador de
       compañía-contratista); el hallazgo `PRO`/"Profesional" (URL/label)
       queda fuera de este incremento.
-- [ ] **T-003** Crear rama de implementación desde `origin/main` limpio.
+- [x] **T-003** Rama `feat/f10-identity-capabilities-endpoint` creada
+      (2026-08-05).
 
 ## Fase 1 — Tests antes del código
 
-- [ ] **T-010** Test: `GET /v1/users/me/capabilities` devuelve solo las
-      `Membership` del usuario autenticado.
-- [ ] **T-011** Test de aislamiento cross-org (spec §4, caso borde).
-- [ ] **T-012** Test: UI deriva capacidad activa del proyecto abierto.
+- [x] **T-010** Test: `getMyCapabilities` devuelve las `Membership` del
+      actor mapeadas a `{role, orgId, verifiedAt}`
+      (`apps/api/test/users.service.test.ts`).
+- [x] **T-011** Test: la llamada a `findMembershipsByUser` usa
+      `tenantId`/`targetUserId`/`userId` del actor autenticado, nunca un
+      target arbitrario — mismo aislamiento tenant que el resto de
+      `UsersService` (spec §4, caso borde).
+- [ ] **T-012** Test: UI deriva capacidad activa del proyecto abierto —
+      pendiente de Fase 3 (todavía no existe el selector de UI).
 
 ## Fase 2 — Endpoint de lectura
 
-- [ ] **T-020** Implementar `GET /v1/users/me/capabilities`.
-- [ ] **T-021** Decidir e implementar (si aplica) el registro de auditoría
-      de conmutación de capacidad.
+- [x] **T-020** Implementado `GET /v1/users/me/capabilities`
+      (`users.controller.ts`, `users.service.ts`) — reutiliza
+      `findMembershipsByUser` existente, sin nuevo modelo Prisma. Build
+      limpio, suite completa `@semse/api` 2095/2095 en verde.
+- [x] **T-021** Decidido: **sin auditoría** para este endpoint — es
+      puramente de lectura (spec §5, `audit_log: no`); no hay "conmutación"
+      real que auditar todavía porque la UI (Fase 3) aún no existe.
 
 ## Fase 3 — UI
 
