@@ -117,7 +117,9 @@ model ProjectOriginator {
 }
 
 // Montos piloto confirmados por el owner (2026-08-04): FIXED_BONUS = 2500
-// (US$25.00 en centavos), PLATFORM_FEE_SHARE = 5% de platformFeeCents.
+// (US$25.00 en centavos), PLATFORM_FEE_SHARE = 30% de platformFeeCents
+// (corregido 2026-08-04: 5% inicial daba montos simbólicos dado que
+// SEMSE_PLATFORM_FEE_RATE real es 0.75%, no un supuesto mayor).
 // Configurables, no hardcodear como constantes sin flag — se ajustan con
 // datos reales del piloto.
 enum OriginatorRewardType {
@@ -189,7 +191,9 @@ Resuelto por el owner (2026-08-04):
 
 Resuelto por el owner, segunda ronda (2026-08-04):
 
-- [x] Montos de piloto: **US$25 fijo** + **5% de `platformFeeCents`**.
+- [x] Montos de piloto: **US$25 fijo** + **30% de `platformFeeCents`**
+      (corregido 2026-08-04: la tasa real es 0.75%, 5% habría dado
+      montos simbólicos — ver blockquote de apertura del spec).
 - [x] Elegibilidad: cuenta verificada basta para registrarse, **nada más**
       (no se exige antigüedad mínima).
 - [x] Primer país de Latinoamérica: **México**.
@@ -284,7 +288,10 @@ Todavía abierto (no son decisiones de gobernanza, son de producto/legal):
 - [x] Investigación externa completada (spec §11).
 - [ ] Modelo de datos de Fase 0 confirmado con owner de payments antes de
       iniciar Fase 2 (registro/validación).
-- [x] Montos piloto confirmados: US$25 fijo + 5% de `platformFeeCents`.
+- [x] Montos piloto confirmados: US$25 fijo + 30% de `platformFeeCents`.
+- [x] `WORKER` (sin `CLIENT`/`PRO`) puede registrarse y cobrar como
+      originador — requiere otorgarle el permiso necesario para el
+      onboarding de Stripe Connect (spec §3, blockquote ronda 3).
 - [ ] Gate legal/fiscal de EE.UU. como primer país activado (ya
       investigado, spec §11) confirmado operable antes de iniciar Fase 3.
 - [x] Primer país de Latinoamérica elegido (México) e investigado (spec

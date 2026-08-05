@@ -40,7 +40,10 @@ Resuelto por el owner (2026-08-04):
 
 Resuelto por el owner, segunda ronda (2026-08-04):
 
-- [x] **T-001** Montos de piloto: US$25 fijo + 5% de `platformFeeCents`.
+- [x] **T-001** Montos de piloto: US$25 fijo + 30% de `platformFeeCents`
+      (corregido tras verificar que `SEMSE_PLATFORM_FEE_RATE` real es
+      0.75%, no un supuesto mayor — 5% habría dado ~US$3.75 en un
+      milestone de US$10k, casi simbólico).
 - [x] **T-003** Nada más allá de cuenta SEMSE verificada para registrarse
       como originador — sin antigüedad mínima.
 - [x] **T-004** Primer país de Latinoamérica: México.
@@ -50,19 +53,65 @@ Resuelto por el owner, segunda ronda (2026-08-04):
       SAT y resolver retención de ISR/IVA + CFDI mensual antes de activar
       Fase 3 ahí. Ver T-007 nuevo.
 
+Resuelto por investigación de código, tercera ronda (2026-08-04):
+
+- [x] **T-002** El endpoint de onboarding (`POST /v1/payments/connect/
+      onboarding-link`) ya es reutilizable sin cambios de payments —
+      gateado solo por `projects:read`, no específico de `PRO`. **Pero
+      revela un gap nuevo:** `WORKER` no tiene `projects:read` en
+      `packages/auth/src/rbac.ts` — un originador cuyo único rol sea
+      `WORKER` no podría completar el onboarding hoy. El owner confirmó
+      que `WORKER` sí debe poder ser originador sin necesidad de
+      `CLIENT`/`PRO` — ver T-009 nuevo.
+- [x] Confirmado: "Contratista" no es un rol RBAC separado — es un `PRO`
+      administrando una organización con `WORKER`s (`ContractorLead` en
+      el schema). No requiere cambios en el modelo de roles.
+
+Implementado (2026-08-04):
+
+- [x] **T-009** Nuevo permiso `payments:connect:self`, otorgado a
+      `CLIENT`, `PRO` y `WORKER` en `packages/auth/src/rbac.ts` (no se
+      amplió `projects:read` de `WORKER` — habría dado acceso de lectura a
+      `buildops`/`marketplace`/`pricing`/`intelligence`/`semse-agents`,
+      mucho más de lo necesario). Los 4 endpoints de
+      `stripe-connect.controller.ts` (`GET/POST account`,
+      `POST onboarding-link`, `POST sync`) ahora exigen
+      `payments:connect:self` en vez de `projects:read`. `CLIENT`/`PRO`
+      conservan `projects:read` sin cambios (no pierden nada) y ganan el
+      permiso nuevo, así que no hay regresión — verificado con
+      `pnpm --filter @semse/api build` (limpio) y
+      `stripe-connect.service.test.ts` (3/3 verde).
+
 Todavía abierto:
 
-- [ ] **T-002** Confirmar con el owner de payments el flujo de onboarding
-      de `StripeConnectAccount` para originadores (reutilizando el de
-      `PRO` — confirmar que no requiere trabajo nuevo de payments).
 - [ ] **T-007** Conseguir asesoría fiscal mexicana real (contador/abogado
       fiscal) antes de planear activar México en Fase 3 — fuera del
       alcance de lo que investigación web puede resolver (spec §11b).
-- [ ] **T-008** Confirmar si SEMSE ya tiene `PRO` mexicanos cobrando por
-      Stripe Connect hoy — si los hay, la misma obligación de
-      retención/CFDI podría ya aplicar sin estar resuelta, ajeno a esta
-      spec (spec §11b, backlog).
-- [ ] **T-006** Crear rama de implementación solo después de T-002.
+- [x] **T-008** Confirmar si SEMSE ya tiene `PRO` mexicanos cobrando por
+      Stripe Connect hoy. **Resuelto 2026-08-04 (segundo intento).** Causa
+      real del `P1000` del primer intento: la URL de conexión no
+      especificaba `sslmode=require`, que el proxy público de Postgres
+      exige — no era un problema de la contraseña ni de su codificación.
+      Con `sslmode=require` agregado, consulta real ejecutada contra
+      producción vía Prisma Client (`SELECT country, COUNT(*) ...
+      GROUP BY country` sobre `StripeConnectAccount`):
+
+      ```json
+      [{ "country": "US", "accounts": 1, "payouts_enabled": 0 }]
+      ```
+
+      **SEMSE no tiene ninguna cuenta `StripeConnectAccount` con
+      `country = "MX"` hoy** — cero originadores o `PRO` mexicanos
+      cobrando por Stripe Connect. Además, la única cuenta que existe
+      (EE.UU.) todavía no tiene `payoutsEnabled`, señal de que los payouts
+      reales por Stripe Connect apenas están arrancando en producción.
+      Esto descarta el riesgo que motivó T-008 (obligación de
+      retención/CFDI ya existente sin resolver) — no hay nada que
+      reconciliar retroactivamente para México.
+- [x] **T-006** Crear rama de implementación — no aplica todavía como
+      "rama separada": T-009 se implementó directo (cambio acotado,
+      verificado con build+test); el resto de Fase 2/3 sigue esperando
+      T-007.
 
 ## Fase 1 — Tests antes del código (anti-abuso primero)
 

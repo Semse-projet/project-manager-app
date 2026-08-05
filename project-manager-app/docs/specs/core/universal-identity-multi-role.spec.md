@@ -69,6 +69,22 @@ vive bajo rutas `/worker/*` y su sidebar se etiqueta a sí mismo
 Se deja fuera de alcance (ver abajo), confirmado explícitamente por el
 owner.
 
+**Aclaración adicional del owner (ronda 3, 2026-08-04) — "Contratista" no
+es un cuarto rol RBAC:** el owner describe el ecosistema con cuatro
+capacidades de negocio — Cliente, Trabajador, Profesional y Contratista
+("gestiona proyectos y puede contratar trabajadores o profesionales") —
+que **pueden acumularse** (un Profesional puede además ser Contratista).
+Investigado contra el código: `packages/auth/src/rbac.ts` no tiene un rol
+`CONTRACTOR`/`CONTRATISTA` separado. Lo que existe es un `PRO` que
+administra una organización con `WORKER`s bajo su mando, con
+funcionalidad de negocio dedicada (`ContractorLead`, `ContractorRateOverride`
+en `packages/db/prisma/schema.prisma`) — es decir, "Contratista" hoy es
+**una capacidad operativa de `PRO` a nivel de organización**, no un
+permiso ni rol adicional. Esta spec no crea un rol `CONTRATISTA` nuevo:
+el modelo de "capacidad activa por contexto" ya cubre este caso, porque
+un mismo usuario `PRO` simplemente actúa distinto según si el contexto es
+"trabajo propio" o "gestión de su organización con `WORKER`s".
+
 **Problema real de esta spec:** el modelo de datos (`Membership(userId,
 orgId, roleId)`, PK compuesta) ya permite que un mismo usuario tenga
 `CLIENT` en una org, `PRO` en otra y/o `WORKER` en una tercera — pero el
