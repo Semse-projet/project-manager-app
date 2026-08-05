@@ -5,7 +5,12 @@ export class ObscuraAdapter implements BrowserEngineAdapter {
   private readonly baseUrl: string;
 
   constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl ?? process.env.OBSCURA_URL ?? "http://127.0.0.1:9222";
+    const rawUrl = baseUrl ?? process.env.OBSCURA_URL ?? "http://127.0.0.1:9222";
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("Invalid protocol for Obscura base URL");
+    }
+    this.baseUrl = parsed.origin;
   }
 
   async inspect(options: BrowserInspectionOptions): Promise<BrowserInspectionResult> {
