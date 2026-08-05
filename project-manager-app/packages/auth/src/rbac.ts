@@ -54,7 +54,8 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:read",
     "weather:write",
     "agro:read",
-    "agro:write"
+    "agro:write",
+    "payments:connect:self"
   ],
   PRO: [
     "jobs:read",
@@ -103,7 +104,8 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:read",
     "weather:write",
     "agro:read",
-    "agro:write"
+    "agro:write",
+    "payments:connect:self"
   ],
   WORKER: [
     "agents:run:worker",
@@ -119,7 +121,8 @@ export const rolePermissions: Record<string, string[]> = {
     "vision:read",
     "vision:run",
     "weather:read",
-    "users:verify:request"
+    "users:verify:request",
+    "payments:connect:self"
   ],
   EVENT_CONSUMER: [
     "domain-events:consume"

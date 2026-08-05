@@ -7,7 +7,7 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -19,10 +19,16 @@ related_files:
   - apps/api/src/modules/payments/payment-governance.service.ts
   - apps/api/src/modules/payments/escrow-release.service.ts
   - apps/api/src/modules/payments/stripe-connect.service.ts
+  - apps/api/src/modules/payments/stripe-connect.controller.ts
+  - packages/auth/src/rbac.ts
   - packages/db/prisma/schema.prisma
   - apps/api/src/modules/jobs/
 related_tests: []
-related_endpoints: []
+related_endpoints:
+  - GET /v1/payments/connect/account
+  - POST /v1/payments/connect/account
+  - POST /v1/payments/connect/onboarding-link
+  - POST /v1/payments/connect/sync
 related_events: []
 related_agents: []
 last_verified: "2026-08-04"
@@ -60,12 +66,17 @@ last_verified: "2026-08-04"
 > **Actualización — Fase 0 completamente resuelta (2026-08-04):**
 >
 > 1. **Modelo de monto:** híbrido — bono fijo en el hito "primer milestone
->    financiado" + un porcentaje pequeño sobre `platformFeeCents` (la
->    comisión que SEMSE ya cobra, no el valor bruto del proyecto) al llegar
->    a "proyecto completado". Esto garantiza que SEMSE nunca paga más de lo
->    que gana en ese proyecto — el propio razonamiento del owner. Ambos
->    montos arrancan como piloto pequeño, ajustable con datos reales, no
->    fijos de entrada (ver §2, §4).
+>    financiado" + un porcentaje sobre `platformFeeCents` (la comisión que
+>    SEMSE ya cobra, no el valor bruto del proyecto) al llegar a "proyecto
+>    completado". Esto garantiza que SEMSE nunca paga más de lo que gana en
+>    ese proyecto — el propio razonamiento del owner. **Corrección
+>    2026-08-04:** la comisión real de SEMSE es `SEMSE_PLATFORM_FEE_RATE =
+>    0.75%` (`stripe-connect.service.ts:5`) — un 5% inicial de eso habría
+>    dado montos casi simbólicos (US$3.75 en un milestone de US$10,000). El
+>    owner pidió un % "lo suficientemente alto para ser relevante, dentro
+>    del margen" — se fija en **30%** de `platformFeeCents` como piloto
+>    (US$22.50 en el mismo ejemplo, comparable al bono fijo de US$25).
+>    Ambos montos son piloto, ajustables con datos reales (ver §2, §4).
 > 2. **Documento de identidad fiscal → se delega a Stripe Connect**, no se
 >    construye recolección propia. `packages/db/prisma/schema.prisma` ya
 >    tiene `StripeConnectAccount` (usado hoy para pagos a `PRO`); el
@@ -91,6 +102,22 @@ last_verified: "2026-08-04"
 > original hacia el Shared Economic Ledger (F5) estaba sobre-cautelado —
 > SEMSE ya paga dinero real sin F5 para `PRO`. Se corrige en §12b en vez de
 > dejarlo inconsistente.
+>
+> **Ronda 3 (2026-08-04) — quién puede ser originador:** el owner confirmó
+> que `WORKER` (trabaja bajo el mando de una compañía/contratista) debe
+> poder registrarse y cobrar como originador **sin necesidad de tener
+> `CLIENT`/`PRO` en otra org** — ser originador es una capacidad adicional,
+> no un cambio de rol principal. Investigación de código real: el endpoint
+> de onboarding de Stripe Connect (`POST /v1/payments/connect/
+> onboarding-link`) ya es agnóstico de rol — solo exige el permiso
+> `projects:read` (`stripe-connect.controller.ts:38`), **que `WORKER` no
+> tiene hoy** en `packages/auth/src/rbac.ts` (solo `CLIENT` y `PRO`). Se
+> requiere otorgar `projects:read` (o un permiso equivalente más acotado)
+> a `WORKER`, o condicionarlo a la nueva capacidad `project:originate` —
+> ver §3 y plan/tasks. También se confirma: "Contratista" no es un rol
+> RBAC separado hoy — el código lo modela como un `PRO` que administra una
+> organización con `WORKER`s (`ContractorLead`, `ContractorRateOverride`),
+> no una cuarta entrada en `rbac.ts`.
 >
 > Contrato ejecutable SDD 2.0. Origen:
 > `docs/vision/VISION_PROMETEO_OS_2026.md`. `risk: critical` porque toca
@@ -124,7 +151,7 @@ calidad — riesgo explícito que motiva el gate `critical`).
   y los que explícitamente NO la disparan.
 - Recompensa **monetaria real, modelo híbrido** (confirmado con el owner
   2026-08-04): bono fijo de **US$25** en "primer milestone financiado" +
-  **5% de `platformFeeCents`** en "proyecto completado" — nunca sobre el
+  **30% de `platformFeeCents`** en "proyecto completado" — nunca sobre el
   valor bruto del proyecto, para que SEMSE siempre mantenga margen
   positivo en cada proyecto originado. Son montos de **piloto inicial**,
   explícitamente ajustables con datos reales (ver §4, §8) — no un
@@ -153,7 +180,7 @@ calidad — riesgo explícito que motiva el gate `critical`).
 - No se cambia el modelo de identidad multi-capacidad (spec separada:
   `docs/specs/core/universal-identity-multi-role.spec.md`), aunque
   "originador" se define como una capacidad más bajo ese modelo.
-- Los montos de piloto (US$25 fijo, 5% de `platformFeeCents`) son el
+- Los montos de piloto (US$25 fijo, 30% de `platformFeeCents`) son el
   punto de partida confirmado por el owner (2026-08-04) — quedan sujetos
   a ajuste con datos reales, no fijados como definitivos por esta spec.
 - No se hace investigación legal/fiscal país por país en esta spec (solo
@@ -166,7 +193,7 @@ calidad — riesgo explícito que motiva el gate `critical`).
 
 | Actor | Permiso backend | Alcance tenant/org/resource | Puede | No puede |
 |---|---|---|---|---|
-| Originador | `project:originate` (nuevo) | proyectos donde quedó registrado como originador | registrarse con solo cuenta verificada; ver el estado de recompensa de sus proyectos originados | acumular hitos recompensables sin `StripeConnectAccount.payoutsEnabled`; aprobar su propia recompensa; editar el proyecto que originó sin ser su dueño |
+| Originador (cualquier rol: `CLIENT`/`PRO`/`WORKER`) | `project:originate` (nuevo) | proyectos donde quedó registrado como originador | registrarse con solo cuenta verificada, **sin importar su rol principal** (`WORKER` incluido, confirmado por el owner); ver el estado de recompensa de sus proyectos originados | acumular hitos recompensables sin `StripeConnectAccount.payoutsEnabled`; aprobar su propia recompensa; editar el proyecto que originó sin ser su dueño |
 | Dueño del proyecto | permisos existentes de owner | su propio proyecto | validar/rechazar que alguien lo originó | forzar una recompensa sin que el evento verificable ocurra |
 | OPS_ADMIN | `internal:architecture:read` + permisos de pagos existentes | tenant/org según política vigente | auditar y, si aplica, revertir una recompensa mal calculada | pagar recompensas fuera del catálogo de eventos verificables |
 
@@ -248,6 +275,7 @@ Casos borde:
 - [ ] originador sin `StripeConnectAccount.payoutsEnabled` llega a "primer milestone financiado" — el evento de bono fijo se registra pero queda bloqueado (no `pending_review`, un estado distinto: `blocked_no_payout_account`) hasta que complete el onboarding; no se pierde el hito, pero tampoco arranca el período de revisión hasta que el gate de elegibilidad esté cerrado
 - [ ] `platformFeeCents` del proyecto es 0 o no calculable al momento de "proyecto completado" — el evento P1b se registra en monto 0, nunca se bloquea el evento de auditoría en sí, solo el monto es 0
 - [ ] originador de un país sin gate legal cerrado (§12b) intenta recibir recompensa monetaria — el sistema debe bloquear la liberación real y dejarla en `pending_review` indefinido con motivo "país sin revisión legal", nunca liberar "porque el mecanismo técnico ya funciona" (el `country` viene de `StripeConnectAccount.country`, ya limitado a los países que Stripe Connect soporta)
+- [ ] originador cuyo único rol es `WORKER` intenta completar el onboarding de Stripe Connect — no debe recibir 403 por falta de `projects:read`; requiere el cambio de RBAC de §3 (otorgar el permiso necesario junto con `project:originate`) antes de que esto funcione
 
 ## 5. Contratos
 
@@ -370,7 +398,7 @@ forbidden_behavior:
   con `tenant_default` en modo solo-registro (sin pago real) antes de
   activar el pago.
 - Plan de canary: fase 1 solo registro/validación (sin dinero); fase 2
-  recompensa real en EE.UU. con montos piloto (US$25 fijo + 5% de
+  recompensa real en EE.UU. con montos piloto (US$25 fijo + 30% de
   `platformFeeCents`), aprobación explícita separada; México queda
   investigado (§11b) pero **no** se activa hasta resolver retención
   ISR/IVA y CFDI ante el SAT — no es solo "otro país con Stripe Connect".
@@ -537,11 +565,66 @@ SEMSE necesita darse de alta como "plataforma tecnológica de
 intermediación" ante el SAT antes de pagar cualquier recompensa a un
 originador mexicano; (b) diseñar el flujo de retención + declaración
 mensual + emisión de CFDI (probablemente en `apps/api/src/modules/
-payments/`, coordinado con quien lleve la contabilidad de SEMSE); (c)
-confirmar si esto ya aplica hoy a pagos existentes a `PRO` mexicanos, si
-los hay — si SEMSE ya tiene profesionales mexicanos cobrando por Stripe
-Connect, esta obligación podría ya existir sin estar resuelta, ajeno a
-esta spec.
+payments/`, coordinado con quien lleve la contabilidad de SEMSE).
+
+(c) **Resuelto 2026-08-04:** se consultó producción directamente
+(`StripeConnectAccount` agrupado por `country`) — **cero cuentas con
+`country = "MX"` hoy**; la única cuenta existente es de EE.UU. y todavía
+sin `payoutsEnabled`. No hay obligación de retención/CFDI ya pendiente
+sin resolver — el riesgo era real de investigar, pero no se materializó.
+
+### Segunda ronda — verificación con fuentes primarias navegadas (2026-08-04)
+
+A pedido explícito del owner ("busca cuál es el problema, no lo dejes
+para después"), se navegó directamente a fuentes primarias/profesionales
+en vez de quedarse solo con snippets de búsqueda:
+
+1. [KPMG — "Mexico: Updates to digital platform and digital services
+   rules"](https://kpmg.com/us/en/taxnewsflash/news/2026/07/mexico-updates-digital-platform-services-rules.html)
+   (20 jul 2026, leído completo en el navegador).
+2. [SAT — "1a Resolución de Modificaciones a la RMF para
+   2026"](https://www.sat.gob.mx/minisitio/NormatividadRMFyRGCE/documentos2026/rmf/rmf/1aRM_RMF2026.pdf)
+   (9 jul 2026, fuente oficial primaria — el PDF que KPMG resume;
+   confirmado vía snippet de búsqueda indexado, el visor de PDF de Chrome
+   no expone texto seleccionable para citar línea por línea).
+3. [VATupdate — "New VAT Withholding Rules for Digital Platforms in
+   Mexico Effective January
+   2026"](https://www.vatupdate.com/2025/12/10/new-vat-withholding-rules-for-digital-platforms-in-mexico-effective-january-2026/)
+   (fuente: taxand.com).
+
+**Hallazgos nuevos que cambian/afinan lo anterior:**
+
+- **La resolución del 9 jul 2026 (la misma que cita el hallazgo original)
+  NO es un alivio general** — KPMG confirma que la nueva regla que
+  permite "no efectuar las retenciones del ISR y del IVA" está limitada
+  **exclusivamente a plataformas que intermedian servicios de transporte
+  aéreo** (aerolíneas mexicanas o extranjeras, bajo condiciones de tratado
+  fiscal o membresía IATA). SEMSE (intermediación de servicios de
+  construcción/generales) **no calza en esa excepción** — el propio KPMG
+  señala que limitar el alivio solo a transporte aéreo "plantea serias
+  dudas constitucionales" por tratar de forma distinta a plataformas de
+  intermediación comparables, pero mientras no cambie por vía legal,
+  **la regla general de retención sigue aplicando a SEMSE tal cual**.
+- **Para 2026, México está expandiendo, no relajando, las obligaciones**:
+  KPMG confirma explícitamente "expanding the withholding tax
+  obligations, issuance of e-invoicing of withholding, and real-time and
+  permanent access to information" como parte de los cambios 2026 para
+  plataformas digitales — refuerza que este gate no se va a volver más
+  fácil con el tiempo, hay que planearlo asumiendo el escenario completo.
+- **Matiz nuevo sobre la tasa de IVA**: VATupdate especifica que el 50% de
+  retención de IVA aplica a pagos a **personas morales** (empresas)
+  mexicanas; pagos a personas físicas (el caso típico de un originador
+  individual) siguen el tratamiento del Régimen de Plataformas Digitales
+  ya citado (hallazgo 1, `grupofiscalcastroycia.com.mx`). Vale la pena que
+  la asesoría fiscal real (T-007) confirme cuál aplica exactamente a la
+  figura de "originador persona física" antes de implementar el cálculo.
+
+**Aplicado ahora:** ninguno — sigue sin cerrar el gate de México. Esta
+ronda **reduce la incertidumbre** (fuentes primarias confirmadas, no solo
+resúmenes de búsqueda) pero **no cambia la conclusión**: México requiere
+asesoría fiscal real antes de Fase 3 (T-007), y la esperanza de que la
+resolución de julio 2026 aligerara la carga para SEMSE queda descartada
+explícitamente — es específica de transporte aéreo.
 
 **Descartado:** activar México en Fase 3 solo con `StripeConnectAccount`
 sin resolver retención/CFDI — confirmado como insuficiente por este

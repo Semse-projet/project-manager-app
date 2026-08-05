@@ -11,7 +11,7 @@ export class StripeConnectController {
 
   /** Get current user's Stripe Connect account status */
   @Get("account")
-  @RequirePermissions("projects:read")
+  @RequirePermissions("payments:connect:self")
   async getMyAccount(@Req() req: { headers?: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = resolveRequestContext(req);
@@ -21,7 +21,7 @@ export class StripeConnectController {
 
   /** Create or retrieve Stripe Connect account for current user */
   @Post("account")
-  @RequirePermissions("projects:read")
+  @RequirePermissions("payments:connect:self")
   async createMyAccount(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: { email?: string },
@@ -35,7 +35,7 @@ export class StripeConnectController {
 
   /** Generate or refresh Stripe onboarding link */
   @Post("onboarding-link")
-  @RequirePermissions("projects:read")
+  @RequirePermissions("payments:connect:self")
   async createOnboardingLink(
     @Req() req: { headers?: Record<string, unknown> },
     @Body() body: { returnUrl?: string; refreshUrl?: string },
@@ -53,7 +53,7 @@ export class StripeConnectController {
 
   /** Sync account status from Stripe */
   @Post("sync")
-  @RequirePermissions("projects:read")
+  @RequirePermissions("payments:connect:self")
   async syncMyAccount(@Req() req: { headers?: Record<string, unknown> }) {
     const rid = resolveRequestId(req.headers ?? {});
     const ctx = resolveRequestContext(req);
