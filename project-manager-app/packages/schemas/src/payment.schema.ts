@@ -56,3 +56,24 @@ export type DepositEscrowInput = z.infer<typeof depositEscrowSchema>;
 export type ReleaseEscrowInput = z.infer<typeof releaseEscrowSchema>;
 export type RefundEscrowInput = z.infer<typeof refundEscrowSchema>;
 export type PaymentsWebhookInput = z.infer<typeof paymentsWebhookSchema>;
+
+// Matches PaymentTxnRecord in apps/api/src/common/domain-store.ts, as returned
+// by GET /v1/jobs/:jobId/payments after toVisiblePaymentTxn() — type/status are
+// uppercased display strings, typeRaw/statusRaw keep the original lowercase value.
+export const paymentTxnRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  escrowId: z.string().min(1),
+  projectId: z.string().min(1),
+  jobId: z.string().min(1).optional(),
+  contractId: z.string().min(1).optional(),
+  milestoneId: z.string().min(1).optional(),
+  type: z.string().min(1),
+  typeRaw: z.string().min(1).optional(),
+  amount: z.number(),
+  status: z.string().min(1),
+  statusRaw: z.string().min(1).optional(),
+  createdAt: z.string().min(1)
+});
+
+export type PaymentTxnRecordView = z.infer<typeof paymentTxnRecordSchema>;

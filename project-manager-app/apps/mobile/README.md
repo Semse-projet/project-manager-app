@@ -1,15 +1,43 @@
 # @semse/mobile
 
-Expo (React Native, TypeScript, SDK 57) worker app. Its one job today: **background
-geolocation for the Time Tracker's proximity check-in** — when a worker gets near a
-Job or FreeProject site, the app prompts (or auto-starts) the Labor Engine timer,
-even while backgrounded or the app is fully closed on Android. This is the mobile
-half of the feature shipped on web in `apps/web/app/(app)/worker/tracker/useProximityCheckIn.ts`
-(see also `apps/api/src/integrations/geo-distance.ts` and `google-maps.ts`).
+Expo (React Native, TypeScript, SDK 57) native app for SEMSE — one app, one login,
+navigation branches by the authenticated user's role (`RoleGate.tsx`, mirroring how
+`apps/web/app/(app)/{admin,client,worker}` already branches under one authenticated
+shell). Being built out in phases; see the plan for the full roadmap.
 
-Not a full port of the web tracker — no jobs list, no manual-entry form, no reports.
-Just: log in, see/toggle the active timer, toggle proximity tracking, and set the
-`ask` / `auto` / `off` preference (shared with web via `UserProfile.proximityCheckInMode`).
+**Worker tab is the most built-out one.** Its core is **background geolocation for
+the Time Tracker's proximity check-in** — when a worker gets near a Job or FreeProject
+site, the app prompts (or auto-starts) the Labor Engine timer, even while backgrounded
+or the app is fully closed on Android. This is the mobile half of the feature shipped
+on web in `apps/web/app/(app)/worker/tracker/useProximityCheckIn.ts` (see also
+`apps/api/src/integrations/geo-distance.ts` and `google-maps.ts`). Around that: log in,
+see/toggle the active timer, toggle proximity tracking, set the `ask`/`auto`/`off`
+preference (shared with web via `UserProfile.proximityCheckInMode`), browse assigned
+Jobs and submit bids (`Jobs`/`Bids` tabs), and capture photo evidence against a job
+(`EvidenceCapture`, camera or gallery via `expo-image-picker`). Push notifications
+(Expo push tokens, registered/unregistered alongside login/logout — see
+`src/notifications/pushRegistration.ts`) deliver the same events the web app already
+gets in-app. The bottom bar stays at 4 tabs (Timer/Jobs/Bids/More) by moving
+everything used less-than-daily behind **More** (`WorkerMoreStackNavigator`):
+FreeProjects, Disputes (list/detail, open a new one, attach evidence), Incidents
+(report + list, safety/damage/delay/material/other with severity), Travel
+(list/detail), and Settings. No manual time-entry form, no reports yet.
+
+**Client tab (Fase 2, `docs/specs/ui/mobile-client-tab.spec.md`)**: see a client's
+own jobs, open a job's detail (bids received, milestones, evidence — evidence is
+read-only here, the client doesn't capture it), accept a bid, approve a submitted
+milestone, and rate the professional once a job is `completed`. Deliberately narrow
+by design — job posting, marketplace, disputes and anything that moves money
+(escrow fund/deposit/release) are out of scope for this phase, see the spec for why.
+One real gap worth knowing: **bid-related push notifications don't fire** —
+`bids.service.ts` writes those notifications with `prisma.notification.create()`
+directly instead of going through `NotificationsService`, so they never reach
+`PushDispatchService` (milestone events do reach push; bids don't). A client finds
+out about a new bid by opening the app, not a push — this is a pre-existing backend
+gap, not something this phase fixes.
+
+**Admin tab is still a placeholder** — it exists so role-based nav routing works
+end-to-end, but has no real screens yet (Fase 7).
 
 ## Setup
 
@@ -30,6 +58,24 @@ tunnel (`expo start --tunnel`).
 `pnpm --filter @semse/mobile check` (`tsc --noEmit`) passes, but nothing here has
 been run on an actual simulator or device. Treat the first real run as this app's
 first end-to-end test, not a formality.
+
+## Building (EAS)
+
+There is no local simulator loop in this pipeline — `eas.json` defines
+`development`/`preview`/`production` profiles, and every build (Android included)
+runs on Expo's cloud build service, not locally. **iOS builds have to go through EAS
+cloud** since this is a Windows environment and Xcode only runs on macOS — there's no
+way to build or sign an iOS app locally here, cloud is not just the convenient option.
+
+```bash
+npx eas-cli build --profile development --platform android   # dev client, sideload via link
+npx eas-cli build --profile preview --platform all           # internal distribution, both platforms
+npx eas-cli build --profile production --platform all         # store-ready
+```
+
+First-time setup needs `npx eas-cli init` (creates `expo.extra.eas.projectId` in
+`app.json`) and `npx eas-cli credentials` for iOS signing (EAS can generate/manage
+these for you — there's no local keychain to pull from anyway).
 
 ## Authentication
 
@@ -68,10 +114,23 @@ persistent foreground-service notification (configured in `app.json` /
 ## Structure
 
 ```
-src/api/          — client.ts (fetch+token wrapper), auth.ts, labor.ts, profile.ts
-src/context/       — AuthContext (session state)
+src/api/          — client.ts (fetch+token wrapper), auth.ts, labor.ts, profile.ts,
+                     jobs.ts, bids.ts, evidence.ts, push.ts, milestones.ts, ratings.ts,
+                     disputes.ts, incidents.ts, travel.ts
+src/context/       — AuthContext (session state, wires push register/unregister)
 src/geo/           — see above
-src/notifications/ — local notification presentation + the "Iniciar" action handler
-src/navigation/    — RootNavigator (Login → Timer/Settings stack)
-src/screens/       — LoginScreen, TimerScreen, SettingsScreen
+src/notifications/ — local notification presentation, the "Iniciar" action handler,
+                      and pushRegistration.ts (Expo push token lifecycle)
+src/navigation/    — RootNavigator → RoleGate branches by role into
+                      WorkerTabNavigator (real) / ClientTabNavigator (real, Fase 2) /
+                      AdminTabNavigator (still a placeholder). WorkerTabNavigator is
+                      Timer/Jobs/Bids/More, where WorkerMoreStackNavigator holds
+                      FreeProjects/Disputes/Incidents/Travel/Settings.
+src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProjectsScreen,
+                      SettingsScreen, worker/{JobsListScreen,JobDetailScreen,BidsScreen,
+                      EvidenceScreen,MoreScreen,DisputesScreen,DisputeDetailScreen,
+                      IncidentsScreen,TravelScreen,TravelDetailScreen},
+                      client/{JobsListScreen,JobDetailScreen,RatingFormScreen,
+                      ClientSettingsScreen}
+src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```

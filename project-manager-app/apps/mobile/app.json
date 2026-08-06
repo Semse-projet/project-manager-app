@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "SEMSE Worker",
+    "name": "SEMSE",
     "slug": "semse-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -11,13 +11,16 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.semse.mobile",
       "infoPlist": {
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.semse.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#3b82f6",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -46,9 +49,32 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SEMSE usa tu galería para adjuntar fotos como evidencia de trabajo.",
+          "cameraPermission": "SEMSE usa tu cámara para tomar fotos como evidencia de trabajo.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain",
+          "backgroundColor": "#3b82f6"
+        }
+      ],
       "expo-notifications",
       "expo-task-manager",
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "718f27b3-c5b9-4f5c-a695-94fd3f85a5c7"
+      }
+    },
+    "owner": "semseproject.com"
   }
 }

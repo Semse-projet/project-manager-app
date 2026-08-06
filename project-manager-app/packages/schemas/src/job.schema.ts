@@ -85,6 +85,33 @@ export const bidSchema = z.object({
   note: z.string().max(1000).optional(),
 });
 
+// Matches BidRecord in apps/api/src/common/domain-store.ts — the shape
+// returned by GET /v1/my-bids, GET /v1/jobs/:jobId/bids and
+// POST /v1/jobs/:jobId/bids.
+export const bidRecordSchema = z.object({
+  id: z.string().min(1),
+  jobId: z.string().min(1),
+  tenantId: z.string().min(1),
+  proOrgId: z.string().min(1),
+  professionalUserId: z.string().min(1).optional(),
+  amount: z.number(),
+  etaDays: z.number().int(),
+  status: z.enum(["submitted", "accepted", "rejected"]),
+  proEmail: z.string().min(1).optional(),
+  note: z.string().optional(),
+  jobTitle: z.string().optional(),
+  jobCategory: z.string().optional(),
+  jobLocation: z.string().optional(),
+  jobBudgetMin: z.number().optional(),
+  jobBudgetMax: z.number().optional(),
+  jobStatus: z.string().optional(),
+  clientUserId: z.string().optional(),
+  clientEmail: z.string().optional(),
+  createdAt: z.string().optional(),
+  avgRating: z.number().optional(),
+  ratingCount: z.number().optional(),
+});
+
 /**
  * The Prisma `JobStatus` enum is uppercase and NestJS's `toVisibleJob` mapper
  * returns it uppercase too — but `jobRecordStatusSchema` (and every frontend
@@ -104,3 +131,4 @@ export type ListJobsQuery = z.infer<typeof listJobsQuerySchema>;
 export type JobRecordView = z.infer<typeof jobRecordSchema>;
 export type PreferredProfessionalView = z.infer<typeof preferredProfessionalSchema>;
 export type BidInput = z.infer<typeof bidSchema>;
+export type BidRecordView = z.infer<typeof bidRecordSchema>;
