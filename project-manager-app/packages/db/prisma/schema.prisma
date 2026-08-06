@@ -159,6 +159,7 @@ model Tenant {
   freeProjects                  FreeProject[]
   timeEntries                   TimeEntry[]
   laborSheets                   LaborSheet[]
+  pushDeviceTokens              PushDeviceToken[]
   workspaceMemoryEntries        WorkspaceMemoryEntry[]
   fieldMilestones               FieldMilestone[]
   vendors                       Vendor[]
@@ -300,6 +301,27 @@ model UserProfile {
   proximityCheckInMode String? @default("ask")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
+}
+
+/// Expo push token per user+device, registered by apps/mobile
+/// (src/notifications/pushRegistration.ts) via POST /v1/push/register.
+/// A user can hold multiple rows (multiple devices); dispatch.service.ts
+/// sends to every non-revoked token for a user.
+model PushDeviceToken {
+  id              String    @id @default(cuid())
+  tenantId        String
+  userId          String
+  deviceId        String
+  expoPushToken   String
+  platform        String // ios | android
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  revokedAt       DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([tenantId, userId])
 }
 
 model StripeConnectAccount {

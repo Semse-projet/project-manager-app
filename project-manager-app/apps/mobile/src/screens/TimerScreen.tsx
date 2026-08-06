@@ -13,8 +13,11 @@ import { hasSeenProximityPrimer, markProximityPrimerSeen } from "../geo/permissi
 import { refreshProximitySites } from "../geo/refreshSites";
 import { loadProximityMode } from "../geo/siteCache";
 import { registerProximityNotificationCategory, requestNotificationPermissions } from "../notifications/notifications";
+import { useTheme } from "../theme/theme";
 
 export default function TimerScreen() {
+  const theme = useTheme();
+  const styles = buildStyles(theme);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -150,7 +153,7 @@ export default function TimerScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <ActivityIndicator color={theme.colors.brand} />
       </View>
     );
   }
@@ -194,17 +197,26 @@ export default function TimerScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 20, gap: 16 },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  card: { backgroundColor: "#f9fafb", borderRadius: 14, padding: 18, borderWidth: 1, borderColor: "#e5e7eb", gap: 10 },
-  cardLabel: { fontSize: 12, fontWeight: "700", color: "#6b7280", textTransform: "uppercase" },
-  cardValue: { fontSize: 20, fontWeight: "800", color: "#111827" },
-  cardHint: { fontSize: 12, color: "#6b7280", marginTop: 4 },
-  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  flexShrink: { flex: 1 },
-  button: { backgroundColor: "#2563eb", borderRadius: 10, padding: 12, alignItems: "center", marginTop: 4 },
-  buttonDanger: { backgroundColor: "#dc2626" },
-  buttonText: { color: "#fff", fontWeight: "700" },
-  error: { color: "#dc2626", fontSize: 13 },
-});
+function buildStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    container: { padding: 20, gap: 16 },
+    center: { flex: 1, justifyContent: "center", alignItems: "center" },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: 18,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      gap: 10,
+    },
+    cardLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.muted, textTransform: "uppercase" },
+    cardValue: { fontSize: 20, fontWeight: "800", color: theme.colors.ink },
+    cardHint: { fontSize: 12, color: theme.colors.muted, marginTop: 4 },
+    rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+    flexShrink: { flex: 1 },
+    button: { backgroundColor: theme.colors.brand, borderRadius: theme.radius.md, padding: 12, alignItems: "center", marginTop: 4 },
+    buttonDanger: { backgroundColor: theme.colors.error },
+    buttonText: { color: "#fff", fontWeight: "700" },
+    error: { color: theme.colors.error, fontSize: 13 },
+  });
+}

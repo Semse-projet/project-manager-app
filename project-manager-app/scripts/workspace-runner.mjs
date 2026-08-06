@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 const TASKS = {
   "build:packages": [
     ["pnpm", ["--filter", "@semse/schemas", "build"]],
+    ["pnpm", ["--filter", "@semse/design-tokens", "build"]],
     ["pnpm", ["--filter", "@semse/shared", "build"]],
     ["pnpm", ["--filter", "@semse/auth", "build"]],
     ["pnpm", ["--filter", "@semse/knowledge", "build"]],

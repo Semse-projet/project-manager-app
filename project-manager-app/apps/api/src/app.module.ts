@@ -26,6 +26,7 @@ import { ReservationsModule } from "./modules/reservations/reservations.module.j
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
 import { LaborEngineModule } from "./modules/labor-engine/labor-engine.module.js";
+import { PushNotificationsModule } from "./modules/push-notifications/push-notifications.module.js";
 import { AgroModule } from "./modules/agro/agro.module.js";
 import { DemoModule } from "./modules/demo/demo.module.js";
 import { DomainEventsModule } from "./modules/domain-events/domain-events.module.js";
@@ -118,6 +119,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     TrustModule,
     FieldOpsModule,
     LaborEngineModule,
+    PushNotificationsModule,
     AgroModule,
     DemoModule,
     OrganizationsModule,

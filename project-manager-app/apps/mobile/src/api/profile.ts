@@ -1,11 +1,8 @@
+import type { ProximityCheckInMode, UserProfileView } from "@semse/schemas";
 import { apiFetch } from "./client";
 
-export type ProximityCheckInMode = "ask" | "auto" | "off";
-
-export type UserProfile = {
-  userId: string;
-  proximityCheckInMode: ProximityCheckInMode;
-};
+export type { ProximityCheckInMode };
+export type UserProfile = UserProfileView;
 
 export async function fetchProfile(): Promise<UserProfile> {
   return apiFetch<UserProfile>("/v1/users/me/profile");

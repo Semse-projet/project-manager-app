@@ -52,8 +52,26 @@ export const registerEvidenceSchema = z
     path: ["projectId"]
   });
 
+// Matches EvidenceView in apps/api/src/modules/evidence/evidence.repository.ts —
+// the shape returned by GET /v1/jobs/:jobId/evidence and POST /v1/evidence.
+export const evidenceRecordSchema = z.object({
+  id: z.string().min(1),
+  tenantId: z.string().min(1),
+  projectId: z.string().min(1),
+  jobId: z.string().min(1),
+  milestoneId: z.string().min(1).optional(),
+  uploadedById: z.string().min(1),
+  kind: evidenceKindSchema,
+  key: z.string().min(1),
+  filename: z.string().min(1).optional(),
+  validationStatus: z.string().min(1),
+  aiQualityScore: z.number().nullable().optional(),
+  createdAt: z.string().min(1)
+});
+
 export type PresignEvidenceInput = z.infer<typeof presignEvidenceSchema>;
 export type UploadPlanInput = z.infer<typeof uploadPlanSchema>;
 export type MultipartUploadSessionCreateInput = z.infer<typeof multipartUploadSessionCreateSchema>;
 export type MultipartUploadSessionCompleteInput = z.infer<typeof multipartUploadSessionCompleteSchema>;
 export type RegisterEvidenceInput = z.infer<typeof registerEvidenceSchema>;
+export type EvidenceRecordView = z.infer<typeof evidenceRecordSchema>;

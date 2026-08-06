@@ -4,6 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { fetchProfile, updateProximityCheckInMode, type ProximityCheckInMode } from "../api/profile";
 import { useAuth } from "../context/AuthContext";
 import { saveProximityMode } from "../geo/siteCache";
+import { useTheme } from "../theme/theme";
 
 const OPTIONS: { value: ProximityCheckInMode; label: string; hint: string }[] = [
   { value: "ask", label: "Preguntar siempre", hint: "Te avisa cuando llegas a un sitio y confirmas antes de iniciar el reloj." },
@@ -13,6 +14,8 @@ const OPTIONS: { value: ProximityCheckInMode; label: string; hint: string }[] = 
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
+  const theme = useTheme();
+  const styles = buildStyles(theme);
   const [mode, setMode] = useState<ProximityCheckInMode>("ask");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,7 +59,7 @@ export default function SettingsScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <ActivityIndicator color={theme.colors.brand} />
       </View>
     );
   }
@@ -87,16 +90,18 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, gap: 12, backgroundColor: "#fff" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-  title: { fontSize: 13, fontWeight: "700", color: "#6b7280", textTransform: "uppercase", marginBottom: 4 },
-  option: { borderWidth: 1.5, borderColor: "#e5e7eb", borderRadius: 12, padding: 14 },
-  optionSelected: { borderColor: "#2563eb", backgroundColor: "#eff6ff" },
-  optionLabel: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  optionLabelSelected: { color: "#2563eb" },
-  optionHint: { fontSize: 12, color: "#6b7280", marginTop: 2 },
-  logoutButton: { marginTop: "auto", padding: 14, alignItems: "center" },
-  logoutText: { color: "#dc2626", fontWeight: "700" },
-  error: { color: "#dc2626", fontSize: 13 },
-});
+function buildStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    container: { flex: 1, padding: 20, gap: 12, backgroundColor: theme.colors.base },
+    center: { flex: 1, justifyContent: "center", alignItems: "center" },
+    title: { fontSize: 13, fontWeight: "700", color: theme.colors.muted, textTransform: "uppercase", marginBottom: 4 },
+    option: { borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: theme.radius.lg, padding: 14 },
+    optionSelected: { borderColor: theme.colors.brand, backgroundColor: theme.colors.brandDim },
+    optionLabel: { fontSize: 15, fontWeight: "700", color: theme.colors.ink },
+    optionLabelSelected: { color: theme.colors.brand },
+    optionHint: { fontSize: 12, color: theme.colors.muted, marginTop: 2 },
+    logoutButton: { marginTop: "auto", padding: 14, alignItems: "center" },
+    logoutText: { color: theme.colors.error, fontWeight: "700" },
+    error: { color: theme.colors.error, fontSize: 13 },
+  });
+}
