@@ -54,6 +54,22 @@ export class UsersController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  // docs/specs/core/universal-identity-multi-role.spec.md §5 — must stay
+  // registered before @Get(":userId") below, same reasoning as
+  // "verify-requests": Nest matches routes in declaration order.
+  @Get("me/capabilities")
+  @AuthenticatedAccess("Authenticated users may read their own capabilities.")
+  async getMyCapabilities(@Req() req: { headers?: Record<string, unknown> }) {
+    const actor = resolveRequestContext(req);
+    const capabilities = await this.usersService.getMyCapabilities({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles
+    });
+    return ok(resolveRequestId(req.headers ?? {}), { capabilities });
+  }
+
   @Patch("me/profile")
   @AuthenticatedAccess("Authenticated users may update their own profile.")
   async updateMyProfile(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {

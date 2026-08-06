@@ -61,6 +61,30 @@ export class UsersService {
     });
   }
 
+  /**
+   * docs/specs/core/universal-identity-multi-role.spec.md §5 — read-only,
+   * no audit_log per that contract. Reuses findMembershipsByUser scoped to
+   * the actor's own tenant (same boundary as every other membership read);
+   * capabilities are the actor's own Membership rows, one per org/role.
+   */
+  async getMyCapabilities(actor: UserActor): Promise<{ role: string; orgId: string; verifiedAt: string | null }[]> {
+    const memberships = await this.usersRepository.findMembershipsByUser({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      targetUserId: actor.userId
+    });
+
+    // verifiedAt: no per-Membership verification timestamp exists yet in the
+    // schema (only account-level User.verificationStatus) — null until that
+    // gap is closed, not fabricated.
+    return memberships.map((membership) => ({
+      role: membership.role.key,
+      orgId: membership.orgId,
+      verifiedAt: null
+    }));
+  }
+
   async verifyUser(input: UserActor & {
     targetUserId: string;
     verificationType: "email" | "phone" | "id_document" | "background_check";

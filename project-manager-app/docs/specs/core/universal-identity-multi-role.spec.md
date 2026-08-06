@@ -7,7 +7,7 @@ version: "1.0"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -18,14 +18,18 @@ production_evidence: []
 related_files:
   - packages/db/prisma/schema.prisma
   - apps/api/src/modules/auth/auth.service.ts
+  - apps/api/src/modules/users/users.controller.ts
+  - apps/api/src/modules/users/users.service.ts
   - apps/web/app/(app)/admin/account/page.tsx
   - apps/web/app/(app)/client/account/page.tsx
   - apps/web/app/(app)/worker/account/page.tsx
-related_tests: []
-related_endpoints: []
+related_tests:
+  - apps/api/test/users.service.test.ts
+related_endpoints:
+  - GET /v1/users/me/capabilities
 related_events: []
 related_agents: []
-last_verified: "2026-08-04"
+last_verified: "2026-08-05"
 ---
 
 # Spec: Identidad universal con múltiples capacidades por cuenta

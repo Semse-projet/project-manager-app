@@ -36,6 +36,27 @@ function createService() {
         updatedAt: new Date("2026-01-02T00:00:00.000Z"),
       };
     },
+    async findMembershipsByUser(input: Record<string, unknown>) {
+      calls.updates.push({ findMembershipsByUser: input });
+      return [
+        {
+          userId: String(input.targetUserId),
+          orgId: "org_client",
+          roleId: "role_client",
+          org: { id: "org_client", name: "Org Cliente", type: "client" },
+          role: { id: "role_client", key: "CLIENT", name: "Cliente" },
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+        {
+          userId: String(input.targetUserId),
+          orgId: "org_pro",
+          roleId: "role_pro",
+          org: { id: "org_pro", name: "Org Profesional", type: "pro" },
+          role: { id: "role_pro", key: "PRO", name: "Profesional" },
+          createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        },
+      ];
+    },
   };
 
   const auditService = {
@@ -92,6 +113,43 @@ test("users service rejects status updates for non-admin actors", async () => {
 
   assert.equal(calls.updates.length, 0);
   assert.equal(calls.audit.length, 0);
+});
+
+// ── Capabilities (docs/specs/core/universal-identity-multi-role.spec.md) ──────
+
+test("getMyCapabilities returns the actor's own memberships, mapped to role/orgId", async () => {
+  const { service } = createService();
+
+  const capabilities = await service.getMyCapabilities({
+    tenantId: "tnt_test",
+    orgId: "org_client",
+    userId: "usr_multi",
+    roles: ["CLIENT"],
+  });
+
+  assert.deepEqual(capabilities, [
+    { role: "CLIENT", orgId: "org_client", verifiedAt: null },
+    { role: "PRO", orgId: "org_pro", verifiedAt: null },
+  ]);
+});
+
+test("getMyCapabilities requests memberships scoped to the actor's own userId and tenant, not an arbitrary target", async () => {
+  const { service, calls } = createService();
+
+  await service.getMyCapabilities({
+    tenantId: "tnt_test",
+    orgId: "org_client",
+    userId: "usr_multi",
+    roles: ["CLIENT"],
+  });
+
+  const call = calls.updates.find((c) => "findMembershipsByUser" in c) as
+    | { findMembershipsByUser: Record<string, unknown> }
+    | undefined;
+  assert.ok(call, "expected findMembershipsByUser to be called");
+  assert.equal(call.findMembershipsByUser.tenantId, "tnt_test");
+  assert.equal(call.findMembershipsByUser.targetUserId, "usr_multi");
+  assert.equal(call.findMembershipsByUser.userId, "usr_multi");
 });
 
 // ── Verification requests (AUDIT_REMEDIATION_PLAN.md 2.28) ────────────────────
