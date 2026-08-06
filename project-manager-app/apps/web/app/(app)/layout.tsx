@@ -183,12 +183,10 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
 // visually-diverging implementations (inline styles vs Tailwind classes).
 function NavBrand({
   nav,
-  RoleIcon,
   collapsed,
   mobile,
 }: {
   nav: (typeof NAV)[NavRole];
-  RoleIcon: typeof HardHat;
   collapsed: boolean;
   mobile?: boolean;
 }) {
@@ -207,11 +205,11 @@ function NavBrand({
           flexShrink: 0,
         }}
       >
-        <RoleIcon size={15} color="#ecfffb" />
+        <img src="/brand/mark-transparent.png" alt="" width={15} height={15} style={{ display: "block" }} />
       </div>
       {(!collapsed || mobile) && (
         <div>
-          <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSE</p>
+          <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>SEMSEproject</p>
           <p style={{ fontSize: "10px", color: nav.color, fontWeight: 600 }}>{t(nav.labelKey)}</p>
         </div>
       )}
@@ -322,7 +320,6 @@ function Sidebar({
   const pathname = usePathname();
   const { t } = useLanguage();
   const nav = NAV[role];
-  const RoleIcon = nav.icon;
 
   return (
     <aside
@@ -351,7 +348,7 @@ function Sidebar({
           minHeight: "56px",
         }}
       >
-        <NavBrand nav={nav} RoleIcon={RoleIcon} collapsed={collapsed} mobile={mobile} />
+        <NavBrand nav={nav} collapsed={collapsed} mobile={mobile} />
         <button
           onClick={mobile ? onClose : onToggle}
           style={{
@@ -501,7 +498,6 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<ThemePreference>("dark");
   const { language, t } = useLanguage();
   const nav = NAV[role];
-  const RoleIcon = nav.icon;
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("semse-theme");
@@ -575,7 +571,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)" }}>
       <div className="desktop-sidebar">
         <AppShell
-          brand={<NavBrand nav={nav} RoleIcon={RoleIcon} collapsed={collapsed} />}
+          brand={<NavBrand nav={nav} collapsed={collapsed} />}
           navItems={shellNavItems}
           hideHeader
           collapsed={collapsed}
