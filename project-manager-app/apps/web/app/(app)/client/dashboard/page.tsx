@@ -402,7 +402,7 @@ function EmptyState() {
         borderStyle: "dashed",
       }}
     >
-      <Briefcase size={40} style={{ color: "var(--faint)", margin: "0 auto 14px" }} />
+      <img src="/brand/empty-states/client-jobs.png" alt="" width={64} height={64} style={{ margin: "0 auto 14px", display: "block" }} />
       <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
         Aún no tienes trabajos
       </p>

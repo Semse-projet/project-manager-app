@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
-import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Inbox, Scale, Users } from "lucide-react";
+import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Scale, Users } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { Pagination } from "../../../components/admin/Pagination";
@@ -314,7 +314,7 @@ export default function AdminUsersPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ ...card, padding: "48px 24px", textAlign: "center" }}>
-          <Inbox size={32} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
+          <img src="/brand/empty-states/admin-users.png" alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
           <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--muted)" }}>Sin usuarios</p>
           <p style={{ fontSize: "12px", color: "var(--faint)", marginTop: "4px" }}>Ajusta los filtros o espera a que lleguen registros.</p>
         </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ElementType } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -79,11 +78,11 @@ function bidToUiJob(bid: MyBidView): Job {
 function EmptyPanel({
   title,
   description,
-  icon: Icon,
+  image,
 }: {
   title: string;
   description: string;
-  icon: ElementType;
+  image: string;
 }) {
   return (
     <div
@@ -95,7 +94,7 @@ function EmptyPanel({
         borderRadius: "14px",
       }}
     >
-      <Icon size={34} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
+      <img src={image} alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
       <p style={{ color: "var(--ink)", fontSize: "14px", fontWeight: 700, marginBottom: "6px" }}>{title}</p>
       <p style={{ color: "var(--muted)", fontSize: "13px" }}>{description}</p>
     </div>
@@ -616,7 +615,7 @@ export default function WorkerDashboardPage() {
           <EmptyPanel
             title="No hay oportunidades abiertas ahora"
             description="Cuando entren trabajos publicados al pipeline, aparecerán aquí para evaluación."
-            icon={Search}
+            image="/brand/empty-states/worker-opportunities.png"
           />
         ) : (
           <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
