@@ -15,8 +15,13 @@ Se actualizaron overrides compatibles y el lockfile correspondiente:
 - `brace-expansion`: `5.0.8` → `5.0.9`
 - `dompurify`: `3.4.12` → `3.4.13`
 - `fast-uri`: `3.1.4` → `3.1.5` y `4.1.1` → `4.1.2`
+- `hono`: `4.12.30` → `4.12.34`
 - `postcss`: `8.5.19` → `8.5.23`
 - `undici`: `7.28.0` → `7.29.0`
+
+El override de `hono` se añadió en un seguimiento inmediato: GitHub publicó
+tres alertas nuevas durante el despliegue inicial, cuando la versión corregida
+`4.12.34` todavía no era resoluble por Dependabot.
 
 ## Evidencia local
 
