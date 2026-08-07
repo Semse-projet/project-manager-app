@@ -136,6 +136,9 @@ jobs:
 
       - name: Upload coverage artifact
         if: always()
+        # Coverage thresholds are enforced above; artifact retention is
+        # diagnostic-only and must not block Railway when storage is full.
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: coverage-html
