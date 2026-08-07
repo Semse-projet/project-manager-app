@@ -15,6 +15,7 @@ overrides:
   fast-uri@^3.0.0: 3.1.5
   fast-uri@^4.0.0: 4.1.2
   find-my-way: 9.7.0
+  hono: 4.12.34
   is-fullwidth-code-point: 3.0.0
   js-yaml: 4.3.1
   mermaid: 11.16.1
@@ -2273,7 +2274,7 @@ packages:
     resolution: {integrity: sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: ^4
+      hono: 4.12.34
 
   '@hookform/resolvers@5.4.0':
     resolution: {integrity: sha512-EIsqr/t/qbinPIhGjMdtvutIN1Kk4uwbROE9/UQ93CAVGR7GkA7Y92+fX80OzXi/OB67jVFYwKGO1WzkxmkFZw==}
@@ -7739,8 +7740,8 @@ packages:
   hermes-parser@0.36.1:
     resolution: {integrity: sha512-GApNk4zLHi2UWoWZZkx7LNCOSzLSc5lB55pZ/PhK7ycFeg7u5LcF88p/WbpIi1XUDtE0MpHE3uRR3u3KB7TjSQ==}
 
-  hono@4.12.30:
-    resolution: {integrity: sha512-emn+JoJjrN9YTpRDS5it/UI2SO9BAE37T6I3d963RxcZ81G9A4pr2SZTEiiaiKbzx+NKRg5BZ89fCL7gCJCUog==}
+  hono@4.12.34:
+    resolution: {integrity: sha512-GqXJqY/xJkJmuloTrnV1ZEXG3fqte+VjkUqoRNZXcrUidiUOP4fMSIHHY4tsqZBK++kVyWmt/AAfSUuy57/eSA==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@7.0.2:
@@ -13385,9 +13386,9 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  '@hono/node-server@2.0.10(hono@4.12.30)':
+  '@hono/node-server@2.0.10(hono@4.12.34)':
     dependencies:
-      hono: 4.12.30
+      hono: 4.12.34
 
   '@hookform/resolvers@5.4.0(react-hook-form@7.82.0(react@19.2.7))':
     dependencies:
@@ -14131,7 +14132,7 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.26.0(zod@4.3.6)':
     dependencies:
-      '@hono/node-server': 2.0.10(hono@4.12.30)
+      '@hono/node-server': 2.0.10(hono@4.12.34)
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
       content-type: 1.0.5
@@ -14141,7 +14142,7 @@ snapshots:
       eventsource-parser: 3.1.0
       express: 5.2.1
       express-rate-limit: 8.5.2(express@5.2.1)
-      hono: 4.12.30
+      hono: 4.12.34
       jose: 6.2.3
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -19443,7 +19444,7 @@ snapshots:
     dependencies:
       hermes-estree: 0.36.1
 
-  hono@4.12.30: {}
+  hono@4.12.34: {}
 
   hosted-git-info@7.0.2:
     dependencies:
