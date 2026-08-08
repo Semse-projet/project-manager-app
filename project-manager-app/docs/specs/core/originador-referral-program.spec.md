@@ -8,13 +8,16 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
+verification_scope: "partial:rbac-self-service-connect-and-reward-math-only"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - github:pr:538:merge:6040d75e255f57beef5055158d613ca093975be6
+  - railway:api:deployment:4773385c-d68d-4f8d-95f4-02b2e98b7a6b:success
 related_files:
   - apps/api/src/modules/payments/payment-governance.service.ts
   - apps/api/src/modules/payments/escrow-release.service.ts

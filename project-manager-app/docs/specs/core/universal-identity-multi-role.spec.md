@@ -8,13 +8,16 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
+verification_scope: "partial:fase-1-2:capabilities-endpoint-only"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - github:pr:539:merge:8e0ad1e37d342636c76112af110e516895343f6b
+  - railway:api:deployment:4773385c-d68d-4f8d-95f4-02b2e98b7a6b:success
 related_files:
   - packages/db/prisma/schema.prisma
   - apps/api/src/modules/auth/auth.service.ts

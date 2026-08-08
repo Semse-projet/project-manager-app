@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-08-04
+**Actualizado:** 2026-08-08
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -105,13 +105,19 @@ aplicar cambios automaticos.
 - PI-05: instrumentacion auth/registro/wizard y funnel admin, completado;
 - PI-06: funnel economico derivado de Job/Bid/Contract/PaymentEscrow,
   completado;
-- PI-07: Friction Engine, siguiente incremento;
-- PI-08..PI-11: anomaly signals, Observer, Mission Control y hardening,
-  pendientes.
+- PI-07..PI-10: Friction Engine, anomaly signals y Observer
+  `experienceHealth`, completados (PR #322, merge commit ancestro
+  confirmado de `origin/main`, 2026-07-17);
+- PI-11.2: auditoría de privacidad en producción, aprobada — batch
+  adversario 100% redactado, 0 PII persistido, E2E navegador→BFF→API→Postgres
+  verificado (PR #326, 2026-07-17). Programa PI-00..PI-11 declarado
+  completo documentalmente en #326.
 
-El codigo PI-06 esta desplegado. La activacion de
-`PRODUCT_INTELLIGENCE_ENABLED` y
-`NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` no fue verificada.
+El código PI-00..PI-10 está desplegado (ancestro de `origin/main`). Según
+PR #326, `PRODUCT_INTELLIGENCE_ENABLED` y
+`NEXT_PUBLIC_PRODUCT_INTELLIGENCE_ENABLED` están activas y los 3 servicios
+reportaron `SUCCESS`; esta pasada no re-verificó esas variables en runtime de
+forma independiente.
 
 ## Programa transversal — Consolidación Cognitiva (ADR-023)
 
@@ -235,8 +241,10 @@ abre la implementación reversible.
 
 ## F4 — Mission Control 2.0
 
-**Child SDD 2.0 `operations.mission-control-2` aprobado; implementación local
-completa y pendiente de CI, merge, deploy y canary.**
+**Child SDD 2.0 `operations.mission-control-2` aprobado; implementación
+mergeada y desplegada (PR #486, merge commit `afb2dccd`, 2026-07-31;
+ancestro confirmado de `origin/main`). Canary `tenant_default` no verificado
+en esta pasada — no se infiere activación desde merge/deploy.**
 
 Contrato ejecutable:
 
@@ -258,7 +266,7 @@ Unificar exceptions y acciones de:
 Gate de salida: pause/resume/retry/replay/escalate tienen permisos, motivo,
 auditoria y runbook.
 
-Estado local al 2026-07-31:
+Estado mergeado/desplegado al 2026-07-31:
 
 - cola tenant-safe desde signals, outbox/consumers, AgentRuns, approvals, loops,
   incidents, health/Observer y worker queue;
@@ -350,8 +358,13 @@ Contrato ejecutable:
 - [`docs/specs/core/originador-referral-program.spec.md`](docs/specs/core/originador-referral-program.spec.md) — `APPROVED` 2026-08-04; recompensa hibrida (bono fijo + % de `platformFeeCents`) gateada por `StripeConnectAccount`, multi-pais (Latinoamerica priorizada tras EE.UU.); Fase 3 bloqueada solo por el gate legal por pais (§12b), la dependencia F5 se retiro tras confirmar que reutiliza el mismo mecanismo de pago que ya usan los profesionales
 - [`docs/architecture/ADR-025-mcp-external-tool-gateway.md`](docs/architecture/ADR-025-mcp-external-tool-gateway.md) — decision de arquitectura, `PROPOSED`, no alcance activo
 
-`APPROVED` autoriza el contrato, no implica código: ambas specs siguen
-`code_status: NOT_STARTED` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
+`APPROVED` autoriza el contrato, no implica código completo: ambas specs
+están `code_status: IN_PROGRESS` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
+Identidad universal tiene Fase 1-2 (`GET /v1/users/me/capabilities`)
+mergeada y desplegada (PR #539); Originador tiene el RBAC self-service de
+Connect y la corrección de reward math mergeados y desplegados (PR #538).
+El flujo completo de recompensa por hitos y el selector de capacidad en
+Web siguen sin iniciar.
 
 Entregables:
 

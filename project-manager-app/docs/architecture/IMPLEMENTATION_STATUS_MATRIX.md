@@ -35,8 +35,8 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `114cb9ca` | Trazas y migration gates |
 | Worker/BullMQ | IMPLEMENTADO/DESPLEGADO | worker Railway `SUCCESS` | Consola común lag/retries/DLQ |
 | Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
-| Identidad universal multi-rol | PENDIENTE | `Membership(userId, orgId, roleId)` ya permite multi-rol a nivel de datos; UX/producto asume rol fijo | spec `docs/specs/core/universal-identity-multi-role.spec.md` (a crear) |
-| Originador/Facilitador (referral) | PENDIENTE | no existe spec ni código | spec `docs/specs/core/originador-referral-program.spec.md` (a crear), gate §7 Economía |
+| Identidad universal multi-rol | ver fila F10 más abajo | `Membership(userId, orgId, roleId)` ya permite multi-rol a nivel de datos; UX/producto asume rol fijo | — |
+| Originador/Facilitador (referral) | ver fila F10 más abajo | — | — |
 | Orquestación externa (MCP) | PENDIENTE/RETIRADO PREVIO | `SPEC-INT-001` retirado; `ADR-024` §12 sin evidencia de código | `ADR-025-mcp-external-tool-gateway.md` (a crear), decisión de propuesta |
 | Prometeo Runtime | IMPLEMENTADO/DESPLEGADO | missions, work plans, BFF | Verify/learn/budgets/compensación |
 | Tool Registry F2 | IMPLEMENTADO/PARCIAL | policy/audit/approval; adapters reales | video temporal + verification explícita |
@@ -47,9 +47,9 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Shared Economic Ledger F5 | PENDIENTE | PaymentTxn no es double-entry | Child spec después de F4 |
 | Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
-| Mission Control F4 | IMPLEMENTADO LOCAL / SDD 2.0 APPROVED | cola normalizada multi-fuente, catálogo allowlisted, receipt key+hash+lease, adapters, migración aditiva, BFF/UI exception-first y SSE autenticado; historial PostgreSQL limpio aplicado | CI/merge/deploy y canary `tenant_default` pendientes |
+| Mission Control F4 | IMPLEMENTADO/MERGEADO/DESPLEGADO | cola normalizada multi-fuente, catálogo allowlisted, receipt key+hash+lease, adapters, migración aditiva, BFF/UI exception-first y SSE autenticado; PR #486 merge `afb2dccd` (2026-07-31), ancestro confirmado de `origin/main` | canary `tenant_default` no re-verificado en esta pasada |
 | Project Lifecycle Projection F3 | VERIFIED / CANARY ACTIVO | `f1234291`; repair, cálculo/persistencia, rebuild/event consumer; 5 `PUBLISHED`, 5 `COMPLETED`, replay `no_op`, mismatch 0 | Ventana SLO y promoción global; outbox atómica por dominio |
-| Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-06 | Verificar flags/activación |
+| Product Intelligence | IMPLEMENTADO/PARCIAL/DESPLEGADO | PI-00..PI-10 (PR #322, 2026-07-17); PI-11.2 auditoría de privacidad aprobada (PR #326, 2026-07-17, "variables activas, 3 servicios SUCCESS") — ambos ancestros confirmados de `origin/main` | Re-verificar flags/activación de forma independiente en esta pasada |
 | Workspace/Context Bridge | PARCIAL | runtime/context bridge | scope común y terminal registry |
 | SDD/Blueprint Engine | IMPLEMENTADO/PARCIAL | 98 specs; strict 0/0; SDD 2.0 | Migrar specs al tocarlas + delivery evidence |
 | Knowledge/RAG | IMPLEMENTADO/PARCIAL | documents/chunks/retrieval/feedback | eval set y source governance |
@@ -60,8 +60,8 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Observabilidad | PARCIAL | Sentry, Prometheus, health | OTel/correlation/SLOs |
 | Backup/DR F9 | PARCIAL | docs/simulaciones | restore real y evidencia RPO/RTO |
 | CI/CD | IMPLEMENTADO/DESPLEGADO | GitHub + Railway autodeploy/health | Environments, concurrency, migration gate |
-| Identidad universal multi-capacidad F10 | PENDIENTE / SDD 2.0 APPROVED | 0 código; spec `APPROVED` 2026-08-04 (`universal-identity-multi-role.spec.md`) | Confirmar decisiones de producto de Fase 0 (plan) antes de iniciar código |
-| Originador/facilitador F10 | PENDIENTE / SDD 2.0 APPROVED | 0 código; spec `APPROVED` 2026-08-04 (`originador-referral-program.spec.md`), risk `critical`; recompensa híbrida vía `StripeConnectAccount` (mismo mecanismo que `PRO`); gate de pagos revisado (§12b) | Fase 3 bloqueada por gate legal país por país (solo EE.UU. investigado); F5 ya no es dependencia dura |
+| Identidad universal multi-capacidad F10 | EN PROGRESO / SDD 2.0 APPROVED | spec `APPROVED` 2026-08-04 (`universal-identity-multi-role.spec.md`); Fase 1-2 (`GET /v1/users/me/capabilities`) mergeada y desplegada — PR #539 merge `8e0ad1e3`, ancestro confirmado de `origin/main` | Selector de capacidad en Web (Fase 3+) no iniciado; activación no re-verificada |
+| Originador/facilitador F10 | EN PROGRESO / SDD 2.0 APPROVED | spec `APPROVED` 2026-08-04 (`originador-referral-program.spec.md`), risk `critical`; RBAC self-service Connect + corrección de reward math mergeadas y desplegadas — PR #538 merge `6040d75e`, ancestro confirmado de `origin/main`; recompensa híbrida vía `StripeConnectAccount` (mismo mecanismo que `PRO`); gate de pagos revisado (§12b) | Flujo de recompensa por hitos (Fase 2+) no iniciado; Fase 3 bloqueada por gate legal país por país (solo EE.UU. investigado); F5 ya no es dependencia dura |
 | Orquestación externa MCP F10 | PENDIENTE | 0 código; `SPEC-INT-001` retirado; ADR de reapertura en propuesta | Resolver ADR antes de registrar cualquier tool externa |
 
 ## Salud SDD
