@@ -16,17 +16,28 @@ Se actualizaron overrides compatibles y el lockfile correspondiente:
 - `dompurify`: `3.4.12` → `3.4.13`
 - `fast-uri`: `3.1.4` → `3.1.5` y `4.1.1` → `4.1.2`
 - `hono`: `4.12.30` → `4.12.34`
+- `nanoid` 3.x: `3.3.16` → `3.3.17`
 - `postcss`: `8.5.19` → `8.5.23`
-- `undici`: `7.28.0` → `7.29.0`
+- `undici`: `6.27.0` → `6.28.0` y `7.28.0` → `7.29.0`
 
 El override de `hono` se añadió en un seguimiento inmediato: GitHub publicó
 tres alertas nuevas durante el despliegue inicial, cuando la versión corregida
 `4.12.34` todavía no era resoluble por Dependabot.
 
+## Riesgo temporal sin parche upstream
+
+GitHub publicó también dos alertas altas para `image-size` (`<= 2.0.2`) sin
+ninguna versión corregida disponible. El lockfile resuelve `1.2.1` de forma
+transitiva bajo Metro/Expo, dentro del tooling de compilación móvil; no está en
+el runtime de API o web desplegado en Railway. Las alertas permanecen abiertas
+para seguimiento y no se desestimaron.
+
 ## Evidencia local
 
 - instalación con `pnpm install --frozen-lockfile`: PASS
-- `pnpm audit --prod`: PASS, sin vulnerabilidades conocidas
+- `pnpm audit --prod`: solo reporta las dos alertas sin parche de `image-size`
+- `pnpm --filter @semse/mobile check`: PASS
+- suite móvil Jest: PASS, 30 suites y 117 tests
 - `pnpm --filter @semse/assistant-portal test`: PASS, 69 tests
 - `pnpm --filter @semse/assistant-portal build`: PASS
 - `pnpm --filter @semse/web lint`: PASS, 0 errores y 57 warnings
