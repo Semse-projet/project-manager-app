@@ -49,3 +49,39 @@ it("navigates to JobDetail when a job card is pressed", async () => {
   await fireEvent.press(screen.getByText("Reparar techo"));
   expect(navigate).toHaveBeenCalledWith("JobDetail", { jobId: "job1" });
 });
+
+it("filters jobs by tab and shows the tab's header copy", async () => {
+  (fetchJobsList as jest.Mock).mockResolvedValue([
+    { id: "job1", tenantId: "t1", title: "Reparar techo", scope: "...", status: "draft" },
+    { id: "job2", tenantId: "t1", title: "Pintar oficina", scope: "...", status: "completed" },
+  ]);
+  await render(<JobsListScreen navigation={mockNavigation} route={mockRoute} />);
+  await waitFor(() => expect(screen.getByText("Reparar techo")).toBeTruthy());
+
+  await fireEvent.press(screen.getByText("Borradores"));
+  expect(screen.getByText("Reparar techo")).toBeTruthy();
+  expect(screen.queryByText("Pintar oficina")).toBeNull();
+  expect(screen.getByText("Trabajos que todavía no publicaste.")).toBeTruthy();
+});
+
+it("does not show a header banner for the 'Todos' tab", async () => {
+  (fetchJobsList as jest.Mock).mockResolvedValue([
+    { id: "job1", tenantId: "t1", title: "Reparar techo", scope: "...", status: "draft" },
+  ]);
+  await render(<JobsListScreen navigation={mockNavigation} route={mockRoute} />);
+  await waitFor(() => expect(screen.getByText("Reparar techo")).toBeTruthy());
+  expect(screen.queryByText("Trabajos que todavía no publicaste.")).toBeNull();
+});
+
+it("filters jobs by search query on title", async () => {
+  (fetchJobsList as jest.Mock).mockResolvedValue([
+    { id: "job1", tenantId: "t1", title: "Reparar techo", scope: "...", status: "posted" },
+    { id: "job2", tenantId: "t1", title: "Pintar oficina", scope: "...", status: "posted" },
+  ]);
+  await render(<JobsListScreen navigation={mockNavigation} route={mockRoute} />);
+  await waitFor(() => expect(screen.getByText("Reparar techo")).toBeTruthy());
+
+  await fireEvent.changeText(screen.getByPlaceholderText("Buscar trabajo..."), "techo");
+  expect(screen.getByText("Reparar techo")).toBeTruthy();
+  expect(screen.queryByText("Pintar oficina")).toBeNull();
+});

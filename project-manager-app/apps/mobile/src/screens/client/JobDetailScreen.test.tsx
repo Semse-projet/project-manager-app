@@ -112,3 +112,18 @@ it("does not show a rating button when the job is completed but had no accepted 
   await waitFor(() => expect(screen.getByText("Reparar techo")).toBeTruthy());
   expect(screen.queryByText("⭐ Calificar al profesional")).toBeNull();
 });
+
+it("shows a next-action hint for a job pending proposals", async () => {
+  (fetchJobDetail as jest.Mock).mockResolvedValue(baseJob);
+  await render(<JobDetailScreen navigation={mockNavigation} route={mockRoute()} />);
+  await waitFor(() =>
+    expect(screen.getByText("▶ El trabajo está publicado. Revisa propuestas cuando lleguen.")).toBeTruthy(),
+  );
+});
+
+it("shows no next-action hint for a job that was accepted (escrow state unknown)", async () => {
+  (fetchJobDetail as jest.Mock).mockResolvedValue({ ...baseJob, status: "accepted" });
+  await render(<JobDetailScreen navigation={mockNavigation} route={mockRoute()} />);
+  await waitFor(() => expect(screen.getByText("Reparar techo")).toBeTruthy());
+  expect(screen.queryByText(/^▶ /)).toBeNull();
+});

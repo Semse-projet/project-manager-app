@@ -49,6 +49,47 @@ export const JOB_TAB_BUCKETS = {
   completed: ["completed"] as JobRecordStatus[],
 };
 
+// Mirrors apps/web/app/(app)/client/jobs/page.tsx's FILTERS bucketing.
+export const CLIENT_JOB_TAB_BUCKETS = {
+  draft: ["draft"] as JobRecordStatus[],
+  active: ["in_progress", "reserved", "accepted", "review"] as JobRecordStatus[],
+  pending: ["posted", "published"] as JobRecordStatus[],
+  review: ["review"] as JobRecordStatus[],
+  completed: ["completed"] as JobRecordStatus[],
+};
+
+// Mirrors apps/web's headerCopy for the same tabs — shown as a banner under
+// the active tab, not per-card (the Client list groups by intent, it doesn't
+// tell the client to "do" something the way the Worker list does).
+export const CLIENT_JOB_TAB_HEADER_COPY: Partial<
+  Record<keyof typeof CLIENT_JOB_TAB_BUCKETS, { title: string; detail: string }>
+> = {
+  draft: { title: "Borradores", detail: "Trabajos que todavía no publicaste." },
+  active: { title: "Trabajos activos", detail: "Trabajos reservados, aceptados, en progreso o en revisión." },
+  pending: { title: "Esperando propuestas", detail: "Trabajos publicados que todavía no tienen una propuesta aceptada." },
+  review: { title: "En revisión", detail: "El profesional envió una entrega para tu revisión." },
+  completed: { title: "Completados", detail: "Trabajos cerrados." },
+};
+
+// Adapted from apps/web/app/(app)/client/jobs/[jobId]/page.tsx's
+// JOB_NEXT_ACTION (client-perspective copy) — trimmed to statuses where
+// mobile actually has a real path forward, and reworded wherever web's copy
+// names an action mobile doesn't have (publishing a draft, funding escrow,
+// requesting milestone changes, opening the disputes panel — all explicitly
+// out of scope per docs/specs/ui/mobile-client-tab.spec.md). No entry means
+// no banner: "accepted" is intentionally omitted rather than guessed, since
+// whether escrow is funded isn't available on JobRecordView.
+export const CLIENT_JOB_NEXT_ACTION: Partial<Record<JobRecordStatus, string>> = {
+  draft: "Este trabajo está en borrador — publícalo desde la versión web para recibir propuestas.",
+  posted: "El trabajo está publicado. Revisa propuestas cuando lleguen.",
+  published: "El trabajo está publicado. Revisa propuestas cuando lleguen.",
+  in_progress: "El profesional está trabajando. Revisa milestones y evidencia.",
+  review: "El profesional envió este milestone para revisión — apruébalo si corresponde.",
+  dispute: "Hay una disputa activa en este trabajo. El equipo de soporte la está revisando.",
+  completed: "El trabajo se cerró correctamente. Puedes dejar una calificación.",
+  cancelled: "Este trabajo fue cancelado.",
+};
+
 export const BID_STATUS_LABEL: Record<string, string> = {
   submitted: "Enviada",
   accepted: "Aceptada",
