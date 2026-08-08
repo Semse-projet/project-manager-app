@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Ionicons } from "@expo/vector-icons";
 import type { BidRecordView, EvidenceRecordView, JobRecordView, MilestoneRecordView } from "@semse/schemas";
 import { fetchJobDetail } from "../../api/jobs";
 import { acceptBid, fetchJobBids } from "../../api/bids";
@@ -10,7 +11,13 @@ import { buildEvidenceFileUrl, fetchEvidenceByJob } from "../../api/evidence";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
 import type { ClientJobsStackParamList } from "../../navigation/types";
-import { BID_STATUS_COLOR_KEY, BID_STATUS_LABEL, JOB_STATUS_LABEL } from "../worker/jobStatus";
+import {
+  BID_STATUS_COLOR_KEY,
+  BID_STATUS_LABEL,
+  CLIENT_JOB_NEXT_ACTION,
+  JOB_STATUS_COLOR_KEY,
+  JOB_STATUS_LABEL,
+} from "../worker/jobStatus";
 
 type Props = NativeStackScreenProps<ClientJobsStackParamList, "JobDetail">;
 
@@ -115,18 +122,40 @@ export default function JobDetailScreen({ route, navigation }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.title}>{job.title}</Text>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{JOB_STATUS_LABEL[job.status] ?? job.status}</Text>
-      </View>
+      {(() => {
+        const badgeColor = theme.colors[JOB_STATUS_COLOR_KEY[job.status]];
+        return (
+          <View style={[styles.badge, { backgroundColor: badgeColor + "22" }]}>
+            <Text style={[styles.badgeText, { color: badgeColor }]}>{JOB_STATUS_LABEL[job.status] ?? job.status}</Text>
+          </View>
+        );
+      })()}
 
-      {job.location ? <Text style={styles.meta}>📍 {job.location}</Text> : null}
-      {job.category ? <Text style={styles.meta}>🏷️ {job.category}</Text> : null}
+      {CLIENT_JOB_NEXT_ACTION[job.status] ? (
+        <Text style={styles.nextAction}>▶ {CLIENT_JOB_NEXT_ACTION[job.status]}</Text>
+      ) : null}
+
+      {job.location ? (
+        <View style={styles.metaRow}>
+          <Ionicons name="location-outline" size={14} color={theme.colors.muted} />
+          <Text style={styles.meta}>{job.location}</Text>
+        </View>
+      ) : null}
+      {job.category ? (
+        <View style={styles.metaRow}>
+          <Ionicons name="pricetag-outline" size={14} color={theme.colors.muted} />
+          <Text style={styles.meta}>{job.category}</Text>
+        </View>
+      ) : null}
       {job.budgetMin || job.budgetMax ? (
-        <Text style={styles.meta}>
-          💰 {job.budgetMin ? formatCurrency(job.budgetMin) : ""}
-          {job.budgetMin && job.budgetMax ? " – " : ""}
-          {job.budgetMax ? formatCurrency(job.budgetMax) : ""}
-        </Text>
+        <View style={styles.metaRow}>
+          <Ionicons name="cash-outline" size={14} color={theme.colors.brand} />
+          <Text style={styles.meta}>
+            {job.budgetMin ? formatCurrency(job.budgetMin) : ""}
+            {job.budgetMin && job.budgetMax ? " – " : ""}
+            {job.budgetMax ? formatCurrency(job.budgetMax) : ""}
+          </Text>
+        </View>
       ) : null}
 
       <Text style={styles.sectionLabel}>Alcance</Text>
@@ -229,7 +258,9 @@ function buildStyles(theme: ReturnType<typeof useTheme>) {
     badge: { alignSelf: "flex-start", backgroundColor: theme.colors.brandDim, borderRadius: theme.radius.full, paddingHorizontal: 10, paddingVertical: 4 },
     badgeText: { fontSize: 11, fontWeight: "700", color: theme.colors.brand },
     rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.sm },
+    metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     meta: { fontSize: 13, color: theme.colors.muted },
+    nextAction: { fontSize: 12, fontWeight: "700", color: theme.colors.warn, marginTop: 2 },
     hint: { fontSize: 13, color: theme.colors.muted, marginBottom: theme.spacing.sm },
     sectionLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.muted, textTransform: "uppercase", marginTop: theme.spacing.md },
     scope: { fontSize: 14, color: theme.colors.ink, lineHeight: 20 },
