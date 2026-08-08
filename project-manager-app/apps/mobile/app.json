@@ -68,7 +68,11 @@
       ],
       "expo-notifications",
       "expo-task-manager",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@stripe/stripe-react-native",
+        {}
+      ]
     ],
     "extra": {
       "eas": {
