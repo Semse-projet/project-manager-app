@@ -1,11 +1,14 @@
+import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/LoginScreen";
 import ForgotPasswordScreen from "../screens/ForgotPasswordScreen";
-import RoleGate from "./RoleGate";
+import RoleGate, { resolveAvailableTargets } from "./RoleGate";
 import { useTheme } from "../theme/theme";
+import { navigationRef } from "./navigationRef";
+import { registerWorkerPushResponseListener } from "../notifications/pushResponseHandler";
 import type { RootStackParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -13,6 +16,12 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const { loading, isAuthenticated, roles } = useAuth();
   const theme = useTheme();
+  const isWorker = isAuthenticated && resolveAvailableTargets(roles).includes("worker");
+
+  useEffect(() => {
+    if (!isWorker) return;
+    return registerWorkerPushResponseListener();
+  }, [isWorker]);
 
   if (loading) {
     return (
@@ -23,7 +32,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           <Stack.Screen name="Authenticated">{() => <RoleGate roles={roles} />}</Stack.Screen>
