@@ -118,6 +118,8 @@ jobs:
 
       - name: Upload BCP evidence
         if: always()
+        # Diagnostic-only; must not fail the job when artifact storage is full.
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
           name: operacion-asistida-bcp-evidence
