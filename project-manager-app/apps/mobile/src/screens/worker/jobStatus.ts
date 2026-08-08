@@ -16,6 +16,39 @@ export const JOB_STATUS_LABEL: Record<JobRecordStatus, string> = {
 
 export const BIDDABLE_JOB_STATUSES: JobRecordStatus[] = ["posted", "published"];
 
+export const JOB_STATUS_COLOR_KEY: Record<JobRecordStatus, "ok" | "error" | "warn" | "brand" | "muted"> = {
+  draft: "muted",
+  posted: "brand",
+  published: "brand",
+  reserved: "warn",
+  accepted: "ok",
+  in_progress: "brand",
+  review: "warn",
+  dispute: "error",
+  completed: "muted",
+  awarded: "ok",
+  cancelled: "muted",
+};
+
+// Mirrors apps/web/app/(app)/worker/jobs/page.tsx's WORKER_NEXT_ACTION (list-page
+// version — web's detail page has its own, slightly different copy). Statuses with
+// no entry here have no actionable next step to surface.
+export const WORKER_JOB_NEXT_ACTION: Partial<Record<JobRecordStatus, string>> = {
+  reserved: "Acepta el trabajo para confirmar tu lugar.",
+  accepted: "Abre el trabajo para ver si el escrow está listo.",
+  in_progress: "Avanza el milestone y sube evidencia cuando termines.",
+  review: "El cliente está revisando tu entrega. Espera aprobación.",
+  dispute: "Hay una disputa activa. Aporta evidencia si la tienes.",
+  completed: "Trabajo cerrado. Puedes pedir calificación al cliente.",
+};
+
+// Same bucketing apps/web's worker jobs list page uses for its "Activos" /
+// "Completados" tabs. "Oportunidades" reuses BIDDABLE_JOB_STATUSES above.
+export const JOB_TAB_BUCKETS = {
+  active: ["in_progress", "accepted", "review", "reserved"] as JobRecordStatus[],
+  completed: ["completed"] as JobRecordStatus[],
+};
+
 export const BID_STATUS_LABEL: Record<string, string> = {
   submitted: "Enviada",
   accepted: "Aceptada",
