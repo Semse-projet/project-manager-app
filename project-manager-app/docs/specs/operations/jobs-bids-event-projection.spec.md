@@ -31,7 +31,7 @@ related_files:
   - apps/api/src/modules/domain-events/domain-event-consumer.service.ts
   - apps/api/src/modules/domain-events/domain-event-bus.service.ts
   - apps/api/src/modules/domain-events/outbox-dispatcher.service.ts
-  - apps/api/src/modules/agents/agent-trigger-router.service.ts
+  - apps/api/src/modules/domain-events/agent-trigger-router.service.ts
   - apps/api/src/modules/ai-models/context/operational-context.service.ts
   - apps/api/src/modules/ai-models/context/operational-context.token.ts
   - apps/api/src/modules/ai-models/ai-models.controller.ts
@@ -61,16 +61,13 @@ related_endpoints:
   - POST /prometeo/chat
   - GET /operational-context
 related_events:
-  - job.created.v1
-  - job.status_changed.v1
-  - job.preferred_professional_selected.v1
-  - bid.created.v1
-  - bid.accepted.v1
-  - bid.rejected.v1
+  - job.created
+  - job.status_changed
+  - job.preferred_professional_selected
 related_agents:
   - prometeo
   - project-copilot
-last_verified: ""
+last_verified: "2026-08-08"
 ---
 
 # Spec: Jobs & Bids Event Projection for Agent Context
