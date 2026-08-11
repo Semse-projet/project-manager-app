@@ -563,7 +563,27 @@ export class ForgeService {
     // denied/pending task as "succeeded" on the next read. "blocked_on_approval"
     // is coarser than Fase 3d's eventual per-mode tracking, but is still
     // correctly excluded from listRunnableTasks() today.
-    const taskStatus = anyDeny ? "failed" : policy?.decision === "require_approval" ? "blocked_on_approval" : "succeeded";
+    //
+    // evaluateForgePolicy() is a pure function of manifest/action/risk/
+    // environment — it has no idea whether a human already approved this
+    // task's required modes, so policy.decision === "require_approval" on
+    // its own would stay true FOREVER, permanently wedging every dependent
+    // task once a single approval-gated role (9 of 14 in the registry have
+    // approvalMode !== "none") appears anywhere in the graph. Re-derive
+    // whether the gate has actually already been cleared using the same
+    // allModesApproved() helper the deployment/rollback/observation
+    // branches above already use for exactly this purpose — if it has, this
+    // outcome counts as succeeded even though the raw policy decision still
+    // says require_approval.
+    const requireApprovalCleared =
+      policy?.decision === "require_approval" &&
+      allModesApproved(runAfterApprovals.approvals, policy.requiredApprovals);
+    const taskStatus =
+      anyDeny
+        ? "failed"
+        : policy?.decision === "require_approval" && !requireApprovalCleared
+          ? "blocked_on_approval"
+          : "succeeded";
     const taskIndex = updated.tasks.findIndex((candidate) => candidate.id === task.id);
     if (taskIndex !== -1) {
       updated.tasks[taskIndex] = { ...updated.tasks[taskIndex], status: taskStatus };
