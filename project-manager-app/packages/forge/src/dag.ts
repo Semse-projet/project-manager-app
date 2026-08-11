@@ -78,22 +78,36 @@ export function deriveTaskStatus(task: ForgeTaskPacket, run: ForgeRun): ForgeTas
   return "running";
 }
 
+/** Every one of `task`'s declared dependencies has status "succeeded" on the given task list. */
+export function dependenciesSucceeded(task: ForgeTaskPacket, tasks: ForgeTaskPacket[]): boolean {
+  const statusById = new Map<string, ForgeTaskStatus>();
+  for (const candidate of tasks) {
+    statusById.set(candidate.id, candidate.status ?? "pending");
+  }
+  return task.dependencies.every((depId) => statusById.get(depId) === "succeeded");
+}
+
 /**
  * A task is runnable iff its own status allows it to start and every one of
  * its declared dependencies has already succeeded. Tasks without an
  * explicit status (not yet normalized via deriveTaskStatus) default to
  * "pending" here so this stays safe to call directly on hand-built task
  * lists (e.g. in tests) without going through a ForgeRun first.
+ *
+ * This is the query the proactive scheduler (dispatchNext) uses to decide
+ * what to auto-dispatch — it deliberately does NOT return a task that's
+ * already "succeeded"/"blocked_on_approval"/etc, since those shouldn't be
+ * picked up automatically. It's the wrong check for executeTask's own
+ * explicit-taskId guard, though: Forge re-invokes the same task multiple
+ * times with different actions (prPackage, then deployment.propose, then
+ * rollback.propose, ...), so an already-"succeeded" task must still accept
+ * further explicit calls. See dependenciesSucceeded() for that narrower,
+ * self-status-agnostic check.
  */
 export function listRunnableTasks(tasks: ForgeTaskPacket[]): ForgeTaskPacket[] {
-  const statusById = new Map<string, ForgeTaskStatus>();
-  for (const task of tasks) {
-    statusById.set(task.id, task.status ?? "pending");
-  }
-
   return tasks.filter((task) => {
-    const status = statusById.get(task.id) ?? "pending";
+    const status = task.status ?? "pending";
     if (status !== "pending" && status !== "ready") return false;
-    return task.dependencies.every((depId) => statusById.get(depId) === "succeeded");
+    return dependenciesSucceeded(task, tasks);
   });
 }

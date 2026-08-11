@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
-import { canTransitionForgeRun, categoriesForPaths, ForgeHarness } from "@semse/forge";
+import { canTransitionForgeRun, categoriesForPaths, dependenciesSucceeded, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
@@ -193,13 +193,20 @@ export class ForgeService {
     const harness = this.load(current);
     // Server-side re-derivation, same principle as authorizeTaskAction's policy
     // check below: a caller could otherwise call executeTask on a task whose
-    // dependencies haven't succeeded yet. harness.assignTask() has its own
-    // guard too (defense in depth for any other caller of the pure package),
-    // but that throws a generic Error — this check gives a real 409 instead.
-    const runnableIds = new Set(harness.listRunnableTasks(input.runId).map((candidate) => candidate.id));
-    if (!runnableIds.has(input.taskId)) {
+    // dependencies haven't succeeded yet. Deliberately dependenciesSucceeded(),
+    // not listRunnableTasks() — the latter also excludes a task whose own
+    // status isn't pending/ready, which is correct for the proactive
+    // scheduler (dispatchNext shouldn't auto-redispatch an already-succeeded
+    // task) but wrong here: Forge re-invokes the SAME task multiple times
+    // with different actions (prPackage, then deployment.propose, then
+    // rollback.propose, ...), so an explicit call naming a taskId must still
+    // be allowed once that task has already succeeded once.
+    // harness.assignTask() has its own (equally dependency-only) guard too —
+    // defense in depth for any other caller of the pure package — but that
+    // throws a generic Error; this check gives a real 409 instead.
+    if (!dependenciesSucceeded(task, current.tasks)) {
       throw new ConflictException(
-        `Task '${input.taskId}' is not runnable yet — its status or unmet dependencies block execution.`
+        `Task '${input.taskId}' is not runnable yet — one or more dependencies haven't succeeded.`
       );
     }
     harness.assignTask(input.runId, input.taskId, task.requestedRole);
@@ -391,8 +398,13 @@ export class ForgeService {
       // set. That's exactly backwards for a denial this comment already
       // documents as transient: explicitly keep the task "pending" so it
       // stays eligible for listRunnableTasks() once the resource frees up.
+      // Guarded on the task not already being "succeeded": this same lease
+      // check runs on every action a task is re-invoked with, and a lease
+      // conflict on a LATER action (e.g. deployment.propose) must not erase
+      // an EARLIER action's completion — that would incorrectly re-block
+      // every sibling task depending on this one's success.
       const blockedTaskIndex = blockedRun.tasks.findIndex((candidate) => candidate.id === task.id);
-      if (blockedTaskIndex !== -1) {
+      if (blockedTaskIndex !== -1 && blockedRun.tasks[blockedTaskIndex].status !== "succeeded") {
         blockedRun.tasks[blockedTaskIndex] = { ...blockedRun.tasks[blockedTaskIndex], status: "pending" };
       }
       const blockedPersisted = await this.repository.update({

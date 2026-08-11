@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ForgeHarness,
   createCreatorTaskPackets,
+  dependenciesSucceeded,
   deriveTaskStatus,
   listRunnableTasks,
   validateTaskDependencies
@@ -159,6 +160,29 @@ test("listRunnableTasks excludes a task that is already running or succeeded", (
 test("listRunnableTasks treats a task with no status as pending", () => {
   const runnable = listRunnableTasks([task({ id: "a", status: undefined })]);
   assert.deepEqual(runnable.map((t) => t.id), ["a"]);
+});
+
+test("dependenciesSucceeded is true for a task with no dependencies regardless of its own status", () => {
+  for (const status of ["pending", "running", "succeeded", "failed", "blocked_on_approval"]) {
+    assert.equal(dependenciesSucceeded(task({ id: "a", status, dependencies: [] }), [task({ id: "a", status })]), true);
+  }
+});
+
+test("dependenciesSucceeded ignores the task's own status — unlike listRunnableTasks, an already-succeeded task with satisfied dependencies still passes", () => {
+  // This is the exact distinction executeTask's guard relies on: Forge
+  // re-invokes the same task multiple times with different actions
+  // (prPackage, then deployment.propose, ...), so a task already marked
+  // "succeeded" from an earlier action must still pass this check.
+  const blocker = task({ id: "blocker", status: "succeeded" });
+  const alreadySucceeded = task({ id: "b", status: "succeeded", dependencies: ["blocker"] });
+  assert.equal(dependenciesSucceeded(alreadySucceeded, [blocker, alreadySucceeded]), true);
+  assert.deepEqual(listRunnableTasks([blocker, alreadySucceeded]), []);
+});
+
+test("dependenciesSucceeded is false when a dependency hasn't succeeded", () => {
+  const blocker = task({ id: "blocker", status: "pending" });
+  const dependent = task({ id: "b", status: "pending", dependencies: ["blocker"] });
+  assert.equal(dependenciesSucceeded(dependent, [blocker, dependent]), false);
 });
 
 test("deriveTaskStatus returns the existing status unchanged when already set", () => {
