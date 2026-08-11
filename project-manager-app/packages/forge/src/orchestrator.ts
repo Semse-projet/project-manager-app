@@ -122,7 +122,11 @@ export class ForgeHarness {
   /** Tasks in `runId` whose dependencies have all succeeded and whose own status allows starting. */
   listRunnableTasks(runId: string): ForgeTaskPacket[] {
     const run = this.requireRun(runId);
-    return listRunnableTasks(run.tasks);
+    // requireRun() returns the harness's internal mutable run — every other
+    // public method clones before returning (getRun/transition/addTask/...)
+    // so callers can't mutate internal state through the result; this needs
+    // the same treatment.
+    return listRunnableTasks(run.tasks).map((task) => structuredClone(task));
   }
 
   authorizeTaskAction(input: {
