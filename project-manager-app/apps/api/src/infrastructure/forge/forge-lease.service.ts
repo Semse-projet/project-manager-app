@@ -122,8 +122,15 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
    * lease for the same key would get deleted, breaking the mutual exclusion
    * this whole mechanism exists to provide. The compare is on the exact JSON
    * string acquire() wrote, so no parsing is needed on either side.
+   *
+   * Reconnects first, same as acquire() — without this, a connection that
+   * discardConnection() dropped mid-loop (e.g. one category's acquire()
+   * failed) would make every subsequent release() in the same batch a
+   * silent no-op, leaving already-acquired leases held for the full TTL
+   * instead of being freed immediately as intended.
    */
   async release(input: { category: string; tenantId: string; runId: string; taskId: string }): Promise<void> {
+    await this.ensureConnected().catch(() => undefined);
     if (!this.connection) return;
 
     const key = this.leaseKey(input.tenantId, input.category);
