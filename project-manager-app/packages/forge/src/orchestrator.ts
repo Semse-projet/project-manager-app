@@ -113,6 +113,7 @@ export class ForgeHarness {
     role: ForgeAgentRole;
     action: string;
     changedFiles?: string[];
+    requestedBy?: string;
   }): ForgePolicyResult {
     const run = this.requireRun(input.runId);
     const task = run.tasks.find((candidate) => candidate.id === input.taskId);
@@ -129,7 +130,7 @@ export class ForgeHarness {
     if (policy.decision === "require_approval") {
       for (const mode of policy.requiredApprovals) {
         if (!run.approvals.some((approval) => approval.mode === mode && approval.status === "pending")) {
-          run.approvals.push({ mode, status: "pending" });
+          run.approvals.push({ mode, status: "pending", requestedBy: input.requestedBy });
         }
       }
       this.recordEvent(run, "FORGE_HUMAN_REVIEW_REQUESTED", input.role, {
@@ -155,9 +156,20 @@ export class ForgeHarness {
       (candidate) => candidate.mode === mode && candidate.status === "pending"
     );
     if (!approval) throw new Error(`Pending approval not found: ${mode}`);
-    approval.status = "approved";
+    if (approval.requestedBy && approval.requestedBy === actor) {
+      throw new Error(`Actor ${actor} cannot approve their own requested action (mode: ${mode})`);
+    }
+
+    approval.approvedBy = approval.approvedBy ?? [];
+    if (!approval.approvedBy.includes(actor)) approval.approvedBy.push(actor);
     approval.actor = actor;
     approval.at = new Date().toISOString();
+
+    const requiredDistinctApprovers = mode === "dual_control" ? 2 : 1;
+    if (approval.approvedBy.length >= requiredDistinctApprovers) {
+      approval.status = "approved";
+    }
+
     run.updatedAt = approval.at;
     return structuredClone(run);
   }
@@ -168,6 +180,9 @@ export class ForgeHarness {
       (candidate) => candidate.mode === mode && candidate.status === "pending"
     );
     if (!approval) throw new Error(`Pending approval not found: ${mode}`);
+    if (approval.requestedBy && approval.requestedBy === actor) {
+      throw new Error(`Actor ${actor} cannot reject their own requested action (mode: ${mode})`);
+    }
     approval.status = "rejected";
     approval.actor = actor;
     approval.at = new Date().toISOString();
@@ -177,11 +192,12 @@ export class ForgeHarness {
 
   ensurePendingApproval(
     runId: string,
-    mode: ForgeRun["approvals"][number]["mode"]
+    mode: ForgeRun["approvals"][number]["mode"],
+    requestedBy?: string
   ): ForgeRun {
     const run = this.requireRun(runId);
     if (!run.approvals.some((candidate) => candidate.mode === mode && candidate.status === "pending")) {
-      run.approvals.push({ mode, status: "pending" });
+      run.approvals.push({ mode, status: "pending", requestedBy });
       run.updatedAt = new Date().toISOString();
       this.recordEvent(run, "FORGE_HUMAN_REVIEW_REQUESTED", "forge", {
         approvalMode: mode

@@ -315,7 +315,8 @@ export class ForgeService {
       taskId: task.id,
       role: task.requestedRole,
       action,
-      changedFiles: prPackage?.changedFiles
+      changedFiles: prPackage?.changedFiles,
+      requestedBy: actor.userId
     });
 
     const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
@@ -331,7 +332,7 @@ export class ForgeService {
     for (const mode of observation?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of securityReport?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of extraApprovalModes) {
-      harness.ensurePendingApproval(current.id, mode);
+      harness.ensurePendingApproval(current.id, mode, actor.userId);
     }
     const runAfterApprovals = harness.getRun(current.id);
 

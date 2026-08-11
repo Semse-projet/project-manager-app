@@ -167,6 +167,10 @@ export type ForgeRun = {
     status: "pending" | "approved" | "rejected";
     actor?: string;
     at?: string;
+    /** Actor whose action created the need for this approval — used to block self-approval. */
+    requestedBy?: string;
+    /** Distinct actors who have approved so far. dual_control needs 2; every other mode needs 1. */
+    approvedBy?: string[];
   }>;
   events: ForgeEvent[];
   agentRunIds: string[];
