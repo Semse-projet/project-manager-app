@@ -1,0 +1,145 @@
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Redis } from "ioredis";
+
+/**
+ * Real resource leases for Forge (SEMSE_FORGE_AGENT_HARNESS.spec.md §9) —
+ * "solo un task de escritura puede tener lease activo por recurso." Before
+ * this, the 4 providers only had string-pattern lists used to *request
+ * approval*; nothing actually coordinated two concurrent tasks touching the
+ * same sensitive resource (see docs/reportes/forge_agent_harness_auditoria_2026-08-10.md).
+ *
+ * Deliberately Redis-backed, not a new Prisma table: each API request builds
+ * a fresh ForgeHarness that only loads the one run it's operating on
+ * (forge.service.ts's `load()`), so there's no in-memory place a lease could
+ * live across requests/runs. A lease here is scoped to the duration of one
+ * applyTaskResult() call — an "exclusive processing" lock preventing two
+ * concurrent requests from racing on the same category, not a long-held
+ * lease across a task's full real-world execution (which doesn't exist yet:
+ * every Forge provider is dry-run-only). The short TTL is a safety net for a
+ * process crashing mid-request, not a business rule.
+ */
+@Injectable()
+export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(ForgeLeaseService.name);
+  private connection: Redis | null = null;
+  private readonly redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
+  private connectPromise: Promise<void> | null = null;
+  private static readonly DEFAULT_TTL_SECONDS = 60;
+
+  async onModuleInit(): Promise<void> {
+    // Non-blocking — Redis connect must not delay NestJS startup.
+    this.ensureConnected().catch(() => undefined);
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    this.connectPromise = null;
+    if (this.connection) {
+      await this.connection.quit();
+    }
+  }
+
+  /**
+   * Attempts to atomically acquire an exclusive lease on `category` for
+   * `tenantId`. Fails CLOSED if Redis is unreachable — deliberately the
+   * opposite default of AgentQueueService (which degrades gracefully when
+   * Redis is down). Losing an async agent-run enqueue is low-stakes; silently
+   * losing the only coordination mechanism protecting schema.prisma/auth/
+   * payments writes is exactly the vulnerability this phase exists to close.
+   * `reason` lets the caller give an honest deny message instead of implying
+   * a specific other run holds it when the real cause is "can't tell."
+   */
+  async acquire(input: {
+    category: string;
+    tenantId: string;
+    runId: string;
+    taskId: string;
+    ttlSeconds?: number;
+  }): Promise<{
+    acquired: boolean;
+    heldBy?: { runId: string; taskId: string };
+    reason?: "held_by_other" | "lease_coordination_unavailable";
+  }> {
+    await this.ensureConnected();
+    if (!this.connection) {
+      this.logger.warn(`Redis unavailable; denying lease for '${input.category}' (fail-closed)`);
+      return { acquired: false, reason: "lease_coordination_unavailable" };
+    }
+
+    const key = this.leaseKey(input.tenantId, input.category);
+    const value = JSON.stringify({ runId: input.runId, taskId: input.taskId });
+    const ttl = input.ttlSeconds ?? ForgeLeaseService.DEFAULT_TTL_SECONDS;
+
+    const result = await this.connection.set(key, value, "EX", ttl, "NX");
+    if (result === "OK") {
+      return { acquired: true };
+    }
+
+    const existing = await this.connection.get(key);
+    if (!existing) {
+      // Lease expired between the failed SET and this GET — treat as free.
+      return { acquired: true };
+    }
+    try {
+      return { acquired: false, heldBy: JSON.parse(existing), reason: "held_by_other" };
+    } catch {
+      return { acquired: false, reason: "held_by_other" };
+    }
+  }
+
+  /** Releases a lease only if it's still held by the exact runId/taskId that acquired it. */
+  async release(input: { category: string; tenantId: string; runId: string; taskId: string }): Promise<void> {
+    if (!this.connection) return;
+
+    const key = this.leaseKey(input.tenantId, input.category);
+    const existing = await this.connection.get(key).catch(() => null);
+    if (!existing) return;
+
+    try {
+      const parsed = JSON.parse(existing) as { runId: string; taskId: string };
+      if (parsed.runId === input.runId && parsed.taskId === input.taskId) {
+        await this.connection.del(key).catch(() => undefined);
+      }
+    } catch {
+      // Malformed value from another writer — leave it for its own TTL to expire.
+    }
+  }
+
+  private leaseKey(tenantId: string, category: string): string {
+    return `forge:lease:${tenantId}:${category}`;
+  }
+
+  private async ensureConnected(): Promise<void> {
+    if (this.connection) return;
+    if (!this.connectPromise) {
+      this.connectPromise = this.connect().finally(() => {
+        this.connectPromise = null;
+      });
+    }
+    await this.connectPromise;
+  }
+
+  private async connect(): Promise<void> {
+    const connection = new Redis(this.redisUrl, {
+      maxRetriesPerRequest: 1,
+      lazyConnect: true,
+      enableOfflineQueue: false,
+      retryStrategy: () => null
+    });
+    connection.on("error", (error) => {
+      this.logger.warn(`Redis connection error: ${error.message}`);
+    });
+
+    try {
+      await connection.connect();
+      await connection.ping();
+      this.connection = connection;
+      this.logger.log(`Forge lease service connected to Redis at ${this.redisUrl}`);
+    } catch (error) {
+      this.logger.warn(
+        `Forge lease service Redis disabled: ${error instanceof Error ? error.message : String(error)}`
+      );
+      connection.disconnect();
+      this.connection = null;
+    }
+  }
+}
