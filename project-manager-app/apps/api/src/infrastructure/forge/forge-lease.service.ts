@@ -69,20 +69,41 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
     const value = JSON.stringify({ runId: input.runId, taskId: input.taskId });
     const ttl = input.ttlSeconds ?? ForgeLeaseService.DEFAULT_TTL_SECONDS;
 
-    const result = await this.connection.set(key, value, "EX", ttl, "NX");
-    if (result === "OK") {
-      return { acquired: true };
-    }
-
-    const existing = await this.connection.get(key);
-    if (!existing) {
-      // Lease expired between the failed SET and this GET — treat as free.
-      return { acquired: true };
-    }
+    // Every Redis command below is wrapped so a mid-request connection drop
+    // denies (fail-closed, consistent with the unreachable-at-start case
+    // above) instead of throwing — an uncaught rejection here would surface
+    // as a 500 to the caller instead of the documented deny, and would skip
+    // releasing whatever leases this same request already acquired.
     try {
-      return { acquired: false, heldBy: JSON.parse(existing), reason: "held_by_other" };
-    } catch {
-      return { acquired: false, reason: "held_by_other" };
+      const result = await this.connection.set(key, value, "EX", ttl, "NX");
+      if (result === "OK") {
+        return { acquired: true };
+      }
+
+      const existing = await this.connection.get(key);
+      if (!existing) {
+        // Lease expired between the failed SET and this GET. Retry the SET
+        // once instead of assuming free-and-unclaimed: without this, no key
+        // is ever written, so a concurrent acquirer hitting the same gap
+        // would also see "free" and both callers would believe they hold
+        // the lease.
+        const retry = await this.connection.set(key, value, "EX", ttl, "NX");
+        if (retry === "OK") {
+          return { acquired: true };
+        }
+        return { acquired: false, reason: "held_by_other" };
+      }
+      try {
+        return { acquired: false, heldBy: JSON.parse(existing), reason: "held_by_other" };
+      } catch {
+        return { acquired: false, reason: "held_by_other" };
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Redis error while acquiring lease for '${input.category}' (fail-closed): ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.discardConnection();
+      return { acquired: false, reason: "lease_coordination_unavailable" };
     }
   }
 
@@ -91,7 +112,16 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
     if (!this.connection) return;
 
     const key = this.leaseKey(input.tenantId, input.category);
-    const existing = await this.connection.get(key).catch(() => null);
+    let existing: string | null;
+    try {
+      existing = await this.connection.get(key);
+    } catch (error) {
+      this.logger.warn(
+        `Redis error while releasing lease for '${input.category}': ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.discardConnection();
+      return;
+    }
     if (!existing) return;
 
     try {
@@ -106,6 +136,19 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
 
   private leaseKey(tenantId: string, category: string): string {
     return `forge:lease:${tenantId}:${category}`;
+  }
+
+  /**
+   * Drops the cached connection so the next call reconnects from scratch.
+   * Necessary because `retryStrategy: () => null` (below) means ioredis
+   * itself never retries a dead connection — without this, one mid-request
+   * failure would leave the service permanently unusable until process
+   * restart instead of degrading to per-call fail-closed denials.
+   */
+  private discardConnection(): void {
+    const dead = this.connection;
+    this.connection = null;
+    dead?.disconnect();
   }
 
   private async ensureConnected(): Promise<void> {
@@ -127,6 +170,15 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
     });
     connection.on("error", (error) => {
       this.logger.warn(`Redis connection error: ${error.message}`);
+    });
+    // With retryStrategy: () => null, ioredis gives up reconnecting on its
+    // own and the connection just goes 'end' — without discarding it here,
+    // ensureConnected() would keep treating a dead `this.connection` as
+    // live forever (it only checks for null) instead of reconnecting.
+    connection.on("end", () => {
+      if (this.connection === connection) {
+        this.connection = null;
+      }
     });
 
     try {
