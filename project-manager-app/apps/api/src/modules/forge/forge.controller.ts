@@ -36,7 +36,9 @@ const taskPacketSchema = z.object({
   dependencies: z.array(z.string()).default([]),
   targetBranch: z.string().min(1),
   environment: z.enum(["sandbox", "local", "ci", "staging", "production"]),
-  metadata: z.record(z.string()).default({})
+  metadata: z.record(z.string()).default({}),
+  // Range matches BullMQ's own priority option (1 = highest, no priority when unset).
+  priority: z.number().int().min(1).max(2097152).optional()
 });
 
 const createRunSchema = z.object({
