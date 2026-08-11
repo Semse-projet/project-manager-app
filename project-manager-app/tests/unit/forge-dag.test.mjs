@@ -275,6 +275,58 @@ test("ForgeHarness.addTask rejects a reference to a nonexistent task", () => {
   );
 });
 
+test("ForgeHarness.addTask tolerates a PRE-EXISTING dangling reference elsewhere in the run", () => {
+  // dependencies went unvalidated before this phase, so a run persisted
+  // earlier could already contain a dangling reference. addTask() must not
+  // permanently brick further task creation on that run over data this
+  // specific call had no part in creating — loadRun() bypasses validation,
+  // simulating exactly that kind of already-persisted legacy state.
+  const harness = new ForgeHarness();
+  const legacyRun = {
+    id: "legacy-run",
+    title: "Legacy run",
+    state: "building",
+    spec: approvedSpec,
+    tasks: [task({ id: "already-broken", dependencies: ["never-existed"] })],
+    assignedAgents: {},
+    approvals: [],
+    events: [],
+    agentRunIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  harness.loadRun(legacyRun);
+
+  const updated = harness.addTask("legacy-run", task({ id: "new-task", dependencies: [] }));
+  assert.deepEqual(
+    updated.tasks.map((t) => t.id),
+    ["already-broken", "new-task"]
+  );
+});
+
+test("ForgeHarness.addTask still rejects the NEW task referencing something nonexistent, even alongside a pre-existing dangling reference", () => {
+  const harness = new ForgeHarness();
+  const legacyRun = {
+    id: "legacy-run-2",
+    title: "Legacy run",
+    state: "building",
+    spec: approvedSpec,
+    tasks: [task({ id: "already-broken", dependencies: ["never-existed"] })],
+    assignedAgents: {},
+    approvals: [],
+    events: [],
+    agentRunIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  harness.loadRun(legacyRun);
+
+  assert.throws(
+    () => harness.addTask("legacy-run-2", task({ id: "new-task", dependencies: ["also-missing"] })),
+    /Invalid Forge task dependencies/
+  );
+});
+
 test("ForgeHarness.assignTask rejects a task whose dependency has not succeeded", () => {
   const harness = new ForgeHarness();
   const created = harness.createRun({ title: "Assign test", spec: approvedSpec });
