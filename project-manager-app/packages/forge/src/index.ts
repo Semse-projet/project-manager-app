@@ -4,6 +4,7 @@ export * from "./policy.js";
 export * from "./sensitive-resources.js";
 export * from "./state-machine.js";
 export * from "./dag.js";
+export * from "./scheduler.js";
 export * from "./orchestrator.js";
 export * from "./creator.js";
 export * from "./sandbox.js";

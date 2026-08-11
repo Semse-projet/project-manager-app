@@ -125,6 +125,8 @@ export type ForgeTaskPacket = {
   metadata: Record<string, string>;
   /** Optional for backward compat with rows persisted before scheduling existed — see dag.ts's deriveTaskStatus(). */
   status?: ForgeTaskStatus;
+  /** Lower number = higher priority, same convention as AgentQueueService's AGENT_PRIORITY. Unset tasks sort last. */
+  priority?: number;
 };
 
 export type ForgePolicyDecision = "allow" | "deny" | "require_approval";

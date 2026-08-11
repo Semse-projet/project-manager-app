@@ -247,6 +247,7 @@ export class AgentsService {
     input?: Record<string, unknown>;
     inputSummary?: string;
     requestId: string;
+    priority?: number;
   }) {
     const policy = isGovernedRuntimeAgent(input.agentType)
       ? evaluateAgentPolicy({
@@ -323,7 +324,8 @@ export class AgentsService {
       runId: run.id,
       tenantId: run.tenantId,
       agentType: run.agentType,
-      correlationId: run.correlationId
+      correlationId: run.correlationId,
+      priority: input.priority
     });
 
     return run;

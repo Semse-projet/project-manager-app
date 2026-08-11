@@ -90,6 +90,7 @@ export class ForgeAgentAdapterService {
       triggerType: "manual",
       correlationId: forgeRun.id,
       requestId,
+      priority: task.priority,
       input: {
         forgeRunId: forgeRun.id,
         taskId: task.id,
