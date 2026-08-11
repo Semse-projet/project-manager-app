@@ -51,6 +51,12 @@ export class ForgeService {
     return this.repository.findById(input);
   }
 
+  async listRunnableTasks(input: { tenantId: string; runId: string }): Promise<ForgeTaskPacket[]> {
+    const current = await this.repository.findById(input);
+    const harness = this.load(current);
+    return harness.listRunnableTasks(input.runId);
+  }
+
   async create(input: {
     actor: ForgeActor;
     title: string;
@@ -185,6 +191,17 @@ export class ForgeService {
     }
 
     const harness = this.load(current);
+    // Server-side re-derivation, same principle as authorizeTaskAction's policy
+    // check below: a caller could otherwise call executeTask on a task whose
+    // dependencies haven't succeeded yet. harness.assignTask() has its own
+    // guard too (defense in depth for any other caller of the pure package),
+    // but that throws a generic Error — this check gives a real 409 instead.
+    const runnableIds = new Set(harness.listRunnableTasks(input.runId).map((candidate) => candidate.id));
+    if (!runnableIds.has(input.taskId)) {
+      throw new ConflictException(
+        `Task '${input.taskId}' is not runnable yet — its status or unmet dependencies block execution.`
+      );
+    }
     harness.assignTask(input.runId, input.taskId, task.requestedRole);
 
     if (input.async) {
@@ -508,6 +525,19 @@ export class ForgeService {
     const updated = harness.getRun(current.id);
     if (!updated.agentRunIds.includes(agentRunId)) {
       updated.agentRunIds.push(agentRunId);
+    }
+
+    // Marks this task's own dependency-graph node satisfied, so listRunnableTasks()
+    // can unblock any sibling task depending on it. Gated on the same
+    // server-derived policy.decision the deny-OR chain above already
+    // computed — deliberately not more nuanced than that yet (e.g. a
+    // prPackage/deployment left on "require_approval" still counts as
+    // succeeded here); per-task pause-on-approval status is Fase 3d's job.
+    if (policy?.decision === "allow") {
+      const taskIndex = updated.tasks.findIndex((candidate) => candidate.id === task.id);
+      if (taskIndex !== -1) {
+        updated.tasks[taskIndex] = { ...updated.tasks[taskIndex], status: "succeeded" };
+      }
     }
 
     const sandbox = payload.sandbox;

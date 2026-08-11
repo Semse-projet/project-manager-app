@@ -98,6 +98,14 @@ export class ForgeController {
     return ok(requestId, run);
   }
 
+  @Get("runs/:runId/tasks/runnable")
+  async listRunnableTasks(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const tasks = await this.forgeService.listRunnableTasks({ tenantId: actor.tenantId, runId });
+    return ok(requestId, tasks);
+  }
+
   @Post("runs/:runId/transitions")
   @RequirePermissions("ops:dashboard:write")
   async transition(

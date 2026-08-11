@@ -1,3 +1,4 @@
+import { listRunnableTasks, validateTaskDependencies } from "./dag.js";
 import { evaluateForgePolicy } from "./policy.js";
 import { getForgeAgentManifest } from "./registry.js";
 import { assertForgeRunTransition } from "./state-machine.js";
@@ -85,6 +86,10 @@ export class ForgeHarness {
     if (run.tasks.some((candidate) => candidate.id === task.id)) {
       throw new Error(`Duplicate Forge task id: ${task.id}`);
     }
+    const validation = validateTaskDependencies([...run.tasks, task]);
+    if (!validation.valid) {
+      throw new Error(`Invalid Forge task dependencies: ${validation.errors.join("; ")}`);
+    }
     run.tasks.push(structuredClone(task));
     run.updatedAt = new Date().toISOString();
     return structuredClone(run);
@@ -97,6 +102,13 @@ export class ForgeHarness {
     if (task.requestedRole !== role) {
       throw new Error(`Task ${taskId} requires ${task.requestedRole}, not ${role}`);
     }
+    const unmetDependencies = task.dependencies.filter((depId) => {
+      const dependency = run.tasks.find((candidate) => candidate.id === depId);
+      return dependency?.status !== "succeeded";
+    });
+    if (unmetDependencies.length > 0) {
+      throw new Error(`Task ${taskId} has unmet dependencies: ${unmetDependencies.join(", ")}`);
+    }
 
     const assignments = run.assignedAgents[role] ?? [];
     if (!assignments.includes(taskId)) assignments.push(taskId);
@@ -105,6 +117,12 @@ export class ForgeHarness {
 
     this.recordEvent(run, "FORGE_TASK_ASSIGNED", role, { taskId });
     return structuredClone(run);
+  }
+
+  /** Tasks in `runId` whose dependencies have all succeeded and whose own status allows starting. */
+  listRunnableTasks(runId: string): ForgeTaskPacket[] {
+    const run = this.requireRun(runId);
+    return listRunnableTasks(run.tasks);
   }
 
   authorizeTaskAction(input: {
