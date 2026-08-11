@@ -130,6 +130,68 @@ test("harness can reject a pending approval and the rejection persists", () => {
   assert.equal(rejectedAgain.approvals[0].status, "rejected");
 });
 
+test("dual_control requires two distinct actors before it counts as approved", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Dual control test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "dual_control");
+
+  const afterFirst = harness.approve(run.id, "dual_control", "user-a");
+  assert.equal(afterFirst.approvals[0].status, "pending");
+  assert.deepEqual(afterFirst.approvals[0].approvedBy, ["user-a"]);
+
+  const afterSecond = harness.approve(run.id, "dual_control", "user-b");
+  assert.equal(afterSecond.approvals[0].status, "approved");
+  assert.deepEqual(afterSecond.approvals[0].approvedBy, ["user-a", "user-b"]);
+});
+
+test("dual_control does not count the same actor approving twice", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Dual control repeat test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "dual_control");
+  harness.approve(run.id, "dual_control", "user-a");
+  const afterRepeat = harness.approve(run.id, "dual_control", "user-a");
+
+  assert.equal(afterRepeat.approvals[0].status, "pending");
+  assert.deepEqual(afterRepeat.approvals[0].approvedBy, ["user-a"]);
+});
+
+test("an actor cannot approve the action they requested", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Self-approval test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "ops_admin", "user-requester");
+
+  assert.throws(
+    () => harness.approve(run.id, "ops_admin", "user-requester"),
+    /cannot approve their own requested action/,
+  );
+});
+
+test("an actor cannot reject the action they requested", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Self-rejection test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "security", "user-requester");
+
+  assert.throws(
+    () => harness.reject(run.id, "security", "user-requester"),
+    /cannot reject their own requested action/,
+  );
+});
+
+test("a different actor can still approve an action with a requester on record", () => {
+  const harness = new ForgeHarness();
+  const run = harness.createRun({ title: "Non-self approval test", spec: approvedSpec });
+
+  harness.ensurePendingApproval(run.id, "ops_admin", "user-requester");
+  const approved = harness.approve(run.id, "ops_admin", "user-reviewer");
+
+  assert.equal(approved.approvals[0].status, "approved");
+  assert.equal(approved.approvals[0].requestedBy, "user-requester");
+});
+
 test("harness rejecting a mode with no pending approval throws", () => {
   const harness = new ForgeHarness();
   const run = harness.createRun({ title: "Rejection error test", spec: approvedSpec });
