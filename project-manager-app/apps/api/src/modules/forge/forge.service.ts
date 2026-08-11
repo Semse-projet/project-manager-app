@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
-import { canTransitionForgeRun, categoriesForPaths, dependenciesSucceeded, ForgeHarness } from "@semse/forge";
+import { canTransitionForgeRun, categoriesForPaths, dependenciesSucceeded, ForgeHarness, selectDispatchable } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
@@ -298,6 +298,43 @@ export class ForgeService {
     });
 
     return { forgeRun, agentRun, result: result as unknown as Record<string, unknown> };
+  }
+
+  private static readonly DEFAULT_MAX_CONCURRENT_PER_RUN = 3;
+
+  /**
+   * Picks the highest-priority runnable tasks (up to a per-run concurrency
+   * cap) and dispatches each one async, reusing executeTask's own
+   * dependency/runnability re-check and lease/policy handling rather than
+   * duplicating it. Additive — doesn't change executeTask's existing
+   * explicit-taskId contract.
+   */
+  async dispatchNext(input: {
+    actor: ForgeActor;
+    runId: string;
+    maxConcurrentPerRun?: number;
+    requestId: string;
+  }): Promise<{ forgeRun: ForgeRun; dispatched: Array<{ taskId: string; agentRunId: string }> }> {
+    const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
+    const currentlyRunning = current.tasks.filter((task) => task.status === "running").length;
+    const maxConcurrentPerRun = input.maxConcurrentPerRun ?? ForgeService.DEFAULT_MAX_CONCURRENT_PER_RUN;
+    const dispatchable = selectDispatchable(current.tasks, { maxConcurrentPerRun, currentlyRunning });
+
+    let forgeRun = current;
+    const dispatched: Array<{ taskId: string; agentRunId: string }> = [];
+    for (const task of dispatchable) {
+      const outcome = await this.executeTask({
+        actor: input.actor,
+        runId: input.runId,
+        taskId: task.id,
+        async: true,
+        requestId: input.requestId
+      });
+      forgeRun = outcome.forgeRun;
+      dispatched.push({ taskId: task.id, agentRunId: outcome.agentRun.id });
+    }
+
+    return { forgeRun, dispatched };
   }
 
   async completeTask(input: {

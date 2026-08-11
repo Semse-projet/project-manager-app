@@ -57,6 +57,10 @@ const executeTaskSchema = z.object({
   async: z.boolean().optional().default(false)
 });
 
+const dispatchNextSchema = z.object({
+  maxConcurrentPerRun: z.number().int().positive().optional()
+});
+
 const completeTaskSchema = z.object({
   agentRunId: z.string().min(1),
   result: z.record(z.unknown())
@@ -151,6 +155,25 @@ export class ForgeController {
       taskId,
       action: parsed.action,
       async: parsed.async,
+      requestId
+    });
+    return ok(requestId, result);
+  }
+
+  @Post("runs/:runId/dispatch-next")
+  @RequirePermissions("agents:run:create")
+  async dispatchNext(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Body() body: unknown
+  ) {
+    const parsed = parseWithSchema(dispatchNextSchema, body ?? {});
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.forgeService.dispatchNext({
+      actor,
+      runId,
+      maxConcurrentPerRun: parsed.maxConcurrentPerRun,
       requestId
     });
     return ok(requestId, result);
