@@ -385,6 +385,16 @@ export class ForgeService {
           heldBy: leaseDenial.heldBy
         }
       } as const);
+      // Without this, the task's last event is now FORGE_RUN_BLOCKED and
+      // toDomain()'s deriveTaskStatus() would infer "failed" on the next
+      // read — permanently, since nothing re-derives it again once status is
+      // set. That's exactly backwards for a denial this comment already
+      // documents as transient: explicitly keep the task "pending" so it
+      // stays eligible for listRunnableTasks() once the resource frees up.
+      const blockedTaskIndex = blockedRun.tasks.findIndex((candidate) => candidate.id === task.id);
+      if (blockedTaskIndex !== -1) {
+        blockedRun.tasks[blockedTaskIndex] = { ...blockedRun.tasks[blockedTaskIndex], status: "pending" };
+      }
       const blockedPersisted = await this.repository.update({
         tenantId: actor.tenantId,
         orgId: actor.orgId,
@@ -462,14 +472,15 @@ export class ForgeService {
     }
     const runAfterApprovals = harness.getRun(current.id);
 
-    let nextState = current.state;
-    if (
+    const anyDeny =
       policy?.decision === "deny" ||
       prPackage?.decision === "deny" ||
       deployment?.decision === "deny" ||
       rollback?.decision === "deny" ||
-      securityReport?.decision === "deny"
-    ) {
+      securityReport?.decision === "deny";
+
+    let nextState = current.state;
+    if (anyDeny) {
       nextState = "blocked";
     } else if (prPackage) {
       nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
@@ -527,17 +538,23 @@ export class ForgeService {
       updated.agentRunIds.push(agentRunId);
     }
 
-    // Marks this task's own dependency-graph node satisfied, so listRunnableTasks()
-    // can unblock any sibling task depending on it. Gated on the same
-    // server-derived policy.decision the deny-OR chain above already
-    // computed — deliberately not more nuanced than that yet (e.g. a
-    // prPackage/deployment left on "require_approval" still counts as
-    // succeeded here); per-task pause-on-approval status is Fase 3d's job.
-    if (policy?.decision === "allow") {
-      const taskIndex = updated.tasks.findIndex((candidate) => candidate.id === task.id);
-      if (taskIndex !== -1) {
-        updated.tasks[taskIndex] = { ...updated.tasks[taskIndex], status: "succeeded" };
-      }
+    // Every reachable outcome here sets an explicit task.status — never leaves
+    // it unset on a deny/require_approval path. Two reasons: (1) anyDeny is
+    // the SAME condition nextState above already used, not just policy's own
+    // decision — a policy=allow result can still be blocked by e.g.
+    // securityReport=deny, and that must not read as the task having
+    // succeeded; (2) toDomain()'s deriveTaskStatus() only exists to
+    // best-effort-infer status for rows persisted before this field existed —
+    // leaving it unset here would feed it a live task's event tail (which
+    // includes later unconditional events like FORGE_VERIFICATION_COMPLETED
+    // with this same agentRunId already registered) and it would misread a
+    // denied/pending task as "succeeded" on the next read. "blocked_on_approval"
+    // is coarser than Fase 3d's eventual per-mode tracking, but is still
+    // correctly excluded from listRunnableTasks() today.
+    const taskStatus = anyDeny ? "failed" : policy?.decision === "require_approval" ? "blocked_on_approval" : "succeeded";
+    const taskIndex = updated.tasks.findIndex((candidate) => candidate.id === task.id);
+    if (taskIndex !== -1) {
+      updated.tasks[taskIndex] = { ...updated.tasks[taskIndex], status: taskStatus };
     }
 
     const sandbox = payload.sandbox;
