@@ -308,6 +308,16 @@ export class ForgeService {
    * dependency/runnability re-check and lease/policy handling rather than
    * duplicating it. Additive — doesn't change executeTask's existing
    * explicit-taskId contract.
+   *
+   * The read (currentlyRunning/selectDispatchable) and the writes each
+   * executeTask() call makes (status: "running", persisted after enqueue)
+   * are not atomic with each other, so two concurrent dispatchNext() calls
+   * could otherwise both read the same "1 free slot" and both dispatch the
+   * same top-priority task. Reuses ForgeLeaseService (Fase 2) as a plain
+   * per-run mutual-exclusion lock — not a sensitive-resource-category lease
+   * in the usual sense, just the same Redis SET NX EX primitive keyed on
+   * the run instead of a file category — to serialize the whole
+   * select-and-dispatch sequence.
    */
   async dispatchNext(input: {
     actor: ForgeActor;
@@ -315,26 +325,46 @@ export class ForgeService {
     maxConcurrentPerRun?: number;
     requestId: string;
   }): Promise<{ forgeRun: ForgeRun; dispatched: Array<{ taskId: string; agentRunId: string }> }> {
-    const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
-    const currentlyRunning = current.tasks.filter((task) => task.status === "running").length;
-    const maxConcurrentPerRun = input.maxConcurrentPerRun ?? ForgeService.DEFAULT_MAX_CONCURRENT_PER_RUN;
-    const dispatchable = selectDispatchable(current.tasks, { maxConcurrentPerRun, currentlyRunning });
-
-    let forgeRun = current;
-    const dispatched: Array<{ taskId: string; agentRunId: string }> = [];
-    for (const task of dispatchable) {
-      const outcome = await this.executeTask({
-        actor: input.actor,
-        runId: input.runId,
-        taskId: task.id,
-        async: true,
-        requestId: input.requestId
-      });
-      forgeRun = outcome.forgeRun;
-      dispatched.push({ taskId: task.id, agentRunId: outcome.agentRun.id });
+    const dispatchLockCategory = `dispatch:${input.runId}`;
+    const lock = await this.leaseService.acquire({
+      category: dispatchLockCategory,
+      tenantId: input.actor.tenantId,
+      runId: input.runId,
+      taskId: "dispatch-next"
+    });
+    if (!lock.acquired) {
+      throw new ConflictException(`A dispatch is already in progress for run '${input.runId}'; retry shortly.`);
     }
 
-    return { forgeRun, dispatched };
+    try {
+      const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
+      const currentlyRunning = current.tasks.filter((task) => task.status === "running").length;
+      const maxConcurrentPerRun = input.maxConcurrentPerRun ?? ForgeService.DEFAULT_MAX_CONCURRENT_PER_RUN;
+      const dispatchable = selectDispatchable(current.tasks, { maxConcurrentPerRun, currentlyRunning });
+
+      let forgeRun = current;
+      const dispatched: Array<{ taskId: string; agentRunId: string }> = [];
+      for (const task of dispatchable) {
+        const outcome = await this.executeTask({
+          actor: input.actor,
+          runId: input.runId,
+          taskId: task.id,
+          async: true,
+          requestId: input.requestId
+        });
+        forgeRun = outcome.forgeRun;
+        dispatched.push({ taskId: task.id, agentRunId: outcome.agentRun.id });
+      }
+
+      return { forgeRun, dispatched };
+    } finally {
+      await this.leaseService.release({
+        category: dispatchLockCategory,
+        tenantId: input.actor.tenantId,
+        runId: input.runId,
+        taskId: "dispatch-next"
+      });
+    }
   }
 
   async completeTask(input: {
