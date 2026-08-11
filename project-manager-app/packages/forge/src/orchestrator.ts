@@ -86,9 +86,22 @@ export class ForgeHarness {
     if (run.tasks.some((candidate) => candidate.id === task.id)) {
       throw new Error(`Duplicate Forge task id: ${task.id}`);
     }
+    // Only reject errors the NEW task actually introduces, not ones already
+    // present among existing tasks — dependencies went unvalidated before
+    // this check existed, so a run persisted earlier could already contain
+    // dangling references. Re-flagging those on every future addTask() would
+    // permanently brick task creation on that run over data this call had
+    // no part in creating. A baseline diff still catches what matters: the
+    // new task referencing something nonexistent itself, or completing a
+    // cycle that didn't exist before it was added.
+    const baseline = validateTaskDependencies(run.tasks);
+    const baselineErrors = new Set(baseline.valid ? [] : baseline.errors);
     const validation = validateTaskDependencies([...run.tasks, task]);
     if (!validation.valid) {
-      throw new Error(`Invalid Forge task dependencies: ${validation.errors.join("; ")}`);
+      const newErrors = validation.errors.filter((error) => !baselineErrors.has(error));
+      if (newErrors.length > 0) {
+        throw new Error(`Invalid Forge task dependencies: ${newErrors.join("; ")}`);
+      }
     }
     run.tasks.push(structuredClone(task));
     run.updatedAt = new Date().toISOString();

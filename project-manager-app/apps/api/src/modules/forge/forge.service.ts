@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { canTransitionForgeRun, categoriesForPaths, dependenciesSucceeded, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
@@ -122,7 +122,16 @@ export class ForgeService {
   }): Promise<ForgeRun> {
     const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
     const harness = this.load(current);
-    const updated = harness.addTask(input.runId, input.task);
+    let updated: ForgeRun;
+    try {
+      updated = harness.addTask(input.runId, input.task);
+    } catch (error) {
+      // ForgeHarness.addTask() throws a plain Error for a duplicate id or an
+      // invalid dependency graph — both are the caller's request being
+      // malformed, not a server fault, so this must not fall through to
+      // NestJS's default 500.
+      throw new BadRequestException(error instanceof Error ? error.message : String(error));
+    }
     const persisted = await this.repository.update({
       tenantId: input.actor.tenantId,
       orgId: input.actor.orgId,
@@ -235,6 +244,20 @@ export class ForgeService {
         actor: input.actor.userId,
         detail: { taskId: input.taskId, agentRunId: agentRun.id }
       } as const);
+      // Without this, the task's persisted status stays whatever toDomain()
+      // derived it as on read (typically "pending", since it has no events
+      // of its own yet) — and because deriveTaskStatus() only re-infers
+      // when status is unset, that "pending" gets written back verbatim and
+      // never re-derived again. listRunnableTasks() (and the GET
+      // .../tasks/runnable endpoint exposing it) would then keep showing an
+      // already-dispatched task as runnable until it completes, risking a
+      // second dispatch. Guarded on "succeeded" for the same reason as the
+      // lease-denial path above: a task re-invoked with a later action must
+      // not lose an earlier action's completion for the duration of this call.
+      const dispatchedTaskIndex = updated.tasks.findIndex((candidate) => candidate.id === input.taskId);
+      if (dispatchedTaskIndex !== -1 && updated.tasks[dispatchedTaskIndex].status !== "succeeded") {
+        updated.tasks[dispatchedTaskIndex] = { ...updated.tasks[dispatchedTaskIndex], status: "running" };
+      }
 
       const persisted = await this.repository.update({
         tenantId: input.actor.tenantId,
