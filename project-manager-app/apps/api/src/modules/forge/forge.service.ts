@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { canTransitionForgeRun, categoriesForPaths, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
@@ -307,7 +307,13 @@ export class ForgeService {
     // here, released in the `finally` below regardless of how this method
     // exits — see ForgeLeaseService's header comment for why this is scoped
     // to one applyTaskResult() call rather than a task's full lifecycle.
-    const leaseCategories = [...categoriesForPaths(prPackage?.changedFiles ?? [])];
+    // Sorted so two concurrent requests touching the same set of categories
+    // always attempt acquisition in the same order. Without this, task A
+    // (files in [schema, migrations] order) and task B (the same files in
+    // [migrations, schema] order) running in parallel could each grab a
+    // different category and then both deny on the other's — neither making
+    // progress — instead of one deterministically winning both.
+    const leaseCategories = [...categoriesForPaths(prPackage?.changedFiles ?? [])].sort();
     const acquiredLeases: string[] = [];
     let leaseDenial:
       | { category: string; heldBy?: { runId: string; taskId: string }; reason?: string }
@@ -379,7 +385,25 @@ export class ForgeService {
         timestamp: new Date().toISOString(),
         afterJson: { taskId: task.id, agentRunId, leaseDenial }
       });
-      return blockedPersisted;
+
+      // The audit trail is written above regardless, but the HTTP response
+      // must NOT look like success: a 200 here would be indistinguishable
+      // from the result actually being applied, so the caller would never
+      // know to resubmit the same agentRunId once the resource frees up and
+      // the completed work would be silently lost. 409 for real contention
+      // (another run holds it — retrying immediately is expected to keep
+      // failing until that run finishes); 503 when the coordination
+      // mechanism itself is unavailable (Redis down — this affects every
+      // completion touching a sensitive path, not just genuinely contended
+      // ones, and is a dependency outage rather than a conflict).
+      if (leaseDenial.reason === "lease_coordination_unavailable") {
+        throw new ServiceUnavailableException(
+          `Resource lease coordination unavailable for category '${leaseDenial.category}'; retry once Redis is reachable.`
+        );
+      }
+      throw new ConflictException(
+        `Resource '${leaseDenial.category}' is locked by another run/task; retry once it releases.`
+      );
     }
 
     try {
