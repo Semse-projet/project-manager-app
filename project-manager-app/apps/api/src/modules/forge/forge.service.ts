@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { canTransitionForgeRun, ForgeHarness } from "@semse/forge";
+import { canTransitionForgeRun, categoriesForPaths, ForgeHarness } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
@@ -17,6 +17,7 @@ import type {
 } from "@semse/forge";
 import type { AgentRunRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { ForgeLeaseService } from "../../infrastructure/forge/forge-lease.service.js";
 import { ForgeAgentAdapterService } from "./forge-agent-adapter.service.js";
 import { ForgeRepository } from "./forge.repository.js";
 
@@ -38,7 +39,8 @@ export class ForgeService {
   constructor(
     private readonly repository: ForgeRepository,
     private readonly adapter: ForgeAgentAdapterService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly leaseService: ForgeLeaseService
   ) {}
 
   async list(tenantId: string): Promise<ForgeRun[]> {
@@ -298,6 +300,38 @@ export class ForgeService {
       : (input.task.allowedCommands[0] ?? "runtime.execute");
     const prPackage = payload.prPackage as ForgePRPackage | undefined;
 
+    // Resource leases (SEMSE_FORGE_AGENT_HARNESS.spec.md §9) — a distinct gate
+    // from the policy/approval evaluation below: even a task the policy would
+    // allow must not run concurrently with another task touching the same
+    // sensitive category (schema, migrations, auth, payments, ...). Acquired
+    // here, released in the `finally` below regardless of how this method
+    // exits — see ForgeLeaseService's header comment for why this is scoped
+    // to one applyTaskResult() call rather than a task's full lifecycle.
+    const leaseCategories = [...categoriesForPaths(prPackage?.changedFiles ?? [])];
+    const acquiredLeases: string[] = [];
+    let leaseDenial: { category: string; heldBy?: { runId: string; taskId: string } } | undefined;
+    for (const category of leaseCategories) {
+      const lease = await this.leaseService.acquire({
+        category,
+        tenantId: actor.tenantId,
+        runId: current.id,
+        taskId: task.id
+      });
+      if (lease.acquired) {
+        acquiredLeases.push(category);
+      } else {
+        leaseDenial = { category, heldBy: lease.heldBy };
+        break;
+      }
+    }
+    if (leaseDenial) {
+      // Don't hold onto leases for an action that's already decided to be denied.
+      for (const category of acquiredLeases.splice(0, acquiredLeases.length)) {
+        await this.leaseService.release({ category, tenantId: actor.tenantId, runId: current.id, taskId: task.id });
+      }
+    }
+
+    try {
     // The policy decision must come from the server's own evaluation, never
     // from the caller's payload — a caller could otherwise submit
     // `{ result: { payload: { policy: { decision: "allow" } } } }` and skip
@@ -338,6 +372,7 @@ export class ForgeService {
 
     let nextState = current.state;
     if (
+      leaseDenial ||
       policy?.decision === "deny" ||
       prPackage?.decision === "deny" ||
       deployment?.decision === "deny" ||
@@ -399,6 +434,23 @@ export class ForgeService {
     const updated = harness.getRun(current.id);
     if (!updated.agentRunIds.includes(agentRunId)) {
       updated.agentRunIds.push(agentRunId);
+    }
+
+    if (leaseDenial) {
+      updated.events.push({
+        id: randomUUID(),
+        type: "FORGE_RUN_BLOCKED",
+        runId: updated.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          reason: "policy.resource_locked",
+          category: leaseDenial.category,
+          heldBy: leaseDenial.heldBy
+        }
+      } as const);
     }
 
     const sandbox = payload.sandbox;
@@ -581,10 +633,15 @@ export class ForgeService {
       entityId: persisted.id,
       requestId,
       timestamp: new Date().toISOString(),
-      afterJson: { taskId: task.id, agentRunId, policyDecision: policy?.decision }
+      afterJson: { taskId: task.id, agentRunId, policyDecision: policy?.decision, leaseDenial }
     });
 
     return persisted;
+    } finally {
+      for (const category of acquiredLeases) {
+        await this.leaseService.release({ category, tenantId: actor.tenantId, runId: current.id, taskId: task.id });
+      }
+    }
   }
 
   async decideApproval(input: {
