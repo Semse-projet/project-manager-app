@@ -331,6 +331,55 @@ export class ForgeService {
       for (const category of acquiredLeases.splice(0, acquiredLeases.length)) {
         await this.leaseService.release({ category, tenantId: actor.tenantId, runId: current.id, taskId: task.id });
       }
+
+      // A lease denial is transient (concurrent contention, or Redis briefly
+      // unreachable) — unlike a policy/prPackage/etc. deny below, which is
+      // deterministic and belongs in "blocked" until a human intervenes.
+      // Persisting a state transition here would permanently wedge the run:
+      // every nextState branch further down derives from current.state, and
+      // none of them can ever move a "blocked" run back to
+      // "ready_for_review" without a manual transition. So this returns
+      // early instead — no state change, no agentRunId registered, nothing
+      // for authorizeTaskAction/approvals to react to — leaving the run
+      // exactly as it was so the same result can be resubmitted once the
+      // resource frees up. Only an audit trail entry marks that this
+      // attempt happened.
+      const blockedRun = harness.getRun(current.id);
+      blockedRun.events.push({
+        id: randomUUID(),
+        type: "FORGE_RUN_BLOCKED",
+        runId: blockedRun.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          reason:
+            leaseDenial.reason === "lease_coordination_unavailable"
+              ? "policy.resource_lock_unavailable"
+              : "policy.resource_locked",
+          category: leaseDenial.category,
+          heldBy: leaseDenial.heldBy
+        }
+      } as const);
+      const blockedPersisted = await this.repository.update({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        userId: actor.userId,
+        run: blockedRun
+      });
+      await this.auditService.append({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        actorUserId: actor.userId,
+        action: "forge.task.complete",
+        entityType: "ForgeRun",
+        entityId: blockedPersisted.id,
+        requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { taskId: task.id, agentRunId, leaseDenial }
+      });
+      return blockedPersisted;
     }
 
     try {
@@ -374,7 +423,6 @@ export class ForgeService {
 
     let nextState = current.state;
     if (
-      leaseDenial ||
       policy?.decision === "deny" ||
       prPackage?.decision === "deny" ||
       deployment?.decision === "deny" ||
@@ -434,35 +482,8 @@ export class ForgeService {
     }
 
     const updated = harness.getRun(current.id);
-    // A lease denial is transient (concurrent contention, or Redis briefly
-    // unreachable) — unlike a policy/prPackage/etc. deny, which is
-    // deterministic and would reject the same result again anyway, retrying
-    // the exact same agentRunId later could succeed once the resource frees
-    // up. So this agentRunId must NOT be marked consumed here, or
-    // completeTask()'s idempotency check (agentRunIds.includes(agentRunId))
-    // would silently drop every retry forever.
-    if (!leaseDenial && !updated.agentRunIds.includes(agentRunId)) {
+    if (!updated.agentRunIds.includes(agentRunId)) {
       updated.agentRunIds.push(agentRunId);
-    }
-
-    if (leaseDenial) {
-      updated.events.push({
-        id: randomUUID(),
-        type: "FORGE_RUN_BLOCKED",
-        runId: updated.id,
-        timestamp: new Date().toISOString(),
-        actor: actor.userId,
-        detail: {
-          taskId: task.id,
-          agentRunId,
-          reason:
-            leaseDenial.reason === "lease_coordination_unavailable"
-              ? "policy.resource_lock_unavailable"
-              : "policy.resource_locked",
-          category: leaseDenial.category,
-          heldBy: leaseDenial.heldBy
-        }
-      } as const);
     }
 
     const sandbox = payload.sandbox;
@@ -645,7 +666,7 @@ export class ForgeService {
       entityId: persisted.id,
       requestId,
       timestamp: new Date().toISOString(),
-      afterJson: { taskId: task.id, agentRunId, policyDecision: policy?.decision, leaseDenial }
+      afterJson: { taskId: task.id, agentRunId, policyDecision: policy?.decision }
     });
 
     return persisted;

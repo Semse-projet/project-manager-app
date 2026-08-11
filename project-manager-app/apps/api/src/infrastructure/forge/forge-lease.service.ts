@@ -25,6 +25,13 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
   private readonly redisUrl = process.env.REDIS_URL ?? "redis://127.0.0.1:6379";
   private connectPromise: Promise<void> | null = null;
   private static readonly DEFAULT_TTL_SECONDS = 60;
+  private static readonly RELEASE_IF_OWNER_SCRIPT = `
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+      return redis.call("del", KEYS[1])
+    else
+      return 0
+    end
+  `;
 
   async onModuleInit(): Promise<void> {
     // Non-blocking — Redis connect must not delay NestJS startup.
@@ -107,30 +114,27 @@ export class ForgeLeaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Releases a lease only if it's still held by the exact runId/taskId that acquired it. */
+  /**
+   * Releases a lease only if it's still held by the exact runId/taskId that
+   * acquired it — as a single atomic Lua script, not a GET-then-DEL from
+   * Node. A GET-then-DEL has a real race: if the TTL expires between the two
+   * (or another writer's del races in), a different run's freshly-acquired
+   * lease for the same key would get deleted, breaking the mutual exclusion
+   * this whole mechanism exists to provide. The compare is on the exact JSON
+   * string acquire() wrote, so no parsing is needed on either side.
+   */
   async release(input: { category: string; tenantId: string; runId: string; taskId: string }): Promise<void> {
     if (!this.connection) return;
 
     const key = this.leaseKey(input.tenantId, input.category);
-    let existing: string | null;
+    const value = JSON.stringify({ runId: input.runId, taskId: input.taskId });
     try {
-      existing = await this.connection.get(key);
+      await this.connection.eval(ForgeLeaseService.RELEASE_IF_OWNER_SCRIPT, 1, key, value);
     } catch (error) {
       this.logger.warn(
         `Redis error while releasing lease for '${input.category}': ${error instanceof Error ? error.message : String(error)}`
       );
       this.discardConnection();
-      return;
-    }
-    if (!existing) return;
-
-    try {
-      const parsed = JSON.parse(existing) as { runId: string; taskId: string };
-      if (parsed.runId === input.runId && parsed.taskId === input.taskId) {
-        await this.connection.del(key).catch(() => undefined);
-      }
-    } catch {
-      // Malformed value from another writer — leave it for its own TTL to expire.
     }
   }
 
