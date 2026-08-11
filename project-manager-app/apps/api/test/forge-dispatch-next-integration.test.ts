@@ -238,3 +238,40 @@ test("dispatchNext rejects a concurrent call for the same run while one is alrea
     ["a"]
   );
 });
+
+test("dispatchNext reports 503 (not 409) when the lock coordinator itself is unavailable", async () => {
+  const a = task({ id: "a", priority: 1 });
+  const seedRun = run([a]);
+  const repository = makeFakeRepository(seedRun);
+  const adapter = makeFakeAdapter();
+  // Simulates ForgeLeaseService failing closed on a Redis outage — distinct
+  // from "held by another dispatch," which the lock category alone can't tell apart.
+  const leaseService = {
+    async acquire() {
+      return { acquired: false, reason: "lease_coordination_unavailable" };
+    },
+    async release() {}
+  };
+  const service = new ForgeService(repository, adapter, makeFakeAuditService(), leaseService);
+
+  await assert.rejects(
+    () => service.dispatchNext({ actor, runId: seedRun.id, requestId: randomUUID() }),
+    /coordination unavailable/
+  );
+  assert.deepEqual(adapter.enqueued, []);
+});
+
+test("dispatchNext does not persist a stale task's re-invoked 'running' write over an already-succeeded status", async () => {
+  const succeeded = task({ id: "a", status: "succeeded", priority: 1 });
+  const seedRun = run([succeeded]);
+  const repository = makeFakeRepository(seedRun);
+  const adapter = makeFakeAdapter();
+  const service = new ForgeService(repository, adapter, makeFakeAuditService(), makeFakeLeaseService());
+
+  // dispatchNext()'s own selectDispatchable() wouldn't pick an already-
+  // "succeeded" task, so exercise the guard directly through executeTask()
+  // — the real path Forge uses to re-invoke a task with a later action.
+  const outcome = await service.executeTask({ actor, runId: seedRun.id, taskId: "a", async: true, requestId: randomUUID() });
+  const afterDispatch = outcome.forgeRun.tasks.find((t) => t.id === "a");
+  assert.equal(afterDispatch.status, "succeeded");
+});

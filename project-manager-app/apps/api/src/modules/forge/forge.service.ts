@@ -333,6 +333,17 @@ export class ForgeService {
       taskId: "dispatch-next"
     });
     if (!lock.acquired) {
+      // Same reason/status-code split as applyTaskResult's leaseDenial
+      // handling: a real contention (another dispatchNext call holds it) is
+      // a 409 the caller should just retry shortly; Redis being unreachable
+      // (fail-closed) is a dependency outage, not a conflict, and reporting
+      // it as "already in progress" would be actively misleading during an
+      // incident.
+      if (lock.reason === "lease_coordination_unavailable") {
+        throw new ServiceUnavailableException(
+          `Dispatch coordination unavailable for run '${input.runId}'; retry once Redis is reachable.`
+        );
+      }
       throw new ConflictException(`A dispatch is already in progress for run '${input.runId}'; retry shortly.`);
     }
 
