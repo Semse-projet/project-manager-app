@@ -1,6 +1,7 @@
 import type { ForgeApprovalMode, ForgePolicyResult, ForgeSecurityFinding, ForgeSecurityReport, ForgeTaskPacket } from "./types.js";
 import type { ForgePatchPlan } from "./patch-planner.js";
 import { matchesScope } from "./policy.js";
+import { SENSITIVE_RESOURCE_RULES } from "./sensitive-resources.js";
 
 export type SecurityReviewProviderInput = {
   runId: string;
@@ -29,86 +30,10 @@ const SEVERITY_ORDER: Record<ForgeSecurityFinding["severity"], number> = {
   low: 1
 };
 
-const SENSITIVE_PATTERNS: Array<{ rule: string; severity: ForgeSecurityFinding["severity"]; scope: string; message: string }> = [
-  {
-    rule: "security.env_file",
-    severity: "high",
-    scope: "**/.env*",
-    message: "Environment files detected in scope; may contain secrets."
-  },
-  {
-    rule: "security.credential_file",
-    severity: "critical",
-    scope: "**/*.key",
-    message: "Credential material detected in scope."
-  },
-  {
-    rule: "security.credential_file",
-    severity: "critical",
-    scope: "**/*.pem",
-    message: "Credential material detected in scope."
-  },
-  {
-    rule: "security.credential_file",
-    severity: "critical",
-    scope: "**/*.p12",
-    message: "Credential material detected in scope."
-  },
-  {
-    rule: "security.database_schema",
-    severity: "high",
-    scope: "packages/db/prisma/**",
-    message: "Database schema or migration changes require data governance review."
-  },
-  {
-    rule: "security.ci_workflow",
-    severity: "medium",
-    scope: ".github/workflows/**",
-    message: "CI workflow changes can affect supply chain and deployment pipeline."
-  },
-  {
-    rule: "security.infrastructure",
-    severity: "high",
-    scope: "**/railway.json",
-    message: "Infrastructure configuration changes detected."
-  },
-  {
-    rule: "security.infrastructure",
-    severity: "high",
-    scope: "**/Dockerfile*",
-    message: "Container build changes detected."
-  },
-  {
-    rule: "security.infrastructure",
-    severity: "high",
-    scope: "**/docker-compose*",
-    message: "Container orchestration changes detected."
-  },
-  {
-    rule: "security.auth_module",
-    severity: "critical",
-    scope: "packages/auth/**",
-    message: "Authentication module changes require security review."
-  },
-  {
-    rule: "security.agent_runtime",
-    severity: "high",
-    scope: "packages/agents/**",
-    message: "Agent runtime changes can affect governed execution."
-  },
-  {
-    rule: "security.payment_or_identity",
-    severity: "critical",
-    scope: "packages/payments/**",
-    message: "Payment module changes require security and compliance review."
-  },
-  {
-    rule: "security.payment_or_identity",
-    severity: "critical",
-    scope: "**/identity*",
-    message: "Identity-related changes require security review."
-  }
-];
+// Sourced from the shared canonical list (packages/forge/src/sensitive-resources.ts)
+// instead of a locally hand-typed list — see that file's header comment for why.
+const SENSITIVE_PATTERNS: Array<{ rule: string; severity: ForgeSecurityFinding["severity"]; scope: string; message: string }> =
+  SENSITIVE_RESOURCE_RULES.map(({ rule, severity, scope, message }) => ({ rule, severity, scope, message }));
 
 function collectPaths(task: ForgeTaskPacket, patchPlan?: ForgePatchPlan): string[] {
   const paths = new Set<string>();

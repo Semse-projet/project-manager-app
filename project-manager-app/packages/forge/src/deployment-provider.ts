@@ -1,5 +1,5 @@
 import type { ForgeApprovalMode, ForgeDeploymentPlan, ForgePolicyResult, ForgePRPackage, ForgeTaskPacket } from "./types.js";
-import { matchesScope } from "./policy.js";
+import { isCriticalPath } from "./sensitive-resources.js";
 
 export type DeploymentProviderInput = {
   runId: string;
@@ -13,19 +13,6 @@ export interface DeploymentProvider {
 }
 
 const ALLOWED_ENVIRONMENTS = new Set(["sandbox", "local", "ci", "staging", "production"]);
-
-const CRITICAL_PATTERNS = [
-  "packages/db/prisma/schema.prisma",
-  "packages/db/prisma/migrations/**",
-  ".github/workflows/**",
-  "**/railway.json",
-  "**/Dockerfile*",
-  "**/docker-compose*"
-];
-
-function isCriticalPath(path: string): boolean {
-  return CRITICAL_PATTERNS.some((scope) => matchesScope(path, scope));
-}
 
 function hasCriticalFiles(changedFiles?: string[]): boolean {
   return (changedFiles ?? []).some(isCriticalPath);
