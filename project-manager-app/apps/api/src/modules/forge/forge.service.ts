@@ -309,7 +309,9 @@ export class ForgeService {
     // to one applyTaskResult() call rather than a task's full lifecycle.
     const leaseCategories = [...categoriesForPaths(prPackage?.changedFiles ?? [])];
     const acquiredLeases: string[] = [];
-    let leaseDenial: { category: string; heldBy?: { runId: string; taskId: string } } | undefined;
+    let leaseDenial:
+      | { category: string; heldBy?: { runId: string; taskId: string }; reason?: string }
+      | undefined;
     for (const category of leaseCategories) {
       const lease = await this.leaseService.acquire({
         category,
@@ -320,7 +322,7 @@ export class ForgeService {
       if (lease.acquired) {
         acquiredLeases.push(category);
       } else {
-        leaseDenial = { category, heldBy: lease.heldBy };
+        leaseDenial = { category, heldBy: lease.heldBy, reason: lease.reason };
         break;
       }
     }
@@ -432,7 +434,14 @@ export class ForgeService {
     }
 
     const updated = harness.getRun(current.id);
-    if (!updated.agentRunIds.includes(agentRunId)) {
+    // A lease denial is transient (concurrent contention, or Redis briefly
+    // unreachable) — unlike a policy/prPackage/etc. deny, which is
+    // deterministic and would reject the same result again anyway, retrying
+    // the exact same agentRunId later could succeed once the resource frees
+    // up. So this agentRunId must NOT be marked consumed here, or
+    // completeTask()'s idempotency check (agentRunIds.includes(agentRunId))
+    // would silently drop every retry forever.
+    if (!leaseDenial && !updated.agentRunIds.includes(agentRunId)) {
       updated.agentRunIds.push(agentRunId);
     }
 
@@ -446,7 +455,10 @@ export class ForgeService {
         detail: {
           taskId: task.id,
           agentRunId,
-          reason: "policy.resource_locked",
+          reason:
+            leaseDenial.reason === "lease_coordination_unavailable"
+              ? "policy.resource_lock_unavailable"
+              : "policy.resource_locked",
           category: leaseDenial.category,
           heldBy: leaseDenial.heldBy
         }
