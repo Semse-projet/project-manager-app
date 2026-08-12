@@ -91,6 +91,13 @@ packages/db/prisma/schema.prisma + migrations > SQL o modelos legacy
 - Una vision nueva debe aterrizarse en spec/ADR antes de modificar codigo.
 - No ejecutar un roadmap historico aunque conserve tareas pendientes.
 
+## Checkouts y máquina de trabajo
+
+Qué checkout de este repo, en esta máquina, es canónico vs sandbox se
+gobierna en `WORKSPACE_GOVERNANCE.md` (puntero; fuente real cross-proyecto en
+`agent-sessions/WORKSPACE_GOVERNANCE.md`, fuera de este repo). No asumir
+canonicidad de un path por costumbre — verificar contra ese registro.
+
 ## Checklist antes de implementar
 
 - [ ] Leer `.specify/memory/constitution.md` y `docs/SPEC_INDEX.md`.
