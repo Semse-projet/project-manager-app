@@ -24,6 +24,7 @@ production_evidence:
   - railway:web:deployment:228095a8-2326-4ac4-aff2-0cfe8da1c144:success:sha:89e0473d23d6dad2942a78fc486e65464ec69988:includes-afb2dccd
   - railway:api:env:SEMSE_MISSION_CONTROL_V2_ENABLED:unset-2026-08-12
   - railway:api:env:SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS:tenant_default-2026-08-12
+  - "local:canary-walkthrough:2026-08-12:flag-off,allowlist=tenant_default-only — NOT production evidence, see §8-canary-note below"
 related_files:
   - apps/api/src/modules/ops/ops.controller.ts
   - apps/api/src/modules/ops/ops.service.ts
@@ -455,12 +456,45 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
 - [x] Deployment terminal de API/Web y migración aplicada (SHA `89e0473d`
   desplegado 2026-08-08 incluye `afb2dccd` como ancestro; verificado
   2026-08-12).
-- [ ] Canary `tenant_default` verificado separado de health.
-  `SEMSE_MISSION_CONTROL_V2_ENABLED` confirmado **unset** en producción
-  (2026-08-12) — el flujo de canary de la sección 8 (listar
-  runbooks/excepciones, 404 cross-tenant, ACK/RESOLVE con key duplicada,
-  dry-run de acciones, ESCALATE real) no se ha ejecutado.
+- [ ] Canary `tenant_default` verificado **en producción**, separado de
+  health. `SEMSE_MISSION_CONTROL_V2_ENABLED` confirmado **unset** en
+  Railway producción (2026-08-12) — AGENTS.md prohíbe a los agentes tocar
+  variables de entorno de producción (regla NUNCA), así que activar el
+  flag ahí requiere una acción humana explícita, no de un agente.
+
+  En su lugar se ejecutó el flujo completo de la sección 8 **contra el
+  stack local** (Postgres/Redis reales vía Docker, sin mocks;
+  `apps/api/.env` local con `SEMSE_MISSION_CONTROL_V2_ENABLED=false` +
+  `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS=tenant_default`, igual a la
+  postura planeada para producción) — 2026-08-12:
+  - `GET .../runbooks` y `.../exceptions` con `tenant_default` → 200,
+    payload normalizado; excepción real detectada (`service_health:worker`,
+    el worker local no estaba corriendo — no es dato mock).
+  - Mismo request con un tenant no allowlisted → 404
+    `MISSION_CONTROL_V2_DISABLED` (P2 del spec).
+  - `ACKNOWLEDGE` sobre una señal sintética, repetido con la misma
+    `idempotencyKey` → mismo `receipt.id`, segunda respuesta con
+    `duplicate: true`, `attempts` sin incrementar (P1 idempotencia).
+  - `RESOLVE` con `dryRun: true` → `NO_OP` con `wouldSetStatus`, sin mutar
+    estado real.
+  - `ESCALATE` real sobre `MissionControlException` → crea
+    `MissionControlIncident`; `RESOLVE` sobre el incidente → `SUCCEEDED`;
+    repetir `RESOLVE` con otra `idempotencyKey` → `NO_OP` +
+    `alreadyConverged: true` (convergencia por estado, no sólo por key).
+  - 5 acciones → 5 filas en `AuditLog` (`ops.mission-control.action`),
+    incluyendo el dry-run y el no-op (Artículo V).
+  - Datos sintéticos borrados al terminar; no queda residuo en la DB local.
+  - `pnpm --filter @semse/api test:unit` (incluye
+    `mission-control-2.test.ts`, `ops-mission-control.test.ts`):
+    2046/2046 verdes.
+
+  Esto es evidencia funcional real, no simulada — pero es **local**, no
+  producción. La aislación cross-tenant a nivel de target individual (no
+  sólo el flag) se cubre por los tests existentes, no se re-probó
+  manualmente. El gate de canary de producción sigue abierto hasta que un
+  humano habilite el flag en Railway y se repita el flujo ahí.
 - [x] `production_evidence`, `last_verified` actualizados en este spec
-  (2026-08-12). `SPEC_INDEX.md`, matriz y roadmap: pendiente regenerar/
-  reconciliar.
+  (2026-08-12); `SPEC_INDEX.md` regenerado (`pnpm spec:index`),
+  `pnpm spec:validate:strict` en 0 errores. Matriz y roadmap ya estaban
+  reconciliados (PR #552) y no requirieron cambios.
 - [ ] Sólo entonces `status: VERIFIED`.
