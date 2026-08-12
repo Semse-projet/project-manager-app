@@ -8,15 +8,22 @@ status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "critical"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "VERIFIED"
+verification_scope: "merged-deployed-flag-off"
 feature_flags:
   - SEMSE_MISSION_CONTROL_V2_ENABLED
   - SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS
-production_evidence: []
+production_evidence:
+  - github:pr:486:sha:afb2dccd14d82eb4abae7f3c89ea9869ca62537b:checks-passed
+  - github:pr:486:merge:afb2dccd14d82eb4abae7f3c89ea9869ca62537b
+  - railway:api:deployment:3f8a0c2c-4a44-4b00-b9d3-c2edf80551c3:success:sha:89e0473d23d6dad2942a78fc486e65464ec69988:includes-afb2dccd
+  - railway:web:deployment:228095a8-2326-4ac4-aff2-0cfe8da1c144:success:sha:89e0473d23d6dad2942a78fc486e65464ec69988:includes-afb2dccd
+  - railway:api:env:SEMSE_MISSION_CONTROL_V2_ENABLED:unset-2026-08-12
+  - railway:api:env:SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS:tenant_default-2026-08-12
 related_files:
   - apps/api/src/modules/ops/ops.controller.ts
   - apps/api/src/modules/ops/ops.service.ts
@@ -59,7 +66,7 @@ related_endpoints:
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-31"
+last_verified: "2026-08-12"
 ---
 
 # Spec: Mission Control 2.0 F4
@@ -444,9 +451,16 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
 - [x] Spec, plan, tasks, analyze y checklist coherentes antes de código.
 - [x] Tests derivados del spec y verdes localmente.
 - [x] Migración reproducible y rollback/forward-fix documentado.
-- [ ] CI `PASS`, PR fusionado y SHA registrado.
-- [ ] Deployment terminal de API/Web y migración aplicada.
+- [x] CI `PASS`, PR fusionado y SHA registrado (PR #486, `afb2dccd`).
+- [x] Deployment terminal de API/Web y migración aplicada (SHA `89e0473d`
+  desplegado 2026-08-08 incluye `afb2dccd` como ancestro; verificado
+  2026-08-12).
 - [ ] Canary `tenant_default` verificado separado de health.
-- [ ] `production_evidence`, `last_verified`, índice, matriz, roadmap y API
-  surface actualizados.
+  `SEMSE_MISSION_CONTROL_V2_ENABLED` confirmado **unset** en producción
+  (2026-08-12) — el flujo de canary de la sección 8 (listar
+  runbooks/excepciones, 404 cross-tenant, ACK/RESOLVE con key duplicada,
+  dry-run de acciones, ESCALATE real) no se ha ejecutado.
+- [x] `production_evidence`, `last_verified` actualizados en este spec
+  (2026-08-12). `SPEC_INDEX.md`, matriz y roadmap: pendiente regenerar/
+  reconciliar.
 - [ ] Sólo entonces `status: VERIFIED`.
