@@ -3,7 +3,7 @@ id: "core.originador-referral-program"
 title: "Programa de recompensa para originador/facilitador"
 domain: "core"
 sdd_version: "2.0"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -12,9 +12,11 @@ ci_status: "PASS"
 merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:rbac-self-service-connect-and-reward-math-only"
-feature_flags: []
+migration_status: "VERIFIED"
+verification_scope: "partial:rbac-self-service-connect-and-reward-math-merged-deployed:fase-1-2-registration-implemented-locally-2026-08-13-not-yet-merged"
+feature_flags:
+  - SEMSE_ORIGINATOR_REGISTRATION_ENABLED
+  - SEMSE_ORIGINATOR_CANARY_TENANT_IDS
 production_evidence:
   - github:pr:538:merge:6040d75e255f57beef5055158d613ca093975be6
   - railway:api:deployment:4773385c-d68d-4f8d-95f4-02b2e98b7a6b:success
@@ -26,15 +28,28 @@ related_files:
   - packages/auth/src/rbac.ts
   - packages/db/prisma/schema.prisma
   - apps/api/src/modules/jobs/
-related_tests: []
+  - apps/api/src/modules/originator/originator.repository.ts
+  - apps/api/src/modules/originator/originator.service.ts
+  - apps/api/src/modules/originator/originator.controller.ts
+  - apps/api/src/modules/originator/originator.module.ts
+  - apps/api/src/modules/originator/originator.policy.ts
+  - packages/schemas/src/domain-events-v2.schema.ts
+  - packages/db/prisma/migrations/20260813142704_add_project_originator/
+  - docs/foundation/EVENT_CATALOG.md
+related_tests:
+  - apps/api/test/originator.service.test.ts
 related_endpoints:
   - GET /v1/payments/connect/account
   - POST /v1/payments/connect/account
   - POST /v1/payments/connect/onboarding-link
   - POST /v1/payments/connect/sync
-related_events: []
+  - POST /v1/projects/:projectId/originator
+  - POST /v1/projects/:projectId/originator/validate
+related_events:
+  - project.originator_proposed.v1
+  - project.originator_validated.v1
 related_agents: []
-last_verified: "2026-08-04"
+last_verified: "2026-08-13"
 ---
 
 # Spec: Programa de recompensa para originador/facilitador
@@ -657,14 +672,34 @@ forma genérica, cumpliendo lo que pedía el spec original antes de
 - [x] Investigación externa (§11) completada antes de `APPROVED`.
 - [x] Revisión del gate de riesgo `critical` de pagos completada punto por
       punto (§12b), no de forma genérica.
-- [ ] Spec enlazado por `pnpm spec:index`
-- [ ] Spec, plan, tasks, analyze y checklist coherentes
-- [ ] Tests derivados del spec y verdes
-- [ ] `pnpm spec:validate:strict` verde
-- [ ] Migración reproducible y rollback/forward-fix documentado
-- [ ] CI `PASS`
-- [ ] PR fusionado y SHA registrado
-- [ ] Deployment terminal `DEPLOYED`
-- [ ] Activación/canary verificada por separado
-- [ ] `production_evidence` y `last_verified` actualizados
+- [x] Spec enlazado por `pnpm spec:index` (2026-08-13).
+- [x] Spec, plan, tasks coherentes — Fase 1-2 implementada 2026-08-13
+      siguiendo `.plan.md` §4-5 tal cual (modelo de datos confirmado por
+      el owner antes de migrar).
+- [x] Tests derivados del spec y verdes — `apps/api/test/originator.service.test.ts`,
+      integración contra Postgres real: 7/7 verdes + 1 skip explícito
+      (T-016, no aplica hasta Fase 3).
+- [x] `pnpm spec:validate:strict` verde (2026-08-13).
+- [x] Migración reproducible — `20260813142704_add_project_originator`,
+      aditiva, sin tocar tablas de pago existentes. **Nota de proceso:**
+      `prisma migrate dev` generó inicialmente un diff que mezclaba mi
+      cambio con drift preexistente no relacionado (Agro/ChangeOrder/
+      Contract/Milestone) entre `schema.prisma` y el historial de
+      migraciones — separado en `20260813140000_sync_schema_drift`
+      siguiendo el precedente ya establecido en este repo
+      (`20260504235951_sync_schema_drift`). Ese drift es preexistente,
+      no causado por este incremento, y queda como hallazgo aparte para
+      quien lleve Agro/ChangeOrders/Contracts, no resuelto línea por
+      línea aquí.
+- [ ] CI `PASS` para el código de Fase 1-2 — todavía no hay PR abierto.
+- [ ] PR fusionado y SHA registrado — pendiente.
+- [ ] Deployment terminal `DEPLOYED` — sólo el trabajo de T-009 (PR #538,
+      2026-08-04) está desplegado; Fase 1-2 (registro/validación) no.
+- [ ] Activación/canary verificada por separado — flag
+      `SEMSE_ORIGINATOR_REGISTRATION_ENABLED`/`_CANARY_TENANT_IDS`
+      confirmado apagado por defecto; no se activó en ningún entorno.
+- [x] `production_evidence` y `last_verified` actualizados en este spec
+      (2026-08-13) — sólo reflejan lo ya `MERGED`/`DEPLOYED` de T-009;
+      Fase 1-2 no agrega evidencia de producción porque no está
+      desplegada.
 - [ ] Sólo entonces `status: VERIFIED`

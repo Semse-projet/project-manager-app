@@ -3,10 +3,10 @@ type: tasks
 feature: "F10 — Programa de recompensa para originador/facilitador"
 domain: "core"
 plan: "docs/specs/core/originador-referral-program.plan.md"
-version: "1.0"
-status: "PENDING"
-branch: "TBD — crear en T-006 tras cerrar T-001..T-004"
-date: "2026-08-04"
+version: "1.1"
+status: "IN_PROGRESS"
+branch: "feat/f10-originator-registration"
+date: "2026-08-13"
 ---
 
 # Tareas: Programa de recompensa para originador/facilitador
@@ -113,42 +113,67 @@ Todavía abierto:
       verificado con build+test); el resto de Fase 2/3 sigue esperando
       T-007.
 
-## Fase 1 — Tests antes del código (anti-abuso primero)
+## Fase 1 — Tests antes del código (anti-abuso primero) — IMPLEMENTADA 2026-08-13
 
-- [ ] **T-010** Test: publicar sin actividad NO genera recompensa (spec
+`apps/api/test/originator.service.test.ts`, integración contra Postgres real
+(no mocks de lógica de negocio), 7/7 verdes + 1 skip explícito (T-016).
+
+- [x] **T-010** Test: publicar sin actividad NO genera recompensa (spec
       §4 P2 — criterio de aceptación central).
-- [ ] **T-011** Test: rechazo del dueño bloquea toda recompensa futura.
-- [ ] **T-012** Test: mismo originador en múltiples proyectos sin avance
+- [x] **T-011** Test: rechazo del dueño bloquea toda recompensa futura.
+- [x] **T-012** Test: mismo originador en múltiples proyectos sin avance
       se flaguea, no bloquea automáticamente.
-- [ ] **T-013** Test: `OriginatorReward` permanece `pending_review` 14
+- [x] **T-013** Test: `OriginatorReward` permanece `pending_review` 14
       días antes de `released` (spec §4 P1a/P1b, hallazgo §11).
 - [ ] **T-014** Test: fallo de liberación deja el evento en
-      `release_failed`, nunca ambiguo con `released` (spec §12b).
-- [ ] **T-015** Test: `OriginatorReward` nace en
+      `release_failed`, nunca ambiguo con `released` (spec §12b) —
+      **Fase 3**, no aplica todavía (no hay liberación real que pueda
+      fallar sin `payment-governance.service.ts` conectado).
+- [x] **T-015** Test: `OriginatorReward` nace en
       `blocked_no_payout_account` si el originador no tiene
       `StripeConnectAccount.payoutsEnabled`, y pasa a `pending_review`
       (arrancando los 14 días) recién al completarse el onboarding (spec
       §4 caso borde, §7).
-- [ ] **T-016** Test: originador de un país sin gate legal cerrado nunca
-      recibe liberación real, aunque el mecanismo técnico funcione (spec
-      §4 caso borde, §12b).
-- [ ] **T-017** Test: el evento `PLATFORM_FEE_SHARE` calcula el monto
+- [x] **T-016** Test: originador de un país sin gate legal cerrado —
+      marcado `test.skip` explícito, documentado como no-aplica-todavía
+      (no hay lógica de país hasta Fase 3), no omitido en silencio.
+- [x] **T-017** Test: el evento `PLATFORM_FEE_SHARE` calcula el monto
       sobre `platformFeeCents`, nunca sobre el valor bruto del proyecto;
-      si `platformFeeCents` es 0, el monto es 0, nunca negativo (spec §4
-      P1b).
+      si `platformFeeCents` es 0 (o negativo), el monto es 0, nunca
+      negativo (spec §4 P1b).
+- [x] Aislamiento de tenant (no estaba numerado, agregado por consistencia
+      con el resto de specs SDD 2.0 de esta sesión): `propose()`/
+      `validateForProject()` nunca resuelven un registro de otro tenant.
 
-## Fase 2 — Registro y validación (sin dinero)
+## Fase 2 — Registro y validación (sin dinero) — IMPLEMENTADA 2026-08-13
 
-- [ ] **T-020** Implementar `POST /v1/projects/:projectId/originator`.
-- [ ] **T-021** Implementar flujo de validación del dueño.
-- [ ] **T-022** Lanzar detrás de flag, fase "solo registro", sin pago real.
-- [ ] **T-023** Implementar modelo `OriginatorReward` (spec §7, plan §4) —
-      puede construirse antes de Fase 3 aunque el pago real siga
-      bloqueado, ya que es prerrequisito de datos. No requiere modelo de
-      identidad fiscal propio: lee `StripeConnectAccount` existente.
-- [ ] **T-024** Confirmar/adaptar el flujo de onboarding de
-      `StripeConnectAccount` para que un originador (que puede no ser
-      `PRO`) también pueda completarlo.
+Módulo `apps/api/src/modules/originator/` (repository/service/controller/
+module), permiso RBAC `project:originate` (CLIENT/PRO/WORKER, mismo patrón
+que `payments:connect:self`), migración Prisma aditiva
+`20260813142704_add_project_originator`, eventos
+`project.originator_proposed.v1`/`project.originator_validated.v1` con
+outbox transaccional (mismo patrón que `evidence.repository.ts`). Detrás
+de flag `SEMSE_ORIGINATOR_REGISTRATION_ENABLED`/
+`SEMSE_ORIGINATOR_CANARY_TENANT_IDS`, apagado por defecto.
+
+- [x] **T-020** Implementado `POST /v1/projects/:projectId/originator`.
+- [x] **T-021** Implementado `POST /v1/projects/:projectId/originator/validate`
+      (flujo de validación del dueño — sólo el `createdBy` del
+      `BuildOpsProject` puede decidir).
+- [x] **T-022** Detrás de flag, fase "solo registro" — el endpoint
+      devuelve 404 si el tenant no está habilitado; sin pago real en
+      ninguna ruta de código de esta fase.
+- [x] **T-023** Implementado modelo `OriginatorReward` (spec §7, plan §4)
+      + `OriginatorService.createRewardEvent()`/`unblockPendingRewards()`
+      — la lógica de monto/estado está completa y testeada (T-013/T-015/
+      T-017), pero **no está conectada a los triggers reales** ("primer
+      milestone financiado", "proyecto completado"); el caller decide
+      cuándo invocar `createRewardEvent()`. Enganchar a los eventos reales
+      de milestone/proyecto queda como slice siguiente explícito.
+- [x] **T-024** Confirmado — ya resuelto por T-009 (2026-08-04): `WORKER`
+      ya tiene `payments:connect:self`, así que el onboarding de
+      `StripeConnectAccount` ya funciona para cualquier rol. No requirió
+      cambios adicionales en esta pasada.
 
 ## Fase 3 — Recompensa real (bloqueada por gate legal por país, ya no por F5)
 
@@ -171,11 +196,13 @@ Todavía abierto:
 
 ## Fase 4 — Validación y cierre
 
-- [ ] **T-040** `pnpm spec:validate:strict` en verde.
+- [x] **T-040** `pnpm spec:validate:strict` en verde (2026-08-13).
 - [ ] **T-041** Auditoría end-to-end de al menos un ciclo completo
-      originador→hito verificado→recompensa pagada.
-- [ ] **T-042** Actualizar `IMPLEMENTATION_STATUS_MATRIX.md` y
-      `ROADMAP.md` §F10.
+      originador→hito verificado→recompensa pagada — **Fase 3**, requiere
+      dinero real, no aplica a esta pasada.
+- [x] **T-042** Actualizar `IMPLEMENTATION_STATUS_MATRIX.md` y
+      `ROADMAP.md` §F10 (2026-08-13, refleja Fase 1-2 implementada sin
+      merge/deploy todavía).
 
 ## Criterio de cierre
 

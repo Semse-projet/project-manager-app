@@ -341,6 +341,62 @@ model StripeConnectAccount {
   @@index([status])
 }
 
+// F10 — Programa de recompensa para originador/facilitador (Fase 1-2, sin
+// dinero real). docs/specs/core/originador-referral-program.spec.md
+enum ProjectOriginatorStatus {
+  PENDING_OWNER_VALIDATION
+  VALIDATED
+  REJECTED
+}
+
+model ProjectOriginator {
+  id               String                  @id @default(cuid())
+  tenantId         String
+  projectId        String
+  originatorUserId String
+  status           ProjectOriginatorStatus @default(PENDING_OWNER_VALIDATION)
+  validatedAt      DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@unique([projectId])
+  @@index([tenantId, originatorUserId])
+}
+
+enum OriginatorRewardType {
+  FIXED_BONUS
+  PLATFORM_FEE_SHARE
+}
+
+enum OriginatorRewardStatus {
+  PENDING_REVIEW
+  BLOCKED_NO_PAYOUT_ACCOUNT
+  RELEASED
+  RELEASE_FAILED
+  REVERSED
+}
+
+// Identidad fiscal delegada a StripeConnectAccount (arriba) — no se crea
+// modelo de documento fiscal propio (spec §7).
+model OriginatorReward {
+  id                       String                 @id @default(cuid())
+  tenantId                 String
+  projectOriginatorId      String
+  type                     OriginatorRewardType
+  triggerEvent             String
+  amountCents              Int
+  platformFeeCentsSnapshot Int?
+  status                   OriginatorRewardStatus @default(PENDING_REVIEW)
+  reviewEndsAt             DateTime
+  releasedAt               DateTime?
+  releaseFailedReason      String?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+
+  @@index([tenantId, status])
+  @@index([projectOriginatorId])
+}
+
 model ContractorRateOverride {
   id             String   @id @default(cuid())
   userId         String   @unique
