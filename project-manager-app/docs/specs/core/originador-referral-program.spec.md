@@ -681,16 +681,21 @@ forma genérica, cumpliendo lo que pedía el spec original antes de
       (T-016, no aplica hasta Fase 3).
 - [x] `pnpm spec:validate:strict` verde (2026-08-13).
 - [x] Migración reproducible — `20260813142704_add_project_originator`,
-      aditiva, sin tocar tablas de pago existentes. **Nota de proceso:**
-      `prisma migrate dev` generó inicialmente un diff que mezclaba mi
-      cambio con drift preexistente no relacionado (Agro/ChangeOrder/
-      Contract/Milestone) entre `schema.prisma` y el historial de
-      migraciones — separado en `20260813140000_sync_schema_drift`
-      siguiendo el precedente ya establecido en este repo
-      (`20260504235951_sync_schema_drift`). Ese drift es preexistente,
-      no causado por este incremento, y queda como hallazgo aparte para
-      quien lleve Agro/ChangeOrders/Contracts, no resuelto línea por
-      línea aquí.
+      aditiva, sin tocar tablas de pago existentes. Verificada contra un
+      contenedor Postgres aislado (no la DB local compartida): aplica
+      limpio con `prisma migrate deploy` de forma independiente, sin
+      requerir la migración de drift (abajo). **Nota de proceso:**
+      `prisma migrate dev` había generado inicialmente un diff que
+      mezclaba este cambio con drift preexistente no relacionado
+      (Agro/ChangeOrder/Contract/Milestone) entre `schema.prisma` y el
+      historial de migraciones — rastreado con `git log -S` hasta PR
+      #347/#352 (no causado por este incremento). Separado en su propio
+      PR #570 (`20260813140000_sync_schema_drift`, siguiendo el
+      precedente ya establecido en este repo,
+      `20260504235951_sync_schema_drift`), verificado de forma
+      independiente contra un contenedor limpio (`prisma migrate deploy`
+      + `migrate status` + `migrate diff` en cero) — no bloquea este PR,
+      ambas migraciones son commutables porque no tocan tablas en común.
 - [ ] CI `PASS` para el código de Fase 1-2 — todavía no hay PR abierto.
 - [ ] PR fusionado y SHA registrado — pendiente.
 - [ ] Deployment terminal `DEPLOYED` — sólo el trabajo de T-009 (PR #538,
