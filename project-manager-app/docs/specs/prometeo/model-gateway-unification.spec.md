@@ -3,8 +3,8 @@ id: "prometeo.model-gateway-unification"
 title: "SPEC-GTW-001 — Unificación del Model Gateway"
 type: spec
 domain: "prometeo"
-version: "1.0"
-status: "DRAFT"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
 date: "2026-07-31"
@@ -23,7 +23,7 @@ related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-31"
+last_verified: "2026-08-14"
 ---
 
 # SPEC-GTW-001 — Unificación del Model Gateway
@@ -123,6 +123,26 @@ Cada paso es reversible por separado; ninguno requiere migración de datos.
   provider es una decisión de producto (qué proveedor puede ver qué tipo de
   dato), no solo técnica — requiere sign-off explícito antes de implementar,
   no solo revisión de código.
+
+  **Decisión de producto obtenida (2026-08-14):**
+  - **`GLM-Ollama` → `PRIVATE`.** Corre en infraestructura propia de SEMSE
+    (Railway, dentro del mismo servicio Ollama que ya aloja `ollama-local`),
+    sin API key, nunca llega a los servidores de Zhipu AI — mismo criterio
+    de confianza que ya aplica a `ollama`. `GLM-cloud` (la otra variante del
+    mismo `GlmProvider`, vía API key contra `bigmodel.cn`) **no** entra en
+    `PRIVATE`.
+  - **`DeepSeek` (chat/reasoner), `Kimi` (`kimi-k2`) y `GLM-cloud` → fuera de
+    `RISK_SAFE`.** Ninguno de los tres se agrega al set `RISK_SAFE`
+    (`{anthropic, openai}` sin cambios) ni a `TOOL_CAPABLE` (los tres son,
+    además, técnicamente no tool-capable en este código hoy — ninguno de los
+    tres provider files implementa function/tool calling). Quedan
+    disponibles solo para tareas normales (`riskLevel` bajo/medio, sin
+    `privacyCritical`/`localOnly`) — el mismo nivel de confianza implícito
+    que ya tenían, ahora aplicado explícitamente en vez de nunca verificado.
+    **Efecto directo confirmado:** esto cierra el caso real descrito en §2 —
+    `construction_contract_analysis` con `privacyCritical: true` ya no puede
+    resolver a `kimi-k2` bajo ninguna circunstancia una vez migrado el paso 4
+    de §4.
 - Debe probarse que ningún caller que hoy depende del comportamiento de
   `executeWithSlug()` para DeepSeek/Kimi/GLM (p. ej. `feedContextEngine`,
   `routeReason`, `fallbackUsed` en la respuesta) pierde esos campos al pasar
@@ -143,8 +163,8 @@ Cada paso es reversible por separado; ninguno requiere migración de datos.
 
 ## 7. No implementado en este spec
 
-Este documento queda en `status: DRAFT` — no se modifica código. La
-implementación requiere: sign-off del punto 5.2 (clasificación de
-providers), spec pasa a `APPROVED`, y entonces sigue el flujo
-`/speckit.plan` → `/speckit.tasks` → tests antes de código →
-`/speckit.implement` (`docs/SDD_GOVERNANCE.md`).
+`status: APPROVED` (2026-08-14) — el sign-off de clasificación de
+providers (§5, punto 2) ya se obtuvo, no queda ningún bloqueo de producto.
+**No se modifica código en este spec.** Sigue el flujo `/speckit.plan` →
+`/speckit.tasks` → tests antes de código → `/speckit.implement`
+(`docs/SDD_GOVERNANCE.md`) como paso siguiente, no incluido en esta pasada.
