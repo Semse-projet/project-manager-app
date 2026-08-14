@@ -56,7 +56,7 @@ export function WindowsDoorsToolClient({ section }: WindowsDoorsToolClientProps)
   const [error, setError] = useState<string | null>(null);
 
   const costPerUnit = useMemo(() => {
-    const baseCost: Record<typeof input.materialType, number> = {
+    const baseCost: Record<WindowsDoorsInput["materialType"], number> = {
       vinyl: 250, wood: 400, fiberglass: 350, aluminum: 300, composite: 500,
     };
     const base = baseCost[input.materialType] || 300;

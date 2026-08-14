@@ -55,7 +55,7 @@ export function MasonryToolClient({ section }: MasonryToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const materialCost: Record<typeof input.material, number> = {
+    const materialCost: Record<MasonryInput["material"], number> = {
       brick: 8.0, stone: 18.0, block: 6.0, pavers: 12.0,
     };
     const base = materialCost[input.material];
