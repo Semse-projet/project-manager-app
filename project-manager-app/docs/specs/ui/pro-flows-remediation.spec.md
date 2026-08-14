@@ -9,7 +9,7 @@ risk: "critical"
 date: "2026-07-20"
 author: "Claude Sonnet — sesión de auditoría en vivo (código + producción)"
 spec_index: "docs/SPEC_INDEX.md"
-complements: "docs/specs/ui/pro-flows.spec.md (ese spec cubre ProTools específicamente, no la app de /worker/* en general)"
+supersedes: "docs/specs/ui/pro-flows.spec.md (reconciliado 2026-08-14: describía rutas huérfanas — /marketplace, /dashboard, /tools/:trade, /profile/payout — que no son la app real del rol PRO; ver nota DEPRECATED en ese archivo)"
 related_files:
   - apps/web/app/(app)/worker
   - apps/web/app/(app)/worker/dashboard/page.tsx
@@ -81,7 +81,9 @@ last_verified: "2026-08-14"
 
 # Spec: Pro/Worker UI Flows — Remediation
 
-> **Nota de nomenclatura — léela antes que nada.** El rol real en la base de datos (`Role.name`) es **`PRO`**, no `WORKER`. La UI vive bajo `/worker/*` y el sidebar se etiqueta a sí mismo "Profesional". El spec anterior (`docs/specs/ui/pro-flows.spec.md`, `status: VERIFIED`) **no es incorrecto, es más angosto de lo que su nombre sugiere**: sus `related_files`/`related_tests` (`apps/web/app/pro`, `apps/web/app/(app)/tools`, `pro-tools-*.spec.ts`) muestran que en realidad especifica el catálogo **ProTools** (calculadoras de oficio), no la aplicación autenticada completa del rol PRO. La app real de `/worker/*` — dashboard, trabajos, tracker, pagos, perfil — nunca tuvo spec propio. Este documento cubre esa brecha; no reemplaza al spec de ProTools, que además tiene su propio gap confirmado (ver G-CLI-04 en `client-flows-remediation.spec.md`: `POST /api/semse/agents/protools/estimate` da 404 — contradice su `status: VERIFIED`).
+> **Nota de nomenclatura — léela antes que nada.** El rol real en la base de datos (`Role.name`) es **`PRO`**, no `WORKER`. La UI vive bajo `/worker/*` y el sidebar se etiqueta a sí mismo "Profesional". La app real de `/worker/*` — dashboard, trabajos, tracker, pagos, perfil — nunca tuvo spec propio hasta este documento.
+>
+> **Actualizado 2026-08-14:** `docs/specs/ui/pro-flows.spec.md` (el spec anterior con este nombre) quedó `DEPRECATED` tras una auditoría de re-verificación — sus `related_files`/`related_tests` (`apps/web/app/pro`, `apps/web/app/(app)/tools`, `pro-tools-*.spec.ts`) apuntaban a rutas huérfanas: `/tools/:trade` (ProTools) **no está en la navegación del rol PRO en absoluto** (solo en `client`/`admin`), y sus propios tests de referencia prueban esa ruta logueados como Admin, no como PRO. Este documento (`pro-flows-remediation.spec.md`) es ahora el único spec vigente para el rol PRO/`/worker/*`.
 >
 > Auditado con: hallazgos de rebote de la ronda de backend transversal (labor-engine, Stripe Connect, matching) + navegación en vivo contra `semse-web-production.up.railway.app` con una cuenta profesional real (`jhonnymembers403@gmail.com`, rol `PRO`), el 2026-07-20. Cobertura en vivo parcial — ver `docs/AUDIT_REMEDIATION_PLAN.md` sección 2 para la lista exacta de pantallas recorridas y las que faltan.
 
