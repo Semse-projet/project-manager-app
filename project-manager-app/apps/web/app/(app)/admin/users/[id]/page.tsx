@@ -59,7 +59,7 @@ function PortfolioAnalyzerWidget() {
   return (
     <div style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <Image size={14} color="#a78bfa" />
+        <Image aria-hidden="true" size={14} color="#a78bfa" />
         <span style={{ fontSize: 13, fontWeight: 800 }}>Análisis de Portafolio</span>
         <span style={{ fontSize: 9, color: "var(--muted)", background: "rgba(167,139,250,.1)", padding: "1px 8px", borderRadius: 99, marginLeft: "auto" }}>Vision AI</span>
       </div>
