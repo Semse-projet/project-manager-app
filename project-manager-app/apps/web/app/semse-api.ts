@@ -96,6 +96,12 @@ export type ApiEnvelope<T> = {
   data: T;
 };
 
+export type UserCapability = {
+  role: "CLIENT" | "PRO" | "WORKER" | string;
+  orgId: string;
+  verifiedAt: string | null;
+};
+
 export type DeveloperRuntimeCatalog = {
   autonomyLevels: string[];
   events: string[];
@@ -202,6 +208,11 @@ async function patchSemse<T>(path: string, body?: Record<string, unknown>): Prom
 
 export function semseRuntimeEnabled(): boolean {
   return process.env.NEXT_PUBLIC_SEMSE_RUNTIME_ENABLED?.trim() === "true";
+}
+
+export async function fetchMyCapabilities(): Promise<UserCapability[]> {
+  const result = await fetchSemse<{ capabilities: UserCapability[] }>("/api/semse/users/me/capabilities");
+  return result.capabilities;
 }
 
 export async function fetchControlSurfaceSnapshot(): Promise<ControlSurfaceSnapshot | null> {

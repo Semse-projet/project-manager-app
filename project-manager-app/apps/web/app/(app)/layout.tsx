@@ -15,6 +15,7 @@ import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
 import { NotificationBell } from "../../components/semse/NotificationBell";
+import { CapabilitySelector } from "../../components/identity/capability-selector";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@semse/ui";
@@ -413,11 +414,13 @@ function Sidebar({
 function Topbar({
   title,
   onMenuOpen,
+  activeRole,
   theme,
   onThemeChange,
 }: {
   title?: string;
   onMenuOpen: () => void;
+  activeRole: NavRole;
   theme: ThemePreference;
   onThemeChange: (value: ThemePreference) => void;
 }) {
@@ -455,6 +458,7 @@ function Topbar({
       </button>
       {title ? <h1 style={{ fontSize: "16px", fontWeight: 700, color: "var(--ink)", flex: 1 }}>{title}</h1> : null}
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+        <CapabilitySelector activeRole={activeRole} />
         <label style={toolbarLabelStyle()}>
           <span>{t("ui.language")}</span>
           <select value={language} onChange={(event) => setLanguage(event.target.value as LanguagePreference)} style={toolbarSelectStyle()}>
@@ -608,6 +612,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <Topbar
           onMenuOpen={() => setMobileOpen(true)}
+          activeRole={role}
           theme={theme}
           onThemeChange={handleThemeChange}
         />
