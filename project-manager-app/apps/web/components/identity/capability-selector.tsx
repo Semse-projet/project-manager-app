@@ -31,6 +31,16 @@ function uniqueCapabilities(capabilities: UserCapability[]) {
 export function CapabilitySelector({ activeRole }: { activeRole: AppRole }) {
   const [capabilities, setCapabilities] = useState<UserCapability[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "degraded">("loading");
+  const [cookieRole, setCookieRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const value = document.cookie
+      .split(";")
+      .find((cookie) => cookie.trim().startsWith("semse_app_role="))
+      ?.split("=")[1]
+      ?.trim();
+    setCookieRole(value ?? null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +59,15 @@ export function CapabilitySelector({ activeRole }: { activeRole: AppRole }) {
   }, []);
 
   const options = useMemo(() => uniqueCapabilities(capabilities), [capabilities]);
-  const activeCapability = activeRole === "client" ? "CLIENT" : activeRole === "worker" ? "WORKER" : "OPS_ADMIN";
+  const activeCapability = cookieRole === "pro"
+    ? "PRO"
+    : cookieRole === "worker"
+      ? "WORKER"
+      : activeRole === "client"
+        ? "CLIENT"
+        : activeRole === "worker"
+          ? "WORKER"
+          : "OPS_ADMIN";
 
   if (state === "loading" || (state === "ready" && options.length === 0)) return null;
 
