@@ -393,6 +393,7 @@ model OriginatorReward {
   createdAt                DateTime               @default(now())
   updatedAt                DateTime               @updatedAt
 
+  @@unique([projectOriginatorId, type])
   @@index([tenantId, status])
   @@index([projectOriginatorId])
 }

@@ -3,7 +3,7 @@ type: tasks
 feature: "F10 — Programa de recompensa para originador/facilitador"
 domain: "core"
 plan: "docs/specs/core/originador-referral-program.plan.md"
-version: "1.1"
+version: "1.2"
 status: "IN_PROGRESS"
 branch: "feat/f10-originator-registration"
 date: "2026-08-13"
@@ -166,10 +166,35 @@ de flag `SEMSE_ORIGINATOR_REGISTRATION_ENABLED`/
 - [x] **T-023** Implementado modelo `OriginatorReward` (spec §7, plan §4)
       + `OriginatorService.createRewardEvent()`/`unblockPendingRewards()`
       — la lógica de monto/estado está completa y testeada (T-013/T-015/
-      T-017), pero **no está conectada a los triggers reales** ("primer
-      milestone financiado", "proyecto completado"); el caller decide
-      cuándo invocar `createRewardEvent()`. Enganchar a los eventos reales
-      de milestone/proyecto queda como slice siguiente explícito.
+      T-017).
+- [x] **T-023b** Slice siguiente cerrado (2026-08-13): `OriginatorReward`
+      conectado a los dos triggers reales del spec.
+      `OriginatorService.evaluateMilestoneFundedTrigger()` se dispara
+      "fire-and-forget" desde `PaymentsService` justo después de que un
+      depósito finaliza `succeeded` (mismo punto que ya finaliza el
+      depósito, sin webhook async separado); crea `FIXED_BONUS` sólo si el
+      monto depositado cubre el primer milestone (`sequence asc`).
+      `OriginatorService.evaluateProjectCompletedTrigger()` se dispara
+      igual desde `ProjectsController.updateStatus()` en el branch
+      `status === "completed"` (mismo patrón que el archivo de
+      digital-twin que ya vivía ahí); crea `PLATFORM_FEE_SHARE` a partir
+      de `releasedAmount * StripeConnectService.PLATFORM_FEE_RATE * 100`.
+      Idempotencia garantizada por constraint único nuevo
+      `@@unique([projectOriginatorId, type])` en `OriginatorReward`
+      (migración `20260813193605_add_originator_reward_type_unique`) — un
+      segundo depósito o una segunda liberación nunca duplican la
+      recompensa. El puente `BuildOpsProject → Job → Project` que ambos
+      triggers necesitan para resolver "¿este proyecto tiene un
+      originador validado?" ya existe desde PR #571
+      (`BuildOpsService.publishAsJob()`). Cubierto por
+      `apps/api/test/originator-reward-triggers-integration.test.ts`
+      (5/5 verde: bono al cubrir el primer milestone, no-op si el depósito
+      no alcanza, no-duplicación en un segundo depósito suficiente, cálculo
+      exacto de `PLATFORM_FEE_SHARE`, no-op silencioso sin originador
+      validado). Sigue detrás del mismo flag
+      `SEMSE_ORIGINATOR_REGISTRATION_ENABLED`/
+      `SEMSE_ORIGINATOR_CANARY_TENANT_IDS`; ningún dinero real se mueve
+      todavía (eso sigue en Fase 3, bloqueada por el gate legal por país).
 - [x] **T-024** Confirmado — ya resuelto por T-009 (2026-08-04): `WORKER`
       ya tiene `payments:connect:self`, así que el onboarding de
       `StripeConnectAccount` ya funciona para cualquier rol. No requirió
@@ -196,13 +221,14 @@ de flag `SEMSE_ORIGINATOR_REGISTRATION_ENABLED`/
 
 ## Fase 4 — Validación y cierre
 
-- [x] **T-040** `pnpm spec:validate:strict` en verde (2026-08-13).
+- [x] **T-040** `pnpm spec:validate:strict` en verde (2026-08-13, incluye
+      el slice T-023b).
 - [ ] **T-041** Auditoría end-to-end de al menos un ciclo completo
       originador→hito verificado→recompensa pagada — **Fase 3**, requiere
       dinero real, no aplica a esta pasada.
 - [x] **T-042** Actualizar `IMPLEMENTATION_STATUS_MATRIX.md` y
-      `ROADMAP.md` §F10 (2026-08-13, refleja Fase 1-2 implementada sin
-      merge/deploy todavía).
+      `ROADMAP.md` §F10 (2026-08-13, refleja Fase 1-2 + triggers
+      conectados (T-023b), todavía sin merge/deploy).
 
 ## Criterio de cierre
 

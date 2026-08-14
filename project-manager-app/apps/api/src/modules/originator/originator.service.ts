@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { StripeConnectService } from "../payments/stripe-connect.service.js";
 import {
   OriginatorRepository,
   type OriginatorRewardRow,
@@ -22,6 +23,18 @@ export class OriginatorService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
   ) {}
+
+  // Mirrors PaymentsRepository.getDepositedAmount/getReleasedAmount
+  // (payments.repository.ts) exactly — inlined rather than injected to
+  // avoid a circular module dependency (PaymentsService needs
+  // OriginatorService for the milestone-funded trigger).
+  private async sumEscrowTxns(escrowId: string, type: "DEPOSIT" | "RELEASE"): Promise<number> {
+    const result = await this.prisma.paymentTxn.aggregate({
+      where: { escrowId, type, status: "SUCCEEDED" },
+      _sum: { amount: true },
+    });
+    return result._sum.amount?.toNumber() ?? 0;
+  }
 
   async propose(input: {
     tenantId: string;
@@ -187,6 +200,88 @@ export class OriginatorService {
         input.type === "PLATFORM_FEE_SHARE" ? input.platformFeeCentsSnapshot ?? 0 : null,
       payoutsEnabled: stripeAccount?.payoutsEnabled ?? false,
     });
+  }
+
+  // Fired best-effort after a deposit finalizes SUCCEEDED
+  // (PaymentsService.depositEscrow/depositByJob). No-op whenever the bridge
+  // doesn't resolve (no originator, not validated, no milestones yet) or
+  // the reward already exists — never throws into the caller's deposit flow.
+  async evaluateMilestoneFundedTrigger(input: {
+    tenantId: string;
+    orgId: string;
+    executionProjectId: string;
+    requestId: string;
+  }): Promise<void> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: input.executionProjectId },
+      select: { jobId: true },
+    });
+    if (!project) return;
+
+    const projectOriginator = await this.repository.findValidatedByJobId(project.jobId);
+    if (!projectOriginator || projectOriginator.tenantId !== input.tenantId) return;
+
+    const alreadyRewarded = await this.repository.findRewardByType(projectOriginator.id, "FIXED_BONUS");
+    if (alreadyRewarded) return;
+
+    const firstMilestone = await this.prisma.milestone.findFirst({
+      where: { projectId: input.executionProjectId, deletedAt: null },
+      orderBy: { sequence: "asc" },
+      select: { amount: true },
+    });
+    if (!firstMilestone) return;
+
+    const escrow = await this.prisma.paymentEscrow.findUnique({
+      where: { projectId: input.executionProjectId },
+      select: { id: true },
+    });
+    if (!escrow) return;
+
+    const depositedAmount = await this.sumEscrowTxns(escrow.id, "DEPOSIT");
+    if (depositedAmount < Number(firstMilestone.amount)) return;
+
+    await this.createRewardEvent({
+      projectOriginatorId: projectOriginator.id,
+      type: "FIXED_BONUS",
+      triggerEvent: "first_milestone_funded",
+    }).catch(() => undefined);
+  }
+
+  // Fired best-effort from ProjectsController.updateStatus() when a project
+  // reaches "completed" — same no-op-on-missing-bridge contract as above.
+  async evaluateProjectCompletedTrigger(input: {
+    tenantId: string;
+    orgId: string;
+    executionProjectId: string;
+    requestId: string;
+  }): Promise<void> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: input.executionProjectId },
+      select: { jobId: true },
+    });
+    if (!project) return;
+
+    const projectOriginator = await this.repository.findValidatedByJobId(project.jobId);
+    if (!projectOriginator || projectOriginator.tenantId !== input.tenantId) return;
+
+    const alreadyRewarded = await this.repository.findRewardByType(projectOriginator.id, "PLATFORM_FEE_SHARE");
+    if (alreadyRewarded) return;
+
+    const escrow = await this.prisma.paymentEscrow.findUnique({
+      where: { projectId: input.executionProjectId },
+      select: { id: true },
+    });
+    if (!escrow) return;
+
+    const releasedAmount = await this.sumEscrowTxns(escrow.id, "RELEASE");
+    const platformFeeCentsSnapshot = Math.round(releasedAmount * StripeConnectService.PLATFORM_FEE_RATE * 100);
+
+    await this.createRewardEvent({
+      projectOriginatorId: projectOriginator.id,
+      type: "PLATFORM_FEE_SHARE",
+      triggerEvent: "project_completed",
+      platformFeeCentsSnapshot,
+    }).catch(() => undefined);
   }
 
   async unblockPendingRewards(originatorUserId: string): Promise<number> {

@@ -267,45 +267,56 @@ dbTest("T-015: ineligible originator's reward is blocked, then unblocked on onbo
 // T-017 — PLATFORM_FEE_SHARE calcula sobre platformFeeCents, nunca sobre el
 // valor bruto; si es 0 (o negativo), el monto es 0, nunca negativo.
 dbTest("T-017: platform fee share is computed on platformFeeCents and clamped at 0", async (t) => {
-  const fixture = await createFixture({ payoutsEnabled: true });
-  t.after(() => cleanupFixture(fixture));
+  // A separate originator registration per case: OriginatorReward now has a
+  // @@unique([projectOriginatorId, type]) constraint (added when wiring the
+  // real triggers), so a single originator can only ever earn one
+  // PLATFORM_FEE_SHARE — the clamping math below has to be exercised across
+  // three distinct originators instead of three calls on the same one.
   const service = makeService();
 
-  const created = await service.propose({
-    tenantId: fixture.tenantId,
-    orgId: fixture.orgId,
-    projectId: fixture.projectId,
-    originatorUserId: fixture.originatorUserId,
-    actorUserId: fixture.originatorUserId,
-    requestId: uniqueId("req"),
-  });
-  await service.validateForProject({
-    tenantId: fixture.tenantId,
-    orgId: fixture.orgId,
-    projectId: fixture.projectId,
-    actorUserId: fixture.ownerUserId,
-    decision: "VALIDATED",
-    requestId: uniqueId("req"),
-  });
+  async function registerValidatedOriginator() {
+    const fixture = await createFixture({ payoutsEnabled: true });
+    t.after(() => cleanupFixture(fixture));
+    const created = await service.propose({
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      projectId: fixture.projectId,
+      originatorUserId: fixture.originatorUserId,
+      actorUserId: fixture.originatorUserId,
+      requestId: uniqueId("req"),
+    });
+    await service.validateForProject({
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      projectId: fixture.projectId,
+      actorUserId: fixture.ownerUserId,
+      decision: "VALIDATED",
+      requestId: uniqueId("req"),
+    });
+    return created;
+  }
 
+  const normalOriginator = await registerValidatedOriginator();
   const normal = await service.createRewardEvent({
-    projectOriginatorId: created.id,
+    projectOriginatorId: normalOriginator.id,
     type: "PLATFORM_FEE_SHARE",
     triggerEvent: "project_completed",
     platformFeeCentsSnapshot: 10_000,
   });
   assert.equal(normal.amountCents, 3_000); // 30% of 10,000
 
+  const zeroOriginator = await registerValidatedOriginator();
   const zero = await service.createRewardEvent({
-    projectOriginatorId: created.id,
+    projectOriginatorId: zeroOriginator.id,
     type: "PLATFORM_FEE_SHARE",
     triggerEvent: "project_completed",
     platformFeeCentsSnapshot: 0,
   });
   assert.equal(zero.amountCents, 0);
 
+  const negativeOriginator = await registerValidatedOriginator();
   const negative = await service.createRewardEvent({
-    projectOriginatorId: created.id,
+    projectOriginatorId: negativeOriginator.id,
     type: "PLATFORM_FEE_SHARE",
     triggerEvent: "project_completed",
     platformFeeCentsSnapshot: -500,

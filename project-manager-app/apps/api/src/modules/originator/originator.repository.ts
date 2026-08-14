@@ -53,6 +53,31 @@ export class OriginatorRepository {
     return this.prisma.projectOriginator.findUnique({ where: { id } });
   }
 
+  // Bridges the execution-phase Project (where milestones/payments live) back
+  // to the BuildOpsProject where the originator registration lives, via the
+  // Job both point to. Returns null anywhere the chain doesn't resolve
+  // (never published, never originated, or not yet validated) — those are
+  // the common case, not error conditions.
+  async findValidatedByJobId(jobId: string): Promise<ProjectOriginatorRow | null> {
+    const buildOpsProject = await this.prisma.buildOpsProject.findUnique({
+      where: { jobId },
+      select: { id: true },
+    });
+    if (!buildOpsProject) return null;
+    return this.prisma.projectOriginator.findFirst({
+      where: { projectId: buildOpsProject.id, status: "VALIDATED" },
+    });
+  }
+
+  async findRewardByType(
+    projectOriginatorId: string,
+    type: "FIXED_BONUS" | "PLATFORM_FEE_SHARE",
+  ): Promise<OriginatorRewardRow | null> {
+    return this.prisma.originatorReward.findUnique({
+      where: { projectOriginatorId_type: { projectOriginatorId, type } },
+    });
+  }
+
   async propose(input: {
     tenantId: string;
     orgId: string;
