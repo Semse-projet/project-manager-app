@@ -8,14 +8,19 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "COMPLETE"
+# ci_status/deploy_status/activation_status: NOT_RUN/NOT_DEPLOYED/INACTIVE is
+# about this SDD 2.0 delivery-evidence trail, not the real feature -- Prometeo
+# Core has been live for a while, but no CI run or canary is tied to *this*
+# documented contract, and "no se inventa evidencia retroactiva"
+# (SDD_GOVERNANCE §5) rules out claiming DEPLOYED/ACTIVE without one.
 ci_status: "NOT_RUN"
 merge_status: "MERGED"
-deploy_status: "DEPLOYED"
-activation_status: "ACTIVE"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence:
-  - "docs/architecture/SEMSE_API_SURFACE_V1.md — POST /v1/ai-models/prometeo/chat, GET /v1/prometeo/tools, POST /v1/prometeo/tools/invoke listados como superficie viva"
+  - "docs/architecture/SEMSE_API_SURFACE_V1.md — POST /v1/ai-models/prometeo/chat, GET /v1/prometeo/tools, POST /v1/prometeo/tools/invoke listados como superficie viva (contexto, no evidencia de un canary/CI run de este spec)"
 related_files:
   - apps/api/src/modules/ai-models/orchestrator/prometeo-orchestrator.service.ts
   - apps/api/src/modules/ai-models/gateway/ai-model-gateway.service.ts

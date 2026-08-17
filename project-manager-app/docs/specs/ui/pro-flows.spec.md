@@ -8,10 +8,17 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "COMPLETE"
+# ci_status/deploy_status/activation_status: NOT_RUN/NOT_DEPLOYED/INACTIVE is
+# about this SDD 2.0 delivery-evidence trail, not the real feature -- the
+# ProTools catalog has been live for a while, but the fix to the 2026-07-20
+# production 404 finding was verified by reading code this session, not by a
+# live request (§8/§9 already flag this explicitly as the gap before
+# VERIFIED), so "no se inventa evidencia retroactiva" (SDD_GOVERNANCE §5)
+# rules out claiming DEPLOYED/ACTIVE without a fresh canary.
 ci_status: "NOT_RUN"
 merge_status: "MERGED"
-deploy_status: "DEPLOYED"
-activation_status: "ACTIVE"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence: []

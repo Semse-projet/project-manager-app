@@ -8,10 +8,16 @@ status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "COMPLETE"
+# ci_status/deploy_status/activation_status: NOT_RUN/NOT_DEPLOYED/INACTIVE is
+# about this SDD 2.0 delivery-evidence trail, not the real feature -- /admin
+# has been live for a while and was walked live with a real OPS_ADMIN account
+# (see production_evidence below), but no CI run is tied to *this* documented
+# contract, and "no se inventa evidencia retroactiva" (SDD_GOVERNANCE §5)
+# rules out claiming DEPLOYED without one.
 ci_status: "NOT_RUN"
 merge_status: "MERGED"
-deploy_status: "DEPLOYED"
-activation_status: "ACTIVE"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
 production_evidence:

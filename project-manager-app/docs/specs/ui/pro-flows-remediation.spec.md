@@ -8,13 +8,20 @@ status: "REVIEW"
 owner: "semse-core"
 risk: "critical"
 code_status: "IN_PROGRESS"
+# ci_status/deploy_status/activation_status: NOT_RUN/NOT_DEPLOYED/INACTIVE is
+# about this SDD 2.0 delivery-evidence trail, not the real feature -- /worker
+# has been live for a while (see production_evidence: audited live with a
+# real PRO account 2026-07-20), but no CI run or fresh canary is tied to
+# *this* documented contract, and "no se inventa evidencia retroactiva"
+# (SDD_GOVERNANCE §5) rules out claiming DEPLOYED/ACTIVE without one.
 ci_status: "NOT_RUN"
 merge_status: "MERGED"
-deploy_status: "DEPLOYED"
-activation_status: "ACTIVE"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
 feature_flags: []
-production_evidence: []
+production_evidence:
+  - "docs/AUDIT_REMEDIATION_PLAN.md Sección 2 — módulo Worker/PRO auditado con código + navegación en vivo, cuenta profesional real, 2026-07-20 (evidencia histórica; no cubre los hallazgos re-verificados en esta revisión 2026-08-17, ver §9)"
 related_files:
   - apps/web/app/(app)/worker
   - apps/web/app/(app)/worker/dashboard/page.tsx
