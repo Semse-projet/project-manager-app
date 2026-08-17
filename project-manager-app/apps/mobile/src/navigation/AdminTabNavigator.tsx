@@ -1,27 +1,19 @@
-import { Text, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { AdminTabParamList } from "./types";
+import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
+import AdminSettingsScreen from "../screens/admin/AdminSettingsScreen";
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
-// Placeholder until Fase 7 (admin-operativo screens: jobs, contractors,
-// finance, disputes, labor-engine overview, etc.) — this stub exists so
-// role-based nav routing works end-to-end for OPS_ADMIN users starting from
-// Fase 1.
-function AdminHomeScreen() {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <Text style={{ fontSize: 16, textAlign: "center" }}>
-        La app de Admin todavía se está construyendo.
-      </Text>
-    </View>
-  );
-}
-
+// Fase 7a: Dashboard (jobs overview, read-only) + Settings (logout) are
+// real. The rest of Fase 7 (contractors, finance, disputes management,
+// labor-engine overview) is still pending — see
+// docs/specs/ui/mobile-admin-dashboard.spec.md for exact scope.
 export default function AdminTabNavigator() {
   return (
     <Tab.Navigator>
-      <Tab.Screen name="AdminHome" component={AdminHomeScreen} options={{ title: "SEMSE — Admin" }} />
+      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} options={{ title: "SEMSE — Admin" }} />
+      <Tab.Screen name="Settings" component={AdminSettingsScreen} options={{ title: "Ajustes" }} />
     </Tab.Navigator>
   );
 }

@@ -69,5 +69,6 @@ export type ClientJobsStackParamList = {
 };
 
 export type AdminTabParamList = {
-  AdminHome: undefined;
+  Dashboard: undefined;
+  Settings: undefined;
 };

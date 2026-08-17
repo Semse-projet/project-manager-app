@@ -139,6 +139,7 @@ retroactiva.
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
+| [ui.mobile-admin-dashboard](specs/ui/mobile-admin-dashboard.spec.md) | ui | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-08-17 |
 | [ui.mobile-client-tab](specs/ui/mobile-client-tab.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
 | [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | DRAFT | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-21 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | REVIEW | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
