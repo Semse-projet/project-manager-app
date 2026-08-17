@@ -3,8 +3,8 @@ id: "operations.jobs-bids-event-projection"
 title: "Jobs & Bids Event Projection for Agent Context"
 domain: "operations"
 sdd_version: "2.0"
-version: "1.0"
-status: "DRAFT"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -67,7 +67,7 @@ related_events:
 related_agents:
   - prometeo
   - project-copilot
-last_verified: "2026-08-08"
+last_verified: "2026-08-17"
 ---
 
 # Spec: Jobs & Bids Event Projection for Agent Context
@@ -76,7 +76,13 @@ last_verified: "2026-08-08"
 > (comparación Buzz vs SEMSEproject, ver `docs/reportes/` si se archiva esa
 > sesión) y del runbook DRAFT `docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md`.
 > Este documento es el contrato formal que ese runbook necesitaba antes de
-> ser ejecutable. `status` permanece `DRAFT` hasta sign-off humano.
+> ser ejecutable. `status: APPROVED` (2026-08-17) — verificado línea por
+> línea contra el código real de `jobs.repository.ts`, `bids.repository.ts`,
+> `domain-event-consumer.service.ts` y `operational-context.service.ts`; el
+> contrato queda autorizado para implementación. `code_status` sigue
+> `NOT_STARTED`: nada de lo descrito en la sección 2 existe todavía en
+> `main` (confirmado de nuevo en esta verificación — ver nota al pie de la
+> sección 1).
 
 ## 1. Problema y resultado
 
@@ -85,10 +91,15 @@ last_verified: "2026-08-08"
 converse con esos agentes sobre jobs o bids activos.
 
 **Problema:** `OperationalContextService.buildContext()` arma el campo
-`jobs` con una consulta `prisma.job.findMany()` directa, cacheada en memoria
-por proceso 60s (`CONTEXT_TTL_SECONDS`) e invalidada manualmente desde 10
-call sites distintos (`jobs.service.ts`, `domain-event-bus.service.ts`,
-`disputes.service.ts`, etc.). No existe una fuente única que los ~16 agentes
+`jobs` con una consulta `prisma.job.findMany()` directa
+(`operational-context.service.ts:118`), cacheada en memoria por proceso 60s
+(`CONTEXT_TTL_SECONDS`, línea 77) e invalidada manualmente vía
+`invalidateScope()`/`invalidateCache()` desde 14 call sites en 11 archivos
+distintos (`jobs.service.ts`, `domain-event-bus.service.ts`,
+`disputes.service.ts`, `evidence.service.ts`, `finance.service.ts`,
+`milestones.service.ts`, `projects.service.ts`, `users.service.ts`,
+`agents.service.ts`, `agent-delegation.service.ts`, y el propio servicio;
+conteo re-verificado 2026-08-17). No existe una fuente única que los ~16 agentes
 especializados consulten para el estado de jobs/bids — cada uno arma su
 propia vista con su propia ventana de staleness. `AgentMemory` no modela
 estado de job/bid en absoluto hoy: es un vacío de coherencia, no una
@@ -101,6 +112,19 @@ directa y el cache de 60s siguen existiendo para los otros 13 campos de
 `SemseOperationalContext` que esta spec no cubre (milestones, payments,
 evidence, disputes, finance, risk, ecosystem5d, notifications,
 assistantSettings, preferredProfessional).
+
+> Verificación 2026-08-17 (re-confirma el estado `NOT_STARTED` del
+> frontmatter, no lo corrige): `apps/api/src/modules/jobs/jobs.repository.ts`
+> (`create`, `updateStatus`) y `bids.repository.ts:create` no tienen
+> `$transaction`; `bids.repository.ts:accept` sí lo tiene pero sin insert de
+> outbox adentro; no existe `model JobsBidsProjection` en
+> `packages/db/prisma/schema.prisma`; `domain-event-consumer.service.ts`
+> sigue despachando con exactamente dos `if` hardcodeados
+> (`PROJECT_LIFECYCLE_SOURCE_CHANGED_EVENT_TYPE` y el fallback de
+> `evidence.uploaded.v1`); no existe sección `## Bids` en
+> `EVENT_CATALOG.md`. Es decir: nada de la sección 2 está construido — el
+> `APPROVED` de este documento autoriza implementar, no certifica que ya
+> exista código.
 
 ## 2. Alcance
 
@@ -223,6 +247,11 @@ nuevo. `GET /v1/domain-events/outbox` y `GET /v1/domain-events/:eventId/deliveri
 (ya existentes, F1-E) ganan cobertura sobre `job.*`/`bid.*` una vez
 allowlisted — sin cambio de contrato en sí.
 
+### UI
+
+No aplica — sin superficie nueva (ver "Fuera de alcance"); `apps/web` no
+cambia.
+
 ### Agente/Prometeo
 
 ```yaml
@@ -257,10 +286,15 @@ forbidden_behavior:
                                             en bids.repository.ts:accept)
   ```
 
-  No editar `EVENT_CATALOG.md` con estos nombres hasta que esta spec pase a
-  `APPROVED` — mientras tanto son propuesta, no catálogo vigente
-  (`AGENTS.md`: "Nunca inventar nombres de eventos fuera de
-  `EVENT_CATALOG.md`").
+  Este spec pasó a `APPROVED` el 2026-08-17: la lista de arriba queda
+  autorizada como contrato de nombres para la fase `implement`. La edición
+  real de `EVENT_CATALOG.md` (agregar la sección `## Bids` y reconciliar los
+  tres nombres `job.*` con sufijo `.v1`) sigue sin ejecutarse — es trabajo de
+  código/documentación vinculado al PR de implementación, no de este spec en
+  sí, y no se hace en esta sesión (tarea documental de un solo archivo). Hasta
+  que ese PR se mergee, `EVENT_CATALOG.md` no lista estos nombres y ningún
+  productor debe emitirlos (`AGENTS.md`: "Nunca inventar nombres de eventos
+  fuera de `EVENT_CATALOG.md`").
 - Productor + outbox atómico:
   - `bids.repository.ts:create` — nuevo `$transaction` (hoy no envuelto),
     idempotency key `bid.created.v1:<jobId>:<orgId>`.
@@ -349,7 +383,7 @@ forbidden_behavior:
 - [ ] `OperationalContextService` — suite nueva completa (hoy no existe
       ningún test real del servicio, solo un stub mockeado en
       `ai-models.controller.test.ts`); cubrir especialmente
-      `invalidateScope()` porque lo comparten los 10 call sites de
+      `invalidateScope()` porque lo comparten los 14 call sites de
       invalidación existentes, no solo este cambio
 - [ ] Fallback de `buildContext()` a query directa cuando la proyección
       falla — específico del hard-fail path de `/prometeo/chat`
