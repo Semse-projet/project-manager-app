@@ -4,7 +4,7 @@ title: "Prometeo Core — capa de persona y orquestación conversacional"
 domain: "agents"
 sdd_version: "2.0"
 version: "1.0"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
 code_status: "COMPLETE"
@@ -31,7 +31,11 @@ related_files:
   - apps/api/src/modules/prometeo/tool-governance/tool-governance.policy.ts
   - apps/api/src/modules/knowledge/agent-memory.service.ts
   - packages/agents/src/agent-registry.ts
-related_tests: []
+related_tests:
+  - apps/api/test/prometeo-orchestrator.service.test.ts
+  - apps/api/test/prometeo.controller.test.ts
+  - apps/api/test/prometeo-tool-governance.policy.test.ts
+  - apps/api/test/prometeo-tool-execution.service.test.ts
 related_endpoints:
   - "POST /v1/ai-models/prometeo/chat"
   - "GET /v1/prometeo/tools"
