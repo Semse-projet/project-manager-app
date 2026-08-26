@@ -3,7 +3,7 @@ id: "core.universal-identity-multi-role"
 title: "Identidad universal con múltiples capacidades por cuenta"
 domain: "core"
 sdd_version: "2.0"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "high"
@@ -13,8 +13,10 @@ merge_status: "MERGED"
 deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "NOT_APPLICABLE"
-verification_scope: "partial:fase-1-2:capabilities-endpoint-only"
-feature_flags: []
+verification_scope: "partial:fase-1-2-merged-deployed:fase-3-4-implemented-locally-2026-08-13-not-yet-merged"
+feature_flags:
+  - SEMSE_IDENTITY_CAPABILITY_UI_ENABLED
+  - SEMSE_IDENTITY_CAPABILITY_UI_CANARY_TENANT_IDS
 production_evidence:
   - github:pr:539:merge:8e0ad1e37d342636c76112af110e516895343f6b
   - railway:api:deployment:4773385c-d68d-4f8d-95f4-02b2e98b7a6b:success
@@ -26,13 +28,27 @@ related_files:
   - apps/web/app/(app)/admin/account/page.tsx
   - apps/web/app/(app)/client/account/page.tsx
   - apps/web/app/(app)/worker/account/page.tsx
+  - apps/web/app/api/semse/users/me/capabilities/route.ts
+  - apps/web/app/semse-api.ts
+  - apps/web/lib/capability.ts
+  - apps/web/lib/capability-context.tsx
+  - apps/web/lib/capability-flag.ts
+  - apps/web/lib/language-context.tsx
+  - apps/web/components/semse/CapabilityIndicator.tsx
+  - apps/web/components/semse/CapabilityBadge.tsx
+  - apps/web/app/(app)/layout.tsx
+  - apps/web/app/(app)/client/projects/[projectId]/page.tsx
+  - apps/web/app/(app)/buildops/projects/[projectId]/page.tsx
 related_tests:
   - apps/api/test/users.service.test.ts
+  - tests/unit/capability.test.ts
+  - tests/unit/capability-flag.test.ts
+  - tests/unit/capabilities-bff-contract.test.ts
 related_endpoints:
   - GET /v1/users/me/capabilities
 related_events: []
 related_agents: []
-last_verified: "2026-08-05"
+last_verified: "2026-08-13"
 ---
 
 # Spec: Identidad universal con múltiples capacidades por cuenta
@@ -342,14 +358,28 @@ sofisticado que el propuesto aquí.
 
 - [x] Aprobación explícita recibida — `status: DRAFT -> APPROVED` 2026-08-04.
 - [x] Investigación externa (§11) completada antes de `APPROVED`.
-- [ ] Spec enlazado por `pnpm spec:index`
-- [ ] Spec, plan, tasks, analyze y checklist coherentes
-- [ ] Tests derivados del spec y verdes
-- [ ] `pnpm spec:validate:strict` verde
-- [ ] Migración reproducible y rollback/forward-fix documentado
-- [ ] CI `PASS`
-- [ ] PR fusionado y SHA registrado
-- [ ] Deployment terminal `DEPLOYED`
-- [ ] Activación/canary verificada por separado
-- [ ] `production_evidence` y `last_verified` actualizados
+- [x] Spec enlazado por `pnpm spec:index` (2026-08-13).
+- [x] Spec, plan, tasks coherentes — Fase 3 (T-030/031/032) implementada
+      2026-08-13 según lo planeado en `.plan.md` §5; tensión spec§2↔T-032
+      resuelta de forma angosta (ver `.tasks.md` Fase 3).
+- [x] Tests derivados del spec y verdes — `tests/unit/capability.test.ts`
+      (cierra T-012, casos borde §4), `capability-flag.test.ts`,
+      `capabilities-bff-contract.test.ts`: 10/10 verdes.
+- [x] `pnpm spec:validate:strict` verde (2026-08-13).
+- [x] Migración: `NOT_APPLICABLE`, confirmado — Fase 3 no tocó
+      `packages/db/prisma/schema.prisma`.
+- [ ] CI `PASS` para el código de Fase 3 — todavía no hay PR abierto para
+      estos cambios (implementados en el working tree local al cierre de
+      esta sesión).
+- [ ] PR fusionado y SHA registrado — pendiente, ver nota anterior.
+- [ ] Deployment terminal `DEPLOYED` — sólo Fase 1-2 está desplegada
+      (PR #539); Fase 3 (UI, detrás de flag apagado) no.
+- [ ] Activación/canary verificada por separado — requiere activar
+      `SEMSE_IDENTITY_CAPABILITY_UI_CANARY_TENANT_IDS` en Railway
+      producción, variable de entorno que `AGENTS.md` prohíbe tocar a un
+      agente (mismo patrón que Mission Control 2.0 F4 esta sesión).
+- [x] `production_evidence` y `last_verified` actualizados en este spec
+      (2026-08-13) — sólo reflejan lo ya `MERGED`/`DEPLOYED` de Fase 1-2;
+      Fase 3 no agrega evidencia de producción todavía porque no está
+      desplegada.
 - [ ] Sólo entonces `status: VERIFIED`

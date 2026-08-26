@@ -44,7 +44,7 @@ retroactiva.
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-28 |
-| [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-13 |
 | [api-change-orders](specs/api/change-orders.spec.md) | change-orders | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
@@ -68,8 +68,8 @@ retroactiva.
 | [communications.rename-fase2](specs/communications/communications-rename-fase2.spec.md) | communications | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.account-center](specs/core/account-center.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
-| [core.originador-referral-program](specs/core/originador-referral-program.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | critical | no | 2026-08-04 |
-| [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
+| [core.originador-referral-program](specs/core/originador-referral-program.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-13 |
+| [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [evidence.canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [semse-forge-deployment-provider](specs/forge/SEMSE_FORGE_DEPLOYMENT_PROVIDER.spec.md) | forge | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-17 |
@@ -100,7 +100,7 @@ retroactiva.
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
 | [prometeo.agent-decision-retrieval](specs/prometeo/agent-decision-retrieval.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [prometeo.cache-control](specs/prometeo/cache-control.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
-| [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-08-17 |
+| [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
 | [prometeo.tool-result-multimodal](specs/prometeo/tool-result-multimodal.spec.md) | prometeo | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | high | no | 2026-07-12 |
@@ -131,10 +131,10 @@ retroactiva.
 | [m5-2-public-api](specs/tools/fase-5/m5.2-public-api.spec.md) | api | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [m5-3-monetization](specs/tools/fase-5/m5.3-monetization.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [tools.materials-calculator](specs/tools/materials-calculator.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-19 |
-| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-02 |
-| [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-17 |
+| [ui.admin-flows-remediation](specs/ui/admin-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
+| [ui-admin-flows](specs/ui/admin-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.admin-modular-navigation](specs/ui/admin-modular-navigation.spec.md) | ui | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | ACTIVE | medium | yes | 2026-08-02 |
-| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | REVIEW | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-08-17 |
+| [ui.client-flows-remediation](specs/ui/client-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-client-flows](specs/ui/client-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.demo-sandbox](specs/ui/demo-sandbox.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
 | [ui-smart-intake-flow](specs/ui/intake-flow.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
@@ -143,8 +143,8 @@ retroactiva.
 | [ui.mobile-admin-disputes](specs/ui/mobile-admin-disputes.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-17 |
 | [ui.mobile-admin-labor-overview](specs/ui/mobile-admin-labor-overview.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-19 |
 | [ui.mobile-client-tab](specs/ui/mobile-client-tab.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
-| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | REVIEW | IN_PROGRESS | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | critical | no | 2026-08-17 |
-| [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | MERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-17 |
+| [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
+| [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [ui.prometeo-multimodal-workspace-p3a](specs/ui/prometeo-multimodal-workspace.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-16 |
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-06-10 |
 | [ui.semse-hub](specs/ui/semse-hub.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |

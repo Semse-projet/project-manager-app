@@ -60,7 +60,7 @@ export function FlooringToolClient({ section }: FlooringToolClientProps) {
   const areaSqft = useMemo(() => input.lengthFt * input.widthFt, [input.lengthFt, input.widthFt]);
   
   const costPerSqft = useMemo(() => {
-    const baseCost: Record<typeof input.flooringType, number> = {
+    const baseCost: Record<FlooringInput["flooringType"], number> = {
       vinyl: 1.5, laminate: 2.0, tile: 3.5, hardwood: 5.0, bamboo: 3.0, stone: 6.0,
     };
     const base = baseCost[input.flooringType] || 2.0;

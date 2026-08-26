@@ -1,27 +1,15 @@
 ---
 id: "ui.pro-flows-remediation"
-title: "Pro/Worker UI Flows — Remediation (re-verificado 2026-08-17)"
+title: "Pro/Worker UI Flows — Remediation (auditoría 2026-07-20)"
 domain: "ui"
-sdd_version: "2.0"
-version: "2.0"
-status: "REVIEW"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
-code_status: "IN_PROGRESS"
-# ci_status/deploy_status/activation_status: NOT_RUN/NOT_DEPLOYED/INACTIVE is
-# about this SDD 2.0 delivery-evidence trail, not the real feature -- /worker
-# has been live for a while (see production_evidence: audited live with a
-# real PRO account 2026-07-20), but no CI run or fresh canary is tied to
-# *this* documented contract, and "no se inventa evidencia retroactiva"
-# (SDD_GOVERNANCE §5) rules out claiming DEPLOYED/ACTIVE without one.
-ci_status: "NOT_RUN"
-merge_status: "MERGED"
-deploy_status: "NOT_DEPLOYED"
-activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
-feature_flags: []
-production_evidence:
-  - "docs/AUDIT_REMEDIATION_PLAN.md Sección 2 — módulo Worker/PRO auditado con código + navegación en vivo, cuenta profesional real, 2026-07-20 (evidencia histórica; no cubre los hallazgos re-verificados en esta revisión 2026-08-17, ver §9)"
+date: "2026-07-20"
+author: "Claude Sonnet — sesión de auditoría en vivo (código + producción)"
+spec_index: "docs/SPEC_INDEX.md"
+supersedes: "docs/specs/ui/pro-flows.spec.md (reconciliado 2026-08-14: describía rutas huérfanas — /marketplace, /dashboard, /tools/:trade, /profile/payout — que no son la app real del rol PRO; ver nota DEPRECATED en ese archivo)"
 related_files:
   - apps/web/app/(app)/worker
   - apps/web/app/(app)/worker/dashboard/page.tsx
@@ -48,12 +36,10 @@ related_files:
   - apps/web/app/components/payments/PayoutMethodForm.tsx
   - apps/api/src/modules/labor-engine
   - apps/api/src/modules/travel
-  - apps/api/src/modules/travel/travel.service.ts
   - apps/api/src/modules/field-ops
-  - apps/api/src/modules/field-ops/field-ops.repository.ts
-  - apps/api/src/modules/incidents/incidents.service.ts
-  - apps/api/src/modules/materials/materials.service.ts
-  - apps/api/src/modules/tasks/tasks.service.ts
+  - apps/api/src/modules/incidents
+  - apps/api/src/modules/materials
+  - apps/api/src/modules/tasks
   - apps/api/src/modules/jobs/jobs.repository.ts
   - apps/api/src/common/visible-response.ts
   - apps/api/src/modules/users/users.controller.ts
@@ -61,8 +47,6 @@ related_files:
   - apps/api/src/modules/payments/providers/stripe.provider.ts
   - apps/api/src/modules/worker-verification/worker-verification.repository.ts
   - apps/api/src/modules/matching/matching.algorithm.ts
-  - apps/api/src/modules/intelligence/budget-intelligence.service.ts
-  - apps/api/src/modules/pricing/contractor-rate.service.ts
   - packages/auth/src/rbac.ts
   - apps/api/src/common/rbac.guard.ts
   - apps/api/src/modules/ai-models/ai-models.controller.ts
@@ -83,9 +67,7 @@ related_endpoints:
   - v1/materials
   - v1/tasks
   - v1/users
-  - v1/users/:userId/verify-request
   - v1/jobs
-  - v1/intelligence/budget/suggest
 related_events: []
 related_agents:
   - prometeo
@@ -94,277 +76,102 @@ related_agents:
   - pulse
   - justus
   - planner
-last_verified: "2026-08-17"
+last_verified: "2026-08-14"
 ---
 
 # Spec: Pro/Worker UI Flows — Remediation
 
-> Contrato ejecutable SDD 2.0. Código, CI, merge, deploy y activación se
-> registran por separado; un deploy no demuestra activación ni verificación
-> funcional.
+> **Nota de nomenclatura — léela antes que nada.** El rol real en la base de datos (`Role.name`) es **`PRO`**, no `WORKER`. La UI vive bajo `/worker/*` y el sidebar se etiqueta a sí mismo "Profesional". La app real de `/worker/*` — dashboard, trabajos, tracker, pagos, perfil — nunca tuvo spec propio hasta este documento.
 >
-> **Nota de nomenclatura.** El rol real en la base de datos (`Role.name`) es
-> **`PRO`**, no `WORKER`. La UI vive bajo `/worker/*` y el sidebar se
-> etiqueta a sí mismo "Profesional". Este spec cubre esa app completa —
-> distinta de `docs/specs/ui/pro-flows.spec.md`, que cubre específicamente
-> el catálogo ProTools (`apps/web/app/(app)/tools`). Ver §2.
+> **Actualizado 2026-08-14:** `docs/specs/ui/pro-flows.spec.md` (el spec anterior con este nombre) quedó `DEPRECATED` tras una auditoría de re-verificación — sus `related_files`/`related_tests` (`apps/web/app/pro`, `apps/web/app/(app)/tools`, `pro-tools-*.spec.ts`) apuntaban a rutas huérfanas: `/tools/:trade` (ProTools) **no está en la navegación del rol PRO en absoluto** (solo en `client`/`admin`), y sus propios tests de referencia prueban esa ruta logueados como Admin, no como PRO. Este documento (`pro-flows-remediation.spec.md`) es ahora el único spec vigente para el rol PRO/`/worker/*`.
+>
+> Auditado con: hallazgos de rebote de la ronda de backend transversal (labor-engine, Stripe Connect, matching) + navegación en vivo contra `semse-web-production.up.railway.app` con una cuenta profesional real (`jhonnymembers403@gmail.com`, rol `PRO`), el 2026-07-20. Cobertura en vivo parcial — ver `docs/AUDIT_REMEDIATION_PLAN.md` sección 2 para la lista exacta de pantallas recorridas y las que faltan.
 
-## 1. Problema y resultado
+## Problem Statement
 
-**Para quién:** actores con rol `PRO` (UI: "Profesional") y `WORKER`
-(alias legado del mismo rol) usando `apps/web/app/(app)/worker/**`.
+El rol PRO (UI: "Profesional", rutas: `/worker/*`) tiene un cronómetro de horas duplicado y desconectado, comparte la misma causa raíz de estado incorrecto que el módulo Cliente, y expone en pantalla el efecto directo de dos gaps de backend ya documentados (Stripe Connect sin conectar, trust score en 0 sin explicación) sobre una cuenta profesional real.
 
-**Problema (estado 2026-07-20/21, auditoría original):** la app completa
-del rol PRO nunca tuvo spec propio. Una auditoría en vivo + una ronda de 5
-agentes de código en paralelo encontraron 13 gaps `CRÍTICO` (G-PRO-00 a
-G-PRO-13) y 42 hallazgos adicionales (catalogados en
-`docs/AUDIT_REMEDIATION_PLAN.md` sección 2), incluyendo un badge de estado
-de trabajo que no coincidía con lo que veía el cliente, evidencia que no se
-subía realmente a storage, el chat de todos los agentes de IA
-(Prometeo/Felix/Marta/...) roto por RBAC, y varios IDOR cross-tenant/
-cross-worker.
+## Scope
 
-**Estado re-verificado ahora (2026-08-17):** al releer el código actual
-contra cada gap (no contra el reporte de la auditoría), **9 de los 13
-gaps `CRÍTICO` (G-PRO-01, 05, 06, 07, 09, 10, 11, 12, 13) y los 3 IDOR
-`ALTO` del catálogo de seguridad ya están resueltos en código**, cada uno
-con evidencia file:line concreta abajo — varios incluso con comentarios en
-el propio código que referencian el hallazgo original
-(`docs/AUDIT_REMEDIATION_PLAN.md`, `G-PRO-XX`). Esto es una actualización
-sustancial respecto al `DRAFT` anterior, que databa todo como pendiente.
+- In scope: `apps/web/app/(app)/worker/**`, el Time Tracker/Labor Engine en la medida que lo consume esta UI, el flujo de cobro (Stripe Connect) desde la perspectiva del profesional.
+- Out of scope: la lógica de nómina/overtime en sí (documentada en la sección transversal 0.19 del plan — es un gap de cumplimiento laboral, no de UI), y el algoritmo de matching en sí (0.27/0.28 del plan — aquí solo se documenta su efecto visible en `/worker/profile`).
 
-**Lo que sigue roto, confirmado hoy contra el código, no asumido:**
+## Non-Goals
 
-- **G-PRO-00** — el mismatch de badge de estado (`normalizedStatus` sin
-  `.toLowerCase()`) sigue presente tal cual, sin cambios, en
-  `apps/web/app/(app)/worker/jobs/[jobId]/page.tsx:150`.
-- **Parte no resuelta de G-PRO-08** — `/worker/dashboard` sigue sin
-  mostrar oportunidades reales; ver detalle abajo (el gap de seguridad de
-  G-PRO-08 sí se resolvió, el de UI no).
-- **G-PRO-02** (Stripe Connect sin explicación clara al profesional) y
-  **G-PRO-04** (verificación DID no funcional) — ver "Bloqueado por
-  decisión de producto" abajo; no son bugs de una línea.
+- No decide si el rol debería renombrarse de `PRO` a `WORKER` en la base de datos, ni si la UI debería decir "Worker" en vez de "Profesional" — solo documenta que hoy existen ambos nombres para la misma cosa, lo cual ya es motivo suficiente de confusión de producto.
+- No repara la ausencia de multiplicador de horas extra (0.19, transversal) — solo confirma que la UI de este módulo no muestra ninguna indicación de ese cálculo al profesional.
 
-**Resultado esperado:** cerrar los 2 gaps de UI que quedan abiertos
-(G-PRO-00 y el remanente de G-PRO-08), obtener una decisión de producto
-sobre G-PRO-02/G-PRO-04, y — antes de `APPROVED` — que exista al menos un
-test de regresión real para cada gap ya resuelto (`related_tests` sigue
-vacío: todo lo confirmado abajo se verificó leyendo código, no corriendo
-una suite).
+## Gaps encontrados
 
-## 2. Alcance
+> **Reconciliado 2026-08-14.** Igual que `client-flows-remediation.spec.md`, este documento quedó congelado en la auditoría original (2026-07-20/21) mientras `docs/AUDIT_REMEDIATION_PLAN.md` (secciones 0 y 2) siguió recibiendo fixes y verificación en vivo hasta 2026-08-01 sin actualizarlo. Cada gap re-mapeado a su ítem correspondiente (código + git log; live donde el plan ya lo registra), sin re-auditar desde cero. A diferencia de `client-flows-remediation.spec.md`, acá **quedan gaps genuinamente abiertos** (G-PRO-04, y la mitad de G-PRO-02) — no todo resultó estar ya resuelto.
 
-### Incluido
+### G-PRO-00 — RESUELTO — Mismo bug de causa raíz que G-CLI-00, manifestado distinto
+**= plan 0.0 / 2.1b.** Corregido (Crew A, 2026-07-21) — normalizado en el punto de entrada real (`normalizeJobRecordStatus()` en las rutas BFF `apps/web/app/api/semse/jobs/route.ts` y `.../jobs/[jobId]/route.ts`), no en cada componente; cero cambios en la lógica de comparación de las páginas, que ya era correcta contra el contrato de `packages/schemas`. Pendiente de verificación en vivo específica para `/worker/jobs/[jobId]` (el resto de la cadena — `/client/dashboard`, `/worker/dashboard` — sí se confirmó en vivo, ver G-CLI-00/G-PRO-08).
 
-- `apps/web/app/(app)/worker/**` completo: dashboard, jobs, field-ops,
-  tracker (Labor Engine), agenda, payments, profile, evidence, travel,
-  review, rates, incidents, materials, tasks, disputes, opportunities,
-  settings, bids.
-- El Time Tracker/Labor Engine en la medida que lo consume esta UI.
-- El flujo de cobro (Stripe Connect) desde la perspectiva del profesional.
-- El chat de Prometeo/agentes especializados desde `/worker/*` (RBAC).
-- IDOR y aislamiento tenant/actor en los endpoints que esta UI consume
-  (field-ops, incidents, materials, tasks, travel).
+### G-PRO-01 — RESUELTO — Dos cronómetros de tiempo desconectados bajo el mismo rol
+**= plan 2.1.** Ya documentado en este mismo archivo como resuelto 2026-07-27 (decisión de producto: deprecar/ocultar el legado, Labor Engine gana) — sin cambios respecto a esa nota.
 
-### Fuera de alcance
+### G-PRO-02 — PARCIALMENTE RESUELTO — Cuenta profesional sin Stripe Connect conectado
+**Backend = plan 0.16, resuelto (Crew D, 2026-07-21):** `createPayoutIntent` ya no cae nunca a la cuenta compartida `STRIPE_CONNECT_ACCOUNT_ID` cuando hay un `recipientUserId` conocido sin cuenta Connect activa — lanza una excepción explícita en su lugar. El riesgo real de dinero (pagarle a la cuenta equivocada) está cerrado.
+**UI (el "Fix esperado" original de este gap) = plan 2.1c, SIGUE ABIERTO:** `[ ] Pendiente — ver 0.16`, sin cambios desde el registro original. `/worker/payments` sigue mostrando el CTA neutral de "crea una cuenta" en vez de explicar que el payout queda bloqueado sin ella. No implementado a ciegas — queda como gap real de UI para una próxima pasada.
 
-- **El catálogo ProTools** (`apps/web/app/(app)/tools`,
-  `apps/api/src/modules/tools`, `apps/api/src/modules/semse-agents/protools.agent.ts`)
-  — cubierto por `docs/specs/ui/pro-flows.spec.md`. Este spec solo toca
-  ProTools indirectamente en G-PRO-13 (la tarifa del profesional
-  afectando un estimado), y ahí solo desde el ángulo de
-  `budget-intelligence.service.ts`, no del estimador ProTools en sí.
-- La lógica de nómina/overtime en sí (0.19, transversal) — un gap de
-  cumplimiento laboral, no de UI.
-- El algoritmo de matching en sí (0.27/0.28) — aquí solo se documenta su
-  efecto visible en `/worker/profile` (Trust 0%).
-- Si el rol debería renombrarse de `PRO` a `WORKER` en la base de datos —
-  solo se documenta que hoy existen ambos nombres.
-- Implementar verificación DID real (criptografía real) — decisión de
-  producto pendiente, ver sección de bloqueo abajo.
+### G-PRO-03 — RESUELTO — El perfil mostraba "Trust 0%" sin contexto
+**= plan 2.1d.** Corregido (2026-07-27), a propósito con alcance distinto de 0.28 (que corrigió el algoritmo, no la presentación): usando `ratings.length === 0` como señal ya disponible en la pantalla, `trustScore === 0 && ratings.length === 0` ahora muestra "Trust — nuevo en la plataforma" con tooltip explicativo en vez de "Trust 0%" desnudo; cualquier otro valor sigue mostrando el porcentaje real con un tooltip de qué lo mueve. Sin cambios de backend/API — solo presentación sobre datos que la pantalla ya tenía.
 
-## 3. Actores, permisos y límites
+### G-PRO-04 — SIGUE ABIERTO — Verificación de identidad (firma DID) es un stub, expuesto como "Sin verificar" al profesional
+**= plan 0.9 + nota en 3.13.** **No corregido, deliberadamente.** El propio plan lo dice explícito: hacer que la verificación DID funcione de punta a punta es una decisión de producto (¿quién aporta la firma criptográfica real — el propio worker, o un proceso separado?), no un fix de una línea — se investigó hasta la causa raíz y se dejó señalado, sin implementar a ciegas. Sigue contradiciendo la promesa de marca "Profesionales verificados" de la landing pública. Este es el único gap `CRÍTICO` de este spec que sigue genuinamente sin resolver.
 
-| Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
-|---|---|---|---|---|
-| `PRO` | `agents:run:create` | tenant del actor | chatear con Prometeo/agentes (ver G-PRO-05, resuelto) | — |
-| `PRO` | `travel:manage` | viajes propios | crear/gestionar sus propios viajes (ver G-PRO-10, resuelto) | gestionar viajes de otro profesional (ver IDOR resuelto abajo) |
-| `PRO` | `users:verify:request` | su propio usuario | solicitar revisión de verificación (ver G-PRO-09, resuelto) | ejecutar `users:verify` (exclusivo `OPS_ADMIN`) |
-| `PRO`/`WORKER` | `field-ops:write` | unidades de su tenant | actualizar estado de una `FieldUnit` de su propio tenant | actualizar una `FieldUnit` de otro tenant (ver G-PRO-11, resuelto) |
-| `WORKER` (alias) | mismos permisos que `PRO` salvo `bids:create`/`milestones:submit`/`change-orders:*` | — | — | — |
+### G-PRO-05 — RESUELTO — El chat de Prometeo y de TODOS los agentes especializados estaba roto para PRO/WORKER por un permiso RBAC que ningún endpoint de chat aceptaba
+**= plan 0.33 (también referenciado como 2.1e).** Corregido (Crew A, 2026-07-21) — `agents:run:create` agregado a `PRO` y `WORKER` en `packages/auth/src/rbac.ts` (cubre los 16 agentes conversacionales y todos los controladores listados en el hallazgo original, mismo decorador compartido). Traducción de `nav.aiSettings` corregida a "Configuración del asistente" en español. La extensión OR de `RbacGuard` (aceptar `agents:run:create` O `agents:run:worker`) queda como mejora a mediano plazo, no bloqueante. **Verificado en vivo (2026-07-31/08-01):** login como `worker@demo.semse`, `POST /api/semse/cortex/chat` devuelve `200` con una respuesta real de Prometeo, no el `403`/"Insufficient permissions" original.
 
-- **Tenant boundary:** `resolveRequestContext` sigue siendo la única
-  fuente de `tenantId`; los fixes de IDOR listados abajo agregan el filtro
-  `tenantId` que faltaba en el `where`, no una fuente nueva de contexto.
-- **Ownership/resource policy:** `incidents`, `materials` y `travel` ahora
-  verifican explícitamente que el actor esté asignado al job/viaje
-  (`ForbiddenException("actor is not assigned to this job/travel")`) antes
-  de leer o escribir — cerrando el IDOR intra-tenant documentado en la
-  auditoría original.
-- **Step-up o aprobación humana:** ninguna nueva.
-- **Datos `privacyCritical`:** ninguno nuevo introducido por estos fixes.
-- **Requisitos de auditoría:** el override manual de `OPS_ADMIN` sobre
-  `updateUnitStatus`/tareas/incidentes sigue sin trazabilidad explícita de
-  actor/motivo más allá de lo que cada módulo ya registraba — no se agregó
-  auditoría nueva en los fixes revisados.
+### G-PRO-06 — RESUELTO (parcial, con una pieza de mayor alcance deferida a propósito) — Subir evidencia real no subía el archivo
+**= plan 0.34 + 2.18.** Corregido (Crew B, 2026-07-21), con una verificación en vivo (2026-08-01) que encontró y corrigió 3 regresiones reales nunca antes probadas contra un servidor real:
+  - `worker/evidence/page.tsx` y `worker/travel/[travelId]/page.tsx` ahora obtienen `plan.key` real y hacen el `PUT` real vía el proxy BFF (`/api/semse/uploads/files/:key`) antes de registrar — el mismo mecanismo que ya funcionaba del lado Cliente (`uploadEvidenceFile`).
+  - `GET .../evidence` ahora expone `validationStatus`/`aiQualityScore` reales (plan 2.18).
+  - **Explícitamente NO corregido, deferido a propósito:** `recommendedStrategy: "external_transfer"` (archivos >25MB) ahora falla con un mensaje claro en vez de simular éxito — arreglar la subida real para archivos grandes (persistencia real de multipart en el backend) queda fuera de esta pasada, es un cambio mayor y afecta un caso de uso menos común.
+  - **La verificación en vivo del 2026-08-01 encontró 3 bugs nuevos** que habrían dejado este fix roto de punta a punta sin que nadie lo notara (nunca se había probado contra un servidor real): Fastify rechazaba el `PUT` con `415` antes de llegar al controller (content-type parser faltante), `@Req()` no era el stream crudo bajo Fastify (`req.raw`), y `getFile`/`verifyPassport` usaban `res.set()`/`res.setHeader()` de Express, que no existen en `FastifyReply`. Los 3 corregidos el mismo día. **Verificación end-to-end real confirmada:** `POST /v1/uploads/plan` → `PUT` real → `POST /v1/evidence` → `201` → `GET /v1/uploads/files/:key` → archivo descargado byte-idéntico al original.
 
-## 4. Escenarios y criterios de aceptación
+## Gaps adicionales — ronda de 5 agentes de código en paralelo (2026-07-21)
 
-### P1 — El badge de estado de un trabajo coincide con lo que ve el cliente (ABIERTO)
+> Auditoría estática de `apps/web/app/(app)/worker/**` completa, la misma metodología aplicada al módulo Cliente (5 agentes en paralelo, uno por franja funcional). 42 hallazgos nuevos en total; los `CRÍTICO` se detallan aquí como gaps propios, el resto (14 `ALTO`, 13 `MEDIO`, 6 `BAJO`) está catalogado con evidencia completa file:line en `docs/AUDIT_REMEDIATION_PLAN.md` → Sección 2, ítems **2.8 a 2.48**, para no duplicar el mismo detalle en dos documentos.
 
-```gherkin
-DADO un job con status ACCEPTED (mayúsculas, como lo devuelve la API)
-CUANDO un PRO abre /worker/jobs/[jobId]
-ENTONCES el badge debe mostrar "Aceptado", igual que /client/jobs/[jobId]
-```
+### G-PRO-07 — RESUELTO — Las reseñas de cliente estaban 100% rotas
+**= plan 2.17.** Corregido (Crew E, 2026-07-21) — `Contract.clientUserId` identificado como el campo real (`Job` solo tiene `clientOrgId`, a nivel de org). Propagado de punta a punta: `bids.repository.ts` (`listByWorker`), `domain-store.ts` (`BidRecord`), la ruta BFF `my-bids/route.ts` (tenía su propio whitelist que también lo habría descartado), `semse-api.ts` (`MyBidView`, sin casts `as any`) y `jobRecordSchema`. Casts `(j as any)` eliminados de `worker/review/page.tsx`. Pendiente verificación en vivo.
 
-**Estado real confirmado hoy:** falla. `normalizedStatus = asString(job?.status) ?? "posted"`
-(`apps/web/app/(app)/worker/jobs/[jobId]/page.tsx:150`) nunca aplica
-`.toLowerCase()`, y `job.status` llega en mayúsculas porque
-`GET /v1/jobs/:jobId` pasa por `toVisibleJob()`
-(`apps/api/src/modules/jobs/jobs.controller.ts:48,92,120,164`, que
-uppercasea vía `jobStatusVisibleMap` en
-`apps/api/src/common/visible-response.ts:3-17,63-65`). La búsqueda en
-`JOB_STATUS_META` (claves en minúsculas) falla y cae al fallback
-`.posted` — el mismo patrón que en `worker/agenda/page.tsx`, que **sí**
-normaliza correctamente porque construye su propio `status: String(j.status ?? "")`
-desde `fetchMyJobs()` sin pasar por el mismo camino de mayúsculas (ver
-`apps/web/app/(app)/worker/agenda/page.tsx:36` vs. `STATUS_CONFIG` en
-minúsculas también ahí — coincide por una ruta de datos distinta, no
-porque el bug esté arreglado).
+### G-PRO-08 — RESUELTO — "Oportunidades abiertas" del dashboard siempre vacío, y la misma llamada exponía jobs `DRAFT` de otras organizaciones
+**= plan 2.26 + 2.27.** Corregido (Crew A, 2026-07-21 para la normalización; 2026-07-23 para el scoping de datos). El fix de normalización es el mismo que G-PRO-00/0.0. Además, `listByTenant` ahora recibe `roles` y aplica scoping real: PRO/WORKER limitado a jobs postables (`POSTED`/`PUBLISHED`) más los jobs donde el actor ya está comprometido, nunca `DRAFT` de otra organización — el mismo hueco resultó afectar también a CLIENT, no solo a PRO, y se cerró para ambos. **Nota de incidente (sin logging suficiente para descartar explotación previa):** cualquier PRO o CLIENT con devtools pudo ver, antes de este fix, títulos/presupuestos/ubicaciones de jobs `DRAFT` de otras organizaciones — no se puede confirmar si ya ocurrió. **Verificado en vivo (2026-07-31/08-01):** login `worker@demo.semse`, `/worker/dashboard` mostró "Oportunidades abiertas: 3" (coincide con los 3 jobs `posted` reales); `GET /api/semse/jobs` devolvió 5 jobs, cero `draft` en el payload.
 
-### P2 — El dashboard muestra oportunidades reales (PARCIALMENTE ABIERTO)
+### G-PRO-09 — RESUELTO — Los botones "Verificar" del perfil siempre fallaban con 403
+**= plan 2.28.** Corregido (2026-07-27) como feature nueva completa, no un fix de una línea: nuevo permiso `users:verify:request` (otorgado a PRO/WORKER, deliberadamente distinto de `users:verify` que sigue siendo OPS_ADMIN-only); nuevo endpoint self-only `POST /v1/users/:userId/verify-request` que solo encola la solicitud (reutiliza el mecanismo de workspace-memory de 2.44); nueva sección "Solicitudes de verificación" en `/admin/trust/worker-applications` con botones Aprobar/Rechazar. 13 tests nuevos, suite completa 1990/1990 verde. Pendiente verificación en vivo del flujo completo (solicitar como PRO → aprobar/rechazar como OPS_ADMIN).
 
-```gherkin
-DADO jobs con status POSTED en el tenant
-CUANDO un PRO abre /worker/dashboard
-ENTONCES la sección "Oportunidades abiertas" debe listarlos
-Y la llamada no debe traer jobs DRAFT de otras organizaciones
-```
+### G-PRO-10 — RESUELTO — El módulo de Movilidad era completamente inalcanzable para cualquier PRO real
+**= plan 2.31.** Corregido (Crew A, 2026-07-21) — en vez de agregar `jobs:create` a PRO/WORKER (que habría abierto de más: creación de job listings, tasks, materials, incidents), se introdujo un permiso dedicado `travel:manage` en los 6 endpoints de escritura de `travel.controller.ts`, otorgado a CLIENT/PRO/WORKER/OPS_ADMIN. Pendiente verificación en vivo.
 
-**Estado real confirmado hoy — dividido en dos mitades:**
+### G-PRO-11 — RESUELTO — IDOR cross-tenant: el estado de cualquier unidad de campo de cualquier tenant se podía sobreescribir
+**= plan 2.32.** Corregido (Crew C, 2026-07-21) — mismo patrón que 0.4: `update()` con solo `id` reemplazado por `updateMany({where: {id, tenantId}})` + verificación de `count` (404 si 0) + re-fetch, igual que `findUnitById` ya hacía para lecturas. Pendiente verificación en vivo.
 
-- **Mitad de seguridad — RESUELTA:** `jobs.repository.ts:79-126`
-  (`listByTenant`) ahora aplica `visibilityWhere` para `PRO`/`WORKER`:
-  solo jobs `POSTED`/`PUBLISHED`, o donde el actor tiene bid/reserva
-  activa/contrato/proyecto asignado. Ya no expone jobs `DRAFT` de otras
-  orgs sin relación con el actor.
-- **Mitad de UI — SIGUE ABIERTA:** `worker/dashboard/page.tsx:155`
-  filtra `["posted","published"].includes(job.status)`, pero `job.status`
-  llega en mayúsculas (mismo `toVisibleJob()` que en P1, aplicado en
-  `GET /v1/jobs` línea 35 del controller). El filtro nunca matchea — la
-  sección de oportunidades sigue vacía siempre, mismo síntoma que G-PRO-08
-  documentó originalmente, causa raíz idéntica a G-PRO-00.
+### G-PRO-12 — RESUELTO — El estado visual de un pago se calculaba solo por `type`, ignorando el `status` real
+**= plan 2.39.** Corregido (Crew D, 2026-07-21) — `worker/payments/page.tsx` ahora lee `row.status` real; nuevo estado visual `"failed"` (badge rojo) cubre `FAILED`/`REVERSED`; `"released"`/`"in_escrow"` ahora exigen `status === "SUCCEEDED"` además del `type` correcto. `totalReleased` deja de sumar transacciones fallidas automáticamente. Pendiente verificación en vivo.
 
-### P3 — Subir evidencia sube el archivo real (RESUELTO)
+### G-PRO-13 — RESUELTO — "Mis Tarifas" no tenía ningún efecto real
+**= plan 2.40.** Corregido (2026-07-27) — **decisión de producto explícita del usuario: conectarla a un flujo real, no solo corregir el copy.** Investigado primero si `client/protools/page.tsx`/`client/jobs/new/page.tsx` eran compatibles con "la tarifa del profesional ya asignado" (no lo son — ninguna de las dos tiene a la vez un profesional asignado y un estimado visible al cliente); se diseñó una superficie nueva con el usuario confirmando el diseño antes de implementar. 5 tests nuevos en `budget-intelligence.service.test.ts` (archivo nuevo). Pendiente verificación en vivo (requiere un job real con bid aceptado y un profesional con tarifa configurada).
 
-```gherkin
-DADO un PRO en /worker/evidence con un archivo seleccionado
-CUANDO presiona "Registrar"
-ENTONCES ocurre un PUT real a la URL de presign
-Y el objeto existe en storage antes de registrar la evidencia
-```
+## Cobertura de esta pasada
 
-**Estado real confirmado hoy:** resuelto en ambos archivos.
-`apps/web/app/(app)/worker/evidence/page.tsx:141-149` y
-`apps/web/app/(app)/worker/travel/[travelId]/page.tsx:274-282` ahora
-hacen `fetch(".../uploads/files/${key}", { method: "PUT", body: file })`
-con la `key` real devuelta por `planUpload()`, antes de registrar
-evidencia/gasto — ya no fabrican una key local ni omiten el `PUT`.
+**Completa en vivo (2026-07-20 y 2026-07-21):** Dashboard, Oportunidades, Mis trabajos (+ detalle), Time Tracker, Operaciones de campo, Mi perfil, Mis pagos, Mis propuestas, Agenda, Tareas, Evidencia (incl. subida real de archivo), Materiales, Incidencias, Movilidad, Reseñas, "Asistente IA" (en realidad `/worker/settings`), widget flotante de Prometeo/agentes, catálogo `/agents` completo.
 
-### P4 — Un PRO puede chatear con Prometeo/agentes (RESUELTO)
+**Completa de código (2026-07-21):** ronda de 5 agentes en paralelo sobre `apps/web/app/(app)/worker/**` — Tracker/Labor Engine; Field-ops+Movilidad; Trabajos/Dashboard/Perfil/Agenda/Propuestas; Disputas/Pagos/Oportunidades/Configuración/Tarifas; Evidencia/Incidencias/Materiales/Reseñas/Tareas. Ver gaps G-PRO-07 a G-PRO-13 arriba y `docs/AUDIT_REMEDIATION_PLAN.md` 2.8-2.48 para el resto.
 
-```gherkin
-DADO un usuario con rol PRO o WORKER
-CUANDO envía un mensaje a Prometeo o a cualquier agente especializado
-ENTONCES recibe una respuesta real, no "Insufficient permissions"
-```
-
-**Estado real confirmado hoy:** resuelto. `packages/auth/src/rbac.ts:94,113`
-ya incluye `"agents:run:create"` en los arrays de `PRO` y `WORKER` — el
-mismo permiso que exige `POST /v1/ai-models/prometeo/chat`
-(`ai-models.controller.ts:213-214`) y el resto de los 40+ endpoints de
-chat listados en la auditoría original, todos gateados por el mismo
-`@RequirePermissions("agents:run:create")`. La traducción de
-`nav.aiSettings` también se corrigió: `apps/web/lib/language-context.tsx:83`
-ahora dice "Configuración del asistente" en español (antes decía
-"Asistente IA", que confundía con un chat).
-
-### P5 — Un PRO puede enviar una reseña de cliente (RESUELTO)
-
-```gherkin
-DADO un job completado/en revisión con contrato firmado
-CUANDO el PRO completa el formulario de reseña en /worker/review
-ENTONCES la reseña se crea sin depender de un campo inexistente
-```
-
-**Estado real confirmado hoy:** resuelto. `JobRecordView` ahora declara
-`clientUserId`/`clientEmail` (`packages/schemas/src/job.schema.ts:76-77`),
-y `fetchMyJobs()` (`apps/web/app/semse-api.ts:378-381`) los llena con
-datos reales desde `Contract.clientUserId` vía `bids.repository.ts` — el
-comentario en el código cita explícitamente "G-PRO-07/2.17". La página
-`worker/review/page.tsx` ya no necesita el cast `(j as any)`.
-
-### P6 — Verificación de perfil, viajes y estado de pagos (RESUELTO)
-
-- **G-PRO-09 (botón "Verificar" 403):** resuelto —
-  `users.controller.ts:157-158` agregó `POST /:userId/verify-request`
-  gateado por `users:verify:request` (que `PRO`/`WORKER` sí tienen),
-  distinto del endpoint admin-only `POST /:userId/verify`. El frontend
-  (`worker/profile/page.tsx:156`) ya llama al endpoint nuevo.
-- **G-PRO-10 (viajes 403 siempre):** resuelto — `travel.controller.ts`
-  usa `@RequirePermissions("travel:manage")` en vez de `jobs:create`; ese
-  permiso nuevo sí está en `PRO`/`WORKER`/`CLIENT`.
-- **G-PRO-12 (badge de pago por `type`, no `status`):** resuelto —
-  `worker/payments/page.tsx:82-86` ahora deriva el badge de `row.status`
-  real (`FAILED`/`REVERSED` nunca se pintan como liberado/en escrow),
-  con comentario explícito en el código citando el fix.
-- **G-PRO-13 (tarifa del profesional sin efecto real):** resuelto —
-  `budget-intelligence.service.ts:199-224` ahora aplica
-  `contractorRate.getOverride(proUserId)` del profesional **asignado**
-  (vía `Contract.professionalUserId`) al calcular `POST /v1/intelligence/budget/suggest`,
-  y el texto de `/worker/rates` se corrigió para prometer solo esto
-  ("una vez que ese trabajo te lo asignen a vos" en vez de "en todos los
-  estimados futuros").
-
-Casos borde (todos los anteriores):
-
-- [ ] Ninguno de los fixes anteriores tiene un test de regresión dedicado
-      todavía (`related_tests: []`) — confirmados por lectura de código,
-      no por suite verde.
-- [ ] `worker/agenda/page.tsx` no debe regresar al mismo bug de mayúsculas
-      si algún día empieza a consumir `job.status` desde `GET /v1/jobs`
-      en vez de `fetchMyJobs()`.
-
-## 5. Contratos
-
-### API — sin contratos nuevos
-
-Este spec no introduce endpoints nuevos; documenta permisos y filtros que
-ya cambiaron en endpoints existentes:
+## UI Contract
 
 ```yaml
-auth: required
-permissions: [travel:manage, users:verify:request, agents:run:create, field-ops:write]
-effects:
-  audit_log: sin cambios nuevos en esta pasada
-  domain_event: ninguno
-  sse: ninguno
-  payment_governance: no aplica directamente — G-PRO-02 (Connect) sigue
-    dependiendo de que el payout falle explícitamente sin cuenta conectada,
-    ya resuelto en apps/api/src/modules/payments/providers/stripe.provider.ts:82-97
-```
-
-### UI
-
-```yaml
-surfaces:
+screens:
   - /worker/dashboard
   - /worker/opportunities
   - /worker/jobs
   - /worker/jobs/[jobId]
   - /worker/tracker (Labor Engine real — 6 tabs: Timer/Resumen/Registros/Proyectos/Reportes/Asistente)
-  - /worker/field-ops (pestaña "Tracker" removida 2026-07-27 — ver G-PRO-01 abajo)
+  - /worker/field-ops (pestaña "Tracker" removida 2026-07-27, ver G-PRO-01 — Unidades/Worklogs/Base de conocimiento/Proveedores siguen activas)
   - /worker/payments
   - /worker/profile
   - /worker/evidence
@@ -373,271 +180,80 @@ surfaces:
   - /worker/materials
   - /worker/incidents
   - /worker/review
-  - /worker/rates
 states:
   - loading
   - empty
   - ready
-  - forbidden
-  - degraded
   - error
 required_behavior:
-  - El badge de estado de un trabajo debe coincidir exactamente con lo que
-    ve el cliente para el mismo jobId — BLOQUEADO hoy por G-PRO-00 (P1)
-  - "Oportunidades abiertas" debe listar jobs POSTED reales — BLOQUEADO
-    hoy por el remanente de G-PRO-08 (P2)
-  - Un archivo de evidencia subido debe existir en storage — RESUELTO (P3)
-  - Un PRO debe poder chatear con Prometeo/agentes — RESUELTO (P4)
-  - Solo debe existir una ruta activa de registro de horas por profesional
-    — RESUELTO 2026-07-27 (G-PRO-01)
+  - El badge de estado de un trabajo debe coincidir exactamente con lo que ve el cliente para el mismo jobId (bloqueado hoy por G-PRO-00)
+  - Solo debe existir una ruta activa de registro de horas por profesional (resuelto 2026-07-27, ver G-PRO-01)
+  - Un archivo de evidencia subido en `/worker/evidence` debe existir realmente en storage tras "Registrar" (bloqueado hoy por G-PRO-06)
+  - Un usuario PRO debe poder enviar un mensaje a Prometeo/agentes y recibir respuesta real (bloqueado hoy por G-PRO-05)
 ```
 
-### Agente/Prometeo
+## Security / RBAC
 
-```yaml
-tools: []
-input_schema: n/a — este spec no define tools nuevas
-output_schema: n/a
-source_citations_required: false
-approval_policy: n/a
-forbidden_behavior:
-  - El chat de Prometeo/agentes no debe devolver un error crudo en inglés
-    sin traducir al usuario final (mitigado indirectamente: el 403 ya no
-    debería ocurrir para PRO/WORKER tras el fix de RBAC de P4, pero no se
-    confirmó que el frontend traduzca un 403 si ocurriera por otra causa)
-```
+- **G-PRO-11 (CRÍTICO, cross-tenant IDOR) — RESUELTO:** `updateUnitStatus` en field-ops no filtraba por `tenantId` — ver detalle arriba (= plan 2.32).
+- **IDOR intra-tenant (ALTO, plan 2.19) — RESUELTO:** `POST/GET /v1/incidents` y `/v1/materials` no verificaban que el actor estuviera asignado al `jobId`. Corregido (Crew C, 2026-07-21) — `incidents.service.ts`/`materials.service.ts` ahora verifican, antes de leer o crear, que el actor pertenezca a la org cliente o a la org profesional asignada del job (`assertJobAccess`, mismo patrón que `evidence.policy.ts`), bypass para OPS_ADMIN. **Nota encontrada durante el fix:** ni PRO ni WORKER tienen hoy el permiso `jobs:create` que gatea estos endpoints — es decir, en la práctica ningún profesional puede crear una incidencia/material en absoluto (403), lo cual contradice el marco original del hallazgo ("cualquier worker puede leer/inyectar"). Señalado como gap de RC3 (permisos) no documentado aparte — no se amplió `jobs:create` a PRO/WORKER como parte de este fix, mismo criterio que llevó al permiso dedicado `travel:manage` en vez de reusar `jobs:create` (ver G-PRO-10). Pendiente verificación en vivo.
+- **IDOR intra-tenant (ALTO, plan 2.20) — RESUELTO:** `PATCH /v1/tasks/:taskId/status` no verificaba `assignedTo === actor.userId`. Corregido (Crew C, 2026-07-21) — `tasks.service.ts` ahora hace un `findFirst` previo y verifica `assignedTo === actor.userId` (bypass OPS_ADMIN); tareas sin asignar quedan editables por cualquiera con el permiso base. Pendiente verificación en vivo.
+- **IDOR intra-tenant (ALTO, plan 2.34) — RESUELTO:** los endpoints de `/v1/travel/:travelId` no verificaban `assignedTo === actor.userId`. Corregido (Crew C, 2026-07-21) — verificación centralizada en `getAssignment` (exige `assignedTo === actorUserId` o `orgId === job.clientOrgId`, bypass OPS_ADMIN); las 9 funciones restantes que operan sobre un `travelId` llaman a `getAssignment` primero en vez de repetir el join. Pendiente verificación en vivo.
+- **Cumplimiento/PCI-DSS (ALTO, plan 2.44) — resuelto 2026-07-27:** `PayoutMethodForm.tsx` recolecta PAN de tarjeta y número de cuenta/routing bancario completos en inputs propios sin tokenizar (no Stripe Elements/Plaid) — transita en texto plano por el BFF antes de que el backend descarte los dígitos completos y guarde solo `last4`. **Decisión de producto obtenida del usuario: migrar a Stripe (tarjeta vía `<CardElement>`, cuenta bancaria vía `stripe.createToken("bank_account")` desde el navegador directo a Stripe), sin agregar Plaid.** El backend ahora verifica el token contra la API de Stripe para obtener el `last4` real en vez de confiar en el cliente. Ver detalle completo en `docs/AUDIT_REMEDIATION_PLAN.md` 2.44. Pendiente: el usuario debe configurar `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` en Railway antes de que esto funcione en producción.
+- La cuenta usada para esta auditoría estuvo bloqueada por el bug transversal 0.32 (reset de contraseña no envía correo) y se desbloqueó manualmente por el operador de la sesión — ver nota en `docs/AUDIT_REMEDIATION_PLAN.md`. Se repitió una segunda vez el 2026-07-21.
 
-## 6. FSM, eventos y reconstrucción
+## Tests Required
 
-- Estado/FSM afectado: `Job` (visualización de estado únicamente — sin
-  transiciones nuevas ni distintas de `docs/foundation/DOMAIN_INVARIANTS.md`).
-- Invariantes: los estados visibles canónicos (`DRAFT/POSTED/RESERVED/
-  ACCEPTED/IN_PROGRESS/REVIEW/DISPUTE/COMPLETED/CANCELLED`) ya están
-  correctamente definidos en `jobStatusVisibleMap`
-  (`apps/api/src/common/visible-response.ts:3-17`) — el bug de P1/P2 es
-  puramente de comparación de casing en el cliente, no de mapeo de estado.
-- Eventos declarados: ninguno nuevo.
-- Productor + outbox atómico / Consumidores + idempotencia / Replay/DLQ:
-  no aplica — sin cambios de arquitectura de eventos en este spec.
+- [x] `/worker/jobs/[jobId]` muestra el mismo badge de estado que `/client/jobs/[jobId]` para el mismo `jobId` (regresión directa de G-PRO-00) — corregido 2026-07-21, pendiente de confirmación en vivo específica para esta pantalla
+- [x] La pestaña "Tracker" de `/worker/field-ops` no permite iniciar una sesión de tiempo nueva (o queda removida) — removida por completo 2026-07-27
+- [ ] `/worker/payments` comunica explícitamente por qué no se puede cobrar cuando no hay cuenta Connect activa — **sigue sin hacerse** (plan 2.1c, `[ ] Pendiente`), ver G-PRO-02
+- [x] Un usuario con rol `PRO` puede enviar un mensaje a Prometeo (o cualquier agente) desde el widget flotante y recibe una respuesta real, no `Insufficient permissions` (regresión directa de G-PRO-05) — verificado en vivo 2026-07-31/08-01
+- [ ] Un usuario con rol `WORKER` (literal, no alias de PRO) tiene el mismo resultado — el fix cubre a `WORKER` en `rbac.ts` igual que a `PRO`, pero no se repitió la verificación en vivo con una cuenta `WORKER` literal por separado
+- [x] El label del nav item que enlaza a `/worker/settings` coincide con su contenido real en ambos idiomas — corregido junto con G-PRO-05 (`nav.aiSettings` → "Configuración del asistente")
+- [x] Subir una foto en `/worker/evidence` hace un `PUT` real a `plan.uploadUrl` y el objeto existe en storage después (regresión directa de G-PRO-06) — verificado end-to-end en vivo 2026-08-01, byte-idéntico tras descarga
+- [x] Subir un comprobante en `/worker/travel/[travelId]` tiene el mismo comportamiento — mismo fix aplicado, no se confirmó en vivo específicamente (sin viaje activo disponible para probar)
+- [x] Un PRO puede enviar una reseña de cliente desde `/worker/review` y el registro se crea (regresión directa de G-PRO-07) — corregido 2026-07-21, pendiente verificación en vivo
+- [x] `/worker/dashboard` muestra oportunidades reales cuando existen jobs `posted` en el tenant (regresión directa de G-PRO-08) — verificado en vivo 2026-07-31/08-01 ("Oportunidades abiertas: 3")
+- [x] La llamada que alimenta `/worker/dashboard` no devuelve jobs `DRAFT` de organizaciones distintas a las del profesional (regresión directa de G-PRO-08) — verificado en vivo 2026-07-31/08-01 (0 `draft` en el payload de 5 jobs)
+- [x] Un PRO puede completar el flujo de "Solicitar verificación" en `/worker/profile` sin recibir 403 (regresión directa de G-PRO-09) — corregido 2026-07-27, pendiente verificación en vivo del flujo completo
+- [x] Un PRO puede crear un viaje en `/worker/travel` sin recibir 403 (regresión directa de G-PRO-10) — corregido 2026-07-21, pendiente verificación en vivo
+- [x] Un pago con `status: FAILED` o `REVERSED` no se muestra como "Liberado"/"En escrow" en `/worker/payments` (regresión directa de G-PRO-12) — corregido 2026-07-21, pendiente verificación en vivo
+- [x] Guardar una tarifa en `/worker/rates` tiene un efecto verificable en al menos un estimado real, o la pantalla deja de prometerlo (regresión directa de G-PRO-13) — corregido 2026-07-27, pendiente verificación en vivo con un job real
 
-## 7. Datos y migración
+## Implementation Map
 
-- Modelos Prisma: ninguno nuevo.
-- Migración: no aplica — todos los fixes verificados son de lógica
-  (filtros `where`, permisos RBAC, normalización de estado en frontend),
-  no de esquema.
-- Compatibilidad hacia atrás: los fixes de IDOR (`field-ops`, `incidents`,
-  `materials`, `tasks`, `travel`) son estrictamente más restrictivos que
-  antes — no deberían romper ningún flujo legítimo, solo bloquear acceso
-  cross-tenant/cross-actor que nunca debió funcionar.
-- Verificación de drift: no aplica.
-- Rollback de código: cada fix es reversible individualmente (son diffs
-  acotados por archivo, listados en §10); no hay dependencia entre ellos.
+### Web
+- `apps/web/app/(app)/worker/jobs/[jobId]/page.tsx`
+- `apps/web/app/(app)/worker/field-ops/page.tsx`
+- `apps/web/app/(app)/worker/payments/page.tsx`
+- `apps/web/app/(app)/worker/profile/page.tsx`
+- `apps/web/app/(app)/worker/evidence/page.tsx:120-154` (G-PRO-06 — agregar el `PUT` real a `plan.uploadUrl` en la rama `single_put`, usar `plan.key` real)
+- `apps/web/app/(app)/worker/travel/[travelId]/page.tsx:261-295` (G-PRO-06 — mismo fix)
+- `apps/web/app/(app)/worker/review/page.tsx:84-85,104-108` (G-PRO-07)
+- `apps/web/app/(app)/worker/dashboard/page.tsx:130-155` (G-PRO-08)
+- `apps/web/app/(app)/worker/profile/page.tsx:134-153` (G-PRO-09)
+- `apps/web/app/(app)/worker/payments/page.tsx:58-61` (G-PRO-12)
+- `apps/web/app/(app)/worker/rates/page.tsx` (G-PRO-13 — pendiente decisión de producto)
+- `apps/web/app/semse-api.ts:363-378` (G-PRO-07 — `fetchMyJobs`/`ReviewableJob` necesita `clientUserId`)
 
-## 8. Observabilidad, despliegue y activación
+### API
+- `apps/api/src/modules/payments/providers/stripe.provider.ts`
+- `apps/api/src/modules/worker-verification/worker-verification.repository.ts`
+- `packages/auth/src/rbac.ts` (G-PRO-05 — agregar `agents:run:create` a `PRO` y `WORKER`; G-PRO-10 — agregar `jobs:create` o permiso propio de viajes)
+- `apps/web/lib/language-context.tsx:81` (G-PRO-05 — corregir traducción de `nav.aiSettings`)
+- `apps/api/src/modules/users/users.controller.ts:96-98` (G-PRO-09 — endpoint de verificación necesita una vía accesible a PRO)
+- `apps/api/src/modules/jobs/jobs.repository.ts:62-69` (G-PRO-08 — `listByTenant` necesita filtro de status/org para llamadas sin `?status=`)
+- `apps/api/src/infrastructure/.../field-ops.repository.ts:122-127` (G-PRO-11 — agregar `tenantId` al `where` de `updateUnitStatus`)
+- `apps/api/src/modules/evidence/evidence.controller.ts:282-353` (G-PRO-06 ampliado — el backend multipart necesita leer y persistir el cuerpo real, no solo simular estado)
 
-- **Métricas/SLO:** ninguna nueva definida en este spec.
-- **Feature flags:** ninguno — todos los fixes son código incondicional.
-- **Plan de canary:** no aplica — cambios ya integrados en el árbol
-  principal de `apps/web`/`apps/api`, sin flag de activación.
-- **Evidencia de producción requerida antes de `VERIFIED`:** ninguno de
-  los "RESUELTO" de este spec fue confirmado con una sesión real en
-  `semse-web-production.up.railway.app` — toda la re-verificación de esta
-  pasada fue lectura de código, consistente con lo que pide la
-  constitución (Artículo XIII: "si no se puede observar un estado, se
-  registra como no verificado; nunca se infiere"). Antes de `VERIFIED`
-  se necesita repetir el estilo de auditoría en vivo del 2026-07-20/21
-  con una cuenta PRO real, esta vez enfocada en confirmar P1-P6.
-- **Señal de rollback:** reaparición de `Insufficient permissions` en el
-  chat, o de un IDOR cross-tenant confirmado en producción.
-- **Owner operativo:** `semse-core`.
+## Acceptance Criteria
 
-## 9. Tests requeridos
+- [x] Este spec se agrega a `SPEC_INDEX.md` junto a `docs/specs/ui/pro-flows.spec.md` (no lo reemplaza — cubren alcances distintos, ver nota de apertura); `pro-flows.spec.md` pasa a `REVIEW` porque G-CLI-04 contradice su `status: VERIFIED` — ya en el índice, `pro-flows.spec.md` sin tocar en esta reconciliación (queda fuera de este spec, es un documento aparte)
+- [x] ~~Antes de `APPROVED`: completar la cobertura en vivo pendiente y correr la ronda de agentes de código dedicada~~ — hecho 2026-07-21: cobertura en vivo completa + ronda de 5 agentes en paralelo (42 hallazgos nuevos, ver `docs/AUDIT_REMEDIATION_PLAN.md` 2.8-2.48)
+- [x] Antes de `APPROVED`: el equipo de producto revisa y prioriza los 42+13 hallazgos de este spec — hecho de facto entre 2026-07-21 y 2026-07-27: 11 de los 13 gaps `G-PRO-*` propios ya tienen fix (algunos con decisión de producto explícita del usuario), más las piezas de seguridad del plan (2.19/2.20/2.34/2.44). Quedan genuinamente abiertos: **G-PRO-04** (verificación DID, bloqueado en una decisión de producto sobre quién aporta la firma real) y la mitad UI de **G-PRO-02** (mensaje claro de "no podés cobrar sin Connect", plan 2.1c). Los ~55 hallazgos `ALTO`/`MEDIO`/`BAJO` de 2.8-2.48 no cubiertos como gap propio siguen sin revisión de priorización dedicada — no se afirma que estén todos resueltos.
+- [x] `pnpm spec:validate:strict` pasa
 
-- [ ] `/worker/jobs/[jobId]` muestra el mismo badge de estado que
-      `/client/jobs/[jobId]` para el mismo `jobId` — **sigue fallando**
-      (G-PRO-00 / P1, no resuelto)
-- [ ] `/worker/dashboard` muestra oportunidades reales cuando existen jobs
-      `posted` en el tenant — **sigue fallando** (remanente de G-PRO-08 / P2)
-- [x] La pestaña "Tracker" de `/worker/field-ops` no permite iniciar una
-      sesión de tiempo nueva — removida por completo 2026-07-27 (G-PRO-01)
-- [ ] Un usuario con rol `PRO` puede enviar un mensaje a Prometeo y recibe
-      respuesta real — código lo permite hoy (RBAC arreglado), pero sin
-      test automatizado que lo bloquee de regresar (P4)
-- [ ] Un usuario con rol `WORKER` (literal) tiene el mismo resultado —
-      mismo estado que el punto anterior
-- [ ] Subir una foto en `/worker/evidence` hace un `PUT` real y el objeto
-      existe en storage — código lo hace hoy, sin test automatizado (P3)
-- [ ] Subir un comprobante en `/worker/travel/[travelId]` — ídem
-- [ ] Un PRO puede enviar una reseña desde `/worker/review` — código lo
-      permite hoy, sin test automatizado (P5)
-- [ ] Un PRO puede completar "Solicitar verificación" sin 403 — código lo
-      permite hoy, sin test automatizado
-- [ ] Un PRO puede crear un viaje en `/worker/travel` sin 403 — código lo
-      permite hoy, sin test automatizado
-- [ ] Un pago `FAILED`/`REVERSED` no se muestra como "Liberado"/"En
-      escrow" — código lo hace bien hoy, sin test automatizado
-- [ ] Guardar una tarifa en `/worker/rates` tiene efecto verificable en un
-      estimado real cuando el profesional está asignado al job — código
-      lo hace hoy vía `budget-intelligence.service.ts`, sin test
-      automatizado
-- [ ] IDOR: `updateUnitStatus`, incidents/materials/tasks/travel de otro
-      actor/tenant deben rechazarse — código lo hace hoy, sin test
-      automatizado que fije la regresión
+## Rollback Considerations
 
-## 10. Mapa de implementación
-
-### Web — abierto
-
-- `apps/web/app/(app)/worker/jobs/[jobId]/page.tsx:150` — G-PRO-00, aplicar
-  `.toLowerCase()` (o normalizar en un punto compartido BFF/mapper) antes
-  de indexar `JOB_STATUS_META`/`WORKER_NEXT_ACTION`.
-- `apps/web/app/(app)/worker/dashboard/page.tsx:155` — remanente de
-  G-PRO-08, mismo fix de normalización aplicado a `job.status` antes de
-  filtrar `["posted","published"]`.
-
-### Web — ya resuelto (referencia, sin acción)
-
-- `apps/web/app/(app)/worker/evidence/page.tsx:120-154`
-- `apps/web/app/(app)/worker/travel/[travelId]/page.tsx:256-288`
-- `apps/web/app/(app)/worker/review/page.tsx`
-- `apps/web/app/(app)/worker/profile/page.tsx:151-158`
-- `apps/web/app/(app)/worker/payments/page.tsx:82-86`
-- `apps/web/app/(app)/worker/rates/page.tsx:140,158`
-- `apps/web/lib/language-context.tsx:83`
-- `apps/web/app/components/payments/PayoutMethodForm.tsx` (migración a
-  Stripe Elements — pendiente solo configurar
-  `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` en Railway, fuera del control de
-  este spec)
-
-### API — ya resuelto (referencia, sin acción)
-
-- `packages/auth/src/rbac.ts:94,113` (`agents:run:create` para PRO/WORKER)
-- `apps/api/src/modules/users/users.controller.ts:157-158` (`verify-request`)
-- `apps/api/src/modules/travel/travel.controller.ts` (`travel:manage`)
-- `apps/api/src/modules/travel/travel.service.ts:298-311` (IDOR assignedTo)
-- `apps/api/src/modules/field-ops/field-ops.repository.ts:123-133` (tenantId en `updateMany`)
-- `apps/api/src/modules/incidents/incidents.service.ts:8-13` (ownership check)
-- `apps/api/src/modules/materials/materials.service.ts:8-13` (ownership check)
-- `apps/api/src/modules/tasks/tasks.service.ts:139-142` (assignedTo check)
-- `apps/api/src/modules/jobs/jobs.repository.ts:79-126` (`visibilityWhere` por rol)
-- `apps/api/src/modules/payments/providers/stripe.provider.ts:72-97` (fallo explícito sin Connect)
-- `apps/api/src/modules/intelligence/budget-intelligence.service.ts:199-224` (tarifa del PRO asignado)
-- `apps/api/src/modules/worker-verification/worker-verification.repository.ts:115-135` (falla cerrado en vez de aprobar sin validar)
-
-### Tests
-
-- Ninguno existe todavía para este módulo (`related_tests: []`). Antes de
-  `APPROVED` se espera al menos un test por cada fila marcada `[ ]` en §9.
-
-## 11. Investigación externa
-
-No aplica — remediación interna sobre código propio, sin dependencias
-externas nuevas.
-
-## 12. Gates de cierre
-
-- [ ] Spec enlazado por `pnpm spec:index`
-- [ ] Spec, plan, tasks, analyze y checklist coherentes
-- [ ] Tests derivados del spec y verdes — **0 tests existen hoy**
-- [ ] `pnpm spec:validate:strict` verde
-- [x] Migración reproducible y rollback/forward-fix documentado (no aplica)
-- [ ] CI `PASS`
-- [ ] PR fusionado y SHA registrado (los fixes ya están en el árbol, pero
-      sin un PR/SHA específico registrado en este spec)
-- [ ] Deployment terminal `DEPLOYED` (razonable por convención del repo,
-      sin verificación en vivo esta sesión)
-- [ ] Activación/canary verificada por separado
-- [ ] `production_evidence` actualizado con una sesión real en producción
-- [ ] Los 2 gaps de UI abiertos (G-PRO-00, remanente de G-PRO-08) resueltos
-- [ ] Decisión de producto tomada sobre G-PRO-02/G-PRO-04 (ver abajo)
-- [ ] Sólo entonces `status: APPROVED` → luego `VERIFIED`
-
-## Bloqueado por decisión de producto
-
-Este spec **no** pasa a `APPROVED` todavía porque quedan preguntas de
-producto reales, no solo trabajo de código pendiente:
-
-1. **G-PRO-04 — Verificación de identidad (DID) es intencionalmente no
-   funcional.** El código ya no es un stub peligroso que aprueba
-   cualquier string no vacío — `verifyDidSignature()`
-   (`apps/api/src/modules/worker-verification/worker-verification.repository.ts:115-135`)
-   ahora **falla cerrado siempre** (`return false`), con un comentario
-   explícito explicando que no existe ningún cliente (web u otro) que
-   genere un keypair real y firme un challenge. Esto es más seguro que
-   antes, pero significa que **ningún profesional puede completar
-   verificación DID hoy, por diseño**. Pregunta abierta para producto: ¿se
-   construye un cliente de firma real (crypto.subtle/tweetnacl) en esta
-   iteración, o se retira la promesa de "Profesionales verificados" de la
-   landing pública hasta entonces? No es una decisión que un agente deba
-   tomar unilateralmente.
-2. **G-PRO-02 — Stripe Connect: el backend ya no puede pagar a la cuenta
-   equivocada** (`stripe.provider.ts:82-97` ahora lanza error en vez de
-   caer a la cuenta legacy compartida), **pero la UI de `/worker/payments`
-   todavía no le explica al profesional, en el momento de fallar un
-   payout, por qué no puede cobrar todavía.** Esto es trabajo de copy/UX
-   normal, no bloqueado por una decisión — se deja documentado aquí por
-   completitud, no como bloqueador real.
-3. **Gate original de esta spec, nunca confirmado:** el `Acceptance
-   Criteria` del `DRAFT` anterior pedía "el equipo de producto revisa y
-   prioriza los 42+13 hallazgos... antes de `APPROVED`". No hay evidencia
-   en el repositorio de que esa revisión formal haya ocurrido — lo que sí
-   hay es evidencia fuerte de que la mayoría de los ítems `CRÍTICO` fueron
-   remediados en código, lo cual sugiere que alguna forma de priorización
-   sí pasó, solo que no quedó documentada como tal. Se recomienda a
-   producto confirmar/cerrar este punto explícitamente en vez de asumirlo
-   por inferencia de código, siguiendo el Artículo XIII de la
-   constitución.
-
-Hasta que (1) se resuelva con una decisión explícita y (2) el gate 3 se
-confirme o se dé por innecesario explícitamente, el spec permanece en
-`REVIEW` — no por falta de calidad de sus escenarios (P1-P6 están
-completos y verificados contra código real), sino porque `APPROVED`
-requeriría poder afirmar que no queda ninguna pregunta de producto abierta,
-y todavía quedan dos.
-
-## Histórico — catálogo original de gaps (2026-07-20/21)
-
-> Preservado por trazabilidad; el estado actual de cada uno está en §4.
-> Numeración original mantenida para no romper referencias cruzadas desde
-> `docs/AUDIT_REMEDIATION_PLAN.md`.
-
-- **G-PRO-00** (badge de estado) — **ABIERTO**, ver P1.
-- **G-PRO-01** (dos cronómetros) — **RESUELTO** 2026-07-27: pestaña
-  "Tracker" de `/worker/field-ops` removida, link a `/worker/tracker`
-  agregado. Backend `FieldOpsService`/`TrackerSession` deliberadamente sin
-  tocar.
-- **G-PRO-02** (Stripe Connect sin explicación) — backend seguro, UI
-  pendiente. Ver "Bloqueado por decisión de producto".
-- **G-PRO-03** (Trust 0% sin contexto) — **RESUELTO**:
-  `worker/profile/page.tsx:114-120` muestra "Trust — nuevo en la
-  plataforma" cuando `trustScore === 0` y no hay ratings, en vez de "0%"
-  desnudo.
-- **G-PRO-04** (verificación DID stub) — comportamiento cambiado (falla
-  cerrado en vez de aprobar falso), sigue no funcional. Ver "Bloqueado por
-  decisión de producto".
-- **G-PRO-05** (chat de agentes roto por RBAC) — **RESUELTO**, ver P4.
-- **G-PRO-06** (evidencia/comprobantes no suben archivo real) —
-  **RESUELTO**, ver P3.
-- **G-PRO-07** (reseñas rotas por `clientUserId` inexistente) —
-  **RESUELTO**, ver P5.
-- **G-PRO-08** (oportunidades vacías + IDOR de jobs DRAFT) — **IDOR
-  resuelto**, **UI de oportunidades sigue vacía**. Ver P2.
-- **G-PRO-09** (botón "Verificar" 403) — **RESUELTO**, ver P6.
-- **G-PRO-10** (viajes inalcanzables, 403) — **RESUELTO**, ver P6.
-- **G-PRO-11** (IDOR cross-tenant en field-ops) — **RESUELTO**, ver P6.
-- **G-PRO-12** (badge de pago ignora `status` real) — **RESUELTO**, ver P6.
-- **G-PRO-13** (tarifas sin efecto real) — **RESUELTO**, ver P6.
-- **IDOR intra-tenant — incidents/materials (plan 2.19)** — **RESUELTO**:
-  `incidents.service.ts:8-13`/`materials.service.ts:8-13` ahora exigen
-  que el actor esté asignado al job antes de leer/escribir.
-- **IDOR intra-tenant — tasks (plan 2.20)** — **RESUELTO**:
-  `tasks.service.ts:139-142` exige `assignedTo === actorUserId` salvo
-  `OPS_ADMIN`.
-- **IDOR intra-tenant — travel (plan 2.34)** — **RESUELTO**:
-  `travel.service.ts:298-311` exige `assignedTo === actorUserId`.
-- **PCI-DSS — PayoutMethodForm (plan 2.44)** — **RESUELTO** 2026-07-27:
-  migrado a Stripe Elements (`<CardElement>`, `stripe.createToken`) — el
-  backend ya no recibe PAN/routing en texto plano. Pendiente solo
-  configuración de `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` en Railway (fuera
-  de alcance de este spec).
+- G-PRO-01 — **decisión de producto obtenida 2026-07-27 (usuario, dueño del producto): deprecar/ocultar el legado ahora.** Implementado quitando la pestaña de la UI (ver arriba) sin tocar el backend/datos históricos, y agregando un link visible al Time Tracker real para no dejar al profesional sin salida. Si en producción hay sesiones `TrackerSession` activas de profesionales reales al momento del deploy, esas sesiones quedan huérfanas (sin UI para pausar/detener) — vale la pena revisar si hay alguna activa antes de desplegar, o aceptar el corte.
+- G-PRO-13 (tarifas custom) requiere una decisión de diseño de producto antes de cualquier fix — no está claro si el comportamiento correcto es "el estimado de ProTools debe usar la tarifa del profesional asignado" o algo distinto; implementar el fix equivocado podría filtrar la tarifa de un profesional a un contexto donde no corresponde.
+- Los 3 hallazgos de IDOR (G-PRO-11, incidencias/materiales, tareas) son fixes de bajo riesgo (agregar un filtro que ya falta) pero deben desplegarse junto con una revisión de si ya fueron explotados — no hay logging suficiente hoy para saber si algún dato cross-tenant/cross-worker ya fue leído o modificado por esta vía.

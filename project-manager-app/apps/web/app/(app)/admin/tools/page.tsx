@@ -74,7 +74,6 @@ export default function AdminToolsPage() {
         icon={Wrench}
         iconColor="#22d3ee"
         iconBg="rgba(34,211,238,.12)"
-        showBack={false}
       />
 
       {/* Filters */}

@@ -3,6 +3,7 @@ import { ContractsModule } from "../contracts/contracts.module.js";
 import { KnowledgeModule } from "../knowledge/knowledge.module.js";
 import { MilestonesModule } from "../milestones/milestones.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
+import { OriginatorModule } from "../originator/originator.module.js";
 import { ProjectsModule } from "../projects/projects.module.js";
 import { ReservationsModule } from "../reservations/reservations.module.js";
 import { PaymentsController } from "./payments.controller.js";
@@ -30,7 +31,7 @@ const adyenProviders = process.env.ADYEN_API_KEY?.trim() && process.env.ADYEN_ME
   : [];
 
 @Module({
-  imports: [ProjectsModule, ContractsModule, KnowledgeModule, NotificationsModule, ReservationsModule, forwardRef(() => MilestonesModule)],
+  imports: [ProjectsModule, ContractsModule, KnowledgeModule, NotificationsModule, ReservationsModule, forwardRef(() => MilestonesModule), OriginatorModule],
   controllers: [PaymentsController, StripeConnectController],
   providers: [
     PaymentsRepository,

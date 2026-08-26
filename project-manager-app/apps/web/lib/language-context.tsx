@@ -17,6 +17,11 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "role.client": "Cliente",
     "role.admin": "Admin",
 
+    // ── Capacidad activa (F10, selector de capacidad) ────────────────────────
+    "capability.CLIENT": "Cliente",
+    "capability.PRO": "Profesional",
+    "capability.WORKER": "Trabajador",
+
     // ── Nav items ─────────────────────────────────────────────────────────────
     "nav.dashboard": "Dashboard",
     "nav.operations": "Operaciones",
@@ -679,6 +684,11 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "role.worker": "Worker",
     "role.client": "Client",
     "role.admin": "Admin",
+
+    // ── Active capability (F10, capability selector) ─────────────────────────
+    "capability.CLIENT": "Client",
+    "capability.PRO": "Professional",
+    "capability.WORKER": "Worker",
 
     // ── Nav items ─────────────────────────────────────────────────────────────
     "nav.dashboard": "Dashboard",
