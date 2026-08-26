@@ -11,6 +11,7 @@ export type LaborSection = "dashboard" | "estimate" | "scope" | "materials" | "s
 type LaborInput = { hours: number; laborType: "unskilled" | "semi_skilled" | "skilled" | "specialist"; experience: "entry" | "intermediate" | "senior" | "master"; complexity: "simple" | "moderate" | "complex"; benefits: boolean; mode: ToolMode };
 
 const INITIAL_INPUT: LaborInput = { hours: 40, laborType: "skilled", experience: "senior", complexity: "moderate", benefits: true, mode: "professional" };
+const BASE_RATES: Record<LaborInput["laborType"], number> = { unskilled: 20, semi_skilled: 35, skilled: 50, specialist: 80 };
 const SECTIONS: Array<{ id: LaborSection; label: string; href: string; icon: LucideIcon }> = [
   { id: "dashboard", label: "Dashboard", href: "/tools/labor/dashboard", icon: LayoutDashboard },
   { id: "estimate", label: "Estimacion", href: "/tools/labor/estimate", icon: Calculator },
@@ -30,10 +31,8 @@ export function LaborToolClient({ section }: { section: LaborSection }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const baseRate: Record<typeof input.laborType, number> = { unskilled: 20, semi_skilled: 35, skilled: 50, specialist: 80 };
-
   const hourlyRate = useMemo(() => {
-    const base = baseRate[input.laborType];
+    const base = BASE_RATES[input.laborType];
     const expFactor = { entry: 0.9, intermediate: 1.1, senior: 1.3, master: 1.6 }[input.experience];
     const complexFactor = { simple: 1, moderate: 1.2, complex: 1.5 }[input.complexity];
     const benefitsFactor = input.benefits ? 1.25 : 1;
