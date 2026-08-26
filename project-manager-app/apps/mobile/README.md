@@ -36,7 +36,7 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b/7c, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+**Admin tab (Fase 7a/7b/7e, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
 `mobile-admin-disputes.spec.md` / `mobile-admin-contractors.spec.md`)**: has a
 real `Dashboard` (jobs overview — active/disputed/completed/total counts,
 active budget, dispute alerts, derived client-side from `GET /v1/jobs`,
@@ -51,8 +51,12 @@ generation, those are a separate phase — see spec §2. Built against
 `contractor.service.ts`'s real `LeadStatus`/`LeadSource` contract rather than
 `apps/web`'s Contractors page, whose local types and `trade` field have
 drifted from what the backend actually returns/reads), and a `Settings` tab
-(logout only). The rest of Fase 7 — finance, disputes management actions,
-labor-engine overview — is still pending.
+(logout only). Labeled 7e, not 7c, because two other Fase 7 slices were open
+on parallel branches when this one was built and already claimed 7c (Labor
+overview) and 7d (Users directory) — whichever lands last should renumber to
+stay sequential. The rest of Fase 7 — finance, disputes management actions —
+is still pending on this branch (Labor overview and Users directory exist on
+their own open PRs, not merged here).
 
 ## Setup
 

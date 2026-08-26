@@ -25,7 +25,7 @@ const STATUS_COLOR_KEY: Record<LeadStatus, "ok" | "error" | "warn" | "brand" | "
 };
 
 /**
- * Fase 7c: leads list + stats (GET /v1/contractor/leads[/stats], jobs:read,
+ * Fase 7e: leads list + stats (GET /v1/contractor/leads[/stats], jobs:read,
  * already granted to OPS_ADMIN, org-scoped server-side via
  * contractor.service.ts's listLeads/getStats -- unlike disputes, this
  * endpoint is NOT tenant-wide for OPS_ADMIN) plus create (POST, jobs:create,

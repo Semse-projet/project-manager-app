@@ -1,6 +1,6 @@
 ---
 id: "ui.mobile-admin-contractors"
-title: "Mobile Admin Contractors — Fase 7c de apps/mobile"
+title: "Mobile Admin Contractors — Fase 7e de apps/mobile"
 domain: "ui"
 sdd_version: "2.0"
 version: "1.0"
@@ -33,7 +33,7 @@ related_agents: []
 last_verified: "2026-08-26"
 ---
 
-# Spec: Mobile Admin Contractors — Fase 7c de `apps/mobile`
+# Spec: Mobile Admin Contractors — Fase 7e de `apps/mobile`
 
 > Contrato ejecutable SDD 2.0. Código, CI, merge, deploy y activación se
 > registran por separado; un deploy no demuestra activación ni verificación

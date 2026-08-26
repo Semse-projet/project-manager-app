@@ -1,6 +1,6 @@
 ---
 type: tasks
-feature: "Mobile Admin Contractors — Fase 7c de apps/mobile"
+feature: "Mobile Admin Contractors — Fase 7e de apps/mobile"
 domain: "ui"
 plan: "docs/specs/ui/mobile-admin-contractors.plan.md"
 version: "1.0"
@@ -9,7 +9,7 @@ branch: "claude/roadmap-continuation-vhmve9"
 date: "2026-08-26"
 ---
 
-# Tareas: Mobile Admin Contractors — Fase 7c de apps/mobile
+# Tareas: Mobile Admin Contractors — Fase 7e de apps/mobile
 
 > `[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
 

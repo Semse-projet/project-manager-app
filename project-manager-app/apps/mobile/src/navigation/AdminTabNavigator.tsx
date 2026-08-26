@@ -9,10 +9,13 @@ const Tab = createBottomTabNavigator<AdminTabParamList>();
 
 // Fase 7a: Dashboard (jobs overview, read-only) + Settings (logout).
 // Fase 7b: Disputes (tenant-wide, read-only -- no assign/resolve/archive).
-// Fase 7c: Contractors (org-scoped leads list + stats + create -- no status
-// change/delete/estimate actions).
-// The rest of Fase 7 (finance, disputes management actions, labor-engine
-// overview) is still pending -- see docs/specs/ui/mobile-admin-dashboard.spec.md,
+// Fase 7e: Contractors (org-scoped leads list + stats + create -- no status
+// change/delete/estimate actions). Labeled 7e, not 7c, because two other
+// Fase 7 slices were in flight on parallel branches when this one was built
+// and already claimed 7c (Labor overview, PR #584) and 7d (Users directory,
+// PR #585) -- whichever merges last may need renumbering to stay sequential.
+// The rest of Fase 7 (finance, disputes management actions) is still
+// pending -- see docs/specs/ui/mobile-admin-dashboard.spec.md,
 // docs/specs/ui/mobile-admin-disputes.spec.md and
 // docs/specs/ui/mobile-admin-contractors.spec.md for exact scope.
 export default function AdminTabNavigator() {

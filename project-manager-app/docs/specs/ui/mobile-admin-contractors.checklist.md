@@ -1,12 +1,12 @@
 ---
 type: checklist
-feature: "Mobile Admin Contractors — Fase 7c de apps/mobile"
+feature: "Mobile Admin Contractors — Fase 7e de apps/mobile"
 spec: "docs/specs/ui/mobile-admin-contractors.spec.md"
 version: "1.0"
 date: "2026-08-26"
 ---
 
-# Checklist: Mobile Admin Contractors — Fase 7c de apps/mobile
+# Checklist: Mobile Admin Contractors — Fase 7e de apps/mobile
 
 > `[x]` = verificado contra el código real en esta sesión, `[ ]` = pendiente
 > de PR/CI/deploy/activación, `[N/A]` = no aplica con justificación.

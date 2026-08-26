@@ -1,6 +1,6 @@
 ---
 type: plan
-feature: "Mobile Admin Contractors — Fase 7c de apps/mobile"
+feature: "Mobile Admin Contractors — Fase 7e de apps/mobile"
 domain: "ui"
 spec: "docs/specs/ui/mobile-admin-contractors.spec.md"
 version: "1.0"
@@ -9,7 +9,7 @@ branch: "claude/roadmap-continuation-vhmve9"
 date: "2026-08-26"
 ---
 
-# Plan técnico: Mobile Admin Contractors — Fase 7c de apps/mobile
+# Plan técnico: Mobile Admin Contractors — Fase 7e de apps/mobile
 
 > Prerrequisito: spec `APPROVED`.
 
