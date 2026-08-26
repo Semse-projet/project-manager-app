@@ -8,15 +8,23 @@ status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "critical"
 code_status: "COMPLETE"
-ci_status: "NOT_RUN"
-merge_status: "UNMERGED"
-deploy_status: "NOT_DEPLOYED"
+ci_status: "PASS"
+merge_status: "MERGED"
+deploy_status: "DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "VERIFIED"
+verification_scope: "merged-deployed-flag-off"
 feature_flags:
   - SEMSE_MISSION_CONTROL_V2_ENABLED
   - SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS
-production_evidence: []
+production_evidence:
+  - github:pr:486:sha:afb2dccd14d82eb4abae7f3c89ea9869ca62537b:checks-passed
+  - github:pr:486:merge:afb2dccd14d82eb4abae7f3c89ea9869ca62537b
+  - railway:api:deployment:3f8a0c2c-4a44-4b00-b9d3-c2edf80551c3:success:sha:89e0473d23d6dad2942a78fc486e65464ec69988:includes-afb2dccd
+  - railway:web:deployment:228095a8-2326-4ac4-aff2-0cfe8da1c144:success:sha:89e0473d23d6dad2942a78fc486e65464ec69988:includes-afb2dccd
+  - railway:api:env:SEMSE_MISSION_CONTROL_V2_ENABLED:unset-2026-08-12
+  - railway:api:env:SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS:tenant_default-2026-08-12
+  - "local:canary-walkthrough:2026-08-12:flag-off,allowlist=tenant_default-only — NOT production evidence, see §8-canary-note below"
 related_files:
   - apps/api/src/modules/ops/ops.controller.ts
   - apps/api/src/modules/ops/ops.service.ts
@@ -59,7 +67,7 @@ related_endpoints:
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-07-31"
+last_verified: "2026-08-12"
 ---
 
 # Spec: Mission Control 2.0 F4
@@ -444,9 +452,49 @@ RUNNING --lease vencido--> RUNNING (reclaim auditado)
 - [x] Spec, plan, tasks, analyze y checklist coherentes antes de código.
 - [x] Tests derivados del spec y verdes localmente.
 - [x] Migración reproducible y rollback/forward-fix documentado.
-- [ ] CI `PASS`, PR fusionado y SHA registrado.
-- [ ] Deployment terminal de API/Web y migración aplicada.
-- [ ] Canary `tenant_default` verificado separado de health.
-- [ ] `production_evidence`, `last_verified`, índice, matriz, roadmap y API
-  surface actualizados.
+- [x] CI `PASS`, PR fusionado y SHA registrado (PR #486, `afb2dccd`).
+- [x] Deployment terminal de API/Web y migración aplicada (SHA `89e0473d`
+  desplegado 2026-08-08 incluye `afb2dccd` como ancestro; verificado
+  2026-08-12).
+- [ ] Canary `tenant_default` verificado **en producción**, separado de
+  health. `SEMSE_MISSION_CONTROL_V2_ENABLED` confirmado **unset** en
+  Railway producción (2026-08-12) — AGENTS.md prohíbe a los agentes tocar
+  variables de entorno de producción (regla NUNCA), así que activar el
+  flag ahí requiere una acción humana explícita, no de un agente.
+
+  En su lugar se ejecutó el flujo completo de la sección 8 **contra el
+  stack local** (Postgres/Redis reales vía Docker, sin mocks;
+  `apps/api/.env` local con `SEMSE_MISSION_CONTROL_V2_ENABLED=false` +
+  `SEMSE_MISSION_CONTROL_V2_CANARY_TENANT_IDS=tenant_default`, igual a la
+  postura planeada para producción) — 2026-08-12:
+  - `GET .../runbooks` y `.../exceptions` con `tenant_default` → 200,
+    payload normalizado; excepción real detectada (`service_health:worker`,
+    el worker local no estaba corriendo — no es dato mock).
+  - Mismo request con un tenant no allowlisted → 404
+    `MISSION_CONTROL_V2_DISABLED` (P2 del spec).
+  - `ACKNOWLEDGE` sobre una señal sintética, repetido con la misma
+    `idempotencyKey` → mismo `receipt.id`, segunda respuesta con
+    `duplicate: true`, `attempts` sin incrementar (P1 idempotencia).
+  - `RESOLVE` con `dryRun: true` → `NO_OP` con `wouldSetStatus`, sin mutar
+    estado real.
+  - `ESCALATE` real sobre `MissionControlException` → crea
+    `MissionControlIncident`; `RESOLVE` sobre el incidente → `SUCCEEDED`;
+    repetir `RESOLVE` con otra `idempotencyKey` → `NO_OP` +
+    `alreadyConverged: true` (convergencia por estado, no sólo por key).
+  - 5 acciones → 5 filas en `AuditLog` (`ops.mission-control.action`),
+    incluyendo el dry-run y el no-op (Artículo V).
+  - Datos sintéticos borrados al terminar; no queda residuo en la DB local.
+  - `pnpm --filter @semse/api test:unit` (incluye
+    `mission-control-2.test.ts`, `ops-mission-control.test.ts`):
+    2046/2046 verdes.
+
+  Esto es evidencia funcional real, no simulada — pero es **local**, no
+  producción. La aislación cross-tenant a nivel de target individual (no
+  sólo el flag) se cubre por los tests existentes, no se re-probó
+  manualmente. El gate de canary de producción sigue abierto hasta que un
+  humano habilite el flag en Railway y se repita el flujo ahí.
+- [x] `production_evidence`, `last_verified` actualizados en este spec
+  (2026-08-12); `SPEC_INDEX.md` regenerado (`pnpm spec:index`),
+  `pnpm spec:validate:strict` en 0 errores. Matriz y roadmap ya estaban
+  reconciliados (PR #552) y no requirieron cambios.
 - [ ] Sólo entonces `status: VERIFIED`.

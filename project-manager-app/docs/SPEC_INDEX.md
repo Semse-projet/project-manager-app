@@ -93,7 +93,7 @@ retroactiva.
 | [fsm-reservation-lifecycle](specs/fsm/reservation-lifecycle.spec.md) | reservations | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [operations.jobs-bids-event-projection](specs/operations/jobs-bids-event-projection.spec.md) | operations | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-08 |
-| [operations.mission-control-2](specs/operations/mission-control-2.spec.md) | operations | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
+| [operations.mission-control-2](specs/operations/mission-control-2.spec.md) | operations | IMPLEMENTED | COMPLETE | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-12 |
 | [operations.project-lifecycle-projection](specs/operations/project-lifecycle-projection.spec.md) | operations | VERIFIED | COMPLETE | PASS | MERGED | DEPLOYED | CANARY | critical | yes | 2026-07-31 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-07-12 |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
