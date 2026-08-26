@@ -78,6 +78,8 @@ export type AdminTabParamList = {
   Users: undefined;
   /** List + stats + create, org-scoped — see mobile-admin-contractors.spec.md. No status change/delete/estimate actions. */
   Contractors: undefined;
+  /** Tenant-wide trust/risk scores by job/project, read-only, see mobile-admin-trust.spec.md. */
+  Trust: undefined;
   Settings: undefined;
 };
 
