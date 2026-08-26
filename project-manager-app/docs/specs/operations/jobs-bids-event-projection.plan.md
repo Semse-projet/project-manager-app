@@ -3,17 +3,24 @@ type: plan
 feature: "Jobs & Bids Event Projection for Agent Context"
 domain: "operations"
 spec: "docs/specs/operations/jobs-bids-event-projection.spec.md"
-version: "1.0"
+version: "1.1"
 status: "DRAFT"
 branch: "feat/jobs-bids-event-projection"
-date: "2026-08-06"
+date: "2026-08-17"
 ---
 
 # Plan técnico: Jobs & Bids Event Projection for Agent Context
 
-> Prerrequisito: spec `APPROVED`. Hoy el spec está en `DRAFT` — este plan se
-> escribe en paralelo para no perder el diseño, pero ninguna fase de
-> implementación empieza antes del sign-off humano del spec.
+> Prerrequisito: spec `APPROVED`. **2026-08-17: el spec pasó de `DRAFT` a
+> `APPROVED`** tras una pasada de verificación contra el código real (ver
+> `docs/specs/operations/jobs-bids-event-projection.spec.md`), con
+> autorización explícita del dueño del repo para llevar los specs
+> `DRAFT`/`REVIEW` pendientes del proyecto hasta `APPROVED` en esa sesión.
+> Ese cambio de estado **solo desbloquea el gate de "spec aprobado antes de
+> código" (§2 de este plan)** — no implica que este plan en sí ya fue
+> revisado/aprobado, ni que ninguna Fase de §7 empezó a ejecutarse. Este
+> documento sigue en `DRAFT` hasta que alguien lo revise como plan técnico
+> propio.
 
 ## 1. Snapshot de verdad
 
@@ -37,8 +44,10 @@ date: "2026-08-06"
 
 ## 2. Constitution check
 
-- [x] Spec aprobado antes de código — **bloqueante, spec sigue `DRAFT`**;
-      ninguna fase de este plan corre hasta que cambie.
+- [x] Spec aprobado antes de código — **resuelto 2026-08-17**, el spec pasó
+      a `APPROVED` (ver nota de estado arriba). Este plan sigue sin haber
+      empezado ninguna de sus Fases (§7); solo se levantó el bloqueo que
+      impedía iniciarlas.
 - [x] Tenant/org/ownership y RBAC definidos — spec sección 3, sin permisos
       nuevos (se reutilizan `domain-events:read/replay` y `EVENT_CONSUMER`).
 - [x] Evidence/Payment Governance revisados — fuera de alcance explícito;

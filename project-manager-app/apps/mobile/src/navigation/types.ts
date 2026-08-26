@@ -69,5 +69,13 @@ export type ClientJobsStackParamList = {
 };
 
 export type AdminTabParamList = {
-  AdminHome: undefined;
+  Dashboard: undefined;
+  /** Mounts AdminDisputesStackNavigator — read-only list + detail, see mobile-admin-disputes.spec.md. */
+  Disputes: NavigatorScreenParams<AdminDisputesStackParamList> | undefined;
+  Settings: undefined;
+};
+
+export type AdminDisputesStackParamList = {
+  DisputesList: undefined;
+  DisputeDetail: { disputeId: string };
 };

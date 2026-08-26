@@ -1,27 +1,24 @@
-import { Text, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { AdminTabParamList } from "./types";
+import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
+import AdminDisputesStackNavigator from "./AdminDisputesStackNavigator";
+import AdminSettingsScreen from "../screens/admin/AdminSettingsScreen";
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
-// Placeholder until Fase 7 (admin-operativo screens: jobs, contractors,
-// finance, disputes, labor-engine overview, etc.) — this stub exists so
-// role-based nav routing works end-to-end for OPS_ADMIN users starting from
-// Fase 1.
-function AdminHomeScreen() {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <Text style={{ fontSize: 16, textAlign: "center" }}>
-        La app de Admin todavía se está construyendo.
-      </Text>
-    </View>
-  );
-}
-
+// Fase 7a: Dashboard (jobs overview, read-only) + Settings (logout).
+// Fase 7b: Disputes (tenant-wide, read-only -- no assign/resolve/archive).
+// The rest of Fase 7 (contractors, finance, disputes management actions,
+// labor-engine overview) is still pending -- see
+// docs/specs/ui/mobile-admin-dashboard.spec.md and
+// docs/specs/ui/mobile-admin-disputes.spec.md for exact scope.
 export default function AdminTabNavigator() {
   return (
     <Tab.Navigator>
-      <Tab.Screen name="AdminHome" component={AdminHomeScreen} options={{ title: "SEMSE — Admin" }} />
+      <Tab.Screen name="Dashboard" component={AdminDashboardScreen} options={{ title: "SEMSE — Admin" }} />
+      {/* headerShown: false -- AdminDisputesStackNavigator renders its own per-screen headers, avoiding a double header bar. */}
+      <Tab.Screen name="Disputes" component={AdminDisputesStackNavigator} options={{ title: "Disputas", headerShown: false }} />
+      <Tab.Screen name="Settings" component={AdminSettingsScreen} options={{ title: "Ajustes" }} />
     </Tab.Navigator>
   );
 }

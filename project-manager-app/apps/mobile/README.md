@@ -36,8 +36,16 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab is still a placeholder** — it exists so role-based nav routing works
-end-to-end, but has no real screens yet (Fase 7).
+**Admin tab (Fase 7a/7b, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+`mobile-admin-disputes.spec.md`)**: has a real `Dashboard` (jobs overview —
+active/disputed/completed/total counts, active budget, dispute alerts,
+derived client-side from `GET /v1/jobs`, mirroring `apps/web`'s admin
+dashboard), a `Disputes` tab (tenant-wide list + detail, read-only —
+`GET /v1/disputes` already scopes `OPS_ADMIN` to every org in the tenant
+server-side, unlike `CLIENT`/`PRO`; no assign/resolve/archive actions, those
+mutate a dispute's outcome and need their own spec), and a `Settings` tab
+(logout only). The rest of Fase 7 — contractors, finance, disputes
+management actions, labor-engine overview — is still pending.
 
 ## Setup
 
@@ -123,7 +131,8 @@ src/notifications/ — local notification presentation, the "Iniciar" action han
                       and pushRegistration.ts (Expo push token lifecycle)
 src/navigation/    — RootNavigator → RoleGate branches by role into
                       WorkerTabNavigator (real) / ClientTabNavigator (real, Fase 2) /
-                      AdminTabNavigator (still a placeholder). WorkerTabNavigator is
+                      AdminTabNavigator (Dashboard + Disputes + Settings real, Fase
+                      7a/7b; rest of Fase 7 pending). WorkerTabNavigator is
                       Timer/Jobs/Bids/More, where WorkerMoreStackNavigator holds
                       FreeProjects/Disputes/Incidents/Travel/Settings.
 src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProjectsScreen,
@@ -131,6 +140,7 @@ src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProje
                       EvidenceScreen,MoreScreen,DisputesScreen,DisputeDetailScreen,
                       IncidentsScreen,TravelScreen,TravelDetailScreen},
                       client/{JobsListScreen,JobDetailScreen,RatingFormScreen,
-                      ClientSettingsScreen}
+                      ClientSettingsScreen}, admin/{AdminDashboardScreen,
+                      AdminDisputesScreen,AdminDisputeDetailScreen,AdminSettingsScreen}
 src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```
