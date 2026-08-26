@@ -124,6 +124,21 @@ export class BuildOpsController {
     return ok(resolveRequestId(req.headers ?? {}), data);
   }
 
+  @Post("projects/:projectId/publish")
+  @RequirePermissions("projects:create")
+  async publishAsJob(@Req() req: FastifyRequest, @Param("projectId") projectId: string) {
+    const c = ctx(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.buildOpsService.publishAsJob({
+      tenantId: c.tenantId,
+      orgId: c.orgId,
+      userId: c.userId,
+      buildOpsProjectId: projectId,
+      requestId,
+    });
+    return ok(requestId, data);
+  }
+
   @Post("estimates/from-tool-result")
   @RequirePermissions("projects:create")
   async createFromToolResult(@Req() req: FastifyRequest, @Body() body: Record<string, unknown>) {
