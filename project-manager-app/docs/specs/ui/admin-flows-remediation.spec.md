@@ -63,11 +63,11 @@ El panel de Admin comparte la causa raíz de estado incorrecto de los otros dos 
 ### G-ADM-02 — RESUELTO — Resolución de disputas ahora pasa por un panel de aprobaciones
 **Archivo:** `apps/web/app/(app)/admin/disputes/page.tsx`. **Confirmado en vivo 2026-08-02:** el detalle de disputa ya no ofrece los 4 botones de un clic descritos originalmente — el texto de la UI dice explícitamente "aprueba o rechaza la intervención desde el panel de aprobaciones pendientes", consistente con el fix ya documentado en `AUDIT_REMEDIATION_PLAN.md` 3.2 (`window.confirm` antes de resolver/decidir). Probado sobre una disputa con datos anómalos (sin job vinculado) — repetir con un caso limpio si se quiere confirmar el flujo completo de punta a punta.
 
-### G-ADM-03 — MEDIO — Falla parcial de carga deja el KPI de costo estimado silenciosamente incompleto
-**Archivo:** `apps/web/app/(app)/admin/labor-engine/page.tsx:139-157` — llamadas de tarifas/jobs envueltas en `.catch(() => null)`/`.catch(() => [])`; solo el fallo de `overview` muestra banner de error visible.
+### G-ADM-03 — RESUELTO — Falla parcial de carga ya no deja el KPI de costo silenciosamente incompleto
+**Confirmado por código 2026-08-14** (no verificado en vivo todavía): `apps/web/app/(app)/admin/labor-engine/page.tsx`, función `load()` — las cuatro llamadas (`overview`, `rates`, `jobs`, `users`) se resuelven vía `Promise.allSettled`, y cualquier subconjunto que falle se acumula en un array `failed` y se muestra en un único banner (`Falla parcial de carga: ${failed.join(", ")}.`), no solo el fallo de `overview` como decía el hallazgo original (código-únicamente, 2026-07-20). Corregido en PR #387 (`7451b5f9`, 2026-07-23, "remediación UI Admin — confirmaciones, errores silenciados, navegación y honestidad de métricas"), 3 días después de la auditoría original — mismo patrón de doc desincronizada que G-ADM-00/01/02.
 
-### G-ADM-04 — MEDIO — Alertas de QualityGuard son de solo lectura
-**Archivo:** `admin/labor-engine/page.tsx:246-267` — sin botón para actuar (forzar corte, marcar entrada, contactar al trabajador) desde la misma pantalla.
+### G-ADM-04 — RESUELTO — Alertas de QualityGuard ya tienen acciones
+**Confirmado por código 2026-08-14** (no verificado en vivo todavía): la sección "QualityGuard alerts" de `admin/labor-engine/page.tsx` ya renderiza botones "Pausar"/"Detener" (con `window.confirm` antes de mutar, vía `handleAlertPause`/`handleAlertStop`) para alertas `stale_timer`, más un link "Ver perfil" hacia `/admin/users/[id]` para cualquier alerta. Pausar/Detener se limitan a `stale_timer` a propósito — para `overtime`/`long_entry`/`off_site_checkin` no hay un timer colgado que cortar, así que "Ver perfil" es la acción que corresponde. Corregido en PR #389 (`6e51679d`, 2026-07-23, "QualityGuard alerts ahora tienen acciones (perfil, pausar, detener timer)"), mismo día que G-ADM-03.
 
 ### G-ADM-05 — RESUELTO — IDs crudos en vez de nombres
 **Confirmado en vivo 2026-08-14 (sesión OPS_ADMIN real, stack local):** el hallazgo 3.46 (al menos 1 usuario mostrando ID crudo el 2026-08-02) ya estaba resuelto por código el mismo día — PR #518 (`c4c9100b`, 2026-08-02, "dispute status casing (RC1) + raw org-id leaking as user name") agregó `RAW_CUID_PATTERN` en `apps/web/app/(app)/admin/users/page.tsx`: si `org.name` calza con el patrón de un `cuid()` de Prisma, se lo trata como dato corrupto y se cae al nombre derivado del email en vez de mostrar el ID. Verificado en vivo contra `/admin/users` (3 usuarios del seed local): ningún ID crudo visible, los 3 muestran nombre de org o nombre derivado del email. Mismo patrón de doc desincronizada que G-ADM-00/01/02/03/04 — el fix llegó el mismo día que el hallazgo pero el spec nunca se actualizó.
@@ -137,7 +137,7 @@ required_behavior:
 - [x] Conseguir credencial OPS_ADMIN y repetir la navegación en vivo — completado en dos pasadas: 2026-07-27 (59/59 páginas, cuenta demo, ver `AUDIT_REMEDIATION_PLAN.md` Sección 3) y 2026-08-02 (pasada dirigida, ~10 pantallas + 2 hallazgos nuevos)
 - [x] Lanzar la ronda de agentes de código dedicada a `apps/web/app/(app)/admin/**` — Crew G, 2026-07-22 (ver `AUDIT_REMEDIATION_PLAN.md` Sección 3, hallazgos 3.10-3.44)
 - [x] `pnpm spec:validate:strict` pasa — 103 specs escaneados, 0 errores, 0 warnings (2026-08-02)
-- [ ] Este spec reemplaza a `docs/specs/ui/admin-flows.spec.md` en `SPEC_INDEX.md` — pendiente, no ejecutado en esta sesión
+- [x] Este spec reemplaza a `docs/specs/ui/admin-flows.spec.md` en `SPEC_INDEX.md` — hecho 2026-08-14, `admin-flows.spec.md` marcado `DEPRECATED` con nota explícita de reemplazo, índice regenerado
 
 ## Rollback Considerations
 
