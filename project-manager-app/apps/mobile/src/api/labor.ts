@@ -1,5 +1,6 @@
 import type {
   ActiveTimerView,
+  AdminLaborOverviewView,
   FreeProjectInput as FreeProjectInputSchema,
   FreeProjectSiteView,
   FreeProjectUpdateInput,
@@ -64,4 +65,9 @@ export async function startTimer(input: StartTimerInput): Promise<ActiveTimer> {
 
 export async function stopTimer(id: string): Promise<ActiveTimer> {
   return apiFetch<ActiveTimer>(`/v1/labor/timer/${encodeURIComponent(id)}/stop`, { method: "POST" });
+}
+
+/** OPS_ADMIN only (ops:dashboard:read) — QualityGuard alerts + team weekly summary, read-only. */
+export async function fetchAdminLaborOverview(): Promise<AdminLaborOverviewView> {
+  return apiFetch<AdminLaborOverviewView>("/v1/labor/admin/overview");
 }
