@@ -195,6 +195,83 @@ export type ProjectLifecycleSourceChangedV1Event = z.infer<
   typeof projectLifecycleSourceChangedV1EventSchema
 >;
 
+// F10 — originador/facilitador (docs/specs/core/originador-referral-program.spec.md)
+export const PROJECT_ORIGINATOR_PROPOSED_V1_SCHEMA_REF =
+  "semse://schemas/events/project.originator_proposed.v1" as const;
+export const PROJECT_ORIGINATOR_VALIDATED_V1_SCHEMA_REF =
+  "semse://schemas/events/project.originator_validated.v1" as const;
+
+export const projectOriginatorProposedV1PayloadSchema = z
+  .object({
+    projectOriginatorId: nonEmptyId,
+    projectId: nonEmptyId,
+    originatorUserId: nonEmptyId,
+  })
+  .strict();
+
+const projectOriginatorProposedV1EventObjectSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("project.originator_proposed.v1"),
+    version: z.literal(1),
+    envelopeVersion: z.literal(2),
+    module: z.literal("originator"),
+    entityType: z.literal("ProjectOriginator"),
+    schemaRef: z.literal(PROJECT_ORIGINATOR_PROPOSED_V1_SCHEMA_REF),
+    payload: projectOriginatorProposedV1PayloadSchema,
+  });
+
+export const projectOriginatorProposedV1EventSchema =
+  projectOriginatorProposedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.projectOriginatorId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.projectOriginatorId",
+      });
+    }
+  });
+
+export type ProjectOriginatorProposedV1Event = z.infer<
+  typeof projectOriginatorProposedV1EventSchema
+>;
+
+export const projectOriginatorValidatedV1PayloadSchema = z
+  .object({
+    projectOriginatorId: nonEmptyId,
+    projectId: nonEmptyId,
+    originatorUserId: nonEmptyId,
+    decision: z.enum(["VALIDATED", "REJECTED"]),
+  })
+  .strict();
+
+const projectOriginatorValidatedV1EventObjectSchema =
+  semseDomainEventV2ObjectSchema.extend({
+    eventType: z.literal("project.originator_validated.v1"),
+    version: z.literal(1),
+    envelopeVersion: z.literal(2),
+    module: z.literal("originator"),
+    entityType: z.literal("ProjectOriginator"),
+    schemaRef: z.literal(PROJECT_ORIGINATOR_VALIDATED_V1_SCHEMA_REF),
+    payload: projectOriginatorValidatedV1PayloadSchema,
+  });
+
+export const projectOriginatorValidatedV1EventSchema =
+  projectOriginatorValidatedV1EventObjectSchema.superRefine((value, ctx) => {
+    validateEnvelopeV2(value, ctx);
+    if (value.entityId !== value.payload.projectOriginatorId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["entityId"],
+        message: "entityId must match payload.projectOriginatorId",
+      });
+    }
+  });
+
+export type ProjectOriginatorValidatedV1Event = z.infer<
+  typeof projectOriginatorValidatedV1EventSchema
+>;
+
 export function toLegacySemseEventV1(event: EvidenceUploadedV1Event) {
   if (event.actor.type === "webhook") {
     throw new Error("Webhook actors cannot be projected to SemseEvent v1");

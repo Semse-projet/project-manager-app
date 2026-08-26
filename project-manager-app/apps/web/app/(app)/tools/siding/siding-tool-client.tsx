@@ -56,7 +56,7 @@ export function SidingToolClient({ section }: SidingToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const baseCost: Record<typeof input.sidingType, number> = {
+    const baseCost: Record<SidingInput["sidingType"], number> = {
       vinyl: 4.5, fiber_cement: 8.0, wood: 7.0, metal: 5.5, brick_veneer: 12.0, stone: 15.0,
     };
     const base = baseCost[input.sidingType] || 5.0;

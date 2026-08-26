@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { JobsService } from "../jobs/jobs.service.js";
 import {
   type BuildOpsMilestoneDto,
   type BuildOpsOverviewDto,
@@ -114,7 +115,10 @@ function normalizeSourceToolResult(value: Record<string, unknown>): Record<strin
 
 @Injectable()
 export class BuildOpsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jobs: JobsService,
+  ) {}
 
   async overview(tenantId: string): Promise<BuildOpsOverviewDto> {
     const [projects, tasks, milestones, evidence, disputes] = await Promise.all([
@@ -543,6 +547,54 @@ export class BuildOpsService {
     })) as StoredBuildOpsProject;
 
     return this.toDto(project);
+  }
+
+  // No other code path sets BuildOpsProject.jobId — createProject() and
+  // createFromToolResult() leave it null. This is the only way a draft
+  // plan reaches a real, marketplace-visible Job.
+  async publishAsJob(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    buildOpsProjectId: string;
+    requestId: string;
+  }): Promise<{ buildOpsProject: BuildOpsProjectDto; job: Awaited<ReturnType<JobsService["create"]>> }> {
+    const existing = await this.prisma.buildOpsProject.findFirst({
+      where: { id: input.buildOpsProjectId, tenantId: input.tenantId },
+    }) as StoredBuildOpsProject | null;
+    if (!existing) {
+      throw new NotFoundException({
+        code: "BUILDOPS_PROJECT_NOT_FOUND",
+        message: "BuildOps project not found",
+      });
+    }
+    if (existing.jobId) {
+      throw new ConflictException({
+        code: "BUILDOPS_PROJECT_ALREADY_PUBLISHED",
+        message: "This project has already been published as a job",
+      });
+    }
+
+    const budget = existing.budgetEstimate != null ? Number(existing.budgetEstimate) : undefined;
+    const job = await this.jobs.create({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      title: existing.title,
+      category: existing.trade,
+      scope: existing.description ?? existing.title,
+      budgetMin: budget,
+      budgetMax: budget,
+      city: existing.location,
+      requestId: input.requestId,
+    });
+
+    const updated = (await this.prisma.buildOpsProject.update({
+      where: { id: existing.id },
+      data: { jobId: job.id },
+    })) as StoredBuildOpsProject;
+
+    return { buildOpsProject: this.toDto(updated), job };
   }
 
   async createFromToolResult(input: {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AlertTriangle,
   ArrowRight,
@@ -94,7 +95,7 @@ function EmptyPanel({
         borderRadius: "14px",
       }}
     >
-      <img src={image} alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
+      <Image src={image} alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
       <p style={{ color: "var(--ink)", fontSize: "14px", fontWeight: 700, marginBottom: "6px" }}>{title}</p>
       <p style={{ color: "var(--muted)", fontSize: "13px" }}>{description}</p>
     </div>

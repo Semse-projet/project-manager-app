@@ -151,7 +151,6 @@ export default function TrustPage() {
         icon={Shield}
         iconColor="#818cf8"
         iconBg="rgba(99,102,241,.15)"
-        showBack={false}
         actions={
           <>
             <Link href="/admin/trust/worker-applications"

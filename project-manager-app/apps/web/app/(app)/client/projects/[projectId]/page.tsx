@@ -8,6 +8,9 @@ import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjec
 import { ProjectActivityFeed } from "@/components/buildops/ProjectActivityFeed";
 import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
 import { fetchBuildOpsProject, type BuildOpsProject } from "../../../../lib/buildops-api";
+import { useCapabilityState, useDeclareActiveProjectOrg } from "../../../../../lib/capability-context";
+import { deriveActiveCapability } from "../../../../../lib/capability";
+import { CapabilityBadge, type CapabilityRole } from "../../../../../components/semse/CapabilityBadge";
 
 type MilestoneRow = {
   id: string;
@@ -95,6 +98,10 @@ export default function ClientProjectDetailPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useDeclareActiveProjectOrg(project?.orgId ?? null);
+  const { capabilities } = useCapabilityState();
+  const activeCapability = deriveActiveCapability(capabilities, project?.orgId ?? null);
+
   if (loading) {
     return (
       <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)" }}>
@@ -127,9 +134,14 @@ export default function ClientProjectDetailPage() {
           <ArrowLeft size={16} />
         </button>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {project.title}
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <h1 style={{ margin: 0, fontSize: "20px", fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {project.title}
+            </h1>
+            {activeCapability ? (
+              <CapabilityBadge role={activeCapability.role as CapabilityRole} size="sm" />
+            ) : null}
+          </div>
           <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--muted)" }}>
             {project.trade} · {project.location}
           </p>

@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { LanguageProvider, useLanguage, type LanguagePreference } from "../../lib/language-context";
+import { CapabilityProvider } from "../../lib/capability-context";
 import {
   buildShellNavItems,
   isNewNavSection,
@@ -15,6 +16,7 @@ import { PrometeoCopilot } from "../components/prometeo/PrometeoCopilot";
 import { AgentPanelStateProvider } from "../../components/ai/agent-panel-state";
 import { MissionControlAlertBanner } from "../../components/ai/mission-control-alert-banner";
 import { NotificationBell } from "../../components/semse/NotificationBell";
+import { CapabilityIndicator } from "../../components/semse/CapabilityIndicator";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@semse/ui";
@@ -469,6 +471,7 @@ function Topbar({
             <option value="light">{t("ui.light")}</option>
           </select>
         </label>
+        <CapabilityIndicator />
         <NotificationBell />
       </div>
     </header>
@@ -691,12 +694,14 @@ function AdminOnlyBanner() {
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <LanguageProvider>
-      <AgentPanelStateProvider>
-        <AppLayoutInner>{children}</AppLayoutInner>
-        <AgentChatPanel />
-        <PrometeoCopilot />
-        <AdminOnlyBanner />
-      </AgentPanelStateProvider>
+      <CapabilityProvider>
+        <AgentPanelStateProvider>
+          <AppLayoutInner>{children}</AppLayoutInner>
+          <AgentChatPanel />
+          <PrometeoCopilot />
+          <AdminOnlyBanner />
+        </AgentPanelStateProvider>
+      </CapabilityProvider>
     </LanguageProvider>
   );
 }
