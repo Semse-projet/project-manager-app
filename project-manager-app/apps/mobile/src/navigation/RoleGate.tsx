@@ -32,10 +32,9 @@ const ROLE_TO_TARGET: Record<string, RoleTarget> = {
  * screens too now (Fase 2, see docs/specs/ui/mobile-client-tab.spec.md).
  * Admin has a real Dashboard + Settings now too (Fase 7a, see
  * docs/specs/ui/mobile-admin-dashboard.spec.md) but the rest of Fase 7
- * (contractors, finance, disputes management, labor-engine overview) is
- * still pending. The switcher lets the user override this, but the default
- * landing tab should be the one most likely to be what a multi-role user
- * wants first.
+ * (finance, disputes management, labor-engine overview) is still pending.
+ * The switcher lets the user override this, but the default landing tab
+ * should be the one most likely to be what a multi-role user wants first.
  */
 const TARGET_PRIORITY: RoleTarget[] = ["worker", "client", "admin"];
 
