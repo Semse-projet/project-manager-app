@@ -363,8 +363,11 @@ están `code_status: IN_PROGRESS` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
 Identidad universal tiene Fase 1-2 (`GET /v1/users/me/capabilities`)
 mergeada y desplegada (PR #539); Originador tiene el RBAC self-service de
 Connect y la corrección de reward math mergeados y desplegados (PR #538).
-El flujo completo de recompensa por hitos y el selector de capacidad en
-Web siguen sin iniciar.
+El selector de capacidad en Web (Fase 3, `CapabilityIndicator`/
+`CapabilityBadge`) está implementado detrás de un flag de canario apagado
+(`SEMSE_IDENTITY_CAPABILITY_UI_ENABLED`/`_CANARY_TENANT_IDS`) — 2026-08-13,
+sin PR/merge/deploy todavía. El flujo completo de recompensa por hitos
+(originador) sigue sin iniciar.
 
 Entregables:
 

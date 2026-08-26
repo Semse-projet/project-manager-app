@@ -1053,6 +1053,19 @@ export async function fetchUserMemberships(userId: string): Promise<UserMembersh
   return fetchSemse<UserMembershipView[]>(`/api/semse/users/${encodeURIComponent(userId)}/memberships`);
 }
 
+export type UserCapabilityView = {
+  role: string;
+  orgId: string;
+  verifiedAt: string | null;
+};
+
+export async function fetchMyCapabilities(): Promise<UserCapabilityView[]> {
+  const { capabilities } = await fetchSemse<{ capabilities: UserCapabilityView[] }>(
+    "/api/semse/users/me/capabilities",
+  );
+  return capabilities;
+}
+
 export async function verifyUser(
   userId: string,
   verificationType: "email" | "phone" | "id_document" | "background_check" = "email",
