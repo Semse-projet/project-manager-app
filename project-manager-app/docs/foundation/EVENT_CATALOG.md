@@ -145,6 +145,15 @@ activación sigue limitada por flags y allowlists; no es rollout global.
 - `evidence.accepted`
 - `evidence.rejected`
 
+## Project Originator (F10)
+
+- `project.originator_proposed.v1`
+- `project.originator_validated.v1`
+
+`project.originator_reward_earned.v1` (spec §6) no se declara todavía —
+sigue la misma disciplina del resto del catálogo de no registrar un evento
+sin productor real (ver `docs/specs/core/originador-referral-program.spec.md`).
+
 ## Payments / Escrow
 
 - `payment.intent_created`

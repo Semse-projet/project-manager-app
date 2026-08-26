@@ -14,6 +14,7 @@ import { ReservationsRepository } from "../reservations/reservations.repository.
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { StripeConnectService } from "./stripe-connect.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
+import { OriginatorService } from "../originator/originator.service.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -64,6 +65,7 @@ export class PaymentsService {
     @Optional() private readonly stripeConnect?: StripeConnectService,
     @Optional()
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
+    @Optional() private readonly originator?: OriginatorService,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -438,6 +440,15 @@ export class PaymentsService {
       status: finalStatus,
       providerRef: fundingIntent.providerRef
     });
+
+    if (transaction.status === "succeeded") {
+      void this.originator?.evaluateMilestoneFundedTrigger({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        executionProjectId: input.projectId,
+        requestId: input.requestId,
+      }).catch(() => undefined);
+    }
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,

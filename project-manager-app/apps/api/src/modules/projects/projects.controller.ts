@@ -7,12 +7,14 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ProjectsService } from "./projects.service.js";
 import { DigitalTwinService } from "../intelligence/digital-twin.service.js";
+import { OriginatorService } from "../originator/originator.service.js";
 
 @Controller("v1/projects")
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     @Optional() private readonly digitalTwin?: DigitalTwinService,
+    @Optional() private readonly originator?: OriginatorService,
   ) {}
 
   @Get()
@@ -139,6 +141,13 @@ export class ProjectsController {
         tenantId: actor.tenantId,
         projectId,
         archivedBy: actor.userId,
+      }).catch(() => {/* non-blocking */});
+
+      void this.originator?.evaluateProjectCompletedTrigger({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        executionProjectId: projectId,
+        requestId,
       }).catch(() => {/* non-blocking */});
     }
 
