@@ -72,6 +72,8 @@ export type AdminTabParamList = {
   Dashboard: undefined;
   /** Mounts AdminDisputesStackNavigator — read-only list + detail, see mobile-admin-disputes.spec.md. */
   Disputes: NavigatorScreenParams<AdminDisputesStackParamList> | undefined;
+  /** QualityGuard alerts + team weekly summary, read-only, see mobile-admin-labor-overview.spec.md. */
+  Labor: undefined;
   /** List + stats + create, org-scoped — see mobile-admin-contractors.spec.md. No status change/delete/estimate actions. */
   Contractors: undefined;
   Settings: undefined;

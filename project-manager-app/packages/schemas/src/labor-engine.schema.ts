@@ -115,3 +115,44 @@ export type JobSiteView = Pick<JobRecordView, "id" | "title" | "latitude" | "lon
 
 /** Minimal shape used by the proximity site cache for FreeProjects. */
 export type FreeProjectSiteView = Pick<FreeProjectView, "id" | "name" | "latitude" | "longitude">;
+
+// GET /v1/labor/admin/overview (OPS_ADMIN, ops:dashboard:read) — mirrors
+// LaborEngineService.getAdminOverview's return shape exactly, no separate
+// view mapper (same pattern as TimeEntryView/FreeProjectView above).
+export const laborAlertTypeSchema = z.enum(["stale_timer", "overtime", "long_entry", "off_site_checkin"]);
+export const laborAlertSeveritySchema = z.enum(["warning", "critical"]);
+
+export type LaborAlertType = z.infer<typeof laborAlertTypeSchema>;
+export type LaborAlertSeverity = z.infer<typeof laborAlertSeveritySchema>;
+
+export type LaborAlertView = {
+  type: LaborAlertType;
+  severity: LaborAlertSeverity;
+  workerId: string;
+  entryId?: string;
+  detail: string;
+};
+
+export type LaborTeamSummaryView = {
+  workerId: string;
+  totalMinutes: number;
+  totalEntries: number;
+  knownCost: number;
+  minutesWithoutRate: number;
+};
+
+export type LaborQualityGuardThresholds = {
+  staleTimerHours: number;
+  overtimeWeekMinutes: number;
+  longEntryMinutes: number;
+  farFromSiteMeters: number;
+};
+
+export type AdminLaborOverviewView = {
+  period: { from: string; to: string };
+  activeTimers: TimeEntryView[];
+  team: LaborTeamSummaryView[];
+  alerts: LaborAlertView[];
+  thresholds: LaborQualityGuardThresholds;
+  generatedAt: string;
+};

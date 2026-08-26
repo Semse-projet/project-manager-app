@@ -36,27 +36,33 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b/7e, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
-`mobile-admin-disputes.spec.md` / `mobile-admin-contractors.spec.md`)**: has a
-real `Dashboard` (jobs overview — active/disputed/completed/total counts,
-active budget, dispute alerts, derived client-side from `GET /v1/jobs`,
-mirroring `apps/web`'s admin dashboard), a `Disputes` tab (tenant-wide list +
-detail, read-only — `GET /v1/disputes` already scopes `OPS_ADMIN` to every
-org in the tenant server-side, unlike `CLIENT`/`PRO`; no assign/resolve/
-archive actions, those mutate a dispute's outcome and need their own spec), a
-`Contractors` tab (CRM leads — org-scoped list + stats + create a new lead via
+**Admin tab (Fase 7a/7b/7c/7e, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+`mobile-admin-disputes.spec.md` / `mobile-admin-labor-overview.spec.md` /
+`mobile-admin-contractors.spec.md`)**: has a real `Dashboard` (jobs overview —
+active/disputed/completed/total counts, active budget, dispute alerts,
+derived client-side from `GET /v1/jobs`, mirroring `apps/web`'s admin
+dashboard), a `Disputes` tab (tenant-wide list + detail, read-only —
+`GET /v1/disputes` already scopes `OPS_ADMIN` to every org in the tenant
+server-side, unlike `CLIENT`/`PRO`; no assign/resolve/archive actions, those
+mutate a dispute's outcome and need their own spec), a `Labor` tab
+(QualityGuard alerts — stale timers, overtime, long entries, off-site
+check-ins — plus the team's weekly hours and known cost, read-only via the
+purpose-built `GET /v1/labor/admin/overview`, same endpoint `apps/web`'s
+`/admin/labor-engine` already uses; `workerId` is shown truncated, not
+resolved to a name, and no timer mutation is exposed), a `Contractors` tab
+(CRM leads — org-scoped list + stats + create a new lead via
 `GET`/`POST /v1/contractor/leads`, both already granted to `OPS_ADMIN` via
 `jobs:read`/`jobs:create`; no status change, delete, or estimate/invoice
 generation, those are a separate phase — see spec §2. Built against
 `contractor.service.ts`'s real `LeadStatus`/`LeadSource` contract rather than
 `apps/web`'s Contractors page, whose local types and `trade` field have
 drifted from what the backend actually returns/reads), and a `Settings` tab
-(logout only). Labeled 7e, not 7c, because two other Fase 7 slices were open
-on parallel branches when this one was built and already claimed 7c (Labor
-overview) and 7d (Users directory) — whichever lands last should renumber to
-stay sequential. The rest of Fase 7 — finance, disputes management actions —
-is still pending on this branch (Labor overview and Users directory exist on
-their own open PRs, not merged here).
+(logout only). Contractors is labeled 7e, not 7c or 7d, because both were
+already claimed by parallel branches when it was built: 7c by Labor (this
+tab, PR #584) and 7d by Users directory (still open on PR #585 at the time
+of writing) — whichever of those lands last should renumber to stay
+sequential. The rest of Fase 7 — finance, disputes management actions,
+dispute/timer mutations — is still pending.
 
 ## Setup
 
@@ -152,6 +158,7 @@ src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProje
                       IncidentsScreen,TravelScreen,TravelDetailScreen},
                       client/{JobsListScreen,JobDetailScreen,RatingFormScreen,
                       ClientSettingsScreen}, admin/{AdminDashboardScreen,
-                      AdminDisputesScreen,AdminDisputeDetailScreen,AdminSettingsScreen}
+                      AdminDisputesScreen,AdminDisputeDetailScreen,
+                      AdminLaborOverviewScreen,AdminSettingsScreen}
 src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```
