@@ -36,16 +36,23 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
-`mobile-admin-disputes.spec.md`)**: has a real `Dashboard` (jobs overview —
-active/disputed/completed/total counts, active budget, dispute alerts,
-derived client-side from `GET /v1/jobs`, mirroring `apps/web`'s admin
-dashboard), a `Disputes` tab (tenant-wide list + detail, read-only —
-`GET /v1/disputes` already scopes `OPS_ADMIN` to every org in the tenant
-server-side, unlike `CLIENT`/`PRO`; no assign/resolve/archive actions, those
-mutate a dispute's outcome and need their own spec), and a `Settings` tab
-(logout only). The rest of Fase 7 — contractors, finance, disputes
-management actions, labor-engine overview — is still pending.
+**Admin tab (Fase 7a/7b/7c, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+`mobile-admin-disputes.spec.md` / `mobile-admin-contractors.spec.md`)**: has a
+real `Dashboard` (jobs overview — active/disputed/completed/total counts,
+active budget, dispute alerts, derived client-side from `GET /v1/jobs`,
+mirroring `apps/web`'s admin dashboard), a `Disputes` tab (tenant-wide list +
+detail, read-only — `GET /v1/disputes` already scopes `OPS_ADMIN` to every
+org in the tenant server-side, unlike `CLIENT`/`PRO`; no assign/resolve/
+archive actions, those mutate a dispute's outcome and need their own spec), a
+`Contractors` tab (CRM leads — org-scoped list + stats + create a new lead via
+`GET`/`POST /v1/contractor/leads`, both already granted to `OPS_ADMIN` via
+`jobs:read`/`jobs:create`; no status change, delete, or estimate/invoice
+generation, those are a separate phase — see spec §2. Built against
+`contractor.service.ts`'s real `LeadStatus`/`LeadSource` contract rather than
+`apps/web`'s Contractors page, whose local types and `trade` field have
+drifted from what the backend actually returns/reads), and a `Settings` tab
+(logout only). The rest of Fase 7 — finance, disputes management actions,
+labor-engine overview — is still pending.
 
 ## Setup
 
