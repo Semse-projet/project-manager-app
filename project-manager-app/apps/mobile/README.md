@@ -36,10 +36,10 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b/7c/7d/7e/7f, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+**Admin tab (Fase 7a/7b/7c/7d/7e/7f/7h, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
 `mobile-admin-disputes.spec.md` / `mobile-admin-labor-overview.spec.md` /
 `mobile-admin-users.spec.md` / `mobile-admin-contractors.spec.md` /
-`mobile-admin-trust.spec.md`)**: has a
+`mobile-admin-trust.spec.md` / `mobile-admin-reputation.spec.md`)**: has a
 real `Dashboard` (jobs overview — active/disputed/completed/total counts,
 active budget, dispute alerts, derived client-side from `GET /v1/jobs`,
 mirroring `apps/web`'s admin dashboard), a `Disputes` tab (tenant-wide list +
@@ -70,12 +70,25 @@ Trust page exposes via a per-user expandable card. Built against
 which reads a nonexistent `data.entries` field — the API returns `items` —
 filters for a `"critical"` level the schema never produces, and checks
 `scopeType === "user"` when it's only ever `"job"`/`"project"`, so that
-page's table and passport button never actually work), and a `Settings` tab
-(logout only). Contractors is labeled 7e, not 7c or 7d, because both were
-already claimed by parallel branches when it was built: 7c by Labor and 7d
-by Users directory (both merged, PRs #584/#585). The rest of Fase 7 —
-finance, disputes management actions, dispute/timer mutations — is still
-pending.
+page's table and passport button never actually work), a `Reputation` tab
+(tenant-wide professional reputation — composite score, tier
+`emerging`/`growing`/`established`/`trusted`, and rating/completion/dispute
+signals — via the purpose-built `GET /v1/ratings/reputation`, already
+granted to `OPS_ADMIN` via `ratings:read`; no per-professional ratings-list
+detail, that's a separate, larger surface `apps/web`'s Reputation page also
+keeps behind its own `GET /v1/ratings` call. Built against
+`@semse/schemas`'s real `reputationScoreViewSchema`: `apps/web`'s page
+declares an optional `user?: { email }` field the backend never actually
+populates, so its UI always falls back to a truncated `userId` — mobile
+uses that same honest fallback rather than pretending the field exists),
+and a `Settings` tab (logout only). Contractors is labeled 7e, not 7c or
+7d, because both were already claimed by parallel branches when it was
+built: 7c by Labor and 7d by Users directory (both merged, PRs #584/#585).
+Reputation is labeled 7h, not 7g — that letter is reserved by
+`docs/specs/ui/mobile-admin-disputes-resolution.spec.md`, a `DRAFT`
+critical-risk payment-governance spec pending owner sign-off, not yet
+implemented. The rest of Fase 7 — finance, disputes management actions,
+dispute/timer mutations — is still pending.
 
 ## Setup
 
@@ -174,6 +187,6 @@ src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProje
                       AdminDisputesScreen,AdminDisputeDetailScreen,
                       AdminLaborOverviewScreen,AdminUsersScreen,
                       AdminContractorsScreen,AdminTrustScreen,
-                      AdminSettingsScreen}
+                      AdminReputationScreen,AdminSettingsScreen}
 src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```
