@@ -69,7 +69,7 @@ retroactiva.
 | [core.account-center](specs/core/account-center.spec.md) | core | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-25 |
 | [core.communications-canonical-model](specs/core/communications-canonical-model.spec.md) | core | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-19 |
 | [core.originador-referral-program](specs/core/originador-referral-program.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | critical | yes | 2026-08-13 |
-| [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
+| [core.universal-identity-multi-role](specs/core/universal-identity-multi-role.spec.md) | core | APPROVED | IN_PROGRESS | PASS | MERGED | DEPLOYED | INACTIVE | high | yes | 2026-08-13 |
 | [semse-creator-platform](specs/creator/SEMSE_CREATOR_PLATFORM.spec.md) | creator | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-17 |
 | [evidence.canonical-fase1](specs/evidence/evidence-canonical-fase1.spec.md) | evidence | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [semse-forge-deployment-provider](specs/forge/SEMSE_FORGE_DEPLOYMENT_PROVIDER.spec.md) | forge | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-17 |

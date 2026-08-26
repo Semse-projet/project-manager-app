@@ -362,15 +362,17 @@ Contrato ejecutable:
 están `code_status: IN_PROGRESS` (ver `IMPLEMENTATION_STATUS_MATRIX.md`).
 Identidad universal tiene Fase 1-2 (`GET /v1/users/me/capabilities`)
 mergeada y desplegada (PR #539), más el selector de capacidad en Web
-implementado 2026-08-13 (PR #568, abierto sin mergear). Originador tiene
-el RBAC self-service de Connect y la corrección de reward math mergeados
-y desplegados (PR #538), más Fase 1-2 (registro/validación de originador,
-sin dinero real — `POST /v1/projects/:projectId/originator`, modelo
-`OriginatorReward`) y el enganche de `OriginatorReward` a los dos
-triggers reales del spec (primer milestone financiado, proyecto
-completado) implementados 2026-08-13 detrás de flag apagado (PR #569,
-abierto sin mergear). La Fase 3 de recompensa real (pago efectivo,
-bloqueada por gate legal por país) sigue sin iniciar.
+implementado 2026-08-13 y mergeado (PR #568) detrás de un flag de
+canario apagado (`SEMSE_IDENTITY_CAPABILITY_UI_ENABLED`/
+`_CANARY_TENANT_IDS`). Originador tiene el RBAC self-service de Connect
+y la corrección de reward math mergeados y desplegados (PR #538), más
+Fase 1-2 (registro/validación de originador, sin dinero real —
+`POST /v1/projects/:projectId/originator`, modelo `OriginatorReward`) y
+el enganche de `OriginatorReward` a los dos triggers reales del spec
+(primer milestone financiado, proyecto completado) implementados
+2026-08-13 detrás de flag apagado (PR #569, abierto sin mergear). La
+Fase 3 de recompensa real (pago efectivo, bloqueada por gate legal por
+país) sigue sin iniciar.
 
 Entregables:
 
