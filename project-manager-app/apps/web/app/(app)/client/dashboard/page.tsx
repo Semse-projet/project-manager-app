@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { Briefcase, DollarSign, CheckSquare, AlertTriangle, Plus, ArrowRight, FolderKanban, Users, Star } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import type { JobRecordView } from "@semse/schemas";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
@@ -402,7 +403,7 @@ function EmptyState() {
         borderStyle: "dashed",
       }}
     >
-      <img src="/brand/empty-states/client-jobs.png" alt="" width={64} height={64} style={{ margin: "0 auto 14px", display: "block" }} />
+      <Image src="/brand/empty-states/client-jobs.png" alt="" width={64} height={64} style={{ margin: "0 auto 14px", display: "block" }} />
       <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "6px" }}>
         Aún no tienes trabajos
       </p>

@@ -2,7 +2,7 @@
 id: "ui.admin-flows-remediation"
 title: "Admin/OPS UI Flows — Remediation (auditoría 2026-07-20, parcial)"
 domain: "ui"
-version: "1.0"
+version: "1.1"
 status: "APPROVED"
 owner: "semse-core"
 risk: "critical"
@@ -29,12 +29,12 @@ related_endpoints:
   - v1/knowledge
 related_events: []
 related_agents: []
-last_verified: "2026-08-02"
+last_verified: "2026-08-14"
 ---
 
 # Spec: Admin/OPS UI Flows — Remediation
 
-> **Estado actualizado 2026-08-02: verificación en vivo completada.** La nota original de abajo (auditoría 2026-07-20) quedó obsoleta el 2026-07-27, cuando otra sesión sí consiguió credencial `OPS_ADMIN` real y confirmó en vivo prácticamente todo el backlog de código (ver `docs/AUDIT_REMEDIATION_PLAN.md` Sección 3, líneas ~549-552: 59/59 páginas recorridas sin error, dashboard con datos reales). Este spec nunca se actualizó para reflejarlo — mismo patrón de documentación desincronizada que apareció varias veces en este proyecto. Una segunda pasada dirigida el 2026-08-02 (con OPS_ADMIN real, ~10 pantallas + 2 lecturas de código para G-ADM-07/08) re-confirmó casi todo y encontró 2 hallazgos nuevos (3.45, 3.46 en el plan) no cubiertos por ninguna ronda anterior. Quedan sin verificación en vivo dirigida: G-ADM-03/04 (Labor Engine tenía casi cero actividad real en el tenant de prueba) y una revisión exhaustiva de las ~48 páginas restantes no visitadas en ninguna de las dos pasadas.
+> **Estado actualizado 2026-08-14: todos los hallazgos MEDIO/PARCIAL cerrados.** La nota original de abajo (auditoría 2026-07-20) quedó obsoleta el 2026-07-27, cuando otra sesión sí consiguió credencial `OPS_ADMIN` real y confirmó en vivo prácticamente todo el backlog de código (ver `docs/AUDIT_REMEDIATION_PLAN.md` Sección 3, líneas ~549-552: 59/59 páginas recorridas sin error, dashboard con datos reales). Este spec nunca se actualizó para reflejarlo — mismo patrón de documentación desincronizada que apareció varias veces en este proyecto. Una segunda pasada dirigida el 2026-08-02 (con OPS_ADMIN real, ~10 pantallas + 2 lecturas de código para G-ADM-07/08) re-confirmó casi todo y encontró 2 hallazgos nuevos (3.45, 3.46 en el plan). Una tercera pasada el 2026-08-14 (código+git-log para G-ADM-03/04/05, sesión OPS_ADMIN real contra el stack local para G-ADM-05/06) cerró los últimos hallazgos MEDIO/PARCIAL abiertos: G-ADM-03/04/05 ya estaban resueltos por código sin que el spec lo reflejara (mismo patrón de siempre); G-ADM-06 tenía un gap real (`showBack={false}` en Trust/Tools) que se corrigió y se verificó en vivo. Sigue pendiente: una revisión exhaustiva de las ~48 páginas restantes no visitadas en ninguna de las tres pasadas.
 >
 > Nota histórica (2026-07-20, ya no aplica): "no hubo credencial de OPS_ADMIN disponible durante la sesión de auditoría". A diferencia del spec de Cliente y PRO, `docs/specs/ui/admin-flows.spec.md` sí apunta al directorio correcto (`apps/web/app/(app)/admin`) — el problema aquí no fue un spec desactualizado de ruta, fue que en ese momento nunca se había verificado contra producción.
 
@@ -63,17 +63,19 @@ El panel de Admin comparte la causa raíz de estado incorrecto de los otros dos 
 ### G-ADM-02 — RESUELTO — Resolución de disputas ahora pasa por un panel de aprobaciones
 **Archivo:** `apps/web/app/(app)/admin/disputes/page.tsx`. **Confirmado en vivo 2026-08-02:** el detalle de disputa ya no ofrece los 4 botones de un clic descritos originalmente — el texto de la UI dice explícitamente "aprueba o rechaza la intervención desde el panel de aprobaciones pendientes", consistente con el fix ya documentado en `AUDIT_REMEDIATION_PLAN.md` 3.2 (`window.confirm` antes de resolver/decidir). Probado sobre una disputa con datos anómalos (sin job vinculado) — repetir con un caso limpio si se quiere confirmar el flujo completo de punta a punta.
 
-### G-ADM-03 — MEDIO — Falla parcial de carga deja el KPI de costo estimado silenciosamente incompleto
-**Archivo:** `apps/web/app/(app)/admin/labor-engine/page.tsx:139-157` — llamadas de tarifas/jobs envueltas en `.catch(() => null)`/`.catch(() => [])`; solo el fallo de `overview` muestra banner de error visible.
+### G-ADM-03 — RESUELTO — Falla parcial de carga ya no deja el KPI de costo silenciosamente incompleto
+**Confirmado por código 2026-08-14** (no verificado en vivo todavía): `apps/web/app/(app)/admin/labor-engine/page.tsx`, función `load()` — las cuatro llamadas (`overview`, `rates`, `jobs`, `users`) se resuelven vía `Promise.allSettled`, y cualquier subconjunto que falle se acumula en un array `failed` y se muestra en un único banner (`Falla parcial de carga: ${failed.join(", ")}.`), no solo el fallo de `overview` como decía el hallazgo original (código-únicamente, 2026-07-20). Corregido en PR #387 (`7451b5f9`, 2026-07-23, "remediación UI Admin — confirmaciones, errores silenciados, navegación y honestidad de métricas"), 3 días después de la auditoría original — mismo patrón de doc desincronizada que G-ADM-00/01/02.
 
-### G-ADM-04 — MEDIO — Alertas de QualityGuard son de solo lectura
-**Archivo:** `admin/labor-engine/page.tsx:246-267` — sin botón para actuar (forzar corte, marcar entrada, contactar al trabajador) desde la misma pantalla.
+### G-ADM-04 — RESUELTO — Alertas de QualityGuard ya tienen acciones
+**Confirmado por código 2026-08-14** (no verificado en vivo todavía): la sección "QualityGuard alerts" de `admin/labor-engine/page.tsx` ya renderiza botones "Pausar"/"Detener" (con `window.confirm` antes de mutar, vía `handleAlertPause`/`handleAlertStop`) para alertas `stale_timer`, más un link "Ver perfil" hacia `/admin/users/[id]` para cualquier alerta. Pausar/Detener se limitan a `stale_timer` a propósito — para `overtime`/`long_entry`/`off_site_checkin` no hay un timer colgado que cortar, así que "Ver perfil" es la acción que corresponde. Corregido en PR #389 (`6e51679d`, 2026-07-23, "QualityGuard alerts ahora tienen acciones (perfil, pausar, detener timer)"), mismo día que G-ADM-03.
 
-### G-ADM-05 — PARCIALMENTE RESUELTO — IDs crudos en vez de nombres; paginación
-**Confirmado en vivo 2026-08-02, en `/admin/users` (7 usuarios):** el fix documentado en `AUDIT_REMEDIATION_PLAN.md` 3.5 (mapear ID → parte local del email) funciona para la mayoría, pero al menos 1 usuario se sigue mostrando con ID crudo (`cmr9ag8ww0002ph01937u...`). Ver hallazgo nuevo 3.46 en el plan. Paginación no verificable con solo 7 usuarios — no hay datos suficientes para confirmar el comportamiento a escala real.
+### G-ADM-05 — RESUELTO — IDs crudos en vez de nombres
+**Confirmado en vivo 2026-08-14 (sesión OPS_ADMIN real, stack local):** el hallazgo 3.46 (al menos 1 usuario mostrando ID crudo el 2026-08-02) ya estaba resuelto por código el mismo día — PR #518 (`c4c9100b`, 2026-08-02, "dispute status casing (RC1) + raw org-id leaking as user name") agregó `RAW_CUID_PATTERN` en `apps/web/app/(app)/admin/users/page.tsx`: si `org.name` calza con el patrón de un `cuid()` de Prisma, se lo trata como dato corrupto y se cae al nombre derivado del email en vez de mostrar el ID. Verificado en vivo contra `/admin/users` (3 usuarios del seed local): ningún ID crudo visible, los 3 muestran nombre de org o nombre derivado del email. Mismo patrón de doc desincronizada que G-ADM-00/01/02/03/04 — el fix llegó el mismo día que el hallazgo pero el spec nunca se actualizó.
+Paginación sigue sin verificarse a escala real (solo 3-7 usuarios vistos en cualquier sesión hasta ahora) — no cerrar esa parte sin datos de volumen real.
 
-### G-ADM-06 — MAYORMENTE RESUELTO — Headers de página inconsistentes
-**Confirmado en vivo 2026-08-02:** Dashboard, Disputas, Labor Engine y Usuarios sí comparten el patrón `AdminPageHeader` (ícono + título + breadcrumb "← Dashboard"), consistente con el fix documentado en 3.6. Trust Scores, Intelligence y Tool Hub, sin embargo, usan headers propios distintos entre sí (eyebrow + título grande, sin breadcrumb) — no es la inconsistencia total original ("solo 4 de 55"), pero tampoco está unificado al 100%.
+### G-ADM-06 — RESUELTO (para el gap real) — Headers de página inconsistentes
+**Confirmado en vivo 2026-08-14 (sesión OPS_ADMIN real, stack local):** la inconsistencia real no era "3 páginas con header propio ad-hoc" — era 2 páginas que **ya usaban** `AdminPageHeader` pero pasaban `showBack={false}` explícito (`apps/web/app/(app)/admin/trust/page.tsx`, `apps/web/app/(app)/admin/tools/page.tsx`), ocultando el breadcrumb "← Dashboard" sin motivo aparente. Corregido quitando el override — verificado en vivo, ambas páginas muestran el breadcrumb ahora, sin cambio visual en el resto.
+La tercera pieza del hallazgo original ("Intelligence") resultó ser un caso distinto, no un bug: `/admin/intelligence` usa `ModuleShell` (`apps/web/app/(app)/admin/intelligence/page.tsx`), un patrón de header compartido y ya internamente consistente entre las 4 páginas "hub" de módulo (`intelligence`, `tool-hub`, `verticals`, `workops`) — deliberadamente distinto de `AdminPageHeader` porque son páginas de navegación a sub-módulos, no vistas de contenido único. No se toca: forzarlas a `AdminPageHeader` sería un cambio de mayor alcance sin un problema real detrás. (Nota: el "Tool Hub" del hallazgo original probablemente se refería a `/admin/tools` — "Pro Tools Catalog", un sub-ítem de navegación — no a `/admin/tool-hub`, el hub real; ambas rutas existen y son distintas.)
 
 ### G-ADM-07 — RESUELTO — Herramientas internas de arquitectura, ahora gateadas correctamente
 **Confirmado por código 2026-08-02:** `anatomy.controller.ts`, `repo-knowledge.controller.ts` y `runtime-knowledge.controller.ts` completos, más los endpoints `domains`/`overview` de `knowledge.controller.ts` (los que exponen el mapa real de arquitectura), todos requieren `internal:architecture:read` — permiso que en `packages/auth/src/rbac.ts` solo tiene `OPS_ADMIN`. El resto de `knowledge.controller.ts` (workspace-memory, skills, curation) sigue en `knowledge:read` compartido **a propósito** (comentario explícito en el código, líneas 23-26): es RAG legítimo que CLIENT/PRO/WORKER deben poder usar. Fix más preciso que lo que pedía el hallazgo original (que sugería cerrar todo `/v1/knowledge`).
@@ -135,7 +137,7 @@ required_behavior:
 - [x] Conseguir credencial OPS_ADMIN y repetir la navegación en vivo — completado en dos pasadas: 2026-07-27 (59/59 páginas, cuenta demo, ver `AUDIT_REMEDIATION_PLAN.md` Sección 3) y 2026-08-02 (pasada dirigida, ~10 pantallas + 2 hallazgos nuevos)
 - [x] Lanzar la ronda de agentes de código dedicada a `apps/web/app/(app)/admin/**` — Crew G, 2026-07-22 (ver `AUDIT_REMEDIATION_PLAN.md` Sección 3, hallazgos 3.10-3.44)
 - [x] `pnpm spec:validate:strict` pasa — 103 specs escaneados, 0 errores, 0 warnings (2026-08-02)
-- [ ] Este spec reemplaza a `docs/specs/ui/admin-flows.spec.md` en `SPEC_INDEX.md` — pendiente, no ejecutado en esta sesión
+- [x] Este spec reemplaza a `docs/specs/ui/admin-flows.spec.md` en `SPEC_INDEX.md` — hecho 2026-08-14, `admin-flows.spec.md` marcado `DEPRECATED` con nota explícita de reemplazo, índice regenerado
 
 ## Rollback Considerations
 

@@ -39,6 +39,7 @@ test-results/
 **/test-results/
 logs/
 **/logs/
+**/smoke_test_output.log
 generated/
 **/generated/
 .prisma/client/
