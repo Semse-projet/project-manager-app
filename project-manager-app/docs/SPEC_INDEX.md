@@ -141,6 +141,7 @@ retroactiva.
 | [ui.landing-personas](specs/ui/landing-personas.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
 | [ui.mobile-admin-dashboard](specs/ui/mobile-admin-dashboard.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | yes | 2026-08-17 |
 | [ui.mobile-admin-disputes](specs/ui/mobile-admin-disputes.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-17 |
+| [ui.mobile-admin-users](specs/ui/mobile-admin-users.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-26 |
 | [ui.mobile-client-tab](specs/ui/mobile-client-tab.spec.md) | ui | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-05 |
 | [ui.pro-flows-remediation](specs/ui/pro-flows-remediation.spec.md) | ui | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [ui-pro-flows](specs/ui/pro-flows.spec.md) | ui | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |

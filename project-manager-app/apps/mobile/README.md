@@ -36,16 +36,21 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
-`mobile-admin-disputes.spec.md`)**: has a real `Dashboard` (jobs overview —
-active/disputed/completed/total counts, active budget, dispute alerts,
-derived client-side from `GET /v1/jobs`, mirroring `apps/web`'s admin
-dashboard), a `Disputes` tab (tenant-wide list + detail, read-only —
-`GET /v1/disputes` already scopes `OPS_ADMIN` to every org in the tenant
-server-side, unlike `CLIENT`/`PRO`; no assign/resolve/archive actions, those
-mutate a dispute's outcome and need their own spec), and a `Settings` tab
-(logout only). The rest of Fase 7 — contractors, finance, disputes
-management actions, labor-engine overview — is still pending.
+**Admin tab (Fase 7a/7b/7d, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+`mobile-admin-disputes.spec.md` / `mobile-admin-users.spec.md`)**: has a
+real `Dashboard` (jobs overview — active/disputed/completed/total counts,
+active budget, dispute alerts, derived client-side from `GET /v1/jobs`,
+mirroring `apps/web`'s admin dashboard), a `Disputes` tab (tenant-wide list
++ detail, read-only — `GET /v1/disputes` already scopes `OPS_ADMIN` to
+every org in the tenant server-side, unlike `CLIENT`/`PRO`; no
+assign/resolve/archive actions, those mutate a dispute's outcome and need
+their own spec), a `Users` tab (tenant-wide directory — email, status,
+verification, trust score, risk level, via `GET /v1/users`; no
+status/verify/profile mutation), and a `Settings` tab (logout only).
+Fase 7c (Labor Engine overview — QualityGuard alerts + team weekly summary)
+is built but lives on its own branch/PR, not yet merged here. The rest of
+Fase 7 — the leads CRM at `/admin/contractors`, finance, any dispute/user/
+timer mutation — is still pending.
 
 ## Setup
 
@@ -141,6 +146,7 @@ src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProje
                       IncidentsScreen,TravelScreen,TravelDetailScreen},
                       client/{JobsListScreen,JobDetailScreen,RatingFormScreen,
                       ClientSettingsScreen}, admin/{AdminDashboardScreen,
-                      AdminDisputesScreen,AdminDisputeDetailScreen,AdminSettingsScreen}
+                      AdminDisputesScreen,AdminDisputeDetailScreen,
+                      AdminUsersScreen,AdminSettingsScreen}
 src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```
