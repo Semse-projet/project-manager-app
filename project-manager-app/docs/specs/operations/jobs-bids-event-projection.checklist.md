@@ -2,99 +2,138 @@
 type: checklist
 feature: "Jobs & Bids Event Projection for Agent Context"
 spec: "docs/specs/operations/jobs-bids-event-projection.spec.md"
-version: "1.0"
-date: "2026-08-06"
+version: "1.1"
+date: "2026-08-26"
 ---
 
 # Checklist: Jobs & Bids Event Projection for Agent Context
 
+> `[x]` = verificado contra el código real en esta sesión, `[ ]` = pendiente
+> de CI/merge/deploy/activación, `[N/A]` = no aplica con justificación.
+
 ## Requisitos
 
-- [ ] Cada escenario P1 es verificable
-- [ ] Scope y no-objetivos evitan ambigüedad (FSM de Job/Bid explícitamente
-      fuera de alcance; `DomainEventBus`/`AgentTriggerRouter` explícitamente
-      no se retiran)
-- [ ] API/UI/agent contracts no se contradicen — no hay endpoint nuevo, solo
-      cambio de fuente interna en `buildContext()`
+- [x] Cada escenario P1 es verificable — los tres de spec §4 tienen test:
+      read-through coincide con query directa (`operational-context
+      .service.test.ts`), consumer no muta dominios ajenos (por lectura
+      directa del código, ver Riesgo específico más abajo), replay no
+      duplica (`jobs-bids-projection-events.test.ts`).
+- [x] Scope y no-objetivos evitan ambigüedad — FSM de Job/Bid no tocado
+      (verificado: cero cambios en `jobStatusMap`/transiciones);
+      `DomainEventBus`/`AgentTriggerRouter` no se retiraron, siguen
+      llamándose exactamente igual desde `jobs.service.ts`.
+- [x] API/UI/agent contracts no se contradicen — cero endpoints nuevos,
+      `SemseOperationalContext` no cambió de forma (mismo campo `jobs`,
+      mismo shape `{active, waitingProposals, completed, recent}`).
 
 ## Seguridad
 
-- [ ] Permisos se validan en backend — sin permisos nuevos, se reutilizan
-      `domain-events:read/replay` y el rol `EVENT_CONSUMER`
-- [ ] Tenant, org, ownership y resource scope están probados —
-      `JobsBidsProjection` es `tenantId`-scoped, mismo patrón que F3
-- [ ] Step-up/aprobación existe para acciones críticas — no aplica, sin
-      escritura de dominio ni liberación de fondos
-- [ ] No hay secretos ni PII en logs/evidencia
+- [x] Permisos se validan en backend — sin permisos nuevos.
+- [x] Tenant, org, ownership y resource scope están probados —
+      `JobsBidsProjection` es `tenantId`-scoped (FK a `Tenant`), y el
+      read-through respeta el filtro `clientOrgId` para `CLIENT` que ya
+      usaba la query directa (test dedicado).
+- [N/A] Step-up/aprobación para acciones críticas — sin escritura de
+      dominio ni liberación de fondos alcanzable desde esta spec.
+- [x] No hay secretos ni PII en logs/evidencia — payloads de eventos son
+      `jobId`/`bidId`/orgIds/montos/estados, mismo nivel de dato que ya
+      viaja en `DomainOutboxEvent` para evidence/project-lifecycle.
 
 ## Datos y eventos
 
-- [ ] Migración es reproducible y compatible (aditiva, `CREATE TABLE`
-      únicamente)
-- [ ] Backfill, rollback o forward-fix están definidos — sin backfill, la
-      tabla se puebla hacia adelante; rollback documentado en el runbook
-- [ ] Estado + outbox son atómicos cuando aplica — sí para `bids` (`create`,
-      `accept`) y para el insert de outbox nuevo en `jobs`; el
+- [~] Migración es reproducible y compatible — SQL escrito a mano
+      replicando el patrón F3 exacto (aditiva, `CREATE TABLE` únicamente,
+      sin tocar `Job`/`Bid`), pero **no verificada contra Postgres real**
+      en esta sesión (sin Docker/DB disponible — ver tasks.md T-031).
+      Bloqueante antes de `migration_status: VERIFIED`.
+- [x] Backfill, rollback o forward-fix están definidos — sin backfill, la
+      tabla se puebla hacia adelante; jobs preexistentes usan fallback
+      hasta que un evento los toque (probado explícitamente).
+- [x] Estado + outbox son atómicos cuando aplica — sí para `bids.create`,
+      `bids.accept` y `jobs.create`/`jobs.updateStatus` (los cuatro ahora
+      envueltos en `$transaction` junto con su insert de outbox); el
       `DomainEventBus.emit()` preexistente en jobs sigue siendo
-      post-commit best-effort, explícitamente no se le atribuye atomicidad
-      nueva
-- [ ] Consumers son idempotentes y replayables (`DomainEventConsumption`
-      único por `[eventId, consumerName]`)
+      post-commit best-effort, sin atomicidad nueva atribuida.
+- [x] Consumers son idempotentes y replayables — `DomainEventConsumption`
+      único por `[eventId, consumerName]`, mismo mecanismo que
+      `evidence-readiness.v1`/`project-lifecycle-projection.v1`, probado
+      con el caso de entrega duplicada.
 
 ## Evidencia y dinero
 
-- [ ] Evidencia no se confunde con aprobación automática — no aplica, esta
-      spec no toca el módulo Evidence
-- [ ] Payment Governance bloquea releases incompatibles — no aplica
-      directamente, pero el blast-radius test (T-042) confirma que
-      `PaymentEscrow` no se muta como efecto colateral
-- [ ] Cálculos financieros excluyen fallos/reversals — no aplica, esta
-      proyección no calcula montos, solo refleja estado de `Job`/`Bid`
+- [N/A] Evidencia no se confunde con aprobación automática — esta spec no
+      toca el módulo Evidence.
+- [x] Payment Governance bloquea releases incompatibles — no aplica
+      directamente (sin fondos), y verificado por lectura directa que
+      `consumeJobsBidsProjection`/`rebuildJobsBidsProjection` no
+      importan ni referencian `PaymentEscrow`, `Milestone` ni `Contract`
+      en ningún punto.
+- [N/A] Cálculos financieros excluyen fallos/reversals — la proyección no
+      calcula montos, solo refleja `amount`/`etaDays` ya existentes en
+      `Bid`.
 
 ## Riesgo específico de esta spec (no genérico del template)
 
-- [ ] El fallback de `buildContext()` a query directa está probado
-      explícitamente para el path sin `.catch()` de
-      `POST /prometeo/chat` (`ai-models.controller.ts:229`) — este es el
-      ítem de mayor riesgo de todo el plan, no un checkbox de rutina
-- [ ] `invalidateScope()` tiene test real antes de tocar
-      `OperationalContextService` — hoy solo existe un stub mockeado en
-      `ai-models.controller.test.ts`, y esa lógica la comparten 10 call
-      sites ajenos a este cambio (milestones, payments, disputes, etc.)
-- [ ] `jobs.fsm.test.ts` (39 bloques) y `marketplace-bids.test.ts`
-      (28 bloques) siguen en verde después de envolver los write paths en
-      `$transaction`
+- [x] El fallback de `buildContext()` a query directa está probado
+      explícitamente para el path sin `.catch()` de `POST /prometeo/chat`
+      — tres tests: proyección lanza excepción, proyección incompleta
+      (backfill), y flags apagados (nunca toca la tabla).
+- [x] `invalidateScope()` tiene test real antes de tocar
+      `OperationalContextService` — suite nueva
+      `operational-context.service.test.ts`, cubre los tres scopes
+      (tenant/user/project) y aislamiento entre usuarios; antes de este
+      cambio solo existía el stub mockeado en `ai-models.controller
+      .test.ts` (confirmado, spec §9 lo señalaba correctamente).
+- [x] `jobs.fsm.test.ts` y `marketplace-bids.test.ts` siguen en verde
+      después de envolver los write paths en `$transaction` — confirmado
+      en la corrida completa (T-061): 2069/2069 tests, 0 fallos.
 
 ## Entrega
 
-- [ ] Tests, build, typecheck y lint pasan
-- [ ] CI, merge, deploy y activación tienen evidencia separada
-- [ ] Healthcheck no sustituye smoke funcional
-- [ ] Canary, métricas y rollback están definidos
-      (`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md`)
-- [ ] `production_evidence` no contiene secretos
+- [x] Tests, build, typecheck y lint pasan — ver tasks.md T-060-T-062.
+- [ ] CI, merge, deploy y activación tienen evidencia separada — pendiente,
+      se sube en el PR de esta rama (mismo patrón que el resto de la
+      sesión).
+- [ ] Healthcheck no sustituye smoke funcional — pendiente, requiere
+      canario real siguiendo el runbook (Fase 8 de tasks.md, sin acceso a
+      Railway desde esta sesión).
+- [x] Canary, métricas y rollback están definidos —
+      `docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md` (DRAFT, prerrequisito
+      de gobernanza ya satisfecho por este spec `APPROVED`); rollback =
+      revertir PR, migración aditiva no requiere revertirse.
+- [N/A] `production_evidence` no contiene secretos — vacío todavía, se
+      llena en Fase 8.
 
 ## Documentación
 
-- [ ] Spec index regenerado (`pnpm spec:index`)
-- [ ] `EVENT_CATALOG.md` actualizado con la sección `## Bids` y la
-      reconciliación de nombres `job.*` — recién al pasar a `APPROVED`,
-      no antes (ver spec sección 6)
-- [ ] `ROADMAP.md` — número de fase asignado (F0-F10 están todos ocupados
-      hoy; no asumir un número sin confirmación de quien gobierna el
-      roadmap)
+- [x] Spec index regenerado (`pnpm spec:index`).
+- [x] `EVENT_CATALOG.md` actualizado con la sección `## Jobs & Bids Event
+      Projection` (reemplaza la antigua `## Jobs` aspiracional) y los 6
+      nombres `.v1` reconciliados/agregados.
+- [ ] `ROADMAP.md` — número de fase asignado. No asumido en esta sesión;
+      queda para quien gobierna el roadmap, consistente con la nota
+      original de este checklist.
 - [ ] `docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md` actualizado de DRAFT a
-      ejecutable, con su nota de gobernanza resuelta
-- [ ] Investigación externa y decisiones registradas — no aplica búsqueda
-      nueva, ya señalado en spec sección 11
+      ejecutable — pendiente, depende de que Fase 8 (deploy/activación
+      real) se ejecute primero para documentar pasos verificados, no
+      hipotéticos.
+- [N/A] Investigación externa y decisiones registradas — no aplica
+      búsqueda nueva, ya señalado en spec sección 11.
 
 ## Análisis Spec Kit
 
-- [ ] Constitución, spec, plan y tasks no se contradicen
-- [ ] `analyze` resolvió si Fase 0 (dispatch genérico) va en PR separado
-      por ser transversal a F1/F3 (pregunta abierta desde el plan,
-      sección 10)
-- [ ] API surface, event catalog, matriz, roadmap e índice reflejan el
-      estado real, no el propuesto, hasta que cada etapa se verifique
-- [ ] `DRAFT` no se presenta como `APPROVED` en ningún documento derivado
-      (el runbook ya lo señala; este checklist lo reafirma)
+- [x] Constitución, spec, plan y tasks no se contradicen — `pnpm
+      spec:validate:strict` → 0 errores, 0 warnings sobre 116 specs.
+- [x] La pregunta abierta del plan (sección 10 original) sobre si Fase 0
+      va en PR separado quedó resuelta — corrección 2026-08-26: bajo el
+      mandato de rama única de esta sesión, "PR separado" no es
+      literalmente ejecutable; se resolvió como **commit separado y
+      verificado en aislamiento** dentro del mismo PR (#590). Ver plan.md
+      §7 Fase 0 y tasks.md T-003.
+- [x] API surface, event catalog, matriz, roadmap e índice reflejan el
+      estado real, no el propuesto — `EVENT_CATALOG.md` documenta
+      explícitamente que `job.preferred_professional_selected.v1` es un
+      schema reservado sin productor todavía, no un evento ya emitido.
+- [x] `DRAFT` no se presenta como `APPROVED` en ningún documento derivado
+      — el runbook de canary permanece `DRAFT` intencionalmente (Fase 8
+      no ejecutada); este checklist no lo reescribe.

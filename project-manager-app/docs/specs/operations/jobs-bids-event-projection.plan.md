@@ -145,15 +145,18 @@ hardcodeados de `domain-event-consumer.service.ts:99-127` por un registro
 (`evidence-readiness`, `project-lifecycle-projection`) deben seguir
 pasando sus tests sin cambio de comportamiento tras el refactor.
 
-> **Decisión T-003 (2026-08-26):** Fase 0 va en **PR propio**, separado de
-> Fases A-F (instrumentación jobs/bids). Es un refactor transversal que no
-> depende de nada específico de este dominio, tiene su propio criterio de
-> éxito verificable de forma aislada (los dos consumers existentes no
-> cambian de comportamiento), y mantenerlo junto al resto infla el diff de
-> revisión de un cambio ya `risk: high` sin necesidad — separar reduce el
-> blast radius de cada PR individual. Primer PR: solo Fase 0. Segundo PR:
-> Fases A-C (schemas, migración, productores, consumer, read-through) — E/F
-> (integración/producción) aplican sobre el segundo PR una vez mergeado.
+> **Decisión T-003 (2026-08-26):** Fase 0 va en **commit propio, revisable
+> por separado**, previo a Fases A-F (instrumentación jobs/bids) —
+> corrección 2026-08-26: la sesión que ejecuta este plan opera bajo mandato
+> de rama única (`claude/roadmap-continuation-vhmve9`, sin permiso para
+> abrir ramas nuevas), así que "dos PRs" de la nota original no es
+> literalmente ejecutable — todo el trabajo de esta sesión aterriza en un
+> único PR de GitHub (#590) sobre esa rama. La separación real que sí se
+> sostiene: Fase 0 es su propio commit, con su propia corrida de tests
+> verde de forma aislada antes de tocar una sola línea de jobs/bids —
+> revisable y revertible independientemente aunque comparta PR. Fases A-C
+> (schemas, migración, productores, consumer, read-through) van en
+> commit(s) posteriores sobre el mismo PR.
 
 ### Fase A — Tests y contratos
 

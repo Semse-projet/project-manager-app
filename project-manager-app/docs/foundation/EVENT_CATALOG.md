@@ -99,18 +99,58 @@ activación sigue limitada por flags y allowlists; no es rollout global.
 - `membership.created`
 - `membership.updated`
 
-## Jobs
+## Jobs & Bids Event Projection
+
+Reconciliación 2026-08-26 (ver
+[`../specs/operations/jobs-bids-event-projection.spec.md`](../specs/operations/jobs-bids-event-projection.spec.md)):
+la lista anterior de `## Jobs` (`job.posted`, `job.reserved`, `job.started`,
+`job.review_requested`, `job.partially_paid`, `job.disputed`,
+`job.cancelled`) era aspiracional — orientada a las transiciones FSM, no a
+lo que `jobs.service.ts` emite realmente. El código solo emite tres tipos,
+vía `DomainEventBus` (no outbox) desde `jobs.service.ts`:
 
 - `job.created`
-- `job.posted`
-- `job.reserved`
-- `job.accepted`
-- `job.started`
-- `job.review_requested`
-- `job.partially_paid`
-- `job.completed`
-- `job.disputed`
-- `job.cancelled`
+- `job.status_changed`
+- `job.preferred_professional_selected`
+
+Esta spec agrega el envelope v2 versionado para esos tres (dual-write junto
+al `DomainEventBus` existente, que se mantiene intacto) y dos eventos
+nuevos de `bids` que no existían en ningún catálogo hasta ahora:
+
+- `job.created.v1`
+- `job.status_changed.v1`
+- `job.preferred_professional_selected.v1` (schema reservado — el productor
+  de este evento en outbox no está instrumentado todavía, fuera del
+  alcance de esta spec; ver spec §6)
+- `bid.created.v1`
+- `bid.accepted.v1`
+- `bid.rejected.v1` (emitido por-bid, uno por cada bid competidor que
+  pierde cuando otro es aceptado — no agregado)
+
+Módulo/agregado: `jobs` / `Job` para los tres `job.*`; `bids` / `Bid` para
+los tres `bid.*`. Consumer: `jobs-bids-projection.v1`, registrado en el
+dispatch genérico de `domain-event-consumer.service.ts` (mismo mecanismo
+de idempotencia `DomainEventConsumption` que `evidence-readiness.v1` /
+`project-lifecycle-projection.v1`). Rebuild tenant-scoped desde estado
+actual de `Job`+`Bid` (no aplicación de deltas), persistido con CAS por
+`revision`+`sourceUpdatedAt` en `JobsBidsProjection`, mismo molde que
+`ProjectLifecycleProjection`.
+
+Read-through: `OperationalContextService.buildContext()` lee el campo
+`jobs` desde la proyección solo si `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`
+y el tenant está en `SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS`, con fallback
+obligatorio a la query directa (`prisma.job.findMany()`) si la lectura
+falla o la proyección todavía no alcanzó la cantidad real de jobs del
+tenant (backfill en curso) — no negociable en el path de `POST
+/prometeo/chat`, que llama `buildContext()` sin `.catch()`.
+
+Activación (`SEMSE_JOBS_PROJECTION_ENABLED`,
+`SEMSE_JOBS_PROJECTION_PERSIST_ENABLED`,
+`SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS`,
+`SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`) sigue
+`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md` — no desplegada/activada
+todavía al momento de este cambio (`activation_status: INACTIVE` en el
+frontmatter de la spec).
 
 ## Reservations
 
