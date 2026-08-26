@@ -44,7 +44,7 @@ retroactiva.
 | [agt-001-verification-loop](specs/agents/verification-loop.spec.md) | agents | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-04 |
 | [api-agents-runtime](specs/api/agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-bff-auth-boundary](specs/api/bff-auth-boundary.spec.md) | auth | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-28 |
-| [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [api-buildops](specs/api/buildops.spec.md) | buildops | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-13 |
 | [api-change-orders](specs/api/change-orders.spec.md) | change-orders | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [api-communications](specs/api/communications.spec.md) | communications | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-07 |
 | [api-consciousness-observer](specs/api/consciousness.spec.md) | ops | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |
