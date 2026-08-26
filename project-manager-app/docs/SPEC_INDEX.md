@@ -100,7 +100,7 @@ retroactiva.
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
 | [prometeo.agent-decision-retrieval](specs/prometeo/agent-decision-retrieval.spec.md) | prometeo | DRAFT | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-31 |
 | [prometeo.cache-control](specs/prometeo/cache-control.spec.md) | prometeo | DRAFT | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-31 |
-| [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | DRAFT | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-31 |
+| [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
 | [prometeo.tool-result-multimodal](specs/prometeo/tool-result-multimodal.spec.md) | prometeo | DRAFT | legacy | legacy | legacy | legacy | legacy | medium | no | 2026-07-31 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | high | no | 2026-07-12 |
