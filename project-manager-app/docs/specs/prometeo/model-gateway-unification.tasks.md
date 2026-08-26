@@ -3,7 +3,7 @@ type: tasks
 feature: "SPEC-GTW-001 — Unificación del Model Gateway"
 domain: "prometeo"
 plan: "docs/specs/prometeo/model-gateway-unification.plan.md"
-version: "2.1"
+version: "2.2"
 status: "PENDING"
 branch: "feat/gtw-001-model-gateway-unification"
 date: "2026-08-14"
@@ -95,10 +95,23 @@ date: "2026-08-14"
 
 - [ ] [T-030] **N/A endpoint nuevo** — sin cambio de superficie API/BFF
       (plan §3, "API/BFF/UI: sin cambios")
-- [ ] [T-031] Cambiar `AiModelGatewayService.executeWithSlug()` para que
-      **todas** las ramas (incluidas `deepseek-*`/`kimi-k2`/`glm-*`) pasen
-      por `resolveModel()` + `llmOrchestrator.chat()`, con el `taskType`
-      real propagado — no `"chat"` fijo (spec §4 paso 4)
+- [ ] [T-030a] Implementar `isUnifiedModelGatewayEnabled(tenantId, env)` —
+      mismo patrón `SEMSE_X_ENABLED`/`SEMSE_X_CANARY_TENANT_IDS` ya usado
+      esta sesión (Mission Control/Identity/Originador). **Este es el
+      código real detrás de "PR 4/5: flag" (Fase 6) — la propia activación
+      en Fase 6 es solo flipear el env var, no escribir el check.**
+- [ ] [T-031] Cambiar `AiModelGatewayService.executeWithSlug()` para que,
+      **cuando `isUnifiedModelGatewayEnabled()` sea `true` para el tenant
+      del caller**, todas las ramas (incluidas `deepseek-*`/`kimi-k2`/
+      `glm-*`) pasen por `resolveModel()` + `llmOrchestrator.chat()`, con
+      el `taskType` real propagado — no `"chat"` fijo (spec §4 paso 4).
+      **Cuando el flag esté apagado, se preserva el comportamiento actual
+      sin cambios** (las dos ramas de `executeWithSlug()` tal como existen
+      hoy) — sin esto, el flag de Fase 6 no tendría ningún código que
+      gatear y la migración sería big-bang pese a que plan §7/spec §4
+      paso 5 dicen explícitamente lo contrario. **(Corrección 2026-08-14,
+      ver nota de /speckit.analyze abajo — T-031 originalmente no
+      mencionaba el flag.)**
 - [ ] [T-032] **N/A UI** — sin superficie de usuario nueva; los 16 agentes
       conversacionales y los 8 callers de `executeWithSlug()` (plan §3,
       §5) mantienen su firma pública sin cambios
@@ -139,7 +152,13 @@ date: "2026-08-14"
       Fase F (activación) dentro de estos PRs
 - [ ] [T-054] Fusionar y registrar SHA; actualizar `merge_status`
 
-## Fase 6 — Deploy y activación (PR 4/5: flag; PR 5/5: retiro de instanciación directa)
+## Fase 6 — Deploy y activación (PR 4/5: ninguna — solo config; PR 5/5: retiro de instanciación directa)
+
+> **PR 4/5 no tiene código propio** — el check `isUnifiedModelGatewayEnabled()`
+> ya se escribió y mergeó en Fase 3 (T-030a, PR 3/5). "PR 4/5" en el conteo
+> del spec/plan es en realidad una acción de configuración (flipear el env
+> var en Railway), no un PR de código — aclarado acá tras encontrar la
+> inconsistencia en `/speckit.analyze` (ver nota al final del documento).
 
 - [ ] [T-060] **N/A pre-deploy/migración** — sin cambio de esquema
 - [ ] [T-061] Esperar deployment terminal de `semse-API` (único servicio
@@ -147,7 +166,7 @@ date: "2026-08-14"
 - [ ] [T-062] Verificar health/readiness y logs — sin acceso a Railway
       verificado esta sesión, requiere reautenticación (`railway login`)
       antes de poder ejecutar este paso
-- [ ] [T-063] Definir y activar
+- [ ] [T-063] Activar (no definir — ya definido en T-030a)
       `SEMSE_UNIFIED_MODEL_GATEWAY_ENABLED`/`SEMSE_UNIFIED_MODEL_GATEWAY_CANARY_TENANT_IDS`
       de forma gradual, un tenant canary primero (plan §7 Fase F) — **acción
       humana, no de agente**, mismo criterio ya aplicado esta sesión a
@@ -179,3 +198,37 @@ date: "2026-08-14"
       o deploy
 - [ ] `SPEC_INDEX.md`/`IMPLEMENTATION_STATUS_MATRIX.md`/`ROADMAP.md`
       actualizados si esto pasa a formar parte de un hito de roadmap visible
+
+## `/speckit.analyze` — consistencia spec↔plan↔tasks↔constitución (2026-08-14)
+
+Pase real de verificación, no solo re-lectura — un hallazgo cambió este
+documento:
+
+- **Artículos I, II, VI, VII, VIII, X, XI, XIII de la constitución:**
+  consistentes. Artículo VIII (privacy routing) es el propósito central de
+  este spec, no solo cumplido incidentalmente. Artículo VII (multi-tenant):
+  el gateway en sí no tiene contexto de tenant (correcto, no es un query de
+  datos), pero el flag de activación sí es tenant-scoped
+  (`_CANARY_TENANT_IDS`, T-030a/T-063) — el artículo se satisface ahí, no
+  por irrelevancia.
+- **Artículos III, IV, V, IX:** N/A confirmado — sin evidencia, sin
+  liberación de fondos, sin transición de FSM, sin datos mock. Ninguno
+  contradicho.
+- **Hallazgo real — plan↔tasks inconsistentes (corregido):** el plan (§4,
+  §7 Fase F) diseña explícitamente un flag de activación gradual porque
+  "un error [en cambiar `executeWithSlug()`] puede degradar latencia/
+  disponibilidad... para todos los agentes simultáneamente" (spec §5). La
+  primera versión de este documento (T-031) cambiaba `executeWithSlug()`
+  de forma incondicional — sin flag, sin gate — sería big-bang pese a que
+  spec §4 paso 5 y plan §7 Fase E dicen explícitamente lo contrario.
+  **Corregido:** T-030a (escribir el check) agregado a Fase 3; T-031
+  ahora gatea el cambio detrás de `isUnifiedModelGatewayEnabled()`,
+  preservando el comportamiento actual cuando el flag está apagado; Fase 6
+  aclarada para no duplicar "PR 4/5" como si tuviera código propio.
+- **Hallazgo menor, no bloqueante:** `IMPLEMENTATION_STATUS_MATRIX.md` no
+  referencia todavía `prometeo.model-gateway-unification` pese a ser
+  `risk: critical` y preceder F7 (spec, "Fase Matriz"). No es una
+  contradicción del spec/plan/tasks en sí — es trabajo de documentación
+  pendiente, ya reflejado en el último ítem de "Criterio de Done" arriba.
+  No se actualiza la matriz en este PR (nada se implementó todavía; hacerlo
+  ahora sería documentar una capacidad que no existe en código).
