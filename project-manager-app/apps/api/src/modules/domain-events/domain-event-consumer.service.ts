@@ -56,7 +56,8 @@ type ConsumerResult = {
   eventId: string;
   consumer:
     | typeof EVIDENCE_READINESS_CONSUMER
-    | typeof PROJECT_LIFECYCLE_PROJECTION_CONSUMER;
+    | typeof PROJECT_LIFECYCLE_PROJECTION_CONSUMER
+    | (string & {});
   status: "completed";
   effect: "updated" | "no_op";
   milestoneId?: string | null;
@@ -72,16 +73,55 @@ type ProcessingIdentity = {
   serviceActorId?: string;
 };
 
+/**
+ * `process()` dispatches purely on `storedEvent.eventType → descriptor`
+ * (built once in the constructor via `buildHandlerRegistry()`). Adding a new
+ * event type/consumer is a new entry in that registry, not a new branch in
+ * `process()` — see `jobs-bids-event-projection.spec.md` §2 (F1-F) for the
+ * domain this unblocked.
+ */
+type EventHandlerDescriptor = {
+  eventType: string;
+  consumerName: string;
+  handle: (
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ) => Promise<ConsumerResult>;
+};
+
 class TerminalConsumerError extends Error {}
 class AlreadyDeadLetteredError extends Error {}
 
 @Injectable()
 export class DomainEventConsumerService {
+  private readonly handlersByEventType: ReadonlyMap<string, EventHandlerDescriptor>;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly metrics: MetricsService,
     private readonly projectsRepository?: ProjectsRepository,
-  ) {}
+  ) {
+    this.handlersByEventType = this.buildHandlerRegistry();
+  }
+
+  private buildHandlerRegistry(): ReadonlyMap<string, EventHandlerDescriptor> {
+    const descriptors: EventHandlerDescriptor[] = [
+      {
+        eventType: EVIDENCE_UPLOADED_EVENT_TYPE,
+        consumerName: EVIDENCE_READINESS_CONSUMER,
+        handle: (storedEvent, processingIdentity) =>
+          this.processEvidenceReadinessEvent(storedEvent, processingIdentity),
+      },
+      {
+        eventType: PROJECT_LIFECYCLE_SOURCE_CHANGED_EVENT_TYPE,
+        consumerName: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        handle: (storedEvent, processingIdentity) =>
+          this.processProjectLifecycleEvent(storedEvent, processingIdentity),
+      },
+    ];
+
+    return new Map(descriptors.map((descriptor) => [descriptor.eventType, descriptor]));
+  }
 
   async process(
     eventId: string,
@@ -107,17 +147,43 @@ export class DomainEventConsumerService {
       });
     }
 
-    if (
-      storedEvent.eventType === PROJECT_LIFECYCLE_SOURCE_CHANGED_EVENT_TYPE
-    ) {
-      this.assertConsumerAllowlisted(PROJECT_LIFECYCLE_PROJECTION_CONSUMER);
-      return this.processProjectLifecycleEvent(
-        storedEvent,
-        processingIdentity,
-      );
+    const descriptor = this.handlersByEventType.get(storedEvent.eventType);
+    if (!descriptor) {
+      throw new UnprocessableEntityException({
+        message: "No consumer handler is registered for this domain event type",
+        eventId,
+        eventType: storedEvent.eventType,
+      });
     }
 
-    this.assertConsumerAllowlisted(EVIDENCE_READINESS_CONSUMER);
+    this.assertConsumerAllowlisted(descriptor.consumerName);
+    return descriptor.handle(storedEvent, processingIdentity);
+  }
+
+  private assertConsumersEnabled(): void {
+    if (!isDomainEventConsumersEnabled()) {
+      throw new ServiceUnavailableException({
+        message: "Domain event consumers are disabled by kill switch",
+      });
+    }
+  }
+
+  private assertConsumerAllowlisted(consumerName: string): void {
+    const consumers = parseEventConsumerAllowlist(
+      process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST,
+    );
+    if (!consumers.has(consumerName)) {
+      throw new ServiceUnavailableException({
+        message: "Domain event consumer is not allowlisted",
+        consumer: consumerName,
+      });
+    }
+  }
+
+  private async processEvidenceReadinessEvent(
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
     if (storedEvent.eventType !== EVIDENCE_UPLOADED_EVENT_TYPE) {
       return this.rejectTerminal(
         storedEvent.eventId,
@@ -179,14 +245,14 @@ export class DomainEventConsumerService {
       if (error instanceof AlreadyDeadLetteredError) {
         throw new UnprocessableEntityException({
           message: error.message,
-          eventId,
+          eventId: storedEvent.eventId,
           consumer: EVIDENCE_READINESS_CONSUMER,
         });
       }
 
       const terminal = error instanceof TerminalConsumerError;
       const failure = await this.recordFailure({
-        eventId,
+        eventId: storedEvent.eventId,
         tenantId: parsedEvent.data.tenantId,
         error: redactConsumerError(error),
         terminal,
@@ -196,7 +262,7 @@ export class DomainEventConsumerService {
         this.metrics.recordEventConsumerDeadLetter(EVIDENCE_READINESS_CONSUMER);
         throw new UnprocessableEntityException({
           message: "Domain event consumer moved delivery to dead letter",
-          eventId,
+          eventId: storedEvent.eventId,
           consumer: EVIDENCE_READINESS_CONSUMER,
           attempts: failure.attempts,
         });
@@ -204,29 +270,9 @@ export class DomainEventConsumerService {
 
       throw new InternalServerErrorException({
         message: "Domain event consumer failed; retry is allowed",
-        eventId,
+        eventId: storedEvent.eventId,
         consumer: EVIDENCE_READINESS_CONSUMER,
         attempts: failure.attempts,
-      });
-    }
-  }
-
-  private assertConsumersEnabled(): void {
-    if (!isDomainEventConsumersEnabled()) {
-      throw new ServiceUnavailableException({
-        message: "Domain event consumers are disabled by kill switch",
-      });
-    }
-  }
-
-  private assertConsumerAllowlisted(consumerName: string): void {
-    const consumers = parseEventConsumerAllowlist(
-      process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST,
-    );
-    if (!consumers.has(consumerName)) {
-      throw new ServiceUnavailableException({
-        message: "Domain event consumer is not allowlisted",
-        consumer: consumerName,
       });
     }
   }

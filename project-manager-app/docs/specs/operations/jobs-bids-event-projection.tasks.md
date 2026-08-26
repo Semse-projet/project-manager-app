@@ -3,10 +3,10 @@ type: tasks
 feature: "Jobs & Bids Event Projection for Agent Context"
 domain: "operations"
 plan: "docs/specs/operations/jobs-bids-event-projection.plan.md"
-version: "1.0"
-status: "PENDING"
-branch: "feat/jobs-bids-event-projection"
-date: "2026-08-06"
+version: "1.1"
+status: "IN_PROGRESS"
+branch: "claude/roadmap-continuation-vhmve9"
+date: "2026-08-26"
 ---
 
 # Tareas: Jobs & Bids Event Projection for Agent Context
@@ -14,30 +14,63 @@ date: "2026-08-06"
 > Prerrequisito: plan aprobado y análisis spec↔plan↔constitución sin gaps.
 > `[ ]` pendiente · `[x]` completo · `[~]` bloqueado · `[P]` paralelizable.
 >
-> El plan (sección 10) deja abierta una pregunta de scope: si la Fase 0
-> (dispatch genérico del consumer) debería ser un PR separado por ser
-> transversal a F1/F3, no específica de este dominio. Resolver eso en
-> `analyze`, antes de T-001, no durante la ejecución.
+> Retomado 2026-08-26 en `claude/roadmap-continuation-vhmve9` (la rama
+> `feat/jobs-bids-event-projection` del plan original nunca se creó). T-003
+> queda resuelto abajo.
 
 ## Fase 0 — SDD y verdad
 
-- [ ] [T-001] Confirmar spec `APPROVED` e indexado (`pnpm spec:index`)
-- [ ] [T-002] Registrar SHA Git/producción, migraciones y flags actuales
-      (no asumir el snapshot de `ROADMAP.md` al 2026-08-04, reconfirmar)
-- [ ] [T-003] Completar `analyze` (spec↔plan↔constitución) y decidir si
-      Fase 0 del plan (dispatch genérico) va en PR separado
-- [ ] [T-004] Registrar investigación externa y decisiones — no aplica
-      búsqueda nueva, dejar constancia explícita de eso en el reporte
+- [x] [T-001] Confirmar spec `APPROVED` e indexado — ya `APPROVED` desde
+      2026-08-17, indexado en `docs/SPEC_INDEX.md`.
+- [x] [T-002] Registrar SHA Git/producción, migraciones y flags actuales —
+      `origin/main` SHA `862f13fa2a26286bcacf9e1c7353ef08173a91de`
+      (2026-08-26); ninguna migración de esta spec existe todavía
+      (confirmado, ver `packages/db/prisma/migrations/`); `.env.example`
+      declara `SEMSE_EVENT_TYPE_ALLOWLIST`/`SEMSE_EVENT_CONSUMER_ALLOWLIST`
+      vacíos por defecto (sin valores hardcodeados en el repo — se llenan
+      por entorno); los cuatro flags `SEMSE_JOBS_PROJECTION_*` no existen
+      aún en ningún archivo. No hay acceso a `railway status` desde esta
+      sesión — deploy/activación quedan fuera del alcance ejecutable acá
+      (ver Fase 8).
+- [x] [T-003] Decisión de scope (sin `analyze` formal — spec y plan ya
+      verificados línea por línea contra código real en 2026-08-17/26, sin
+      gaps detectados entre spec↔plan↔constitución): **dos PRs**. PR 1 =
+      Fase 0 (dispatch genérico), transversal y verificable en aislamiento.
+      PR 2 = Fases A-D (schemas, migración, productores, consumer,
+      read-through, tests), sobre PR 1 ya mergeado. Detalle en
+      `jobs-bids-event-projection.plan.md` §7 Fase 0.
+- [x] [T-004] Investigación externa — no aplica, confirmado (spec §11 ya lo
+      documenta); el diseño reutiliza los patrones propios de F1/F3
+      (`evidence.repository.ts`, `project-lifecycle-projection.ts`) sin
+      búsqueda nueva.
 
 ## Fase 1 — Dispatch genérico del consumer (F1-F, transversal)
 
-- [ ] [T-010] Escribir test rojo: un `eventType` nuevo no listado hoy debe
-      poder registrarse sin tocar `domain-event-consumer.service.ts`
-- [ ] [T-011] Refactorizar los dos `if` hardcodeados a un registro
-      `eventType → consumer handler`
-- [ ] [T-012] Confirmar que `evidence-readiness.v1` y
-      `project-lifecycle-projection.v1` siguen pasando sin cambio de
-      comportamiento tras el refactor (regresión, no feature nueva)
+- [x] [T-010] Test rojo escrito — ajustado en alcance: literalmente "sin
+      tocar el archivo" hubiera exigido registro por DI externa
+      (sobre-ingeniería para dos consumers reales); el test que sí se
+      escribió (`event-domain-consumer.test.ts`, caso "F1-F generalized
+      dispatch") prueba la propiedad que importa — un `eventType`
+      allowlisted sin handler registrado se rechaza identificándose a sí
+      mismo (`eventType` en la respuesta), **sin** consultar el allowlist
+      de `evidence-readiness.v1` como hacía el `else` implícito de antes.
+      Falló antes del refactor (el `else` viejo atribuía cualquier tipo
+      desconocido a `EVIDENCE_READINESS_CONSUMER`).
+- [x] [T-011] Refactorizado: `domain-event-consumer.service.ts` ahora
+      construye `handlersByEventType` (`ReadonlyMap<eventType,
+      EventHandlerDescriptor>`) una vez en el constructor; `process()`
+      despacha por lookup, sin `if` hardcodeados. Agregar un consumer nuevo
+      es una entrada nueva en `buildHandlerRegistry()`, no una rama nueva.
+- [x] [T-012] Confirmado sin cambio de comportamiento: los 14 tests de
+      `event-domain-consumer.test.ts` + `project-lifecycle-projection-
+      events.test.ts` pasan (`node --experimental-strip-types --test`,
+      contra `dist/` recompilado); `tsc --noEmit` y `eslint` limpios. Único
+      cambio de comportamiento real: un `eventType` allowlisted sin
+      handler ahora responde 422 "No consumer handler is registered..."
+      con su propio `eventType`, en vez de ser evaluado (incorrectamente)
+      contra el allowlist de `evidence-readiness.v1` — caso no cubierto
+      por ningún test existente antes de este cambio (confirmado por
+      grep), por lo que no es una regresión.
 
 ## Fase 2 — Tests y contratos de jobs/bids
 
