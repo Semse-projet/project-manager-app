@@ -80,6 +80,8 @@ export type AdminTabParamList = {
   Contractors: undefined;
   /** Tenant-wide trust/risk scores by job/project, read-only, see mobile-admin-trust.spec.md. */
   Trust: undefined;
+  /** Tenant-wide professional reputation scores, read-only, see mobile-admin-reputation.spec.md. */
+  Reputation: undefined;
   Settings: undefined;
 };
 
