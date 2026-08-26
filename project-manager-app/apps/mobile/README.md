@@ -36,9 +36,10 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b/7c/7d/7e, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+**Admin tab (Fase 7a/7b/7c/7d/7e/7f, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
 `mobile-admin-disputes.spec.md` / `mobile-admin-labor-overview.spec.md` /
-`mobile-admin-users.spec.md` / `mobile-admin-contractors.spec.md`)**: has a
+`mobile-admin-users.spec.md` / `mobile-admin-contractors.spec.md` /
+`mobile-admin-trust.spec.md`)**: has a
 real `Dashboard` (jobs overview — active/disputed/completed/total counts,
 active budget, dispute alerts, derived client-side from `GET /v1/jobs`,
 mirroring `apps/web`'s admin dashboard), a `Disputes` tab (tenant-wide list +
@@ -58,7 +59,18 @@ via `jobs:read`/`jobs:create`; no status change, delete, or estimate/invoice
 generation, those are a separate phase — see spec §2. Built against
 `contractor.service.ts`'s real `LeadStatus`/`LeadSource` contract rather than
 `apps/web`'s Contractors page, whose local types and `trade` field have
-drifted from what the backend actually returns/reads), and a `Settings` tab
+drifted from what the backend actually returns/reads), a `Trust` tab
+(tenant-wide trust/risk scores by job/project —
+score, level, primary reason, flags — via the purpose-built
+`GET /v1/ops/trust-overview`, same scoping as `Disputes` — tenant-wide, not
+org-scoped, verified in `ops.repository.ts`'s `listRecentJobsWithProject`;
+no trust-passport detail here, that's a separate read surface `apps/web`'s
+Trust page exposes via a per-user expandable card. Built against
+`@semse/schemas`'s real `trustOverviewSchema`, not `apps/web`'s Trust page,
+which reads a nonexistent `data.entries` field — the API returns `items` —
+filters for a `"critical"` level the schema never produces, and checks
+`scopeType === "user"` when it's only ever `"job"`/`"project"`, so that
+page's table and passport button never actually work), and a `Settings` tab
 (logout only). Contractors is labeled 7e, not 7c or 7d, because both were
 already claimed by parallel branches when it was built: 7c by Labor and 7d
 by Users directory (both merged, PRs #584/#585). The rest of Fase 7 —
@@ -161,6 +173,7 @@ src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProje
                       ClientSettingsScreen}, admin/{AdminDashboardScreen,
                       AdminDisputesScreen,AdminDisputeDetailScreen,
                       AdminLaborOverviewScreen,AdminUsersScreen,
-                      AdminContractorsScreen,AdminSettingsScreen}
+                      AdminContractorsScreen,AdminTrustScreen,
+                      AdminSettingsScreen}
 src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```
