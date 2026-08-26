@@ -46,12 +46,14 @@ date: "2026-08-26"
 ## Fase 5 — PR, CI y merge
 
 - [x] [T-050] Revisar diff y secretos antes de `git add`.
-- [ ] [T-051] Commit + push a `claude/roadmap-continuation-vhmve9`, abrir PR
-      draft con evidencia de T-040/T-041.
-- [ ] [T-052] Esperar CI terminal y registrar `ci_status`.
-- [ ] [T-053] Resolver review sin ampliar scope (resistir agregar detalle
-      de ratings individuales).
-- [ ] [T-054] Fusionar y registrar SHA; actualizar `merge_status`.
+- [x] [T-051] Commit + push a `claude/roadmap-continuation-vhmve9`, abrir PR
+      draft con evidencia de T-040/T-041 — PR #589.
+- [x] [T-052] Esperar CI terminal y registrar `ci_status` — `ci_status: PASS`
+      (único status check del PR, "Devin Review", en `success`).
+- [x] [T-053] Resolver review sin ampliar scope — sin comentarios de review
+      que requirieran cambios.
+- [x] [T-054] Fusionar y registrar SHA; actualizar `merge_status` —
+      mergeado en `862f13f`, `merge_status: MERGED`.
 
 ## Fase 6 — Deploy y activación
 
