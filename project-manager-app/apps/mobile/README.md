@@ -36,22 +36,25 @@ directly instead of going through `NotificationsService`, so they never reach
 out about a new bid by opening the app, not a push — this is a pre-existing backend
 gap, not something this phase fixes.
 
-**Admin tab (Fase 7a/7b/7c, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
-`mobile-admin-disputes.spec.md` / `mobile-admin-labor-overview.spec.md`)**:
-has a real `Dashboard` (jobs overview — active/disputed/completed/total
-counts, active budget, dispute alerts, derived client-side from
-`GET /v1/jobs`, mirroring `apps/web`'s admin dashboard), a `Disputes` tab
-(tenant-wide list + detail, read-only — `GET /v1/disputes` already scopes
-`OPS_ADMIN` to every org in the tenant server-side, unlike `CLIENT`/`PRO`;
-no assign/resolve/archive actions, those mutate a dispute's outcome and
-need their own spec), a `Labor` tab (QualityGuard alerts — stale timers,
-overtime, long entries, off-site check-ins — plus the team's weekly hours
-and known cost, read-only via the purpose-built
-`GET /v1/labor/admin/overview`, same endpoint `apps/web`'s
+**Admin tab (Fase 7a/7b/7c/7d, `docs/specs/ui/mobile-admin-dashboard.spec.md` /
+`mobile-admin-disputes.spec.md` / `mobile-admin-labor-overview.spec.md` /
+`mobile-admin-users.spec.md`)**: has a real `Dashboard` (jobs overview —
+active/disputed/completed/total counts, active budget, dispute alerts,
+derived client-side from `GET /v1/jobs`, mirroring `apps/web`'s admin
+dashboard), a `Disputes` tab (tenant-wide list + detail, read-only —
+`GET /v1/disputes` already scopes `OPS_ADMIN` to every org in the tenant
+server-side, unlike `CLIENT`/`PRO`; no assign/resolve/archive actions, those
+mutate a dispute's outcome and need their own spec), a `Labor` tab
+(QualityGuard alerts — stale timers, overtime, long entries, off-site
+check-ins — plus the team's weekly hours and known cost, read-only via the
+purpose-built `GET /v1/labor/admin/overview`, same endpoint `apps/web`'s
 `/admin/labor-engine` already uses; `workerId` is shown truncated, not
-resolved to a name, and no timer mutation is exposed), and a `Settings` tab
-(logout only). The rest of Fase 7 — contractors, finance, dispute/timer
-mutations — is still pending.
+resolved to a name, and no timer mutation is exposed), a `Users` tab
+(tenant-wide directory — email, status, verification, trust score, risk
+level, via `GET /v1/users`; no status/verify/profile mutation), and a
+`Settings` tab (logout only). The rest of Fase 7 — the leads CRM at
+`/admin/contractors`, finance, any dispute/user/timer mutation — is still
+pending.
 
 ## Setup
 
@@ -148,6 +151,7 @@ src/screens/       — LoginScreen, ForgotPasswordScreen, TimerScreen, FreeProje
                       client/{JobsListScreen,JobDetailScreen,RatingFormScreen,
                       ClientSettingsScreen}, admin/{AdminDashboardScreen,
                       AdminDisputesScreen,AdminDisputeDetailScreen,
-                      AdminLaborOverviewScreen,AdminSettingsScreen}
+                      AdminLaborOverviewScreen,AdminUsersScreen,
+                      AdminSettingsScreen}
 src/components/    — ErrorBoundary, EvidenceCapture, LocationPickerMap, PermissionPrimerModal
 ```
