@@ -110,8 +110,18 @@ date: "2026-08-27"
 
 ## Fase G — Deploy y activación
 
-- [ ] [T-070] Migración real verificada contra Postgres — bloqueado en
-      esta sesión (sin DB).
+- [~] [T-070] Migración real verificada contra Postgres — sigue bloqueada
+      (sin DB en este sandbox), pero se agregó una verificación offline
+      real 2026-08-27: `npx prisma migrate diff --from-empty
+      --to-schema-datamodel prisma/schema.prisma --script` (corre sin
+      conexión a ninguna base de datos — el motor de Prisma compara
+      esquemas, no aplica nada) genera exactamente la misma tabla,
+      índices y FK que el archivo de migración escrito a mano
+      (`20260827010000_satellite_webhook/migration.sql`) — mismos
+      nombres, tipos, defaults y constraint. Reduce mucho el riesgo de
+      que la migración esté mal escrita, pero no reemplaza aplicarla de
+      verdad contra Postgres real (RLS, triggers, datos existentes, orden
+      de aplicación con otras migraciones pendientes siguen sin probar).
 - [ ] [T-071] Canary: webhook real desde Railway hacia un receptor de
       prueba; suspensión verificada tras fallos forzados.
 - [ ] [T-072] `docs/runbooks/SAT-007-outbound-webhooks-canary.md`
