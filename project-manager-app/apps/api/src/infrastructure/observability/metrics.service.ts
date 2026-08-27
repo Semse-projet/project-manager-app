@@ -21,6 +21,7 @@ export class MetricsService {
   private readonly eventConsumerAttempts = new Map<string, number>();
   private readonly eventConsumerDuplicates = new Map<string, number>();
   private readonly eventConsumerDeadLetters = new Map<string, number>();
+  private readonly productIntelligenceIngestRejections = new Map<string, number>();
 
   recordHttpRequest(input: {
     method: string;
@@ -88,6 +89,16 @@ export class MetricsService {
     );
   }
 
+  /** platform.product-intelligence spec, acceptance criteria: a rejected
+   * ingest batch (400 — allowlist violation, oversized batch, etc.) must
+   * leave a visible counter, not just an HTTP error nobody sees. */
+  recordProductIntelligenceIngestRejection(reason: string): void {
+    this.productIntelligenceIngestRejections.set(
+      reason,
+      (this.productIntelligenceIngestRejections.get(reason) ?? 0) + 1,
+    );
+  }
+
   renderPrometheus(): string {
     const lines = [
       "# HELP semse_http_requests_total Total HTTP requests handled by the API",
@@ -120,6 +131,8 @@ export class MetricsService {
       "# TYPE semse_event_consumer_duplicates_total counter",
       "# HELP semse_event_consumer_dead_letter_total Consumer deliveries exhausted or rejected terminally",
       "# TYPE semse_event_consumer_dead_letter_total counter",
+      "# HELP semse_product_intelligence_ingest_rejections_total Product Intelligence ingest batches rejected with 400, by reason",
+      "# TYPE semse_product_intelligence_ingest_rejections_total counter",
     ];
 
     for (const [key, value] of this.eventConsumerAttempts.entries()) {
@@ -138,6 +151,12 @@ export class MetricsService {
     for (const [consumer, value] of this.eventConsumerDeadLetters.entries()) {
       lines.push(
         `semse_event_consumer_dead_letter_total{consumer="${escapePrometheusLabel(consumer)}"} ${value}`,
+      );
+    }
+
+    for (const [reason, value] of this.productIntelligenceIngestRejections.entries()) {
+      lines.push(
+        `semse_product_intelligence_ingest_rejections_total{reason="${escapePrometheusLabel(reason)}"} ${value}`,
       );
     }
 
