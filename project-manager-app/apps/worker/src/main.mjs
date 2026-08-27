@@ -101,12 +101,14 @@ const RESERVATION_SWEEP_INTERVAL_MS = 60_000;
 const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curator decides if 7d passed
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
+const LIEN_DEADLINE_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.1-lien-rights: cada hora
 
 let shouldStop = false;
 let reclaimTimer;
 let reservationSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
+let lienDeadlineTimer;
 let piEnginesTimer;
 let authState = {
   accessToken: null,
@@ -323,6 +325,16 @@ async function main() {
     piEnginesTimer = setInterval(() => { void runProductIntelligenceEnginesSafe(); }, PI_ENGINES_INTERVAL_MS);
   }
 
+  // m2.1-lien-rights — chequeo de deadlines de lien cada hora, solo con el
+  // kill switch activo. Transiciona LienCalendar.status y genera notices
+  // automáticos al llegar a ALERTED_3D; el push/email al PRO sigue sin
+  // implementar (ver TODO en lien-alerts.scheduler.ts) — esto solo reemplaza
+  // el trigger manual por uno automático para la parte que sí funciona hoy.
+  if (process.env.LIEN_ALERTS_ENABLED === "true") {
+    void runLienDeadlineCheckSafe();
+    lienDeadlineTimer = setInterval(() => { void runLienDeadlineCheckSafe(); }, LIEN_DEADLINE_CHECK_INTERVAL_MS);
+  }
+
   // SPEC-AUT-001 — permanent loops (kill switch: AUTONOMY_LOOPS_ENABLED)
   let permanentLoopsHandle = null;
   try {
@@ -347,6 +359,7 @@ async function main() {
   if (curatorTimer) clearInterval(curatorTimer);
   if (piRetentionTimer) clearInterval(piRetentionTimer);
   if (piEnginesTimer) clearInterval(piEnginesTimer);
+  if (lienDeadlineTimer) clearInterval(lienDeadlineTimer);
 
   await worker.close();
   await developerRuntimeWorker.close();
@@ -470,6 +483,16 @@ async function runProductIntelligenceRetentionSafe() {
   } catch (err) {
     logger.warn({ error: err instanceof Error ? err.message : String(err) },
       "product intelligence retention failed (non-fatal)");
+  }
+}
+
+async function runLienDeadlineCheckSafe() {
+  try {
+    const response = await postJson("/v1/admin/liens/check-deadlines", {});
+    logger.info(response?.data ?? {}, "lien deadline check complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "lien deadline check failed (non-fatal)");
   }
 }
 

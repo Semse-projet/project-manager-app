@@ -6,11 +6,18 @@ import { NoticeGeneratorService } from './notice-generator.service.js';
 
 /**
  * LienAlertsScheduler — ejecuta jobs periódicos para alertas de lien deadlines.
- * Debe ser ejecutado cada hora por BullMQ o similar.
+ * Disparado cada hora por apps/worker/src/main.mjs (runLienDeadlineCheckSafe,
+ * kill switch LIEN_ALERTS_ENABLED, 2026-08-27) vía
+ * POST /v1/admin/liens/check-deadlines — antes solo existía el trigger manual.
  *
  * Búsqueda: LienCalendars donde el deadline está en 30d, 7d, 3d, 1d
  * Transición: CREATED → ALERTED_30D → ALERTED_7D → ALERTED_3D
- * Notificación: push + email al PRO
+ * Notificación: push + email al PRO — NO IMPLEMENTADO (ver TODO abajo):
+ *   requiere resolver qué usuario recibe la alerta a partir de
+ *   Project.assignedProOrgId (un Org, no un userId) — no hay una noción
+ *   establecida de "usuario principal de un Org" en este módulo; asumir una
+ *   sin confirmar el criterio de producto podría mandar (o no mandar) un
+ *   aviso legal a la persona equivocada.
  * Generación: notices automáticos cuando ALERTED_3D se alcanza
  */
 @Injectable()
