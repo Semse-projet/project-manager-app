@@ -4,6 +4,31 @@ import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { LobClient } from '../../integrations/lob.js';
 
 /**
+ * Parses "123 Main St, San Francisco, CA 94102" into its mail-API components.
+ * Same format `ProjectLiensService.extractStateFromAddress()` already
+ * assumes elsewhere in this module — not a new assumption. Returns null if
+ * the string isn't in that shape (missing city/state/zip, freeform text,
+ * etc.) so the caller can fail closed instead of mailing to a guess.
+ */
+export function parseMailAddress(
+  fullAddress: string | null | undefined
+): { addressLine1: string; city: string; state: string; zip: string } | null {
+  if (!fullAddress) return null;
+  const parts = fullAddress.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 3) return null;
+
+  const stateZip = parts[parts.length - 1];
+  const match = stateZip.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+  if (!match) return null;
+
+  const city = parts[parts.length - 2];
+  const addressLine1 = parts.slice(0, parts.length - 2).join(', ');
+  if (!addressLine1 || !city) return null;
+
+  return { addressLine1, city, state: match[1], zip: match[2] };
+}
+
+/**
  * NoticeSendService — envía notices vía Lob.com (correo certificado digital).
  */
 @Injectable()
@@ -24,7 +49,10 @@ export class NoticeSendService {
 
     const notice = await this.prisma.lienNotice.findUniqueOrThrow({
       where: { id: noticeId },
-      include: { lienCalendar: { include: { project: true } } },
+      // Project itself has no address field — the location lives on its
+      // parent Job (checked against packages/db/prisma/schema.prisma
+      // 2026-08-27).
+      include: { lienCalendar: { include: { project: { include: { job: true } } } } },
     });
 
     if (notice.status !== 'DRAFT') {
@@ -32,12 +60,23 @@ export class NoticeSendService {
     }
 
     // 1. Preparar datos para Lob.com
+    // This mails a real, physical, legally-significant letter — refuse to
+    // send it to a guessed/placeholder address rather than silently
+    // producing an undeliverable (or wrongly-delivered) certified letter.
+    const parsedAddress = parseMailAddress(notice.lienCalendar.project.job.location);
+    if (!parsedAddress) {
+      throw new Error(
+        `Cannot send notice ${noticeId}: project job location is missing or not in ` +
+          `"street, city, ST zip" format (got: ${notice.lienCalendar.project.job.location ?? 'none'}) — ` +
+          `refusing to mail a legal notice to a guessed address.`
+      );
+    }
     const to = {
       name: this.getRecipientName(notice.recipientType),
-      address_line1: notice.lienCalendar.project.address || '123 Main St',
-      city: 'City',
-      state: notice.lienCalendar.stateName,
-      zip: '12345',
+      address_line1: parsedAddress.addressLine1,
+      city: parsedAddress.city,
+      state: parsedAddress.state,
+      zip: parsedAddress.zip,
     };
 
     const from = {

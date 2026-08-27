@@ -163,9 +163,12 @@ export class NoticeGeneratorService {
     this.logger.log(`Generating notice for calendar: ${lienCalendarId} / ${recipientType}`);
 
     // 1. Obtener LienCalendar
+    // Project itself has no name/address/startDate fields (checked against
+    // packages/db/prisma/schema.prisma 2026-08-27) — those live on its
+    // parent Job (title/location) and on Project itself as startAt.
     const calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
       where: { id: lienCalendarId },
-      include: { project: { include: { escrow: true } } },
+      include: { project: { include: { escrow: true, job: true } } },
     });
 
     if (!calendar.project.escrow) {
@@ -178,13 +181,13 @@ export class NoticeGeneratorService {
     // 2. Preparar datos
     const noticeData: NoticeData = {
       stateName: calendar.stateName,
-      projectName: calendar.project.name || 'Untitled Project',
-      projectAddress: calendar.project.address || 'Unknown Address',
+      projectName: calendar.project.job.title || 'Untitled Project',
+      projectAddress: calendar.project.job.location || 'Unknown Address',
       // PaymentEscrow.totalAmount is the closest real figure to "contract
       // amount" in the data model today (Contract itself has no amount
       // field) — 0 only when the project genuinely has no escrow yet.
       contractAmount: calendar.project.escrow?.totalAmount.toNumber() ?? 0,
-      projectStartDate: calendar.project.startDate?.toISOString().split('T')[0] || 'TBD',
+      projectStartDate: calendar.project.startAt?.toISOString().split('T')[0] || 'TBD',
       recipientType,
       generatedDate: new Date().toISOString().split('T')[0],
     };
