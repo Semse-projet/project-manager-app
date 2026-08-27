@@ -45,8 +45,17 @@ function makeFakePrisma(
       },
     },
   };
-  return { prisma, getCreated: () => created as { noticeContent: string } | undefined };
+  return { prisma, getCreated: () => created as { noticeContent: string; sentVia?: string } | undefined };
 }
+
+test("generateNoticeFromCalendar sets sentVia — required by the schema (no @default), missing entirely before this fix", async () => {
+  const { prisma, getCreated } = makeFakePrisma({});
+  const service = new NoticeGeneratorService(prisma as never);
+
+  await service.generateNoticeFromCalendar("cal_1", "owner", "system");
+
+  assert.equal(getCreated()?.sentVia, "certified_mail");
+});
 
 test("generateNoticeFromCalendar uses the project's real escrow.totalAmount as contractAmount", async () => {
   const { prisma, getCreated } = makeFakePrisma({ escrowTotalAmount: 87_500 });

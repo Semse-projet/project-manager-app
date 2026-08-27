@@ -1,5 +1,5 @@
-// @ts-nocheck
 import { Injectable, Logger, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { LienGridClient, LienGridDeadlines } from '../../integrations/liengrid.js';
 
@@ -80,7 +80,7 @@ export class LiensService {
         requiresNotary: deadlines.requiresNotary,
         requiresCertifiedMail: deadlines.requiresCertifiedMail,
         status: 'CREATED',
-        liengridResponseJson: deadlines,
+        liengridResponseJson: deadlines as unknown as Prisma.InputJsonValue,
         lastFetchedAt: new Date(),
       },
     });
@@ -197,6 +197,11 @@ export class LiensService {
       where: { id: lienCalendarId },
     });
 
+    // `sentVia` es requerido en el schema (sin @default) — faltaba aquí
+    // también (mismo bug que en NoticeGeneratorService.
+    // generateNoticeFromCalendar(), ver ese archivo). Este método
+    // (createNotice) no tiene ningún caller real en el repo, pero se
+    // corrige igual para no dejar una trampa para quien lo conecte.
     return await this.prisma.lienNotice.create({
       data: {
         lienCalendarId,
@@ -206,6 +211,7 @@ export class LiensService {
         generatedAt: new Date(),
         createdBy: data.createdBy,
         status: 'DRAFT',
+        sentVia: 'certified_mail',
       },
     });
   }
@@ -224,11 +230,18 @@ export class LiensService {
       requiredBefore: Date;
     }
   ): Promise<any> {
+    // `releaseAmount` is `Decimal(15,2)` in the schema (dollars, not
+    // integer cents) — checkWaiverRequirements() below already compares
+    // it as a plain dollar number. The old `BigInt(amount * 100)` stored
+    // cents while the read side expected dollars, a ~100x mismatch;
+    // Prisma would also reject a BigInt against a Decimal column outright.
+    // No live caller today (found via the same tsc-against-real-types
+    // sweep as the other liens fixes), fixed for correctness anyway.
     return await this.prisma.lienWaiver.create({
       data: {
         lienCalendarId,
         waiverType: data.waiverType,
-        releaseAmount: data.releaseAmount ? BigInt(Math.floor(data.releaseAmount * 100)) : null,
+        releaseAmount: data.releaseAmount ?? null,
         escrowId: data.escrowId,
         milestoneId: data.milestoneId,
         requiredBefore: data.requiredBefore,
