@@ -104,8 +104,20 @@ output_schema: { id, name, token (solo una vez), scopes, createdAt, expiresAt }
 
 ## 6. Acceptance Criteria (arnés SAT-000)
 
-- [ ] Anillo 1: contrato + caso negativo de scope + revocación → 401.
-- [ ] Anillo 2: SDK TS y Py testeados contra mocks del contrato.
+- [x] Anillo 1: contrato + caso negativo de scope + revocación → 401 — cubierto por
+      `apps/api/test/satellite-scope-guard.test.ts` (sin Authorization ⇒ 401, scheme
+      no-bearer ⇒ 401, scope faltante ⇒ 403, token revocado ⇒ 401 propagado del
+      servicio) y `apps/api/test/satellites-service.test.ts` (token desconocido/
+      revocado/expirado ⇒ 401). Verificado 2026-08-27 (sesión de continuación de
+      roadmap) — no hay commit de código nuevo, solo se confirmó cobertura existente.
+- [ ] Anillo 2: SDK TS y Py testeados contra mocks del contrato — TS cubierto
+      (`packages/sdk`, `tests/unit/sdk-client.test.ts`); **no existe SDK Python en
+      el repo** (`semse_py` de la sección 5 de este mismo spec nunca se creó) — gap
+      real, no solo de checklist. Requiere decisión de empaquetado/publicación
+      (¿vive en este monorepo Node o en un repo Python separado?) antes de
+      implementar a ciegas.
 - [ ] Anillo 3: e2e local — emitir token, llamar `intake` vía SDK, revocar, verificar 401.
 - [ ] Anillo 4: smoke en Railway con token real; evidencia en `docs/reportes/`.
-- [ ] Kill switch: `SATELLITE_TOKENS_ENABLED` (OFF ⇒ todo token satélite recibe 503 explícito).
+- [x] Kill switch: `SATELLITE_TOKENS_ENABLED` (OFF ⇒ todo token satélite recibe 503
+      explícito) — cubierto por `apps/api/test/satellites-service.test.ts`
+      ("kill switch apagado ⇒ 503 aunque el token sea válido"). Verificado 2026-08-27.
