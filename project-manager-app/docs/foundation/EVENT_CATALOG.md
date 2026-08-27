@@ -152,6 +152,62 @@ Activación (`SEMSE_JOBS_PROJECTION_ENABLED`,
 todavía al momento de este cambio (`activation_status: INACTIVE` en el
 frontmatter de la spec).
 
+## Satellite Webhooks (SAT-007)
+
+Ver
+[`../specs/satellites/SAT-007-outbound-webhooks.spec.md`](../specs/satellites/SAT-007-outbound-webhooks.spec.md).
+Cierra un gap de documentación preexistente (spec §6, plan §1.1): tres
+eventos ya se emitían en producción sin figurar en ningún catálogo —
+
+- `job.matched` (`marketplace.agent.ts`, vía `notifications.handleEvent()`)
+- `job.completed` (`jobs.service.ts:systemCompleteJob`, ídem)
+- `rating.requested` (`jobs.service.ts:systemCompleteJob`, ídem)
+
+`milestone.approved`/`milestone.rejected` ya estaban documentados arriba
+(`## Milestones`) — sin gap ahí, solo ganan versión `.v1`.
+
+**Hallazgo crítico de esta spec:** ninguno de los 5 eventos del catálogo
+de webhooks (los tres de arriba + `milestone.approved`/`milestone.rejected`)
+tenía respaldo en el outbox de dominio v2 (`DomainOutboxEvent`) — solo
+vivían en `notifications.handleEvent()`/`DomainEventBus` (v1, legacy,
+sin persistencia). SAT-007 agrega productores de outbox **best-effort**
+(no envueltos en `$transaction` nueva — ninguno de estos call sites tiene
+una escritura de dominio con la que emparejar el insert en ese instante
+exacto; el hecho de dominio ya está durablemente registrado por otro
+evento o ya ocurrió) para las versiones `.v1`:
+
+- `job.matched.v1`
+- `job.completed.v1`
+- `rating.requested.v1`
+- `milestone.approved.v1`
+- `milestone.rejected.v1`
+
+Consumer: `satellite-webhooks.v1`, registrado en el dispatch genérico de
+`domain-event-consumer.service.ts`. A diferencia de los demás consumers
+del registro, éste hace fan-out: por cada evento, entrega HTTP firmada
+(HMAC-SHA256) a todos los `SatelliteWebhook` `ACTIVE` cuyo `events[]`
+incluya el nombre bare correspondiente. El conteo de fallos consecutivos
+que suspende un webhook (5) vive en la fila `SatelliteWebhook` misma, no
+en `DomainEventConsumption` — son mecanismos de retry independientes (uno
+por-evento vía el outbox estándar, otro por-webhook vía
+`consecutiveFailures`).
+
+Un satélite solo puede suscribirse a un evento si su token tiene el scope
+requerido (además del scope general `events:subscribe`):
+
+| Evento | Scope requerido |
+|---|---|
+| `job.matched` | `jobs:read` |
+| `job.completed` | `jobs:read` |
+| `rating.requested` | `jobs:read` |
+| `milestone.approved` | `milestones:read` |
+| `milestone.rejected` | `milestones:read` |
+
+Activación (`SATELLITE_WEBHOOKS_ENABLED`) — no desplegada/activada
+todavía al momento de este cambio (`activation_status: INACTIVE` en el
+frontmatter de la spec); off ⇒ el registro de webhooks devuelve 503 y el
+consumer no entrega, sin perder eventos encolados.
+
 ## Reservations
 
 - `reservation.created`
