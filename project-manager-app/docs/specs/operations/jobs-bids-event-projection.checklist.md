@@ -91,9 +91,10 @@ date: "2026-08-26"
 ## Entrega
 
 - [x] Tests, build, typecheck y lint pasan — ver tasks.md T-060-T-062.
-- [ ] CI, merge, deploy y activación tienen evidencia separada — pendiente,
-      se sube en el PR de esta rama (mismo patrón que el resto de la
-      sesión).
+- [x] CI, merge, deploy y activación tienen evidencia separada — CI `PASS`
+      y merge `MERGED` (PR #590, merge commit `4649dfb`, fusionado por
+      `Samuelcastella`); deploy/activación siguen pendientes (Fase 8, sin
+      acceso a Railway desde esta sesión).
 - [ ] Healthcheck no sustituye smoke funcional — pendiente, requiere
       canario real siguiendo el runbook (Fase 8 de tasks.md, sin acceso a
       Railway desde esta sesión).

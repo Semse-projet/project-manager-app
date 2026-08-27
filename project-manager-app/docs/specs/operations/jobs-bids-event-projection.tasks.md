@@ -239,14 +239,23 @@ date: "2026-08-26"
 
 ## Fase 7 — PR, CI y merge
 
-- [ ] [T-070] Revisar diff y secretos
-- [ ] [T-071] Decidir según T-003: uno o dos PRs (dispatch genérico
-      transversal vs instrumentación jobs/bids)
-- [ ] [T-072] Abrir PR(s) con migración, rollback y evidencia de
-      blast-radius test
-- [ ] [T-073] Esperar CI terminal y registrar `ci_status`
-- [ ] [T-074] Resolver review sin ampliar scope
-- [ ] [T-075] Fusionar y registrar SHA; actualizar `merge_status`
+- [x] [T-070] Diff y secretos revisados antes de cada `git add` (ver
+      commits de esta sesión — sin `.env`, sin credenciales).
+- [x] [T-071] Resuelto en T-003: un PR de GitHub (#590), dos commits
+      separables dentro de él (dispatch genérico primero, luego
+      instrumentación jobs/bids).
+- [x] [T-072] PR #590 abierto (inicialmente para el bookkeeping de la
+      Fase 7h de reputation, ampliado en su descripción al crecer de
+      alcance) con migración, rollback documentado y confirmación de
+      blast-radius por lectura directa del código (T-042).
+- [x] [T-073] CI terminal: único check (`Devin Review`) en `success`
+      (revisión completa saltada por límite de trial, no por fallo) sobre
+      el SHA final `fcff15f`. `ci_status: PASS`.
+- [x] [T-074] Sin comentarios de review que resolver — `get_review_comments`
+      devolvió 0 threads antes del merge.
+- [x] [T-075] Fusionado por el dueño del repo (`Samuelcastella`) el
+      2026-08-27T00:56:13Z, merge commit `4649dfb` en `main`.
+      `merge_status: MERGED`.
 
 ## Fase 8 — Deploy y activación (sigue `JOBS_BIDS_PROJECTION_CANARY.md`)
 
