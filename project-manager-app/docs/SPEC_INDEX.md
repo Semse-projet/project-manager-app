@@ -102,7 +102,7 @@ retroactiva.
 | [prometeo.cache-control](specs/prometeo/cache-control.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-08-14 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
-| [prometeo.tool-result-multimodal](specs/prometeo/tool-result-multimodal.spec.md) | prometeo | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-27 |
+| [prometeo.tool-result-multimodal](specs/prometeo/tool-result-multimodal.spec.md) | prometeo | IMPLEMENTED | COMPLETE | PASS | MERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-27 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | legacy | legacy | legacy | legacy | legacy | high | no | 2026-07-12 |
 | [satellites.semse-sdk](specs/satellites/SAT-001-semse-sdk.spec.md) | api | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-07 |
 | [satellites.alexa-voice](specs/satellites/SAT-002-alexa-voice-channel.spec.md) | communications | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-07 |
@@ -110,7 +110,7 @@ retroactiva.
 | [satellites.graphify-knowledge](specs/satellites/SAT-004-graphify-knowledge.spec.md) | rag | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-07 |
 | [satellites.storage-driver](specs/satellites/SAT-005-storage-driver.spec.md) | evidence | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-08-17 |
 | [satellites.protools-embed](specs/satellites/SAT-006-protools-embed.spec.md) | tools | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | low | no | 2026-08-17 |
-| [satellites.outbound-webhooks](specs/satellites/SAT-007-outbound-webhooks.spec.md) | api | APPROVED | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-17 |
+| [satellites.outbound-webhooks](specs/satellites/SAT-007-outbound-webhooks.spec.md) | api | IMPLEMENTED | COMPLETE | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | yes | 2026-08-27 |
 | [satellites.observer-nodes](specs/satellites/SAT-008-observer-satellite-nodes.spec.md) | ops | DRAFT | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [tasks.task-unification-fase1](specs/tasks/task-unification-fase1.spec.md) | tasks | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-19 |
 | [m1-1-material-pricing](specs/tools/fase-1/m1.1-material-pricing.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |

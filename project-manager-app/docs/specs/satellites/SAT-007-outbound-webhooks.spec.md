@@ -4,37 +4,57 @@ title: "SAT-007 — Webhooks salientes firmados para satélites"
 domain: "api"
 sdd_version: "2.0"
 version: "2.0"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
 migration_status: "PENDING"
 feature_flags:
-  - "SATELLITE_WEBHOOKS_ENABLED (propuesto — no existe hoy)"
+  - "SATELLITE_WEBHOOKS_ENABLED"
 production_evidence: []
 related_files:
   - apps/api/src/modules/satellites/satellites.service.ts
   - apps/api/src/modules/satellites/satellites.controller.ts
+  - apps/api/src/modules/satellites/satellites.module.ts
   - apps/api/src/modules/satellites/satellite-scope.guard.ts
+  - apps/api/src/modules/satellites/satellite-webhooks.service.ts
+  - apps/api/src/modules/satellites/satellite-webhooks.controller.ts
+  - apps/api/src/modules/satellites/satellite-webhook-crypto.ts
+  - apps/api/src/modules/satellites/satellite-webhook-delivery.ts
+  - apps/api/src/modules/domain-events/domain-event-consumer.service.ts
+  - apps/api/src/modules/domain-events/domain-events.module.ts
   - apps/api/src/modules/domain-events/outbox-dispatcher.service.ts
   - apps/api/src/modules/domain-events/outbox.repository.ts
+  - apps/api/src/modules/semse-agents/marketplace.agent.ts
+  - apps/api/src/modules/jobs/jobs.service.ts
+  - apps/api/src/modules/milestones/milestones.service.ts
   - apps/api/src/modules/communications/providers/whatsapp-cloud.adapter.ts
   - packages/autonomy/src/browser/secure-network-gateway.ts
   - packages/autonomy/src/browser/session-manager.ts
+  - packages/shared/src/safe-url.ts
+  - packages/schemas/src/domain-events-v2.schema.ts
   - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260827010000_satellite_webhook/migration.sql
   - docs/foundation/EVENT_CATALOG.md
 related_tests:
   - apps/api/test/satellite-scope-guard.test.ts
   - apps/api/test/satellites-service.test.ts
-related_endpoints: []
-# v1/satellites/webhooks: propuesto en §5 Contratos, no existe en código
-# todavía (code_status: NOT_STARTED) — spec-validate exige que
-# related_endpoints solo referencie superficie real ya presente en
-# apps/api/src, no contratos propuestos.
+  - apps/api/test/satellite-webhook-crypto.test.ts
+  - apps/api/test/satellite-webhooks-service.test.ts
+  - apps/api/test/satellite-webhooks-consumer.test.ts
+  - apps/api/test/satellite-webhook-delivery.test.ts
+  - apps/api/test/marketplace-agent-outbox.test.ts
+  - apps/api/test/jobs-service-completion-outbox.test.ts
+  - apps/api/test/milestones-service-outbox.test.ts
+  - tests/unit/safe-url.test.ts
+related_endpoints:
+  - POST /v1/satellites/webhooks
+  - GET /v1/satellites/webhooks
+  - DELETE /v1/satellites/webhooks/:id
 related_events:
   - job.matched
   - job.completed
@@ -42,7 +62,7 @@ related_events:
   - milestone.approved
   - milestone.rejected
 related_agents: []
-last_verified: "2026-08-17"
+last_verified: "2026-08-27"
 ---
 
 # Spec: Webhooks salientes firmados para satélites

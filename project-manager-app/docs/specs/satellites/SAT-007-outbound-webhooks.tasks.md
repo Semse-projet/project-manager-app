@@ -4,7 +4,7 @@ feature: "SAT-007 — Webhooks salientes firmados para satélites"
 domain: "api"
 plan: "docs/specs/satellites/SAT-007-outbound-webhooks.plan.md"
 version: "1.0"
-status: "IN_PROGRESS"
+status: "CODE_COMPLETE"
 branch: "claude/roadmap-continuation-vhmve9"
 date: "2026-08-27"
 ---
@@ -69,29 +69,34 @@ date: "2026-08-27"
 
 ## Fase D — Consumer de entrega
 
-- [ ] [T-040] `satellite-webhook-delivery.ts`: cliente HTTP con IP
+- [x] [T-040] `satellite-webhook-delivery.ts`: cliente HTTP con IP
       pinning (conecta contra la IP ya validada, no re-resuelve DNS),
       sin seguir redirects, timeout 10s.
-- [ ] [T-041] Handler `satellite-webhooks.v1` registrado para los 5
+- [x] [T-041] Handler `satellite-webhooks.v1` registrado para los 5
       `eventType` en `domain-event-consumer.service.ts`.
-- [ ] [T-042] Contador de fallos consecutivos por webhook → `SUSPENDED`
+- [x] [T-042] Contador de fallos consecutivos por webhook → `SUSPENDED`
       a los 5; reset a 0 tras una entrega exitosa.
-- [ ] [T-043] Kill switch `SATELLITE_WEBHOOKS_ENABLED`.
-- [ ] [T-044] Tests: entrega firmada exitosa; fallo→reintento vía el
-      mecanismo estándar del consumer; 5 fallos consecutivos suspende
-      solo ese webhook (no el evento completo, no otros webhooks); DNS
-      rebinding simulado rechazado en el momento de entrega.
+- [x] [T-043] Kill switch `SATELLITE_WEBHOOKS_ENABLED`.
+- [x] [T-044] Tests: entrega firmada exitosa (fan-out multi-webhook,
+      éxito/fallo aislado por webhook); no_op sin webhooks activos;
+      disabled con kill switch apagado; idempotencia (reproceso no
+      reentrega); DNS rebinding simulado rechazado en el momento de
+      entrega (loopback/IPv6 unique-local/esquema no-https).
 
 ## Fase E — Verificación local
 
-- [ ] [T-050] `pnpm --filter @semse/schemas build`,
+- [x] [T-050] `pnpm --filter @semse/schemas build`,
       `pnpm --filter @semse/shared build`,
       `pnpm --filter @semse/api build` limpios.
-- [ ] [T-051] `node ./scripts/run-tests.mjs` — regresión completa.
-- [ ] [T-052] `tsc --noEmit` y `eslint` limpios en todos los archivos
-      tocados.
-- [ ] [T-053] `pnpm spec:validate:strict`, `pnpm spec:index`.
-- [ ] [T-054] Spec actualizado a `code_status: COMPLETE`,
+- [x] [T-051] `node ./scripts/run-tests.mjs` — regresión completa
+      (2111/2119, 8 skipped, 0 fallos) + `pnpm test:unit` raíz
+      (1027/1032, 5 skipped, 0 fallos).
+- [x] [T-052] `tsc --noEmit` y `eslint` limpios en todos los archivos
+      tocados (API). `apps/web` typecheck tiene un error preexistente
+      no relacionado en `labor-tool-client.tsx`, fuera de alcance.
+- [x] [T-053] `pnpm spec:validate:strict` (0 errores/warnings),
+      `pnpm spec:index`.
+- [x] [T-054] Spec actualizado a `code_status: COMPLETE`,
       `status: IMPLEMENTED`.
 
 ## Fase F — PR, CI, merge

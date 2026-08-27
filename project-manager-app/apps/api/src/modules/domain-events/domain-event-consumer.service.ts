@@ -13,16 +13,27 @@ import {
   bidRejectedV1EventSchema,
   evidenceUploadedV1EventSchema,
   type EvidenceUploadedV1Event,
+  jobCompletedV1EventSchema,
   jobCreatedV1EventSchema,
+  jobMatchedV1EventSchema,
   jobStatusChangedV1EventSchema,
+  milestoneApprovedV1EventSchema,
+  milestoneRejectedV1EventSchema,
   projectLifecycleSourceChangedV1EventSchema,
   type ProjectLifecycleSourceChangedV1Event,
+  ratingRequestedV1EventSchema,
 } from "@semse/schemas";
 import { randomUUID } from "node:crypto";
 import { MetricsService } from "../../infrastructure/observability/metrics.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { JobsRepository } from "../jobs/jobs.repository.js";
 import { ProjectsRepository } from "../projects/projects.repository.js";
+import { signWebhookPayload } from "../satellites/satellite-webhook-crypto.js";
+import { deliverSatelliteWebhook } from "../satellites/satellite-webhook-delivery.js";
+import {
+  satelliteWebhooksEnabled,
+  SatelliteWebhooksService,
+} from "../satellites/satellite-webhooks.service.js";
 import {
   calculateEvidenceReadiness,
   isDomainEventConsumersEnabled,
@@ -53,6 +64,22 @@ const JOBS_BIDS_PROJECTION_EVENT_TYPES = [
   "bid.accepted.v1",
   "bid.rejected.v1",
 ] as const;
+/**
+ * SAT-007 spec §6/§8. Fans an outbox event out to every ACTIVE satellite
+ * webhook subscribed to its bare event name. A per-webhook HTTP failure is
+ * absorbed into that webhook's own consecutive-failure counter
+ * (SatelliteWebhooksService.recordDeliveryFailure) and never fails this
+ * consumer's own attempt/dead-letter bookkeeping — the two retry
+ * mechanisms are deliberately independent (plan.md §1.1).
+ */
+export const SATELLITE_WEBHOOKS_CONSUMER = "satellite-webhooks.v1";
+const SATELLITE_WEBHOOKS_EVENT_TYPES = [
+  "job.matched.v1",
+  "job.completed.v1",
+  "rating.requested.v1",
+  "milestone.approved.v1",
+  "milestone.rejected.v1",
+] as const;
 const CONSUMER_MAX_ATTEMPTS = 5;
 
 type ConsumptionReceipt = {
@@ -72,6 +99,7 @@ type ConsumerResult = {
     | typeof EVIDENCE_READINESS_CONSUMER
     | typeof PROJECT_LIFECYCLE_PROJECTION_CONSUMER
     | typeof JOBS_BIDS_PROJECTION_CONSUMER
+    | typeof SATELLITE_WEBHOOKS_CONSUMER
     | (string & {});
   status: "completed";
   effect: "updated" | "no_op" | "disabled";
@@ -82,6 +110,7 @@ type ConsumerResult = {
   revision?: string;
   sourceUpdatedAt?: string;
   duplicate?: boolean;
+  deliveries?: Array<{ webhookId: string; delivered: boolean; reason?: string }>;
 };
 
 type ProcessingIdentity = {
@@ -111,12 +140,17 @@ class AlreadyDeadLetteredError extends Error {}
 @Injectable()
 export class DomainEventConsumerService {
   private readonly handlersByEventType: ReadonlyMap<string, EventHandlerDescriptor>;
+  /** Swappable only by tests (plain instance property, not DI) — production
+   * always uses the real `deliverSatelliteWebhook`, which enforces SSRF
+   * validation and cannot itself be pointed at a private/loopback address. */
+  private deliverSatelliteWebhookFn: typeof deliverSatelliteWebhook = deliverSatelliteWebhook;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly metrics: MetricsService,
     private readonly projectsRepository?: ProjectsRepository,
     private readonly jobsRepository?: JobsRepository,
+    private readonly satelliteWebhooksService?: SatelliteWebhooksService,
   ) {
     this.handlersByEventType = this.buildHandlerRegistry();
   }
@@ -140,6 +174,12 @@ export class DomainEventConsumerService {
         consumerName: JOBS_BIDS_PROJECTION_CONSUMER,
         handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
           this.processJobsBidsProjectionEvent(storedEvent, processingIdentity),
+      })),
+      ...SATELLITE_WEBHOOKS_EVENT_TYPES.map((eventType) => ({
+        eventType,
+        consumerName: SATELLITE_WEBHOOKS_CONSUMER,
+        handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
+          this.processSatelliteWebhooksEvent(storedEvent, processingIdentity),
       })),
     ];
 
@@ -813,6 +853,281 @@ export class DomainEventConsumerService {
             consumer: JOBS_BIDS_PROJECTION_CONSUMER,
             revision: rebuild.revision ?? null,
             sourceUpdatedAt: rebuild.sourceUpdatedAt ?? null,
+            workerId: processingIdentity.workerId ?? null,
+            serviceActorId: processingIdentity.serviceActorId ?? null,
+          },
+        },
+      });
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          nextAttemptAt: now,
+          lastError: null,
+          resultJson: result as Prisma.InputJsonValue,
+        },
+      });
+      return result;
+    });
+  }
+
+  private selectSatelliteWebhooksSchema(eventType: string) {
+    switch (eventType) {
+      case "job.matched.v1":
+        return jobMatchedV1EventSchema;
+      case "job.completed.v1":
+        return jobCompletedV1EventSchema;
+      case "rating.requested.v1":
+        return ratingRequestedV1EventSchema;
+      case "milestone.approved.v1":
+        return milestoneApprovedV1EventSchema;
+      case "milestone.rejected.v1":
+        return milestoneRejectedV1EventSchema;
+      default:
+        return null;
+    }
+  }
+
+  private async processSatelliteWebhooksEvent(
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    const schema = this.selectSatelliteWebhooksSchema(storedEvent.eventType);
+    if (!schema) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Unsupported satellite webhook event type: ${storedEvent.eventType}`,
+        SATELLITE_WEBHOOKS_CONSUMER,
+      );
+    }
+
+    const parsedEvent = schema.safeParse({
+      eventId: storedEvent.eventId,
+      eventType: storedEvent.eventType,
+      version: storedEvent.version,
+      envelopeVersion: storedEvent.envelopeVersion,
+      occurredAt: storedEvent.occurredAt.toISOString(),
+      recordedAt: storedEvent.recordedAt.toISOString(),
+      tenantId: storedEvent.tenantId,
+      orgId: storedEvent.orgId,
+      module: storedEvent.module,
+      entityType: storedEvent.entityType,
+      entityId: storedEvent.entityId,
+      actor: { type: storedEvent.actorType, id: storedEvent.actorId },
+      correlationId: storedEvent.correlationId,
+      ...(storedEvent.causationId ? { causationId: storedEvent.causationId } : {}),
+      idempotencyKey: storedEvent.idempotencyKey,
+      schemaRef: storedEvent.schemaRef,
+      payload: storedEvent.payloadJson,
+      ...(storedEvent.metadataJson ? { metadata: storedEvent.metadataJson } : {}),
+      ...(storedEvent.traceContextJson ? { traceContext: storedEvent.traceContextJson } : {}),
+    });
+    if (!parsedEvent.success) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Invalid canonical satellite webhook event: ${parsedEvent.error.issues[0]?.message ?? "schema validation failed"}`,
+        SATELLITE_WEBHOOKS_CONSUMER,
+      );
+    }
+
+    try {
+      const result = await this.consumeSatelliteWebhooksDelivery(
+        {
+          eventId: storedEvent.eventId,
+          tenantId: storedEvent.tenantId,
+          correlationId: storedEvent.correlationId,
+          causationId: storedEvent.causationId ?? undefined,
+          bareEventType: storedEvent.eventType.replace(/\.v1$/, ""),
+          occurredAt: storedEvent.occurredAt.toISOString(),
+          payload: storedEvent.payloadJson,
+        },
+        processingIdentity,
+      );
+      if (result.duplicate) {
+        this.metrics.recordEventConsumerDuplicate(SATELLITE_WEBHOOKS_CONSUMER);
+      } else {
+        this.metrics.recordEventConsumerAttempt(SATELLITE_WEBHOOKS_CONSUMER, "completed");
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof AlreadyDeadLetteredError) {
+        throw new UnprocessableEntityException({
+          message: error.message,
+          eventId: storedEvent.eventId,
+          consumer: SATELLITE_WEBHOOKS_CONSUMER,
+        });
+      }
+
+      const terminal = error instanceof TerminalConsumerError;
+      const failure = await this.recordFailure({
+        eventId: storedEvent.eventId,
+        tenantId: storedEvent.tenantId,
+        error: redactConsumerError(error),
+        terminal,
+        consumerName: SATELLITE_WEBHOOKS_CONSUMER,
+      });
+      this.metrics.recordEventConsumerAttempt(SATELLITE_WEBHOOKS_CONSUMER, "failed");
+      if (failure.status === "DEAD_LETTER") {
+        this.metrics.recordEventConsumerDeadLetter(SATELLITE_WEBHOOKS_CONSUMER);
+        throw new UnprocessableEntityException({
+          message: "Domain event consumer moved delivery to dead letter",
+          eventId: storedEvent.eventId,
+          consumer: SATELLITE_WEBHOOKS_CONSUMER,
+          attempts: failure.attempts,
+        });
+      }
+
+      throw new InternalServerErrorException({
+        message: "Domain event consumer failed; retry is allowed",
+        eventId: storedEvent.eventId,
+        consumer: SATELLITE_WEBHOOKS_CONSUMER,
+        attempts: failure.attempts,
+      });
+    }
+  }
+
+  private async consumeSatelliteWebhooksDelivery(
+    event: {
+      eventId: string;
+      tenantId: string;
+      correlationId: string;
+      causationId?: string;
+      bareEventType: string;
+      occurredAt: string;
+      payload: unknown;
+    },
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    const existing = await this.prisma.domainEventConsumption.findUnique({
+      where: {
+        eventId_consumerName: {
+          eventId: event.eventId,
+          consumerName: SATELLITE_WEBHOOKS_CONSUMER,
+        },
+      },
+      select: { status: true, resultJson: true },
+    });
+    if (existing?.status === "COMPLETED") {
+      return { ...(existing.resultJson as ConsumerResult), duplicate: true };
+    }
+    if (existing?.status === "DEAD_LETTER") {
+      throw new AlreadyDeadLetteredError(
+        "Domain event consumer delivery is already in dead letter",
+      );
+    }
+
+    let effect: "updated" | "no_op" | "disabled" = "no_op";
+    let deliveries: Array<{ webhookId: string; delivered: boolean; reason?: string }> = [];
+
+    if (!this.satelliteWebhooksService || !satelliteWebhooksEnabled()) {
+      effect = "disabled";
+    } else {
+      const webhooks = await this.satelliteWebhooksService.findActiveForEvent(event.bareEventType);
+      if (webhooks.length > 0) {
+        effect = "updated";
+        const body = JSON.stringify({
+          event: event.bareEventType,
+          eventId: event.eventId,
+          occurredAt: event.occurredAt,
+          payload: event.payload,
+        });
+
+        const settled = await Promise.allSettled(
+          webhooks.map(async (webhook) => {
+            const signature = signWebhookPayload(body, webhook.secret);
+            const outcome = await this.deliverSatelliteWebhookFn(webhook.url, body, signature);
+            if (outcome.delivered) {
+              await this.satelliteWebhooksService!.recordDeliverySuccess(webhook.id);
+              return { webhookId: webhook.id, delivered: true };
+            }
+            await this.satelliteWebhooksService!.recordDeliveryFailure(webhook.id);
+            return { webhookId: webhook.id, delivered: false, reason: outcome.reason };
+          }),
+        );
+
+        deliveries = settled.map((outcome, index) =>
+          outcome.status === "fulfilled"
+            ? outcome.value
+            : { webhookId: webhooks[index]!.id, delivered: false, reason: "handler_threw" },
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.$executeRaw(
+        PrismaRuntime.sql`
+          INSERT INTO "DomainEventConsumption" (
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "nextAttemptAt", "createdAt", "updatedAt"
+          ) VALUES (
+            ${randomUUID()}, ${event.eventId}::uuid, ${event.tenantId},
+            ${SATELLITE_WEBHOOKS_CONSUMER}, 'PENDING'::"DomainConsumptionStatus",
+            0, ${CONSUMER_MAX_ATTEMPTS}, ${now}, ${now}, ${now}
+          )
+          ON CONFLICT ("eventId", "consumerName") DO NOTHING
+        `,
+      );
+
+      const receipts = await tx.$queryRaw<ConsumptionReceipt[]>(
+        PrismaRuntime.sql`
+          SELECT
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "resultJson"
+          FROM "DomainEventConsumption"
+          WHERE "eventId" = ${event.eventId}::uuid
+            AND "consumerName" = ${SATELLITE_WEBHOOKS_CONSUMER}
+          FOR UPDATE
+        `,
+      );
+      const receipt = receipts[0];
+      if (!receipt) {
+        throw new Error("Satellite webhooks consumer receipt was not created");
+      }
+      if (receipt.status === "COMPLETED") {
+        return { ...(receipt.resultJson as ConsumerResult), duplicate: true };
+      }
+      if (receipt.status === "DEAD_LETTER") {
+        throw new AlreadyDeadLetteredError(
+          "Domain event consumer delivery is already in dead letter",
+        );
+      }
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "PROCESSING",
+          attempts: receipt.attempts + 1,
+          startedAt: now,
+          completedAt: null,
+          lastError: null,
+        },
+      });
+
+      const result: ConsumerResult = {
+        eventId: event.eventId,
+        consumer: SATELLITE_WEBHOOKS_CONSUMER,
+        status: "completed",
+        effect,
+        deliveries,
+      };
+      await tx.auditLog.create({
+        data: {
+          tenantId: event.tenantId,
+          entityType: "SatelliteWebhookDelivery",
+          entityId: event.eventId,
+          action: `domain_event.consumer.satellite_webhooks.${effect}`,
+          afterJson: {
+            eventId: event.eventId,
+            correlationId: event.correlationId,
+            causationId: event.causationId ?? null,
+            consumer: SATELLITE_WEBHOOKS_CONSUMER,
+            bareEventType: event.bareEventType,
+            deliveries,
             workerId: processingIdentity.workerId ?? null,
             serviceActorId: processingIdentity.serviceActorId ?? null,
           },
