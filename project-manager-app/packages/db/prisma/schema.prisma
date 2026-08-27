@@ -454,7 +454,33 @@ model SatelliteToken {
   lastUsedAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+  webhooks   SatelliteWebhook[]
 
+  @@index([status])
+}
+
+/// SAT-007 — outbound webhook registration for a satellite token. The
+/// secret is encrypted (AES-256-GCM), never hashed: it must be readable in
+/// the clear to sign each delivery's HMAC. secretKeyVersion allows rotating
+/// SATELLITE_WEBHOOK_SECRET_KEY without invalidating existing webhooks.
+model SatelliteWebhook {
+  id                  String    @id @default(cuid())
+  satelliteTokenId    String
+  url                 String
+  events              String[]
+  secretCiphertext    String
+  secretIv            String
+  secretTag           String
+  secretKeyVersion    Int       @default(1)
+  status              String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  consecutiveFailures Int       @default(0)
+  lastDeliveryAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  satelliteToken      SatelliteToken @relation(fields: [satelliteTokenId], references: [id], onDelete: Cascade)
+
+  @@unique([satelliteTokenId, url])
+  @@index([satelliteTokenId, status])
   @@index([status])
 }
 

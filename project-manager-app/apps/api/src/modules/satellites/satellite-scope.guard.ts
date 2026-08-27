@@ -3,7 +3,7 @@ import { Reflector } from "@nestjs/core";
 import { SATELLITE_SCOPES_KEY } from "./satellite-scopes.decorator.js";
 import { SatellitesService, type SatelliteIdentity } from "./satellites.service.js";
 
-function extractBearerToken(headers: Record<string, unknown>): string | null {
+export function extractBearerToken(headers: Record<string, unknown>): string | null {
   const authorization = headers.authorization;
   if (typeof authorization !== "string") {
     return null;

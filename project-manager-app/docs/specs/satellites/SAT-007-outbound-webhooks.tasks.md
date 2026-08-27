@@ -69,29 +69,29 @@ date: "2026-08-27"
 
 ## Fase D — Consumer de entrega
 
-- [x] [T-040] `satellite-webhook-delivery.ts`: cliente HTTP con IP
+- [ ] [T-040] `satellite-webhook-delivery.ts`: cliente HTTP con IP
       pinning (conecta contra la IP ya validada, no re-resuelve DNS),
       sin seguir redirects, timeout 10s.
-- [x] [T-041] Handler `satellite-webhooks.v1` registrado para los 5
+- [ ] [T-041] Handler `satellite-webhooks.v1` registrado para los 5
       `eventType` en `domain-event-consumer.service.ts`.
-- [x] [T-042] Contador de fallos consecutivos por webhook → `SUSPENDED`
+- [ ] [T-042] Contador de fallos consecutivos por webhook → `SUSPENDED`
       a los 5; reset a 0 tras una entrega exitosa.
-- [x] [T-043] Kill switch `SATELLITE_WEBHOOKS_ENABLED`.
-- [x] [T-044] Tests: entrega firmada exitosa; fallo→reintento vía el
+- [ ] [T-043] Kill switch `SATELLITE_WEBHOOKS_ENABLED`.
+- [ ] [T-044] Tests: entrega firmada exitosa; fallo→reintento vía el
       mecanismo estándar del consumer; 5 fallos consecutivos suspende
       solo ese webhook (no el evento completo, no otros webhooks); DNS
       rebinding simulado rechazado en el momento de entrega.
 
 ## Fase E — Verificación local
 
-- [x] [T-050] `pnpm --filter @semse/schemas build`,
+- [ ] [T-050] `pnpm --filter @semse/schemas build`,
       `pnpm --filter @semse/shared build`,
       `pnpm --filter @semse/api build` limpios.
-- [x] [T-051] `node ./scripts/run-tests.mjs` — regresión completa.
-- [x] [T-052] `tsc --noEmit` y `eslint` limpios en todos los archivos
+- [ ] [T-051] `node ./scripts/run-tests.mjs` — regresión completa.
+- [ ] [T-052] `tsc --noEmit` y `eslint` limpios en todos los archivos
       tocados.
-- [x] [T-053] `pnpm spec:validate:strict`, `pnpm spec:index`.
-- [x] [T-054] Spec actualizado a `code_status: COMPLETE`,
+- [ ] [T-053] `pnpm spec:validate:strict`, `pnpm spec:index`.
+- [ ] [T-054] Spec actualizado a `code_status: COMPLETE`,
       `status: IMPLEMENTED`.
 
 ## Fase F — PR, CI, merge

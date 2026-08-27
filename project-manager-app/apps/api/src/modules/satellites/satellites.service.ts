@@ -5,11 +5,13 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
   ServiceUnavailableException,
   UnauthorizedException
 } from "@nestjs/common";
 import { sha256 } from "../../common/auth-password.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import type { SatelliteWebhooksService } from "./satellite-webhooks.service.js";
 
 const TOKEN_PREFIX = "sst_";
 
@@ -41,7 +43,10 @@ export function satelliteTokensEnabled(): boolean {
 export class SatellitesService {
   private readonly logger = new Logger(SatellitesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly webhooksService?: SatelliteWebhooksService
+  ) {}
 
   async issueToken(input: { name: string; scopes: string[]; expiresAt?: string }) {
     const existing = await this.prisma.satelliteToken.findUnique({ where: { name: input.name } });
@@ -120,7 +125,16 @@ export class SatellitesService {
       data: { status: "REVOKED", revokedAt: new Date() }
     });
 
-    this.logger.warn(`Satellite token revoked: ${revoked.name}`);
+    // SAT-007 spec §4 P2: webhooks del token revocado pasan a SUSPENDED en
+    // el mismo ciclo que la revocacion, no por timeout de fallos.
+    const suspended = await this.webhooksService?.suspendAllForToken(id).catch((err: unknown) => {
+      this.logger.warn(`suspendAllForToken failed for revoked token ${id}: ${(err as Error)?.message ?? err}`);
+      return 0;
+    });
+
+    this.logger.warn(
+      `Satellite token revoked: ${revoked.name}${suspended ? ` (webhooks suspended=${suspended})` : ""}`
+    );
     return { id: revoked.id, name: revoked.name, status: revoked.status, revokedAt: revoked.revokedAt };
   }
 
