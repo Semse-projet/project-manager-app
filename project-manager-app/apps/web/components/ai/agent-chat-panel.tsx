@@ -24,9 +24,11 @@ import {
   getPrometeoAttachmentValidationError,
 } from "./prometeo-attachments";
 import {
+  extractToolResultParts,
   getPrometeoToolResultDetail,
   shouldRenderPrometeoToolError,
 } from "./prometeo-response";
+import type { ToolResultPart } from "@semse/schemas";
 
 // ── Tipos ─────────────────────────────────────────────────────
 
@@ -138,6 +140,48 @@ function describeToolOutput(output: unknown): string | null {
     return keys.length > 0 ? `Datos disponibles: ${keys.join(", ")}` : "Resultado disponible";
   }
   return null;
+}
+
+function renderToolResultPart(part: ToolResultPart, key: string) {
+  const wrapperStyle = { marginTop: 5, fontSize: 10, color: "rgba(255,255,255,0.75)" } as const;
+  switch (part.type) {
+    case "text":
+      return <div key={key} style={wrapperStyle}>{part.text}</div>;
+    case "json":
+      return (
+        <pre key={key} style={{ ...wrapperStyle, whiteSpace: "pre-wrap", wordBreak: "break-word", fontFamily: "inherit" }}>
+          {JSON.stringify(part.data, null, 2).slice(0, 500)}
+        </pre>
+      );
+    case "image": {
+      const src = safeCitationUrl(part.url);
+      return src ? (
+        <img
+          key={key}
+          src={src}
+          alt={part.mimeType}
+          style={{ marginTop: 6, maxWidth: "100%", borderRadius: 8, display: "block" }}
+        />
+      ) : null;
+    }
+    case "pdf":
+    case "csv": {
+      const href = safeCitationUrl(part.url);
+      return href ? (
+        <a key={key} href={href} target="_blank" rel="noreferrer" style={{ ...wrapperStyle, display: "block", color: "#93c5fd", textDecoration: "underline" }}>
+          {part.type === "pdf" ? "📄" : "📊"} {part.filename}
+        </a>
+      ) : null;
+    }
+    case "annotation":
+      return <div key={key} style={wrapperStyle}>Anotación sobre {part.targetId}</div>;
+    case "internal_link":
+      return <div key={key} style={wrapperStyle}>{part.entityType}: {part.entityId}</div>;
+    case "approval_request":
+      return <div key={key} style={{ ...wrapperStyle, color: "#fbbf24" }}>Requiere aprobación: {part.approvalId}</div>;
+    default:
+      return null;
+  }
 }
 
 function safeCitationUrl(value: string | undefined): string | null {
@@ -400,6 +444,7 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
               summary,
               errorMessage: result.errorMessage,
             });
+            const toolResultParts = succeeded ? extractToolResultParts(result.output) : null;
             return (
               <div key={result.id} style={{
                 border: `1px solid ${failed ? "rgba(239,68,68,0.30)" : succeeded ? "rgba(16,185,129,0.28)" : "rgba(255,255,255,0.10)"}`,
@@ -418,6 +463,9 @@ function StructuredResponseCards({ message, color }: { message: ChatMessage; col
                     {result.status}
                   </span>
                 </div>
+                {toolResultParts
+                  ? toolResultParts.map((part, index) => renderToolResultPart(part, `${result.id}-part-${index}`))
+                  : null}
                 {shouldRenderPrometeoToolError({ detail, errorMessage: result.errorMessage }) ? (
                   <div style={{ color: "#fca5a5", fontSize: 9, marginTop: 5 }}>{result.errorMessage}</div>
                 ) : null}

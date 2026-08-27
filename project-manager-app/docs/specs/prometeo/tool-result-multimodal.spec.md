@@ -4,10 +4,10 @@ title: "ToolResult multimodal tipado (alias histórico SPEC-AGT-004)"
 domain: "prometeo"
 sdd_version: "2.0"
 version: "1.0"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "medium"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -19,14 +19,17 @@ related_files:
   - apps/api/src/modules/prometeo/prometeo-tool-registry.ts
   - apps/api/src/modules/prometeo/prometeo-tool-execution.service.ts
   - packages/schemas/src/prometeo-runtime.schema.ts
-  - packages/db/prisma/schema.prisma
-related_tests: []
+  - apps/web/components/ai/prometeo-response.ts
+  - apps/web/components/ai/agent-chat-panel.tsx
+related_tests:
+  - apps/api/test/prometeo-tool-vision-execution.service.test.ts
+  - apps/api/test/prometeo-tool-result-schema.test.ts
 related_endpoints:
   - "POST /v1/prometeo/tools/invoke"
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-08-17"
+last_verified: "2026-08-27"
 ---
 
 # Spec: `ToolResult` multimodal tipado
@@ -162,6 +165,19 @@ export type ToolResult = {
 - Piloto único confirmado: `vision.analyze_image` devuelve
   `{ parts: [{ type: "json", data: <VisionAnalysisResult existente> }, { type: "image", url: <imagen anotada si existe> }] }`,
   sin cambio de persistencia (§4).
+- **Implementado 2026-08-27 — corrección de alcance real:** verificado
+  (`grep -rn "annotated|overlay|heatmap"` sobre `apps/api/src/modules/
+  vision/` y `apps/vision-service/`) que **ningún** campo de imagen
+  anotada existe hoy en `VisionAnalysisRecord`, `rawResult`, ni en el
+  microservicio de visión. El piloto implementado solo produce
+  `{ parts: [{ type: "json", data: <VisionAnalysisResult> }], legacyJson: <VisionAnalysisResult> }`
+  — sin parte `image`, consistente con el "si existe" de este párrafo y
+  con el caso borde de §6. No se agregó una detección especulativa de un
+  campo inexistente (ver `prometeo-tool-execution.service.ts`,
+  `buildVisionAnalyzeImageToolResult`). El camino "con imagen" de §6 P1
+  queda estructuralmente soportado por el tipo `ToolResultPart` pero no es
+  ejercitable con datos reales hasta que `apps/vision-service` produzca
+  una imagen anotada — trabajo futuro, no de este spec.
 - El consumidor (`apps/web`, componentes del Prometeo Copilot) debe poder
   renderizar cada `type` de `ToolResultPart` sin romper si aparece un
   `type` que no reconoce (fallback a texto/JSON crudo).
