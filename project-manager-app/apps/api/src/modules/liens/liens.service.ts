@@ -28,9 +28,14 @@ export class LiensService {
     this.logger.log(`Creating lien calendar: ${projectId} / ${stateName}`);
 
     // 1. Verificar que el proyecto existe
+    // Project has no address field — the location lives on its parent Job
+    // (checked against packages/db/prisma/schema.prisma 2026-08-27; the old
+    // `select: { address: true }` referenced a field that doesn't exist on
+    // Project and made this query rejected outright by Prisma — this is
+    // the live POST /v1/projects/:projectId/liens/calendar endpoint).
     const project = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
-      select: { id: true, address: true, tenantId: true },
+      select: { id: true, tenantId: true, job: { select: { location: true } } },
     });
 
     // 2. Verificar que no existe ya un calendar para esta combinación
@@ -49,7 +54,7 @@ export class LiensService {
     let deadlines: LienGridDeadlines;
     try {
       deadlines = await this.liengridClient.getDeadlines({
-        address: project.address || 'Unknown',
+        address: project.job.location || 'Unknown',
         state: stateName,
         projectStartDate: projectStartDate.toISOString(),
         apiKey: process.env.LIENGRID_API_KEY || '',

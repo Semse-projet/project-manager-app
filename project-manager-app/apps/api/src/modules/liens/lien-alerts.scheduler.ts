@@ -45,6 +45,12 @@ export class LienAlertsScheduler {
 
     try {
       // 1. Buscar calendarios en estado CREATED (aún no alertados)
+      // Project has no name/address fields (checked against
+      // packages/db/prisma/schema.prisma 2026-08-27; the old
+      // `select: { name: true, address: true }` here referenced fields
+      // that don't exist on Project and would make Prisma reject this
+      // query outright — the project's display name/location live on its
+      // parent Job).
       const calendars = await this.prisma.lienCalendar.findMany({
         where: {
           status: {
@@ -53,7 +59,7 @@ export class LienAlertsScheduler {
         },
         include: {
           project: {
-            select: { id: true, tenantId: true, name: true, address: true },
+            select: { id: true, tenantId: true, job: { select: { title: true } } },
           },
         },
       });
@@ -82,7 +88,7 @@ export class LienAlertsScheduler {
 
             this.logger.log(`Updated calendar to ${newStatus}`, {
               calendarId: calendar.id,
-              projectName: calendar.project.name,
+              projectName: calendar.project.job.title,
               daysToDeadline,
             });
 
