@@ -7,6 +7,7 @@ import type {
   PrometeoToolDescriptor,
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
+  ToolResult,
 } from "@semse/schemas";
 import { randomUUID } from "node:crypto";
 import { normalizeRoles } from "../../common/rbac.js";
@@ -33,6 +34,22 @@ type TrackerStatus = (typeof TRACKER_STATUSES)[number];
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+/**
+ * docs/specs/prometeo/tool-result-multimodal.spec.md pilot. `legacyJson`
+ * keeps the exact VisionAnalysisResult shape callers already depend on.
+ * No `image` part is emitted: verified against VisionAnalysisRecord,
+ * rawResult and apps/vision-service — none of them carry an annotated-image
+ * field today, so checking for one here would be dead code pretending to
+ * cover a case that can never fire. Add it when vision-service actually
+ * produces one.
+ */
+function buildVisionAnalyzeImageToolResult(result: unknown): ToolResult {
+  return {
+    parts: [{ type: "json", data: result }],
+    legacyJson: result,
+  };
 }
 
 function extractBlockedReason(output: unknown): string | null {
@@ -724,13 +741,15 @@ export class PrometeoToolExecutionService {
       case "vision.get_milestone_analyses":
         return this.vision.getByMilestone(requiredString(input, "milestoneId"));
 
-      case "vision.analyze_image":
-        return this.vision.runAnalysis({
+      case "vision.analyze_image": {
+        const result = await this.vision.runAnalysis({
           evidenceId: requiredString(input, "evidenceId"),
           imageUrl: requiredString(input, "imageUrl"),
           jobId: optionalString(input, "jobId"),
           milestoneId: optionalString(input, "milestoneId"),
         });
+        return buildVisionAnalyzeImageToolResult(result);
+      }
 
       case "vision.compare_before_after":
         return this.vision.matchReference(
