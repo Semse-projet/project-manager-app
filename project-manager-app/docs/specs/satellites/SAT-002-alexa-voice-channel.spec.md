@@ -72,8 +72,21 @@ Usuario habla → Alexa Skill → AWS Lambda ──@semse/sdk──► POST /v1/
 
 ## 5. Acceptance Criteria (arnés SAT-000)
 
-- [ ] Anillo 1: contrato de intake con `x-semse-channel: alexa` + perfil voice; token alexa sin scope `jobs:*` → 403.
-- [ ] Anillo 2: `sdk.intake` cubierto.
+- [x] Anillo 1: contrato de intake con `x-semse-channel: alexa` + perfil voice; token
+      alexa sin scope suficiente → 403 — cubierto por
+      `apps/api/test/satellite-channel.test.ts` (sin header ⇒ null sin exigir token;
+      header sin token ⇒ 401; token sin scope `intake:write` ⇒ 403; canal inválido ⇒
+      401; token válido ⇒ canal normalizado) más `buildVoicePrompt`/`buildInitialIntake`
+      para el perfil voice. La redacción original decía scope `jobs:*`; el scope real
+      que exige `resolveChannel()` es `intake:write` (ver `satellites.service.ts`) —
+      mismo criterio de aceptación (403 sin el scope correcto), nombre de scope
+      corregido. Verificado 2026-08-27, sin código nuevo.
+- [x] Anillo 2: `sdk.intake` cubierto — `tests/unit/sdk-client.test.ts` (TS) y, desde
+      2026-08-27, `sdk-py/tests/test_client.py` (Python) — ambos ejercitan
+      `intake.analyze`/`answer`/`get` con canal opcional contra mocks del contrato.
 - [ ] Anillo 3: e2e con simulador de request Alexa (JSON de intent real) contra API local — intake completo por "voz".
 - [ ] Anillo 4: smoke con la skill real en dispositivo/console contra Railway; lead visible en `/admin`; evidencia en `docs/reportes/`.
-- [ ] Fallback verificado: flag OFF ⇒ la skill sigue respondiendo (modo OpenAI legacy).
+- [ ] Fallback verificado: flag OFF ⇒ la skill sigue respondiendo (modo OpenAI legacy)
+      — no verificable desde este repo: la skill de Alexa en sí (handler/Lambda) no
+      parece vivir en este monorepo; no se encontró código relacionado a
+      "OpenAI legacy fallback" bajo `apps/`/`packages/`.

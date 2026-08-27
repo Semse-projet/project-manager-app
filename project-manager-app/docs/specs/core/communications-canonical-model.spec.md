@@ -124,10 +124,16 @@ La respuesta JSON sigue usando los tipos locales `CommunicationThreadRecord` y `
 
 ## 7. Tests requeridos
 
-- [ ] `pnpm typecheck` pasa tras regenerar el cliente Prisma.
-- [ ] `pnpm lint` no reporta errores.
-- [ ] `pnpm --filter @semse/api test:unit` mantiene cobertura actual.
-- [ ] `pnpm spec:preflight` pasa (no rompe contratos SDD existentes).
+- [x] `pnpm typecheck` pasa tras regenerar el cliente Prisma — verificado
+      2026-08-27 (`tsc --noEmit --project apps/api/tsconfig.json`, limpio).
+- [x] `pnpm lint` no reporta errores — verificado 2026-08-27
+      (`eslint src/modules/communications`, 0 errores).
+- [x] `pnpm --filter @semse/api test:unit` mantiene cobertura actual —
+      verificado 2026-08-27 como parte de la regresión completa de la API
+      corrida en esta sesión (2124/2132, 8 skipped, 0 fallos).
+- [ ] `pnpm spec:preflight` pasa (no rompe contratos SDD existentes) —
+      inconcluso: el comando (`railway:preflight`) no terminó dentro de
+      60s en este sandbox; no se afirma que pase sin poder verlo terminar.
 
 No se requieren tests funcionales nuevos porque no cambia el comportamiento de negocio: solo elimina tablas sin consumidores.
 

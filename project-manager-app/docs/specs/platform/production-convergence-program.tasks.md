@@ -23,7 +23,12 @@ date: "2026-07-31"
 ## Child slices
 
 - [x] [T-100] F3 — cálculo, persistencia, rebuild, eventos y replay verificados en canary
-- [x] [T-200] F4 — child SDD 2.0 creado, analizado y aprobado; implementación pendiente
+- [x] [T-200] F4 — child `operations.mission-control-2` implementado, mergeado
+      (PR #486) y desplegado; activación en producción (canary/flag-on)
+      sigue pendiente — sin evidencia real más allá de un walkthrough local
+      con flag apagado (ver spec del child, nota §8). Gate F4 completo
+      (código+CI+merge+deploy) pero no cerrado (falta canary/activación),
+      así que F5 sigue bloqueado por la Regla de avance de este programa.
 - [ ] [T-300] F5 — crear spec después del gate F4
 - [ ] [T-400] F6 — crear spec después del gate F5
 - [ ] [T-500] F7 — crear spec después del gate F6

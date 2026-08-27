@@ -17,11 +17,18 @@ test("searchRepo recognizes NestJS routes composed by controller and handler dec
     searchRepo(["apps/api/src/modules/repo-knowledge"], ["v1/repo-knowledge/graphify/status"]),
     true,
   );
+  assert.equal(
+    searchRepo(["apps/api/src/modules/satellites"], ["v1/satellites/webhooks"]),
+    true,
+  );
 });
 
 test("searchRepo rejects an endpoint whose handler is not implemented", () => {
+  // v1/satellites/webhooks was this fixture until SAT-007 implemented it
+  // (SatelliteWebhooksController) — swapped for a route that still has no
+  // handler, to keep testing searchRepo's negative case.
   assert.equal(
-    searchRepo(["apps/api/src/modules/satellites"], ["v1/satellites/webhooks"]),
+    searchRepo(["apps/api/src/modules/satellites"], ["v1/satellites/does-not-exist"]),
     false,
   );
 });

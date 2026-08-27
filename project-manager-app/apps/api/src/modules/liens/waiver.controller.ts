@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Controller, Post, Get, Param, Body, Req, UseGuards, Logger } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, InternalServerErrorException, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";

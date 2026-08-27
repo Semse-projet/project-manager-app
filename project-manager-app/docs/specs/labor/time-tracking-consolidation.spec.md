@@ -157,11 +157,19 @@ Los BFF routes en `apps/web/app/api/semse/time-tracker/*` no se tocan.
 
 ## 7. Tests requeridos
 
-- [ ] `pnpm typecheck` pasa tras regenerar el cliente Prisma.
-- [ ] `pnpm lint` no reporta errores.
-- [ ] `pnpm --filter @semse/api test:unit` mantiene cobertura actual (tests de `field-ops` y `labor-engine` se ajustan al nuevo mapeo).
-- [ ] `pnpm spec:preflight` pasa.
-- [ ] Migración es reversiva: rollback = restaurar `TrackerSession` desde backup (la data se migra a `TimeEntry`).
+- [x] `pnpm typecheck` pasa tras regenerar el cliente Prisma — verificado
+      2026-08-27 (`tsc --noEmit --project apps/api/tsconfig.json`, limpio);
+      `TrackerSession` ya no existe en `packages/db/prisma/schema.prisma`,
+      confirmando la tabla duplicada eliminada.
+- [x] `pnpm lint` no reporta errores — verificado 2026-08-27
+      (`eslint src/modules/field-ops src/modules/labor-engine`, 0 errores).
+- [x] `pnpm --filter @semse/api test:unit` mantiene cobertura actual —
+      verificado 2026-08-27 como parte de la regresión completa de la API
+      corrida en esta sesión (2124/2132, 8 skipped, 0 fallos).
+- [ ] `pnpm spec:preflight` pasa — inconcluso: el comando (`railway:preflight`)
+      no terminó dentro de 60s en este sandbox (probablemente intenta
+      alcanzar Railway); no se afirma que pase sin poder verlo terminar.
+- [ ] Migración es reversiva: rollback = restaurar `TrackerSession` desde backup (la data se migra a `TimeEntry`) — requiere un rollback real contra Postgres, no verificable desde este sandbox.
 
 ---
 

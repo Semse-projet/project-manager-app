@@ -1,10 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { BadRequestException, Inject, Injectable, Logger, Optional, UnprocessableEntityException } from "@nestjs/common";
+import {
+  JOB_COMPLETED_V1_SCHEMA_REF,
+  RATING_REQUESTED_V1_SCHEMA_REF,
+  jobCompletedV1EventSchema,
+  ratingRequestedV1EventSchema,
+} from "@semse/schemas";
 import { type JobRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
 import { geocodeAddressSafe } from "../../integrations/google-maps.js";
 import { isValidCoordinate } from "../../integrations/geo-distance.js";
 import {
@@ -30,6 +38,7 @@ export class JobsService {
     private readonly operationalContext?: OperationalContextService,
     @Optional() private readonly semseAgents?: SemseAgentsService,
     @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly outboxRepository?: OutboxRepository,
   ) {}
 
   private syncContext(tenantId: string, source: string, reason: string): void {
@@ -753,6 +762,55 @@ export class JobsService {
       eventType: "rating.requested",
       payload: { jobId: input.jobId, proUserId, clientUserId },
     }).catch(() => undefined);
+
+    // docs/specs/satellites/SAT-007-outbound-webhooks.spec.md — best-effort
+    // durable outbox writes (plan.md §1.1): the job status write already
+    // committed via jobsRepository.updateStatus() above (job.status_changed.v1),
+    // these two describe the same already-durable fact for satellite webhook
+    // consumers, same non-transactional reliability as the notifications
+    // right above.
+    if (this.outboxRepository) {
+      const recordedAt = new Date();
+      void this.outboxRepository.create(this.prisma, jobCompletedV1EventSchema.parse({
+        eventId: randomUUID(),
+        eventType: "job.completed.v1",
+        version: 1,
+        envelopeVersion: 2,
+        occurredAt: recordedAt.toISOString(),
+        recordedAt: recordedAt.toISOString(),
+        tenantId: input.tenantId,
+        orgId: job.clientOrgId,
+        module: "jobs",
+        entityType: "Job",
+        entityId: input.jobId,
+        actor: { type: "system", id: "SYSTEM" },
+        correlationId: `job.completed.v1:${input.jobId}`,
+        idempotencyKey: `job.completed.v1:${input.jobId}:${randomUUID()}`,
+        schemaRef: JOB_COMPLETED_V1_SCHEMA_REF,
+        payload: { jobId: input.jobId, proUserId, clientUserId },
+        metadata: { source: "jobs.system-complete-job" },
+      })).catch((err: unknown) => this.logger.warn(`[Jobs] job.completed.v1 outbox write failed: ${String((err as Error)?.message ?? err)}`));
+
+      void this.outboxRepository.create(this.prisma, ratingRequestedV1EventSchema.parse({
+        eventId: randomUUID(),
+        eventType: "rating.requested.v1",
+        version: 1,
+        envelopeVersion: 2,
+        occurredAt: recordedAt.toISOString(),
+        recordedAt: recordedAt.toISOString(),
+        tenantId: input.tenantId,
+        orgId: job.clientOrgId,
+        module: "jobs",
+        entityType: "Job",
+        entityId: input.jobId,
+        actor: { type: "system", id: "SYSTEM" },
+        correlationId: `rating.requested.v1:${input.jobId}`,
+        idempotencyKey: `rating.requested.v1:${input.jobId}:${randomUUID()}`,
+        schemaRef: RATING_REQUESTED_V1_SCHEMA_REF,
+        payload: { jobId: input.jobId, proUserId, clientUserId },
+        metadata: { source: "jobs.system-complete-job" },
+      })).catch((err: unknown) => this.logger.warn(`[Jobs] rating.requested.v1 outbox write failed: ${String((err as Error)?.message ?? err)}`));
+    }
 
     this.logger.log(`[Jobs] systemCompleteJob: job ${input.jobId} auto-completed (all milestones approved)`);
   }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 import { LiensService } from './liens.service.js';
@@ -6,11 +5,18 @@ import { NoticeGeneratorService } from './notice-generator.service.js';
 
 /**
  * LienAlertsScheduler — ejecuta jobs periódicos para alertas de lien deadlines.
- * Debe ser ejecutado cada hora por BullMQ o similar.
+ * Disparado cada hora por apps/worker/src/main.mjs (runLienDeadlineCheckSafe,
+ * kill switch LIEN_ALERTS_ENABLED, 2026-08-27) vía
+ * POST /v1/admin/liens/check-deadlines — antes solo existía el trigger manual.
  *
  * Búsqueda: LienCalendars donde el deadline está en 30d, 7d, 3d, 1d
  * Transición: CREATED → ALERTED_30D → ALERTED_7D → ALERTED_3D
- * Notificación: push + email al PRO
+ * Notificación: push + email al PRO — NO IMPLEMENTADO (ver TODO abajo):
+ *   requiere resolver qué usuario recibe la alerta a partir de
+ *   Project.assignedProOrgId (un Org, no un userId) — no hay una noción
+ *   establecida de "usuario principal de un Org" en este módulo; asumir una
+ *   sin confirmar el criterio de producto podría mandar (o no mandar) un
+ *   aviso legal a la persona equivocada.
  * Generación: notices automáticos cuando ALERTED_3D se alcanza
  */
 @Injectable()
@@ -38,6 +44,12 @@ export class LienAlertsScheduler {
 
     try {
       // 1. Buscar calendarios en estado CREATED (aún no alertados)
+      // Project has no name/address fields (checked against
+      // packages/db/prisma/schema.prisma 2026-08-27; the old
+      // `select: { name: true, address: true }` here referenced fields
+      // that don't exist on Project and would make Prisma reject this
+      // query outright — the project's display name/location live on its
+      // parent Job).
       const calendars = await this.prisma.lienCalendar.findMany({
         where: {
           status: {
@@ -46,7 +58,7 @@ export class LienAlertsScheduler {
         },
         include: {
           project: {
-            select: { id: true, tenantId: true, name: true, address: true },
+            select: { id: true, tenantId: true, job: { select: { title: true } } },
           },
         },
       });
@@ -75,7 +87,7 @@ export class LienAlertsScheduler {
 
             this.logger.log(`Updated calendar to ${newStatus}`, {
               calendarId: calendar.id,
-              projectName: calendar.project.name,
+              projectName: calendar.project.job.title,
               daysToDeadline,
             });
 

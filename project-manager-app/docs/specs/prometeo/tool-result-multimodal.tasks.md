@@ -69,12 +69,15 @@ date: "2026-08-27"
 
 ## Fase 5 — PR, CI y merge
 
-- [ ] [T-050] Revisar diff y secretos.
-- [ ] [T-051] Commit + push a `claude/roadmap-continuation-vhmve9`; PR
-      nuevo (mandato de rama única — mismo patrón que la spec anterior).
-- [ ] [T-052] Esperar CI terminal y registrar `ci_status`.
-- [ ] [T-053] Resolver review sin ampliar scope.
-- [ ] [T-054] Fusionar y registrar SHA; actualizar `merge_status`.
+- [x] [T-050] Diff y secretos revisados antes de `git add`.
+- [x] [T-051] Commit + push a `claude/roadmap-continuation-vhmve9` — PR
+      #591 (ya abierto para el bookkeeping de PR #590, ampliado al crecer
+      de alcance, mismo patrón de rama única de la spec anterior).
+- [x] [T-052] CI terminal: único check (`Devin Review`) en `success` sobre
+      el SHA final `e6ed200`. `ci_status: PASS`.
+- [x] [T-053] Sin comentarios de review que resolver.
+- [x] [T-054] Fusionado por `Samuelcastella` el 2026-08-27T01:18Z, merge
+      commit `385021c` en `main`. `merge_status: MERGED`.
 
 ## Fase 6 — Deploy y activación
 

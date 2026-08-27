@@ -4,6 +4,7 @@ import {
   multipartUploadSessionCreateSchema,
   presignEvidenceSchema,
   registerEvidenceSchema,
+  registerEvidencePhotoSchema,
   uploadPlanSchema
 } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
@@ -374,6 +375,43 @@ export class EvidenceController {
       key: parsed.data.key,
       kind: parsed.data.kind,
       filename: parsed.data.filename
+    });
+
+    return ok(requestId, toVisibleEvidence(evidence));
+  }
+
+  /**
+   * POST /v1/projects/:projectId/evidence/photos
+   * m2.2-dispute-docs Bloque 2.2.A — `key` must already reference an
+   * uploaded file (via the existing presign flow). Reads it back
+   * server-side to extract EXIF timestamp/GPS; returns 400 (EXIF_INVALID)
+   * if the photo has neither, per the spec's own error contract.
+   */
+  @Post("v1/projects/:projectId/evidence/photos")
+  @RequirePermissions("evidence:write")
+  async registerPhoto(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("projectId") projectId: string,
+    @Body() body: Record<string, unknown>
+  ) {
+    const parsed = registerEvidencePhotoSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const evidence = await this.evidenceService.registerPhotoWithExif({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      requestId,
+      projectId,
+      key: parsed.data.key,
+      filename: parsed.data.filename,
+      category: parsed.data.category,
+      description: parsed.data.description
     });
 
     return ok(requestId, toVisibleEvidence(evidence));

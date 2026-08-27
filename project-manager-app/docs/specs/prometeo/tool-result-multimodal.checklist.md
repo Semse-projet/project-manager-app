@@ -71,8 +71,10 @@ date: "2026-08-27"
       limpio en los 4 archivos de código tocados (1 warning aceptado de
       `no-img-element`, mismo patrón ya usado en otros 3 archivos del
       repo para imágenes remotas dinámicas).
-- [ ] CI, merge, deploy y activación tienen evidencia separada — pendiente,
-      se sube en el PR de esta rama.
+- [x] CI, merge, deploy y activación tienen evidencia separada — CI `PASS`
+      y merge `MERGED` (PR #591, merge commit `385021c`); deploy/activación
+      siguen pendientes (Fase 6, sin acceso a infraestructura real desde
+      esta sesión).
 - [ ] Healthcheck no sustituye smoke funcional — plan §7 Fase F exige una
       invocación real de `vision.analyze_image` renderizada en `apps/web`.
 - [x] Canary, métricas y rollback están definidos — sin flag (cambio
