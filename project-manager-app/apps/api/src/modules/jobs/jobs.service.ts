@@ -353,6 +353,7 @@ export class JobsService {
       locationSource: coords?.locationSource,
       urgency: input.urgency,
       deadline: storedDeadline,
+      requestId: input.requestId,
     });
 
     this.logger.log(`[POST /v1/jobs] Job created: jobId=${job.id} — firing background tasks`);
@@ -611,7 +612,11 @@ export class JobsService {
     const updated = await this.jobsRepository.updateStatus({
       tenantId: input.tenantId,
       jobId: input.jobId,
-      status: input.targetStatus
+      status: input.targetStatus,
+      orgId: input.orgId,
+      actorType: "user",
+      actorId: input.userId,
+      requestId: input.requestId
     });
 
     await this.auditService.append({
@@ -707,6 +712,10 @@ export class JobsService {
       tenantId: input.tenantId,
       jobId: input.jobId,
       status: "completed",
+      orgId: job.clientOrgId,
+      actorType: "system",
+      actorId: "SYSTEM",
+      requestId: input.requestId,
     });
 
     const membership = await this.prisma.membership.findFirst({

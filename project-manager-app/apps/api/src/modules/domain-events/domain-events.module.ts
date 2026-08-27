@@ -16,6 +16,7 @@ import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
 import { OutboxOpsService } from "./outbox-ops.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "./project-lifecycle-projection-event-producer.service.js";
 import { ProjectsRepository } from "../projects/projects.repository.js";
+import { JobsRepository } from "../jobs/jobs.repository.js";
 
 @Global()
 @Module({
@@ -39,6 +40,7 @@ import { ProjectsRepository } from "../projects/projects.repository.js";
     OutboxOpsService,
     ProjectLifecycleProjectionEventProducer,
     ProjectsRepository,
+    JobsRepository,
   ],
   exports: [
     DomainEventBus,

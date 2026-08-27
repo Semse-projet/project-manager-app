@@ -4,10 +4,10 @@ title: "Jobs & Bids Event Projection for Agent Context"
 domain: "operations"
 sdd_version: "2.0"
 version: "1.1"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
-code_status: "NOT_STARTED"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -39,7 +39,9 @@ related_files:
   - apps/api/src/modules/evidence/evidence.repository.ts
   - apps/api/src/modules/projects/project-lifecycle-projection.ts
   - apps/api/src/modules/projects/projects.repository.ts
+  - apps/api/src/modules/jobs/jobs-bids-projection.ts
   - packages/db/prisma/schema.prisma
+  - packages/db/prisma/migrations/20260826120000_jobs_bids_projection/migration.sql
   - packages/schemas/src/domain-events-v2.schema.ts
   - docs/foundation/EVENT_CATALOG.md
   - docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md
@@ -54,6 +56,11 @@ related_tests:
   - apps/api/test/bids.controller.test.ts
   - apps/api/test/marketplace-bids.test.ts
   - apps/api/test/evidence-outbox-producer.test.ts
+  - apps/api/test/jobs-bids-projection.test.ts
+  - apps/api/test/jobs-bids-projection-events.test.ts
+  - apps/api/test/bids-outbox-producer.test.ts
+  - apps/api/test/operational-context.service.test.ts
+  - apps/api/test/event-domain-consumer.test.ts
 related_endpoints:
   - GET /v1/domain-events/outbox
   - GET /v1/domain-events/:eventId/deliveries
@@ -64,10 +71,15 @@ related_events:
   - job.created
   - job.status_changed
   - job.preferred_professional_selected
+  - job.created.v1
+  - job.status_changed.v1
+  - bid.created.v1
+  - bid.accepted.v1
+  - bid.rejected.v1
 related_agents:
   - prometeo
   - project-copilot
-last_verified: "2026-08-17"
+last_verified: "2026-08-26"
 ---
 
 # Spec: Jobs & Bids Event Projection for Agent Context

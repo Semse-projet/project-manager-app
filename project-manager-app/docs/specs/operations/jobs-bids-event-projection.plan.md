@@ -4,9 +4,9 @@ feature: "Jobs & Bids Event Projection for Agent Context"
 domain: "operations"
 spec: "docs/specs/operations/jobs-bids-event-projection.spec.md"
 version: "1.1"
-status: "DRAFT"
-branch: "feat/jobs-bids-event-projection"
-date: "2026-08-17"
+status: "APPROVED"
+branch: "claude/roadmap-continuation-vhmve9"
+date: "2026-08-26"
 ---
 
 # Plan técnico: Jobs & Bids Event Projection for Agent Context
@@ -16,11 +16,13 @@ date: "2026-08-17"
 > `docs/specs/operations/jobs-bids-event-projection.spec.md`), con
 > autorización explícita del dueño del repo para llevar los specs
 > `DRAFT`/`REVIEW` pendientes del proyecto hasta `APPROVED` en esa sesión.
-> Ese cambio de estado **solo desbloquea el gate de "spec aprobado antes de
-> código" (§2 de este plan)** — no implica que este plan en sí ya fue
-> revisado/aprobado, ni que ninguna Fase de §7 empezó a ejecutarse. Este
-> documento sigue en `DRAFT` hasta que alguien lo revise como plan técnico
-> propio.
+>
+> **2026-08-26: este plan pasa de `DRAFT` a `APPROVED`.** Retomado en la
+> rama `claude/roadmap-continuation-vhmve9` (no la `feat/jobs-bids-event-
+> projection` original — nunca se creó). Sin cambios de diseño frente a la
+> versión 2026-08-17; T-003 (gate de §10) queda resuelto acá: **dos PRs**,
+> no uno — ver nota al final de §7 Fase 0. El resto del documento (§1-§9)
+> se mantiene sin editar porque sigue siendo válido; solo se ejecuta ahora.
 
 ## 1. Snapshot de verdad
 
@@ -142,6 +144,19 @@ hardcodeados de `domain-event-consumer.service.ts:99-127` por un registro
 `eventType → consumer handler`. Los dos consumers existentes
 (`evidence-readiness`, `project-lifecycle-projection`) deben seguir
 pasando sus tests sin cambio de comportamiento tras el refactor.
+
+> **Decisión T-003 (2026-08-26):** Fase 0 va en **commit propio, revisable
+> por separado**, previo a Fases A-F (instrumentación jobs/bids) —
+> corrección 2026-08-26: la sesión que ejecuta este plan opera bajo mandato
+> de rama única (`claude/roadmap-continuation-vhmve9`, sin permiso para
+> abrir ramas nuevas), así que "dos PRs" de la nota original no es
+> literalmente ejecutable — todo el trabajo de esta sesión aterriza en un
+> único PR de GitHub (#590) sobre esa rama. La separación real que sí se
+> sostiene: Fase 0 es su propio commit, con su propia corrida de tests
+> verde de forma aislada antes de tocar una sola línea de jobs/bids —
+> revisable y revertible independientemente aunque comparta PR. Fases A-C
+> (schemas, migración, productores, consumer, read-through) van en
+> commit(s) posteriores sobre el mismo PR.
 
 ### Fase A — Tests y contratos
 

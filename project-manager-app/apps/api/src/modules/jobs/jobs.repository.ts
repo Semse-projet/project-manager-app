@@ -1,8 +1,22 @@
+import { randomUUID } from "node:crypto";
 import { Injectable, NotFoundException } from "@nestjs/common";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import {
+  JOB_CREATED_V1_SCHEMA_REF,
+  JOB_STATUS_CHANGED_V1_SCHEMA_REF,
+  jobCreatedV1EventSchema,
+  jobStatusChangedV1EventSchema,
+} from "@semse/schemas";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { type JobRecord } from "../../common/domain-store.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
+import {
+  buildJobsBidsProjection,
+  isJobsBidsProjectionEnabled,
+  isJobsBidsProjectionPersistenceEnabled,
+  type JobsBidsProjectionSnapshot,
+} from "./jobs-bids-projection.js";
 
 const jobStatusMap = {
   draft: "DRAFT",
@@ -53,7 +67,8 @@ type JobTransitionAccessRow = {
 export class JobsRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly actorContextService: ActorContextService
+    private readonly actorContextService: ActorContextService,
+    private readonly outboxRepository: OutboxRepository
   ) {}
 
   /**
@@ -163,26 +178,65 @@ export class JobsRepository {
     locationSource?: "geocoded" | "manual";
     urgency?: string;
     deadline?: Date;
+    requestId?: string;
   }): Promise<JobRecord> {
     await this.actorContextService.ensureActorContext(input);
-    const job = (await this.prisma.job.create({
-      data: {
+    const job = (await this.prisma.$transaction(async (tx) => {
+      const created = await tx.job.create({
+        data: {
+          tenantId: input.tenantId,
+          clientOrgId: input.orgId,
+          title: input.title,
+          category: input.category,
+          scope: input.scope,
+          status: "POSTED",
+          budgetType: input.budgetType,
+          budgetMin: input.budgetMin,
+          budgetMax: input.budgetMax,
+          location: input.location,
+          latitude: input.latitude,
+          longitude: input.longitude,
+          locationSource: input.locationSource,
+          urgency: input.urgency,
+          deadline: input.deadline,
+        }
+      });
+
+      const recordedAt = new Date();
+      const event = jobCreatedV1EventSchema.parse({
+        eventId: randomUUID(),
+        eventType: "job.created.v1",
+        version: 1,
+        envelopeVersion: 2,
+        occurredAt: recordedAt.toISOString(),
+        recordedAt: recordedAt.toISOString(),
         tenantId: input.tenantId,
-        clientOrgId: input.orgId,
-        title: input.title,
-        category: input.category,
-        scope: input.scope,
-        status: "POSTED",
-        budgetType: input.budgetType,
-        budgetMin: input.budgetMin,
-        budgetMax: input.budgetMax,
-        location: input.location,
-        latitude: input.latitude,
-        longitude: input.longitude,
-        locationSource: input.locationSource,
-        urgency: input.urgency,
-        deadline: input.deadline,
-      }
+        orgId: input.orgId,
+        module: "jobs",
+        entityType: "Job",
+        entityId: created.id,
+        actor: { type: "user", id: input.userId },
+        correlationId: input.requestId ?? created.id,
+        idempotencyKey: jobsBidsEventIdempotencyKey("job.created.v1", created.id),
+        schemaRef: JOB_CREATED_V1_SCHEMA_REF,
+        payload: {
+          jobId: created.id,
+          clientOrgId: input.orgId,
+          title: created.title,
+          category: created.category ?? undefined,
+          scope: created.scope,
+          budgetType: created.budgetType ?? undefined,
+          budgetMin: created.budgetMin?.toNumber(),
+          budgetMax: created.budgetMax?.toNumber(),
+          location: created.location ?? undefined,
+          urgency: created.urgency ?? undefined,
+          deadline: created.deadline?.toISOString(),
+        },
+        metadata: { source: "jobs.create" },
+      });
+      await this.outboxRepository.create(tx, event);
+
+      return created;
     })) as StoredJob;
 
     return this.toRecord(job);
@@ -310,28 +364,65 @@ export class JobsRepository {
     tenantId: string;
     jobId: string;
     status: JobRecord["status"];
+    orgId: string;
+    actorType: "user" | "system" | "agent" | "webhook";
+    actorId: string;
+    requestId?: string;
   }): Promise<JobRecord> {
     const dbStatus = jobStatusMap[input.status];
     if (!dbStatus) {
       throw new Error(`Unknown job status: ${input.status}`);
     }
 
-    const existing = await this.prisma.job.findFirst({
-      where: {
-        id: input.jobId,
+    const job = (await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.job.findFirst({
+        where: {
+          id: input.jobId,
+          tenantId: input.tenantId,
+          deletedAt: null
+        },
+        select: { id: true, status: true, updatedAt: true }
+      });
+
+      if (!existing) {
+        throw new NotFoundException(`Job '${input.jobId}' not found`);
+      }
+
+      const updated = await tx.job.update({
+        where: { id: existing.id },
+        data: { status: dbStatus }
+      });
+
+      const recordedAt = new Date();
+      const event = jobStatusChangedV1EventSchema.parse({
+        eventId: randomUUID(),
+        eventType: "job.status_changed.v1",
+        version: 1,
+        envelopeVersion: 2,
+        occurredAt: recordedAt.toISOString(),
+        recordedAt: recordedAt.toISOString(),
         tenantId: input.tenantId,
-        deletedAt: null
-      },
-      select: { id: true }
-    });
+        orgId: input.orgId,
+        module: "jobs",
+        entityType: "Job",
+        entityId: updated.id,
+        actor: { type: input.actorType, id: input.actorId },
+        correlationId: input.requestId ?? `${updated.id}:${existing.updatedAt.getTime()}`,
+        idempotencyKey: jobsBidsEventIdempotencyKey(
+          "job.status_changed.v1",
+          `${updated.id}:${existing.status}:${dbStatus}:${existing.updatedAt.getTime()}`
+        ),
+        schemaRef: JOB_STATUS_CHANGED_V1_SCHEMA_REF,
+        payload: {
+          jobId: updated.id,
+          fromStatus: existing.status,
+          toStatus: dbStatus,
+        },
+        metadata: { source: "jobs.update-status" },
+      });
+      await this.outboxRepository.create(tx, event);
 
-    if (!existing) {
-      throw new NotFoundException(`Job '${input.jobId}' not found`);
-    }
-
-    const job = (await this.prisma.job.update({
-      where: { id: existing.id },
-      data: { status: dbStatus }
+      return updated;
     })) as StoredJob;
 
     return this.toRecord(job);
@@ -390,6 +481,152 @@ export class JobsRepository {
     };
   }
 
+  /**
+   * Rebuilds `JobsBidsProjection` for one job from current DB state (not
+   * delta-application from the triggering event) — same strategy as
+   * ProjectsRepository.rebuildLifecycleProjection, safe under out-of-order
+   * delivery. Returns "disabled" without touching the projection table
+   * when the tenant isn't canary-allowlisted or the persist kill switch is
+   * off, so the consumer can still ack the event cleanly.
+   */
+  async rebuildJobsBidsProjection(input: {
+    tenantId: string;
+    jobId: string;
+  }): Promise<{
+    effect: "updated" | "no_op" | "disabled";
+    revision?: string;
+    sourceUpdatedAt?: string;
+  }> {
+    if (
+      !isJobsBidsProjectionEnabled(input.tenantId) ||
+      !isJobsBidsProjectionPersistenceEnabled()
+    ) {
+      return { effect: "disabled" };
+    }
+
+    const sources = await this.prisma.job.findFirst({
+      where: { id: input.jobId, tenantId: input.tenantId },
+      select: {
+        id: true,
+        tenantId: true,
+        clientOrgId: true,
+        title: true,
+        status: true,
+        updatedAt: true,
+        bids: {
+          select: {
+            id: true,
+            proOrgId: true,
+            professionalUserId: true,
+            amount: true,
+            etaDays: true,
+            status: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!sources) {
+      throw new NotFoundException(`Job '${input.jobId}' not found`);
+    }
+
+    const projection = buildJobsBidsProjection({
+      job: {
+        id: sources.id,
+        tenantId: sources.tenantId,
+        clientOrgId: sources.clientOrgId,
+        title: sources.title,
+        status: sources.status,
+        updatedAt: sources.updatedAt,
+      },
+      bids: sources.bids.map((bid) => ({
+        id: bid.id,
+        proOrgId: bid.proOrgId,
+        professionalUserId: bid.professionalUserId,
+        amount: bid.amount.toNumber(),
+        etaDays: bid.etaDays,
+        status: bid.status,
+        updatedAt: bid.updatedAt,
+      })),
+    });
+
+    const effect = await this.persistJobsBidsProjection(input, projection);
+    return {
+      effect,
+      revision: projection.revision,
+      sourceUpdatedAt: projection.sourceUpdatedAt,
+    };
+  }
+
+  private async persistJobsBidsProjection(
+    input: { tenantId: string; jobId: string },
+    projection: JobsBidsProjectionSnapshot
+  ): Promise<"updated" | "no_op"> {
+    const sourceUpdatedAt = new Date(projection.sourceUpdatedAt);
+    const data = {
+      tenantId: input.tenantId,
+      clientOrgId: projection.job.clientOrgId,
+      schemaVersion: projection.schemaVersion,
+      revision: projection.revision,
+      snapshotJson: projection as unknown as Prisma.InputJsonValue,
+      sourceUpdatedAt,
+      generatedAt: new Date(projection.generatedAt)
+    };
+    let current = await this.prisma.jobsBidsProjection.findUnique({
+      where: { jobId: input.jobId },
+      select: { id: true, revision: true, sourceUpdatedAt: true }
+    });
+
+    if (
+      current?.revision === projection.revision ||
+      (current && current.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime())
+    ) {
+      return "no_op";
+    }
+
+    if (!current) {
+      try {
+        await this.prisma.jobsBidsProjection.create({
+          data: {
+            jobId: input.jobId,
+            ...data
+          }
+        });
+        return "updated";
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+          throw error;
+        }
+        current = await this.prisma.jobsBidsProjection.findUnique({
+          where: { jobId: input.jobId },
+          select: { id: true, revision: true, sourceUpdatedAt: true }
+        });
+      }
+    }
+
+    if (
+      !current ||
+      current.revision === projection.revision ||
+      current.sourceUpdatedAt.getTime() > sourceUpdatedAt.getTime()
+    ) {
+      return "no_op";
+    }
+
+    const updated = await this.prisma.jobsBidsProjection.updateMany({
+      where: {
+        id: current.id,
+        jobId: input.jobId,
+        revision: current.revision,
+        sourceUpdatedAt: {
+          lte: sourceUpdatedAt
+        }
+      },
+      data
+    });
+    return updated.count === 1 ? "updated" : "no_op";
+  }
+
   private toRecord(job: StoredJob): JobRecord {
     return {
       id: job.id,
@@ -410,4 +647,18 @@ export class JobsRepository {
       deadline: job.deadline?.toISOString(),
     };
   }
+}
+
+/**
+ * Anchored to the write's own state (a freshly-created entity id, or a
+ * pre-update `updatedAt` snapshot for a mutation) rather than the caller's
+ * `requestId` — jobs/bids `create`/`updateStatus` have no existing
+ * request-level idempotency contract to key off of (unlike
+ * `evidence.repository.ts`), so keying on caller-supplied data here would
+ * make a legitimate client retry roll back its own successful write via a
+ * spurious outbox P2002. Anchoring on DB-generated state means this key
+ * can never collide across two genuinely different writes.
+ */
+function jobsBidsEventIdempotencyKey(eventType: string, anchor: string): string {
+  return `${eventType}:${anchor}`;
 }

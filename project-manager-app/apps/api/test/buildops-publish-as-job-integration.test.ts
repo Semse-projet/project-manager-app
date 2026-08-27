@@ -7,6 +7,7 @@ import { PrismaClient } from "@prisma/client";
 import { BuildOpsService } from "../dist/modules/buildops/buildops.service.js";
 import { JobsService } from "../dist/modules/jobs/jobs.service.js";
 import { JobsRepository } from "../dist/modules/jobs/jobs.repository.js";
+import { OutboxRepository } from "../dist/modules/domain-events/outbox.repository.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +28,11 @@ const fakeDomainEventBus = { async emit() { /* not under test here */ } };
 const fakeWorkspaceMemory = { async append() { /* not under test here */ } };
 
 function makeService() {
-  const jobsRepository = new JobsRepository(prisma as never, fakeActorContext as never);
+  const jobsRepository = new JobsRepository(
+    prisma as never,
+    fakeActorContext as never,
+    new OutboxRepository(prisma as never) as never,
+  );
   const jobsService = new JobsService(
     jobsRepository as never,
     fakeAudit as never,

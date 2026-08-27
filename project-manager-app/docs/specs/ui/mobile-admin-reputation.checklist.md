@@ -58,8 +58,9 @@ date: "2026-08-26"
 - [x] Tests, build, typecheck pasan — `pnpm --filter @semse/mobile test`
       (43/43 suites, 191/191 tests) y `pnpm --filter @semse/mobile check`
       (`tsc --noEmit`) verificados en esta sesión.
-- [ ] CI, merge, deploy y activación tienen evidencia separada — pendiente,
-      se sube en el PR de esta rama.
+- [x] CI, merge, deploy y activación tienen evidencia separada — CI `PASS`
+      y merge `MERGED` (PR #589, SHA `862f13f`); deploy/activación siguen
+      pendientes de build EAS + smoke manual (Fase F).
 - [ ] Healthcheck no sustituye smoke funcional — plan §7 Fase F exige un
       run real en device/simulador con cuenta `OPS_ADMIN` real (reputación
       de más de una org).

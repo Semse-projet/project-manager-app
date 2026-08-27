@@ -1,10 +1,15 @@
 import { forwardRef, Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../../infrastructure/prisma/prisma.service.js";
 import { SseEventBusService } from "../../../infrastructure/sse/sse-event-bus.service.js";
 import { HealthService } from "../../health/health.service.js";
 import { FinanceService } from "../../finance/finance.service.js";
 import { Ecosystem5DService, type Ecosystem5DView } from "../../intelligence/ecosystem-5d.service.js";
 import { RiskScoringService } from "../../intelligence/risk-scoring.service.js";
+import {
+  isJobsBidsProjectionEnabled,
+  isJobsBidsProjectionReadthroughEnabled,
+} from "../../jobs/jobs-bids-projection.js";
 
 export type SemseOperationalContext = {
   mode: "demo" | "local" | "live";
@@ -115,11 +120,7 @@ export class OperationalContextService {
       : { tenantId: input.tenantId };
 
     const [jobs, notifications, assistantProfile] = await Promise.all([
-      this.prisma.job.findMany({
-        where: jobsWhere,
-        orderBy: { id: "desc" }, take: 20,
-        select: { id: true, title: true, status: true },
-      }).catch(() => [] as JobSummaryRow[]),
+      this.loadJobsSummary(input, jobsWhere),
       this.prisma.notification.findMany({
         where: { tenantId: input.tenantId, userId: input.userId, readAt: null },
         orderBy: { createdAt: "desc" }, take: 10,
@@ -335,6 +336,65 @@ export class OperationalContextService {
     void this.persistSnapshot(input, ctx);
     this.logger.log(`[ctx] built for user=${input.userId} project=${input.projectId ?? "none"} jobs=${activeJobs.length}`);
     return ctx;
+  }
+
+  /**
+   * Read-through for the `jobs` field's source data. `buildContext()` is
+   * called from `POST /prometeo/chat` without a `.catch()` — this method
+   * must never throw regardless of flag state or projection failure; the
+   * direct query fallback at the end is not an edge case, it's the
+   * required correctness backstop for that call site (see
+   * docs/specs/operations/jobs-bids-event-projection.spec.md §4 P1).
+   *
+   * The projection is only trusted once it has caught up: `jobsBidsProjection`
+   * rows are ordered by `jobId desc` (matching the direct query's `id desc`)
+   * and only used when there are at least as many of them as the tenant has
+   * real jobs — otherwise (still backfilling since canary was enabled, or
+   * the read itself failed) this falls back to the direct query unchanged.
+   */
+  private async loadJobsSummary(
+    input: { tenantId: string; orgId: string; role: string },
+    jobsWhere: Prisma.JobWhereInput,
+  ): Promise<JobSummaryRow[]> {
+    const normalizedRole = input.role.toUpperCase();
+    if (
+      isJobsBidsProjectionReadthroughEnabled() &&
+      isJobsBidsProjectionEnabled(input.tenantId)
+    ) {
+      try {
+        const [projectionRows, directCount] = await Promise.all([
+          this.prisma.jobsBidsProjection.findMany({
+            where: {
+              tenantId: input.tenantId,
+              ...(normalizedRole === "CLIENT" ? { clientOrgId: input.orgId } : {}),
+            },
+            orderBy: { jobId: "desc" },
+            take: 20,
+            select: { snapshotJson: true },
+          }),
+          this.prisma.job.count({ where: jobsWhere }),
+        ]);
+
+        if (projectionRows.length >= Math.min(directCount, 20)) {
+          const rows = projectionRows
+            .map((row) => extractJobSummaryFromProjection(row.snapshotJson))
+            .filter((row): row is JobSummaryRow => row !== null);
+          if (rows.length === projectionRows.length) {
+            return rows;
+          }
+        }
+      } catch (error) {
+        this.logger.warn(
+          `[ctx] jobs projection read-through failed, falling back to direct query: ${String(error)}`,
+        );
+      }
+    }
+
+    return this.prisma.job.findMany({
+      where: jobsWhere,
+      orderBy: { id: "desc" }, take: 20,
+      select: { id: true, title: true, status: true },
+    }).catch(() => [] as JobSummaryRow[]);
   }
 
   formatContextBlock(ctx: SemseOperationalContext): string {
@@ -565,4 +625,19 @@ export class OperationalContextService {
       this.logger.warn(`[ctx] delete snapshots failed: ${String(err)}`);
     });
   }
+}
+
+function extractJobSummaryFromProjection(snapshotJson: unknown): JobSummaryRow | null {
+  if (!snapshotJson || typeof snapshotJson !== "object") {
+    return null;
+  }
+  const job = (snapshotJson as { job?: unknown }).job;
+  if (!job || typeof job !== "object") {
+    return null;
+  }
+  const { id, title, status } = job as Record<string, unknown>;
+  if (typeof id !== "string" || typeof title !== "string" || typeof status !== "string") {
+    return null;
+  }
+  return { id, title, status };
 }

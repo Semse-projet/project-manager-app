@@ -137,6 +137,7 @@ model Tenant {
   jobs                          Job[]
   projects                      Project[]
   lifecycleProjections          ProjectLifecycleProjection[]
+  jobsBidsProjections           JobsBidsProjection[]
   disputes                      Dispute[]
   auditLogs                     AuditLog[]
   domainOutboxEvents            DomainOutboxEvent[]
@@ -525,6 +526,7 @@ model Job {
   timeEntries         TimeEntry[]
   travelAssignments   TravelAssignment[]
   buildOpsProject     BuildOpsProject?
+  bidsProjection      JobsBidsProjection?
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   clientOrg           Org                  @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
   project             Project?
@@ -658,6 +660,33 @@ model ProjectLifecycleProjection {
 
   @@index([tenantId, updatedAt])
   @@index([projectId, revision])
+}
+
+/// Durable, rebuildable snapshot for jobs/bids agent context (see
+/// docs/specs/operations/jobs-bids-event-projection.spec.md). `clientOrgId`
+/// is denormalized from Job for the CLIENT-role scoping filter that
+/// OperationalContextService.buildContext() already applies against Job
+/// directly — avoids joining through `job` just to filter read-through
+/// queries the same way the existing direct query does.
+model JobsBidsProjection {
+  id              String   @id @default(cuid())
+  tenantId        String
+  jobId           String   @unique
+  clientOrgId     String
+  schemaVersion   Int      @default(1)
+  revision        String
+  snapshotJson    Json
+  sourceUpdatedAt DateTime
+  generatedAt     DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, updatedAt])
+  @@index([tenantId, clientOrgId, updatedAt])
+  @@index([jobId, revision])
 }
 
 model Milestone {
