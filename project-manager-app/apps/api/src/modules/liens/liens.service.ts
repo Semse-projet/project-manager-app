@@ -122,6 +122,19 @@ export class LiensService {
   }
 
   /**
+   * Obtener un waiver específico por id.
+   * Usado por WaiverController.getSignUrl() — no existía (llamaba a
+   * getLienWaiver, que nunca fue un método real de esta clase; verificado
+   * con tsc quitando temporalmente el @ts-nocheck de waiver.controller.ts
+   * 2026-08-27).
+   */
+  async getLienWaiver(waiverId: string): Promise<any> {
+    return await this.prisma.lienWaiver.findUniqueOrThrow({
+      where: { id: waiverId },
+    });
+  }
+
+  /**
    * Obtener waivers pendientes para un proyecto.
    * Usado por PaymentGovernanceService para gate release.
    */
