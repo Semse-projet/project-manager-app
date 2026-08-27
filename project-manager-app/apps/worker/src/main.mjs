@@ -102,6 +102,7 @@ const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curato
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
 const LIEN_DEADLINE_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.1-lien-rights: cada hora
+const WEATHER_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.3-weather: cada hora
 
 let shouldStop = false;
 let reclaimTimer;
@@ -109,6 +110,7 @@ let reservationSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
 let lienDeadlineTimer;
+let weatherCheckTimer;
 let piEnginesTimer;
 let authState = {
   accessToken: null,
@@ -335,6 +337,15 @@ async function main() {
     lienDeadlineTimer = setInterval(() => { void runLienDeadlineCheckSafe(); }, LIEN_DEADLINE_CHECK_INTERVAL_MS);
   }
 
+  // m2.3-weather Bloque 2.3.A — chequeo de clima cada hora para proyectos
+  // IN_PROGRESS con coordenadas, solo con el kill switch activo. Push
+  // notifications, auto-halt y change orders (Bloques 2.3.B/2.3.C) no están
+  // implementados — esto solo crea/actualiza WeatherAlert.
+  if (process.env.WEATHER_CHECK_ENABLED === "true") {
+    void runWeatherCheckSafe();
+    weatherCheckTimer = setInterval(() => { void runWeatherCheckSafe(); }, WEATHER_CHECK_INTERVAL_MS);
+  }
+
   // SPEC-AUT-001 — permanent loops (kill switch: AUTONOMY_LOOPS_ENABLED)
   let permanentLoopsHandle = null;
   try {
@@ -360,6 +371,7 @@ async function main() {
   if (piRetentionTimer) clearInterval(piRetentionTimer);
   if (piEnginesTimer) clearInterval(piEnginesTimer);
   if (lienDeadlineTimer) clearInterval(lienDeadlineTimer);
+  if (weatherCheckTimer) clearInterval(weatherCheckTimer);
 
   await worker.close();
   await developerRuntimeWorker.close();
@@ -493,6 +505,16 @@ async function runLienDeadlineCheckSafe() {
   } catch (err) {
     logger.warn({ error: err instanceof Error ? err.message : String(err) },
       "lien deadline check failed (non-fatal)");
+  }
+}
+
+async function runWeatherCheckSafe() {
+  try {
+    const response = await postJson("/v1/admin/weather/check", {});
+    logger.info(response?.data ?? {}, "weather check complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "weather check failed (non-fatal)");
   }
 }
 

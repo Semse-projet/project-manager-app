@@ -119,7 +119,7 @@ retroactiva.
 | [m1-4-contracts](specs/tools/fase-1/m1.4-contracts.spec.md) | contracts | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [tools.lien-rights-management](specs/tools/fase-2/m2.1-lien-rights.spec.md) | legal | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-08-27 |
 | [tools.anti-dispute-documentation](specs/tools/fase-2/m2.2-dispute-docs.spec.md) | evidence | APPROVED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-12 |
-| [tools.weather-integration-alerts](specs/tools/fase-2/m2.3-weather.spec.md) | operations | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-07-12 |
+| [tools.weather-integration-alerts](specs/tools/fase-2/m2.3-weather.spec.md) | operations | APPROVED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-08-27 |
 | [tools.multi-stage-releases](specs/tools/fase-3/m3.1-multi-stage-releases.spec.md) | payments | DEPRECATED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-07-19 |
 | [m3-1-proactive-agents](specs/tools/fase-3/m3.1-proactive-agents.spec.md) | agents | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
 | [m3-2-extended-metrics](specs/tools/fase-3/m3.2-extended-metrics.spec.md) | tools | VERIFIED | legacy | legacy | legacy | legacy | legacy | medium | yes | 2026-06-09 |

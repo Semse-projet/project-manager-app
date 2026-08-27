@@ -661,6 +661,8 @@ model Project {
   fieldUnits                    FieldUnit[]
   // Lien management
   lienCalendars                 LienCalendar[]
+  // Weather alerts
+  weatherAlerts                 WeatherAlert[]
   createdAt                     DateTime             @default(now())
   updatedAt                     DateTime             @updatedAt
 
@@ -3192,6 +3194,41 @@ model LienWaiver {
   @@index([lienCalendarId])
   @@index([status])
   @@index([requiredBefore])
+}
+
+/// Alerta de clima que puede afectar un proyecto (Tomorrow.io), ver
+/// docs/specs/tools/fase-2/m2.3-weather.spec.md — Bloque 2.3.A (forecast +
+/// clasificación por trade). Push notifications, auto-halt de tareas,
+/// integración con daily log y generación de change orders (Bloques 2.3.B/C
+/// del spec) no están implementados todavía — ver ese spec para el alcance
+/// completo vs. lo que existe hoy.
+model WeatherAlert {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  eventType String // "RAIN" | "FROST" | "WIND" | "SNOW" | "HEAT" (ver nota HAIL en el spec §13)
+  severity  String // "MODERATE" | "HIGH"
+
+  startTime    DateTime
+  endTime      DateTime
+  probability  Decimal? @db.Decimal(5, 2) // 0-100 (%)
+  maxIntensity Decimal? @db.Decimal(10, 2)
+
+  affectedTrades Json // string[] — trades con impacto CRITICAL o PARTIAL (Trade-Weather Impact Matrix, spec §6)
+  notCriticalFor Json // string[] — trades con impacto SAFE
+
+  source           String    @default("tomorrow.io")
+  status           String    @default("FORECAST") // FORECAST | IMMINENT | ACTIVE | COMPLETED
+  notificationSent Boolean   @default(false)
+  autoHaltCreated  Boolean   @default(false)
+  alertedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, eventType, startTime])
+  @@index([projectId, status])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
