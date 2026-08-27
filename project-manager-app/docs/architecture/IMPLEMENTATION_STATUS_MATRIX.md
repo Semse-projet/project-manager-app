@@ -45,7 +45,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Communications | IMPLEMENTADO/PARCIAL | modelo canónico y delivery vertical | outbox/retry/circuit breaker durable |
 | Payment orchestration | IMPLEMENTADO/PARCIAL | escrow, Stripe, governance | reconciliación y lenguaje legal |
 | Shared Economic Ledger F5 | PENDIENTE | PaymentTxn no es double-entry | Child spec después de F4 |
-| Evidence provenance | PARCIAL | storage/checksum/metadata/review | subject/custody/retention comunes |
+| Evidence provenance | PARCIAL | storage/checksum/metadata/review; m2.2-dispute-docs Bloque 2.2.A (EXIF timestamp+GPS de fotos, sin dependencia externa, fail-closed) mergeado a `main` — PR #592 merge `140c192c` (2026-08-27); CI real no corrió sobre el merge (ver Event Backbone/hallazgo de infra abajo) | subject/custody/retention comunes; daily logs/change-order trail/extended metrics/PDF export (Bloques 2.2.B-E) sin empezar |
 | Trust/Governance | IMPLEMENTADO/PARCIAL | ratings, risk, disputes, policies locales | policy rulebook/apelación común |
 | Mission Control F4 | IMPLEMENTADO/MERGEADO/DESPLEGADO | cola normalizada multi-fuente, catálogo allowlisted, receipt key+hash+lease, adapters, migración aditiva, BFF/UI exception-first y SSE autenticado; PR #486 merge `afb2dccd` (2026-07-31), ancestro confirmado de `origin/main` | canary `tenant_default` no re-verificado en esta pasada |
 | Project Lifecycle Projection F3 | VERIFIED / CANARY ACTIVO | `f1234291`; repair, cálculo/persistencia, rebuild/event consumer; 5 `PUBLISHED`, 5 `COMPLETED`, replay `no_op`, mismatch 0 | Ventana SLO y promoción global; outbox atómica por dominio |
@@ -56,7 +56,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Vision | IMPLEMENTADO/PARCIAL/DESPLEGADO | servicio Railway y analyzers | evidencia real, thresholds y video |
 | Agro | IMPLEMENTADO/PARCIAL | fincas, animales, tareas, costos, sync | tenancy/offline/ledger común |
 | Labor Engine | IMPLEMENTADO/PARCIAL | tracker, sesiones, rates, admin | approvals + economic posting |
-| Agenda/Dispatch F6 | PARCIAL | reservas/field ops/weather dispersos | calendario/conflictos/routing |
+| Agenda/Dispatch F6 | PARCIAL | reservas/field ops/weather dispersos; m2.3-weather Bloque 2.3.A (Tomorrow.io + clasificación por trade, `WeatherAlert`) mergeado a `main` — PR #592 merge `140c192c` (2026-08-27); CI real no corrió sobre el merge | calendario/conflictos/routing; push notifications/auto-halt/change-order (Bloques 2.3.B/C) sin empezar |
 | Observabilidad | PARCIAL | Sentry, Prometheus, health | OTel/correlation/SLOs |
 | Backup/DR F9 | PARCIAL | docs/simulaciones | restore real y evidencia RPO/RTO |
 | CI/CD | IMPLEMENTADO/DESPLEGADO | GitHub + Railway autodeploy/health | Environments, concurrency, migration gate |
@@ -91,6 +91,19 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
 6. Evidence usa outbox atómica; los demás hooks F3 son post-commit best-effort.
 7. F3-F9 se ejecutan como child specs secuenciales, no como big bang.
 8. Health 200 confirma arranque, no journey funcional ni activación.
+9. **Hallazgo de infraestructura (2026-08-27, fuera del corte de arriba —
+   no re-verifica el resto de esta matriz):** GitHub Actions no generó
+   ningún check run real en ninguna rama del repo desde 2026-08-19,
+   confirmado con `list_workflow_runs` (no solo el status combinado del
+   PR, que mostraba únicamente el bot `Devin Review`, sin ejecutar nada:
+   "trial expired and no credits remaining"). `main` mismo no tiene un run
+   de `ci.yml` desde 2026-08-12 (fallido); el merge de PR #592 a `140c192c`
+   tampoco disparó uno. Reportado en `Semse-projet/project-manager-app#592`
+   (comentario) para que un humano con acceso revise Settings → Actions
+   (permisos/spending limit) — fuera de la autoridad y visibilidad de un
+   agente. Cualquier "PASS" de CI citado en specs/tareas desde esa fecha
+   se refiere a verificación local (`tsc`/`eslint`/`node --test`/`pnpm
+   build`), no a un run real del pipeline.
 
 ## Protocolo de actualización
 
