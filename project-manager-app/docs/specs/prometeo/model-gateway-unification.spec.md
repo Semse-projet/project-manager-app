@@ -18,12 +18,13 @@ related_files:
   - apps/api/src/modules/ai-models/providers/deepseek.provider.ts
   - apps/api/src/modules/ai-models/providers/kimi.provider.ts
   - apps/api/src/modules/ai-models/providers/glm.provider.ts
-related_tests: []
+related_tests:
+  - apps/api/test/ai-model-router-privacy.test.ts
 related_endpoints: []
 related_events: []
 related_agents:
   - prometeo
-last_verified: "2026-08-14"
+last_verified: "2026-08-27"
 ---
 
 # SPEC-GTW-001 — Unificación del Model Gateway
@@ -151,15 +152,53 @@ Cada paso es reversible por separado; ninguno requiere migración de datos.
 ## 6. Criterios de aceptación
 
 - [ ] Ningún slug (incluidos `deepseek-*`, `kimi-k2`, `glm-*`) se ejecuta sin
-      pasar por `ProviderMetricsStore` (circuit breaker + score).
-- [ ] Una request con `privacyCritical: true` o `localOnly: true` nunca
-      resuelve a un provider fuera de `PRIVATE`, sin importar el `taskType`.
+      pasar por `ProviderMetricsStore` (circuit breaker + score) — sigue
+      pendiente, requiere los pasos 1-5 de §4 completos (registrar los 3
+      providers en `LLMOrchestrator`, extender `AdaptiveRouter`, fusionar
+      las tablas de ruteo). Migración crítica de punto único de falla para
+      todo el tráfico de IA — no se aborda de forma parcial en este pase;
+      necesita su propio plan/tasks SDD 2.0.
+- [x] Una request con `privacyCritical: true` o `localOnly: true` nunca
+      resuelve a un provider fuera de `PRIVATE`, sin importar el `taskType`
+      — corregido 2026-08-27 **como fix quirúrgico, no como parte de la
+      migración completa de §4**. `AiModelRouterService.selectRoute()`
+      solo forzaba `ollama-local` para `privacyLevel === "local_only"`;
+      `"sensitive"` y `"restricted"` caían directo a las rutas por
+      `taskType`, que pueden seleccionar `kimi-k2`/`deepseek-reasoner`/
+      `glm-4` (cloud) sin ninguna verificación — exactamente el hallazgo
+      de la sección 2 de este spec, confirmado en código (ningún caller
+      real seteaba estos dos valores al momento del fix, así que no era
+      una fuga activa en producción, pero sí un gap real, sin red de
+      protección, para el primer caller que los usara). Se extendió el
+      mismo check a los tres valores, sin `fallbackModelSlug` (falla
+      cerrado — `AiModelGatewayService.generate()` devuelve
+      `success:false` en vez de intentar un provider cloud si
+      `ollama-local` falla). 5/5 tests nuevos en
+      `apps/api/test/ai-model-router-privacy.test.ts` — incluye una
+      prueba explícita de que el mismo `taskType` sin privacyLevel
+      resuelve a un provider cloud (o sea, que el fix realmente cambia el
+      resultado, no solo agrega una rama muerta). `forceModelSlug` sigue
+      ganándole a la privacidad, sin cambios — es un override explícito
+      de operador, sale de este alcance.
 - [ ] El `taskType` real llega al `AdaptiveRouter` en el 100% de las rutas
-      (no hardcodeado a `"chat"`).
+      (no hardcodeado a `"chat"`) — sigue pendiente. Investigado
+      2026-08-27: no es un cambio trivial de una línea — `AiTaskType`
+      (`AiGenerateRequest`, dominio: `construction_contract_analysis`,
+      `project_planning`, etc.) y `TaskType` (`CopilotRoutingContext` del
+      orquestador: `chat | tool_use | high_risk_action | low_risk_action |
+      search | unknown`) son enums completamente distintos y no
+      isomorfos — requiere una tabla de mapeo con criterio de producto
+      (¿`risk_analysis` es `high_risk_action`? ¿`code_generation` es
+      `tool_use`?), no solo plomería. Queda para el plan de migración
+      completo.
 - [ ] Ningún fallback ni `routeReason`/`fallbackUsed` existente se pierde en
-      la respuesta de `AiGenerateResponse`.
+      la respuesta de `AiGenerateResponse` — sigue pendiente, depende de
+      los pasos 4-5 de §4.
 - [ ] Rollback: cada paso de la migración (§4) puede revertirse
-      individualmente sin afectar a los pasos ya completados.
+      individualmente sin afectar a los pasos ya completados — sigue
+      pendiente (aplica a la migración completa; el fix de privacidad de
+      arriba es aditivo y no forma parte de esos 5 pasos, así que no
+      necesita su propio rollback escalonado).
 
 ## 7. No implementado en este spec
 

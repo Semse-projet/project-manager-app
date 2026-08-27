@@ -20,9 +20,22 @@ export class AiModelRouterService {
       return { primaryModelSlug: request.forceModelSlug, reason: "Forced model." };
     }
 
-    // Privacy: local only
-    if (request.privacyLevel === "local_only") {
-      return { primaryModelSlug: "ollama-local", reason: "Local-only privacy." };
+    // Privacy: local-only, sensitive and restricted must never resolve to a
+    // cloud provider — no fallbackModelSlug on purpose, so a failure here
+    // fails closed (AiModelGatewayService.generate() returns success:false
+    // instead of falling through to a cloud model). See SPEC-GTW-001 §2:
+    // this was previously enforced only for "local_only", leaving
+    // "sensitive"/"restricted" requests to fall through to the taskType
+    // routing below with zero privacy enforcement.
+    if (
+      request.privacyLevel === "local_only" ||
+      request.privacyLevel === "sensitive" ||
+      request.privacyLevel === "restricted"
+    ) {
+      return {
+        primaryModelSlug: "ollama-local",
+        reason: `Privacy level "${request.privacyLevel}" requires a private/local provider.`,
+      };
     }
 
     const { taskType } = request;
