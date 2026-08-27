@@ -244,8 +244,8 @@ export default function WorkerPaymentsPage() {
               {connectAccount
                 ? connectAccount.status === "active"
                   ? `Activa — transferencias habilitadas. Fee plataforma: ${(platformFeeRate * 100).toFixed(2)}%`
-                  : `Estado: ${connectAccount.status} — completa el onboarding para habilitar pagos`
-                : "Sin cuenta conectada — crea una para recibir pagos automáticos"}
+                  : `Estado: ${connectAccount.status} — tus pagos quedan bloqueados hasta que completes el onboarding`
+                : "Sin cuenta conectada — no podrás cobrar ningún pago hasta que crees una"}
             </div>
           </div>
           {connectAccount?.status === "active" && (
@@ -311,13 +311,25 @@ export default function WorkerPaymentsPage() {
         </div>
       </HtmlInCanvasPanel>
 
-      {/* Escrow notice */}
-      {totalEscrow > 0 && (
+      {/* Escrow notice — G-PRO-02: si no hay cuenta Connect activa, el cobro
+          está bloqueado de verdad, no es solo "menos automático". La copia
+          y el color deben decirlo explícitamente en vez de sonar neutrales. */}
+      {totalEscrow > 0 && connectAccount?.status !== "active" && (
+        <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 18px", marginBottom: "20px", background: "rgba(245,158,11,.08)", borderColor: "rgba(245,158,11,.3)", display: "flex", alignItems: "center", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={66}>
+          <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
+            <strong style={{ color: "#f59e0b" }}>${totalEscrow.toLocaleString()} en escrow no se podrán cobrar todavía.</strong>{" "}
+            {connectAccount
+              ? "Tu cuenta Stripe Connect no está activa — completa el onboarding arriba para desbloquear el cobro."
+              : "No tienes una cuenta Stripe Connect — créala arriba para poder cobrar cuando el cliente apruebe cada milestone."}
+          </p>
+        </HtmlInCanvasPanel>
+      )}
+      {totalEscrow > 0 && connectAccount?.status === "active" && (
         <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 18px", marginBottom: "20px", background: "rgba(16,185,129,.07)", borderColor: "rgba(16,185,129,.25)", display: "flex", alignItems: "center", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={66}>
           <ArrowDownLeft size={18} color="var(--ok)" style={{ flexShrink: 0 }} />
           <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
-            <strong style={{ color: "var(--ok)" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan cuando el cliente aprueba cada milestone.
-            Configura tu método de cobro para recibir los fondos automáticamente.
+            <strong style={{ color: "var(--ok)" }}>${totalEscrow.toLocaleString()} en escrow</strong> — se liberan a tu cuenta Stripe Connect cuando el cliente aprueba cada milestone.
           </p>
         </HtmlInCanvasPanel>
       )}
