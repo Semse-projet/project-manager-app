@@ -85,7 +85,7 @@ export class NoticeGeneratorService {
     <p class="label">Project Information:</p>
     <p><strong>Project:</strong> {{projectName}}</p>
     <p><strong>Address:</strong> {{projectAddress}}</p>
-    <p><strong>Contract Amount:</strong> ${{contractAmount}}</p>
+    <p><strong>Contract Amount:</strong> \${{contractAmount}}</p>
     <p><strong>Work Start Date:</strong> {{projectStartDate}}</p>
   </div>
 
@@ -165,15 +165,25 @@ export class NoticeGeneratorService {
     // 1. Obtener LienCalendar
     const calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
       where: { id: lienCalendarId },
-      include: { project: true },
+      include: { project: { include: { escrow: true } } },
     });
+
+    if (!calendar.project.escrow) {
+      this.logger.warn(
+        `Project ${calendar.project.id} has no PaymentEscrow — notice will state contractAmount=0`,
+        { lienCalendarId, recipientType },
+      );
+    }
 
     // 2. Preparar datos
     const noticeData: NoticeData = {
       stateName: calendar.stateName,
       projectName: calendar.project.name || 'Untitled Project',
       projectAddress: calendar.project.address || 'Unknown Address',
-      contractAmount: 0, // TODO: obtener del escrow/contrato
+      // PaymentEscrow.totalAmount is the closest real figure to "contract
+      // amount" in the data model today (Contract itself has no amount
+      // field) — 0 only when the project genuinely has no escrow yet.
+      contractAmount: calendar.project.escrow?.totalAmount.toNumber() ?? 0,
       projectStartDate: calendar.project.startDate?.toISOString().split('T')[0] || 'TBD',
       recipientType,
       generatedDate: new Date().toISOString().split('T')[0],
