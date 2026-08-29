@@ -14,11 +14,22 @@ import {
   type UserActor
 } from "./users.policy.js";
 import {
+  type IdentityAttestationRecord,
   type UserMembershipRecord,
   type UserProfileRecord,
   type UserRecord,
   UsersRepository
 } from "./users.repository.js";
+import {
+  buildAttestationMessage,
+  getAttestationPublicKey as getAttestationPublicKeyMaterial,
+  signAttestationMessage
+} from "./identity-attestation-signer.js";
+
+/** Only `id_document` review is a real identity claim worth a signed
+ * attestation — email/phone/background_check stay plain-flag verifications,
+ * same as before. See docs/specs/core/identity-attestation.spec.md. */
+const ATTESTABLE_VERIFICATION_TYPES = new Set(["id_document"]);
 
 @Injectable()
 export class UsersService {
@@ -144,6 +155,50 @@ export class UsersService {
   }
 
   /**
+   * Produces the cryptographic evidence behind an `id_document` approval —
+   * called only from reviewVerificationRequest(), never reachable directly
+   * from the controller, so it can only ever run right after an OPS_ADMIN
+   * (never the user themselves) has approved a real review. See
+   * docs/specs/core/identity-attestation.spec.md.
+   */
+  private async createIdentityAttestation(input: {
+    tenantId: string;
+    userId: string;
+    verifiedByUserId: string;
+    verificationType: string;
+  }): Promise<IdentityAttestationRecord> {
+    const timestamp = new Date().toISOString();
+    const message = buildAttestationMessage({ ...input, timestamp });
+    const { keyId, signature } = signAttestationMessage(message);
+
+    return this.usersRepository.createIdentityAttestation({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      verifiedByUserId: input.verifiedByUserId,
+      verificationType: input.verificationType,
+      keyId,
+      message,
+      signature
+    });
+  }
+
+  /** Self or OPS_ADMIN only — same boundary as getUser(). */
+  async getIdentityAttestation(actor: UserActor, targetUserId: string): Promise<IdentityAttestationRecord | null> {
+    if (!canReadUser(actor, targetUserId)) {
+      throw new ForbiddenException("Cannot read this user's identity attestation");
+    }
+
+    return this.usersRepository.getLatestIdentityAttestation(actor.tenantId, targetUserId);
+  }
+
+  /** Any authenticated caller — this is what makes the attestation's
+   * signature independently checkable, the entire point of using real
+   * asymmetric crypto instead of a DB flag. No PII in the response. */
+  getAttestationPublicKey(): { keyId: string; publicKeyPem: string } {
+    return getAttestationPublicKeyMaterial();
+  }
+
+  /**
    * Queues a verification request for OPS_ADMIN review — never executes the
    * verification itself (verifyUser above stays the only path that does
    * that). Closes AUDIT_REMEDIATION_PLAN.md 2.28: the worker-facing
@@ -254,6 +309,15 @@ export class UsersService {
         verificationType: input.verificationType,
         requestId: input.requestId
       });
+
+      if (ATTESTABLE_VERIFICATION_TYPES.has(input.verificationType)) {
+        await this.createIdentityAttestation({
+          tenantId: input.tenantId,
+          userId: input.targetUserId,
+          verifiedByUserId: input.userId,
+          verificationType: input.verificationType
+        });
+      }
     }
 
     return { status: input.decision };

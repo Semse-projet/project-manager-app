@@ -63,6 +63,18 @@ export type UserRecord = {
   updatedAt: Date;
 };
 
+export type IdentityAttestationRecord = {
+  id: string;
+  tenantId: string;
+  userId: string;
+  verifiedByUserId: string;
+  verificationType: string;
+  keyId: string;
+  message: string;
+  signature: string;
+  createdAt: Date;
+};
+
 export type AssistantTone = "friendly" | "formal" | "technical" | "executive";
 export type AssistantLanguage = "es" | "en";
 export type AssistantVerbosity = "short" | "balanced" | "detailed";
@@ -222,6 +234,38 @@ export class UsersRepository {
     })) as StoredUser;
 
     return this.toUserRecord(user);
+  }
+
+  async createIdentityAttestation(input: {
+    tenantId: string;
+    userId: string;
+    verifiedByUserId: string;
+    verificationType: string;
+    keyId: string;
+    message: string;
+    signature: string;
+  }): Promise<IdentityAttestationRecord> {
+    return this.prisma.identityAttestation.create({
+      data: {
+        tenantId: input.tenantId,
+        userId: input.userId,
+        verifiedByUserId: input.verifiedByUserId,
+        verificationType: input.verificationType,
+        keyId: input.keyId,
+        message: input.message,
+        signature: input.signature
+      }
+    });
+  }
+
+  async getLatestIdentityAttestation(
+    tenantId: string,
+    userId: string
+  ): Promise<IdentityAttestationRecord | null> {
+    return this.prisma.identityAttestation.findFirst({
+      where: { tenantId, userId },
+      orderBy: { createdAt: "desc" }
+    });
   }
 
   async updateUserStatus(input: {
