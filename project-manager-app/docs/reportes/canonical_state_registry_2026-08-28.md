@@ -74,6 +74,46 @@ Esa auditoría queda como Fase 2, listada explícitamente en
 ejecutado — dominio por dominio, con Payments/Trust marcado como el primero
 en requerir doble verificación por el Artículo IV de la constitución.
 
+## 2.1 — Avance de Fase 2 (mismo PR): `field-ops` vs. Labor Engine (T-028)
+
+Antes de cerrar esta entrega se ejecutó un primer avance real de Fase 2 sobre
+la fila de `field-ops`/tracker, siguiendo la propia regla del registro de no
+copiar afirmaciones sin verificarlas. Lectura directa de código (no de
+documentación) en `apps/api/src/app.module.ts`,
+`apps/api/src/modules/field-ops/{field-ops,time-tracker}.controller.ts`,
+`field-ops.repository.ts`, `apps/api/src/modules/labor-engine/labor-engine.repository.ts`,
+y las páginas web `apps/web/app/(app)/worker/tracker/page.tsx` y
+`apps/web/app/(app)/worker/field-ops/page.tsx` separó lo que
+`project-manager-app/CLAUDE.md` resumía como un solo hecho ("field-ops/time-tracker
+remains only as legacy API — jobs list still consumed") en tres capacidades
+con evidencia propia:
+
+1. **Labor Engine — time tracking** (`/worker/tracker`, `v1/labor`):
+   operativa, es el único camino de escritura que la UI activa usa hoy para
+   iniciar/pausar/reanudar/detener turnos.
+2. **Field Ops legacy — endpoints de escritura de tracker**
+   (`v1/time-tracker/sessions/*`): siguen registrados y activos, sin tráfico
+   de UI conocido, pero — hallazgo nuevo, no documentado en ningún lugar
+   previo — escriben en la **misma tabla Prisma `timeEntry`** que usa el
+   Labor Engine, aplicando reglas de negocio distintas (sin las reglas de
+   turno nocturno, idempotencia o proximity check-in del Labor Engine). Es
+   un riesgo de datos real y activo, no hipotético: cualquier cliente que
+   siga llamando a estos 6 endpoints crearía filas divergentes en el ledger
+   que el Labor Engine trata como fuente de verdad.
+3. **Field Ops — units/worklogs/facts/vendors/compliance**
+   (`/worker/field-ops`): operativa y en producción, pero es una capacidad
+   distinta del tracker — no está en el alcance del Labor Engine ni está
+   siendo reemplazada. La nota de `CLAUDE.md` sobre `field-ops/` "being
+   replaced" describe el sub-feature de tracker, no ésta; leída sin matizar
+   podría sugerir que toda la superficie de field-ops está en camino de
+   desaparecer.
+
+El propio test estructural (`tests/unit/canonical-state-registry.test.ts`)
+detectó y bloqueó una ruta de evidencia mal citada en esta actualización
+(`apps/web/app/labor-api.ts`, que no existe; el archivo real es
+`apps/web/app/(app)/labor-api.ts`) antes de que llegara a `main` — exactamente
+el mecanismo para el que existe.
+
 ## 3. Verificación de esta entrega
 
 - `node --test tests/unit/canonical-state-registry.test.ts` → 5/5 verde

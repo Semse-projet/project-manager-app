@@ -57,8 +57,18 @@ date: "2026-08-28"
 - [ ] [T-025] Auditar BuildOps y sembrar sus filas
 - [ ] [T-026] Auditar Knowledge y sembrar sus filas
 - [ ] [T-027] Auditar Integrations y sembrar sus filas
-- [ ] [T-028] Auditar Labor Engine vs. `field-ops` legacy en profundidad
-      (más allá de la fila sembrada en Fase 1) y decidir plan de remoción
+- [~] [T-028] Auditar Labor Engine vs. `field-ops` legacy en profundidad y
+      decidir plan de remoción — **avance parcial en esta misma entrega**:
+      código verificado directamente (`app.module.ts`, `field-ops.controller.ts`,
+      `field-ops.repository.ts`, `labor-engine.repository.ts`,
+      `worker/tracker/page.tsx`, `worker/field-ops/page.tsx`), la fila
+      genérica se separó en 3 filas reales, y se encontró un riesgo de datos
+      no documentado antes: los endpoints de escritura de
+      `v1/time-tracker/sessions/*`, aunque sin tráfico de UI conocido,
+      siguen activos y escriben en la misma tabla Prisma `timeEntry` que usa
+      el Labor Engine, con reglas de negocio distintas. Pendiente: decisión
+      sobre deshabilitar/eliminar esos 6 endpoints (queda en la fila
+      correspondiente del registro, no aquí, para no duplicar la fuente)
 - [ ] [T-029] Decidir si automatizar este registro vía `pnpm spec:index` o
       mantenerlo manual con revisión de PR
 - [ ] [T-030] Decidir si integrar la validación estructural a
