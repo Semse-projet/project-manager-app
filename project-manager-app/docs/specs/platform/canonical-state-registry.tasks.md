@@ -69,6 +69,18 @@ date: "2026-08-28"
       el Labor Engine, con reglas de negocio distintas. Pendiente: decisión
       sobre deshabilitar/eliminar esos 6 endpoints (queda en la fila
       correspondiente del registro, no aquí, para no duplicar la fuente)
+- [~] [T-023] Auditar AI/Prometeo y sembrar sus filas — **avance parcial**:
+      se abrió SEMSE Forge Agent Harness (dominio `agents`, adyacente a
+      AI/Prometeo) corriendo `node --test tests/unit/forge-*.test.mjs`
+      (184/184 verde) y leyendo el historial de commits. Hallazgo: la
+      auditoría de 2026-08-10 está **parcialmente obsoleta** — 7 commits
+      posteriores (`a858b29`..`6941fda`, 2026-08-10/11) cerraron sus
+      hallazgos "no existe" en §8 (scheduler/DAG), §9 (leases sobre Redis) y
+      §11 (dual-control de un solo actor). Ejecución en vivo sigue simulada
+      (`LiveToolAdapter.plan()` confirmado lanzando error). Pendiente:
+      re-auditar §7/§10/§13/§14/§15 y la propia orquestación Prometeo (no
+      tocada en esta pasada — sólo se verificó Forge, que es adyacente pero
+      no idéntico a AI/Prometeo)
 - [ ] [T-029] Decidir si automatizar este registro vía `pnpm spec:index` o
       mantenerlo manual con revisión de PR
 - [ ] [T-030] Decidir si integrar la validación estructural a

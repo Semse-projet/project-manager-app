@@ -114,6 +114,47 @@ detectó y bloqueó una ruta de evidencia mal citada en esta actualización
 `apps/web/app/(app)/labor-api.ts`) antes de que llegara a `main` — exactamente
 el mecanismo para el que existe.
 
+## 2.2 — Segundo avance de Fase 2 (mismo PR): SEMSE Forge Agent Harness (T-023)
+
+Se abrió también la fila de agentes/AI corriendo directamente
+`node --test tests/unit/forge-*.test.mjs` (184/184 verde) y leyendo el
+historial de commits de `packages/forge/` y `apps/api/src/infrastructure/forge/`.
+El resultado es el hallazgo más importante de esta sesión y una demostración
+directa del problema que este registro existe para resolver:
+
+**La auditoría `docs/reportes/forge_agent_harness_auditoria_2026-08-10.md`,
+con sólo 18 días de antigüedad, está parcialmente obsoleta.** Siete commits
+posteriores a esa auditoría (`a858b29` hasta `6941fda`, 2026-08-10 a
+2026-08-11) se autodenominan explícitamente "Fase 1/2b/3a de la auditoría de
+remediación" en sus propios mensajes de commit y citan la auditoría por
+nombre de archivo. Cierran, con evidencia verificada en esta sesión:
+
+- **§11 (dual-control):** la auditoría encontró que un solo actor podía
+  autoaprobar su propia acción — cerrado en `d69a79b` con anti-autoaprobación
+  real y umbral de 2 aprobadores distintos para `dual_control`.
+- **§9 (leases):** la auditoría encontró listas de patrones de string
+  duplicadas sin ningún lock real — cerrado en `99fba32` con
+  `apps/api/src/infrastructure/forge/forge-lease.service.ts`, leases
+  exclusivos reales sobre Redis por `(tenantId, categoría)`.
+- **§8 (scheduler):** la auditoría encontró que `dependencies` era un campo
+  inerte y que no existía ninguna clase de scheduler — cerrado parcialmente
+  en `fc73135`/`6941fda` con `packages/forge/src/dag.ts` (validación de
+  dependencias + detección de ciclos) y `selectDispatchable` (dispatch por
+  prioridad con tope de concurrencia, en `tests/unit/forge-scheduler.test.mjs`).
+
+Lo que **no** cambió, confirmado directamente en esta sesión: la ejecución en
+vivo sigue simulada (`packages/forge/src/tool-adapter.ts` — `LiveToolAdapter.plan()`
+todavía lanza `"Live tool invocation is not implemented in this phase"`), y
+retry/backoff/timeout de §8 siguen sin ningún código (`grep` sin resultados).
+§7, §10, §13, §14 (networkScopes) y §15 no se re-verificaron en esta sesión —
+el registro los deja explícitamente como "no confirmado", no como
+"siguen igual", para no repetir el mismo error en sentido contrario.
+
+Este hallazgo es, en sí mismo, el caso de uso central del registro: un
+reporte de auditoría real, con metodología seria, se volvió parcialmente
+falso simplemente por el paso de menos de tres semanas de desarrollo activo,
+y nada en el repositorio lo señalaba hasta esta verificación.
+
 ## 3. Verificación de esta entrega
 
 - `node --test tests/unit/canonical-state-registry.test.ts` → 5/5 verde
