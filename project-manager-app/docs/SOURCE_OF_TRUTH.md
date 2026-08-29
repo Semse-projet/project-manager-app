@@ -24,6 +24,18 @@ Si producción tiene una migración que Git no contiene, producción no “gana�
 Git “gana”: existe drift y se detiene el siguiente deploy hasta reconciliar el
 historial de forma segura.
 
+Estos seis ejes dicen qué **capa** prevalece en general. No dicen, para una
+**capacidad concreta**, qué evidencia exacta la respalda hoy, en qué entorno,
+contra qué commit, ni qué le falta — eso es responsabilidad de
+[`CANONICAL_STATE_REGISTRY.md`](CANONICAL_STATE_REGISTRY.md), que lleva estos
+ejes al nivel de fila-por-capacidad y define una jerarquía de verdad de 9
+niveles (más fina que los 6 ejes de arriba) para resolver cuándo un reporte
+histórico, un checkpoint o un nombre de rama pueden — o, casi siempre, no
+pueden — declarar una capacidad terminada. Un spec `IMPLEMENTED`/`VERIFIED`
+en `SPEC_INDEX.md` sigue siendo la autorización para haber construido algo;
+no sustituye una fila verificada de ese registro como prueba de que ese algo
+se comporta como se prometió hoy.
+
 Codigo, test local, CI, merge, deploy y activacion son estados distintos. Toda
 afirmacion de capacidad debe declarar cual de ellos fue verificado.
 
@@ -45,6 +57,7 @@ autoriza promoción global.
 | Frontend web canónico | `apps/web/` | Usuarios finales |
 | Procesamiento asincrono | `apps/worker/` | Colas y loops |
 | Contratos SDD | `docs/specs/` + `docs/SPEC_INDEX.md` | Equipo y agentes |
+| Estado real de capacidades, con evidencia | `docs/CANONICAL_STATE_REGISTRY.md` | Equipo y agentes que retoman trabajo |
 | Plantillas SDD | `.specify/templates/overrides/` | Specs/planes/tareas/checklists nuevos |
 | Arquitectura vigente | `docs/architecture/CURRENT_ARCHITECTURE.md` | Equipo y agentes |
 | Mapa de convergencia | `docs/architecture/PRODUCTION_CONVERGENCE_MAP.md` | Programa F3-F9 |
