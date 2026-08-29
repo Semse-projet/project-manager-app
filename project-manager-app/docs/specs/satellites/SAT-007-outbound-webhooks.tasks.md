@@ -101,12 +101,28 @@ date: "2026-08-27"
 
 ## Fase F — PR, CI, merge
 
-- [ ] [T-060] Revisar diff y secretos.
-- [ ] [T-061] Commit(s) + push; PR (mandato de rama única — mismo patrón
-      de las specs anteriores).
-- [ ] [T-062] Esperar CI terminal y registrar `ci_status`.
-- [ ] [T-063] Resolver review sin ampliar scope.
-- [ ] [T-064] Fusionar y registrar SHA; actualizar `merge_status`.
+- [x] [T-060] Revisar diff y secretos — sin secretos expuestos, `.env.example`
+      documenta las keys nuevas sin valores reales.
+- [x] [T-061] Commit(s) + push; PR #592 (mandato de rama única — mismo
+      patrón de las specs anteriores).
+- [~] [T-062] **CI real (GitHub Actions) nunca corrió** — hallazgo de
+      infraestructura 2026-08-27, documentado en el comentario del PR:
+      `ci.yml`/`api-integration.yml`/`api-smoke.yml`/etc. no han generado
+      ningún check run en ninguna rama desde 2026-08-19 (confirmado con
+      `list_workflow_runs`, no solo por el status combinado del PR — el
+      único status visible era el bot `Devin Review`, que no corre nada:
+      "trial expired and no credits remaining"). `main` mismo no tiene un
+      run de `ci.yml` desde 2026-08-12 (fallido) — el merge de este PR no
+      disparó ninguno tampoco. `ci_status` real: **no verificado por CI**,
+      solo por `tsc`/`eslint`/`node --test`/`pnpm build` locales en este
+      sandbox (ver evidencia en cada commit). Requiere que un humano con
+      acceso a Settings → Actions del repo/org revise permisos/spending
+      limit — fuera de mi autoridad y visibilidad.
+- [x] [T-063] Resolver review — sin comentarios de review en el PR (0
+      review threads); el único comentario es el hallazgo de CI de arriba.
+- [x] [T-064] Fusionado — PR #592 mergeado a `main` por `Samuelcastella`
+      2026-08-27T10:47:19Z, SHA `140c192c92767d4a9f45b687e6e8d27bf2646c4e`.
+      `merge_status: MERGED`.
 
 ## Fase G — Deploy y activación
 
@@ -131,9 +147,11 @@ date: "2026-08-27"
 
 ## Criterio de Done
 
-- [ ] Código completo y tests verdes
-- [ ] CI `PASS`
-- [ ] Merge `MERGED`
+- [x] Código completo y tests verdes (local — ver T-062, no CI real)
+- [~] CI `PASS` — no aplica todavía: CI real no ha corrido en el repo desde
+      2026-08-19 (T-062), no es un fallo de este código
+- [x] Merge `MERGED` — PR #592, `140c192c92767d4a9f45b687e6e8d27bf2646c4e`,
+      2026-08-27T10:47:19Z
 - [ ] Migración `VERIFIED` contra Postgres real
 - [ ] Canary real en Railway confirmado
-- [ ] `docs/SPEC_INDEX.md` y `EVENT_CATALOG.md` actualizados
+- [x] `docs/SPEC_INDEX.md` y `EVENT_CATALOG.md` actualizados
