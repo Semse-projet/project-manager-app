@@ -8,8 +8,8 @@ import { NoticeGeneratorService } from './notice-generator.service.js';
 import { NoticeSendService } from './notice-send.service.js';
 import { NoticeController } from './notice.controller.js';
 import { WaiverController } from './waiver.controller.js';
-import { LienGridClient } from '../../integrations/liengrid.js';
-import { LobClient } from '../../integrations/lob.js';
+import { LienGridClient, createLienGridClient } from '../../integrations/liengrid.js';
+import { LobClient, createLobClient } from '../../integrations/lob.js';
 
 @Module({
   controllers: [LiensController, LienSchedulerController, NoticeController, WaiverController],
@@ -26,7 +26,7 @@ import { LobClient } from '../../integrations/lob.js';
         const useMock = !process.env.LIENGRID_API_KEY;
         if (useMock) {
           console.log('[Liens] Using Mock LienGridClient (LIENGRID_API_KEY not set)');
-          return require('../../integrations/liengrid').createLienGridClient('', true);
+          return createLienGridClient('', true);
         }
         return new LienGridClient();
       },
@@ -39,7 +39,7 @@ import { LobClient } from '../../integrations/lob.js';
         const useMock = !process.env.LOB_API_KEY;
         if (useMock) {
           console.log('[Liens] Using Mock LobClient (LOB_API_KEY not set)');
-          return require('../../integrations/lob').createLobClient('', true);
+          return createLobClient('', true);
         }
         return new LobClient();
       },
