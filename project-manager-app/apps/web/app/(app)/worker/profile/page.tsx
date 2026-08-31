@@ -8,10 +8,12 @@ import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchCurrentUser,
   fetchDisputes,
+  fetchIdentityAttestation,
   fetchMyProfile,
   fetchRatings,
   fetchUserMemberships,
   updateMyProfile,
+  type IdentityAttestationView,
   type RatingListItem,
   type UserMembershipView,
   type UserProfileView,
@@ -58,6 +60,7 @@ export default function WorkerProfilePage() {
   const [memberships, setMemberships] = useState<UserMembershipView[]>([]);
   const [ratings, setRatings] = useState<RatingListItem[]>([]);
   const [openDisputes, setOpenDisputes] = useState(0);
+  const [identityAttestation, setIdentityAttestation] = useState<IdentityAttestationView | null>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyDone, setVerifyDone] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -75,16 +78,18 @@ export default function WorkerProfilePage() {
     void (async () => {
       try {
         const user = await fetchCurrentUser();
-        const [profileData, membershipRows, ratingsResult, disputes] = await Promise.all([
+        const [profileData, membershipRows, ratingsResult, disputes, attestation] = await Promise.all([
           fetchMyProfile().catch(() => null),
           fetchUserMemberships(user.id).catch(() => []),
           fetchRatings().catch(() => ({ actorUserId: null, items: [] })),
           fetchDisputes().catch(() => []),
+          fetchIdentityAttestation(user.id).catch(() => null),
         ]);
         if (cancelled) return;
         setCurrentUser(user);
         setProfile(profileData);
         setMemberships(membershipRows);
+        setIdentityAttestation(attestation);
         setRatings(ratingsResult.items.filter((item) => item.toUser?.id === user.id));
         setOpenDisputes(disputes.filter((item) => {
           const row = item as Record<string, unknown>;
@@ -398,6 +403,14 @@ export default function WorkerProfilePage() {
               </div>
             ))}
           </div>
+          {identityAttestation && (
+            <p
+              style={{ marginTop: "10px", fontSize: "11px", color: "var(--faint)" }}
+              title={`Firmado por SEMSE (key ${identityAttestation.keyId}), verificador ${identityAttestation.verifiedByUserId}`}
+            >
+              Identidad verificada por SEMSE el {new Date(identityAttestation.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })} — firma criptográfica, no autoatestada.
+            </p>
+          )}
         </HtmlInCanvasPanel>
 
         {/* Membresías */}

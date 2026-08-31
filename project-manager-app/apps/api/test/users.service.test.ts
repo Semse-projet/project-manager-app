@@ -168,16 +168,25 @@ function createServiceWithWorkspaceMemory() {
       return Array.from(stored.values()).filter((r) => JSON.parse(r.body ?? "{}").status === "pending");
     },
   };
+  const attestations: Array<Record<string, unknown>> = [];
   const repository = {
     async findUserById() { return { id: "usr_target", verificationStatus: "unverified" }; },
     async verifyUser(input: Record<string, unknown>) {
       return { id: input.targetUserId, verificationStatus: "verified" };
     },
+    async createIdentityAttestation(input: Record<string, unknown>) {
+      const record = { id: `att_${attestations.length + 1}`, createdAt: new Date(), ...input };
+      attestations.push(record);
+      return record;
+    },
+    async getLatestIdentityAttestation(tenantId: string, userId: string) {
+      return attestations.filter((a) => a.tenantId === tenantId && a.userId === userId).at(-1) ?? null;
+    },
   };
   const auditService = { async append() { /* no-op */ } };
   const domainEventBus = { async emit() { /* no-op */ } };
   const service = new UsersService(repository as never, auditService as never, domainEventBus as never, workspaceMemory as never);
-  return { service, workspaceMemory };
+  return { service, workspaceMemory, attestations };
 }
 
 void test("requestVerification queues a pending request for the requester's own account", async () => {
@@ -256,4 +265,95 @@ void test("an approved review shows up in listVerificationRequests as no longer 
 
   const pendingAfter = await service.listVerificationRequests({ tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"] });
   assert.equal(pendingAfter.length, 0, "the same deterministic id should be overwritten, not duplicated, once reviewed");
+});
+
+// ── Identity attestation (AUDIT_REMEDIATION_PLAN.md 0.9 / G-PRO-04) ───────────
+// A separate verifier (OPS_ADMIN) signs, never the user being verified —
+// see docs/specs/core/identity-attestation.spec.md.
+
+void test("approving an id_document review produces a signed identity attestation", async () => {
+  const { service, attestations } = createServiceWithWorkspaceMemory();
+
+  await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "id_document",
+  });
+
+  await service.reviewVerificationRequest({
+    tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+    targetUserId: "usr_pro", verificationType: "id_document", decision: "approved", requestId: "req_1",
+  });
+
+  assert.equal(attestations.length, 1);
+  assert.equal(attestations[0]?.tenantId, "tnt");
+  assert.equal(attestations[0]?.userId, "usr_pro");
+  assert.equal(attestations[0]?.verifiedByUserId, "usr_admin", "the admin who reviewed signs, not the worker");
+  assert.equal(attestations[0]?.verificationType, "id_document");
+  assert.ok(typeof attestations[0]?.signature === "string" && (attestations[0]?.signature as string).length > 0);
+  assert.ok(typeof attestations[0]?.keyId === "string" && (attestations[0]?.keyId as string).length > 0);
+});
+
+void test("approving an email/phone review does not produce an identity attestation", async () => {
+  const { service, attestations } = createServiceWithWorkspaceMemory();
+
+  await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "phone",
+  });
+
+  await service.reviewVerificationRequest({
+    tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+    targetUserId: "usr_pro", verificationType: "phone", decision: "approved", requestId: "req_1",
+  });
+
+  assert.equal(attestations.length, 0, "only id_document is a strong-enough identity claim to sign");
+});
+
+void test("rejecting an id_document review does not produce an identity attestation", async () => {
+  const { service, attestations } = createServiceWithWorkspaceMemory();
+
+  await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "id_document",
+  });
+
+  await service.reviewVerificationRequest({
+    tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+    targetUserId: "usr_pro", verificationType: "id_document", decision: "rejected", requestId: "req_1",
+  });
+
+  assert.equal(attestations.length, 0);
+});
+
+void test("getIdentityAttestation lets a user read their own attestation", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "id_document",
+  });
+  await service.reviewVerificationRequest({
+    tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+    targetUserId: "usr_pro", verificationType: "id_document", decision: "approved", requestId: "req_1",
+  });
+
+  const attestation = await service.getIdentityAttestation(
+    { tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"] },
+    "usr_pro",
+  );
+
+  assert.ok(attestation);
+  assert.equal(attestation?.userId, "usr_pro");
+});
+
+void test("getIdentityAttestation rejects reading someone else's attestation without OPS_ADMIN", async () => {
+  const { service } = createServiceWithWorkspaceMemory();
+
+  await assert.rejects(
+    () => service.getIdentityAttestation(
+      { tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"] },
+      "usr_other",
+    ),
+    /Cannot read this user/,
+  );
 });

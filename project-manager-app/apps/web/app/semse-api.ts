@@ -1053,6 +1053,27 @@ export async function fetchUserMemberships(userId: string): Promise<UserMembersh
   return fetchSemse<UserMembershipView[]>(`/api/semse/users/${encodeURIComponent(userId)}/memberships`);
 }
 
+/** Cryptographic evidence that a separate verifier (OPS_ADMIN, never the
+ * user themselves) attested this user's identity — see
+ * docs/specs/core/identity-attestation.spec.md. `null` when the user has
+ * no id_document verification approved yet. */
+export type IdentityAttestationView = {
+  id: string;
+  userId: string;
+  verifiedByUserId: string;
+  verificationType: string;
+  keyId: string;
+  message: string;
+  signature: string;
+  createdAt: string;
+};
+
+export async function fetchIdentityAttestation(userId: string): Promise<IdentityAttestationView | null> {
+  return fetchSemse<IdentityAttestationView | null>(
+    `/api/semse/users/${encodeURIComponent(userId)}/identity-attestation`,
+  );
+}
+
 export type UserCapabilityView = {
   role: string;
   orgId: string;

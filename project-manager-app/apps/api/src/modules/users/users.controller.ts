@@ -202,6 +202,28 @@ export class UsersController {
     return ok(requestId, data);
   }
 
+  // Two segments, literal first segment — cannot collide with `:userId`
+  // (one segment) regardless of declaration order, same reasoning as the
+  // "verify-requests" note above.
+  @Get("identity-attestation/public-key")
+  @AuthenticatedAccess("Any authenticated caller may fetch the SEMSE attestation public key — it carries no PII and is what makes a signature independently checkable.")
+  async getAttestationPublicKey(@Req() req: { headers?: Record<string, unknown> }) {
+    const data = this.usersService.getAttestationPublicKey();
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
+  @Get(":userId/identity-attestation")
+  @AuthenticatedAccess("A user may read their own identity attestation; OPS_ADMIN may read anyone's.")
+  async getIdentityAttestation(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("userId") userId: string
+  ) {
+    const parsedParams = parseWithSchema(userIdParamSchema, { userId });
+    const actor = resolveRequestContext(req);
+    const data = await this.usersService.getIdentityAttestation(actor, parsedParams.userId);
+    return ok(resolveRequestId(req.headers ?? {}), data);
+  }
+
   @Patch(":userId/status")
   @RequirePermissions("users:status:update")
   async updateStatus(

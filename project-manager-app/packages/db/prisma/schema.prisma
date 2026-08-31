@@ -277,10 +277,35 @@ model User {
   profile                             UserProfile?
   contractorRate                      ContractorRateOverride?
   stripeConnect                       StripeConnectAccount?
+  identityAttestations                IdentityAttestation[]
   createdAt                           DateTime                      @default(now())
   updatedAt                           DateTime                      @updatedAt
 
   @@index([verificationStatus, riskLevel])
+}
+
+// Cryptographic evidence that a separate verifier (OPS_ADMIN reviewing real
+// credentials, never the user themselves) attested a user's identity — see
+// docs/specs/core/identity-attestation.spec.md and
+// AUDIT_REMEDIATION_PLAN.md 0.9/G-PRO-04. `signature` is an Ed25519
+// signature over `message`, produced with SEMSE's own signing key
+// (`keyId`), independently checkable via the published public key — this
+// is what distinguishes it from the old self-attested DID stub, which
+// only checked that two strings were non-empty.
+model IdentityAttestation {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String
+  verifiedByUserId String
+  verificationType String // id_document | background_check | ...
+  keyId            String
+  message          String
+  signature        String
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
 }
 
 model UserProfile {
