@@ -85,7 +85,7 @@ export default function AppError({
           style={{
             padding: "10px 20px",
             borderRadius: "10px",
-            background: "var(--brand, #3b82f6)",
+            background: "var(--brand, var(--brand))",
             border: "none",
             color: "#fff",
             fontSize: "14px",

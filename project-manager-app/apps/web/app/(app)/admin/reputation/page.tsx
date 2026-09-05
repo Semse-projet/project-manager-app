@@ -43,7 +43,7 @@ type RatingRecord = {
 
 const TIER_COLOR: Record<string, string> = {
   trusted: "#22c55e",
-  established: "#3b82f6",
+  established: "var(--brand)",
   growing: "#eab308",
   emerging: "#94a3b8",
 };
@@ -62,7 +62,7 @@ const TIER_LABEL: Record<string, string> = {
   emerging: "Emerging",
 };
 
-function scoreBar(value: number, color = "#3b82f6") {
+function scoreBar(value: number, color = "var(--brand)") {
   return (
     <div style={{ height: "4px", background: "var(--border, #1f2d3d)", borderRadius: "2px", flex: 1 }}>
       <div style={{ height: "100%", width: `${Math.round(value * 100)}%`, background: color, borderRadius: "2px", transition: "width 0.3s" }} />
@@ -106,7 +106,7 @@ function ReputationCard({
       onClick={onClick}
       style={{
         background: selected ? "rgba(59,130,246,.08)" : "var(--surface, #0c1017)",
-        border: `1px solid ${selected ? "#3b82f6" : "var(--border, #1f2d3d)"}`,
+        border: `1px solid ${selected ? "var(--brand)" : "var(--border, #1f2d3d)"}`,
         borderRadius: "12px",
         padding: "14px 16px",
         cursor: "pointer",
@@ -163,7 +163,7 @@ function ReputationCard({
         </div>
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)", width: "80px", flexShrink: 0 }}>No disputes</span>
-          {scoreBar(rep.signals.disputeResilienceRate, "#3b82f6")}
+          {scoreBar(rep.signals.disputeResilienceRate, "var(--brand)")}
           <span style={{ fontSize: "10px", color: "var(--muted, #94a3b8)", width: "32px", textAlign: "right" }}>
             {Math.round(rep.signals.disputeResilienceRate * 100)}%
           </span>
@@ -250,7 +250,7 @@ export default function ReputationPage() {
       {!loading && reputations.length > 0 && (
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "20px" }}>
           {[
-            { label: "Contratistas", value: reputations.length, color: "#3b82f6", emoji: "👷" },
+            { label: "Contratistas", value: reputations.length, color: "var(--brand)", emoji: "👷" },
             { label: "Score promedio", value: avgScore.toFixed(1), color: "#22c55e", emoji: "📊" },
             { label: "Trusted", value: tierCounts.trusted ?? 0, color: TIER_COLOR.trusted, emoji: "🏆" },
             { label: "Established", value: tierCounts.established ?? 0, color: TIER_COLOR.established, emoji: "✅" },
@@ -280,7 +280,7 @@ export default function ReputationPage() {
             {(["score", "tier", "ratings"] as const).map((s) => (
               <button key={s} onClick={() => setSortBy(s)} style={{
                 padding: "4px 10px", borderRadius: "6px", fontSize: "11px",
-                border: `1px solid ${sortBy === s ? "#3b82f6" : "var(--border, #1f2d3d)"}`,
+                border: `1px solid ${sortBy === s ? "var(--brand)" : "var(--border, #1f2d3d)"}`,
                 background: sortBy === s ? "rgba(59,130,246,.12)" : "transparent",
                 color: sortBy === s ? "#93c5fd" : "var(--muted, #94a3b8)",
                 cursor: "pointer", fontWeight: sortBy === s ? 700 : 400,
@@ -293,7 +293,7 @@ export default function ReputationPage() {
           {loading ? (
             <p style={{ color: "var(--muted, #94a3b8)", padding: "32px 0", textAlign: "center" }}>Cargando…</p>
           ) : error ? (
-            <p style={{ color: "#ef4444", padding: "16px 0" }}>{error}</p>
+            <p style={{ color: "var(--error)", padding: "16px 0" }}>{error}</p>
           ) : sorted.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "40px",
@@ -369,7 +369,7 @@ export default function ReputationPage() {
                   {[
                     { label: "Rating decaído", value: selectedRep.signals.decayedRating, color: "#eab308", weight: "×0.4" },
                     { label: "Completión", value: selectedRep.signals.completionRate, color: "#22c55e", weight: "×0.3" },
-                    { label: "Sin disputas", value: selectedRep.signals.disputeResilienceRate, color: "#3b82f6", weight: "×0.2" },
+                    { label: "Sin disputas", value: selectedRep.signals.disputeResilienceRate, color: "var(--brand)", weight: "×0.2" },
                     { label: "Verificación", value: selectedRep.signals.verificationSignal, color: "#a78bfa", weight: "×0.1" },
                   ].map(({ label, value, color, weight }) => (
                     <div key={label} style={{ display: "flex", gap: "8px", alignItems: "center" }}>

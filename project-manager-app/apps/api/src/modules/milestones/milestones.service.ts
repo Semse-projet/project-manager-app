@@ -1,11 +1,20 @@
+import { randomUUID } from "node:crypto";
 import { BadRequestException, Inject, Injectable, Logger, Optional } from "@nestjs/common";
+import {
+  MILESTONE_APPROVED_V1_SCHEMA_REF,
+  MILESTONE_REJECTED_V1_SCHEMA_REF,
+  milestoneApprovedV1EventSchema,
+  milestoneRejectedV1EventSchema,
+} from "@semse/schemas";
 import { type MilestoneRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { buildMilestoneWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
 import { BuildOpsIntelligenceAgent } from "../operational-intelligence/buildops-intelligence.agent.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import type { EscrowReleaseService } from "../payments/escrow-release.service.js";
@@ -33,7 +42,84 @@ export class MilestonesService {
     @Optional() private readonly escrowRelease?: EscrowReleaseService,
     @Optional() private readonly notifications?: NotificationsService,
     @Optional() private readonly jobsService?: JobsService,
+    @Optional() private readonly prisma?: PrismaService,
+    @Optional() private readonly outboxRepository?: OutboxRepository,
   ) {}
+
+  /**
+   * docs/specs/satellites/SAT-007-outbound-webhooks.spec.md — best-effort
+   * durable outbox write (plan.md §1.1): milestonesRepository.approve/reject
+   * already committed the state change before this runs; there is no
+   * transaction left open to join, and this call site is already
+   * fire-and-forget today via domainEventBus.emit() right above each call.
+   */
+  private emitMilestoneOutboxEvent(
+    kind: "approved" | "rejected",
+    input: {
+      tenantId: string;
+      orgId: string;
+      userId: string;
+      milestoneId: string;
+      projectId: string;
+      jobId: string;
+      amount?: number;
+      rejectionReason?: string;
+    },
+  ): void {
+    if (!this.prisma || !this.outboxRepository) {
+      return;
+    }
+    const recordedAt = new Date();
+    const eventId = randomUUID();
+    const base = {
+      eventId,
+      version: 1 as const,
+      envelopeVersion: 2 as const,
+      occurredAt: recordedAt.toISOString(),
+      recordedAt: recordedAt.toISOString(),
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      module: "milestones" as const,
+      entityType: "Milestone" as const,
+      entityId: input.milestoneId,
+      actor: { type: "user" as const, id: input.userId },
+    };
+
+    const event =
+      kind === "approved"
+        ? milestoneApprovedV1EventSchema.parse({
+            ...base,
+            eventType: "milestone.approved.v1",
+            correlationId: `milestone.approved.v1:${input.milestoneId}`,
+            idempotencyKey: `milestone.approved.v1:${input.milestoneId}:${eventId}`,
+            schemaRef: MILESTONE_APPROVED_V1_SCHEMA_REF,
+            payload: {
+              milestoneId: input.milestoneId,
+              projectId: input.projectId,
+              jobId: input.jobId,
+              reviewerId: input.userId,
+              amount: input.amount ?? 0,
+            },
+          })
+        : milestoneRejectedV1EventSchema.parse({
+            ...base,
+            eventType: "milestone.rejected.v1",
+            correlationId: `milestone.rejected.v1:${input.milestoneId}`,
+            idempotencyKey: `milestone.rejected.v1:${input.milestoneId}:${eventId}`,
+            schemaRef: MILESTONE_REJECTED_V1_SCHEMA_REF,
+            payload: {
+              milestoneId: input.milestoneId,
+              projectId: input.projectId,
+              jobId: input.jobId,
+              reviewerId: input.userId,
+              rejectionReason: input.rejectionReason ?? "",
+            },
+          });
+
+    void this.outboxRepository.create(this.prisma, event).catch((err: unknown) =>
+      this.logger.warn(`[Milestones] milestone.${kind}.v1 outbox write failed: ${String((err as Error)?.message ?? err)}`),
+    );
+  }
 
   private syncContext(tenantId: string, projectId: string, source: string, reason: string): void {
     this.operationalContext?.invalidateScope({
@@ -271,6 +357,16 @@ export class MilestonesService {
 
     this.syncContext(input.tenantId, context.projectId, "milestone.approved", "milestone approved");
 
+    this.emitMilestoneOutboxEvent("approved", {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      milestoneId: milestone.id,
+      projectId: context.projectId,
+      jobId: context.jobId,
+      amount: milestone.amount,
+    });
+
     if (context.proUserId) {
       void this.notifications?.handleEvent({
         tenantId: input.tenantId,
@@ -386,6 +482,16 @@ export class MilestonesService {
     }));
 
     this.syncContext(input.tenantId, context.projectId, "milestone.rejected", "milestone rejected");
+
+    this.emitMilestoneOutboxEvent("rejected", {
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      milestoneId: milestone.id,
+      projectId: context.projectId,
+      jobId: context.jobId,
+      rejectionReason: input.reason,
+    });
 
     void this.intelligenceAgent?.evaluateMilestone({
       tenantId: input.tenantId,

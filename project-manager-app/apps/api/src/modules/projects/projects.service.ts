@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional } from "@nestjs/common";
+import { Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { type PaymentTxnRecord, type ProjectRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
@@ -6,6 +6,8 @@ import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-co
 import { buildProjectWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { MilestonesRepository } from "../milestones/milestones.repository.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
+import { isProjectLifecycleProjectionEnabled } from "./project-lifecycle-projection.js";
 import { ProjectsRepository } from "./projects.repository.js";
 import {
   assertProjectLifecycleTransition,
@@ -22,6 +24,8 @@ export class ProjectsService {
     private readonly workspaceMemoryRepository: WorkspaceMemoryRepository,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async list(input: {
@@ -74,6 +78,20 @@ export class ProjectsService {
     projectId: string;
   }) {
     return this.projectsRepository.getEscrowSummary(input);
+  }
+
+  async lifecycleProjection(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    projectId: string;
+  }) {
+    if (!isProjectLifecycleProjectionEnabled(input.tenantId)) {
+      throw new NotFoundException("Project lifecycle projection is not available");
+    }
+
+    return this.projectsRepository.getLifecycleProjection(input);
   }
 
   async updateStatus(input: {
@@ -145,6 +163,17 @@ export class ProjectsService {
       projectId: project.id,
       source: "project.status.update",
       reason: `project status changed to ${project.status}`,
+    });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: project.id,
+      sourceEventType: "project.status.updated",
+      sourceEntityType: "Project",
+      sourceEntityId: project.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
     });
 
     return project;

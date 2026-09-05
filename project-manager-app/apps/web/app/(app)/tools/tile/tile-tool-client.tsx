@@ -55,7 +55,7 @@ export function TileToolClient({ section }: TileToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const materialCost: Record<typeof input.material, number> = {
+    const materialCost: Record<TileInput["material"], number> = {
       ceramic: 3.5, porcelain: 6.0, natural_stone: 12.0, glass: 8.0, specialty: 15.0,
     };
     const base = materialCost[input.material];

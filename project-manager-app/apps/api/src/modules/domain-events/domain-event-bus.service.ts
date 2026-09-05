@@ -5,6 +5,7 @@ import type { OperationalContextService } from "../ai-models/context/operational
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { NotificationsService } from "../notifications/notifications.service.js";
 import { AgentTriggerRouter } from "./agent-trigger-router.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "./project-lifecycle-projection-event-producer.service.js";
 
 type EmitContext = {
   tenantId: string;
@@ -33,6 +34,8 @@ export class DomainEventBus {
     private readonly notificationsService: NotificationsService,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async emit(event: unknown, context: EmitContext) {
@@ -66,8 +69,44 @@ export class DomainEventBus {
     });
 
     this.invalidateOperationalContext(parsed, context);
+    await this.emitLifecycleProjectionInvalidation(parsed, context);
 
     return this.routeWithRetry(parsed, context);
+  }
+
+  private async emitLifecycleProjectionInvalidation(
+    parsed: RuntimeDomainEvent,
+    context: EmitContext,
+  ): Promise<void> {
+    const projectId =
+      typeof parsed.payload.projectId === "string"
+        ? parsed.payload.projectId
+        : undefined;
+    if (!projectId || !this.lifecycleProjectionEvents) {
+      return;
+    }
+
+    const sourceEntity = [
+      ["milestoneId", "Milestone"],
+      ["evidenceId", "Evidence"],
+      ["disputeId", "Dispute"],
+      ["transactionId", "PaymentTxn"],
+      ["expenseId", "ProjectExpense"],
+    ].find(([key]) => typeof parsed.payload[key] === "string");
+    await this.lifecycleProjectionEvents.emit({
+      tenantId: context.tenantId,
+      orgId: context.orgId,
+      projectId,
+      sourceEventType: parsed.type,
+      sourceEntityType: sourceEntity?.[1] ?? "Project",
+      sourceEntityId:
+        (sourceEntity
+          ? String(parsed.payload[sourceEntity[0]])
+          : projectId),
+      actorType: "user",
+      actorId: context.userId,
+      correlationId: parsed.meta.correlationId,
+    });
   }
 
   private invalidateOperationalContext(parsed: RuntimeDomainEvent, context: EmitContext): void {

@@ -203,12 +203,15 @@ export class IntelligenceController {
     return ok(rid, await this.budget.suggestBudget({
       tenantId: ctx.tenantId,
       userId: ctx.userId,
+      orgId: ctx.orgId,
+      roles: ctx.roles,
       title: String(body.title ?? ""),
       scope: String(body.scope ?? ""),
       category: body.category as string | undefined,
       location: body.location as string | undefined,
       areaSqft: typeof body.areaSqft === "number" ? body.areaSqft : undefined,
       zipCode: body.zipCode as string | undefined,
+      jobId: typeof body.jobId === "string" ? body.jobId : undefined,
     }));
   }
 

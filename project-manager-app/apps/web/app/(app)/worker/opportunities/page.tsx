@@ -31,7 +31,7 @@ type BidResult = { success: boolean; message: string };
 type SortKey = "newest" | "budget_high" | "budget_low" | "bids_low";
 
 const URGENCY_CONFIG: Record<string, { color: string; label: string }> = {
-  critical: { color: "#ef4444", label: "Urgente" },
+  critical: { color: "var(--error)", label: "Urgente" },
   high:     { color: "#f97316", label: "Alta"    },
   medium:   { color: "#fbbf24", label: "Media"   },
   standard: { color: "#64748b", label: "Normal"  },
@@ -296,13 +296,13 @@ export default function WorkerOpportunitiesPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                       <h2 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--ink)" }}>{job.title}</h2>
                       <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: `${urg.color}18`, color: urg.color }}>{urg.label}</span>
-                      {alreadyBid && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(16,185,129,.1)", color: "#10b981" }}>✓ Propuesta enviada</span>}
+                      {alreadyBid && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(16,185,129,.1)", color: "var(--ok)" }}>✓ Propuesta enviada</span>}
                     </div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 12, color: "var(--muted)" }}>
                       {job.category && <span style={{ padding: "2px 8px", background: "var(--raised)", borderRadius: 999, fontWeight: 600 }}>{job.category}</span>}
                       {job.location && <span style={{ display: "flex", alignItems: "center", gap: 3 }}><MapPin size={10} />{job.location}</span>}
                       {(job.budgetMin ?? job.budgetMax) && (
-                        <span style={{ display: "flex", alignItems: "center", gap: 3, color: "#10b981", fontWeight: 600 }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 3, color: "var(--ok)", fontWeight: 600 }}>
                           <DollarSign size={10} />
                           {money(job.budgetMin)}{job.budgetMax ? `–${money(job.budgetMax)}` : ""}
                         </span>
@@ -388,8 +388,8 @@ export default function WorkerOpportunitiesPage() {
 
                     {alreadyBid && (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 9, background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.2)" }}>
-                        <CheckCircle2 size={14} color="#10b981" />
-                        <p style={{ fontSize: 13, color: "#10b981", margin: 0 }}>Tu propuesta fue enviada. El cliente te contactará si te selecciona.</p>
+                        <CheckCircle2 size={14} color="var(--ok)" />
+                        <p style={{ fontSize: 13, color: "var(--ok)", margin: 0 }}>Tu propuesta fue enviada. El cliente te contactará si te selecciona.</p>
                       </div>
                     )}
                   </div>

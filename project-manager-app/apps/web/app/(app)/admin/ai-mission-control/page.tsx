@@ -67,14 +67,14 @@ function modeColor(mode: AiModelInteractionLog["mode"]): string {
 }
 
 function alertColor(severity: AiMissionAlertSeverity): string {
-  if (severity === "critical") return "#ef4444";
+  if (severity === "critical") return "var(--error)";
   if (severity === "high") return "#fb7185";
   if (severity === "medium") return "#fbbf24";
   return "#38bdf8";
 }
 
 function postureColor(posture: ReturnType<typeof buildAiMissionDiagnostics>["posture"]): string {
-  if (posture === "critical") return "#ef4444";
+  if (posture === "critical") return "var(--error)";
   if (posture === "degraded") return "#fb7185";
   if (posture === "watch") return "#fbbf24";
   return "#86efac";
@@ -219,7 +219,7 @@ export default function AiMissionControlPage() {
               disabled={loading}
               style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 12, border: "none", background: "rgba(99,102,241,.15)", color: "#818cf8", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
             >
-              <RefreshCw size={14} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
               {loading ? "Cargando..." : "Actualizar"}
             </button>
           }

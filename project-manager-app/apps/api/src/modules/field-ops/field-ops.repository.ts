@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 import type { JobRecordStatus, JobRecordView } from "@semse/schemas";
 import type { TrackerSessionRecord } from "./tracker-session.js";
+import { jobAssignmentWhere } from "../../common/job-assignment.js";
 
 type TimeEntryWithJob = {
   id: string;
@@ -176,69 +177,13 @@ export class FieldOpsRepository {
 
   // ── Tracker Sessions ──────────────────────────────────────────────────────
 
-  private trackerJobAssignmentWhere(input: { orgId: string; userId: string }): Prisma.JobWhereInput[] {
-    return [
-      {
-        bids: {
-          some: {
-            professionalUserId: input.userId,
-            status: "ACCEPTED" as const,
-          },
-        },
-      },
-      {
-        reservations: {
-          some: {
-            professionalId: input.userId,
-            status: {
-              in: ["ACTIVE", "ACCEPTED"],
-            },
-          },
-        },
-      },
-      {
-        reservations: {
-          some: {
-            professionalOrgId: input.orgId,
-            status: {
-              in: ["ACTIVE", "ACCEPTED"],
-            },
-          },
-        },
-      },
-      {
-        contract: {
-          is: {
-            professionalUserId: input.userId,
-            deletedAt: null,
-          },
-        },
-      },
-      {
-        contract: {
-          is: {
-            professionalOrgId: input.orgId,
-            deletedAt: null,
-          },
-        },
-      },
-      {
-        project: {
-          is: {
-            assignedProOrgId: input.orgId,
-          },
-        },
-      },
-    ];
-  }
-
   async findJobForTracker(input: { tenantId: string; jobId: string; orgId: string; userId: string }) {
     return this.client.job.findFirst({
       where: {
         id: input.jobId,
         tenantId: input.tenantId,
         deletedAt: null,
-        OR: this.trackerJobAssignmentWhere(input),
+        OR: jobAssignmentWhere(input),
       },
       select: {
         id: true,
@@ -253,7 +198,7 @@ export class FieldOpsRepository {
       where: {
         tenantId: input.tenantId,
         deletedAt: null,
-        OR: this.trackerJobAssignmentWhere(input),
+        OR: jobAssignmentWhere(input),
       },
       select: {
         id: true,

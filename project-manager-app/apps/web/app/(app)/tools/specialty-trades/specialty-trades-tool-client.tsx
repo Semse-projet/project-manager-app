@@ -31,7 +31,7 @@ export function SpecialtyTradesToolClient({ section }: { section: SpecialtyTrade
   const [error, setError] = useState<string | null>(null);
 
   const costPerUnit = useMemo(() => {
-    const tradeCost: Record<typeof input.tradeType, number> = { pool_installation: 15000, sauna_spa: 8000, custom_carpentry: 5000, stone_masonry: 6000, fireplace: 7000 };
+    const tradeCost: Record<SpecialtyTradesInput["tradeType"], number> = { pool_installation: 15000, sauna_spa: 8000, custom_carpentry: 5000, stone_masonry: 6000, fireplace: 7000 };
     const base = tradeCost[input.tradeType];
     const complexFactor = { basic: 0.8, standard: 1, advanced: 1.3, luxury: 1.7 }[input.complexity];
     const customFactor = input.custom ? 1.4 : 1;

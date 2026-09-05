@@ -32,7 +32,7 @@ export function LandingNav() {
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+            background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "#fff", fontWeight: 900, fontSize: 16,
             boxShadow: "0 4px 12px rgba(99,102,241,0.3)",
@@ -69,7 +69,7 @@ export function LandingNav() {
           </Link>
           <Link href="/client/jobs/new" style={{
             padding: "9px 20px", borderRadius: 9, fontSize: 14, fontWeight: 700,
-            background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+            background: "linear-gradient(135deg, var(--brand), #6366f1)",
             color: "#fff", textDecoration: "none",
             boxShadow: "0 4px 12px rgba(59,130,246,0.35)",
             display: "flex", alignItems: "center", gap: 6,
@@ -118,7 +118,7 @@ export function LandingNav() {
             }}>Ingresar</Link>
             <Link href="/client/jobs/new" onClick={() => setOpen(false)} style={{
               padding: "12px 20px", borderRadius: 9, fontSize: 15, fontWeight: 700,
-              background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+              background: "linear-gradient(135deg, var(--brand), #6366f1)",
               color: "#fff", textDecoration: "none", textAlign: "center",
             }}>Publicar trabajo gratis</Link>
           </div>

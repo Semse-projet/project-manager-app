@@ -18,7 +18,7 @@ type BuildOpsProject = {
 type ProjectsEnvelope = { projects: BuildOpsProject[]; total: number };
 
 const RISK_COLOR: Record<string, string> = {
-  critical: "#ef4444", high: "#f97316", medium: "#fbbf24", low: "#10b981",
+  critical: "var(--error)", high: "#f97316", medium: "#fbbf24", low: "var(--ok)",
 };
 
 const STATUS_LABEL: Record<string, string> = {

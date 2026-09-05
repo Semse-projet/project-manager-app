@@ -13,6 +13,7 @@ import { HtmlInCanvasPanel } from "@semse/ui";
 import { fetchJobMilestones, fetchJobs, mutateMilestone } from "../../../semse-api";
 import { ClientPageHeader } from "../../../components/client/ClientPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
+import { CLIENT_ROUTES } from "../../../lib/client-routes";
 import { MilestoneTrackerCard } from "@/components/milestones/MilestoneTrackerCard";
 import { MilestoneGovernancePanel } from "@/components/milestones/MilestoneGovernancePanel";
 import { MilestoneEvidenceUploader } from "@/components/milestones/MilestoneEvidenceUploader";
@@ -186,7 +187,7 @@ export default function ClientMilestonesPage() {
       {/* Summary */}
       <HtmlInCanvasPanel as="section" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "24px" }} canvasClassName="rounded-2xl" minHeight={120}>
         {[
-          { label: "Hitos completados", value: String(summary.completed), color: "#10b981", icon: CheckSquare },
+          { label: "Hitos completados", value: String(summary.completed), color: "var(--ok)", icon: CheckSquare },
           { label: "En progreso", value: String(summary.inProgress), color: "var(--brand)", icon: Clock },
           { label: "Fondos en escrow", value: `$${summary.escrow.toLocaleString()}`, color: "var(--accent)", icon: DollarSign },
         ].map(s => {
@@ -211,8 +212,24 @@ export default function ClientMilestonesPage() {
           ))}
         </div>
       ) : error ? (
-        <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "#ef4444", fontSize: "13px" }}>
+        <div style={{ padding: "16px 18px", borderRadius: "12px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: "13px" }}>
           {error}
+        </div>
+      ) : groups.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "48px 24px", borderRadius: "12px", border: "1px dashed var(--border)", background: "var(--bg)" }}>
+          <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>No tienes hitos de pago activos</p>
+          <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: "20px" }}>Cuando tengas trabajos en curso, sus hitos aparecerán aquí.</p>
+          <Link
+            href={CLIENT_ROUTES.jobs}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "6px",
+              padding: "10px 16px", borderRadius: "9px",
+              background: "linear-gradient(135deg, var(--brand), #2563eb)",
+              color: "#fff", textDecoration: "none", fontSize: "13px", fontWeight: 700,
+            }}
+          >
+            Ver mis trabajos
+          </Link>
         </div>
       ) : (
       <HtmlInCanvasPanel as="section" style={{ display: "flex", flexDirection: "column", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={380}>

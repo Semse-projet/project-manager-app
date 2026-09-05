@@ -53,6 +53,22 @@ export class StripeConnectService {
     }
   }
 
+  /**
+   * Verifies a Stripe token created client-side by stripe.createToken()
+   * (see PayoutMethodForm.tsx, AUDIT_REMEDIATION_PLAN.md 2.44) and returns the
+   * last4 straight from Stripe's own record for that token — never trusting
+   * whatever the browser claims. Returns `undefined` whenever verification
+   * isn't possible (Stripe not configured/dev mock mode) so callers can fall
+   * back to the client-supplied last4 rather than hard-failing outside of
+   * environments that have a real key. Throws if Stripe IS configured and the
+   * token doesn't verify (invalid/expired/reused token).
+   */
+  async verifyPayoutToken(tokenId: string): Promise<string | undefined> {
+    if (!this.stripe) return undefined;
+    const token = await this.stripe.tokens.retrieve(tokenId);
+    return token.card?.last4 ?? token.bank_account?.last4;
+  }
+
   // ── 1.3.A: Create or retrieve Stripe Custom Account ──────────────────────
 
   async getOrCreateAccount(userId: string, email: string): Promise<ConnectAccountView> {

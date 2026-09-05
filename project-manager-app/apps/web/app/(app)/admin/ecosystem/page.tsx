@@ -127,7 +127,7 @@ export default function EcosystemPage() {
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 20px", color: "var(--ink)" }}>
       <AdminPageHeader
         title="Ecosystem Metrics"
-        subtitle={`Estado operativo completo del ecosistema SEMSE OS · ${lastAt ?? "cargando…"}`}
+        subtitle={`Estado operativo completo del ecosistema SEMSE Project · ${lastAt ?? "cargando…"}`}
         icon={Zap}
         iconColor="#818cf8"
         iconBg="rgba(99,102,241,.15)"
@@ -135,7 +135,7 @@ export default function EcosystemPage() {
         actions={
           <button onClick={load} disabled={loading}
             style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
           </button>
         }
       />
@@ -246,7 +246,6 @@ export default function EcosystemPage() {
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

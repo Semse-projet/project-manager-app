@@ -58,7 +58,7 @@ export function OperationalRagQueryPanel({ projectId, milestoneId }: Props) {
 
   const typeColor: Record<string, string> = {
     payment_governance: "#818cf8", milestone: "#fbbf24", evidence_item: "#86efac",
-    audit_log: "#94a3b8", change_order: "#fb923c", operational_signal: "#ef4444",
+    audit_log: "#94a3b8", change_order: "#fb923c", operational_signal: "var(--error)",
     buildops_project: "#6366f1", rag_document: "#38bdf8",
   };
 
@@ -101,7 +101,7 @@ export function OperationalRagQueryPanel({ projectId, milestoneId }: Props) {
             />
             <button type="button" disabled={loading || !question.trim()} onClick={() => void ask(question)}
               style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: loading ? "rgba(99,102,241,.1)" : "rgba(99,102,241,.2)", color: "#818cf8", fontSize: 12, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
-              {loading ? <Loader size={13} style={{ animation: "spin 1s linear infinite" }} /> : <BookOpen size={13} />}
+              {loading ? <Loader size={13} className="animate-spin" /> : <BookOpen size={13} />}
             </button>
           </div>
 

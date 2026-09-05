@@ -99,6 +99,28 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     return withSessionHeaders(req, session);
   }
 
+  // ── 0. Legacy orphan `/dashboard` route ────────────────────────────────────
+  // Pre-dates the per-role /client|/worker|/admin/dashboard split. It has no
+  // live inbound link anywhere in the app, isn't session-aware at all (its
+  // page component fetches jobs using server env vars, not the visiting
+  // user's own session — see AUDIT_REMEDIATION_PLAN.md 1.4/1.6), and always
+  // renders all-zero KPIs plus an internal "Mission Control" migration banner
+  // to whoever lands on it, client included. Redirect to the real per-role
+  // dashboard (or login, if there's no session) before the page ever runs,
+  // reusing the exact same role-resolution this middleware already does for
+  // auth-page bounce-back and cross-role prefix enforcement below.
+  if (pathname === "/dashboard") {
+    const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;
+    const session = sessionCookie ? await decodeSession(sessionCookie) : null;
+    if (!session) {
+      const url = new URL("/login", req.url);
+      url.searchParams.set("from", "/dashboard");
+      return NextResponse.redirect(url);
+    }
+    const role = roleFromRoles(session.roles);
+    return NextResponse.redirect(new URL(defaultDashboardForRole(role), req.url));
+  }
+
   // ── 1. Skip static + public routes ─────────────────────────────────────────
   if (isPublic(pathname)) {
     const sessionCookie = req.cookies.get(SESSION_COOKIE)?.value;

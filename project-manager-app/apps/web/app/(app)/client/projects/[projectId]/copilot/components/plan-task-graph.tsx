@@ -71,13 +71,13 @@ const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; d
   pending:   { bg: "rgba(100,116,139,.08)", border: "rgba(100,116,139,.25)", text: "var(--ink)",  dot: "var(--faint)" },
   ready:     { bg: "rgba(129,140,248,.12)", border: "rgba(129,140,248,.45)", text: "#818cf8",     dot: "#818cf8" },
   executing: { bg: "rgba(99,102,241,.15)",  border: "rgba(99,102,241,.55)",  text: "#6366f1",     dot: "#6366f1" },
-  completed: { bg: "rgba(16,185,129,.10)",  border: "rgba(16,185,129,.40)",  text: "#10b981",     dot: "#10b981" },
+  completed: { bg: "rgba(16,185,129,.10)",  border: "rgba(16,185,129,.40)",  text: "var(--ok)",     dot: "var(--ok)" },
   blocked:   { bg: "rgba(245,158,11,.10)",  border: "rgba(245,158,11,.40)",  text: "#f59e0b",     dot: "#f59e0b" },
-  failed:    { bg: "rgba(239,68,68,.10)",   border: "rgba(239,68,68,.40)",   text: "#ef4444",     dot: "#ef4444" },
+  failed:    { bg: "rgba(239,68,68,.10)",   border: "rgba(239,68,68,.40)",   text: "var(--error)",     dot: "var(--error)" },
   skipped:   { bg: "rgba(100,116,139,.06)", border: "rgba(100,116,139,.18)", text: "var(--faint)", dot: "var(--faint)" },
 };
 
-const RISK_COLORS: Record<string, string> = { low: "#10b981", medium: "#f59e0b", high: "#ef4444" };
+const RISK_COLORS: Record<string, string> = { low: "var(--ok)", medium: "#f59e0b", high: "var(--error)" };
 
 const CAPABILITY_EMOJI: Record<string, string> = {
   searching:    "🔍",
@@ -262,7 +262,7 @@ function StepDetail({ step, onClose }: { step: WorkPlanStep; onClose: () => void
         </div>
       )}
       {(step.blockReason || step.blockedReason) && (
-        <div style={{ fontSize: 10, color: "#ef4444", background: "rgba(239,68,68,.06)", padding: "6px 8px", borderRadius: 7 }}>
+        <div style={{ fontSize: 10, color: "var(--error)", background: "rgba(239,68,68,.06)", padding: "6px 8px", borderRadius: 7 }}>
           <span style={{ fontWeight: 700 }}>Bloqueo: </span>{step.blockReason ?? step.blockedReason}
         </div>
       )}
@@ -276,9 +276,9 @@ function GraphLegend() {
   const items: Array<{ label: string; color: string }> = [
     { label: "Listo",      color: "#818cf8" },
     { label: "Ejecutando", color: "#6366f1" },
-    { label: "Completado", color: "#10b981" },
+    { label: "Completado", color: "var(--ok)" },
     { label: "Bloqueado",  color: "#f59e0b" },
-    { label: "Fallido",    color: "#ef4444" },
+    { label: "Fallido",    color: "var(--error)" },
     { label: "Pendiente",  color: "var(--faint)" },
   ];
   return (

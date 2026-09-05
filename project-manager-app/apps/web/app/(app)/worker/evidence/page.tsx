@@ -200,7 +200,7 @@ export default function WorkerEvidencePage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <NotificationBanner audience="worker" />
           <button onClick={() => selectedJobId && void loadMilestonesAndEvidence(selectedJobId)} disabled={loadingEvidence} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}>
-            <RefreshCw size={15} style={{ animation: loadingEvidence ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={loadingEvidence ? "animate-spin" : undefined} />
           </button>
         </div>
       </HtmlInCanvasPanel>
@@ -305,7 +305,7 @@ export default function WorkerEvidencePage() {
               <button onClick={() => void handleUpload()} disabled={uploading || !selectedJobId}
                 style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "10px 18px", borderRadius: "9px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: uploading || !selectedJobId ? "not-allowed" : "pointer", opacity: uploading || !selectedJobId ? 0.7 : 1 }}
               >
-                {uploading ? <RefreshCw size={14} style={{ animation: "spin 1s linear infinite" }} /> : <Upload size={14} />}
+                {uploading ? <RefreshCw size={14} className="animate-spin" /> : <Upload size={14} />}
                 {uploading ? "Registrando..." : `Registrar ${files.length} archivo${files.length > 1 ? "s" : ""}`}
               </button>
               <button onClick={() => setFiles([])} style={{ padding: "10px 14px", borderRadius: "9px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", cursor: "pointer" }}>
@@ -317,8 +317,8 @@ export default function WorkerEvidencePage() {
 
         {uploadNote && (
           <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${uploadNote.ok ? "rgba(16,185,129,.25)" : "rgba(239,68,68,.25)"}`, background: uploadNote.ok ? "rgba(16,185,129,.06)" : "rgba(239,68,68,.06)" }}>
-            {uploadNote.ok ? <CheckCircle2 size={14} color="#10b981" /> : <AlertTriangle size={14} color="#ef4444" />}
-            <span style={{ fontSize: "12px", color: uploadNote.ok ? "#10b981" : "#ef4444", fontWeight: 700 }}>{uploadNote.msg}</span>
+            {uploadNote.ok ? <CheckCircle2 size={14} color="var(--ok)" /> : <AlertTriangle size={14} color="var(--error)" />}
+            <span style={{ fontSize: "12px", color: uploadNote.ok ? "var(--ok)" : "var(--error)", fontWeight: 700 }}>{uploadNote.msg}</span>
           </div>
         )}
       </HtmlInCanvasPanel>
@@ -330,8 +330,8 @@ export default function WorkerEvidencePage() {
         </h2>
         {evidenceLoadError && (
           <div style={{ marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", padding: "10px 14px", borderRadius: "10px", border: "1px solid rgba(239,68,68,.25)", background: "rgba(239,68,68,.06)" }}>
-            <AlertTriangle size={14} color="#ef4444" />
-            <span style={{ fontSize: "12px", color: "#ef4444", fontWeight: 700 }}>{evidenceLoadError}</span>
+            <AlertTriangle size={14} color="var(--error)" />
+            <span style={{ fontSize: "12px", color: "var(--error)", fontWeight: 700 }}>{evidenceLoadError}</span>
           </div>
         )}
         {loadingEvidence ? (
@@ -359,7 +359,7 @@ export default function WorkerEvidencePage() {
                 return (
                   <div key={asString(ev.id) ?? idx} style={{ ...card, display: "flex", alignItems: "center", gap: "14px", padding: "12px 16px" }}>
                     <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, background: isImage ? "rgba(59,130,246,.12)" : "rgba(139,92,246,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isImage ? <ImageIcon size={17} color="#3b82f6" /> : <FileText size={17} color="#8b5cf6" />}
+                      {isImage ? <ImageIcon size={17} color="var(--brand)" /> : <FileText size={17} color="#8b5cf6" />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</p>

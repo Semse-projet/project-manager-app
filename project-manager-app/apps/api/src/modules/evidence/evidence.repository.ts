@@ -3,6 +3,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import {
   EVIDENCE_UPLOADED_V1_SCHEMA_REF,
@@ -17,6 +18,7 @@ import {
   normalizeStorageKey,
 } from "../../infrastructure/storage/storage-key.js";
 import { OutboxRepository } from "../domain-events/outbox.repository.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import {
   findProjectLinkByJobIdOrThrow,
   findProjectLinkByProjectIdOrThrow,
@@ -46,6 +48,15 @@ type CreateEvidenceInput = ScopeInput & {
   key: string;
   kind: "PHOTO" | "VIDEO" | "DOCUMENT";
   filename?: string;
+  // m2.2-dispute-docs Bloque 2.2.A — set only from EvidenceService.
+  // registerPhotoWithExif(), never from client-supplied request fields:
+  // these come out of the photo's own EXIF bytes so a contractor can't
+  // just type in a favorable date/location.
+  geoLat?: number;
+  geoLng?: number;
+  capturedAt?: Date;
+  category?: string;
+  description?: string;
 };
 
 export type EvidenceView = {
@@ -62,6 +73,9 @@ export type EvidenceView = {
   aiQualityScore: number | null;
   metadata?: Record<string, unknown>;
   createdAt: string;
+  geoLat?: number;
+  geoLng?: number;
+  capturedAt?: string;
 };
 
 type EvidenceRow = {
@@ -75,7 +89,16 @@ type EvidenceRow = {
   validationStatus: string;
   aiQualityScore: unknown;
   createdAt: Date;
+  geoLat?: unknown;
+  geoLng?: unknown;
+  capturedAt?: Date | null;
 };
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : undefined;
+}
 
 function toAiQualityScoreNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
@@ -89,6 +112,8 @@ export class EvidenceRepository {
     private readonly prisma: PrismaService,
     private readonly actorContextService: ActorContextService,
     private readonly outboxRepository: OutboxRepository,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async create(input: CreateEvidenceInput): Promise<EvidenceView> {
@@ -121,7 +146,12 @@ export class EvidenceRepository {
             metadataJson: {
               jobId: scope.jobId,
               ...(input.filename ? { filename: input.filename } : {}),
+              ...(input.category ? { category: input.category } : {}),
+              ...(input.description ? { description: input.description } : {}),
             },
+            ...(input.geoLat !== undefined ? { geoLat: input.geoLat } : {}),
+            ...(input.geoLng !== undefined ? { geoLng: input.geoLng } : {}),
+            ...(input.capturedAt !== undefined ? { capturedAt: input.capturedAt } : {}),
           },
         });
 
@@ -155,6 +185,18 @@ export class EvidenceRepository {
         });
 
         await this.outboxRepository.create(tx, event);
+        await this.lifecycleProjectionEvents?.record(tx, {
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          projectId: scope.projectId,
+          sourceEventType: "evidence.uploaded",
+          sourceEntityType: "Evidence",
+          sourceEntityId: created.id,
+          actorType: "user",
+          actorId: input.userId,
+          correlationId: input.requestId,
+          causationId: event.eventId,
+        });
         return created;
       });
 
@@ -243,6 +285,9 @@ export class EvidenceRepository {
       validationStatus?: string;
       aiQualityScore?: unknown;
       createdAt: Date;
+      geoLat?: unknown;
+      geoLng?: unknown;
+      capturedAt?: Date | null;
     },
     filename?: string,
   ): EvidenceView {
@@ -258,6 +303,9 @@ export class EvidenceRepository {
       filename,
       validationStatus: evidence.validationStatus ?? "pending",
       aiQualityScore: toAiQualityScoreNumber(evidence.aiQualityScore),
+      geoLat: toOptionalNumber(evidence.geoLat),
+      geoLng: toOptionalNumber(evidence.geoLng),
+      capturedAt: evidence.capturedAt ? evidence.capturedAt.toISOString() : undefined,
       metadata: { jobId: scope.jobId, ...(filename ? { filename } : {}) },
       createdAt: evidence.createdAt.toISOString(),
     };
@@ -297,6 +345,9 @@ export class EvidenceRepository {
         aiQualityScore: toAiQualityScoreNumber(row.aiQualityScore),
         metadata,
         createdAt: row.createdAt.toISOString(),
+        geoLat: toOptionalNumber(row.geoLat),
+        geoLng: toOptionalNumber(row.geoLng),
+        capturedAt: row.capturedAt ? row.capturedAt.toISOString() : undefined,
       };
     });
   }
@@ -360,6 +411,9 @@ export class EvidenceRepository {
       validationStatus: string;
       aiQualityScore: unknown;
       createdAt: Date;
+      geoLat: unknown;
+      geoLng: unknown;
+      capturedAt: Date | null;
       project: {
         jobId: string;
         assignedProOrgId: string;
@@ -392,6 +446,9 @@ export class EvidenceRepository {
       aiQualityScore: toAiQualityScoreNumber(row.aiQualityScore),
       metadata,
       createdAt: row.createdAt.toISOString(),
+      geoLat: toOptionalNumber(row.geoLat),
+      geoLng: toOptionalNumber(row.geoLng),
+      capturedAt: row.capturedAt ? row.capturedAt.toISOString() : undefined,
     };
   }
 

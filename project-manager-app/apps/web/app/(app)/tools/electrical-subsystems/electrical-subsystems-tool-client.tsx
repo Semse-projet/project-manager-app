@@ -31,7 +31,7 @@ export function ElectricalSubsystemsToolClient({ section }: { section: Electrica
   const [error, setError] = useState<string | null>(null);
 
   const costPerUnit = useMemo(() => {
-    const baseCost: Record<typeof input.subsystemType, number> = { hvac_control: 2500, solar_integration: 8000, ev_charging: 5000, battery_backup: 12000, automation: 3500 };
+    const baseCost: Record<ElectricalSubsystemsInput["subsystemType"], number> = { hvac_control: 2500, solar_integration: 8000, ev_charging: 5000, battery_backup: 12000, automation: 3500 };
     const base = baseCost[input.subsystemType];
     const complexFactor = { basic: 0.8, standard: 1, advanced: 1.4, smart: 1.8 }[input.complexity];
     const upgradeFactor = input.upgrade ? 1.3 : 1;

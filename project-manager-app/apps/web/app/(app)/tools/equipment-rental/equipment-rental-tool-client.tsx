@@ -31,7 +31,7 @@ export function EquipmentRentalToolClient({ section }: { section: EquipmentRenta
   const [error, setError] = useState<string | null>(null);
 
   const costPerDay = useMemo(() => {
-    const equipCost: Record<typeof input.equipmentType, number> = { excavator: 500, crane: 800, scaffolding: 200, compressor: 150, lift: 400 };
+    const equipCost: Record<EquipmentRentalInput["equipmentType"], number> = { excavator: 500, crane: 800, scaffolding: 200, compressor: 150, lift: 400 };
     return equipCost[input.equipmentType];
   }, [input.equipmentType]);
 

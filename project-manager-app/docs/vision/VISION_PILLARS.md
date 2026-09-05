@@ -86,7 +86,8 @@ Sin exigir reescritura total.
 
 ## Pilar 7. Gobernanza futura sin contaminar el MVP
 
-Prometeo importa.
+Prometeo Institucional (DID, DAO, treasury, governance — ver
+`VISION_PROMETEO_OS_2026.md`) importa.
 
 Pero:
 
@@ -94,7 +95,9 @@ Pero:
 - no debe imponer complejidad prematura;
 - no debe mezclarse con el happy path inicial.
 
-Se preserva como norte institucional.
+Se preserva como norte institucional. Esto no aplica a Prometeo Operativo
+(el orquestador conversacional), que ya es parte del happy path — Pilar 5
+lo cubre.
 
 ## Pilar 8. Seguridad antes que conveniencia
 

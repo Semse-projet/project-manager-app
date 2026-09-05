@@ -22,6 +22,7 @@ Lee en este orden:
 3. [VISION_BOUNDARIES.md](/home/yoni/labsemse/vision/VISION_BOUNDARIES.md)
 4. [VISION_SUCCESS_METRICS.md](/home/yoni/labsemse/vision/VISION_SUCCESS_METRICS.md)
 5. [VISION_FUSIONADA_SEMSE_PROMETEO.md](/home/yoni/labsemse/vision/VISION_FUSIONADA_SEMSE_PROMETEO.md)
+6. [VISION_PROMETEO_OS_2026.md](/home/yoni/labsemse/project-manager-app/docs/vision/VISION_PROMETEO_OS_2026.md) — separa Prometeo Operativo de Prometeo Institucional
 
 ## Si eres engineer o architect
 
@@ -32,6 +33,7 @@ Lee en este orden:
 3. [VISION_PILLARS.md](/home/yoni/labsemse/vision/VISION_PILLARS.md)
 4. [VISION_BOUNDARIES.md](/home/yoni/labsemse/vision/VISION_BOUNDARIES.md)
 5. [VISION_FUSIONADA_SEMSE_PROMETEO.md](/home/yoni/labsemse/vision/VISION_FUSIONADA_SEMSE_PROMETEO.md)
+6. [VISION_PROMETEO_OS_2026.md](/home/yoni/labsemse/project-manager-app/docs/vision/VISION_PROMETEO_OS_2026.md) — separa Prometeo Operativo de Prometeo Institucional
 
 ## Si eres worker nuevo en el sistema
 

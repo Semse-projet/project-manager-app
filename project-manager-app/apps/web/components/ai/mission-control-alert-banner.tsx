@@ -6,7 +6,7 @@ import Link from "next/link";
 import { subscribeToMissionControlEvents, type MissionIncident, type MissionIncidentSeverity } from "../../app/semse-api";
 
 function severityColor(severity: MissionIncidentSeverity): string {
-  if (severity === "critical") return "#ef4444";
+  if (severity === "critical") return "var(--error)";
   if (severity === "high") return "#fb7185";
   if (severity === "medium") return "#fbbf24";
   return "#38bdf8";

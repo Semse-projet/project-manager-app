@@ -2,193 +2,136 @@
 type: plan
 feature: "[FEATURE_NAME]"
 domain: "[DOMAIN]"
-spec: "docs/specs/[dominio]/[feature].spec.md"
-version: "1.0"
-status: "[DRAFT | APPROVED]"
+spec: "docs/specs/[domain]/[feature].spec.md"
+version: "2.0"
+status: "DRAFT"
 branch: "feat/[feature-slug]"
 date: "[YYYY-MM-DD]"
 ---
 
-# Plan Técnico: [FEATURE_NAME]
+# Plan técnico: [FEATURE_NAME]
 
-> **Prerequisito:** El spec `[feature].spec.md` debe estar en estado `APPROVED`.
-> Este plan no se aprueba si el spec tiene secciones incompletas.
+> Prerrequisito: spec `APPROVED`. El plan separa implementación, merge,
+> despliegue y activación; ningún estado se infiere de otro.
 
----
+## 1. Snapshot de verdad
 
-## 1. Resumen Técnico
+- `origin/main` SHA:
+- SHA desplegado API:
+- SHA desplegado Web:
+- Estado de servicios:
+- Estado de migraciones:
+- Flags/allowlists:
+- Drift o deuda previa:
 
-**Spec referenciado:** [path al spec]
-**Estrategia de implementación:** [una o dos oraciones]
-**Estimación de complejidad:** [Baja | Media | Alta]
-**Riesgo principal:** [descripción]
+## 2. Constitution check
 
----
+- [ ] Spec aprobado antes de código
+- [ ] Tenant/org/ownership y RBAC definidos
+- [ ] Evidence/Payment Governance revisados si aplica
+- [ ] Audit/events definidos para cambios críticos
+- [ ] Tests preceden implementación
+- [ ] No se expone secreto ni se agrega backend paralelo
+- [ ] Código, CI, merge, deploy y activación se medirán por separado
 
-## 2. Constitution Check
+## 3. Arquitectura y autoridad
 
-> Verificar que el plan no viola ningún principio de `.specify/memory/constitution.md`
+- Fuente de verdad de escritura:
+- Read models/proyecciones:
+- Módulos afectados:
+- Contratos Zod:
+- API/BFF/UI:
+- Worker/queues:
+- Agentes/tools:
+- ADR requerido:
 
-- [ ] **P1 — Spec primero:** El spec está APPROVED antes de este plan
-- [ ] **P2 — Evidencia primero:** Si hay pagos, ¿pasan por evidencia antes?
-- [ ] **P3 — Audit Log:** ¿Todos los cambios de estado generan evento?
-- [ ] **P4 — Privacidad local:** ¿Los datos sensibles van a Ollama?
-- [ ] **P5 — Tests antes del código:** ¿Los tests se escriben antes de implementar?
+## 4. Datos y migración
 
----
+- Cambio Prisma:
+- SQL y checksum:
+- Expand/contract:
+- Backfill/shadow read:
+- Compatibilidad durante deploy:
+- Pre-deploy command:
+- Rollback o forward-fix:
+- Prueba de migración:
 
-## 3. Stack Técnico Afectado
+## 5. Seguridad y política
 
-```yaml
-backend:
-  framework: NestJS
-  módulos_afectados: []      # apps/api/src/modules/
-  schemas_afectados: []      # packages/schemas/src/
-  prisma_cambios: [sí | no]  # si requiere migración
+- Permisos:
+- Tenant/org/resource scope:
+- Step-up/aprobación:
+- Auditoría:
+- Riesgos de pagos/evidencia:
+- Abuse cases:
 
-frontend:
-  framework: Next.js
-  páginas_afectadas: []      # apps/web/app/
-  componentes_nuevos: []     # apps/web/components/ o packages/ui/
+## 6. Eventos, idempotencia y reconstrucción
 
-workers:
-  bullmq_jobs: [sí | no]
-  jobs_nuevos: []
+- Productores:
+- Outbox atómico:
+- Consumers/receipts:
+- Replay:
+- DLQ:
+- Rebuild:
+- Correlation/traces:
 
-infraestructura:
-  railway: [no cambios | requiere nueva variable de entorno]
-  variables_nuevas: []
-  ollama: [sí | no]          # si hay routing privacyCritical
-```
+## 7. Estrategia de implementación
 
----
+### Fase A — Tests y contratos
 
-## 4. Cambios en Base de Datos
+- Tests rojos derivados del spec
+- Schemas y contratos
 
-```prisma
-// Modelos nuevos o modificados
-// Copiar o bosquejar los cambios de schema.prisma aquí
+### Fase B — Datos y dominio
 
-model [NombreModelo] {
-  // campos
-}
-```
+- Migración aditiva
+- Servicio/repositorio
+- Invariantes y concurrencia
 
-**Tipo de migración:**
-- [ ] Migración aditiva (additive) — sin riesgo de datos
-- [ ] Migración modificativa — revisar datos existentes
-- [ ] Sin cambio de schema
+### Fase C — API/BFF/UI
 
----
+- Endpoint y permisos
+- Estados UX explícitos
 
-## 5. Módulos NestJS
+### Fase D — Verificación local/CI
 
-### Módulo existente modificado: `[NombreModulo]`
+- Tests dirigidos
+- Regresión
+- Build/typecheck/lint
+- Spec tooling
 
-```
-apps/api/src/modules/[nombre]/
-├── [nombre].controller.ts    → agregar endpoint [MÉTODO] /v1/[ruta]
-├── [nombre].service.ts       → agregar método [nombreMetodo]
-└── [nombre].module.ts        → sin cambios | agregar import
-```
+### Fase E — Integración
 
-### Módulo nuevo: `[NombreModulo]` (si aplica)
+- PR y checks
+- Merge SHA
+- Config/migración pre-deploy
 
-```
-apps/api/src/modules/[nombre]/
-├── [nombre].controller.ts
-├── [nombre].service.ts
-├── [nombre].module.ts
-└── [nombre].spec.ts          ← test obligatorio
-```
+### Fase F — Producción
 
----
+- Deployment terminal
+- Health/readiness
+- Canary autenticado
+- Métricas/SLO
+- Activación gradual
+- Rollback ensayado/documentado
 
-## 6. Schemas (packages/schemas)
+## 8. Riesgos
 
-```typescript
-// Schemas Zod nuevos o modificados
-// packages/schemas/src/[dominio].ts
+| Riesgo | Probabilidad | Impacto | Mitigación | Señal de rollback |
+|---|---|---|---|---|
+| | | | | |
 
-export const [NombreInputSchema] = z.object({
-  // campos del input del spec
-});
+## 9. Investigación externa
 
-export const [NombreOutputSchema] = z.object({
-  // campos del output del spec
-});
-```
+| Búsqueda primaria | Fuente | Decisión |
+|---|---|---|
+| | | |
 
----
+## 10. Gates antes de tareas
 
-## 7. Frontend (si aplica)
-
-```
-apps/web/app/
-└── [ruta]/
-    ├── page.tsx        → nueva página o modificación
-    └── components/     → componentes específicos
-
-apps/web/lib/
-└── bff/[dominio].ts    → BFF route si necesita server-side call
-```
-
----
-
-## 8. Eventos y SSE
-
-```typescript
-// Eventos a emitir (del EVENT_CATALOG)
-// [aggregate.action]: [payload]
-
-// Canal SSE:
-// apps/api/src/modules/[dominio]/[dominio]-sse.service.ts
-```
-
----
-
-## 9. Fases de Implementación
-
-### Fase 1 — Setup
-- [ ] Migración de Prisma (si aplica)
-- [ ] Schema Zod en `packages/schemas`
-- [ ] Módulo NestJS esqueleto
-
-### Fase 2 — Foundational ⚠️ CRÍTICA
-- [ ] Service con lógica de dominio
-- [ ] Tests unitarios del service
-- [ ] Verificación de invariantes
-
-### Fase 3 — API Contract
-- [ ] Controller con endpoints
-- [ ] Guards RBAC
-- [ ] Tests de integración del endpoint
-
-### Fase 4 — Efectos
-- [ ] Emisión de eventos audit
-- [ ] SSE si aplica
-- [ ] Notificaciones si aplica
-
-### Fase 5 — Frontend + Polish
-- [ ] UI si aplica
-- [ ] BFF routes si aplica
-- [ ] Documentación en `SEMSE_API_SURFACE_V1.md`
-- [ ] Reporte de sesión en `docs/reportes/`
-
----
-
-## 10. Riesgos Técnicos
-
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|-------------|---------|------------|
-| | | | |
-
----
-
-## Checklist antes de /speckit.tasks
-
-- [ ] Constitution check completado sin violaciones
-- [ ] Cambios de schema identificados
-- [ ] Módulos afectados listados con precisión de archivo
-- [ ] Fases de implementación ordenadas por dependencia
-- [ ] Tests incluidos en Fase 2 (antes del código de negocio)
+- [ ] Archivos exactos identificados
+- [ ] Migración y rollback definidos
+- [ ] Tests ordenados antes del código
+- [ ] Canary/feature flag definidos
+- [ ] Evidencia requerida para cada estado de entrega
+- [ ] Scope cabe en un PR reversible

@@ -9,8 +9,11 @@ export const SEMSE_AGENT_RUN_QUEUE = "semse-agent-runs";
 export const SEMSE_DEVELOPER_RUNTIME_QUEUE = "semse-developer-runtime";
 export const SEMSE_DOMAIN_EVENT_QUEUE = "semse-domain-events";
 export const SEMSE_BOOTSTRAP_HEADER_NAME = "x-semse-bootstrap-token";
+export const SEMSE_TRACE_HEADER_NAME = "x-trace-id";
 
 export * from "./developer-runtime.js";
+export * from "./observability/logger.js";
+export * from "./safe-url.js";
 
 export const SEMSE_IDENTITY_HEADER_NAMES = {
   tenantId: "x-tenant-id",
@@ -32,6 +35,7 @@ export const SEMSE_REQUEST_HEADER_NAMES = {
   contentType: "content-type",
   correlationId: "x-correlation-id",
   requestId: "x-request-id",
+  traceId: SEMSE_TRACE_HEADER_NAME,
   ...SEMSE_IDENTITY_HEADER_NAMES
 } as const;
 
@@ -109,6 +113,10 @@ export const apiEnvSchema = z
     SEMSE_EVENT_CONSUMERS_ENABLED: z.enum(["true", "false"]).default("false"),
     SEMSE_EVENT_CONSUMER_ALLOWLIST: z.string().default(""),
     SEMSE_EVENT_TYPE_ALLOWLIST: z.string().default(""),
+    SEMSE_PROJECT_LIFECYCLE_PROJECTION_ENABLED: z.enum(["true", "false"]).default("false"),
+    SEMSE_PROJECT_LIFECYCLE_PERSIST_ENABLED: z.enum(["true", "false"]).default("false"),
+    SEMSE_PROJECT_LIFECYCLE_EVENTS_ENABLED: z.enum(["true", "false"]).default("false"),
+    SEMSE_PROJECT_LIFECYCLE_CANARY_TENANT_IDS: z.string().default(""),
     CORS_ORIGINS: z.string().optional(),
     RATE_LIMIT_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RATE_LIMIT_LIMIT: z.coerce.number().int().positive().default(20),

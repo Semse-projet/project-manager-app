@@ -51,8 +51,10 @@ import {
   SEMSE_BOOTSTRAP_HEADER_NAME,
   SEMSE_DEVELOPER_RUNTIME_QUEUE,
   SEMSE_DOMAIN_EVENT_QUEUE,
+  SEMSE_TRACE_HEADER_NAME,
   validateWorkerEnv
 } from "@semse/shared";
+import { getCurrentTraceId, processJobWithLogging } from "./observability/job-logging.mjs";
 import { executeSpecializedWorkerRun, shouldUseSpecializedWorkerHandler } from "./agent-run-handlers.mjs";
 import { processDomainEventQueueJob } from "./domain-event-worker.mjs";
 import { executeDeveloperRuntimeJob } from "./modules/developer-runtime/runtime.executor.mjs";
@@ -99,12 +101,16 @@ const RESERVATION_SWEEP_INTERVAL_MS = 60_000;
 const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curator decides if 7d passed
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
+const LIEN_DEADLINE_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.1-lien-rights: cada hora
+const WEATHER_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.3-weather: cada hora
 
 let shouldStop = false;
 let reclaimTimer;
 let reservationSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
+let lienDeadlineTimer;
+let weatherCheckTimer;
 let piEnginesTimer;
 let authState = {
   accessToken: null,
@@ -211,7 +217,12 @@ async function main() {
         return { skipped: true };
       }
 
-      return processQueuedRun(job.data);
+      return processJobWithLogging({
+        job,
+        queue: SEMSE_AGENT_RUN_QUEUE,
+        data: { runId: job.data.runId, agentType: job.data.agentType, tenantId: job.data.tenantId },
+        handler: () => processQueuedRun(job.data)
+      });
     },
     {
       connection,
@@ -229,7 +240,12 @@ async function main() {
 
   const developerRuntimeWorker = new Worker(
     SEMSE_DEVELOPER_RUNTIME_QUEUE,
-    async (job) => processDeveloperRuntimeQueueJob(job.data),
+    async (job) => processJobWithLogging({
+      job,
+      queue: SEMSE_DEVELOPER_RUNTIME_QUEUE,
+      data: { sessionId: job.data.sessionId, missionId: job.data.missionId },
+      handler: () => processDeveloperRuntimeQueueJob(job.data)
+    }),
     {
       connection,
       concurrency: 1
@@ -247,10 +263,15 @@ async function main() {
   const domainEventWorker = env.SEMSE_EVENT_CONSUMERS_ENABLED === "true"
     ? new Worker(
         SEMSE_DOMAIN_EVENT_QUEUE,
-        async (job) => processDomainEventQueueJob({
-          jobData: job.data,
-          workerId: config.workerId,
-          postJson,
+        async (job) => processJobWithLogging({
+          job,
+          queue: SEMSE_DOMAIN_EVENT_QUEUE,
+          data: { eventId: job.data.eventId },
+          handler: () => processDomainEventQueueJob({
+            jobData: job.data,
+            workerId: config.workerId,
+            postJson,
+          }),
         }),
         {
           connection,
@@ -306,6 +327,25 @@ async function main() {
     piEnginesTimer = setInterval(() => { void runProductIntelligenceEnginesSafe(); }, PI_ENGINES_INTERVAL_MS);
   }
 
+  // m2.1-lien-rights — chequeo de deadlines de lien cada hora, solo con el
+  // kill switch activo. Transiciona LienCalendar.status y genera notices
+  // automáticos al llegar a ALERTED_3D; el push/email al PRO sigue sin
+  // implementar (ver TODO en lien-alerts.scheduler.ts) — esto solo reemplaza
+  // el trigger manual por uno automático para la parte que sí funciona hoy.
+  if (process.env.LIEN_ALERTS_ENABLED === "true") {
+    void runLienDeadlineCheckSafe();
+    lienDeadlineTimer = setInterval(() => { void runLienDeadlineCheckSafe(); }, LIEN_DEADLINE_CHECK_INTERVAL_MS);
+  }
+
+  // m2.3-weather Bloque 2.3.A — chequeo de clima cada hora para proyectos
+  // IN_PROGRESS con coordenadas, solo con el kill switch activo. Push
+  // notifications, auto-halt y change orders (Bloques 2.3.B/2.3.C) no están
+  // implementados — esto solo crea/actualiza WeatherAlert.
+  if (process.env.WEATHER_CHECK_ENABLED === "true") {
+    void runWeatherCheckSafe();
+    weatherCheckTimer = setInterval(() => { void runWeatherCheckSafe(); }, WEATHER_CHECK_INTERVAL_MS);
+  }
+
   // SPEC-AUT-001 — permanent loops (kill switch: AUTONOMY_LOOPS_ENABLED)
   let permanentLoopsHandle = null;
   try {
@@ -330,6 +370,8 @@ async function main() {
   if (curatorTimer) clearInterval(curatorTimer);
   if (piRetentionTimer) clearInterval(piRetentionTimer);
   if (piEnginesTimer) clearInterval(piEnginesTimer);
+  if (lienDeadlineTimer) clearInterval(lienDeadlineTimer);
+  if (weatherCheckTimer) clearInterval(weatherCheckTimer);
 
   await worker.close();
   await developerRuntimeWorker.close();
@@ -456,6 +498,26 @@ async function runProductIntelligenceRetentionSafe() {
   }
 }
 
+async function runLienDeadlineCheckSafe() {
+  try {
+    const response = await postJson("/v1/admin/liens/check-deadlines", {});
+    logger.info(response?.data ?? {}, "lien deadline check complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "lien deadline check failed (non-fatal)");
+  }
+}
+
+async function runWeatherCheckSafe() {
+  try {
+    const response = await postJson("/v1/admin/weather/check", {});
+    logger.info(response?.data ?? {}, "weather check complete");
+  } catch (err) {
+    logger.warn({ error: err instanceof Error ? err.message : String(err) },
+      "weather check failed (non-fatal)");
+  }
+}
+
 async function runCuratorSafe() {
   try {
     // Phase 1: LLM-based skill file review (filesystem skills)
@@ -571,8 +633,10 @@ function buildHeaders() {
 }
 
 function buildHeadersForTenant(tenantId) {
+  const traceId = getCurrentTraceId();
   const headers = {
     "content-type": "application/json",
+    ...(traceId ? { [SEMSE_TRACE_HEADER_NAME]: traceId } : {}),
     ...buildIdentityHeaders({
       userId: config.userId,
       tenantId,

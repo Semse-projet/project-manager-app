@@ -56,7 +56,7 @@ export function PlumbingToolClient({ section }: PlumbingToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerFt = useMemo(() => {
-    const baseCost: Record<typeof input.pipeType, number> = {
+    const baseCost: Record<PlumbingInput["pipeType"], number> = {
       pvc: 3.0, copper: 8.0, pex: 4.5, cast_iron: 6.0,
     };
     const base = baseCost[input.pipeType] || 4.0;

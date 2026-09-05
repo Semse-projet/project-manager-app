@@ -345,7 +345,7 @@ function ExportDemo() {
         canvasClassName="rounded-[18px]"
         minHeight={120}
       >
-        <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#a78bfa" }}>SEMSE OS</div>
+        <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#a78bfa" }}>SEMSE Project</div>
         <div style={{ color: "#64748b", marginTop: "8px", fontSize: "0.85rem" }}>HTML-in-Canvas — Export Demo</div>
         <div style={{ marginTop: "14px", display: "inline-flex", gap: "10px" }}>
           {["branch", "change", "commit", "push", "PR"].map((s) => (

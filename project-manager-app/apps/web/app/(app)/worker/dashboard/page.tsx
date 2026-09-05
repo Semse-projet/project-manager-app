@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ElementType } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AlertTriangle,
   ArrowRight,
@@ -79,11 +79,11 @@ function bidToUiJob(bid: MyBidView): Job {
 function EmptyPanel({
   title,
   description,
-  icon: Icon,
+  image,
 }: {
   title: string;
   description: string;
-  icon: ElementType;
+  image: string;
 }) {
   return (
     <div
@@ -95,7 +95,7 @@ function EmptyPanel({
         borderRadius: "14px",
       }}
     >
-      <Icon size={34} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
+      <Image src={image} alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
       <p style={{ color: "var(--ink)", fontSize: "14px", fontWeight: 700, marginBottom: "6px" }}>{title}</p>
       <p style={{ color: "var(--muted)", fontSize: "13px" }}>{description}</p>
     </div>
@@ -104,9 +104,9 @@ function EmptyPanel({
 
 const TRUST_TIER: Record<string, { label: string; color: string }> = {
   emerging:    { label: "Emergente",    color: "#64748b" },
-  growing:     { label: "En crecimiento", color: "#3b82f6" },
+  growing:     { label: "En crecimiento", color: "var(--brand)" },
   established: { label: "Establecido", color: "#8b5cf6" },
-  trusted:     { label: "De confianza", color: "#10b981" },
+  trusted:     { label: "De confianza", color: "var(--ok)" },
 };
 
 function reputationTier(totalRatings: number, avg: number): string {
@@ -257,7 +257,7 @@ export default function WorkerDashboardPage() {
               padding: "10px 16px",
               borderRadius: "10px",
               border: "1px solid rgba(239,68,68,.22)",
-              color: "#ef4444",
+              color: "var(--error)",
               textDecoration: "none",
               background: "rgba(239,68,68,.08)",
               fontSize: "13px",
@@ -384,9 +384,9 @@ export default function WorkerDashboardPage() {
           <div style={{ display: "grid", gap: "10px" }}>
             {[
               { href: "/worker/tracker", label: "Registrar horas", description: "Abrir control de jornada", icon: Clock, color: "#06b6d4" },
-              { href: "/worker/evidence", label: "Subir evidencia", description: "Enviar fotos y documentos", icon: Camera, color: "#10b981" },
+              { href: "/worker/evidence", label: "Subir evidencia", description: "Enviar fotos y documentos", icon: Camera, color: "var(--ok)" },
               { href: "/worker/materials", label: "Materiales", description: "Solicitar o rastrear materiales", icon: Package, color: "#f59e0b" },
-              { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "#ef4444" },
+              { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "var(--error)" },
               { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "#ff6a00" },
               { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },
               { href: "/worker/review", label: "Calificar clientes", description: "Enviar reseñas de trabajos completados", icon: Star, color: "#fbbf24" },
@@ -496,9 +496,9 @@ export default function WorkerDashboardPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {myBids.slice(0, 5).map(bid => {
               const BID_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-                submitted: { label: "Enviada",   color: "#3b82f6", bg: "rgba(59,130,246,.1)" },
-                accepted:  { label: "Aceptada",  color: "#10b981", bg: "rgba(16,185,129,.1)" },
-                rejected:  { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.1)"  },
+                submitted: { label: "Enviada",   color: "var(--brand)", bg: "rgba(59,130,246,.1)" },
+                accepted:  { label: "Aceptada",  color: "var(--ok)", bg: "rgba(16,185,129,.1)" },
+                rejected:  { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.1)"  },
               };
               const s = BID_STATUS[bid.status] ?? BID_STATUS["submitted"]!;
               const amt = new Intl.NumberFormat("es-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bid.amount);
@@ -548,7 +548,7 @@ export default function WorkerDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <div style={{ padding: "16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "#ef4444", fontSize: "13px" }}>
+          <div style={{ padding: "16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "var(--error)", fontSize: "13px" }}>
             {apiError}
           </div>
         ) : metrics.active.length === 0 ? (
@@ -616,7 +616,7 @@ export default function WorkerDashboardPage() {
           <EmptyPanel
             title="No hay oportunidades abiertas ahora"
             description="Cuando entren trabajos publicados al pipeline, aparecerán aquí para evaluación."
-            icon={Search}
+            image="/brand/empty-states/worker-opportunities.png"
           />
         ) : (
           <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>

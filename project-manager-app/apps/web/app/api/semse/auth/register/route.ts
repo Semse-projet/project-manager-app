@@ -51,6 +51,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!email || !password || !name) {
     return NextResponse.json({ ok: false, error: "email, password y nombre son requeridos" }, { status: 400 });
   }
+  if (password.length < 15 || password.length > 128) {
+    return NextResponse.json({ ok: false, error: "La contraseña debe tener entre 15 y 128 caracteres" }, { status: 400 });
+  }
 
   const apiBaseUrl = process.env.SEMSE_API_BASE_URL?.trim().replace(/\/+$/, "");
   if (!apiBaseUrl) {

@@ -17,6 +17,15 @@ import type {
 
 async function unwrap<T>(res: Response): Promise<T> {
   if (!res.ok) {
+    // A 401 from any /api/semse/* route is always the middleware's generic
+    // session-expired body (buildSemseApiUnauthorizedBody in
+    // lib/semse-api-auth.ts, e.g. "Authentication required for SEMSE API
+    // route") — not a Prometeo-specific error. Surfacing that raw English
+    // string in the copilot chat left users guessing (AUDIT_REMEDIATION_PLAN.md
+    // 1.11c); translate it to an actionable message instead of forwarding it.
+    if (res.status === 401) {
+      throw new Error("Tu sesión expiró. Actualiza la página e inicia sesión de nuevo para seguir usando el asistente.");
+    }
     const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
     throw new Error(body?.error?.message ?? `Request failed (${res.status})`);
   }

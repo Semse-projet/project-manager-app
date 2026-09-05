@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { randomUUID } from "node:crypto";
+import { jobAssignmentWhere } from "../../common/job-assignment.js";
 
 // FLSA-style weekly overtime: hours beyond 40/week pay 1.5x. This is
 // deliberately separate from QUALITY_GUARD.overtimeWeekMinutes (48h) in
@@ -38,6 +39,10 @@ export type TimeEntryRecord = {
   hourlyRate: number | null;
   currency: string;
   location: string | null;
+  checkInLatitude: number | null;
+  checkInLongitude: number | null;
+  checkInDistanceMeters: number | null;
+  checkInMethod: string | null;
   notes: string | null;
   editedBy: string | null;
   editReason: string | null;
@@ -55,6 +60,9 @@ export type FreeProjectRecord = {
   name: string;
   color: string;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  locationSource: string | null;
   description: string | null;
   status: string;
   convertedJobId: string | null;
@@ -83,6 +91,10 @@ export class LaborEngineRepository {
     hourlyRate?: number;
     currency?: string;
     location?: string;
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkInDistanceMeters?: number;
+    checkInMethod?: string;
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
@@ -90,9 +102,10 @@ export class LaborEngineRepository {
     clientEventId?: string;
   }): Promise<TimeEntryRecord> {
     const now = new Date();
+    const breakMinutes = Math.max(0, data.breakMinutes ?? 0);
     const duration = data.durationMinutes
       ?? (data.endedAt
-        ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - (data.breakMinutes ?? 0))
+        ? Math.max(0, Math.floor((data.endedAt.getTime() - data.startedAt.getTime()) / 60000) - breakMinutes)
         : null);
 
     const createData = {
@@ -107,12 +120,16 @@ export class LaborEngineRepository {
       status: data.endedAt ? "completed" : "running",
       startedAt: data.startedAt,
       endedAt: data.endedAt ?? null,
-      breakMinutes: data.breakMinutes ?? 0,
+      breakMinutes,
       durationMinutes: duration,
       accumulatedSeconds: duration ? duration * 60 : 0,
       hourlyRate: data.hourlyRate ? String(data.hourlyRate) as unknown as number : null,
       currency: data.currency ?? "MXN",
       location: data.location ?? null,
+      checkInLatitude: data.checkInLatitude ?? null,
+      checkInLongitude: data.checkInLongitude ?? null,
+      checkInDistanceMeters: data.checkInDistanceMeters ?? null,
+      checkInMethod: data.checkInMethod ?? null,
       notes: data.notes ?? null,
       contextEntityType: data.contextEntityType ?? null,
       contextEntityId: data.contextEntityId ?? null,
@@ -146,6 +163,48 @@ export class LaborEngineRepository {
     }) as unknown as TimeEntryRecord | null;
   }
 
+  /** A worker may only log time against a job they're engaged on, using the same
+   * rule that decides which jobs the tracker offers (`jobAssignmentWhere`). */
+  async isJobAssignedToWorker(tenantId: string, orgId: string, jobId: string, userId: string): Promise<boolean> {
+    const job = await this.prisma.job.findFirst({
+      where: {
+        id: jobId,
+        tenantId,
+        deletedAt: null,
+        OR: jobAssignmentWhere({ orgId, userId }),
+      },
+      select: { id: true },
+    });
+    return job !== null;
+  }
+
+  async isFreeProjectOwnedByWorker(tenantId: string, freeProjectId: string, userId: string): Promise<boolean> {
+    const project = await this.prisma.freeProject.findFirst({
+      where: { id: freeProjectId, tenantId, createdBy: userId },
+      select: { id: true },
+    });
+    return project !== null;
+  }
+
+  /** Site coordinates for a Job/FreeProject, used to compute check-in distance. Null if not geocoded/set. */
+  async getJobCoordinates(tenantId: string, jobId: string): Promise<{ latitude: number; longitude: number } | null> {
+    const job = await this.prisma.job.findFirst({
+      where: { id: jobId, tenantId },
+      select: { latitude: true, longitude: true },
+    }) as { latitude: { toNumber(): number } | null; longitude: { toNumber(): number } | null } | null;
+    if (!job?.latitude || !job.longitude) return null;
+    return { latitude: job.latitude.toNumber(), longitude: job.longitude.toNumber() };
+  }
+
+  async getFreeProjectCoordinates(tenantId: string, freeProjectId: string): Promise<{ latitude: number; longitude: number } | null> {
+    const project = await this.prisma.freeProject.findFirst({
+      where: { id: freeProjectId, tenantId },
+      select: { latitude: true, longitude: true },
+    }) as { latitude: { toNumber(): number } | null; longitude: { toNumber(): number } | null } | null;
+    if (!project?.latitude || !project.longitude) return null;
+    return { latitude: project.latitude.toNumber(), longitude: project.longitude.toNumber() };
+  }
+
   async startRealtimeEntry(data: {
     tenantId: string;
     orgId: string;
@@ -154,6 +213,10 @@ export class LaborEngineRepository {
     jobId?: string;
     freeProjectId?: string;
     notes?: string;
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkInDistanceMeters?: number;
+    checkInMethod?: string;
     contextEntityType?: string;
     contextEntityId?: string;
     clientEventId?: string;
@@ -285,9 +348,12 @@ export class LaborEngineRepository {
   }
 
   /** Todos los timers activos del tenant (vista admin multi-worker). */
+  /** Excludes purpose:"personal" — the tracker UI tells workers those hours are
+   * private, never linked to jobs or pay, so they must not surface in any
+   * admin/supervisor view (see docs/AUDIT_REMEDIATION_PLAN.md 2.11). */
   async listActiveEntriesForTenant(tenantId: string): Promise<TimeEntryRecord[]> {
     return this.prisma.timeEntry.findMany({
-      where: { tenantId, status: { in: ["running", "paused"] } },
+      where: { tenantId, status: { in: ["running", "paused"] }, purpose: { not: "personal" } },
       orderBy: { startedAt: "asc" },
     }) as unknown as TimeEntryRecord[];
   }
@@ -309,6 +375,7 @@ export class LaborEngineRepository {
         tenantId: params.tenantId,
         status: "completed",
         startedAt: { gte: params.from, lte: params.to },
+        purpose: { not: "personal" },
       },
       select: { createdBy: true, durationMinutes: true, hourlyRate: true, startedAt: true },
       orderBy: { startedAt: "asc" },
@@ -357,8 +424,24 @@ export class LaborEngineRepository {
         status: "completed",
         startedAt: { gte: params.from, lte: params.to },
         durationMinutes: { gte: params.minMinutes },
+        purpose: { not: "personal" },
       },
       orderBy: { durationMinutes: "desc" },
+      take: 50,
+    }) as unknown as TimeEntryRecord[];
+  }
+
+  /** Entradas cuyo check-in de proximidad quedó lejos del sitio del job/proyecto (QualityGuard).
+   * Excluye "personal" igual que listLongEntries — ahí no hay sitio formal que respetar. */
+  async listOffSiteCheckIns(params: { tenantId: string; from: Date; to: Date; minDistanceMeters: number }): Promise<TimeEntryRecord[]> {
+    return this.prisma.timeEntry.findMany({
+      where: {
+        tenantId: params.tenantId,
+        startedAt: { gte: params.from, lte: params.to },
+        checkInDistanceMeters: { gte: params.minDistanceMeters },
+        purpose: { not: "personal" },
+      },
+      orderBy: { checkInDistanceMeters: "desc" },
       take: 50,
     }) as unknown as TimeEntryRecord[];
   }
@@ -403,6 +486,9 @@ export class LaborEngineRepository {
     name: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
+    locationSource?: "geocoded" | "manual";
     description?: string;
   }): Promise<FreeProjectRecord> {
     const now = new Date();
@@ -414,6 +500,9 @@ export class LaborEngineRepository {
         name: data.name,
         color: data.color ?? "#3B82F6",
         location: data.location ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
+        locationSource: data.locationSource ?? null,
         description: data.description ?? null,
         status: "active",
         createdAt: now,
@@ -433,6 +522,9 @@ export class LaborEngineRepository {
     name?: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
+    locationSource?: "geocoded" | "manual";
     description?: string;
     status?: string;
     convertedJobId?: string;

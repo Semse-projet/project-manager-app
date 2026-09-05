@@ -66,7 +66,7 @@ export function EvidenceChecklistCard({
         </span>
         <button onClick={load} disabled={loading}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 2 }}>
-          <RefreshCw size={10} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          <RefreshCw size={10} className={loading ? "animate-spin" : undefined} />
         </button>
       </div>
 
@@ -98,7 +98,6 @@ export function EvidenceChecklistCard({
           {data.required.length} item{data.required.length !== 1 ? "s" : ""} requerido{data.required.length !== 1 ? "s" : ""} · sin evidencia completa el pago queda bloqueado
         </div>
       </div>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

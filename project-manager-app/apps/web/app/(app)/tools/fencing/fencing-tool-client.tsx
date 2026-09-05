@@ -31,7 +31,7 @@ export function FencingToolClient({ section }: { section: FencingSection }) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerFt = useMemo(() => {
-    const matCost: Record<typeof input.material, number> = { wood: 15, vinyl: 25, metal: 20, composite: 30 };
+    const matCost: Record<FencingInput["material"], number> = { wood: 15, vinyl: 25, metal: 20, composite: 30 };
     const base = matCost[input.material];
     const heightFactor = { "3ft": 0.8, "4ft": 1, "6ft": 1.3, "8ft": 1.6 }[input.height];
     const styleFactor = { picket: 1, privacy: 1.2, ranch: 1.1, lattice: 1.4 }[input.style];

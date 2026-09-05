@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
@@ -85,7 +84,7 @@ export class NoticeGeneratorService {
     <p class="label">Project Information:</p>
     <p><strong>Project:</strong> {{projectName}}</p>
     <p><strong>Address:</strong> {{projectAddress}}</p>
-    <p><strong>Contract Amount:</strong> ${{contractAmount}}</p>
+    <p><strong>Contract Amount:</strong> \${{contractAmount}}</p>
     <p><strong>Work Start Date:</strong> {{projectStartDate}}</p>
   </div>
 
@@ -163,18 +162,31 @@ export class NoticeGeneratorService {
     this.logger.log(`Generating notice for calendar: ${lienCalendarId} / ${recipientType}`);
 
     // 1. Obtener LienCalendar
+    // Project itself has no name/address/startDate fields (checked against
+    // packages/db/prisma/schema.prisma 2026-08-27) — those live on its
+    // parent Job (title/location) and on Project itself as startAt.
     const calendar = await this.prisma.lienCalendar.findUniqueOrThrow({
       where: { id: lienCalendarId },
-      include: { project: true },
+      include: { project: { include: { escrow: true, job: true } } },
     });
+
+    if (!calendar.project.escrow) {
+      this.logger.warn(
+        `Project ${calendar.project.id} has no PaymentEscrow — notice will state contractAmount=0`,
+        { lienCalendarId, recipientType },
+      );
+    }
 
     // 2. Preparar datos
     const noticeData: NoticeData = {
       stateName: calendar.stateName,
-      projectName: calendar.project.name || 'Untitled Project',
-      projectAddress: calendar.project.address || 'Unknown Address',
-      contractAmount: 0, // TODO: obtener del escrow/contrato
-      projectStartDate: calendar.project.startDate?.toISOString().split('T')[0] || 'TBD',
+      projectName: calendar.project.job.title || 'Untitled Project',
+      projectAddress: calendar.project.job.location || 'Unknown Address',
+      // PaymentEscrow.totalAmount is the closest real figure to "contract
+      // amount" in the data model today (Contract itself has no amount
+      // field) — 0 only when the project genuinely has no escrow yet.
+      contractAmount: calendar.project.escrow?.totalAmount.toNumber() ?? 0,
+      projectStartDate: calendar.project.startAt?.toISOString().split('T')[0] || 'TBD',
       recipientType,
       generatedDate: new Date().toISOString().split('T')[0],
     };
@@ -183,6 +195,12 @@ export class NoticeGeneratorService {
     const noticeContent = await this.generateNoticeHtml(noticeData);
 
     // 4. Crear LienNotice en BD
+    // `sentVia` es requerido en el schema (no tiene @default) — faltaba
+    // aquí por completo, así que este create() habría sido rechazado por
+    // Prisma en tiempo de ejecución (encontrado quitando temporalmente
+    // @ts-nocheck y corriendo tsc 2026-08-27). El único canal de envío
+    // real que este módulo integra es Lob.com (correo certificado) —
+    // NoticeSendService no ofrece ninguna otra vía.
     const notice = await this.prisma.lienNotice.create({
       data: {
         lienCalendarId,
@@ -192,6 +210,7 @@ export class NoticeGeneratorService {
         generatedAt: new Date(),
         createdBy,
         status: 'DRAFT',
+        sentVia: 'certified_mail',
       },
     });
 

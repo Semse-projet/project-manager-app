@@ -4,14 +4,19 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
-  Logger,
   UnauthorizedException
 } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { EmailService } from "../../infrastructure/email/email.service.js";
+import { SemseLoggerService } from "../../infrastructure/observability/semse-logger.service.js";
 import { generateOpaqueToken, hashPassword, sha256, verifyPassword } from "../../common/auth-password.js";
 import { signToken, verifyToken } from "../../common/auth-token.js";
 import { type RequestContext, parseHeaderRequestContext } from "../../common/request-context.js";
+import {
+  isDisabledDemoIdentity,
+  isLegacyDemoLoginEnabled,
+  LEGACY_DEMO_ACCOUNTS,
+} from "./auth-demo-mode.js";
 import { AuthRepository } from "./auth.repository.js";
 
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
@@ -38,12 +43,11 @@ function extractBearerToken(headers: Record<string, unknown>): string | null {
 
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
-
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly auditService: AuditService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly semseLogger: SemseLoggerService
   ) {}
 
   private requireSecret(): string {
@@ -126,6 +130,10 @@ export class AuthService {
       throw new UnauthorizedException({ message: "Session-bound auth token required" });
     }
 
+    if (isDisabledDemoIdentity(claims.userId, claims.roles)) {
+      throw new UnauthorizedException({ message: "Demo sessions are disabled" });
+    }
+
     // Skip DB session lookup — JWT signature verification is sufficient for auth.
     // DB lookup was causing 15s hangs when Postgres is slow (Railway prod issue).
     // Token revocation relies on short TTLs. Session cleanup runs in the background.
@@ -163,7 +171,7 @@ export class AuthService {
       refreshTokenHash: sha256(refreshToken),
       accessExpiresAt,
       refreshExpiresAt,
-    }).catch((err) => this.logger.warn(`[auth] createSession failed for userId=${input.userId}: ${String(err?.message ?? err)}`));
+    }).catch((err) => this.semseLogger.warn("auth.createSession failed", { userId: input.userId, error: String(err?.message ?? err) }));
 
     // Audit is non-critical — fire-and-forget so it never blocks the token response
     void this.auditService.append({
@@ -198,6 +206,10 @@ export class AuthService {
     const session = await this.authRepository.findSessionByRefreshTokenHash(sha256(input.refreshToken));
     if (!session || session.refreshExpiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException("Invalid or expired refresh token");
+    }
+
+    if (isDisabledDemoIdentity(session.userId, session.roles)) {
+      throw new UnauthorizedException("Demo sessions are disabled");
     }
 
     const refreshToken = generateOpaqueToken();
@@ -253,6 +265,62 @@ export class AuthService {
     return {
       sessionId: input.sessionId,
       status: "revoked"
+    };
+  }
+
+  async changePassword(input: RequestContext & {
+    currentPassword: string;
+    newPassword: string;
+    requestId: string;
+  }) {
+    if (!input.sessionId) {
+      throw new BadRequestException("Session-bound authentication is required");
+    }
+
+    if (input.newPassword.length < 15 || input.newPassword.length > 128) {
+      throw new BadRequestException("New password must contain between 15 and 128 characters");
+    }
+
+    const user = await this.authRepository.findUserCredentialById(input.userId);
+    if (
+      !user ||
+      user.status !== "active" ||
+      !user.passwordHash ||
+      !verifyPassword(input.currentPassword, user.passwordHash)
+    ) {
+      throw new UnauthorizedException("Current password is incorrect");
+    }
+
+    if (verifyPassword(input.newPassword, user.passwordHash)) {
+      throw new BadRequestException("New password must be different from the current password");
+    }
+
+    const result = await this.authRepository.changePasswordAndRevokeOtherSessions({
+      userId: input.userId,
+      currentSessionId: input.sessionId,
+      expectedPasswordHash: user.passwordHash,
+      passwordHash: hashPassword(input.newPassword)
+    });
+
+    await this.auditService.append({
+      id: `aud_${Date.now()}`,
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      actorUserId: input.userId,
+      action: "user.password_changed",
+      entityType: "User",
+      entityId: input.userId,
+      requestId: input.requestId,
+      timestamp: new Date().toISOString(),
+      afterJson: {
+        revokedOtherSessions: result.revokedOtherSessions
+      }
+    });
+
+    return {
+      status: "updated" as const,
+      userId: input.userId,
+      revokedOtherSessions: result.revokedOtherSessions
     };
   }
 
@@ -350,9 +418,10 @@ export class AuthService {
     // send succeeded or not. Log loudly instead, so this is visible to ops
     // rather than repeating 0.32's original silent-failure shape.
     if (!emailResult.sent) {
-      this.logger.error(
-        `[auth] Password reset email failed to send for userId=${user.id}: ${emailResult.error ?? "unknown error"}`
-      );
+      this.semseLogger.error("auth.passwordResetEmail failed to send", {
+        userId: user.id,
+        error: emailResult.error ?? "unknown error",
+      });
     }
 
     return {
@@ -363,11 +432,30 @@ export class AuthService {
 
   async loginWithPassword(input: { email: string; password: string; requestId: string }) {
     const normalizedEmail = input.email.toLowerCase().trim();
+    const demoModeEnabled = isLegacyDemoLoginEnabled();
+
+    if (!demoModeEnabled && normalizedEmail in LEGACY_DEMO_ACCOUNTS) {
+      this.semseLogger.warn("auth.login failed", {
+        reason: "demo_account_disabled",
+        email: normalizedEmail,
+      });
+      throw new UnauthorizedException("Credenciales incorrectas");
+    }
+
     const user = await this.authRepository.findUserByEmail(normalizedEmail);
 
-    if (user?.passwordHash && user.status === "active" && verifyPassword(input.password, user.passwordHash)) {
+    if (!user) {
+      this.semseLogger.warn("auth.login failed", { reason: "no_such_user", email: normalizedEmail });
+    } else if (!user.passwordHash) {
+      this.semseLogger.warn("auth.login failed", { reason: "no_password_set", userId: user.id, email: normalizedEmail });
+    } else if (user.status !== "active") {
+      this.semseLogger.warn("auth.login failed", { reason: "inactive_status", status: user.status, userId: user.id, email: normalizedEmail });
+    } else if (!verifyPassword(input.password, user.passwordHash)) {
+      this.semseLogger.warn("auth.login failed", { reason: "password_mismatch", userId: user.id, email: normalizedEmail });
+    } else {
       const primaryMembership = user.memberships[0];
       if (!primaryMembership) {
+        this.semseLogger.warn("auth.login failed", { reason: "no_membership", userId: user.id, email: normalizedEmail });
         throw new UnauthorizedException("Usuario sin membresía activa");
       }
 
@@ -386,20 +474,11 @@ export class AuthService {
       });
     }
 
-    const demoModeEnabled =
-      process.env.SEMSE_DEMO_MODE === "true" || process.env.NODE_ENV !== "production";
-
     if (!demoModeEnabled) {
       throw new UnauthorizedException("Credenciales incorrectas");
     }
 
-    const DEMO_ACCOUNTS: Record<string, { userId: string; tenantId: string; orgId: string; roles: string[] }> = {
-      "client@demo.semse": { userId: "usr_client_001", tenantId: "tenant_default", orgId: "org_client_001", roles: ["CLIENT"] },
-      "worker@demo.semse": { userId: "usr_worker_001", tenantId: "tenant_default", orgId: "org_pro_001", roles: ["PRO"] },
-      "admin@demo.semse":  { userId: "usr_admin_001",  tenantId: "tenant_default", orgId: "org_admin_001", roles: ["OPS_ADMIN"] },
-    };
-
-    const account = DEMO_ACCOUNTS[normalizedEmail];
+    const account = LEGACY_DEMO_ACCOUNTS[normalizedEmail];
     if (!account || input.password !== "demo1234") {
       throw new UnauthorizedException("Credenciales incorrectas");
     }

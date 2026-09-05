@@ -49,11 +49,29 @@ type UnverifiedWorker = {
   profile?: { displayName?: string | null } | null;
 };
 
+// AUDIT_REMEDIATION_PLAN.md 2.28 — a worker's own explicit "Verificar" request
+// from /worker/profile, queued for review here (distinct from "Workers sin
+// verificar" below, which lists every unverified worker whether or not they
+// asked — an admin can act on either).
+type VerificationRequest = {
+  userId: string;
+  verificationType: string;
+  status: string;
+  requestedAt?: string;
+};
+
+const VERIFICATION_TYPE_LABEL: Record<string, string> = {
+  email: "Email",
+  phone: "Teléfono",
+  id_document: "Documento de identidad",
+  background_check: "Antecedentes",
+};
+
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   submitted: { label: "Nueva", color: "#818cf8", bg: "rgba(99,102,241,.12)" },
   reviewing: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
-  approved: { label: "Aprobada", color: "#10b981", bg: "rgba(16,185,129,.12)" },
-  rejected: { label: "Rechazada", color: "#ef4444", bg: "rgba(239,68,68,.12)" },
+  approved: { label: "Aprobada", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
+  rejected: { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
 };
 
 function statusMeta(status: string) {
@@ -102,7 +120,7 @@ function ApplicationRow({ application, onReview, busy }: {
               {application.yearsExperience != null ? ` · ${application.yearsExperience} años` : ""}
             </span>
             {application.jobId ? (
-              <span style={{ fontSize: 10, fontWeight: 700, color: "#3b82f6", display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: "var(--brand)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <Briefcase size={10} /> vacante {application.jobId.slice(0, 10)}…
               </span>
             ) : (
@@ -115,7 +133,7 @@ function ApplicationRow({ application, onReview, busy }: {
             {application.city ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><MapPin size={11} /> {application.city}</span> : null}
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Clock size={11} /> {formatDate(application.createdAt)}</span>
             {application.proposedRate != null ? (
-              <span style={{ fontWeight: 700, color: "#10b981" }}>Propone: ${Number(application.proposedRate).toLocaleString("en-US")}</span>
+              <span style={{ fontWeight: 700, color: "var(--ok)" }}>Propone: ${Number(application.proposedRate).toLocaleString("en-US")}</span>
             ) : null}
           </div>
         </div>
@@ -155,7 +173,7 @@ function ApplicationRow({ application, onReview, busy }: {
             type="button"
             disabled={busy}
             onClick={() => { if (window.confirm(`¿Aprobar la postulación de ${application.email}? Esto la admite al marketplace de profesionales.`)) void onReview(application.id, "approved", notes.trim() || undefined); }}
-            style={actionButton("#10b981")}
+            style={actionButton("var(--ok)")}
           >
             <CheckCircle2 size={12} /> Aprobar
           </button>
@@ -163,7 +181,7 @@ function ApplicationRow({ application, onReview, busy }: {
             type="button"
             disabled={busy}
             onClick={() => { if (window.confirm(`¿Rechazar la postulación de ${application.email}? Esto la marca como resuelta de forma terminal.`)) void onReview(application.id, "rejected", notes.trim() || undefined); }}
-            style={actionButton("#ef4444")}
+            style={actionButton("var(--error)")}
           >
             <XCircle size={12} /> Rechazar
           </button>
@@ -196,6 +214,7 @@ export default function WorkerApplicationsAdminPage() {
   const [stats, setStats] = useState<ApplicationStats | null>(null);
   const [verification, setVerification] = useState<VerificationStats | null>(null);
   const [unverified, setUnverified] = useState<UnverifiedWorker[]>([]);
+  const [verificationRequests, setVerificationRequests] = useState<VerificationRequest[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -207,18 +226,20 @@ export default function WorkerApplicationsAdminPage() {
     setError(null);
     try {
       const query = statusFilter ? `?status=${encodeURIComponent(statusFilter)}&limit=100` : "?limit=100";
-      const [apps, appStats, verifStats, unverifiedList] = await Promise.all([
+      const [apps, appStats, verifStats, unverifiedList, requests] = await Promise.all([
         fetchJson<WorkerApplication[]>(`/api/semse/workers/applications${query}`),
         fetchJson<ApplicationStats>("/api/semse/workers/applications/stats").catch(() => null),
         fetchJson<VerificationStats>("/api/semse/workers/verification/stats").catch(() => null),
         fetchJson<{ count: number; workers: UnverifiedWorker[] }>("/api/semse/workers/unverified")
           .then((data) => data.workers)
           .catch(() => [] as UnverifiedWorker[]),
+        fetchJson<VerificationRequest[]>("/api/semse/users/verify-requests").catch(() => [] as VerificationRequest[]),
       ]);
       setApplications(apps);
       setStats(appStats);
       setVerification(verifStats);
       setUnverified(unverifiedList);
+      setVerificationRequests(requests);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudieron cargar las aplicaciones.");
     } finally {
@@ -249,6 +270,25 @@ export default function WorkerApplicationsAdminPage() {
     }
   }, [load]);
 
+  const handleReviewRequest = useCallback(async (userId: string, verificationType: string, decision: "approved" | "rejected") => {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await fetchJson(`/api/semse/users/${encodeURIComponent(userId)}/verify-request/${encodeURIComponent(verificationType)}/review`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      setNotice(decision === "approved" ? "Solicitud aprobada — el worker quedó verificado." : "Solicitud rechazada.");
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo revisar la solicitud.");
+    } finally {
+      setBusy(false);
+    }
+  }, [load]);
+
   const handleVerify = useCallback(async (workerId: string) => {
     setBusy(true);
     setError(null);
@@ -270,14 +310,14 @@ export default function WorkerApplicationsAdminPage() {
         title="Workers — Aplicaciones y Verificación"
         subtitle="Aplicaciones públicas de /worker/apply y verificación de identidad de la red"
         icon={UserPlus}
-        iconColor="#10b981"
+        iconColor="var(--ok)"
         iconBg="rgba(16,185,129,.15)"
         backHref="/admin/trust"
         backLabel="Trust Scores"
         actions={
           <button onClick={() => void load()} disabled={loading}
             style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-            <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
           </button>
         }
       />
@@ -287,9 +327,9 @@ export default function WorkerApplicationsAdminPage() {
         {[
           { label: "Nuevas", value: stats?.submitted ?? "—", icon: UserPlus, color: "#818cf8" },
           { label: "En revisión", value: stats?.reviewing ?? "—", icon: Clock, color: "#f59e0b" },
-          { label: "Aprobadas", value: stats?.approved ?? "—", icon: CheckCircle2, color: "#10b981" },
-          { label: "Rechazadas", value: stats?.rejected ?? "—", icon: XCircle, color: "#ef4444" },
-          { label: "Workers verificados", value: verification ? `${verification.verifiedCount}/${verification.totalWorkers}` : "—", icon: BadgeCheck, color: "#3b82f6" },
+          { label: "Aprobadas", value: stats?.approved ?? "—", icon: CheckCircle2, color: "var(--ok)" },
+          { label: "Rechazadas", value: stats?.rejected ?? "—", icon: XCircle, color: "var(--error)" },
+          { label: "Workers verificados", value: verification ? `${verification.verifiedCount}/${verification.totalWorkers}` : "—", icon: BadgeCheck, color: "var(--brand)" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} style={{ padding: "14px 16px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -305,7 +345,7 @@ export default function WorkerApplicationsAdminPage() {
       <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
         {[["", "Todas"], ["submitted", "Nuevas"], ["reviewing", "En revisión"], ["approved", "Aprobadas"], ["rejected", "Rechazadas"]].map(([value, label]) => (
           <button key={value} onClick={() => setStatusFilter(value)}
-            style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${statusFilter === value ? "#10b981" : "var(--border)"}`, background: statusFilter === value ? "rgba(16,185,129,.15)" : "rgba(255,255,255,.03)", color: statusFilter === value ? "#10b981" : "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+            style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${statusFilter === value ? "var(--ok)" : "var(--border)"}`, background: statusFilter === value ? "rgba(16,185,129,.15)" : "rgba(255,255,255,.03)", color: statusFilter === value ? "var(--ok)" : "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
             {label}
           </button>
         ))}
@@ -338,10 +378,50 @@ export default function WorkerApplicationsAdminPage() {
         )}
       </div>
 
+      {/* Verification requests — explicit "Verificar" requests from /worker/profile (2.28) */}
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", marginBottom: 20 }}>
+        <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+          <UserCheck size={14} color="#f59e0b" />
+          <span style={{ fontSize: 12, fontWeight: 800 }}>Solicitudes de verificación ({verificationRequests.length})</span>
+        </div>
+        {verificationRequests.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
+            Sin solicitudes pendientes.
+          </div>
+        ) : (
+          verificationRequests.map((req) => (
+            <div key={`${req.userId}-${req.verificationType}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 18px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                  {VERIFICATION_TYPE_LABEL[req.verificationType] ?? req.verificationType}
+                </p>
+                <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>{req.userId}</p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleReviewRequest(req.userId, req.verificationType, "approved")}
+                style={actionButton("var(--ok)")}
+              >
+                <CheckCircle2 size={12} /> Aprobar
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleReviewRequest(req.userId, req.verificationType, "rejected")}
+                style={actionButton("var(--error)")}
+              >
+                <XCircle size={12} /> Rechazar
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* Unverified workers */}
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden" }}>
         <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
-          <ShieldCheck size={14} color="#3b82f6" />
+          <ShieldCheck size={14} color="var(--brand)" />
           <span style={{ fontSize: 12, fontWeight: 800 }}>Workers sin verificar ({unverified.length})</span>
           {verification ? (
             <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--muted)" }}>
@@ -367,7 +447,7 @@ export default function WorkerApplicationsAdminPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => void handleVerify(worker.id)}
-                  style={actionButton("#3b82f6")}
+                  style={actionButton("var(--brand)")}
                 >
                   <UserCheck size={12} /> Iniciar verificación
                 </button>
@@ -377,7 +457,6 @@ export default function WorkerApplicationsAdminPage() {
         )}
       </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

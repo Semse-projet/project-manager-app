@@ -123,7 +123,7 @@ export default function WorkerJobsPage() {
                     minWidth: "18px", height: "18px", padding: "0 4px",
                     borderRadius: "9px",
                     background: tab === label ? "rgba(255,255,255,.25)" : label === "Propuestas" ? "rgba(251,191,36,.2)" : "rgba(16,185,129,.15)",
-                    color: tab === label ? "#fff" : label === "Propuestas" ? "#fbbf24" : "#10b981",
+                    color: tab === label ? "#fff" : label === "Propuestas" ? "#fbbf24" : "var(--ok)",
                     fontSize: "10px", fontWeight: 800,
                   }}>
                     {count}
@@ -157,7 +157,7 @@ export default function WorkerJobsPage() {
           ))}
         </div>
       ) : apiError ? (
-        <div style={{ padding: "16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "#ef4444", fontSize: "13px" }}>
+        <div style={{ padding: "16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "var(--error)", fontSize: "13px" }}>
           {apiError}
         </div>
       ) : filtered.length === 0 ? (
@@ -204,7 +204,7 @@ export default function WorkerJobsPage() {
                       &quot;{bid.note}&quot;
                     </p>
                   )}
-                  <p style={{ fontSize: "11px", marginTop: "4px", color: isPending ? "#fbbf24" : "#ef4444", fontWeight: 600 }}>
+                  <p style={{ fontSize: "11px", marginTop: "4px", color: isPending ? "#fbbf24" : "var(--error)", fontWeight: 600 }}>
                     {isPending
                       ? "▶ Esperando decisión del cliente"
                       : "✕ El cliente eligió otra propuesta"}
@@ -212,7 +212,7 @@ export default function WorkerJobsPage() {
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: "3px", justifyContent: "flex-end" }}>
-                    {isPending ? <Clock size={14} style={{ color: "#fbbf24" }} /> : <XCircle size={14} style={{ color: "#ef4444" }} />}
+                    {isPending ? <Clock size={14} style={{ color: "#fbbf24" }} /> : <XCircle size={14} style={{ color: "var(--error)" }} />}
                     {bid.amount.toLocaleString()}
                   </p>
                   <p style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{bid.etaDays} días</p>
@@ -237,7 +237,7 @@ export default function WorkerJobsPage() {
                   borderRadius: "12px", textDecoration: "none",
                   transition: "border-color 0.15s",
                 }}
-                onMouseOver={e => (e.currentTarget.style.borderColor = "#10b981")}
+                onMouseOver={e => (e.currentTarget.style.borderColor = "var(--ok)")}
                 onMouseOut={e => (e.currentTarget.style.borderColor = "var(--border)")}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>

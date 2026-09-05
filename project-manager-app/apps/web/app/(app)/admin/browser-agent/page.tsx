@@ -114,7 +114,7 @@ export default function BrowserAgentPage() {
         title="Sense Browser Agent"
         subtitle="Inspección web visual y técnica impulsada por Chromium y AI"
         icon={Globe}
-        iconColor="#3b82f6"
+        iconColor="var(--brand)"
         iconBg="rgba(59,130,246,.12)"
         panel={true}
       />

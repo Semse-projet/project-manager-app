@@ -10,7 +10,7 @@ import {
   StreamableFile,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import type { IncomingMessage } from "node:http";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -191,7 +191,7 @@ export class UploadsController {
   @RequirePermissions("evidence:write")
   async putFile(
     @Param("*") key: string,
-    @Req() req: IncomingMessage & { headers: Record<string, string | string[] | undefined> },
+    @Req() req: FastifyRequest,
   ) {
     const rawContentType = req.headers["content-type"] ?? "application/octet-stream";
     const contentType = Array.isArray(rawContentType) ? rawContentType[0] : rawContentType;
@@ -215,7 +215,7 @@ export class UploadsController {
     }
     const stored = await this.storageService.store({
       key: decodedKey,
-      stream: validateUploadStream(req, baseType),
+      stream: validateUploadStream(req.raw, baseType),
       contentType: baseType,
     });
 
@@ -237,7 +237,7 @@ export class UploadsController {
   @Get("files/*")
   async getFile(
     @Param("*") key: string,
-    @Res({ passthrough: true }) res: { set(headers: Record<string, string>): void },
+    @Res({ passthrough: true }) res: FastifyReply,
   ): Promise<StreamableFile> {
     let decodedKey: string;
     try {
@@ -267,7 +267,7 @@ export class UploadsController {
 
     const inlineTypes = contentType.startsWith("image/") || contentType.startsWith("video/") || contentType === "application/pdf";
 
-    res.set({
+    res.headers({
       "Content-Type": contentType,
       "Cache-Control": "private, max-age=3600",
       "Content-Disposition": `${inlineTypes ? "inline" : "attachment"}; filename="${path.basename(decodedKey).replace(/"/g, "")}"`,

@@ -110,6 +110,32 @@ export const prometeoToolExecutionResultSchema = z.object({
   completedAt: z.string().trim().min(1).optional(),
 });
 
+// docs/specs/prometeo/tool-result-multimodal.spec.md — ToolResultPart is
+// additive: tools that don't opt in keep returning `unknown` as `output.data`
+// exactly as before. Only `vision.analyze_image` adopts it today.
+export const toolResultPartSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), text: z.string() }),
+  z.object({ type: z.literal("json"), data: z.unknown() }),
+  z.object({
+    type: z.literal("image"),
+    url: z.string().trim().min(1),
+    mimeType: z.string().trim().min(1),
+    metadata: z.record(z.unknown()).optional(),
+  }),
+  z.object({ type: z.literal("pdf"), url: z.string().trim().min(1), filename: z.string().trim().min(1) }),
+  z.object({ type: z.literal("csv"), url: z.string().trim().min(1), filename: z.string().trim().min(1) }),
+  z.object({ type: z.literal("annotation"), targetId: z.string().trim().min(1), data: z.unknown() }),
+  z.object({ type: z.literal("internal_link"), entityType: z.string().trim().min(1), entityId: z.string().trim().min(1) }),
+  z.object({ type: z.literal("approval_request"), approvalId: z.string().trim().min(1) }),
+]);
+
+export const toolResultSchema = z.object({
+  parts: z.array(toolResultPartSchema),
+  // Backward compatibility: the plain JSON a tool returned before adopting
+  // ToolResult stays available under this key, unchanged.
+  legacyJson: z.unknown().optional(),
+});
+
 export const prometeoMissionStepSchema = z.object({
   id: z.string().trim().min(1),
   label: z.string().trim().min(1),
@@ -224,6 +250,8 @@ export type PrometeoRequest = z.infer<typeof prometeoRequestSchema>;
 export type PrometeoResponseBlock = z.infer<typeof prometeoResponseBlockSchema>;
 export type PrometeoProposedAction = z.infer<typeof prometeoProposedActionSchema>;
 export type PrometeoToolExecutionResult = z.infer<typeof prometeoToolExecutionResultSchema>;
+export type ToolResultPart = z.infer<typeof toolResultPartSchema>;
+export type ToolResult = z.infer<typeof toolResultSchema>;
 export type PrometeoMissionStep = z.infer<typeof prometeoMissionStepSchema>;
 export type PrometeoMissionProgress = z.infer<typeof prometeoMissionProgressSchema>;
 export type PrometeoMissionState = z.infer<typeof prometeoMissionStateSchema>;

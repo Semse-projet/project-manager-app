@@ -1,6 +1,14 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
 import { LaborEngineRepository } from "./labor-engine.repository.js";
+import { geocodeAddressSafe } from "../../integrations/google-maps.js";
+import { distanceMeters, isValidCoordinate } from "../../integrations/geo-distance.js";
+import { AdminService } from "../admin/admin.service.js";
 
+// Calendario lunes-domingo / día 1-fin de mes. Usado a propósito por los KPIs
+// que se etiquetan como "Esta semana"/"Este mes"/"Semana actual" y por la
+// navegación con `weekOffset` (Reportes) — ahí el corte calendario es correcto
+// y esperado. NO usar para nada etiquetado como "Últimos N días": ver
+// rollingWindowBounds() más abajo (docs/AUDIT_REMEDIATION_PLAN.md 2.12).
 function weekBounds(offset = 0): { from: Date; to: Date } {
   const now = new Date();
   const day = now.getDay(); // 0 = Sun
@@ -20,9 +28,35 @@ function monthBounds(offset = 0): { from: Date; to: Date } {
   return { from, to };
 }
 
+/**
+ * Ventana móvil real de `days` días terminando ahora — NO alineada a
+ * calendario. Usada por `listEntries` cuando `range: "week"|"month"` porque
+ * la UI etiqueta esos filtros como "Últimos 7 días"/"Últimos 30 días"
+ * (page.tsx, RegistrosTab.tsx) y también alimenta el contexto del chat de
+ * Cronos (labor-chat.service.ts). Antes esto reutilizaba weekBounds/monthBounds
+ * (calendario lunes-domingo / día 1-fin de mes), así que el día 1-2 de cada
+ * mes "Últimos 30 días" devolvía solo 1-2 días reales de datos.
+ * Ver docs/AUDIT_REMEDIATION_PLAN.md 2.12.
+ */
+function rollingWindowBounds(days: number): { from: Date; to: Date } {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+  return { from, to };
+}
+
 @Injectable()
 export class LaborEngineService {
-  constructor(private readonly repo: LaborEngineRepository) {}
+  constructor(
+    private readonly repo: LaborEngineRepository,
+    private readonly adminService: AdminService,
+  ) {}
+
+  /** Per-org proximity check-in radius/cooldown (falls back to the defaults
+   * baked into adminSettingsSchema when the tenant hasn't customized them). */
+  async getProximityConfig(tenantId: string): Promise<{ radiusMeters: number; cooldownMinutes: number }> {
+    const settings = await this.adminService.getSettings(tenantId);
+    return settings.proximity;
+  }
 
   // ── FreeProject ────────────────────────────────────────────────────────────
 
@@ -32,10 +66,21 @@ export class LaborEngineService {
     name: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
     description?: string;
   }) {
     if (!params.name?.trim()) throw new BadRequestException("name is required");
-    return this.repo.createFreeProject(params);
+    const coords = await this.resolveLocationCoordinates(params.location, params.latitude, params.longitude);
+    return this.repo.createFreeProject({
+      tenantId: params.tenantId,
+      createdBy: params.createdBy,
+      name: params.name,
+      color: params.color,
+      location: params.location,
+      description: params.description,
+      ...coords,
+    });
   }
 
   async listFreeProjects(tenantId: string, createdBy: string) {
@@ -46,10 +91,49 @@ export class LaborEngineService {
     name?: string;
     color?: string;
     location?: string;
+    latitude?: number;
+    longitude?: number;
     description?: string;
     status?: string;
   }) {
-    return this.repo.updateFreeProject(id, tenantId, data);
+    // "converted" solo puede llegar por el flujo dedicado POST /free-projects/:id/convert
+    // (que exige jobId y setea convertedJobId de forma atómica). Este PATCH genérico no
+    // acepta convertedJobId como input, así que aceptar status:"converted" aquí dejaría
+    // el proyecto marcado "convertido" sin ningún job real de destino — la UI lo seguiría
+    // renderizando como "Convertido a job" sin referencia real.
+    // Ver docs/AUDIT_REMEDIATION_PLAN.md 2.16.
+    if (data.status === "converted") {
+      throw new BadRequestException(
+        "status \"converted\" cannot be set directly. Use POST /free-projects/:id/convert instead.",
+      );
+    }
+    const coords = await this.resolveLocationCoordinates(data.location, data.latitude, data.longitude);
+    return this.repo.updateFreeProject(id, tenantId, {
+      ...(data.name !== undefined && { name: data.name }),
+      ...(data.color !== undefined && { color: data.color }),
+      ...(data.location !== undefined && { location: data.location }),
+      ...(data.description !== undefined && { description: data.description }),
+      ...(data.status !== undefined && { status: data.status }),
+      ...coords,
+    });
+  }
+
+  /** Best-effort: manual lat/lng override wins if valid, else geocode `location`. Never throws. */
+  private async resolveLocationCoordinates(
+    location: string | undefined,
+    latitude: number | undefined,
+    longitude: number | undefined,
+  ): Promise<{ latitude?: number; longitude?: number; locationSource?: "geocoded" | "manual" }> {
+    if (latitude !== undefined && longitude !== undefined && isValidCoordinate(latitude, longitude)) {
+      return { latitude, longitude, locationSource: "manual" };
+    }
+    if (location) {
+      const geocoded = await geocodeAddressSafe(location);
+      if (geocoded?.latitude !== undefined && geocoded.longitude !== undefined) {
+        return { latitude: geocoded.latitude, longitude: geocoded.longitude, locationSource: "geocoded" };
+      }
+    }
+    return {};
   }
 
   async archiveFreeProject(id: string, tenantId: string) {
@@ -70,6 +154,7 @@ export class LaborEngineService {
     jobId?: string;
     freeProjectId?: string;
     notes?: string;
+    checkIn?: { latitude: number; longitude: number; method?: string };
     contextEntityType?: string;
     contextEntityId?: string;
     clientEventId?: string;
@@ -87,7 +172,84 @@ export class LaborEngineService {
     if (!params.jobId && !params.freeProjectId && params.purpose === "job_linked") {
       throw new BadRequestException("job_linked purpose requires jobId or freeProjectId");
     }
-    return this.repo.startRealtimeEntry(params);
+    await this.assertOwnership(params);
+    const checkInFields = await this.resolveCheckIn(params.tenantId, params.jobId, params.freeProjectId, params.checkIn);
+    return this.repo.startRealtimeEntry({
+      tenantId: params.tenantId,
+      orgId: params.orgId,
+      createdBy: params.createdBy,
+      purpose: params.purpose,
+      jobId: params.jobId,
+      freeProjectId: params.freeProjectId,
+      notes: params.notes,
+      contextEntityType: params.contextEntityType,
+      contextEntityId: params.contextEntityId,
+      clientEventId: params.clientEventId,
+      ...checkInFields,
+    });
+  }
+
+  /** Never blocks the timer/entry on distance — GPS is unreliable indoors. Only records
+   * checkIn coordinates + distance to the site (when the site itself has coordinates) for
+   * auditing/QualityGuard. Distance is omitted (not zero) when the site has no coordinates. */
+  private async resolveCheckIn(
+    tenantId: string,
+    jobId: string | undefined,
+    freeProjectId: string | undefined,
+    checkIn: { latitude: number; longitude: number; method?: string } | undefined,
+  ): Promise<{
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkInDistanceMeters?: number;
+    checkInMethod?: string;
+  }> {
+    if (!checkIn || !isValidCoordinate(checkIn.latitude, checkIn.longitude)) {
+      return {};
+    }
+    const site = jobId
+      ? await this.repo.getJobCoordinates(tenantId, jobId)
+      : freeProjectId
+        ? await this.repo.getFreeProjectCoordinates(tenantId, freeProjectId)
+        : null;
+    return {
+      checkInLatitude: checkIn.latitude,
+      checkInLongitude: checkIn.longitude,
+      checkInMethod: checkIn.method,
+      ...(site && { checkInDistanceMeters: Math.round(distanceMeters(checkIn, site)) }),
+    };
+  }
+
+  /** A worker may only log time against a job they're actually assigned to, or a free
+   * project they created themselves — jobId/freeProjectId are client-supplied and must
+   * not be trusted as-is (see AUDIT_REMEDIATION_PLAN.md 2.9). */
+  private async assertOwnership(params: { tenantId: string; orgId: string; createdBy: string; jobId?: string; freeProjectId?: string }) {
+    if (params.jobId) {
+      const assigned = await this.repo.isJobAssignedToWorker(params.tenantId, params.orgId, params.jobId, params.createdBy);
+      if (!assigned) throw new ForbiddenException("This job is not assigned to you.");
+    }
+    if (params.freeProjectId) {
+      const owned = await this.repo.isFreeProjectOwnedByWorker(params.tenantId, params.freeProjectId, params.createdBy);
+      if (!owned) throw new ForbiddenException("This project does not belong to you.");
+    }
+  }
+
+  /** hourlyRate/currency are client-supplied and feed `knownCost` on the admin
+   * team-cost KPI (getTeamSummary) unchecked — reject a negative or absurd
+   * rate here instead of trusting whatever the worker types in.
+   * See AUDIT_REMEDIATION_PLAN.md 2.10. */
+  private assertValidRate(hourlyRate?: number, currency?: string) {
+    if (hourlyRate !== undefined) {
+      const MAX_HOURLY_RATE = 100_000;
+      if (!Number.isFinite(hourlyRate) || hourlyRate < 0) {
+        throw new BadRequestException("hourlyRate must be a non-negative number");
+      }
+      if (hourlyRate > MAX_HOURLY_RATE) {
+        throw new BadRequestException(`hourlyRate must not exceed ${MAX_HOURLY_RATE}`);
+      }
+    }
+    if (currency !== undefined && !/^[A-Z]{3}$/.test(currency)) {
+      throw new BadRequestException("currency must be a 3-letter ISO code (e.g. USD, MXN)");
+    }
   }
 
   async pauseTimer(id: string, tenantId: string, createdBy: string) {
@@ -134,6 +296,7 @@ export class LaborEngineService {
     hourlyRate?: number;
     currency?: string;
     location?: string;
+    checkIn?: { latitude: number; longitude: number };
     notes?: string;
     contextEntityType?: string;
     contextEntityId?: string;
@@ -164,6 +327,14 @@ export class LaborEngineService {
         throw new BadRequestException("endTime must be after startTime");
       }
     }
+    this.assertValidRate(params.hourlyRate, params.currency);
+    await this.assertOwnership(params);
+    const checkInFields = await this.resolveCheckIn(
+      params.tenantId,
+      params.jobId,
+      params.freeProjectId,
+      params.checkIn ? { ...params.checkIn, method: "manual_tagged" } : undefined,
+    );
     return this.repo.createTimeEntry({
       tenantId: params.tenantId,
       orgId: params.orgId,
@@ -180,6 +351,7 @@ export class LaborEngineService {
       location: params.location,
       notes: params.notes,
       clientEventId: params.clientEventId,
+      ...checkInFields,
     });
   }
 
@@ -193,14 +365,24 @@ export class LaborEngineService {
     purpose?: string;
     range?: "week" | "month" | "all";
     limit?: number;
+    /**
+     * Cuando se manda (p. ej. Reportes navegando semanas con las flechas),
+     * ancla explícitamente a la semana calendario N atrás (weekBounds),
+     * igual que fetchWeeklySummary — así los registros que ve Reportes para
+     * "hace 3 semanas" son los reales de esa semana, no una ventana móvil
+     * relativa a hoy. Ver docs/AUDIT_REMEDIATION_PLAN.md 2.13.
+     */
+    weekOffset?: number;
   }) {
     let from: Date | undefined;
     let to: Date | undefined;
 
-    if (params.range === "week") {
-      ({ from, to } = weekBounds());
+    if (params.weekOffset != null) {
+      ({ from, to } = weekBounds(params.weekOffset));
+    } else if (params.range === "week") {
+      ({ from, to } = rollingWindowBounds(7));
     } else if (params.range === "month") {
-      ({ from, to } = monthBounds());
+      ({ from, to } = rollingWindowBounds(30));
     }
 
     return this.repo.listTimeEntries({ ...params, from, to, limit: params.limit ?? 50 });
@@ -245,15 +427,16 @@ export class LaborEngineService {
 
   async getAdminOverview(tenantId: string) {
     const { from, to } = weekBounds();
-    const [activeTimers, team, longEntries] = await Promise.all([
+    const [activeTimers, team, longEntries, offSiteCheckIns] = await Promise.all([
       this.repo.listActiveEntriesForTenant(tenantId),
       this.repo.getTeamSummary({ tenantId, from, to }),
       this.repo.listLongEntries({ tenantId, from, to, minMinutes: QUALITY_GUARD.longEntryMinutes }),
+      this.repo.listOffSiteCheckIns({ tenantId, from, to, minDistanceMeters: QUALITY_GUARD.farFromSiteMeters }),
     ]);
 
     const now = Date.now();
     const alerts: Array<{
-      type: "stale_timer" | "overtime" | "long_entry";
+      type: "stale_timer" | "overtime" | "long_entry" | "off_site_checkin";
       severity: "warning" | "critical";
       workerId: string;
       entryId?: string;
@@ -296,6 +479,18 @@ export class LaborEngineService {
       });
     }
 
+    for (const entry of offSiteCheckIns) {
+      const distanceMeters = entry.checkInDistanceMeters ?? 0;
+      const distanceLabel = distanceMeters >= 1000 ? `${(distanceMeters / 1000).toFixed(1)}km` : `${distanceMeters}m`;
+      alerts.push({
+        type: "off_site_checkin",
+        severity: distanceMeters >= QUALITY_GUARD.farFromSiteMeters * 2 ? "critical" : "warning",
+        workerId: entry.createdBy,
+        entryId: entry.id,
+        detail: `Check-in a ${distanceLabel} del sitio del job/proyecto — revisa si corresponde.`,
+      });
+    }
+
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
       activeTimers,
@@ -311,4 +506,7 @@ const QUALITY_GUARD = {
   staleTimerHours: 12,
   overtimeWeekMinutes: 48 * 60,
   longEntryMinutes: 12 * 60,
+  /** Meters — well past GPS noise around the 150m proximity-check-in radius,
+   * so this flags a check-in that plausibly happened somewhere else entirely. */
+  farFromSiteMeters: 500,
 };

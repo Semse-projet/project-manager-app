@@ -55,7 +55,7 @@ export function ConcreteToolClient({ section }: ConcreteToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const baseCost: Record<typeof input.type, number> = {
+    const baseCost: Record<ConcreteInput["type"], number> = {
       standard: 4.5, reinforced: 6.5, colored: 7.0, stamped: 12.0, polished: 15.0,
     };
     const base = baseCost[input.type];

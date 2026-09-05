@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Queue, type QueueOptions } from "bullmq";
 import { Redis } from "ioredis";
 import { SEMSE_DEVELOPER_RUNTIME_QUEUE } from "@semse/shared";
+import { buildQueueTracePayload } from "../observability/request-context.store.js";
 
 export type DeveloperRuntimeQueueInput = {
   sessionId: string;
@@ -38,7 +39,7 @@ export class DeveloperRuntimeQueueService implements OnModuleInit, OnModuleDestr
       return;
     }
 
-    await this.queue.add("developer-runtime.execute", input, {
+    await this.queue.add("developer-runtime.execute", { ...input, ...buildQueueTracePayload() }, {
       jobId: toQueueJobId(input),
     });
   }

@@ -8,7 +8,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
-import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Inbox, Scale, Users } from "lucide-react";
+import Image from "next/image";
+import { Search, ShieldCheck, Star, Building2, MoreHorizontal, RefreshCw, Scale, Users } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { Pagination } from "../../../components/admin/Pagination";
@@ -49,13 +50,22 @@ const STATUS_CONFIG: Record<UserStatus, { variant: "success" | "warning" | "erro
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string }> = {
   client: { label: "Cliente",      color: "var(--brand)" },
-  worker: { label: "Profesional",  color: "#10b981"      },
+  worker: { label: "Profesional",  color: "var(--ok)"      },
   admin:  { label: "Operaciones",  color: "#f59e0b"      },
 };
 
+// Todos los IDs de este schema son cuid() de Prisma: "c" + ~24 caracteres
+// alfanuméricos en minúscula, sin espacios. Si un `org.name` calza con ese
+// patrón es casi seguro un dato corrupto/de seed (el ID quedó guardado donde
+// debía ir el nombre real), no un nombre de organización legítimo — mostrarlo
+// tal cual es exactamente el bug de "IDs crudos en vez de nombres" (ver
+// AUDIT_REMEDIATION_PLAN.md 3.46/G-ADM-05). Mejor caer al nombre derivado del
+// email que mostrar el ID.
+const RAW_CUID_PATTERN = /^c[a-z0-9]{20,}$/;
+
 function deriveDisplayName(user: UserView, memberships: UserMembershipView[]): string {
   const primaryOrgName = memberships[0]?.org?.name?.trim();
-  if (primaryOrgName) {
+  if (primaryOrgName && !RAW_CUID_PATTERN.test(primaryOrgName)) {
     return primaryOrgName;
   }
 
@@ -236,7 +246,7 @@ export default function AdminUsersPage() {
               style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
               title="Recargar"
             >
-              <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
             </button>
           </>
         }
@@ -246,9 +256,9 @@ export default function AdminUsersPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "20px" }}>
         {[
           { label: "Total usuarios",         value: users.length,                                                           color: "var(--brand)" },
-          { label: "Clientes activos",        value: users.filter(u => u.role === "client" && u.status === "active").length, color: "#3b82f6" },
-          { label: "Profesionales activos",   value: users.filter(u => u.role === "worker" && u.status === "active").length, color: "#10b981" },
-          { label: "Pendientes verificación", value: pendingVerification, color: pendingVerification > 0 ? "#f59e0b" : "#10b981" },
+          { label: "Clientes activos",        value: users.filter(u => u.role === "client" && u.status === "active").length, color: "var(--brand)" },
+          { label: "Profesionales activos",   value: users.filter(u => u.role === "worker" && u.status === "active").length, color: "var(--ok)" },
+          { label: "Pendientes verificación", value: pendingVerification, color: pendingVerification > 0 ? "#f59e0b" : "var(--ok)" },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...card, padding: "12px 14px" }}>
             <p style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>{kpi.label.toUpperCase()}</p>
@@ -305,7 +315,7 @@ export default function AdminUsersPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ ...card, padding: "48px 24px", textAlign: "center" }}>
-          <Inbox size={32} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
+          <Image src="/brand/empty-states/admin-users.png" alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
           <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--muted)" }}>Sin usuarios</p>
           <p style={{ fontSize: "12px", color: "var(--faint)", marginTop: "4px" }}>Ajusta los filtros o espera a que lleguen registros.</p>
         </div>
@@ -346,7 +356,7 @@ export default function AdminUsersPage() {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                       <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name}</p>
-                      {u.verified && <ShieldCheck size={12} color="#10b981" />}
+                      {u.verified && <ShieldCheck size={12} color="var(--ok)" />}
                     </div>
                     <p style={{ fontSize: "11px", color: "var(--faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email}</p>
                     <p style={{ fontSize: "10px", color: "var(--faint)" }}>Desde {new Date(u.joined).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}</p>
@@ -380,7 +390,7 @@ export default function AdminUsersPage() {
                 {/* Disputes */}
                 <div>
                   {(disputesByUserId[u.id] ?? 0) > 0 ? (
-                    <Link href="/admin/disputes" style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: 800, color: "#ef4444", textDecoration: "none", padding: "2px 6px", borderRadius: "6px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)" }}>
+                    <Link href="/admin/disputes" style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontSize: "12px", fontWeight: 800, color: "var(--error)", textDecoration: "none", padding: "2px 6px", borderRadius: "6px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.2)" }}>
                       <Scale size={10} /> {disputesByUserId[u.id]}
                     </Link>
                   ) : <span style={{ fontSize: "12px", color: "var(--faint)" }}>—</span>}
@@ -404,17 +414,17 @@ export default function AdminUsersPage() {
                         ◈ Ver perfil
                       </Link>
                       {!u.verified && (
-                        <button onClick={() => { if (window.confirm(`¿Marcar a ${u.name || u.email} como verificado? Esta pantalla no muestra ningún documento/evidencia de respaldo — confirma que ya la revisaste por otro medio.`)) void applyAction(u.id, "verify"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+                        <button onClick={() => { if (window.confirm(`¿Marcar a ${u.name || u.email} como verificado? Esta pantalla no muestra ningún documento/evidencia de respaldo — confirma que ya la revisaste por otro medio.`)) void applyAction(u.id, "verify"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "var(--ok)", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ✓ Verificar
                         </button>
                       )}
                       {u.status !== "suspended" && (
-                        <button onClick={() => { if (window.confirm(`¿Suspender la cuenta de ${u.name || u.email}? Esto bloquea su acceso de inmediato.`)) void applyAction(u.id, "suspend"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#ef4444", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+                        <button onClick={() => { if (window.confirm(`¿Suspender la cuenta de ${u.name || u.email}? Esto bloquea su acceso de inmediato.`)) void applyAction(u.id, "suspend"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "var(--error)", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ⊘ Suspender
                         </button>
                       )}
                       {u.status === "suspended" && (
-                        <button onClick={() => { if (window.confirm(`¿Reactivar la cuenta de ${u.name || u.email}?`)) void applyAction(u.id, "activate"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "#10b981", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
+                        <button onClick={() => { if (window.confirm(`¿Reactivar la cuenta de ${u.name || u.email}?`)) void applyAction(u.id, "activate"); }} style={{ display: "block", width: "100%", padding: "9px 14px", border: "none", background: "transparent", color: "var(--ok)", fontSize: "12px", fontWeight: 600, cursor: "pointer", textAlign: "left" }}>
                           ↑ Activar
                         </button>
                       )}

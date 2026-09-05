@@ -121,25 +121,46 @@ export class OperationalSignalsService {
     });
   }
 
-  async acknowledge(id: string, tenantId: string): Promise<void> {
-    await this.prisma.operationalSignal.updateMany({
-      where: { id, tenantId },
+  async acknowledge(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.prisma.operationalSignal.updateMany({
+      where: { id, tenantId, status: "open" },
       data: { status: "acknowledged", acknowledgedAt: new Date() },
     });
+    if (result.count > 0) {
+      this.sse?.emit(`mission-control:${tenantId}`, "operational-signal:updated", {
+        id,
+        status: "acknowledged",
+      });
+    }
+    return result.count > 0;
   }
 
-  async resolve(id: string, tenantId: string): Promise<void> {
-    await this.prisma.operationalSignal.updateMany({
-      where: { id, tenantId },
+  async resolve(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.prisma.operationalSignal.updateMany({
+      where: { id, tenantId, status: { in: ["open", "acknowledged"] } },
       data: { status: "resolved", resolvedAt: new Date() },
     });
+    if (result.count > 0) {
+      this.sse?.emit(`mission-control:${tenantId}`, "operational-signal:updated", {
+        id,
+        status: "resolved",
+      });
+    }
+    return result.count > 0;
   }
 
-  async dismiss(id: string, tenantId: string): Promise<void> {
-    await this.prisma.operationalSignal.updateMany({
-      where: { id, tenantId },
+  async dismiss(id: string, tenantId: string): Promise<boolean> {
+    const result = await this.prisma.operationalSignal.updateMany({
+      where: { id, tenantId, status: { in: ["open", "acknowledged"] } },
       data: { status: "dismissed" },
     });
+    if (result.count > 0) {
+      this.sse?.emit(`mission-control:${tenantId}`, "operational-signal:updated", {
+        id,
+        status: "dismissed",
+      });
+    }
+    return result.count > 0;
   }
 
   async countOpen(tenantId: string): Promise<number> {

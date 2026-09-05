@@ -141,8 +141,8 @@ export default function WorkerReviewPage() {
 
       {submitDone && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 10, background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.2)", marginBottom: 20 }}>
-          <CheckCircle2 size={16} color="#10b981" />
-          <p style={{ fontSize: 13, color: "#10b981", margin: 0 }}>Reseña enviada. ¡Gracias por tu valoración!</p>
+          <CheckCircle2 size={16} color="var(--ok)" />
+          <p style={{ fontSize: 13, color: "var(--ok)", margin: 0 }}>Reseña enviada. ¡Gracias por tu valoración!</p>
         </div>
       )}
 
@@ -151,7 +151,7 @@ export default function WorkerReviewPage() {
           {[1, 2].map((i) => <div key={i} style={{ height: 80, borderRadius: 12, background: "var(--raised)" }} />)}
         </div>
       ) : error ? (
-        <p style={{ fontSize: 13, color: "#ef4444" }}>{error}</p>
+        <p style={{ fontSize: 13, color: "var(--error)" }}>{error}</p>
       ) : (
         <div style={{ display: "grid", gap: 24 }}>
           {/* Pending reviews */}
@@ -178,7 +178,7 @@ export default function WorkerReviewPage() {
                       <button
                         type="button"
                         onClick={() => { setActiveJobId(activeJobId === job.id ? null : job.id); setScore(5); setComment(""); setSubmitError(null); setSubmitDone(false); }}
-                        style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: activeJobId === job.id ? "rgba(239,68,68,.1)" : "var(--brand)", color: activeJobId === job.id ? "#ef4444" : "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: activeJobId === job.id ? "rgba(239,68,68,.1)" : "var(--brand)", color: activeJobId === job.id ? "var(--error)" : "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}
                       >
                         {activeJobId === job.id ? "Cancelar" : "Calificar"}
                       </button>
@@ -200,12 +200,12 @@ export default function WorkerReviewPage() {
                             style={{ width: "100%", padding: "10px 12px", borderRadius: 9, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box" }}
                           />
                         </div>
-                        {submitError && <p style={{ fontSize: 12, color: "#ef4444", margin: 0 }}>{submitError}</p>}
+                        {submitError && <p style={{ fontSize: 12, color: "var(--error)", margin: 0 }}>{submitError}</p>}
                         <button
                           type="button"
                           disabled={submitting || score === 0}
                           onClick={() => void handleSubmit(job)}
-                          style={{ padding: "10px 20px", borderRadius: 9, border: "none", background: submitting ? "var(--muted)" : "#10b981", color: "#fff", fontSize: 13, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer" }}
+                          style={{ padding: "10px 20px", borderRadius: 9, border: "none", background: submitting ? "var(--muted)" : "var(--ok)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: submitting ? "not-allowed" : "pointer" }}
                         >
                           {submitting ? "Enviando..." : "Enviar reseña"}
                         </button>

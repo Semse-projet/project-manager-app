@@ -195,3 +195,36 @@ test("SAT-001: listTokens nunca expone tokenHash", async () => {
   assert.equal(listed.length, 1);
   assert.equal(Object.hasOwn(listed[0] as object, "tokenHash"), false);
 });
+
+test("SAT-007 §4 P2: revokeToken suspende en el mismo ciclo los webhooks activos del token revocado", async () => {
+  const { service, rows } = makeService();
+  const issued = await service.issueToken({ name: "alexa", scopes: ["intake:write", "events:subscribe"] });
+
+  let suspendCalledWith: string | undefined;
+  (service as unknown as { webhooksService: { suspendAllForToken: (id: string) => Promise<number> } }).webhooksService =
+    {
+      suspendAllForToken: async (id: string) => {
+        suspendCalledWith = id;
+        return 2;
+      },
+    };
+
+  const revoked = await service.revokeToken(rows[0].id);
+
+  assert.equal(revoked.status, "REVOKED");
+  assert.equal(suspendCalledWith, issued.id);
+});
+
+test("SAT-007 §4 P2: revokeToken no falla si el suspendAllForToken del webhooksService rechaza", async () => {
+  const { service, rows } = makeService();
+  await service.issueToken({ name: "bravo", scopes: ["intake:write"] });
+
+  (service as unknown as { webhooksService: { suspendAllForToken: () => Promise<number> } }).webhooksService = {
+    suspendAllForToken: async () => {
+      throw new Error("boom");
+    },
+  };
+
+  const revoked = await service.revokeToken(rows[0].id);
+  assert.equal(revoked.status, "REVOKED");
+});

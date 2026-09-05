@@ -36,7 +36,7 @@ export function ReadinessChecklist({ title = "Readiness checklist", items }: Rea
               <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink)" }}>
                 {item.passed ? "✓" : "•"} {item.label}
               </span>
-              <span style={{ fontSize: "10px", color: item.passed ? "#10b981" : "#f59e0b", fontWeight: 700 }}>
+              <span style={{ fontSize: "10px", color: item.passed ? "var(--ok)" : "#f59e0b", fontWeight: 700 }}>
                 {item.passed ? "PASS" : "BLOCKED"}
               </span>
             </div>

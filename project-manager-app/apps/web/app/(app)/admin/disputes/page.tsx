@@ -85,28 +85,34 @@ type MultipartSessionView = UploadPlanView & {
 // CONFIG
 // ─────────────────────────────────────────────────────────────
 
+// Claves alineadas al enum real `DisputeStatus` de Prisma (OPEN/ASSIGNED/
+// UNDER_REVIEW/RESOLVED/REJECTED, todo mayúsculas) — las claves en minúscula
+// que tenía antes (incluyendo "opened"/"escalated"/"closed"/"pending", que ni
+// siquiera existen como valores del enum) nunca calzaban con los datos reales
+// del backend, dejando cada badge en el fallback `label: d.status` (mostraba
+// "OPEN" crudo en vez de "Abierta") y los 3 conteos de KPI en cero. Ver
+// AUDIT_REMEDIATION_PLAN.md 3.45.
 const STATUS_CONFIG: Record<string, { variant: "error" | "warning" | "success" | "neutral" | "info"; label: string }> = {
-  escalated: { variant: "error",   label: "Escalada"  },
-  open:      { variant: "warning", label: "Abierta"   },
-  opened:    { variant: "warning", label: "Abierta"   },
-  resolved:  { variant: "success", label: "Resuelta"  },
-  pending:   { variant: "neutral", label: "Pendiente" },
-  closed:    { variant: "neutral", label: "Cerrada"   },
+  OPEN:         { variant: "warning", label: "Abierta"          },
+  ASSIGNED:     { variant: "error",   label: "Escalada"         },
+  UNDER_REVIEW: { variant: "error",   label: "En revisión"      },
+  RESOLVED:     { variant: "success", label: "Resuelta"         },
+  REJECTED:     { variant: "neutral", label: "Rechazada"        },
 };
 
 const SEVERITY_COLOR: Record<string, string> = {
-  high:   "#ef4444",
+  high:   "var(--error)",
   medium: "#f59e0b",
-  low:    "#10b981",
+  low:    "var(--ok)",
 };
 
 type DisputeResolutionType = "client_favor" | "pro_favor" | "partial_50_50" | "escalated_legal";
 
 const RESOLVE_OPTIONS = [
-  { label: "Resolver a favor del cliente",      value: "Resuelto a favor del cliente",      resolutionType: "client_favor", color: "#10b981", icon: CheckCircle },
-  { label: "Resolver a favor del profesional",  value: "Resuelto a favor del profesional",  resolutionType: "pro_favor", color: "#3b82f6", icon: CheckCircle },
+  { label: "Resolver a favor del cliente",      value: "Resuelto a favor del cliente",      resolutionType: "client_favor", color: "var(--ok)", icon: CheckCircle },
+  { label: "Resolver a favor del profesional",  value: "Resuelto a favor del profesional",  resolutionType: "pro_favor", color: "var(--brand)", icon: CheckCircle },
   { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", resolutionType: "partial_50_50", color: "#f59e0b", icon: Scale      },
-  { label: "Escalar a legal",                   value: "Escalado al equipo legal para revisión", resolutionType: "escalated_legal", color: "#ef4444", icon: XCircle    },
+  { label: "Escalar a legal",                   value: "Escalado al equipo legal para revisión", resolutionType: "escalated_legal", color: "var(--error)", icon: XCircle    },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────
@@ -160,7 +166,7 @@ export default function AdminDisputesPage() {
       void fetchPendingApprovals().then(setPendingApprovals).catch(() => {});
       void Promise.all(
         rows
-          .filter(r => r.status !== "resolved" && r.status !== "closed")
+          .filter(r => r.status !== "RESOLVED" && r.status !== "REJECTED")
           .slice(0, 12)
           .map(async (r) => {
             try {
@@ -214,8 +220,8 @@ export default function AdminDisputesPage() {
 
   const filtered = useMemo(() => {
     return disputes.filter(d => {
-      if (tab === "open")     { if (d.status === "resolved" || d.status === "closed") return false; }
-      if (tab === "resolved") { if (d.status !== "resolved" && d.status !== "closed") return false; }
+      if (tab === "open")     { if (d.status === "RESOLVED" || d.status === "REJECTED") return false; }
+      if (tab === "resolved") { if (d.status !== "RESOLVED" && d.status !== "REJECTED") return false; }
       if (priorityFilter === "pending_approval") return disputeIdsWithPendingApproval.has(d.id);
       if (priorityFilter === "with_comments")    return (commentCounts[d.id] ?? 0) > 0;
       return true;
@@ -267,7 +273,7 @@ export default function AdminDisputesPage() {
         return;
       }
       setDisputes(prev =>
-        prev.map(d => d.id === targetId ? { ...d, status: "resolved", resolution: resolution.trim() } : d)
+        prev.map(d => d.id === targetId ? { ...d, status: "RESOLVED", resolution: resolution.trim() } : d)
       );
       setCustomResolution("");
 
@@ -374,7 +380,7 @@ export default function AdminDisputesPage() {
       id: raw.id,
       projectId: raw.jobId ?? raw.id,
       reason: raw.reason,
-      status: (raw.status === "resolved" || raw.status === "closed" ? "resolved" : raw.status === "escalated" ? "assigned" : "open") as "open" | "assigned" | "resolved",
+      status: (raw.status === "RESOLVED" || raw.status === "REJECTED" ? "resolved" : raw.status === "ASSIGNED" || raw.status === "UNDER_REVIEW" ? "assigned" : "open") as "open" | "assigned" | "resolved",
       resolution: raw.resolution,
       jobId: raw.jobId,
       jobTitle: raw.jobTitle ?? `Disputa #${raw.id.slice(0, 8)}`,
@@ -408,9 +414,9 @@ export default function AdminDisputesPage() {
   };
 
   // Derive KPIs from real data
-  const openCount      = disputes.filter(d => d.status === "open" || d.status === "opened").length;
-  const escalatedCount = disputes.filter(d => d.status === "escalated").length;
-  const resolvedCount  = disputes.filter(d => d.status === "resolved" || d.status === "closed").length;
+  const openCount      = disputes.filter(d => d.status === "OPEN").length;
+  const escalatedCount = disputes.filter(d => d.status === "ASSIGNED" || d.status === "UNDER_REVIEW").length;
+  const resolvedCount  = disputes.filter(d => d.status === "RESOLVED" || d.status === "REJECTED").length;
   const totalAmount    = disputes.reduce((a, d) => a + (d.amount ?? 0), 0);
 
   return (
@@ -439,7 +445,7 @@ export default function AdminDisputesPage() {
                 color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: "pointer",
               }}
             >
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
               Refrescar
             </button>
           </>
@@ -448,7 +454,7 @@ export default function AdminDisputesPage() {
 
       {/* API Error */}
       {apiError && (
-        <div style={{ marginBottom: "16px", padding: "14px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "#ef4444", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ marginBottom: "16px", padding: "14px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "var(--error)", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
           <AlertTriangle size={14} style={{ flexShrink: 0 }} />
           {apiError} — configura <code>SEMSE_API_BASE_URL</code> para conectar el backend.
         </div>
@@ -458,9 +464,9 @@ export default function AdminDisputesPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "20px" }}>
         {[
           { label: "Abiertas",          value: loading ? "—" : openCount,                          color: "#f59e0b", icon: AlertTriangle },
-          { label: "Escaladas",         value: loading ? "—" : escalatedCount,                     color: "#ef4444", icon: ShieldAlert  },
+          { label: "Escaladas",         value: loading ? "—" : escalatedCount,                     color: "var(--error)", icon: ShieldAlert  },
           { label: "Approval pendiente",value: loading ? "—" : disputeIdsWithPendingApproval.size, color: "#f97316", icon: CheckCircle  },
-          { label: "Resueltas",         value: loading ? "—" : resolvedCount,                      color: "#10b981", icon: CheckCircle  },
+          { label: "Resueltas",         value: loading ? "—" : resolvedCount,                      color: "var(--ok)", icon: CheckCircle  },
         ].map(kpi => {
           const Icon = kpi.icon;
           return (
@@ -486,7 +492,7 @@ export default function AdminDisputesPage() {
                   onClick={() => setTab(t)}
                   style={{
                     padding: "5px 14px", borderRadius: "7px", border: "none",
-                    background: tab === t ? "#ef4444" : "transparent",
+                    background: tab === t ? "var(--error)" : "transparent",
                     color: tab === t ? "#fff" : "var(--muted)",
                     fontSize: "12px", fontWeight: 600, cursor: "pointer",
                   }}
@@ -544,7 +550,7 @@ export default function AdminDisputesPage() {
                       ...card,
                       display: "flex", alignItems: "flex-start", gap: "14px",
                       padding: "15px 16px", textAlign: "left", cursor: "pointer",
-                      borderColor: selected === d.id ? "#ef4444" : "var(--border)",
+                      borderColor: selected === d.id ? "var(--error)" : "var(--border)",
                       background: selected === d.id ? "#ef444408" : "var(--surface)",
                       width: "100%",
                     }}
@@ -595,7 +601,7 @@ export default function AdminDisputesPage() {
                       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
                         <button
                           onClick={(e) => { e.stopPropagation(); setWorkspaceDisputeId(workspaceDisputeId === d.id ? null : d.id); }}
-                          style={{ padding: "6px 10px", borderRadius: 8, border: workspaceDisputeId === d.id ? "1px solid rgba(239,68,68,.3)" : "1px solid var(--border)", background: workspaceDisputeId === d.id ? "rgba(239,68,68,.09)" : "transparent", color: workspaceDisputeId === d.id ? "#ef4444" : "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                          style={{ padding: "6px 10px", borderRadius: 8, border: workspaceDisputeId === d.id ? "1px solid rgba(239,68,68,.3)" : "1px solid var(--border)", background: workspaceDisputeId === d.id ? "rgba(239,68,68,.09)" : "transparent", color: workspaceDisputeId === d.id ? "var(--error)" : "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                         >
                           {workspaceDisputeId === d.id ? "Workspace abierto" : "Abrir workspace"}
                         </button>
@@ -618,13 +624,13 @@ export default function AdminDisputesPage() {
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "var(--ink)" }}>{workspaceDispute.jobTitle}</h3>
                 <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.55 }}>{workspaceDispute.reason}</p>
                 {workspaceDispute.resolution ? (
-                  <p style={{ margin: 0, fontSize: 12, color: "#10b981" }}>Resolución: {workspaceDispute.resolution}</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--ok)" }}>Resolución: {workspaceDispute.resolution}</p>
                 ) : null}
                 {workspaceDispute.status === "resolved" && workspaceDispute.jobId ? (
                   <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                     <Link
                       href={`/admin/finance`}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 9, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.08)", color: "#10b981", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 9, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.08)", color: "var(--ok)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
                     >
                       <ArrowUpRight size={13} /> Confirmar en Pagos
                     </Link>
@@ -652,7 +658,7 @@ export default function AdminDisputesPage() {
         {selectedDispute && !workspaceDispute ? (
           <div style={{ ...card, padding: "20px", height: "fit-content", position: "sticky", top: "24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Scale size={16} color="#ef4444" />
+              <Scale size={16} color="var(--error)" />
               <h3 style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)" }}>Resolución</h3>
             </div>
 
@@ -676,14 +682,14 @@ export default function AdminDisputesPage() {
               {selectedDispute.amount != null && selectedDispute.amount > 0 && (
                 <div style={{ background: "var(--bg)", borderRadius: "8px", padding: "10px" }}>
                   <p style={{ fontSize: "10px", color: "var(--muted)", fontWeight: 600 }}>MONTO EN DISPUTA</p>
-                  <p style={{ fontSize: "20px", color: "#ef4444", fontWeight: 800, marginTop: "3px" }}>${selectedDispute.amount.toLocaleString()}</p>
+                  <p style={{ fontSize: "20px", color: "var(--error)", fontWeight: 800, marginTop: "3px" }}>${selectedDispute.amount.toLocaleString()}</p>
                 </div>
               )}
             </div>
 
             {selectedDispute.resolution ? (
               <div style={{ padding: "12px", background: "#10b98110", border: "1px solid #10b98130", borderRadius: "8px" }}>
-                <p style={{ fontSize: "11px", color: "#10b981", fontWeight: 700, marginBottom: "3px" }}>RESOLUCIÓN APLICADA</p>
+                <p style={{ fontSize: "11px", color: "var(--ok)", fontWeight: 700, marginBottom: "3px" }}>RESOLUCIÓN APLICADA</p>
                 <p style={{ fontSize: "13px", color: "var(--ink)" }}>{selectedDispute.resolution}</p>
               </div>
             ) : (
@@ -754,7 +760,7 @@ export default function AdminDisputesPage() {
                 </button>
 
                 {resolveError && (
-                  <p style={{ marginTop: "8px", fontSize: "12px", color: "#ef4444", textAlign: "center" }}>{resolveError}</p>
+                  <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--error)", textAlign: "center" }}>{resolveError}</p>
                 )}
               </>
             )}
@@ -791,7 +797,7 @@ export default function AdminDisputesPage() {
                   style={{
                     width: "100%", padding: "9px", borderRadius: "8px",
                     border: "1px solid var(--border)",
-                    background: "#3b82f6", color: "#fff",
+                    background: "var(--brand)", color: "#fff",
                     fontSize: "12px", fontWeight: 700,
                     cursor: planningUpload ? "not-allowed" : "pointer",
                     opacity: planningUpload ? 0.65 : 1

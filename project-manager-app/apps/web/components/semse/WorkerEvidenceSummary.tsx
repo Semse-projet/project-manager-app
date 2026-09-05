@@ -39,7 +39,7 @@ export function WorkerEvidenceSummary() {
         onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(234,179,8,.3)")}>
         <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(234,179,8,.15)", display: "grid", placeItems: "center", flexShrink: 0, position: "relative" }}>
           <Camera size={16} color="#fcd34d" />
-          <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 99, background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
+          <span style={{ position: "absolute", top: -4, right: -4, minWidth: 16, height: 16, borderRadius: 99, background: "var(--error)", color: "#fff", fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" }}>
             {missing}
           </span>
         </div>

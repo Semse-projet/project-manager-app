@@ -1,5 +1,6 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 
 export type RiskFactor = {
   name: string;
@@ -39,7 +40,11 @@ function riskLevel(score: number): RiskScoreResult["level"] {
 export class RiskScoringService {
   private readonly logger = new Logger(RiskScoringService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
+  ) {}
 
   async calculateProjectRisk(tenantId: string, projectId: string): Promise<RiskScoreResult> {
     // Step 1: load project first so we can use its FKs in step 2
@@ -196,28 +201,42 @@ export class RiskScoringService {
     if (recommendations.length === 0) recommendations.push("Sin alertas activas — proyecto dentro de parámetros normales");
 
     // Persist score
-    await this.prisma.projectRiskScore.upsert({
+    const calculatedAt = new Date();
+    const riskScore = await this.prisma.projectRiskScore.upsert({
       where: { projectId },
       create: {
         tenantId, projectId,
         overallScore,
         disputeRisk, budgetOverrunRisk, scheduleRisk,
         factorsJson: factors,
+        calculatedAt,
       },
       update: {
         overallScore, disputeRisk, budgetOverrunRisk, scheduleRisk,
         factorsJson: factors,
+        calculatedAt,
       },
     });
 
     this.logger.log(`[risk] project=${projectId} score=${overallScore} level=${riskLevel(overallScore)}`);
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId,
+      orgId: "system",
+      projectId,
+      sourceEventType: "risk.project.calculated",
+      sourceEntityType: "ProjectRiskScore",
+      sourceEntityId: riskScore.id,
+      actorType: "system",
+      actorId: "risk-scoring-service",
+      correlationId: `risk:${riskScore.id}:${calculatedAt.toISOString()}`,
+    });
 
     return {
       projectId, overallScore,
       level: riskLevel(overallScore),
       disputeRisk, budgetOverrunRisk, scheduleRisk,
       factors, recommendations,
-      calculatedAt: new Date().toISOString(),
+      calculatedAt: calculatedAt.toISOString(),
     };
   }
 

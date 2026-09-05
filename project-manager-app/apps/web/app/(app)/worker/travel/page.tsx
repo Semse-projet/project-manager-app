@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Calendar, DollarSign, Plus, RefreshCw, Inbox, PlaneTakeoff, ChevronRight } from "lucide-react";
 import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
-import { fetchTravelAssignments, createTravelAssignment, fetchMyJobs, fetchTravelExpenses, fetchTravelLodging, fetchTravelSettlement } from "../../../semse-api";
+import { fetchTravelAssignmentsSummary, createTravelAssignment, fetchMyJobs } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
 type TravelStatus = "DRAFT" | "PLANNED" | "ACTIVE" | "PENDING_SETTLEMENT" | "CLOSED" | "CANCELLED";
@@ -94,7 +94,7 @@ function rawToRow(
       status === "ACTIVE" && (extras?.expenseCount ?? 0) === 0 && (extras?.lodgingCount ?? 0) === 0 && (extras?.advanceCount ?? 0) === 0
         ? "sin base operativa"
         : Boolean(r.requiresLodging) && status === "ACTIVE" && (extras?.lodgingCount ?? 0) === 0
-          ? "sin hospedaje requerido"
+          ? "falta el hospedaje requerido"
           : null,
     status:         (["DRAFT","PLANNED","ACTIVE","PENDING_SETTLEMENT","CLOSED","CANCELLED"].includes(status) ? status : "DRAFT") as TravelStatus,
     requiresLodging: Boolean(r.requiresLodging),
@@ -122,50 +122,27 @@ export default function WorkerTravelPage() {
   const [formHeadcount, setFormHeadcount] = useState("1");
   const [formNotes, setFormNotes]       = useState("");
 
+  // Stable across renders on purpose: `load` used to depend on `formJobId` only
+  // to decide whether to default-select the first job, which made its identity
+  // change mid-mount (once `setFormJobId` ran) and re-fired the effect below a
+  // second time — doubling every request the first render made. Reading/writing
+  // the default via the functional form of `setFormJobId` means `load` never
+  // needs `formJobId` in its closure at all. See AUDIT_REMEDIATION_PLAN.md 2.36.
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [rawTravels, rawJobs] = await Promise.all([
-        fetchTravelAssignments().catch(() => [] as Record<string, unknown>[]),
+        fetchTravelAssignmentsSummary().catch(() => [] as Record<string, unknown>[]),
         fetchMyJobs().catch(() => []),
       ]);
       const jobTitleMap: Record<string, string> = {};
       for (const j of rawJobs) jobTitleMap[j.id] = j.title;
-      const extras = await Promise.all(
-        rawTravels.map(async (travel) => {
-          const travelId = String(travel.id ?? "");
-          const [settlement, expenses, lodging] = await Promise.all([
-            fetchTravelSettlement(travelId).catch(() => null),
-            fetchTravelExpenses(travelId).catch(() => [] as Record<string, unknown>[]),
-            fetchTravelLodging(travelId).catch(() => [] as Record<string, unknown>[]),
-          ]);
-          const totalSpent = settlement ? Number((settlement as Record<string, unknown>).totalSpent ?? 0) : null;
-          const expectedBalance = settlement ? Number((settlement as Record<string, unknown>).balanceDue ?? 0) : null;
-          const missingExpenseReceipts = expenses.filter((expense) => !String(expense.receiptUrl ?? "").trim()).length;
-          const missingLodgingReceipts = lodging.filter((record) => !String(record.receiptUrl ?? "").trim()).length;
-          const receiptCount =
-            expenses.filter((expense) => String(expense.receiptUrl ?? "").trim()).length +
-            lodging.filter((record) => String(record.receiptUrl ?? "").trim()).length;
-          const missingReceipts = missingExpenseReceipts + missingLodgingReceipts;
-          return {
-            totalSpent,
-            expectedBalance,
-            missingReceipts,
-            missingExpenseReceipts,
-            missingLodgingReceipts,
-            receiptCount,
-            expenseCount: expenses.length,
-            lodgingCount: lodging.length,
-            advanceCount: settlement ? Number((settlement as Record<string, unknown>).totalAdvances ?? 0) > 0 ? 1 : 0 : 0,
-          };
-        })
-      );
       setJobs(rawJobs.map(j => ({ id: j.id, title: j.title })));
-      if (!formJobId && rawJobs.length > 0) setFormJobId(rawJobs[0].id);
-      setTravels(rawTravels.map((r, index) => rawToRow(r as Record<string, unknown>, jobTitleMap, extras[index])));
+      setFormJobId((prev) => prev || rawJobs[0]?.id || prev);
+      setTravels(rawTravels.map((r) => rawToRow(r, jobTitleMap, r as Record<string, number>)));
     } catch { /* keep */ }
     setLoading(false);
-  }, [formJobId]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -240,7 +217,7 @@ export default function WorkerTravelPage() {
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <NotificationBanner audience="worker" />
           <button onClick={() => void load()} disabled={loading} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }} title="Recargar">
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
           </button>
           <button onClick={() => setShowForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "10px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
             <Plus size={15} /> Nuevo viaje
@@ -314,7 +291,7 @@ export default function WorkerTravelPage() {
               <label style={{ fontSize: "11px", fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: "5px" }}>NOTAS</label>
               <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={2} style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", resize: "vertical", boxSizing: "border-box" }} />
             </div>
-            {submitError && <p style={{ fontSize: "12px", color: "#ef4444" }}>{submitError}</p>}
+            {submitError && <p style={{ fontSize: "12px", color: "var(--error)" }}>{submitError}</p>}
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
               <button onClick={() => void handleCreate()} disabled={submitting || !formCity.trim() || !formDepart} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>

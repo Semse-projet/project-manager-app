@@ -35,7 +35,7 @@ export function LandscapingToolClient({ section }: LandscapingToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const baseCost: Record<typeof input.serviceType, number> = { design: 2, install: 5, maintenance: 1.5, hardscape: 8, planting: 3 };
+    const baseCost: Record<LandscapingInput["serviceType"], number> = { design: 2, install: 5, maintenance: 1.5, hardscape: 8, planting: 3 };
     const base = baseCost[input.serviceType];
     const complexFactor = { simple: 1, moderate: 1.3, complex: 1.7 }[input.complexity];
     const matFactor = { standard: 1, premium: 1.5, luxury: 2.2 }[input.materials];

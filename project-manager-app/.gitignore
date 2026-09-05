@@ -4,6 +4,9 @@ dist/
 .angular/
 **/.angular/
 *.tsbuildinfo
+__pycache__/
+*.pyc
+*.egg-info/
 # Environment files — NEVER commit secrets or real values
 .env
 .env.local

@@ -8,6 +8,7 @@ import {
 import { Prisma } from "@prisma/client";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import type { BuildOpsPlanActorInput } from "./buildops-plan-approval.types.js";
 import {
   mapLegacyEvidence,
@@ -80,6 +81,8 @@ export class BuildOpsLegacyPromotionService {
   constructor(
     private readonly prisma: PrismaService,
     @Optional() private readonly auditService?: AuditService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   async promoteApprovedPlanToLegacy(input: PromoteApprovedPlanToLegacyInput): Promise<BuildOpsLegacyPromotionResult> {
@@ -378,6 +381,17 @@ export class BuildOpsLegacyPromotionService {
     });
 
     await this.appendPromotionAudit(input, result);
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: result.legacyProjectId,
+      sourceEventType: "buildops.plan.promoted",
+      sourceEntityType: "BuildOpsProject",
+      sourceEntityId: result.buildOpsProjectId,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: `buildops-promotion:${result.buildOpsProjectId}:${result.promotedAt}`,
+    });
     return result;
   }
 

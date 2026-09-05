@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRightLeft, Archive, FolderOpen, Pencil, Plus } from "lucide-react";
+import LocationPickerMap from "../../../../components/maps/LocationPickerMap";
 import {
   archiveFreeProject,
   convertFreeProjectToJob,
@@ -25,7 +26,7 @@ import {
 const STATUS_META: Record<FreeProjectView["status"], { label: string; color: string }> = {
   active: { label: "Activo", color: "#059669" },
   archived: { label: "Archivado", color: "#64748b" },
-  converted: { label: "Convertido a job", color: "#3b82f6" },
+  converted: { label: "Convertido a job", color: "var(--brand)" },
 };
 
 export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
@@ -43,6 +44,7 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
   const [formName, setFormName] = useState("");
   const [formColor, setFormColor] = useState(FREE_PROJECT_SWATCHES[0]);
   const [formLocation, setFormLocation] = useState("");
+  const [formCoords, setFormCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [formDescription, setFormDescription] = useState("");
 
   const load = useCallback(async () => {
@@ -81,6 +83,11 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
     setFormName(project.name);
     setFormColor(project.color || FREE_PROJECT_SWATCHES[0]);
     setFormLocation(project.location ?? "");
+    setFormCoords(
+      typeof project.latitude === "number" && typeof project.longitude === "number"
+        ? { latitude: project.latitude, longitude: project.longitude }
+        : null,
+    );
     setFormDescription(project.description ?? "");
   }
 
@@ -90,6 +97,7 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
     setFormName("");
     setFormColor(FREE_PROJECT_SWATCHES[0]);
     setFormLocation("");
+    setFormCoords(null);
     setFormDescription("");
   }
 
@@ -103,6 +111,7 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
           name: formName.trim(),
           color: formColor,
           location: formLocation || null,
+          ...(formCoords ?? {}),
           description: formDescription || null,
         });
       } else {
@@ -110,6 +119,8 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
           name: formName.trim(),
           color: formColor,
           location: formLocation || undefined,
+          latitude: formCoords?.latitude,
+          longitude: formCoords?.longitude,
           description: formDescription || undefined,
         });
       }
@@ -173,7 +184,7 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
           </button>
         </div>
 
-        {error ? <p style={{ fontSize: "12px", color: "#ef4444", margin: "8px 0 0" }}>{error}</p> : null}
+        {error ? <p style={{ fontSize: "12px", color: "var(--error)", margin: "8px 0 0" }}>{error}</p> : null}
 
         {formOpen ? (
           <div style={{ border: "1px dashed var(--border)", borderRadius: "12px", padding: "14px", marginTop: "12px", display: "grid", gap: "10px" }}>
@@ -184,7 +195,20 @@ export function ProyectosTab({ jobs }: { jobs: JobRecordView[] }) {
               </div>
               <div>
                 <label style={fieldLabel()}>Ubicación</label>
-                <input value={formLocation} onChange={(event) => setFormLocation(event.target.value)} placeholder="Opcional" style={fieldInput()} />
+                <input
+                  value={formLocation}
+                  onChange={(event) => { setFormLocation(event.target.value); setFormCoords(null); }}
+                  placeholder="Opcional"
+                  style={fieldInput()}
+                />
+                <div style={{ marginTop: "8px" }}>
+                  <LocationPickerMap
+                    latitude={formCoords?.latitude}
+                    longitude={formCoords?.longitude}
+                    onChange={({ latitude, longitude }) => setFormCoords({ latitude, longitude })}
+                    height={180}
+                  />
+                </div>
               </div>
             </div>
             <div>
@@ -350,7 +374,7 @@ function dangerGhostButton(disabled: boolean) {
     borderRadius: "8px",
     border: "1px solid rgba(239,68,68,.35)",
     background: "rgba(239,68,68,.1)",
-    color: "#ef4444",
+    color: "var(--error)",
     fontSize: "11px",
     fontWeight: 800,
     cursor: disabled ? "not-allowed" : "pointer",

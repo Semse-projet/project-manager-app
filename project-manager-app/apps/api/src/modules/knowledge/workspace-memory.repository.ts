@@ -102,6 +102,34 @@ export class WorkspaceMemoryRepository {
   }
 
   /**
+   * Unlike query(), NOT scoped to a single workspaceId — for admin-facing
+   * views that need to see records across every worker's own workspace at
+   * once (e.g. the "Solicitudes de verificación" queue, see
+   * AUDIT_REMEDIATION_PLAN.md 2.28). Filters by tenant + every tag in `tags`
+   * (AND, matching matchesQuery's semantics) and optionally by kind.
+   */
+  async queryAcrossTenant(input: {
+    tenantId: string;
+    tags: string[];
+    kinds?: WorkspaceMemoryRecord["kind"][];
+    limit?: number;
+  }): Promise<WorkspaceMemoryRecord[]> {
+    const entries = await this.prisma.workspaceMemoryEntry.findMany({
+      where: {
+        tenantId: input.tenantId,
+        tags: { hasEvery: input.tags },
+        ...(input.kinds && input.kinds.length > 0 ? { kind: { in: input.kinds } } : {})
+      },
+      orderBy: {
+        updatedAt: "desc"
+      },
+      take: input.limit ?? 100
+    });
+
+    return entries.map((entry) => parseStoredEntry(entry as StoredWorkspaceMemoryEntry));
+  }
+
+  /**
    * Full-text search across title, summary, body and tags.
    * Uses Postgres tsvector/tsquery for stemming + ranking.
    * Falls back to empty array if FTS query is invalid (e.g. empty term).

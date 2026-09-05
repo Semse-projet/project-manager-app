@@ -31,7 +31,7 @@ export function DoorsModsToolClient({ section }: { section: DoorsModsSection }) 
   const [error, setError] = useState<string | null>(null);
 
   const costPerUnit = useMemo(() => {
-    const modCost: Record<typeof input.modType, number> = { retrofit_weather: 600, accessibility: 3000, security_upgrade: 1500, smart_lock: 800, frame_repair: 400 };
+    const modCost: Record<DoorsModsInput["modType"], number> = { retrofit_weather: 600, accessibility: 3000, security_upgrade: 1500, smart_lock: 800, frame_repair: 400 };
     const base = modCost[input.modType];
     const matFactor = { wood: 1, steel: 1.2, fiberglass: 0.9 }[input.material];
     const complexFactor = { simple: 1, moderate: 1.3, complex: 1.6 }[input.complexity];

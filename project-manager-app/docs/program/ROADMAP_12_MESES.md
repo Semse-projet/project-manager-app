@@ -136,3 +136,9 @@ Indicadores:
 
 - el sistema ya tiene where-to-place claro para governance futura;
 - no hay reescritura estructural pendiente para crecer a Prometeo.
+
+**Referencia cruzada:** el programa transversal "Prometeo OS: Identidad
+Universal y Orquestación Externa" en
+[`../../ROADMAP.md`](../../ROADMAP.md) detalla `identity roadmap` (multi-rol
+por proyecto) como cambio de producto/UX sobre el schema `Membership` ya
+existente, no como parte de `treasury conceptual` ni `governance docs`.

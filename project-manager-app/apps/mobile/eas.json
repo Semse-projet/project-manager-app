@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 14.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com" }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com" }
+    },
+    "production": {
+      "distribution": "store",
+      "android": { "buildType": "app-bundle" },
+      "autoIncrement": true,
+      "env": { "EXPO_PUBLIC_SEMSE_API_BASE_URL": "https://api.semseproject.com" }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

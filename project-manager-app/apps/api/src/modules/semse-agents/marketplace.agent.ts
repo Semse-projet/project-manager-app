@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { Injectable, Logger, Optional } from "@nestjs/common";
+import { JOB_MATCHED_V1_SCHEMA_REF, jobMatchedV1EventSchema, type JobMatchedV1Event } from "@semse/schemas";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
 import type { SemseAgentMessage } from "./semse-agents.service.js";
 import { SemseAgentsService } from "./semse-agents.service.js";
 import type { MatchingService } from "../matching/matching.service.js";
@@ -65,6 +68,7 @@ export class MarketplaceAgent {
     @Optional() private readonly prisma?: PrismaService,
     @Optional() private readonly matching?: MatchingService,
     @Optional() private readonly notifications?: NotificationsService,
+    @Optional() private readonly outboxRepository?: OutboxRepository,
   ) {
     this.bus.register("marketplace", (msg) => this.handleMessage(msg));
     this.logger.log("[Marketplace] Agent registered");
@@ -103,21 +107,72 @@ export class MarketplaceAgent {
     const topContractors = result.candidates.slice(0, 5);
     if (topContractors.length === 0) return;
 
+    const jobMatchedPayload = {
+      jobId,
+      jobTitle: String(payload.title ?? "Nuevo trabajo"),
+      trade: classification.trade,
+      budgetMin: classification.suggestedBudgetMin,
+      budgetMax: classification.suggestedBudgetMax,
+      location: String(payload.location ?? ""),
+      urgency: classification.urgency,
+      matchedUserIds: topContractors.map((c) => c.userId),
+    };
+
     await this.notifications.handleEvent({
       tenantId,
       eventType: "job.matched",
-      payload: {
-        jobId,
-        jobTitle: String(payload.title ?? "Nuevo trabajo"),
-        trade: classification.trade,
-        budgetMin: classification.suggestedBudgetMin,
-        budgetMax: classification.suggestedBudgetMax,
-        location: String(payload.location ?? ""),
-        urgency: classification.urgency,
-        matchedUserIds: topContractors.map((c) => c.userId),
-      },
+      payload: jobMatchedPayload,
     });
     this.logger.log(`[Marketplace] Notified ${topContractors.length} contractors for job ${jobId}`);
+
+    // docs/specs/satellites/SAT-007-outbound-webhooks.spec.md — best-effort
+    // durable outbox write, see plan.md §1.1 for why this isn't wrapped in a
+    // $transaction: no domain write happens at this exact point to pair it
+    // with (matching is a read/compute step), and this call site was already
+    // fire-and-forget via notifications.handleEvent() above.
+    void this.emitJobMatchedOutboxEvent(tenantId, jobId, jobMatchedPayload).catch((err) =>
+      this.logger.warn(`[Marketplace] job.matched.v1 outbox write failed: ${String(err?.message ?? err)}`),
+    );
+  }
+
+  private async emitJobMatchedOutboxEvent(
+    tenantId: string,
+    jobId: string,
+    payload: JobMatchedV1Event["payload"],
+  ): Promise<void> {
+    if (!this.outboxRepository || !this.prisma) {
+      return;
+    }
+    const job = await this.prisma.job.findFirst({
+      where: { id: jobId, tenantId },
+      select: { clientOrgId: true },
+    });
+    if (!job) {
+      return;
+    }
+
+    const eventId = randomUUID();
+    const recordedAt = new Date();
+    const event = jobMatchedV1EventSchema.parse({
+      eventId,
+      eventType: "job.matched.v1",
+      version: 1,
+      envelopeVersion: 2,
+      occurredAt: recordedAt.toISOString(),
+      recordedAt: recordedAt.toISOString(),
+      tenantId,
+      orgId: job.clientOrgId,
+      module: "jobs",
+      entityType: "Job",
+      entityId: jobId,
+      actor: { type: "system", id: "marketplace-agent" },
+      correlationId: eventId,
+      idempotencyKey: `job.matched.v1:${jobId}:${eventId}`,
+      schemaRef: JOB_MATCHED_V1_SCHEMA_REF,
+      payload,
+      metadata: { source: "marketplace-agent.notify-matched-contractors" },
+    });
+    await this.outboxRepository.create(this.prisma, event);
   }
 
   async classifyJob(payload: Record<string, unknown>): Promise<JobClassification> {

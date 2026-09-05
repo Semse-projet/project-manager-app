@@ -36,7 +36,9 @@ const taskPacketSchema = z.object({
   dependencies: z.array(z.string()).default([]),
   targetBranch: z.string().min(1),
   environment: z.enum(["sandbox", "local", "ci", "staging", "production"]),
-  metadata: z.record(z.string()).default({})
+  metadata: z.record(z.string()).default({}),
+  // Range matches BullMQ's own priority option (1 = highest, no priority when unset).
+  priority: z.number().int().min(1).max(2097152).optional()
 });
 
 const createRunSchema = z.object({
@@ -55,6 +57,10 @@ const addTaskSchema = z.object({
 const executeTaskSchema = z.object({
   action: z.string().optional(),
   async: z.boolean().optional().default(false)
+});
+
+const dispatchNextSchema = z.object({
+  maxConcurrentPerRun: z.number().int().positive().optional()
 });
 
 const completeTaskSchema = z.object({
@@ -96,6 +102,14 @@ export class ForgeController {
     const requestId = resolveRequestId(req.headers ?? {});
     const run = await this.forgeService.findById({ tenantId: actor.tenantId, runId });
     return ok(requestId, run);
+  }
+
+  @Get("runs/:runId/tasks/runnable")
+  async listRunnableTasks(@Req() req: { headers?: Record<string, unknown> }, @Param("runId") runId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const tasks = await this.forgeService.listRunnableTasks({ tenantId: actor.tenantId, runId });
+    return ok(requestId, tasks);
   }
 
   @Post("runs/:runId/transitions")
@@ -143,6 +157,25 @@ export class ForgeController {
       taskId,
       action: parsed.action,
       async: parsed.async,
+      requestId
+    });
+    return ok(requestId, result);
+  }
+
+  @Post("runs/:runId/dispatch-next")
+  @RequirePermissions("agents:run:create")
+  async dispatchNext(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("runId") runId: string,
+    @Body() body: unknown
+  ) {
+    const parsed = parseWithSchema(dispatchNextSchema, body ?? {});
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.forgeService.dispatchNext({
+      actor,
+      runId,
+      maxConcurrentPerRun: parsed.maxConcurrentPerRun,
       requestId
     });
     return ok(requestId, result);

@@ -230,7 +230,7 @@ export function AsistenteTab() {
         ) : null}
 
         {error ? (
-          <p style={{ margin: "0 18px 8px", fontSize: "12px", color: "#ef4444" }}>{error}</p>
+          <p style={{ margin: "0 18px 8px", fontSize: "12px", color: "var(--error)" }}>{error}</p>
         ) : null}
 
         <form

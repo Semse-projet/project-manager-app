@@ -47,6 +47,7 @@ test("travel controller declares correct @RequirePermissions", () => {
   // docs/AUDIT_REMEDIATION_PLAN.md G-PRO-10/2.31.
   const expectations: Array<[string, string]> = [
     ["listAssignments",  "jobs:read"],
+    ["listAssignmentsSummary", "jobs:read"],
     ["createAssignment", "travel:manage"],
     ["getAssignment",    "jobs:read"],
     ["updateStatus",     "travel:manage"],

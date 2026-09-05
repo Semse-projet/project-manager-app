@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { JobsService } from "../jobs/jobs.service.js";
 import {
   type BuildOpsMilestoneDto,
   type BuildOpsOverviewDto,
@@ -114,7 +115,10 @@ function normalizeSourceToolResult(value: Record<string, unknown>): Record<strin
 
 @Injectable()
 export class BuildOpsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jobs: JobsService,
+  ) {}
 
   async overview(tenantId: string): Promise<BuildOpsOverviewDto> {
     const [projects, tasks, milestones, evidence, disputes] = await Promise.all([
@@ -225,19 +229,49 @@ export class BuildOpsService {
       orderBy: { updatedAt: "desc" },
     })) as StoredBuildOpsProject[];
 
-    return projects.map((project) => this.toDto(project));
+    const canonicalProjects = await this.prisma.project.findMany({
+      where: {
+        tenantId,
+        promotedFromBuildOpsProjectId: {
+          in: projects.map((project) => project.id)
+        }
+      },
+      select: {
+        id: true,
+        promotedFromBuildOpsProjectId: true
+      }
+    });
+    const canonicalProjectIds = new Map(
+      canonicalProjects
+        .filter(
+          (project): project is typeof project & { promotedFromBuildOpsProjectId: string } =>
+            project.promotedFromBuildOpsProjectId !== null
+        )
+        .map((project) => [project.promotedFromBuildOpsProjectId, project.id])
+    );
+
+    return projects.map((project) => this.toDto(project, canonicalProjectIds.get(project.id) ?? null));
   }
 
   async getProject(tenantId: string, projectId: string): Promise<BuildOpsProjectDto> {
-    const project = (await this.prisma.buildOpsProject.findFirst({
-      where: { tenantId, id: projectId },
-    })) as StoredBuildOpsProject | null;
+    const [project, canonicalProject] = await Promise.all([
+      this.prisma.buildOpsProject.findFirst({
+        where: { tenantId, id: projectId }
+      }),
+      this.prisma.project.findFirst({
+        where: {
+          tenantId,
+          promotedFromBuildOpsProjectId: projectId
+        },
+        select: { id: true }
+      })
+    ]);
 
     if (!project) {
       throw new NotFoundException("BuildOps project not found");
     }
 
-    return this.toDto(project);
+    return this.toDto(project as StoredBuildOpsProject, canonicalProject?.id ?? null);
   }
 
   async getProjectHealth(tenantId: string, projectId: string) {
@@ -515,6 +549,54 @@ export class BuildOpsService {
     return this.toDto(project);
   }
 
+  // No other code path sets BuildOpsProject.jobId — createProject() and
+  // createFromToolResult() leave it null. This is the only way a draft
+  // plan reaches a real, marketplace-visible Job.
+  async publishAsJob(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    buildOpsProjectId: string;
+    requestId: string;
+  }): Promise<{ buildOpsProject: BuildOpsProjectDto; job: Awaited<ReturnType<JobsService["create"]>> }> {
+    const existing = await this.prisma.buildOpsProject.findFirst({
+      where: { id: input.buildOpsProjectId, tenantId: input.tenantId },
+    }) as StoredBuildOpsProject | null;
+    if (!existing) {
+      throw new NotFoundException({
+        code: "BUILDOPS_PROJECT_NOT_FOUND",
+        message: "BuildOps project not found",
+      });
+    }
+    if (existing.jobId) {
+      throw new ConflictException({
+        code: "BUILDOPS_PROJECT_ALREADY_PUBLISHED",
+        message: "This project has already been published as a job",
+      });
+    }
+
+    const budget = existing.budgetEstimate != null ? Number(existing.budgetEstimate) : undefined;
+    const job = await this.jobs.create({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.userId,
+      title: existing.title,
+      category: existing.trade,
+      scope: existing.description ?? existing.title,
+      budgetMin: budget,
+      budgetMax: budget,
+      city: existing.location,
+      requestId: input.requestId,
+    });
+
+    const updated = (await this.prisma.buildOpsProject.update({
+      where: { id: existing.id },
+      data: { jobId: job.id },
+    })) as StoredBuildOpsProject;
+
+    return { buildOpsProject: this.toDto(updated), job };
+  }
+
   async createFromToolResult(input: {
     tenantId: string;
     orgId: string;
@@ -617,12 +699,16 @@ export class BuildOpsService {
     return this.toTaskDto(task);
   }
 
-  private toDto(project: StoredBuildOpsProject): BuildOpsProjectDto {
+  private toDto(
+    project: StoredBuildOpsProject,
+    canonicalProjectId: string | null = null
+  ): BuildOpsProjectDto {
     return {
       id: project.id,
       tenantId: project.tenantId,
       orgId: project.orgId,
       jobId: project.jobId,
+      canonicalProjectId,
       createdBy: project.createdBy,
       title: project.title,
       description: project.description,

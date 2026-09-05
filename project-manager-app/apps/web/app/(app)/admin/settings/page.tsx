@@ -2,21 +2,20 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useLanguage } from "../../../../lib/language-context";
-import { Settings, Bell, Shield, Globe, Database, Key, Save, AlertCircle, Loader2 } from "lucide-react";
+import { Settings, Bell, Shield, Globe, Database, Key, MapPin, Save, AlertCircle, Loader2 } from "lucide-react";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { fetchAdminSettings, updateAdminSettings } from "../../../semse-api";
 import type { AdminSettings } from "@semse/schemas";
 
-const spinStyle = { animation: "spin 1s linear infinite" };
-
-type SettingSection = "general" | "notifications" | "security" | "integrations";
+type SettingSection = "general" | "notifications" | "security" | "integrations" | "time-tracker";
 
 const SECTIONS: { id: SettingSection; label: string; labelEn: string; icon: typeof Settings }[] = [
   { id: "general",       label: "General",        labelEn: "General",        icon: Globe },
   { id: "notifications", label: "Notificaciones", labelEn: "Notificaciones",  icon: Bell },
   { id: "security",      label: "Seguridad",       labelEn: "Seguridad",      icon: Shield },
   { id: "integrations",  label: "Integraciones",   labelEn: "Integraciones",  icon: Key },
+  { id: "time-tracker",  label: "Time Tracker",    labelEn: "Time Tracker",   icon: MapPin },
 ];
 
 const DEFAULT_SETTINGS: AdminSettings = {
@@ -25,6 +24,7 @@ const DEFAULT_SETTINGS: AdminSettings = {
   notifications: { email: true, disputes: true, payments: true, system: false },
   security: { mfaRequired: false, sessionLog: true },
   integrations: { openai: false, github: false },
+  proximity: { radiusMeters: 150, cooldownMinutes: 20 },
 };
 
 export default function AdminSettingsPage() {
@@ -86,7 +86,7 @@ export default function AdminSettingsPage() {
     <main style={{ padding: "32px", color: "var(--ink)" }}>
       <AdminPageHeader
         title={t("page.settings")}
-        subtitle="Ajustes del sistema SEMSE OS"
+        subtitle="Ajustes del sistema SEMSE Project"
         icon={Settings}
         iconColor="#818cf8"
         iconBg="rgba(99,102,241,0.15)"
@@ -134,7 +134,7 @@ export default function AdminSettingsPage() {
         <div style={{ border: "1px solid var(--border)", borderRadius: "20px", background: "var(--surface)", padding: "28px" }}>
           {loading ? (
             <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--muted)" }}>
-              <Loader2 size={16} style={spinStyle} /> Cargando ajustes…
+              <Loader2 size={16} className="animate-spin" /> Cargando ajustes…
             </div>
           ) : (
             <>
@@ -142,11 +142,12 @@ export default function AdminSettingsPage() {
               {active === "notifications" && <NotificationsSection value={settings.notifications} onChange={(v) => updateNested("notifications", v)} />}
               {active === "security" && <SecuritySection value={settings.security} onChange={(v) => updateNested("security", v)} />}
               {active === "integrations" && <IntegrationsSection value={settings.integrations} onChange={(v) => updateNested("integrations", v)} />}
+              {active === "time-tracker" && <TimeTrackerSection value={settings.proximity} onChange={(v) => updateNested("proximity", v)} />}
 
               <div style={{ marginTop: "24px", display: "flex", alignItems: "center", gap: "12px", justifyContent: "flex-end" }}>
                 {saving ? (
                   <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--muted)", fontSize: "0.875rem" }}>
-                    <Loader2 size={14} style={spinStyle} /> Guardando…
+                    <Loader2 size={14} className="animate-spin" /> Guardando…
                   </span>
                 ) : saveStatus === "saved" ? (
                   <span style={{ display: "flex", alignItems: "center", gap: "6px", color: "#34d399", fontSize: "0.875rem" }}>
@@ -235,7 +236,7 @@ function GeneralSection({ value, onChange }: { value: AdminSettings; onChange: (
           <option value="UTC">UTC</option>
         </select>
       </SettingRow>
-      <SettingRow label="Versión del sistema" description="SEMSE OS — monorepo">
+      <SettingRow label="Versión del sistema" description="SEMSE Project — monorepo">
         <span style={{ color: "var(--muted)", fontFamily: "monospace" }}>v0.1.0-dev</span>
       </SettingRow>
     </div>
@@ -334,6 +335,48 @@ function IntegrationsSection({ value, onChange }: { value: AdminSettings["integr
           <Database size={14} color="#34d399" />
           <span style={{ color: "#34d399", fontSize: "0.875rem" }}>Conectado</span>
         </div>
+      </SettingRow>
+    </div>
+  );
+}
+
+function TimeTrackerSection({ value, onChange }: { value: AdminSettings["proximity"]; onChange: (v: AdminSettings["proximity"]) => void }) {
+  return (
+    <div>
+      <h2 style={{ marginTop: 0, fontSize: "1.1rem" }}>Time Tracker — check-in por proximidad</h2>
+      <SettingRow
+        label="Radio de detección"
+        description="Qué tan cerca (en metros) debe estar un trabajador de un job o proyecto libre para que se le sugiera (o inicie) el reloj."
+      >
+        <input
+          type="number"
+          min={10}
+          max={2000}
+          step={10}
+          value={value.radiusMeters}
+          onChange={(e) => {
+            const parsed = Number(e.target.value);
+            if (Number.isFinite(parsed)) onChange({ ...value, radiusMeters: parsed });
+          }}
+          style={{ width: 100, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--panel)", color: "var(--ink)" }}
+        />
+      </SettingRow>
+      <SettingRow
+        label="Cooldown"
+        description="Minutos antes de volver a sugerir el mismo sitio, tras descartarlo o iniciar el reloj."
+      >
+        <input
+          type="number"
+          min={1}
+          max={240}
+          step={1}
+          value={value.cooldownMinutes}
+          onChange={(e) => {
+            const parsed = Number(e.target.value);
+            if (Number.isFinite(parsed)) onChange({ ...value, cooldownMinutes: parsed });
+          }}
+          style={{ width: 100, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--panel)", color: "var(--ink)" }}
+        />
       </SettingRow>
     </div>
   );

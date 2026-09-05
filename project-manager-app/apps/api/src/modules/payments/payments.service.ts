@@ -13,6 +13,8 @@ import { ContractsRepository } from "../contracts/contracts.repository.js";
 import { ReservationsRepository } from "../reservations/reservations.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { StripeConnectService } from "./stripe-connect.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
+import { OriginatorService } from "../originator/originator.service.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -61,6 +63,9 @@ export class PaymentsService {
     private readonly workspaceMemory: WorkspaceMemoryRepository,
     @Optional() private readonly sse?: SseEventBusService,
     @Optional() private readonly stripeConnect?: StripeConnectService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
+    @Optional() private readonly originator?: OriginatorService,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -167,8 +172,12 @@ export class PaymentsService {
     requestId: string;
     type: "bank_account" | "debit_card" | "paypal" | "zelle" | "cashapp";
     bankName?: string;
-    routingNumber?: string;
-    accountNumber?: string;
+    // 2.44 — the raw routing/account/card number never reaches this method at
+    // all anymore: Stripe.js tokenizes it client-side (browser → Stripe
+    // directly) before the BFF call is made. `stripeToken` and `last4` below
+    // both come from that tokenization response, not from anything this
+    // service could derive from raw digits.
+    stripeToken?: string;
     last4?: string;
     email?: string;
   }) {
@@ -179,13 +188,32 @@ export class PaymentsService {
       zelle: "Zelle",
       cashapp: "Cash App"
     };
+
+    // Don't trust the last4 the browser claims when we can verify it against
+    // Stripe directly. verifyPayoutToken() only returns a truthy string when
+    // StripeConnectService is wired up, Stripe is really configured, AND the
+    // token actually resolved to a last4 — any other case (service not
+    // injected, Stripe not configured/mock mode, or a token that somehow
+    // lacked one) falls back to whatever the client sent, rather than
+    // hard-failing outside of real deployments.
+    let verifiedLast4 = input.last4;
+    if (["bank_account", "debit_card"].includes(input.type) && input.stripeToken) {
+      const result = await this.stripeConnect?.verifyPayoutToken(input.stripeToken);
+      if (result) {
+        verifiedLast4 = result;
+      }
+    }
+
+    // The Stripe token itself is single-use and only needed to prove, at
+    // submit time, that Stripe could tokenize the number — this record is a
+    // display/status entry (see getWorkerPayoutMethod's callers), not the
+    // real payout mechanism (that's the separate Stripe Connect account
+    // panel on /worker/payments), so there's no product reason to retain it.
     const sanitized = {
       type: input.type,
       label: labelMap[input.type],
       bankName: input.type === "bank_account" ? input.bankName : undefined,
-      last4: input.last4
-        ?? (input.type === "bank_account" ? input.accountNumber?.slice(-4) : undefined)
-        ?? (input.type === "debit_card" ? input.accountNumber?.slice(-4) : undefined),
+      last4: verifiedLast4,
       email: ["paypal", "zelle", "cashapp"].includes(input.type) ? input.email : undefined,
       verified: false
     };
@@ -375,6 +403,17 @@ export class PaymentsService {
       amount: input.amount,
       providerRef: reservationRef
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: input.projectId,
+      sourceEventType: "payment.deposit.reserved",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: reservation.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     const fundingIntent = await paymentProvider.createFundingIntent({
       tenantId: input.tenantId,
@@ -401,6 +440,15 @@ export class PaymentsService {
       status: finalStatus,
       providerRef: fundingIntent.providerRef
     });
+
+    if (transaction.status === "succeeded") {
+      void this.originator?.evaluateMilestoneFundedTrigger({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        executionProjectId: input.projectId,
+        requestId: input.requestId,
+      }).catch(() => undefined);
+    }
 
     await this.auditService.append({
       id: `aud_${Date.now()}`,
@@ -434,6 +482,17 @@ export class PaymentsService {
       currency,
       action: "funded",
     }));
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: input.projectId,
+      sourceEventType: "payment.deposit.finalized",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: transaction.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return {
       escrow,
@@ -657,6 +716,17 @@ export class PaymentsService {
       amount,
       providerRef: reservationRef
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: milestone.projectId,
+      sourceEventType: "payment.release.reserved",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: reservation.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     let payoutIntent;
     try {
@@ -741,6 +811,17 @@ export class PaymentsService {
       currency: escrow.currency,
       transactionId: transaction.id,
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: milestone.projectId,
+      sourceEventType: "payment.release.finalized",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: transaction.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return {
       transaction,
@@ -786,6 +867,17 @@ export class PaymentsService {
       escrowId: context.escrowId,
       amount: input.amount,
       providerRef: reservationRef
+    });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "payment.refund.reserved",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: reservation.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
     });
 
     let refundIntent;
@@ -873,6 +965,17 @@ export class PaymentsService {
       currency: context.currency,
       transactionId: transaction.id,
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "payment.refund.finalized",
+      sourceEntityType: "PaymentTxn",
+      sourceEntityId: transaction.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return {
       ...escrowSummary,
@@ -917,6 +1020,19 @@ export class PaymentsService {
     }
 
     const result = await this.paymentsRepository.reconcileTransactionStatus({ providerRef, status: targetStatus });
+    if (result.reconciled && result.transaction) {
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId: result.transaction.tenantId,
+        orgId: "system",
+        projectId: result.transaction.projectId,
+        sourceEventType: `payment.webhook.${eventType}`,
+        sourceEntityType: "PaymentTxn",
+        sourceEntityId: result.transaction.id,
+        actorType: "webhook",
+        actorId: providerRef,
+        correlationId: input.requestId,
+      });
+    }
     return {
       accepted: true,
       event: eventType,

@@ -47,6 +47,10 @@ export class MarketplaceService {
     urgency?:  string;
     limit?:    number;
     offset?:   number;
+    /** Excludes the caller's own org's jobs from the marketplace — a CLIENT
+     * browsing here as a would-be contractor should never see (or be able to
+     * bid on) their own posted job. See AUDIT_REMEDIATION_PLAN.md 1.5. */
+    excludeOrgId?: string;
   }): Promise<{ listings: MarketplaceListing[]; total: number }> {
     const limit = input.limit ?? 20;
     const skip  = input.offset ?? 0;
@@ -55,6 +59,7 @@ export class MarketplaceService {
       tenantId:  input.tenantId,
       status:    { in: ["POSTED", "PUBLISHED"] as never[] },
       deletedAt: null,
+      ...(input.excludeOrgId ? { clientOrgId: { not: input.excludeOrgId } } : {}),
       ...(input.category ? { category: input.category }             : {}),
       ...(input.location ? { location: { contains: input.location, mode: "insensitive" as const } } : {}),
       ...(input.urgency  ? { urgency: input.urgency }               : {}),
@@ -98,9 +103,14 @@ export class MarketplaceService {
 
   // ── Stats ─────────────────────────────────────────────────────────────────
 
-  async getStats(tenantId: string): Promise<MarketplaceStats> {
+  async getStats(tenantId: string, excludeOrgId?: string): Promise<MarketplaceStats> {
     const jobs = await this.prisma.job.findMany({
-      where: { tenantId, status: { in: ["POSTED", "PUBLISHED"] }, deletedAt: null },
+      where: {
+        tenantId,
+        status: { in: ["POSTED", "PUBLISHED"] },
+        deletedAt: null,
+        ...(excludeOrgId ? { clientOrgId: { not: excludeOrgId } } : {}),
+      },
       select: { category: true, urgency: true, budgetMin: true },
     });
 

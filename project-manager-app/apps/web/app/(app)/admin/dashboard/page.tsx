@@ -2,7 +2,7 @@
 
 /**
  * Admin Dashboard — Vista principal del operador/administrador
- * Basado en AdminDashboard del SEMSE OS
+ * Basado en AdminDashboard del SEMSE Project
  */
 
 import { useEffect, useState } from "react";
@@ -171,7 +171,7 @@ export default function AdminDashboardPage() {
               disabled={loading}
               style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "12px", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
             >
-              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
               Refrescar
             </button>
           </>
@@ -243,11 +243,11 @@ export default function AdminDashboardPage() {
         <h2 style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "14px" }}>Gestión rápida</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "10px" }}>
           {[
-            { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "#3b82f6" },
+            { label: t("nav.operations"),   href: "/admin/ops",           icon: Activity,      color: "var(--brand)" },
             { label: t("nav.communications"), href: "/admin/communications", icon: MessageSquare, color: "#14b8a6" },
             { label: t("nav.users"),        href: "/admin/users",         icon: Users,         color: "#8b5cf6" },
-            { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "#ef4444" },
-            { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "#10b981" },
+            { label: t("nav.disputes"),     href: "/admin/disputes",      icon: AlertTriangle, color: "var(--error)" },
+            { label: t("nav.finance"),      href: "/admin/finance",       icon: DollarSign,    color: "var(--ok)" },
             { label: t("nav.compliance"),   href: "/admin/compliance",    icon: Shield,        color: "#f59e0b" },
             { label: t("nav.autonomy"),     href: "/admin/autonomy",      icon: Bot,           color: "#a855f7" },
             { label: t("nav.llmMetrics"),   href: "/admin/llm-metrics",   icon: Activity,      color: "#6366f1" },

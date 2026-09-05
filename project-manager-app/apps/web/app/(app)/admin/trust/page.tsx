@@ -151,16 +151,15 @@ export default function TrustPage() {
         icon={Shield}
         iconColor="#818cf8"
         iconBg="rgba(99,102,241,.15)"
-        showBack={false}
         actions={
           <>
             <Link href="/admin/trust/worker-applications"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "#10b981", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(16,185,129,.12)", border: "1px solid rgba(16,185,129,.3)", color: "var(--ok)", fontSize: 12, fontWeight: 800, textDecoration: "none" }}>
               <UserPlus size={13} /> Aplicaciones de workers
             </Link>
             <button onClick={load} disabled={loading}
               style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
             </button>
           </>
         }
@@ -219,7 +218,6 @@ export default function TrustPage() {
         ))}
       </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

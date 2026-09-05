@@ -191,7 +191,9 @@ export const PROMETEO_TOOL_REGISTRY: PrometeoToolDescriptor[] = [
     // evidenceId is required by VisionService.runAnalysis (it keys the persisted
     // VisionAnalysisRecord) even though it wasn't in the original descriptor.
     inputSchema: { type: "object", required: ["evidenceId", "imageUrl"], properties: { evidenceId: { type: "string" }, imageUrl: { type: "string" }, jobId: { type: "string" }, milestoneId: { type: "string" } } },
-    outputKind: "VisionAnalysisResult",
+    // docs/specs/prometeo/tool-result-multimodal.spec.md pilot: the handler
+    // wraps VisionAnalysisResult as ToolResult; legacyJson keeps the old shape.
+    outputKind: "ToolResult",
     tags: ["vision", "image", "evidence"],
     adapterPending: false,
   }),

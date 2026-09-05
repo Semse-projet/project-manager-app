@@ -38,8 +38,9 @@ Si una acción importante no produce evento ni deja audit log, está incompleta.
 Los siguientes nombres están reservados por
 [`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md),
 El slice Evidence F1-A..F1-D ya está integrado en `main`: contrato v2, productor
-atómico, outbox, dispatcher BullMQ y consumer idempotente. Sigue contenido por
-kill switch/allowlist hasta el canary F1-F:
+atómico, outbox, dispatcher BullMQ y consumer idempotente. Sigue controlado por
+kill switches/allowlists; los switches se ejercitaron durante F3, pero F1-F
+transversal aún no está cerrado:
 
 - `evidence.uploaded.v1`
 
@@ -54,27 +55,158 @@ La convención v1 sin suffix permanece activa para código existente. La
 migración es productor por productor y usa adapter explícito; no se hace
 dual-write.
 
+## Project Lifecycle Projection F3
+
+Contrato canónico desplegado y verificado en canary para `tenant_default`:
+
+- Evento: `project.lifecycle-source-changed.v1`
+- Schema ref:
+  `semse://schemas/events/project.lifecycle-source-changed.v1`
+- Módulo/agregado: `projects` / `Project`
+- Consumer: `project-lifecycle-projection.v1`
+- Resultado: rebuild tenant-scoped, persistencia CAS, AuditLog y receipt
+  `DomainEventConsumption`
+
+Payload:
+
+```yaml
+projectId: string
+sourceEventType: string
+sourceEntityType: string
+sourceEntityId: string
+```
+
+El envelope v2 conserva actor, tenant, org, correlation, causation e
+idempotency key. Los hooks cubren cambios relevantes de Project,
+Milestone/Evidence, Dispute, Payment, Expense, Risk y promoción BuildOps.
+
+Evidence registra su mutación y outbox F3 en la misma transacción. Los demás
+hooks actuales son post-commit best-effort; el cálculo read-through y el
+rebuild idempotente son la recuperación documentada. No se atribuye atomicidad
+a esos productores hasta que su bounded context adopte outbox transaccional.
+
+Canary de producción: cinco eventos `PUBLISHED`, cinco consumos `COMPLETED`,
+cero estados failed/dead-letter y replay `no_op` sin efecto duplicado. La
+activación sigue limitada por flags y allowlists; no es rollout global.
+
 ## Auth / Identity
 
 - `user.created`
+- `user.password_changed`
 - `user.verified`
 - `user.suspended`
 - `organization.created`
 - `membership.created`
 - `membership.updated`
 
-## Jobs
+## Jobs & Bids Event Projection
+
+Reconciliación 2026-08-26 (ver
+[`../specs/operations/jobs-bids-event-projection.spec.md`](../specs/operations/jobs-bids-event-projection.spec.md)):
+la lista anterior de `## Jobs` (`job.posted`, `job.reserved`, `job.started`,
+`job.review_requested`, `job.partially_paid`, `job.disputed`,
+`job.cancelled`) era aspiracional — orientada a las transiciones FSM, no a
+lo que `jobs.service.ts` emite realmente. El código solo emite tres tipos,
+vía `DomainEventBus` (no outbox) desde `jobs.service.ts`:
 
 - `job.created`
-- `job.posted`
-- `job.reserved`
-- `job.accepted`
-- `job.started`
-- `job.review_requested`
-- `job.partially_paid`
-- `job.completed`
-- `job.disputed`
-- `job.cancelled`
+- `job.status_changed`
+- `job.preferred_professional_selected`
+
+Esta spec agrega el envelope v2 versionado para esos tres (dual-write junto
+al `DomainEventBus` existente, que se mantiene intacto) y dos eventos
+nuevos de `bids` que no existían en ningún catálogo hasta ahora:
+
+- `job.created.v1`
+- `job.status_changed.v1`
+- `job.preferred_professional_selected.v1` (schema reservado — el productor
+  de este evento en outbox no está instrumentado todavía, fuera del
+  alcance de esta spec; ver spec §6)
+- `bid.created.v1`
+- `bid.accepted.v1`
+- `bid.rejected.v1` (emitido por-bid, uno por cada bid competidor que
+  pierde cuando otro es aceptado — no agregado)
+
+Módulo/agregado: `jobs` / `Job` para los tres `job.*`; `bids` / `Bid` para
+los tres `bid.*`. Consumer: `jobs-bids-projection.v1`, registrado en el
+dispatch genérico de `domain-event-consumer.service.ts` (mismo mecanismo
+de idempotencia `DomainEventConsumption` que `evidence-readiness.v1` /
+`project-lifecycle-projection.v1`). Rebuild tenant-scoped desde estado
+actual de `Job`+`Bid` (no aplicación de deltas), persistido con CAS por
+`revision`+`sourceUpdatedAt` en `JobsBidsProjection`, mismo molde que
+`ProjectLifecycleProjection`.
+
+Read-through: `OperationalContextService.buildContext()` lee el campo
+`jobs` desde la proyección solo si `SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`
+y el tenant está en `SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS`, con fallback
+obligatorio a la query directa (`prisma.job.findMany()`) si la lectura
+falla o la proyección todavía no alcanzó la cantidad real de jobs del
+tenant (backfill en curso) — no negociable en el path de `POST
+/prometeo/chat`, que llama `buildContext()` sin `.catch()`.
+
+Activación (`SEMSE_JOBS_PROJECTION_ENABLED`,
+`SEMSE_JOBS_PROJECTION_PERSIST_ENABLED`,
+`SEMSE_JOBS_PROJECTION_CANARY_TENANT_IDS`,
+`SEMSE_JOBS_PROJECTION_READTHROUGH_ENABLED`) sigue
+`docs/runbooks/JOBS_BIDS_PROJECTION_CANARY.md` — no desplegada/activada
+todavía al momento de este cambio (`activation_status: INACTIVE` en el
+frontmatter de la spec).
+
+## Satellite Webhooks (SAT-007)
+
+Ver
+[`../specs/satellites/SAT-007-outbound-webhooks.spec.md`](../specs/satellites/SAT-007-outbound-webhooks.spec.md).
+Cierra un gap de documentación preexistente (spec §6, plan §1.1): tres
+eventos ya se emitían en producción sin figurar en ningún catálogo —
+
+- `job.matched` (`marketplace.agent.ts`, vía `notifications.handleEvent()`)
+- `job.completed` (`jobs.service.ts:systemCompleteJob`, ídem)
+- `rating.requested` (`jobs.service.ts:systemCompleteJob`, ídem)
+
+`milestone.approved`/`milestone.rejected` ya estaban documentados arriba
+(`## Milestones`) — sin gap ahí, solo ganan versión `.v1`.
+
+**Hallazgo crítico de esta spec:** ninguno de los 5 eventos del catálogo
+de webhooks (los tres de arriba + `milestone.approved`/`milestone.rejected`)
+tenía respaldo en el outbox de dominio v2 (`DomainOutboxEvent`) — solo
+vivían en `notifications.handleEvent()`/`DomainEventBus` (v1, legacy,
+sin persistencia). SAT-007 agrega productores de outbox **best-effort**
+(no envueltos en `$transaction` nueva — ninguno de estos call sites tiene
+una escritura de dominio con la que emparejar el insert en ese instante
+exacto; el hecho de dominio ya está durablemente registrado por otro
+evento o ya ocurrió) para las versiones `.v1`:
+
+- `job.matched.v1`
+- `job.completed.v1`
+- `rating.requested.v1`
+- `milestone.approved.v1`
+- `milestone.rejected.v1`
+
+Consumer: `satellite-webhooks.v1`, registrado en el dispatch genérico de
+`domain-event-consumer.service.ts`. A diferencia de los demás consumers
+del registro, éste hace fan-out: por cada evento, entrega HTTP firmada
+(HMAC-SHA256) a todos los `SatelliteWebhook` `ACTIVE` cuyo `events[]`
+incluya el nombre bare correspondiente. El conteo de fallos consecutivos
+que suspende un webhook (5) vive en la fila `SatelliteWebhook` misma, no
+en `DomainEventConsumption` — son mecanismos de retry independientes (uno
+por-evento vía el outbox estándar, otro por-webhook vía
+`consecutiveFailures`).
+
+Un satélite solo puede suscribirse a un evento si su token tiene el scope
+requerido (además del scope general `events:subscribe`):
+
+| Evento | Scope requerido |
+|---|---|
+| `job.matched` | `jobs:read` |
+| `job.completed` | `jobs:read` |
+| `rating.requested` | `jobs:read` |
+| `milestone.approved` | `milestones:read` |
+| `milestone.rejected` | `milestones:read` |
+
+Activación (`SATELLITE_WEBHOOKS_ENABLED`) — no desplegada/activada
+todavía al momento de este cambio (`activation_status: INACTIVE` en el
+frontmatter de la spec); off ⇒ el registro de webhooks devuelve 503 y el
+consumer no entrega, sin perder eventos encolados.
 
 ## Reservations
 
@@ -108,6 +240,15 @@ dual-write.
 - `evidence.review_started`
 - `evidence.accepted`
 - `evidence.rejected`
+
+## Project Originator (F10)
+
+- `project.originator_proposed.v1`
+- `project.originator_validated.v1`
+
+`project.originator_reward_earned.v1` (spec §6) no se declara todavía —
+sigue la misma disciplina del resto del catálogo de no registrar un evento
+sin productor real (ver `docs/specs/core/originador-referral-program.spec.md`).
 
 ## Payments / Escrow
 

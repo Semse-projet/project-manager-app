@@ -3,7 +3,7 @@ import type { ProfessionalCredentialRecord } from "../../semse-api";
 
 const BADGE_META: Record<string, { label: string; color: string; emoji: string }> = {
   top_rated:      { label: "Top Rated",      color: "#fbbf24", emoji: "⭐" },
-  zero_disputes:  { label: "Cero Disputas",  color: "#10b981", emoji: "🛡" },
+  zero_disputes:  { label: "Cero Disputas",  color: "var(--ok)", emoji: "🛡" },
   fast_deliverer: { label: "Entrega Puntual", color: "#818cf8", emoji: "⚡" },
   high_volume:    { label: "Alto Volumen",    color: "#06b6d4", emoji: "📊" },
   verified:       { label: "Verificado",      color: "#34d399", emoji: "✓" },
@@ -11,7 +11,7 @@ const BADGE_META: Record<string, { label: string; color: string; emoji: string }
 };
 
 function TrustMeter({ score }: { score: number }) {
-  const color = score >= 80 ? "#10b981" : score >= 60 ? "#fbbf24" : score >= 40 ? "#fb923c" : "#f87171";
+  const color = score >= 80 ? "var(--ok)" : score >= 60 ? "#fbbf24" : score >= 40 ? "#fb923c" : "#f87171";
   const label = score >= 80 ? "Excelente" : score >= 60 ? "Bueno" : score >= 40 ? "Regular" : "Bajo";
   return (
     <div style={{ marginBottom: 24 }}>
@@ -145,9 +145,9 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           {[
             { label: "Proyectos completados", value: String(profile.completedProjects), color: "#818cf8" },
             { label: "Proyectos activos", value: String(profile.activeProjects), color: "#22d3ee" },
-            { label: "Total gestionado", value: `$${Math.round(profile.totalManaged).toLocaleString()}`, color: "#10b981" },
-            { label: "Entrega a tiempo", value: `${onTimePct}%`, color: onTimePct >= 80 ? "#10b981" : "#fbbf24" },
-            { label: "Tasa de disputas", value: `${disputePct}%`, color: disputePct === 0 ? "#10b981" : disputePct < 10 ? "#fbbf24" : "#f87171" },
+            { label: "Total gestionado", value: `$${Math.round(profile.totalManaged).toLocaleString()}`, color: "var(--ok)" },
+            { label: "Entrega a tiempo", value: `${onTimePct}%`, color: onTimePct >= 80 ? "var(--ok)" : "#fbbf24" },
+            { label: "Tasa de disputas", value: `${disputePct}%`, color: disputePct === 0 ? "var(--ok)" : disputePct < 10 ? "#fbbf24" : "#f87171" },
             { label: "Rating promedio", value: profile.avgClientRating > 0 ? `${profile.avgClientRating.toFixed(1)} ★` : "—", color: "#fbbf24" },
           ].map(s => (
             <div key={s.label} style={{
@@ -186,7 +186,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           <div>
             <p style={{ fontSize: 12, color: "#334155", margin: 0 }}>
               Perfil verificado por{" "}
-              <span style={{ color: "#6366f1", fontWeight: 700 }}>SEMSE OS</span>
+              <span style={{ color: "#6366f1", fontWeight: 700 }}>SEMSE Project</span>
             </p>
             {profile.lastActivityAt && (
               <p style={{ fontSize: 11, color: "#1e3a5f", margin: "4px 0 0" }}>

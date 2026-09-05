@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Req } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import {
+  authPasswordChangeSchema,
   authPasswordResetConfirmSchema,
   authPasswordResetRequestSchema,
   authRefreshBodySchema,
@@ -152,6 +153,22 @@ export class AuthController {
     const requestId = resolveRequestId(req.headers ?? {});
     const data = await this.authService.logout({
       ...actor,
+      requestId
+    });
+    return ok(requestId, data);
+  }
+
+  @Post("password-change")
+  @AuthenticatedAccess("Authenticated users may change only their own password.")
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async changePassword(@Req() req: AuthenticatedRequest, @Body() body: unknown) {
+    const parsed = parseWithSchema(authPasswordChangeSchema, body);
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const data = await this.authService.changePassword({
+      ...actor,
+      currentPassword: parsed.currentPassword,
+      newPassword: parsed.newPassword,
       requestId
     });
     return ok(requestId, data);

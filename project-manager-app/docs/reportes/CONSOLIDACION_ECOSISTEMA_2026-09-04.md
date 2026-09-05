@@ -38,3 +38,18 @@ Se corrigió una única inconsistencia de workspace: se retiró el bloque `pnpm.
 ## Próximo paso seguro
 
 Antes de publicar la consolidación F1–F4, crear una rama de integración y resolver manualmente las divergencias contra `origin/main`, preservando los documentos y módulos históricos. Después ejecutar nuevamente specs, typecheck, unit tests y una validación de despliegue en Railway; solo entonces considerar un commit/PR y un despliegue controlado.
+
+## Resultado de la integración
+
+La rama `consolidation/integration-main-preserved-20260905` contiene el merge local `36bd49de`, con padres `a77af206` (snapshot local preservado) y `88171003` (GitHub/Railway). No contiene eliminaciones frente al snapshot local; los archivos retirados por el remoto fueron restaurados.
+
+Correcciones aplicadas durante la integración:
+
+- Se declararon en `schema.prisma` las entidades del control plane ya presentes en la migración F1–F4.
+- Se mantuvo `pre-migrate.mjs` fail-closed, sin `db push`, borrado de datos ni reparación automática de producción.
+- Se corrigió `BASE_RATES` en la vista de Labor.
+- Se conservaron los archivos históricos y la rama local original como respaldo recuperable.
+
+Validación final de la integración: Prisma válido, API/web typecheck correcto, worker válido, `agro-sync` 11/11 correcto, gate de migraciones 3/3 correcto y suite completa **1.055 aprobadas, 0 fallidas, 9 omitidas**.
+
+La rama aún no se ha enviado a GitHub ni desplegado a Railway.

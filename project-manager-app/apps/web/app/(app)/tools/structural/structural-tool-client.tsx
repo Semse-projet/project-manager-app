@@ -31,7 +31,7 @@ export function StructuralToolClient({ section }: { section: StructuralSection }
   const [error, setError] = useState<string | null>(null);
 
   const costPerFt = useMemo(() => {
-    const workCost: Record<typeof input.workType, number> = { beam_replacement: 400, foundation_repair: 600, wall_bracing: 300, post_replacement: 250, reinforcement: 350 };
+    const workCost: Record<StructuralInput["workType"], number> = { beam_replacement: 400, foundation_repair: 600, wall_bracing: 300, post_replacement: 250, reinforcement: 350 };
     const base = workCost[input.workType];
     const matFactor = { steel: 1.5, wood: 1, concrete: 1.2 }[input.material];
     const scaleFactor = { small: 1, medium: 1.2, large: 1.5 }[input.scale];

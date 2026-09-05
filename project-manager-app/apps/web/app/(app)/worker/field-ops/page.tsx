@@ -234,7 +234,7 @@ function UnitsTab() {
         action={
           <button
             onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors"
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors"
           >
             {showForm ? "Cancelar" : "+ Nueva unidad"}
           </button>
@@ -250,30 +250,30 @@ function UnitsTab() {
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Project ID *</label>
               <input value={formProjectId} onChange={e => setFormProjectId(e.target.value)}
                 required placeholder="cuid del proyecto"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Código *</label>
               <input value={formCode} onChange={e => setFormCode(e.target.value)}
                 required placeholder="Ej: 110, Wing-A"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Nombre</label>
               <input value={formName} onChange={e => setFormName(e.target.value)}
                 placeholder="Nombre amigable"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Dirección</label>
               <input value={formAddress} onChange={e => setFormAddress(e.target.value)}
                 placeholder="Dirección física"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex justify-end">
             <button type="submit" disabled={creating || !formProjectId.trim() || !formCode.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {creating ? "Creando…" : "Crear unidad"}
             </button>
           </div>
@@ -297,7 +297,7 @@ function UnitsTab() {
                 className={cn(
                   "cursor-pointer rounded-xl border px-4 py-3 transition-all",
                   selected?.id === unit.id
-                    ? "border-[var(--brand,#3b82f6)]/30 bg-[var(--brand,#3b82f6)]/5"
+                    ? "border-[var(--brand,var(--brand))]/30 bg-[var(--brand,var(--brand))]/5"
                     : "border-white/[0.06] bg-[var(--bg-2,#111)] hover:border-white/[0.12]"
                 )}
               >
@@ -420,7 +420,7 @@ function WorklogsTab() {
         title={`Worklogs (${filtered.length})`}
         action={
           <button onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors">
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors">
             {showForm ? "Cancelar" : "+ Registrar avance"}
           </button>
         }
@@ -430,7 +430,7 @@ function WorklogsTab() {
       <div className="mb-4">
         <input value={filterUnit} onChange={e => setFilterUnit(e.target.value)}
           placeholder="Filtrar por código de unidad…"
-          className="w-full max-w-xs rounded-lg border border-white/[0.08] bg-[var(--bg-2,#111)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)] placeholder:text-[var(--muted)]" />
+          className="w-full max-w-xs rounded-lg border border-white/[0.08] bg-[var(--bg-2,#111)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))] placeholder:text-[var(--muted)]" />
       </div>
 
       {/* New worklog form */}
@@ -441,37 +441,37 @@ function WorklogsTab() {
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Field Unit ID *</label>
               <input value={fUnitId} onChange={e => setFUnitId(e.target.value)} required
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Fecha *</label>
               <input type="date" value={fDate} onChange={e => setFDate(e.target.value)} required
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Hecho hoy *</label>
               <textarea value={fDone} onChange={e => setFDone(e.target.value)} required rows={2}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)] resize-none" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))] resize-none" />
             </div>
             <div className="sm:col-span-2">
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Pendiente siguiente *</label>
               <textarea value={fPending} onChange={e => setFPending(e.target.value)} required rows={2}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)] resize-none" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))] resize-none" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Bloqueadores</label>
               <input value={fBlockers} onChange={e => setFBlockers(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Notas</label>
               <input value={fNotes} onChange={e => setFNotes(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex justify-end">
             <button type="submit" disabled={submitting || !fUnitId.trim() || !fDone.trim() || !fPending.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {submitting ? "Guardando…" : "Guardar avance"}
             </button>
           </div>
@@ -491,7 +491,7 @@ function WorklogsTab() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold text-[var(--brand,#3b82f6)]">
+                    <span className="text-xs font-semibold text-[var(--brand,var(--brand))]">
                       {w.fieldUnit ? `Unidad ${w.fieldUnit.code}` : w.fieldUnitId.slice(0, 8)}
                     </span>
                     <span className="text-[0.65rem] text-[var(--muted)]">
@@ -586,7 +586,7 @@ function KnowledgeTab() {
         title={`Memoria contextual (${facts.length})`}
         action={
           <button onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors">
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors">
             {showForm ? "Cancelar" : "+ Nueva entrada"}
           </button>
         }
@@ -600,19 +600,19 @@ function KnowledgeTab() {
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Sujeto *</label>
               <input value={fSubject} onChange={e => setFSubject(e.target.value)} required
                 placeholder="FieldUnit:110"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Predicado *</label>
               <input value={fPredicate} onChange={e => setFPredicate(e.target.value)} required
                 placeholder="blocked_by, status…"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Objeto *</label>
               <input value={fObject} onChange={e => setFObject(e.target.value)} required
                 placeholder="Valor o descripción"
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex items-end gap-3">
@@ -620,10 +620,10 @@ function KnowledgeTab() {
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Confianza (0–1)</label>
               <input type="number" min="0" max="1" step="0.05" value={fConfidence}
                 onChange={e => setFConfidence(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <button type="submit" disabled={submitting || !fSubject.trim() || !fPredicate.trim() || !fObject.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {submitting ? "Guardando…" : "Crear hecho"}
             </button>
           </div>
@@ -649,7 +649,7 @@ function KnowledgeTab() {
             <tbody>
               {facts.map((f, i) => (
                 <tr key={f.id} className={cn("border-b border-white/[0.04]", i % 2 === 0 ? "" : "bg-white/[0.01]")}>
-                  <td className="px-4 py-2.5 font-medium text-[var(--brand,#3b82f6)]">{f.subject}</td>
+                  <td className="px-4 py-2.5 font-medium text-[var(--brand,var(--brand))]">{f.subject}</td>
                   <td className="px-4 py-2.5 text-[var(--muted)]">{f.predicate}</td>
                   <td className="px-4 py-2.5 text-[var(--ink)] max-w-[200px] truncate">{f.object}</td>
                   <td className={cn("px-4 py-2.5 font-mono font-semibold", confidenceColor(f.confidence))}>
@@ -742,7 +742,7 @@ function VendorsTab() {
         title={`Proveedores (${vendors.length})`}
         action={
           <button onClick={() => setShowForm(v => !v)}
-            className="rounded-lg border border-[var(--brand,#3b82f6)]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,#3b82f6)] hover:bg-[var(--brand,#3b82f6)]/10 transition-colors">
+            className="rounded-lg border border-[var(--brand,var(--brand))]/40 px-3 py-1.5 text-xs font-medium text-[var(--brand,var(--brand))] hover:bg-[var(--brand,var(--brand))]/10 transition-colors">
             {showForm ? "Cancelar" : "+ Nuevo proveedor"}
           </button>
         }
@@ -755,22 +755,22 @@ function VendorsTab() {
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Nombre *</label>
               <input value={fName} onChange={e => setFName(e.target.value)} required
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Teléfono</label>
               <input value={fPhone} onChange={e => setFPhone(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
             <div>
               <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Email</label>
               <input type="email" value={fEmail} onChange={e => setFEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,#3b82f6)]" />
+                className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--brand,var(--brand))]" />
             </div>
           </div>
           <div className="mt-3 flex justify-end">
             <button type="submit" disabled={creating || !fName.trim()}
-              className="rounded-lg bg-[var(--brand,#3b82f6)] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
+              className="rounded-lg bg-[var(--brand,var(--brand))] px-4 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:opacity-90">
               {creating ? "Creando…" : "Crear proveedor"}
             </button>
           </div>
@@ -797,7 +797,7 @@ function VendorsTab() {
                   className="flex w-full items-center justify-between px-4 py-3 text-left"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[0.65rem] font-bold text-[var(--brand,#3b82f6)]">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-[0.65rem] font-bold text-[var(--brand,var(--brand))]">
                       {v.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -860,264 +860,20 @@ function VendorsTab() {
   );
 }
 
-// ── Tracker Tab ───────────────────────────────────────────────────────────────
-
-interface TrackerSessionView {
-  id: string;
-  jobId: string;
-  status: "RUNNING" | "PAUSED" | "STOPPED";
-  startedAt: string;
-  resumedAt: string | null;
-  stoppedAt: string | null;
-  accumulatedSeconds: number;
-  elapsedSeconds: number;
-  notes: string | null;
-  job: { id: string; title: string; status: string };
-}
-
-interface TrackerJob { id: string; title: string; status: string }
-
-interface TrackerSummary {
-  totalSeconds: number;
-  activeSession: TrackerSessionView | null;
-  byJob: Array<{ jobId: string; jobTitle: string; seconds: number }>;
-}
-
-function fmtDuration(seconds: number) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  return h > 0
-    ? `${h}h ${String(m).padStart(2, "0")}m`
-    : `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-function TrackerTab() {
-  const [summary, setSummary] = useState<TrackerSummary | null>(null);
-  const [todaySessions, setTodaySessions] = useState<TrackerSessionView[]>([]);
-  const [jobs, setJobs] = useState<TrackerJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [acting, setActing] = useState(false);
-  const [showStart, setShowStart] = useState(false);
-  const [fJobId, setFJobId] = useState("");
-  const [fNotes, setFNotes] = useState("");
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  const load = useCallback(async () => {
-    setLoading(true); setError(null);
-    try {
-      const [sum, sessions, jbs] = await Promise.all([
-        apiFetch<TrackerSummary>("/api/semse/time-tracker/summary"),
-        apiFetch<TrackerSessionView[]>("/api/semse/time-tracker/sessions?limit=30"),
-        apiFetch<TrackerJob[]>("/api/semse/time-tracker/jobs"),
-      ]);
-      setSummary(sum);
-      const today = new Date().toISOString().slice(0, 10);
-      setTodaySessions(sessions.filter(s => s.startedAt.slice(0, 10) === today));
-      setJobs(jbs);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error cargando tracker");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
-  async function startSession(e: React.FormEvent) {
-    e.preventDefault();
-    if (!fJobId) return;
-    setActing(true);
-    try {
-      await apiFetch("/api/semse/time-tracker/sessions/start", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ jobId: fJobId, notes: fNotes.trim() || undefined }),
-      });
-      setShowStart(false); setFJobId(""); setFNotes("");
-      await load();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error al iniciar");
-    } finally {
-      setActing(false);
-    }
-  }
-
-  async function act(route: string) {
-    setActing(true);
-    try {
-      await apiFetch(route, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-      await load();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Error");
-    } finally {
-      setActing(false);
-    }
-  }
-
-  const active = summary?.activeSession;
-  const liveElapsed = active?.status === "RUNNING"
-    ? active.accumulatedSeconds + Math.floor((now - new Date(active.resumedAt ?? active.startedAt).getTime()) / 1000)
-    : (active?.accumulatedSeconds ?? 0);
-  const todayTotal = todaySessions.reduce((acc, s) => {
-    if (s.status === "RUNNING") return acc + s.accumulatedSeconds + Math.floor((now - new Date(s.resumedAt ?? s.startedAt).getTime()) / 1000);
-    return acc + s.accumulatedSeconds;
-  }, 0);
-
-  if (loading) return (
-    <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-20 animate-pulse rounded-xl bg-white/[0.03]" />)}</div>
-  );
-
-  return (
-    <div className="space-y-6">
-      {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">
-          {error} <button onClick={() => setError(null)} className="ml-2 underline">Cerrar</button>
-        </div>
-      )}
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
-          <p className="text-[0.65rem] text-[var(--muted)]">Total hoy</p>
-          <p className="mt-1 text-2xl font-bold text-[var(--ink)]">{fmtDuration(todayTotal)}</p>
-        </div>
-        <div className={cn("rounded-xl border p-4", active ? "border-emerald-500/20 bg-emerald-500/5" : "border-white/[0.06] bg-white/[0.03]")}>
-          <p className="text-[0.65rem] text-[var(--muted)]">Estado</p>
-          <p className={cn("mt-1 text-sm font-semibold",
-            active?.status === "RUNNING" ? "text-emerald-400" : active?.status === "PAUSED" ? "text-yellow-400" : "text-zinc-400")}>
-            {active?.status === "RUNNING" ? "⏱ En curso" : active?.status === "PAUSED" ? "⏸ Pausado" : "⏹ Sin sesión"}
-          </p>
-          {active && <p className="mt-0.5 text-xl font-bold text-[var(--ink)]">{fmtDuration(liveElapsed)}</p>}
-        </div>
-      </div>
-
-      {/* Active session controls */}
-      {active ? (
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-[var(--ink)]">Sesión activa</p>
-              <p className="text-[0.65rem] text-[var(--muted)]">{active.job.title}</p>
-            </div>
-            <span className={cn("rounded-full px-2.5 py-0.5 text-[0.6rem] font-semibold",
-              active.status === "RUNNING" ? "bg-emerald-500/10 text-emerald-400" : "bg-yellow-500/10 text-yellow-400")}>
-              {active.status}
-            </span>
-          </div>
-          {active.notes && <p className="mb-3 text-[0.65rem] italic text-[var(--muted)]">&quot;{active.notes}&quot;</p>}
-          <div className="flex flex-wrap gap-2">
-            {active.status === "RUNNING" ? (
-              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/pause`)}
-                className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs font-semibold text-yellow-400 disabled:opacity-40">
-                {acting ? "…" : "⏸ Pausar"}
-              </button>
-            ) : (
-              <button disabled={acting} onClick={() => void act(`/api/semse/tracker/${active.id}/resume`)}
-                className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400 disabled:opacity-40">
-                {acting ? "…" : "▶ Reanudar"}
-              </button>
-            )}
-            <button disabled={acting} onClick={() => void act(`/api/semse/time-tracker/sessions/${active.id}/stop`)}
-              className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 disabled:opacity-40">
-              {acting ? "…" : "⏹ Detener"}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          {!showStart ? (
-            <button onClick={() => setShowStart(true)}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500">
-              ▶ Iniciar nueva sesión
-            </button>
-          ) : (
-            <form onSubmit={startSession} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-              <p className="mb-3 text-xs font-semibold text-[var(--ink)]">Nueva sesión</p>
-              <div className="mb-3 grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Trabajo *</label>
-                  <select required value={fJobId} onChange={e => setFJobId(e.target.value)}
-                    className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)]">
-                    <option value="">Seleccionar trabajo…</option>
-                    {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-[0.65rem] text-[var(--muted)]">Notas</label>
-                  <input value={fNotes} onChange={e => setFNotes(e.target.value)} placeholder="Qué vas a trabajar…"
-                    className="w-full rounded-lg border border-white/[0.08] bg-[var(--bg,#0a0a0a)] px-3 py-2 text-xs text-[var(--ink)]" />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" disabled={acting || !fJobId}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40">
-                  {acting ? "Iniciando…" : "▶ Iniciar"}
-                </button>
-                <button type="button" onClick={() => setShowStart(false)}
-                  className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs text-[var(--muted)]">
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
-
-      {/* Today's sessions */}
-      <div>
-        <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--muted)]">
-          Sesiones de hoy ({todaySessions.length})
-        </p>
-        {todaySessions.length === 0 ? (
-          <p className="text-xs text-[var(--muted)]">Sin sesiones hoy. Inicia una para registrar tu tiempo.</p>
-        ) : (
-          <div className="space-y-2">
-            {todaySessions.map(s => (
-              <div key={s.id} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className={cn("text-sm",
-                    s.status === "RUNNING" ? "text-emerald-400" : s.status === "PAUSED" ? "text-yellow-400" : "text-zinc-500")}>
-                    {s.status === "RUNNING" ? "⏱" : s.status === "PAUSED" ? "⏸" : "⏹"}
-                  </span>
-                  <div>
-                    <p className="text-xs font-medium text-[var(--ink)]">{s.job.title}</p>
-                    <p className="text-[0.65rem] text-[var(--muted)]">
-                      {new Date(s.startedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
-                      {s.stoppedAt ? ` → ${new Date(s.stoppedAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <span className="font-mono text-xs font-semibold text-[var(--ink)]">{fmtDuration(s.elapsedSeconds)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Weekly by-job */}
-      {(summary?.byJob?.length ?? 0) > 0 && (
-        <div>
-          <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-[var(--muted)]">Esta semana</p>
-          <div className="space-y-2">
-            {summary!.byJob.map(j => (
-              <div key={j.jobId} className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
-                <p className="text-xs text-[var(--ink)]">{j.jobTitle}</p>
-                <span className="font-mono text-xs font-semibold text-[var(--brand,#3b82f6)]">{fmtDuration(j.seconds)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+// ── Tracker Tab — REMOVED (deprecated 2026-07-27, AUDIT_REMEDIATION_PLAN.md 2.1) ──
+// This used to duplicate /worker/tracker (the Labor Engine, the real time
+// tracker — 6 tabs, offline-first sync, overtime/idempotency rules) with a
+// second, independent legacy implementation on top of FieldOpsService /
+// TrackerSession. Two disconnected, both-functional trackers under the same
+// Worker menu meant a professional's hours could land in either system
+// depending on which one they happened to click. Product decision: the
+// Labor Engine wins; this tab is removed from the UI (see below, TABS no
+// longer lists "tracker" and the render switch no longer mounts it). The
+// underlying FieldOpsService/TrackerSession backend and any historical data
+// it holds were deliberately NOT touched or deleted here — only the
+// discoverable UI path into it. If a live audit later confirms nothing reads
+// that data anymore, removing the backend module is a separate decision.
+//
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -1126,7 +882,6 @@ const TABS = [
   { id: "worklogs",  label: "Worklogs",         icon: "📋" },
   { id: "knowledge", label: "Base de conocimiento", icon: "🧠" },
   { id: "vendors",   label: "Proveedores",      icon: "🏢" },
-  { id: "tracker",   label: "Tracker",          icon: "⏱" },
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
@@ -1146,7 +901,7 @@ export default function FieldOpsPage() {
           </Link>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand,#3b82f6)]/10 text-lg">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand,var(--brand))]/10 text-lg">
                 🔧
               </div>
               <div>
@@ -1157,6 +912,12 @@ export default function FieldOpsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <Link
+                href="/worker/tracker"
+                className="inline-flex items-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/15"
+              >
+                ⏱ Time Tracker
+              </Link>
               <Link
                 href="/worker/travel"
                 className="inline-flex items-center rounded-lg border border-violet-500/20 bg-violet-500/10 px-3 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-500/15"
@@ -1177,7 +938,7 @@ export default function FieldOpsPage() {
               className={cn(
                 "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all",
                 activeTab === tab.id
-                  ? "bg-[var(--brand,#3b82f6)]/15 text-[var(--brand,#3b82f6)]"
+                  ? "bg-[var(--brand,var(--brand))]/15 text-[var(--brand,var(--brand))]"
                   : "text-[var(--muted,#94979e)] hover:text-[var(--ink,#f7f8fa)]"
               )}
             >
@@ -1193,7 +954,6 @@ export default function FieldOpsPage() {
           {activeTab === "worklogs"  && <WorklogsTab />}
           {activeTab === "knowledge" && <KnowledgeTab />}
           {activeTab === "vendors"   && <VendorsTab />}
-          {activeTab === "tracker"   && <TrackerTab />}
         </div>
       </div>
     </div>

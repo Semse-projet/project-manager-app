@@ -1,21 +1,35 @@
-import { ForbiddenException, Inject, Injectable, Optional } from "@nestjs/common";
+import { ForbiddenException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
+import { buildVerificationRequestWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import {
   canReadUser,
   canReadUserMemberships,
+  canRequestVerification,
   canUpdateUserStatus,
   canVerifyUser,
   type UserActor
 } from "./users.policy.js";
 import {
+  type IdentityAttestationRecord,
   type UserMembershipRecord,
   type UserProfileRecord,
   type UserRecord,
   UsersRepository
 } from "./users.repository.js";
+import {
+  buildAttestationMessage,
+  getAttestationPublicKey as getAttestationPublicKeyMaterial,
+  signAttestationMessage
+} from "./identity-attestation-signer.js";
+
+/** Only `id_document` review is a real identity claim worth a signed
+ * attestation — email/phone/background_check stay plain-flag verifications,
+ * same as before. See docs/specs/core/identity-attestation.spec.md. */
+const ATTESTABLE_VERIFICATION_TYPES = new Set(["id_document"]);
 
 @Injectable()
 export class UsersService {
@@ -23,6 +37,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     private readonly auditService: AuditService,
     private readonly domainEventBus: DomainEventBus,
+    private readonly workspaceMemory: WorkspaceMemoryRepository,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
   ) {}
@@ -55,6 +70,30 @@ export class UsersService {
       userId: actor.userId,
       targetUserId: userId
     });
+  }
+
+  /**
+   * docs/specs/core/universal-identity-multi-role.spec.md §5 — read-only,
+   * no audit_log per that contract. Reuses findMembershipsByUser scoped to
+   * the actor's own tenant (same boundary as every other membership read);
+   * capabilities are the actor's own Membership rows, one per org/role.
+   */
+  async getMyCapabilities(actor: UserActor): Promise<{ role: string; orgId: string; verifiedAt: string | null }[]> {
+    const memberships = await this.usersRepository.findMembershipsByUser({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      targetUserId: actor.userId
+    });
+
+    // verifiedAt: no per-Membership verification timestamp exists yet in the
+    // schema (only account-level User.verificationStatus) — null until that
+    // gap is closed, not fabricated.
+    return memberships.map((membership) => ({
+      role: membership.role.key,
+      orgId: membership.orgId,
+      verifiedAt: null
+    }));
   }
 
   async verifyUser(input: UserActor & {
@@ -115,6 +154,175 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Produces the cryptographic evidence behind an `id_document` approval —
+   * called only from reviewVerificationRequest(), never reachable directly
+   * from the controller, so it can only ever run right after an OPS_ADMIN
+   * (never the user themselves) has approved a real review. See
+   * docs/specs/core/identity-attestation.spec.md.
+   */
+  private async createIdentityAttestation(input: {
+    tenantId: string;
+    userId: string;
+    verifiedByUserId: string;
+    verificationType: string;
+  }): Promise<IdentityAttestationRecord> {
+    const timestamp = new Date().toISOString();
+    const message = buildAttestationMessage({ ...input, timestamp });
+    const { keyId, signature } = signAttestationMessage(message);
+
+    return this.usersRepository.createIdentityAttestation({
+      tenantId: input.tenantId,
+      userId: input.userId,
+      verifiedByUserId: input.verifiedByUserId,
+      verificationType: input.verificationType,
+      keyId,
+      message,
+      signature
+    });
+  }
+
+  /** Self or OPS_ADMIN only — same boundary as getUser(). */
+  async getIdentityAttestation(actor: UserActor, targetUserId: string): Promise<IdentityAttestationRecord | null> {
+    if (!canReadUser(actor, targetUserId)) {
+      throw new ForbiddenException("Cannot read this user's identity attestation");
+    }
+
+    return this.usersRepository.getLatestIdentityAttestation(actor.tenantId, targetUserId);
+  }
+
+  /** Any authenticated caller — this is what makes the attestation's
+   * signature independently checkable, the entire point of using real
+   * asymmetric crypto instead of a DB flag. No PII in the response. */
+  getAttestationPublicKey(): { keyId: string; publicKeyPem: string } {
+    return getAttestationPublicKeyMaterial();
+  }
+
+  /**
+   * Queues a verification request for OPS_ADMIN review — never executes the
+   * verification itself (verifyUser above stays the only path that does
+   * that). Closes AUDIT_REMEDIATION_PLAN.md 2.28: the worker-facing
+   * "Verificar" buttons used to call verifyUser directly and always got a
+   * 403, since only OPS_ADMIN can call it.
+   */
+  async requestVerification(input: UserActor & {
+    targetUserId: string;
+    verificationType: "email" | "phone" | "id_document" | "background_check";
+  }): Promise<{ status: "pending"; verificationType: string; requestedAt: string }> {
+    if (!canRequestVerification(input, input.targetUserId)) {
+      throw new ForbiddenException("Cannot request verification for this user");
+    }
+
+    const requestedAt = new Date().toISOString();
+    const record = buildVerificationRequestWorkspaceMemoryRecord({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.targetUserId,
+      verificationType: input.verificationType,
+      status: "pending",
+      requestedAt
+    });
+    await this.workspaceMemory.append(record);
+
+    return { status: "pending", verificationType: input.verificationType, requestedAt };
+  }
+
+  /** OPS_ADMIN-only queue of pending verification requests across the whole
+   * tenant — every worker's own request lives in their own workspace, so this
+   * needs the tenant-wide query, not the single-workspace one. */
+  async listVerificationRequests(actor: UserActor): Promise<Array<{
+    userId: string;
+    verificationType: string;
+    status: string;
+    requestedAt?: string;
+  }>> {
+    if (!canVerifyUser(actor)) {
+      throw new ForbiddenException("Cannot view verification requests");
+    }
+
+    const records = await this.workspaceMemory.queryAcrossTenant({
+      tenantId: actor.tenantId,
+      tags: ["verification", "request", "status:pending"],
+      kinds: ["decision"]
+    });
+
+    return records.map((record) => {
+      const body = record.body ? JSON.parse(record.body) as Record<string, unknown> : {};
+      return {
+        userId: record.sourceRef ?? record.createdBy,
+        verificationType: String(body.verificationType ?? ""),
+        status: String(body.status ?? "pending"),
+        requestedAt: typeof body.requestedAt === "string" ? body.requestedAt : undefined
+      };
+    });
+  }
+
+  /** OPS_ADMIN reviews a pending request. Approving also runs the real
+   * verifyUser() flow (same effect as clicking "Iniciar verificación" from
+   * the unverified-workers list) — rejecting only marks the request closed,
+   * it does not touch the user's verificationStatus. */
+  async reviewVerificationRequest(input: UserActor & {
+    targetUserId: string;
+    verificationType: "email" | "phone" | "id_document" | "background_check";
+    decision: "approved" | "rejected";
+    requestId: string;
+    note?: string;
+  }): Promise<{ status: "approved" | "rejected" }> {
+    if (!canVerifyUser(input)) {
+      throw new ForbiddenException("Cannot review verification requests");
+    }
+
+    const existing = await this.workspaceMemory.query({
+      tenantId: input.tenantId,
+      workspaceId: `worker:${input.targetUserId}:verification`,
+      kinds: ["decision"],
+      tags: ["verification", "request", `type:${input.verificationType}`]
+    });
+    if (existing.length === 0) {
+      throw new NotFoundException("No verification request found for this user/type");
+    }
+
+    const requestedAt = existing[0].body
+      ? (JSON.parse(existing[0].body) as { requestedAt?: string }).requestedAt
+      : undefined;
+
+    const record = buildVerificationRequestWorkspaceMemoryRecord({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      userId: input.targetUserId,
+      verificationType: input.verificationType,
+      status: input.decision,
+      requestedAt: requestedAt ?? new Date().toISOString(),
+      reviewedBy: input.userId,
+      reviewedAt: new Date().toISOString(),
+      reviewNote: input.note
+    });
+    await this.workspaceMemory.append(record);
+
+    if (input.decision === "approved") {
+      await this.verifyUser({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        userId: input.userId,
+        roles: input.roles,
+        targetUserId: input.targetUserId,
+        verificationType: input.verificationType,
+        requestId: input.requestId
+      });
+
+      if (ATTESTABLE_VERIFICATION_TYPES.has(input.verificationType)) {
+        await this.createIdentityAttestation({
+          tenantId: input.tenantId,
+          userId: input.targetUserId,
+          verifiedByUserId: input.userId,
+          verificationType: input.verificationType
+        });
+      }
+    }
+
+    return { status: input.decision };
+  }
+
   async getMyProfile(actor: UserActor): Promise<UserProfileRecord> {
     const profile = await this.usersRepository.findProfile(actor.userId);
     return profile ?? {
@@ -123,6 +331,7 @@ export class UsersService {
       availability: true,
       unifiedMode: false,
       expertMode: false,
+      proximityCheckInMode: "ask",
       updatedAt: new Date()
     };
   }
@@ -131,7 +340,7 @@ export class UsersService {
     data: {
       displayName?: string; bio?: string; location?: string; trades?: string[]; availability?: boolean;
       assistantTone?: string; assistantLanguage?: string; assistantVerbosity?: string;
-      unifiedMode?: boolean; expertMode?: boolean;
+      unifiedMode?: boolean; expertMode?: boolean; proximityCheckInMode?: "ask" | "auto" | "off";
     };
     requestId: string;
   }): Promise<UserProfileRecord> {

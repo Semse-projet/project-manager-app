@@ -344,7 +344,7 @@ export default function AgentsPage() {
             </div>
             <button onClick={load} disabled={loading}
               style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(255,255,255,.05)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)" }}>
-              <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
             </button>
           </>
         }
@@ -412,7 +412,6 @@ export default function AgentsPage() {
       <PlaygroundSection />
 
       <style>{`
-        @keyframes spin  { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
       `}</style>
     </div>

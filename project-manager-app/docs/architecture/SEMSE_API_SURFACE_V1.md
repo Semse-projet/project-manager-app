@@ -21,6 +21,10 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/auth/login`
 - `POST /v1/auth/logout`
 - `POST /v1/auth/refresh`
+- `POST /v1/auth/register`
+- `POST /v1/auth/password-reset/request`
+- `POST /v1/auth/password-reset/confirm`
+- `POST /v1/auth/password-change` (autenticado; valida contraseña vigente, actualiza el hash y revoca las demás sesiones renovables)
 - `GET /v1/auth/me`
 
 ## Jobs / Bids / Reservations / Contracts
@@ -46,6 +50,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/jobs/:jobId/milestones`
 - `GET /v1/projects`
 - `GET /v1/projects/:projectId`
+- `GET /v1/projects/:projectId/projection` (F3 `VERIFIED` en canary; `projects:financials:read`; client owner u `OPS_ADMIN`; requiere flag global + tenant allowlisted; cálculo read-through y persistencia CAS opcional mediante flag separado; el consumer event-driven puede forzar rebuild/persistencia)
 - `PATCH /v1/projects/:projectId/status`
 - `GET /v1/projects/:projectId/escrow`
 - `GET /v1/projects/:projectId/payments`
@@ -79,7 +84,7 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `POST /v1/domain-events/:eventId/replay` (F1-E; `domain-events:replay` + rol `OPS_ADMIN`; body `{ consumerName?: string, reason: string }`; solo replay de estado terminal `DEAD_LETTER` — outbox o consumer según `consumerName`; incrementa `replayCount`, emite `ops.event_replay_requested.v1` como AuditLog auditado y re-encola en BullMQ con generación nueva cuando el replay es por consumer; 400 reason vacío, 404 fuera de tenant, 409 si el estado no es replayable)
 - `GET /v1/domain-events/:correlationId` (incluye ahora `outbox` + `receipts` del correlationId, tenant-scoped)
 - `POST /v1/domain-events/emit`
-- `POST /v1/domain-events/:eventId/process` (interno; service identity `EVENT_CONSUMER` + `domain-events:consume`; body estricto `{ workerId }`; recupera el evento canónico por `eventId`)
+- `POST /v1/domain-events/:eventId/process` (interno; service identity con rol `EVENT_CONSUMER` + `domain-events:consume`; body estricto `{ workerId }`; recupera el evento canónico por `eventId`; enruta `project.lifecycle-source-changed.v1` a `project-lifecycle-projection.v1` y `evidence.uploaded.v1` a `evidence-readiness.v1` según allowlists)
 
 ## Prometeo
 - `POST /v1/ai-models/prometeo/chat` (acepta `PrometeoRequest` multimodal legacy-compatible)
@@ -122,6 +127,10 @@ de Production Health las verifica junto con las nueve páginas `/modules/*`.
 - `GET /v1/ops/risk-scores`
 - `GET /v1/ops/trust-overview`
 - `GET /v1/ops/dashboard`
+- `GET /v1/ops/mission-control/summary` (legacy-compatible aggregate)
+- `GET /v1/ops/mission-control/exceptions` (F4; `ops:dashboard:read`; normalized, paginated and tenant-scoped read model with partial-source errors)
+- `GET /v1/ops/mission-control/runbooks` (F4; approved code-versioned catalog)
+- `POST /v1/ops/mission-control/actions` (F4; `ops:dashboard:write` + `OPS_ADMIN`; reason, allowlisted runbook, idempotency key, lease, durable receipt and owning-domain adapter)
 - `POST /v1/ops/approvals/:approvalId/decision`
 
 ## Agents

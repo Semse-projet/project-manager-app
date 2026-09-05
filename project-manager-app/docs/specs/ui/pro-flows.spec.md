@@ -4,8 +4,8 @@ title: "Pro Contractor UI Flows"
 type: spec
 feature: "Pro (Contractor) UI Flows"
 domain: "ui"
-version: "1.0"
-status: "REVIEW"
+version: "1.1"
+status: "DEPRECATED"
 owner: semse-core
 risk: high
 date: "2026-05-20"
@@ -32,7 +32,14 @@ last_verified: 2026-06-09
 
 # Spec: Pro UI Flows
 
-> **REVIEW 2026-07-20.** `related_files`/`related_tests` muestran que este spec cubre específicamente el catálogo ProTools, no la app completa del rol PRO (`/worker/*`), que nunca tuvo spec propio — ver `docs/specs/ui/pro-flows-remediation.spec.md`. Además, la auditoría del 2026-07-20 confirmó en producción que `POST /api/semse/agents/protools/estimate` responde 404 — contradice el `status: VERIFIED` anterior de este archivo. Requiere re-verificación antes de volver a `VERIFIED`.
+> **DEPRECATED 2026-08-14 — auditoría de re-verificación completa.** Este spec quedó en `REVIEW` desde 2026-07-20 pendiente de una re-auditoría antes de volver a `VERIFIED` (motivo original: `POST /api/semse/agents/protools/estimate` daba 404 en producción). Esa auditoría se hizo ahora — conclusión: no es un caso de "un endpoint roto, el resto correcto". **Los 6 "Flujos" de este documento describen una implementación huérfana/superseded que no corresponde a la app real del rol PRO.**
+>
+> **Evidencia (código, 2026-08-14):**
+> - Ninguna de las rutas descritas existe tal cual: `/marketplace`, `/dashboard`, `/tools/:trade`, `/profile/payout` no son las rutas reales del rol PRO — la app real vive bajo `/worker/*` (dashboard, jobs, tracker, payments, profile, evidence, etc.), documentada en detalle y con evidencia en vivo en `docs/specs/ui/pro-flows-remediation.spec.md` (`APPROVED`).
+> - El "Flujo 4" (ProTools) apunta a `POST /v1/buildops/estimates/from-tool-result` y a `/tools/:trade` — esa ruta (`apps/web/app/(app)/tools/**`) **existe en código pero no está en la navegación del rol `worker` en absoluto** (`apps/web/app/(app)/layout.tsx`, array `NAV.worker.items`) — solo aparece en `NAV.client.items` (como `/client/protools`, ruta distinta) y en `ADMIN_NAV_ITEMS` como quick-link de Admin. Un PRO no tiene ningún camino de navegación real hacia `/tools/:trade`.
+> - Confirmación definitiva: los propios `related_tests` de este spec (`tests/e2e-semse/pro-tools-concrete.spec.ts`, `pro-tools-dashboard.spec.ts`) hacen `tryLoginAs(page, "admin")` — prueban `/tools` como **Admin**, no como PRO. La suite que este spec cita como su propia cobertura nunca probó el rol que dice especificar.
+>
+> **No re-escrito porque no hace falta:** `pro-flows-remediation.spec.md` ya documenta la app real del rol PRO con el mismo nivel de detalle (o mayor) que este archivo intentaba, con evidencia en vivo. Este archivo queda solo como referencia histórica de una implementación de rutas ya superseded — no usar para autorizar implementación nueva.
 
 > Flujos de interfaz para el rol PRO (contratista) en SEMSE OS.
 

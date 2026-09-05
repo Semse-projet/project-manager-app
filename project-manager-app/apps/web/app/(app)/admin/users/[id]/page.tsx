@@ -59,7 +59,7 @@ function PortfolioAnalyzerWidget() {
   return (
     <div style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <Image size={14} color="#a78bfa" />
+        <Image aria-hidden="true" size={14} color="#a78bfa" />
         <span style={{ fontSize: 13, fontWeight: 800 }}>Análisis de Portafolio</span>
         <span style={{ fontSize: 9, color: "var(--muted)", background: "rgba(167,139,250,.1)", padding: "1px 8px", borderRadius: 99, marginLeft: "auto" }}>Vision AI</span>
       </div>
@@ -171,7 +171,7 @@ export default function CitizenProfilePage() {
         actions={
           <button onClick={() => void load()} disabled={loading}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, background: "rgba(99,102,241,.12)", border: "none", cursor: loading ? "wait" : "pointer", color: "#818cf8", fontSize: 12, fontWeight: 700 }}>
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
             Actualizar
           </button>
         }
@@ -288,7 +288,6 @@ export default function CitizenProfilePage() {
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

@@ -35,7 +35,7 @@ function pct(v: unknown): string { return `${score(v)}%`; }
 
 function QualityBar({ value, label }: { value: unknown; label: string }) {
   const pctVal = score(value);
-  const color = pctVal >= 70 ? "#10b981" : pctVal >= 40 ? "#fbbf24" : "#ef4444";
+  const color = pctVal >= 70 ? "var(--ok)" : pctVal >= 40 ? "#fbbf24" : "var(--error)";
   return (
     <div style={{ marginBottom: 4 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>
@@ -64,10 +64,10 @@ function SafetyIcons({ rawResult }: { rawResult?: Record<string, unknown> }) {
   if (!safety) return null;
   return (
     <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-      <span title="Casco" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 2, color: safety.helmetDetected ? "#10b981" : "#6b7280" }}>
+      <span title="Casco" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 2, color: safety.helmetDetected ? "var(--ok)" : "#6b7280" }}>
         <HardHat size={13} />{safety.helmetDetected ? "✓" : "✗"}
       </span>
-      <span title="Chaleco" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 2, color: safety.vestDetected ? "#10b981" : "#6b7280" }}>
+      <span title="Chaleco" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 2, color: safety.vestDetected ? "var(--ok)" : "#6b7280" }}>
         <ShieldCheck size={13} />{safety.vestDetected ? "✓" : "✗"}
       </span>
     </div>
@@ -100,7 +100,7 @@ function AnalysisCard({ item }: { item: VisionAnalysis }) {
           )}
           <SafetyIcons rawResult={item.rawResult} />
           {item.riskReasons && item.riskReasons.length > 0 && (
-            <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--error)", marginTop: 4 }}>
               {item.riskReasons.join(" · ")}
             </div>
           )}
@@ -131,11 +131,11 @@ function SummaryStats({ analyses }: { analyses: VisionAnalysis[] }) {
   const critical = completed.filter(a => a.riskLevel === "critical" || a.riskLevel === "high").length;
 
   const stats = [
-    { label: "Analizadas", value: completed.length, icon: <Camera size={18} color="#3b82f6" /> },
-    { label: "Calidad promedio", value: pct(avgQuality), icon: <TrendingUp size={18} color="#10b981" /> },
+    { label: "Analizadas", value: completed.length, icon: <Camera size={18} color="var(--brand)" /> },
+    { label: "Calidad promedio", value: pct(avgQuality), icon: <TrendingUp size={18} color="var(--ok)" /> },
     { label: "Duplicados", value: duplicates, icon: <Layers size={18} color="#f59e0b" />, warn: duplicates > 0 },
     { label: "Baja calidad", value: lowQuality, icon: <AlertTriangle size={18} color="#fbbf24" />, warn: lowQuality > 0 },
-    { label: "Riesgo alto/crítico", value: critical, icon: <XCircle size={18} color="#ef4444" />, warn: critical > 0 },
+    { label: "Riesgo alto/crítico", value: critical, icon: <XCircle size={18} color="var(--error)" />, warn: critical > 0 },
   ];
 
   return (
@@ -178,7 +178,7 @@ function InsightBox({ text }: { text: string }) {
 
 function ScoreRow({ label, value, max = 1 }: { label: string; value: number; max?: number }) {
   const pct = Math.round((value / max) * 100);
-  const color = pct >= 70 ? "#10b981" : pct >= 40 ? "#fbbf24" : "#ef4444";
+  const color = pct >= 70 ? "var(--ok)" : pct >= 40 ? "#fbbf24" : "var(--error)";
   return (
     <div style={{ marginBottom: 6 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>
@@ -368,8 +368,8 @@ function AnalyzersLab() {
                 ].map(({ label, key }) => (
                   <div key={key} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
                     {result[key]
-                      ? <CheckCircle size={16} color="#10b981" />
-                      : <XCircle size={16} color="#ef4444" />}
+                      ? <CheckCircle size={16} color="var(--ok)" />
+                      : <XCircle size={16} color="var(--error)" />}
                     <span style={{ color: "#f9fafb" }}>{label}</span>
                   </div>
                 ))}
@@ -432,7 +432,7 @@ export default function VisionAdminPage() {
         title="Vision AI — Análisis de Evidencias"
         subtitle="Calidad, seguridad PPE, duplicados y consistencia de ubicación por trabajo"
         icon={Eye}
-        iconColor="#3b82f6"
+        iconColor="var(--brand)"
         iconBg="rgba(59,130,246,.15)"
         showBack={false}
         actions={<NotificationBanner audience="admin" />}

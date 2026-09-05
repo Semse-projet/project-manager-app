@@ -1,14 +1,39 @@
-# ADR-022 — SEMSE Browser Agent & Web Operator: Plataforma de navegación y operación web gobernada basada en Obscura, Playwright e Intervención Humana
+# ADR-024 — SEMSE Browser Agent & Web Operator: Plataforma de navegación y operación web gobernada basada en Obscura, Playwright e Intervención Humana
 
 **Estado:** PROPOSED
 **Fecha:** 2026-07-14
+**Renumerado 2026-08-02:** este ADR se creó originalmente como "ADR-022", en colisión con `ADR-022-transactional-outbox-bullmq.md` (ACCEPTED, referenciado desde 2026-07-12 por ROADMAP.md y los specs de event-backbone). Se renumeró a ADR-024 por ser el más nuevo y el que aún no salió de PROPOSED; el contenido no cambió.
 **Contexto de origen:** Tesis reforzada sobre la absorción de capacidades de Obscura como motor especializado dentro de una plataforma gobernada y multi-motor para SEMSEproject.
-**Ubicación sugerida en repo:** `project-manager-app/docs/architecture/ADR-022-browser-agent-obscura.md`
+**Ubicación sugerida en repo:** `project-manager-app/docs/architecture/ADR-024-browser-agent-obscura.md`
 **Relacionado con:** 
 - [ADR-021 — Anatomía del Agente SEMSE](file:///home/yoni/labsemse/project-manager-app/docs/architecture/ADR-021-anatomia-agente-semse.md)
 - [Arquitectura de Agentes SEMSE OS](file:///home/yoni/labsemse/project-manager-app/docs/specs/agents/SEMSE_AGENT_ARCHITECTURE.spec.md)
 - [Harness Agentico](file:///home/yoni/labsemse/project-manager-app/docs/AGENTIC_HARNESS.md)
 - [Spec: Verification Loop](file:///home/yoni/labsemse/project-manager-app/docs/specs/agents/verification-loop.spec.md)
+
+---
+
+## 0. Nota de estado real (verificado 2026-08-01, no cambia la propuesta)
+
+Esta ADR sigue `PROPOSED`, pero **ya existe una implementación parcial** que
+predata cualquier aprobación formal de este documento — quien la revise para
+decidir `APPROVED`/`REJECTED` debe partir de esto, no de un lienzo en blanco:
+
+| Sistema (de los 24 en §3) | Estado real verificado | Evidencia |
+|---|---|---|
+| #1 Browser Mission Orchestrator | Parcial — misiones/pasos persistidos, sin estados completos de la máquina descrita (`DRAFT`→...→`EXPIRED`) | `packages/db/prisma/schema.prisma` (`BrowserMission`, `BrowserMissionStep`); `apps/api/src/modules/browser-agent/browser-agent.service.ts` |
+| #7 Secure Network Gateway | Implementado (parcial): `isUrlSafe()` bloquea loopback, rangos privados IPv4 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `100.64.0.0/10`) y prefijos privados IPv6 — pero no bloquea explícitamente `file://`/`ftp://` más allá del check de protocolo http(s), ni hay Secure Network Gateway como proxy de egreso separado | `browser-agent.service.ts:9-67` |
+| #5/#6 Policy Engine / Approval Gateway (como componentes de este dominio) | No implementados como tales — la inspección de URL reutiliza el framework gobernado de `AgentsService` (mismo `AgentRun` de `SPEC-AGT-001`), no un Policy/Approval Gateway propio del Browser Agent | `browser-agent.service.ts:90-109` |
+| Motor Obscura | **No integrado.** `BrowserMissionStep.engineUsed` tiene `@default("PLAYWRIGHT")` — el motor que esta ADR propone como preferente nunca se conectó | `schema.prisma` (`BrowserMissionStep`) |
+| `BrowserSession` (modelo propuesto §4) | No existe en el schema | ausencia confirmada |
+| #4 Browser Session Manager, #8 Sandbox Runtime, #9 Untrusted Content Firewall, #10 Browser Tool Registry, #11 CDP Gateway, #12 MCP Gateway, #13 Network Recorder/HAR, #17 Download Security, #18 Secrets Broker | Sin evidencia de implementación — cero coincidencias de las palabras clave correspondientes (`sandbox`, `mcp`, `cdp`, etc.) en `browser-agent.service.ts` | ausencia confirmada por grep |
+
+**Conclusión:** existe una capacidad real y acotada (inspección de URL con
+SSRF-blocking básico, corriendo sobre el `AgentRun` ya gobernado), pero el
+grueso de los 24 sistemas — y en particular Obscura como motor, que le da
+nombre a esta ADR — sigue sin construirse. Esto no cambia la decisión
+propuesta en esta ADR; solo corrige la premisa de "no existe nada todavía"
+para quien la revise.
 
 ---
 

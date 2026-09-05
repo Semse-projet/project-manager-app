@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useLanguage } from "../../../../../lib/language-context";
+import { useCapabilityState, useDeclareActiveProjectOrg } from "../../../../../lib/capability-context";
+import { deriveActiveCapability } from "../../../../../lib/capability";
+import { CapabilityBadge, type CapabilityRole } from "../../../../../components/semse/CapabilityBadge";
 import { ArrowLeft, ArrowRight, CheckSquare, FileText, FolderKanban, MessageSquare, Plus, ShieldCheck } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { buildOpsProjectStatusLabel, buildOpsProjectTypeLabel, buildOpsRiskLabel, buildOpsTradeLabel } from "../../../../lib/buildops-i18n";
 import { BuildOpsProjectHealthPanel } from "@/components/buildops/BuildOpsProjectHealthPanel";
 import { OperationalRagQueryPanel } from "@/components/buildops/OperationalRagQueryPanel";
+import { ProjectLifecycleProjectionPanel } from "@/components/projects/ProjectLifecycleProjectionPanel";
 import { useBuildOpsSSE } from "@/hooks/useBuildOpsSSE";
 import {
   fetchBuildOpsProject,
@@ -24,6 +28,8 @@ const fallbackProject: BuildOpsProject = {
   id: "loading",
   tenantId: "",
   orgId: "",
+  jobId: null,
+  canonicalProjectId: null,
   createdBy: "",
   title: "Loading...",
   description: null,
@@ -151,6 +157,10 @@ export default function BuildOpsProjectDetailPage() {
     }
   }
 
+  useDeclareActiveProjectOrg(project.orgId || null);
+  const { capabilities } = useCapabilityState();
+  const activeCapability = deriveActiveCapability(capabilities, project.orgId || null);
+
   const approvalStatus = project.clientPlanApprovalStatus;
   const isLoaded = !loading;
 
@@ -182,6 +192,9 @@ export default function BuildOpsProjectDetailPage() {
           <div className="flex items-center gap-2">
             <FolderKanban size={18} className="text-brand" />
             <h1 className="text-3xl font-bold tracking-tight text-ink">{project.title}</h1>
+            {activeCapability ? (
+              <CapabilityBadge role={activeCapability.role as CapabilityRole} size="sm" />
+            ) : null}
           </div>
           <p className="max-w-3xl text-sm text-muted">
             {t("buildops.projectDetailIntro")}
@@ -202,6 +215,13 @@ export default function BuildOpsProjectDetailPage() {
         {isLoaded && project.id !== "loading" && (
           <OperationalRagQueryPanel projectId={project.id} />
         )}
+
+        {isLoaded && project.id !== "loading" ? (
+          <ProjectLifecycleProjectionPanel
+            projectId={project.canonicalProjectId}
+            refreshKey={healthRefreshKey}
+          />
+        ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {[

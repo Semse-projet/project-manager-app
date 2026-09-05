@@ -43,12 +43,12 @@ function releaseStatusColor(s: ReleaseStatus): string {
   if (s === "ready")       return "#86efac";
   if (s === "released")    return "#6366f1";
   if (s === "needs_review") return "#fbbf24";
-  if (s === "disputed")    return "#ef4444";
+  if (s === "disputed")    return "var(--error)";
   return "#f87171"; // blocked
 }
 
 function riskColor(r: RiskLevel): string {
-  if (r === "critical") return "#ef4444";
+  if (r === "critical") return "var(--error)";
   if (r === "high")     return "#fb7185";
   if (r === "medium")   return "#fbbf24";
   return "#86efac";
@@ -174,7 +174,7 @@ export function MilestoneGovernancePanel({ milestoneId, onReleaseReady }: Props)
           { label: "Faltante", value: data.evidenceSummary.missing, color: data.evidenceSummary.missing > 0 ? "#fbbf24" : "var(--muted)" },
           { label: "Rechazada", value: data.evidenceSummary.rejected, color: data.evidenceSummary.rejected > 0 ? "#f87171" : "var(--muted)" },
           { label: "Change orders", value: data.changeOrderBlockers, color: data.changeOrderBlockers > 0 ? "#fbbf24" : "var(--muted)" },
-          { label: "Señales críticas", value: data.criticalSignals, color: data.criticalSignals > 0 ? "#ef4444" : "var(--muted)" },
+          { label: "Señales críticas", value: data.criticalSignals, color: data.criticalSignals > 0 ? "var(--error)" : "var(--muted)" },
         ].map((item) => (
           <div key={item.label} style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(255,255,255,.03)", border: "1px solid var(--border)", textAlign: "center" }}>
             <div style={{ fontSize: 20, fontWeight: 800, color: item.color }}>{item.value}</div>

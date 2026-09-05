@@ -8,10 +8,12 @@ import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchCurrentUser,
   fetchDisputes,
+  fetchIdentityAttestation,
   fetchMyProfile,
   fetchRatings,
   fetchUserMemberships,
   updateMyProfile,
+  type IdentityAttestationView,
   type RatingListItem,
   type UserMembershipView,
   type UserProfileView,
@@ -58,6 +60,7 @@ export default function WorkerProfilePage() {
   const [memberships, setMemberships] = useState<UserMembershipView[]>([]);
   const [ratings, setRatings] = useState<RatingListItem[]>([]);
   const [openDisputes, setOpenDisputes] = useState(0);
+  const [identityAttestation, setIdentityAttestation] = useState<IdentityAttestationView | null>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [verifyDone, setVerifyDone] = useState<string | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
@@ -75,16 +78,18 @@ export default function WorkerProfilePage() {
     void (async () => {
       try {
         const user = await fetchCurrentUser();
-        const [profileData, membershipRows, ratingsResult, disputes] = await Promise.all([
+        const [profileData, membershipRows, ratingsResult, disputes, attestation] = await Promise.all([
           fetchMyProfile().catch(() => null),
           fetchUserMemberships(user.id).catch(() => []),
           fetchRatings().catch(() => ({ actorUserId: null, items: [] })),
           fetchDisputes().catch(() => []),
+          fetchIdentityAttestation(user.id).catch(() => null),
         ]);
         if (cancelled) return;
         setCurrentUser(user);
         setProfile(profileData);
         setMemberships(membershipRows);
+        setIdentityAttestation(attestation);
         setRatings(ratingsResult.items.filter((item) => item.toUser?.id === user.id));
         setOpenDisputes(disputes.filter((item) => {
           const row = item as Record<string, unknown>;
@@ -110,6 +115,17 @@ export default function WorkerProfilePage() {
   const avgRating = ratings.length > 0
     ? (ratings.reduce((s, r) => s + r.score, 0) / ratings.length).toFixed(1) : "—";
   const isVerified = currentUser?.verificationStatus === "verified";
+  // A brand-new professional (0 reviews yet) and someone the trust algorithm
+  // has genuinely scored low both show trustScore 0 — the raw badge alone
+  // ("Trust 0%") reads as a real, permanent low score in either case, with no
+  // way to tell the two apart. See AUDIT_REMEDIATION_PLAN.md 2.1d/0.28.
+  const isNewProfessional = (currentUser?.trustScore ?? 0) === 0 && ratings.length === 0;
+  const trustLabel = isNewProfessional
+    ? "Trust — nuevo en la plataforma"
+    : `Trust ${Math.round((currentUser?.trustScore ?? 0) * 100)}%`;
+  const trustTitle = isNewProfessional
+    ? "Todavía no tienes trabajos completados ni reseñas — tu puntaje de confianza sube a medida que completas trabajos y recibes buenas reseñas."
+    : "El puntaje de confianza sube con trabajos completados y buenas reseñas, y baja con disputas o cancelaciones.";
   const uniqueRoles = Array.from(new Set(memberships.map((m) => m.role.key)));
   const memberSince = currentUser?.createdAt
     ? new Date(currentUser.createdAt).toLocaleDateString("es-MX", { month: "long", year: "numeric" }) : "—";
@@ -137,7 +153,12 @@ export default function WorkerProfilePage() {
     setVerifyError(null);
     setVerifyDone(null);
     try {
-      const res = await fetch(`/api/semse/users/${currentUser.id}/verify`, {
+      // Requests review instead of calling /verify directly — that endpoint
+      // only runs the real verification and is OPS_ADMIN-only, so a PRO
+      // hitting it always got a 403 (AUDIT_REMEDIATION_PLAN.md 2.28). This
+      // just queues the request for an admin to review from
+      // /admin/trust/worker-applications.
+      const res = await fetch(`/api/semse/users/${currentUser.id}/verify-request`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ verificationType: type }),
@@ -211,7 +232,7 @@ export default function WorkerProfilePage() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
               <h2 style={{ fontSize: "20px", fontWeight: 800, color: "var(--ink)" }}>{loading ? "Cargando…" : displayName}</h2>
-              {isVerified ? <Shield size={16} color="#10b981" /> : null}
+              {isVerified ? <Shield size={16} color="var(--ok)" /> : null}
             </div>
             <div style={{ display: "grid", gap: "6px", marginBottom: "10px" }}>
               <span style={{ fontSize: "12px", color: "var(--muted)", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -232,10 +253,13 @@ export default function WorkerProfilePage() {
                   {formatRoleLabel(key)}
                 </span>
               ))}
-              <span style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#10b981", fontSize: "12px", fontWeight: 700 }}>
-                Trust {Math.round((currentUser?.trustScore ?? 0) * 100)}%
+              <span
+                title={trustTitle}
+                style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "var(--ok)", fontSize: "12px", fontWeight: 700, cursor: "help" }}
+              >
+                {trustLabel}
               </span>
-              <span style={{ padding: "5px 10px", borderRadius: "999px", background: profile?.availability ? "rgba(16,185,129,.10)" : "rgba(156,163,175,.12)", color: profile?.availability ? "#10b981" : "var(--muted)", fontSize: "12px", fontWeight: 700 }}>
+              <span style={{ padding: "5px 10px", borderRadius: "999px", background: profile?.availability ? "rgba(16,185,129,.10)" : "rgba(156,163,175,.12)", color: profile?.availability ? "var(--ok)" : "var(--muted)", fontSize: "12px", fontWeight: 700 }}>
                 {profile?.availability ? "Disponible" : "No disponible"}
               </span>
             </div>
@@ -276,7 +300,7 @@ export default function WorkerProfilePage() {
           </div>
 
           {saveError ? (
-            <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "12px" }}>{saveError}</p>
+            <p style={{ fontSize: "12px", color: "var(--error)", marginBottom: "12px" }}>{saveError}</p>
           ) : null}
 
           {editing ? (
@@ -334,7 +358,7 @@ export default function WorkerProfilePage() {
                 <label style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)" }}>Disponible para trabajos</label>
                 <button
                   onClick={() => setDraft((p) => ({ ...p, availability: !p.availability }))}
-                  style={{ width: "40px", height: "22px", borderRadius: "999px", border: "none", background: draft.availability ? "#10b981" : "var(--border)", cursor: "pointer", position: "relative", transition: "background 0.2s" }}
+                  style={{ width: "40px", height: "22px", borderRadius: "999px", border: "none", background: draft.availability ? "var(--ok)" : "var(--border)", cursor: "pointer", position: "relative", transition: "background 0.2s" }}
                 >
                   <span style={{ position: "absolute", top: "3px", left: draft.availability ? "20px" : "3px", width: "16px", height: "16px", borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
                 </button>
@@ -368,7 +392,7 @@ export default function WorkerProfilePage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
             {[
               { label: "Cuenta", value: formatStatusLabel(currentUser?.status ?? "active") },
-              { label: "Verificación", value: formatVerificationLabel(currentUser?.verificationStatus ?? "unverified"), color: isVerified ? "#10b981" : "#f59e0b" },
+              { label: "Verificación", value: formatVerificationLabel(currentUser?.verificationStatus ?? "unverified"), color: isVerified ? "var(--ok)" : "#f59e0b" },
               { label: "Miembro desde", value: memberSince },
               { label: "Risk", value: currentUser?.riskLevel ?? "low" },
               { label: "Flags", value: String(currentUser?.flags.length ?? 0) },
@@ -379,6 +403,14 @@ export default function WorkerProfilePage() {
               </div>
             ))}
           </div>
+          {identityAttestation && (
+            <p
+              style={{ marginTop: "10px", fontSize: "11px", color: "var(--faint)" }}
+              title={`Firmado por SEMSE (key ${identityAttestation.keyId}), verificador ${identityAttestation.verifiedByUserId}`}
+            >
+              Identidad verificada por SEMSE el {new Date(identityAttestation.createdAt).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })} — firma criptográfica, no autoatestada.
+            </p>
+          )}
         </HtmlInCanvasPanel>
 
         {/* Membresías */}
@@ -416,8 +448,8 @@ export default function WorkerProfilePage() {
                 <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Los profesionales verificados reciben 3× más propuestas.</p>
               </div>
             </div>
-            {verifyError && <p style={{ fontSize: "12px", color: "#ef4444", marginBottom: "10px" }}>{verifyError}</p>}
-            {verifyDone && <p style={{ fontSize: "12px", color: "#10b981", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}><CheckCircle2 size={13} />Solicitud enviada. El equipo revisará tu {verifyDone === "id_document" ? "documento de identidad" : verifyDone === "background_check" ? "antecedentes" : verifyDone}.</p>}
+            {verifyError && <p style={{ fontSize: "12px", color: "var(--error)", marginBottom: "10px" }}>{verifyError}</p>}
+            {verifyDone && <p style={{ fontSize: "12px", color: "var(--ok)", marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px" }}><CheckCircle2 size={13} />Solicitud enviada. El equipo revisará tu {verifyDone === "id_document" ? "documento de identidad" : verifyDone === "background_check" ? "antecedentes" : verifyDone}.</p>}
             <div style={{ display: "grid", gap: "8px" }}>
               {([
                 { type: "id_document",      label: "Documento de identidad",    desc: "Pasaporte, licencia de conducir o cédula" },
@@ -433,7 +465,7 @@ export default function WorkerProfilePage() {
                     type="button"
                     disabled={verifyBusy || verifyDone === item.type}
                     onClick={() => void requestVerification(item.type)}
-                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "#10b981" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
+                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "var(--ok)" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
                   >
                     {verifyDone === item.type ? "✓ Enviado" : "Solicitar"}
                   </button>
@@ -446,9 +478,9 @@ export default function WorkerProfilePage() {
         {isVerified && (
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(16,185,129,.04)", borderColor: "rgba(16,185,129,.2)" }} canvasClassName="rounded-2xl" minHeight={60}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <BadgeCheck size={17} color="#10b981" />
+              <BadgeCheck size={17} color="var(--ok)" />
               <div>
-                <p style={{ fontSize: "13px", fontWeight: 700, color: "#10b981", margin: 0 }}>Perfil verificado</p>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ok)", margin: 0 }}>Perfil verificado</p>
                 <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Tu identidad fue confirmada. Apareces como profesional de confianza.</p>
               </div>
             </div>
@@ -459,13 +491,13 @@ export default function WorkerProfilePage() {
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(239,68,68,.04)", borderColor: "rgba(239,68,68,.2)" }} canvasClassName="rounded-2xl" minHeight={70}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <Scale size={18} color="#ef4444" />
+                <Scale size={18} color="var(--error)" />
                 <div>
-                  <p style={{ fontSize: "13px", fontWeight: 700, color: "#ef4444" }}>{openDisputes} disputa{openDisputes > 1 ? "s" : ""} activa{openDisputes > 1 ? "s" : ""}</p>
+                  <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--error)" }}>{openDisputes} disputa{openDisputes > 1 ? "s" : ""} activa{openDisputes > 1 ? "s" : ""}</p>
                   <p style={{ fontSize: "11px", color: "var(--muted)" }}>Disputas activas en el tenant canónico.</p>
                 </div>
               </div>
-              <Link href="/worker/disputes?status=open" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "9px", border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: "12px", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+              <Link href="/worker/disputes?status=open" style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "9px", border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: "12px", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
                 Ver →
               </Link>
             </div>
@@ -522,7 +554,7 @@ export default function WorkerProfilePage() {
 
         <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(59,130,246,.05)", borderColor: "rgba(59,130,246,.2)" }} canvasClassName="rounded-2xl" minHeight={60}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-            <AlertTriangle size={16} color="#3b82f6" />
+            <AlertTriangle size={16} color="var(--brand)" />
             <p style={{ fontSize: "12px", color: "var(--muted)" }}>
               Teléfono y foto de perfil requieren contrato canónico pendiente. Esta página muestra y edita solo lo estructurado hoy.
             </p>

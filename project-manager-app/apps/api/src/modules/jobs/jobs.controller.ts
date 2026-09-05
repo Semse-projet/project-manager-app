@@ -29,6 +29,7 @@ export class JobsController {
       tenantId: actor.tenantId,
       orgId: actor.orgId,
       userId: actor.userId,
+      roles: actor.roles,
       status: parsed.data.status
     });
     return ok(resolveRequestId(req.headers ?? {}), data.map((job) => toVisibleJob(job)));
@@ -80,6 +81,8 @@ export class JobsController {
       budgetMax: parsed.data.budgetMax,
       locationType: parsed.data.locationType,
       city: parsed.data.city,
+      latitude: parsed.data.latitude,
+      longitude: parsed.data.longitude,
       urgency: parsed.data.urgency,
       deadline: parsed.data.deadline,
       preferredProfessional: parsed.data.preferredProfessional,

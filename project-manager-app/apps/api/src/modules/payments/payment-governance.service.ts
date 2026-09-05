@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { MilestonesRepository } from "../milestones/milestones.repository.js";
+import { WaiverPaymentGateService } from "../liens/waiver-payment-gate.service.js";
 
 export type ReleaseStatus = "ready" | "blocked" | "needs_review" | "released" | "disputed";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -38,6 +39,7 @@ export class PaymentGovernanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly milestonesRepo: MilestonesRepository,
+    private readonly waiverGate: WaiverPaymentGateService,
   ) {}
 
   async evaluate(milestoneId: string, tenantId: string): Promise<PaymentGovernanceResult> {
@@ -55,6 +57,16 @@ export class PaymentGovernanceService {
     });
 
     const projectId = milestone?.project?.id ?? null;
+
+    // 2b. Lien waiver gate — blocks release while a conditional waiver
+    // covering this amount is still pending (see WaiverPaymentGateService).
+    let waiverBlockReason: string | null = null;
+    if (projectId && milestone) {
+      const waiverResult = await this.waiverGate.authorizeRelease(projectId, Number(milestone.amount));
+      if (!waiverResult.approved) {
+        waiverBlockReason = waiverResult.reason ?? "Lien waiver requirements not met";
+      }
+    }
 
     // 3. Evidence summary from items
     const allItems = milestone?.evidenceItems ?? [];
@@ -103,6 +115,11 @@ export class PaymentGovernanceService {
       requiredActions.push("Resolve critical signals in Mission Control before releasing payment");
     }
 
+    if (waiverBlockReason) {
+      blockers.push(waiverBlockReason);
+      requiredActions.push("Resolve pending lien waiver requirements before releasing payment");
+    }
+
     // 7. Determine releaseStatus and canRelease
     const coreStatus = readiness.status;
     let releaseStatus: ReleaseStatus = "blocked";
@@ -117,7 +134,7 @@ export class PaymentGovernanceService {
     } else if (blockers.length === 0 && coreStatus === "ready_to_release") {
       releaseStatus = "ready";
       canRelease = true;
-    } else if (changeOrderBlockers > 0 || criticalSignals > 0) {
+    } else if (changeOrderBlockers > 0 || criticalSignals > 0 || waiverBlockReason) {
       // Has additional blockers beyond evidence — needs human review
       releaseStatus = "needs_review";
       canRelease = false;
@@ -129,13 +146,14 @@ export class PaymentGovernanceService {
     // 8. Risk level
     let riskLevel: RiskLevel = "low";
     if (readiness.status === "disputed" || criticalSignals > 0) riskLevel = "critical";
-    else if (evidenceSummary.rejected > 0 || changeOrderBlockers > 0) riskLevel = "high";
+    else if (evidenceSummary.rejected > 0 || changeOrderBlockers > 0 || waiverBlockReason) riskLevel = "high";
     else if (evidenceSummary.missing > 0 || openSignals > 0) riskLevel = "medium";
 
     // 9. Next best action
     let nextBestAction = readiness.nextAction;
     if (changeOrderBlockers > 0) nextBestAction = `Resolve ${changeOrderBlockers} pending change order(s) before releasing payment`;
     else if (criticalSignals > 0) nextBestAction = "Resolve critical Mission Control signals first";
+    else if (waiverBlockReason) nextBestAction = waiverBlockReason;
     else if (canRelease) nextBestAction = "All conditions met — payment can be released";
 
     // 10. Audit reason

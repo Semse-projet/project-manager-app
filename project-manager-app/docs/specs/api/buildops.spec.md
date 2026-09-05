@@ -20,15 +20,17 @@ related_tests:
   - apps/api/test/buildops-plan-approval.service.test.ts
   - apps/api/test/buildops-plan-rerun.service.test.ts
   - apps/api/test/buildops-legacy-promotion.service.test.ts
+  - apps/api/test/buildops-publish-as-job-integration.test.ts
 related_endpoints:
   - v1/buildops
+  - POST v1/buildops/projects/:projectId/publish
 related_events:
   - buildops-plan-approved
   - buildops-plan-changes-requested
   - buildops-plan-rerun-completed
 related_agents:
   - buildops
-last_verified: 2026-06-09
+last_verified: 2026-08-13
 ---
 
 # Spec: BuildOps
@@ -106,10 +108,35 @@ output: BuildOpsProject detalle con plan, milestones, tareas
 
 ### `POST /v1/buildops/projects` — `projects:create`
 ```yaml
-input: { jobId, title, scope, milestones[] }
+input: { title, description?, trade, projectType, clientName, professionalName?, location, budgetEstimate?, status?, riskScore?, riskLevel?, startDate?, dueDate? }
 output: BuildOpsProject creado
 efectos: auditLog: true
 ```
+
+**Nota 2026-08-13:** el `input` documentado arriba no coincide con
+`BuildOpsController.createProject`/`BuildOpsService.createProject`
+reales — el endpoint real nunca acepta ni lee `jobId` (el `jobId` de un
+`BuildOpsProject` nace siempre `null`). Corregido a los campos que el
+código realmente exige (`title`/`trade`/`projectType`/`clientName`/
+`location`) — no se re-auditó el resto de este spec legado, solo esta
+entrada, descubierta investigando el endpoint nuevo de abajo.
+
+### `POST /v1/buildops/projects/:projectId/publish` — `projects:create`
+```yaml
+input: (sin body — usa el projectId de la ruta)
+output: { buildOpsProject: BuildOpsProject con jobId seteado, job: Job creado }
+errors:
+  404: proyecto no existe o es de otro tenant
+  409: el proyecto ya fue publicado (jobId ya seteado)
+efectos: auditLog: no (JobsService.create ya audita la creación del Job)
+```
+
+Único lugar del código que setea `BuildOpsProject.jobId` (2026-08-13) —
+confirmado por investigación completa: sin este endpoint, un plan
+creado por `createProject()` no tenía forma de convertirse en un `Job`
+real navegable por el resto del pipeline (bids, reservas, `Project`,
+`Milestone`). Reutiliza `JobsService.create()` (`apps/api/src/modules/
+jobs/jobs.service.ts`) tal cual, sin reimplementar creación de `Job`.
 
 ### `POST /v1/buildops/estimates/from-tool-result` — `projects:create`
 ```yaml

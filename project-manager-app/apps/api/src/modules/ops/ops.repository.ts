@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
@@ -230,8 +230,8 @@ export class OpsRepository {
   async retryAgentRun(input: ActorInput & { runId: string }) {
     await this.actorContextService.ensureActorContext(input);
 
-    return this.prisma.agentRun.update({
-      where: { id: input.runId },
+    const updated = await this.prisma.agentRun.updateMany({
+      where: { id: input.runId, tenantId: input.tenantId },
       data: {
         status: "QUEUED",
         error: null,
@@ -240,14 +240,23 @@ export class OpsRepository {
         heartbeatAt: null,
         endedAt: null
       }
+    });
+    if (updated.count !== 1) {
+      throw new NotFoundException({
+        code: "AGENT_RUN_NOT_FOUND",
+        message: "Agent run not found",
+      });
+    }
+    return this.prisma.agentRun.findFirstOrThrow({
+      where: { id: input.runId, tenantId: input.tenantId },
     }) as Promise<OpsAgentRunRow>;
   }
 
   async requeueAgentRun(input: ActorInput & { runId: string }) {
     await this.actorContextService.ensureActorContext(input);
 
-    return this.prisma.agentRun.update({
-      where: { id: input.runId },
+    const updated = await this.prisma.agentRun.updateMany({
+      where: { id: input.runId, tenantId: input.tenantId },
       data: {
         status: "QUEUED",
         error: null,
@@ -257,6 +266,15 @@ export class OpsRepository {
         heartbeatAt: null,
         endedAt: null
       }
+    });
+    if (updated.count !== 1) {
+      throw new NotFoundException({
+        code: "AGENT_RUN_NOT_FOUND",
+        message: "Agent run not found",
+      });
+    }
+    return this.prisma.agentRun.findFirstOrThrow({
+      where: { id: input.runId, tenantId: input.tenantId },
     }) as Promise<OpsAgentRunRow>;
   }
 }

@@ -55,7 +55,7 @@ export function DeckToolClient({ section }: DeckToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const materialCost: Record<typeof input.material, number> = {
+    const materialCost: Record<DeckInput["material"], number> = {
       pressure_treated: 8.0, cedar: 12.0, composite: 15.0, exotic_wood: 22.0,
     };
     const base = materialCost[input.material];

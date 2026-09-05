@@ -56,7 +56,7 @@ export function HvacToolClient({ section }: HvacToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const baseCost: Record<typeof input.systemType, number> = {
+    const baseCost: Record<HvacInput["systemType"], number> = {
       window_unit: 0.3, split_system: 4.0, central_air: 5.5, furnace: 3.5, heat_pump: 7.0, mini_split: 5.5,
     };
     const base = baseCost[input.systemType] || 5.0;

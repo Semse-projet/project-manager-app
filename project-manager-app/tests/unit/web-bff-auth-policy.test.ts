@@ -30,6 +30,9 @@ test("classifies sensitive SEMSE BFF routes as private", () => {
   assert.equal(isPublicSemseApiPath("/api/semse/buildops/projects"), false);
   assert.equal(isPublicSemseApiPath("/api/semse/agro/farms"), false);
   assert.equal(isPublicSemseApiPath("/api/semse/ops/ecosystem-metrics"), false);
+  assert.equal(isPublicSemseApiPath("/api/semse/ops/mission-control/exceptions"), false);
+  assert.equal(isPublicSemseApiPath("/api/semse/ops/mission-control/runbooks"), false);
+  assert.equal(isPublicSemseApiPath("/api/semse/ops/mission-control/actions"), false);
   assert.equal(isPublicSemseApiPath("/api/semse/sse/mission-control"), false);
 });
 

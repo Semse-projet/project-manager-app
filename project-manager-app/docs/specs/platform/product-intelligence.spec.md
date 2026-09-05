@@ -27,11 +27,12 @@ related_files:
 related_tests:
   - packages/product-events/test/product-events.test.ts
   - apps/api/test/product-intelligence-ingest.test.ts
+  - apps/api/test/product-intelligence-controller.test.ts
 related_endpoints:
   - v1/product-intelligence
 related_events: []
 related_agents: []
-last_verified: "2026-07-17"
+last_verified: "2026-08-27"
 ---
 
 # Spec: Product Intelligence — telemetría de producto gobernada
@@ -155,8 +156,32 @@ Defaults en producción: **off** hasta cerrar PI-05.
 
 ## Acceptance Criteria
 
-- [ ] Batch duplicado (mismo batchId) → `duplicated: true`, 0 filas nuevas.
-- [ ] Evento con prop fuera de allowlist → 400 y contador de rechazos visible.
-- [ ] Con `PRODUCT_INTELLIGENCE_ENABLED=false` el sistema es indistinguible de no tener PI.
-- [ ] Ningún payload persistido contiene email/teléfono/dirección (test de privacidad con fixtures adversarias).
-- [ ] Funnel auth (PI-05) visible en admin con datos reales de staging.
+- [x] Batch duplicado (mismo batchId) → `duplicated: true`, 0 filas nuevas —
+      `apps/api/test/product-intelligence-ingest.test.ts` ("ingest con batchId
+      ya procesado devuelve duplicated sin escribir").
+- [x] Evento con prop fuera de allowlist → 400 y contador de rechazos visible
+      — corregido 2026-08-27: la validación de allowlist ya existía
+      (`productEventSchema` en `packages/schemas/src/product-events.schema.ts`),
+      pero no había contador. Se agregó
+      `MetricsService.recordProductIntelligenceIngestRejection(reason)`
+      (`semse_product_intelligence_ingest_rejections_total{reason}` en
+      `/metrics`), incrementado en `ProductIntelligenceController.ingest()`
+      tanto para `invalid_batch` (400) como para `batch_too_large` (413).
+      Cubierto por `apps/api/test/product-intelligence-controller.test.ts`.
+- [x] Con `PRODUCT_INTELLIGENCE_ENABLED=false` el sistema es indistinguible de
+      no tener PI — verificado 2026-08-27: los 5 endpoints del controller
+      (`ingest`/`funnel`/`funnel/economic`/`engines/run`/`retention/run`)
+      responden 403 explícito sin tocar el servicio cuando el flag está
+      apagado (esto es lo documentado como comportamiento esperado en la
+      tabla de kill switches de este mismo spec — no hay ninguna ruta que
+      exponga datos o efectos con el flag OFF). `PI_INGEST_ENABLED=false`
+      apaga solo la ingesta sin afectar el resto del módulo. Cubierto por
+      `apps/api/test/product-intelligence-controller.test.ts`.
+- [x] Ningún payload persistido contiene email/teléfono/dirección (test de
+      privacidad con fixtures adversarias) — `redactValue()` en
+      `packages/product-events/src/redact.ts` ya cubría los tres; el test en
+      `apps/api/test/product-intelligence-ingest.test.ts` solo ejercitaba
+      email+teléfono. Se agregó un fixture de dirección
+      ("123 Main Street apto 4") a la misma prueba, 2026-08-27.
+- [ ] Funnel auth (PI-05) visible en admin con datos reales de staging —
+      requiere un entorno de staging real; no verificable desde este sandbox.

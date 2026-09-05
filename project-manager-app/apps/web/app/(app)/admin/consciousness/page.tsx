@@ -182,7 +182,7 @@ export default function ConsciousnessPage() {
         actions={
           <button onClick={load} disabled={loading}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, background: "rgba(167,139,250,.15)", border: "none", cursor: loading ? "wait" : "pointer", fontSize: 12, color: "#a78bfa", fontWeight: 700 }}>
-            <RefreshCw size={12} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={12} className={loading ? "animate-spin" : undefined} />
             Actualizar
           </button>
         }
@@ -302,7 +302,7 @@ export default function ConsciousnessPage() {
                 <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: "auto" }}>{allRisks.length} total</span>
               </div>
               <div style={{ display: "grid", gap: 8 }}>
-                <RiskGroup label="critical" items={data.risks.critical} color="#ef4444" />
+                <RiskGroup label="critical" items={data.risks.critical} color="var(--error)" />
                 <RiskGroup label="high"     items={data.risks.high}     color="#f97316" />
                 <RiskGroup label="medium"   items={data.risks.medium}   color="#eab308" />
                 <RiskGroup label="low"      items={data.risks.low}      color="#64748b" />
@@ -407,7 +407,6 @@ export default function ConsciousnessPage() {
           {/* Autonomy Level 3-4 — Simulation + Apply */}
           <SimulationPanel />
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

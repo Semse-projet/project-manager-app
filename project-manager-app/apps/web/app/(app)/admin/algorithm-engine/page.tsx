@@ -50,10 +50,10 @@ const TRADE_COLORS: Record<string, string> = {
   painting:   "#06b6d4",
   siding:     "#8b5cf6",
   bathroom:   "#f59e0b",
-  kitchen:    "#10b981",
+  kitchen:    "var(--ok)",
   cleaning:   "#ec4899",
   drywall:    "#64748b",
-  roofing:    "#ef4444",
+  roofing:    "var(--error)",
   concrete:   "#6366f1",
   demolition: "#f97316",
 };

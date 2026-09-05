@@ -7,6 +7,7 @@ import type {
   ForgeSpecReference,
   ForgeTaskPacket
 } from "@semse/forge";
+import { deriveTaskStatus } from "@semse/forge";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 
@@ -98,7 +99,7 @@ export class ForgeRepository {
   }
 
   private toDomain(row: StoredForgeRun): ForgeRun {
-    return {
+    const run: ForgeRun = {
       id: row.id,
       title: row.title,
       state: row.state as ForgeRunState,
@@ -116,6 +117,13 @@ export class ForgeRepository {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString()
     };
+    // Backfills task.status for rows persisted before per-task status existed —
+    // without this, the scheduler's runnable-task query would default every
+    // task on an old run to "pending" and incorrectly treat already-finished
+    // dependencies as unresolved. See dag.ts's deriveTaskStatus() for the
+    // (best-effort) inference rules.
+    run.tasks = run.tasks.map((task) => (task.status ? task : { ...task, status: deriveTaskStatus(task, run) }));
+    return run;
   }
 
   private toPrismaData(tenantId: string, orgId: string, run: ForgeRun) {

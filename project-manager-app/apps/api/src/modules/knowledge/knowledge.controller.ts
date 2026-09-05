@@ -20,12 +20,18 @@ export class KnowledgeController {
     private readonly curator: KnowledgeCuratorService,
   ) {}
 
+  // Estas dos exponen el mapa de dominios de conocimiento del repo y el estado
+  // de los servicios internos — es información de arquitectura, no de negocio,
+  // así que quedan restringidas a roles internos aunque el resto del controller
+  // (workspace-memory, skills, curation) siga abierto por `knowledge:read`.
   @Get("domains")
+  @RequirePermissions("internal:architecture:read")
   async domains(@Req() req: FastifyRequest) {
     return ok(resolveRequestId(req.headers ?? {}), await this.knowledgeService.getDomains());
   }
 
   @Get("overview")
+  @RequirePermissions("internal:architecture:read")
   async overview(@Req() req: FastifyRequest) {
     return ok(resolveRequestId(req.headers ?? {}), await this.knowledgeService.getOverview());
   }

@@ -2,14 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, Bot, CheckCircle2, DollarSign, Eye, FileArchive, FileText, ImageIcon, MessageSquare, RefreshCw, Send, ShieldAlert, UploadCloud, Video, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, Bot, CheckCircle2, DollarSign, Eye, FileArchive, FileText, ImageIcon, MessageSquare, RefreshCw, Send, ShieldAlert, Video, Wallet } from "lucide-react";
 import { HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchAgentApproval,
   fetchPendingApprovals,
   decideAgentApproval,
-  completeMultipartUploadSession,
-  createMultipartUploadSession,
   fetchJobEvidence,
   fetchJobMilestones,
   fetchDisputeComments,
@@ -18,10 +16,15 @@ import {
   registerJobEvidence,
   releaseMilestoneEscrow,
   runProjectCopilot,
-  uploadMultipartPart,
   type AgentApprovalItem,
   type DisputeComment
 } from "../../semse-api";
+
+function mimeToEvidenceKind(mime: string): "PHOTO" | "VIDEO" | "DOCUMENT" {
+  if (mime.startsWith("image/")) return "PHOTO";
+  if (mime.startsWith("video/")) return "VIDEO";
+  return "DOCUMENT";
+}
 
 type DisputeWorkspaceRow = {
   id: string;
@@ -43,18 +46,6 @@ type UploadPlanView = Record<string, unknown> & {
     recommendedPartCount?: number;
     requiresOutOfBandTransfer?: boolean;
   } | null;
-};
-
-type MultipartSessionView = UploadPlanView & {
-  sessionId?: string;
-  provider?: string;
-  expiresAt?: string;
-  parts?: Array<{
-    partNumber?: number;
-    startByte?: number;
-    endByte?: number;
-    uploadUrl?: string;
-  }>;
 };
 
 type EvidenceView = Record<string, unknown>;
@@ -126,8 +117,8 @@ function formatDate(value?: string) {
 }
 
 function EvidenceKindIcon({ kind }: { kind?: string }) {
-  if (kind === "PHOTO") return <ImageIcon size={14} color="#10b981" />;
-  if (kind === "VIDEO") return <Video size={14} color="#3b82f6" />;
+  if (kind === "PHOTO") return <ImageIcon size={14} color="var(--ok)" />;
+  if (kind === "VIDEO") return <Video size={14} color="var(--brand)" />;
   return <FileText size={14} color="#8b5cf6" />;
 }
 
@@ -168,13 +159,9 @@ export function DisputeResolutionWorkspace({
   const [copilotMessage, setCopilotMessage] = useState<string | null>(null);
   const [escalationBusy, setEscalationBusy] = useState(false);
   const [escalationMessage, setEscalationMessage] = useState<string | null>(null);
-  const [uploadName, setUploadName] = useState("dispute-evidence-bundle.zip");
-  const [uploadSizeMb, setUploadSizeMb] = useState("12");
+  const [packageFile, setPackageFile] = useState<File | null>(null);
   const [planningUpload, setPlanningUpload] = useState(false);
   const [uploadPlan, setUploadPlan] = useState<UploadPlanView | null>(null);
-  const [multipartSession, setMultipartSession] = useState<MultipartSessionView | null>(null);
-  const [multipartProgress, setMultipartProgress] = useState<Record<number, "pending" | "uploading" | "uploaded">>({});
-  const [completingMultipart, setCompletingMultipart] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [approvalSummary, setApprovalSummary] = useState<string | null>(null);
   const [loadingApprovals, setLoadingApprovals] = useState(false);
@@ -210,7 +197,7 @@ export function DisputeResolutionWorkspace({
         kind: "state",
         title: "Escrow liberado desde workspace",
         detail: `Milestone ${milestoneId} — fondos liberados al profesional.`,
-        tone: "#10b981",
+        tone: "var(--ok)",
       });
       await refreshEvidenceContext();
     } catch (error) {
@@ -225,7 +212,7 @@ export function DisputeResolutionWorkspace({
       return {
         title: "Disputa cerrada",
         detail: "Verifica la resolución acordada y conserva el paquete de evidencia por trazabilidad.",
-        tone: "#10b981"
+        tone: "var(--ok)"
       };
     }
 
@@ -233,7 +220,7 @@ export function DisputeResolutionWorkspace({
       return {
         title: "Mesa de tercero — revisa evidencia antes de decidir",
         detail: "Lee la razón del bloqueo, revisa la evidencia aportada y el criterio del copiloto. Cuando tengas suficiente contexto, aprueba o rechaza la intervención desde el panel de aprobaciones pendientes.",
-        tone: "#ef4444"
+        tone: "var(--error)"
       };
     }
 
@@ -275,7 +262,7 @@ export function DisputeResolutionWorkspace({
         detail: dispute.status === "resolved"
           ? `La disputa ya figura resuelta. ${dispute.resolution ? `Resolución: ${dispute.resolution}` : ""}`.trim()
           : `Estado actual: ${dispute.status}. Razón base: ${dispute.reason}`,
-        tone: dispute.status === "resolved" ? "#10b981" : "#f59e0b",
+        tone: dispute.status === "resolved" ? "var(--ok)" : "#f59e0b",
       }
     ]);
     setLatestApproval(null);
@@ -377,7 +364,7 @@ export function DisputeResolutionWorkspace({
             ? "Copiloto recomienda autogestión"
             : "Copiloto deja señal mixta",
         detail: message,
-        tone: decision === "needs_third_party" ? "#ef4444" : decision === "self_resolve" ? "#10b981" : "#f59e0b",
+        tone: decision === "needs_third_party" ? "var(--error)" : decision === "self_resolve" ? "var(--ok)" : "#f59e0b",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo obtener criterio del copiloto.";
@@ -386,7 +373,7 @@ export function DisputeResolutionWorkspace({
         kind: "copilot",
         title: "Falló el análisis del copiloto",
         detail: message,
-        tone: "#ef4444",
+        tone: "var(--error)",
       });
     } finally {
       setCopilotBusy(false);
@@ -416,7 +403,7 @@ export function DisputeResolutionWorkspace({
         kind: "escalation",
         title: "Escalación solicitada",
         detail: `${message}${approvalId ? ` Approval ${approvalId} · modo ${approvalMode} · estado ${approvalStatus}.` : ""}`,
-        tone: approvalStatus === "approved" ? "#10b981" : approvalStatus === "rejected" ? "#ef4444" : "#f59e0b",
+        tone: approvalStatus === "approved" ? "var(--ok)" : approvalStatus === "rejected" ? "var(--error)" : "#f59e0b",
       });
       if (approvalId) {
         try {
@@ -426,7 +413,7 @@ export function DisputeResolutionWorkspace({
             kind: "approval",
             title: "Approval registrada",
             detail: `${approval.title}. Riesgo ${approval.riskLevel}. Estado ${approval.status}.`,
-            tone: approval.status === "approved" ? "#10b981" : approval.status === "rejected" ? "#ef4444" : "#6366f1",
+            tone: approval.status === "approved" ? "var(--ok)" : approval.status === "rejected" ? "var(--error)" : "#6366f1",
           });
         } catch {
           setLatestApproval({ id: approvalId, status: approvalStatus, approvalMode });
@@ -439,7 +426,7 @@ export function DisputeResolutionWorkspace({
         kind: "escalation",
         title: "Falló la escalación",
         detail: message,
-        tone: "#ef4444",
+        tone: "var(--error)",
       });
     } finally {
       void refreshApprovals();
@@ -447,76 +434,57 @@ export function DisputeResolutionWorkspace({
     }
   }
 
-  async function handlePlanAttachment() {
+  // Real upload, mirroring the pattern already fixed for /worker/evidence and
+  // /worker/travel (0.34): plan → PUT the actual file bytes to the presigned
+  // key → register it as real job evidence. The previous version declared a
+  // filename/size by hand and never sent any bytes at all — for files over
+  // the single-PUT limit it even "completed" a fake multipart session with
+  // fabricated etags. There is no working large-file upload path server-side
+  // yet, so that case fails clearly here instead of pretending to succeed.
+  async function handleUploadEvidencePackage() {
+    if (!packageFile || !dispute.jobId || planningUpload) return;
     setPlanningUpload(true);
     setUploadMessage(null);
     try {
-      const sizeMb = Math.max(1, Number(uploadSizeMb || "0"));
-      const filename = uploadName.trim() || "dispute-evidence-bundle.zip";
-      const result = (await planUpload({
+      const file = packageFile;
+      const contentType = file.type || "application/octet-stream";
+      const plan = (await planUpload({
         domain: "dispute",
-        filename,
-        contentType: /\.zip$/i.test(filename) ? "application/zip" : "application/pdf",
-        fileSizeBytes: sizeMb * 1024 * 1024,
-        source: sizeMb > 25 ? "external_transfer" : "local_device"
+        filename: file.name,
+        contentType,
+        fileSizeBytes: file.size,
+        source: "local_device"
       })) as UploadPlanView;
-      setUploadPlan(result);
+      setUploadPlan(plan);
 
-      if (result.recommendedStrategy === "external_transfer") {
-        const session = (await createMultipartUploadSession({
-          domain: "dispute",
-          filename,
-          contentType: /\.zip$/i.test(filename) ? "application/zip" : "application/pdf",
-          fileSizeBytes: sizeMb * 1024 * 1024,
-          source: "external_transfer"
-        })) as MultipartSessionView;
-        setMultipartSession(session);
-        setMultipartProgress(
-          Object.fromEntries((session.parts ?? []).map((part, index) => [part.partNumber ?? index + 1, "pending"]))
-        );
-      } else {
-        setMultipartSession(null);
-        setMultipartProgress({});
+      const key = String(plan.key ?? "");
+      if (plan.recommendedStrategy === "external_transfer" || !key) {
+        throw new Error(`"${file.name}" es demasiado grande para subir aquí todavía (límite temporal ~25MB). Usa un archivo más pequeño o divídelo.`);
       }
+
+      const uploadRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
+        method: "PUT",
+        headers: { "content-type": contentType, "content-length": String(file.size) },
+        body: file
+      });
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => "");
+        throw new Error(`No se pudo subir "${file.name}" (${uploadRes.status}).${text ? ` ${text}` : ""}`);
+      }
+
+      await registerJobEvidence(dispute.jobId, {
+        key,
+        kind: mimeToEvidenceKind(contentType),
+        filename: file.name
+      });
+
+      setUploadMessage(`"${file.name}" se subió y quedó registrado como evidencia del trabajo.`);
+      setPackageFile(null);
+      await refreshEvidenceContext();
     } catch (error) {
-      setUploadMessage(error instanceof Error ? error.message : "No se pudo planificar el paquete.");
-      setMultipartSession(null);
-      setMultipartProgress({});
+      setUploadMessage(error instanceof Error ? error.message : "No se pudo subir el paquete de evidencia.");
     } finally {
       setPlanningUpload(false);
-    }
-  }
-
-  async function handleCompleteMultipart() {
-    if (!multipartSession?.sessionId || !multipartSession.parts?.length || completingMultipart) return;
-    setCompletingMultipart(true);
-    setUploadMessage(null);
-    try {
-      for (const [index, part] of multipartSession.parts.entries()) {
-        const partNumber = part.partNumber ?? index + 1;
-        const bytes = typeof part.endByte === "number" && typeof part.startByte === "number"
-          ? Math.max(1, part.endByte - part.startByte + 1)
-          : 1024 * 1024;
-        setMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        await uploadMultipartPart({
-          sessionId: multipartSession.sessionId,
-          partNumber,
-          contentLength: bytes
-        });
-        setMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
-      }
-      await completeMultipartUploadSession({
-        sessionId: multipartSession.sessionId,
-        parts: multipartSession.parts.map((part, index) => ({
-          partNumber: part.partNumber ?? index + 1,
-          etag: `etag-part-${part.partNumber ?? index + 1}`
-        }))
-      });
-      setUploadMessage("Sesión multipart completada. Ya tienes el paquete listo para compartir con ops o adjuntar en siguiente paso.");
-    } catch (error) {
-      setUploadMessage(error instanceof Error ? error.message : "No se pudo completar la sesión multipart.");
-    } finally {
-      setCompletingMultipart(false);
     }
   }
 
@@ -553,7 +521,7 @@ export function DisputeResolutionWorkspace({
         kind: "state",
         title: `${authorLabel} dejó un comentario`,
         detail: text.length > 80 ? text.slice(0, 80) + "…" : text,
-        tone: audience === "admin" ? "#ef4444" : audience === "client" ? "#6366f1" : "#8b5cf6",
+        tone: audience === "admin" ? "var(--error)" : audience === "client" ? "#6366f1" : "#8b5cf6",
       });
       await loadComments();
     } catch (error) {
@@ -577,7 +545,7 @@ export function DisputeResolutionWorkspace({
         kind: "approval",
         title: decision === "approved" ? "Tercero aprobó intervención" : "Tercero rechazó intervención",
         detail: `Aprobación ${approvalId} marcada como ${decision}.`,
-        tone: decision === "approved" ? "#10b981" : "#ef4444",
+        tone: decision === "approved" ? "var(--ok)" : "var(--error)",
       });
       setApprovalActionNote({ id: approvalId, message: decision === "approved" ? "Aprobado y ejecutado." : "Rechazado.", ok: true });
       await refreshApprovals();
@@ -654,7 +622,7 @@ export function DisputeResolutionWorkspace({
               disabled={copilotBusy}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(99,102,241,0.22)", background: "rgba(99,102,241,0.10)", color: "#818cf8", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
             >
-              {copilotBusy ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Bot size={13} />}
+              {copilotBusy ? <RefreshCw size={13} className="animate-spin" /> : <Bot size={13} />}
               {copilotBusy ? "Analizando..." : "Pedir criterio"}
             </button>
           </div>
@@ -663,9 +631,9 @@ export function DisputeResolutionWorkspace({
               <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   {copilotDecision === "needs_third_party" ? (
-                    <StatusPill color="#ef4444" label="Requiere tercero" />
+                    <StatusPill color="var(--error)" label="Requiere tercero" />
                   ) : copilotDecision === "self_resolve" ? (
-                    <StatusPill color="#10b981" label="Puede resolverse entre partes" />
+                    <StatusPill color="var(--ok)" label="Puede resolverse entre partes" />
                   ) : (
                     <StatusPill color="#f59e0b" label="Señal mixta" />
                   )}
@@ -677,7 +645,7 @@ export function DisputeResolutionWorkspace({
                   <button
                     onClick={() => void onResolve(resolutionDraft.trim())}
                     disabled={resolveBusy || resolutionDraft.trim().length < 8}
-                    style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: resolveBusy || resolutionDraft.trim().length < 8 ? 0.7 : 1 }}
+                    style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.09)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: resolveBusy || resolutionDraft.trim().length < 8 ? 0.7 : 1 }}
                   >
                     {resolveBusy ? "Resolviendo..." : "Cerrar por acuerdo"}
                   </button>
@@ -685,7 +653,7 @@ export function DisputeResolutionWorkspace({
                 <button
                   onClick={() => void handleEscalateToThirdParty()}
                   disabled={escalationBusy}
-                  style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  style={{ padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.26)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   {escalationBusy ? "Escalando..." : "Pedir tercero humano"}
                 </button>
@@ -706,7 +674,7 @@ export function DisputeResolutionWorkspace({
             />
           ) : null}
           {escalationMessage ? (
-            <p style={{ margin: 0, fontSize: 12, color: escalationMessage.toLowerCase().includes("error") ? "#ef4444" : "var(--muted)" }}>
+            <p style={{ margin: 0, fontSize: 12, color: escalationMessage.toLowerCase().includes("error") ? "var(--error)" : "var(--muted)" }}>
               {escalationMessage}
             </p>
           ) : null}
@@ -735,7 +703,7 @@ export function DisputeResolutionWorkspace({
                 <strong style={{ fontSize: 13, color: "var(--ink)" }}>
                   {asString(latestApproval.title) ?? `Approval ${asString(latestApproval.id) ?? "registrada"}`}
                 </strong>
-                <span style={{ fontSize: 11, fontWeight: 800, color: asString(latestApproval.status) === "approved" ? "#10b981" : asString(latestApproval.status) === "rejected" ? "#ef4444" : "#f59e0b" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: asString(latestApproval.status) === "approved" ? "var(--ok)" : asString(latestApproval.status) === "rejected" ? "var(--error)" : "#f59e0b" }}>
                   {asString(latestApproval.status) ?? "pending"}
                 </span>
               </div>
@@ -764,21 +732,21 @@ export function DisputeResolutionWorkspace({
                     </div>
                     <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{approval.reason}</p>
                     {note ? (
-                      <p style={{ margin: 0, fontSize: 12, color: note.ok ? "#10b981" : "#ef4444" }}>{note.message}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: note.ok ? "var(--ok)" : "var(--error)" }}>{note.message}</p>
                     ) : null}
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <button
                         onClick={() => void handleApprovalDecision(approval.id, "approved")}
                         disabled={!!decidingApprovalId}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.10)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.10)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
                       >
-                        {isBusy ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <CheckCircle2 size={12} />}
+                        {isBusy ? <RefreshCw size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
                         {isBusy ? "Procesando..." : "Aprobar y ejecutar"}
                       </button>
                       <button
                         onClick={() => void handleApprovalDecision(approval.id, "rejected")}
                         disabled={!!decidingApprovalId}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: decidingApprovalId ? 0.5 : 1 }}
                       >
                         <AlertTriangle size={12} />
                         Rechazar
@@ -811,70 +779,32 @@ export function DisputeResolutionWorkspace({
             <strong style={{ fontSize: 14, color: "var(--ink)" }}>Paquete de evidencia</strong>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
-            Prepara un bundle de disputa para compartir pruebas, documentos o exportes grandes. Si el paquete es pesado, el sistema te guía hacia transferencia multipart.
+            Sube un archivo real (foto, documento o export) como evidencia de esta disputa — queda registrado en el trabajo vinculado.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 140px auto", gap: 10, alignItems: "start" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "center" }}>
             <input
-              value={uploadName}
-              onChange={(event) => setUploadName(event.target.value)}
-              placeholder="dispute-evidence-bundle.zip"
-              style={{ height: 40, borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", padding: "0 12px", fontSize: 13 }}
-            />
-            <input
-              value={uploadSizeMb}
-              onChange={(event) => setUploadSizeMb(event.target.value)}
-              placeholder="12"
-              style={{ height: 40, borderRadius: 10, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--ink)", padding: "0 12px", fontSize: 13 }}
+              type="file"
+              onChange={(event) => setPackageFile(event.target.files?.[0] ?? null)}
+              style={{ fontSize: 13, color: "var(--ink)" }}
             />
             <button
-              onClick={() => void handlePlanAttachment()}
-              disabled={planningUpload}
+              onClick={() => void handleUploadEvidencePackage()}
+              disabled={planningUpload || !packageFile || !dispute.jobId}
               style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid var(--border)", background: "transparent", color: "var(--ink)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
             >
-              {planningUpload ? "Planeando..." : "Preparar paquete"}
+              {planningUpload ? "Subiendo..." : "Subir evidencia"}
             </button>
           </div>
-          {uploadPlan ? (
-            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", display: "grid", gap: 4, fontSize: 12 }}>
-              <div style={{ fontWeight: 700, color: "#f59e0b" }}>
-                Estrategia: {String(uploadPlan.recommendedStrategy ?? "single_put")}
-              </div>
-              <div style={{ color: "var(--ink)" }}>{String(uploadPlan.uploadGuidance ?? "Sin guía adicional.")}</div>
-              {typeof uploadPlan.maxSingleUploadBytes === "number" ? (
-                <div style={{ color: "var(--muted)" }}>
-                  Límite sugerido por subida simple: {Math.round(uploadPlan.maxSingleUploadBytes / (1024 * 1024))} MB
-                </div>
-              ) : null}
-            </div>
+          {!dispute.jobId ? (
+            <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>Esta disputa no tiene un trabajo vinculado — no se puede registrar evidencia aquí.</p>
           ) : null}
-          {multipartSession?.sessionId ? (
-            <div style={{ display: "grid", gap: 8, padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(16,185,129,.22)", background: "rgba(16,185,129,.08)" }}>
-              <div style={{ fontSize: 12, color: "var(--ink)" }}>
-                Sesión multipart: <code>{multipartSession.sessionId}</code>
-              </div>
-              <div style={{ display: "grid", gap: 4, fontSize: 11, color: "var(--muted)" }}>
-                {(multipartSession.parts ?? []).slice(0, 4).map((part, index) => {
-                  const partNumber = part.partNumber ?? index + 1;
-                  return (
-                    <div key={partNumber}>
-                      Parte {partNumber}: {multipartProgress[partNumber] ?? "pending"}
-                    </div>
-                  );
-                })}
-                {(multipartSession.parts?.length ?? 0) > 4 ? <div>... y más partes</div> : null}
-              </div>
-              <button
-                onClick={() => void handleCompleteMultipart()}
-                disabled={completingMultipart}
-                style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.10)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-              >
-                {completingMultipart ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <UploadCloud size={13} />}
-                {completingMultipart ? "Completando..." : "Completar sesión multipart"}
-              </button>
+          {uploadPlan?.recommendedStrategy === "external_transfer" ? (
+            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", fontSize: 12, color: "#f59e0b" }}>
+              Archivos grandes (transferencia externa) todavía no tienen una ruta de subida real — usa un archivo más chico por ahora.
             </div>
           ) : null}
           {uploadMessage ? (
-            <p style={{ margin: 0, fontSize: 12, color: uploadMessage.toLowerCase().includes("no se pudo") ? "#ef4444" : "var(--muted)" }}>
+            <p style={{ margin: 0, fontSize: 12, color: uploadMessage.toLowerCase().includes("no se pudo") ? "var(--error)" : "var(--muted)" }}>
               {uploadMessage}
             </p>
           ) : null}
@@ -930,14 +860,14 @@ export function DisputeResolutionWorkspace({
                 <button
                   onClick={() => void handleRegisterEvidenceReference()}
                   disabled={registeringEvidence}
-                  style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.08)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  style={{ height: 40, padding: "0 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.28)", background: "rgba(16,185,129,.08)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   {registeringEvidence ? "Registrando..." : "Registrar"}
                 </button>
               </div>
 
               {evidenceNote ? (
-                <p style={{ margin: 0, fontSize: 12, color: evidenceNote.toLowerCase().includes("no se pudo") || evidenceNote.toLowerCase().includes("válida") ? "#ef4444" : "var(--muted)" }}>
+                <p style={{ margin: 0, fontSize: 12, color: evidenceNote.toLowerCase().includes("no se pudo") || evidenceNote.toLowerCase().includes("válida") ? "var(--error)" : "var(--muted)" }}>
                   {evidenceNote}
                 </p>
               ) : null}
@@ -965,7 +895,7 @@ export function DisputeResolutionWorkspace({
                               <EvidenceKindIcon kind={asString(item.kind)} />
                               <strong style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</strong>
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: validation === "approved" ? "#10b981" : validation === "rejected" ? "#ef4444" : "#f59e0b" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: validation === "approved" ? "var(--ok)" : validation === "rejected" ? "var(--error)" : "#f59e0b" }}>
                               {validation}
                             </span>
                           </div>
@@ -1011,7 +941,7 @@ export function DisputeResolutionWorkspace({
         <HtmlInCanvasPanel as="section" style={{ padding: "16px 18px" }} canvasClassName="rounded-2xl" minHeight={120}>
           <div style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Wallet size={16} color="#10b981" />
+              <Wallet size={16} color="var(--ok)" />
               <strong style={{ fontSize: 14, color: "var(--ink)" }}>Liberar escrow — milestones del trabajo</strong>
             </div>
             <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.55 }}>
@@ -1029,7 +959,7 @@ export function DisputeResolutionWorkspace({
                 const alreadyReleased = escrowStatus === "released" || status === "completed";
                 return (
                   <div key={mid} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, border: `1px solid ${alreadyReleased ? "rgba(16,185,129,.22)" : "var(--border)"}`, background: alreadyReleased ? "rgba(16,185,129,.04)" : "var(--surface)" }}>
-                    <DollarSign size={16} color={alreadyReleased ? "#10b981" : "#fbbf24"} />
+                    <DollarSign size={16} color={alreadyReleased ? "var(--ok)" : "#fbbf24"} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{title}</p>
                       <p style={{ margin: "2px 0 0", fontSize: 11, color: "var(--faint)", display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1037,19 +967,19 @@ export function DisputeResolutionWorkspace({
                         {escrowStatus !== "unknown" ? <span>Escrow: {escrowStatus}</span> : null}
                         {amount !== null ? <span>${amount.toLocaleString()}</span> : null}
                       </p>
-                      {note ? <p style={{ margin: "4px 0 0", fontSize: 11, color: note.ok ? "#10b981" : "#ef4444" }}>{note.message}</p> : null}
+                      {note ? <p style={{ margin: "4px 0 0", fontSize: 11, color: note.ok ? "var(--ok)" : "var(--error)" }}>{note.message}</p> : null}
                     </div>
                     {!alreadyReleased ? (
                       <button
                         onClick={() => void handleReleaseEscrow(mid)}
                         disabled={!!releasingMilestoneId}
-                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.1)", color: "#10b981", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: releasingMilestoneId ? 0.5 : 1, whiteSpace: "nowrap" }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid rgba(16,185,129,.3)", background: "rgba(16,185,129,.1)", color: "var(--ok)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: releasingMilestoneId ? 0.5 : 1, whiteSpace: "nowrap" }}
                       >
-                        {isBusy ? <RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> : <Wallet size={12} />}
+                        {isBusy ? <RefreshCw size={12} className="animate-spin" /> : <Wallet size={12} />}
                         {isBusy ? "Liberando..." : "Liberar escrow"}
                       </button>
                     ) : (
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "#10b981" }}>✓ Liberado</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--ok)" }}>✓ Liberado</span>
                     )}
                   </div>
                 );
@@ -1071,7 +1001,7 @@ export function DisputeResolutionWorkspace({
               disabled={loadingComments}
               style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 10px", borderRadius: 9, border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
             >
-              <RefreshCw size={11} style={{ animation: loadingComments ? "spin 1s linear infinite" : "none" }} />
+              <RefreshCw size={11} className={loadingComments ? "animate-spin" : undefined} />
               Recargar
             </button>
           </div>
@@ -1103,13 +1033,13 @@ export function DisputeResolutionWorkspace({
               disabled={sendingComment || commentDraft.trim().length < 2}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(99,102,241,.28)", background: "rgba(99,102,241,.10)", color: "#6366f1", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: sendingComment || commentDraft.trim().length < 2 ? 0.6 : 1, alignSelf: "flex-start", marginTop: 2 }}
             >
-              {sendingComment ? <RefreshCw size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={13} />}
+              {sendingComment ? <RefreshCw size={13} className="animate-spin" /> : <Send size={13} />}
               {sendingComment ? "Enviando..." : "Enviar"}
             </button>
           </div>
 
           {commentNote ? (
-            <p style={{ margin: 0, fontSize: 12, color: commentNote.toLowerCase().includes("no se pudo") ? "#ef4444" : "var(--muted)" }}>
+            <p style={{ margin: 0, fontSize: 12, color: commentNote.toLowerCase().includes("no se pudo") ? "var(--error)" : "var(--muted)" }}>
               {commentNote}
             </p>
           ) : null}
@@ -1123,7 +1053,7 @@ export function DisputeResolutionWorkspace({
           ) : comments.length > 0 ? (
             <div style={{ display: "grid", gap: 8 }}>
               {comments.map((comment, index) => {
-                const roleColor = comment.role === "admin" ? "#ef4444" : comment.role === "client" ? "#6366f1" : comment.role === "worker" ? "#8b5cf6" : "var(--muted)";
+                const roleColor = comment.role === "admin" ? "var(--error)" : comment.role === "client" ? "#6366f1" : comment.role === "worker" ? "#8b5cf6" : "var(--muted)";
                 const roleLabel = comment.role === "admin" ? "Ops" : comment.role === "client" ? "Cliente" : comment.role === "worker" ? "Profesional" : comment.author ?? "Sistema";
                 return (
                   <div key={comment.id ?? index} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", display: "grid", gap: 6 }}>
@@ -1163,7 +1093,7 @@ function StatusPill({ color, label }: { color: string; label: string }) {
         fontWeight: 800
       }}
     >
-      {color === "#10b981" ? <CheckCircle2 size={12} /> : color === "#ef4444" ? <AlertTriangle size={12} /> : <ShieldAlert size={12} />}
+      {color === "var(--ok)" ? <CheckCircle2 size={12} /> : color === "var(--error)" ? <AlertTriangle size={12} /> : <ShieldAlert size={12} />}
       {label}
     </span>
   );

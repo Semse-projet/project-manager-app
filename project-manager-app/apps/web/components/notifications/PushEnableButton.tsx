@@ -18,7 +18,7 @@ export function PushEnableButton() {
   if (permission === "granted" && subscribed) return (
     <button
       title="Notificaciones push activas"
-      style={{ background: "none", border: "none", cursor: "default", padding: "6px", color: "#10b981", display: "flex" }}
+      style={{ background: "none", border: "none", cursor: "default", padding: "6px", color: "var(--ok)", display: "flex" }}
     >
       <BellRing size={16} />
     </button>
@@ -39,7 +39,7 @@ export function PushEnableButton() {
       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--muted)"; }}
     >
       <Bell size={16} />
-      {error && <span style={{ position: "absolute", fontSize: 9, color: "#ef4444" }}>!</span>}
+      {error && <span style={{ position: "absolute", fontSize: 9, color: "var(--error)" }}>!</span>}
     </button>
   );
 }

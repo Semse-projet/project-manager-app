@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { canTransitionForgeRun, ForgeHarness } from "@semse/forge";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { canTransitionForgeRun, categoriesForPaths, dependenciesSucceeded, ForgeHarness, selectDispatchable } from "@semse/forge";
 import type {
   ForgeAgentRole,
   ForgeApprovalMode,
@@ -17,6 +17,7 @@ import type {
 } from "@semse/forge";
 import type { AgentRunRecord } from "../../common/domain-store.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { ForgeLeaseService } from "../../infrastructure/forge/forge-lease.service.js";
 import { ForgeAgentAdapterService } from "./forge-agent-adapter.service.js";
 import { ForgeRepository } from "./forge.repository.js";
 
@@ -38,7 +39,8 @@ export class ForgeService {
   constructor(
     private readonly repository: ForgeRepository,
     private readonly adapter: ForgeAgentAdapterService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly leaseService: ForgeLeaseService
   ) {}
 
   async list(tenantId: string): Promise<ForgeRun[]> {
@@ -47,6 +49,12 @@ export class ForgeService {
 
   async findById(input: { tenantId: string; runId: string }): Promise<ForgeRun> {
     return this.repository.findById(input);
+  }
+
+  async listRunnableTasks(input: { tenantId: string; runId: string }): Promise<ForgeTaskPacket[]> {
+    const current = await this.repository.findById(input);
+    const harness = this.load(current);
+    return harness.listRunnableTasks(input.runId);
   }
 
   async create(input: {
@@ -114,7 +122,16 @@ export class ForgeService {
   }): Promise<ForgeRun> {
     const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
     const harness = this.load(current);
-    const updated = harness.addTask(input.runId, input.task);
+    let updated: ForgeRun;
+    try {
+      updated = harness.addTask(input.runId, input.task);
+    } catch (error) {
+      // ForgeHarness.addTask() throws a plain Error for a duplicate id or an
+      // invalid dependency graph — both are the caller's request being
+      // malformed, not a server fault, so this must not fall through to
+      // NestJS's default 500.
+      throw new BadRequestException(error instanceof Error ? error.message : String(error));
+    }
     const persisted = await this.repository.update({
       tenantId: input.actor.tenantId,
       orgId: input.actor.orgId,
@@ -183,6 +200,24 @@ export class ForgeService {
     }
 
     const harness = this.load(current);
+    // Server-side re-derivation, same principle as authorizeTaskAction's policy
+    // check below: a caller could otherwise call executeTask on a task whose
+    // dependencies haven't succeeded yet. Deliberately dependenciesSucceeded(),
+    // not listRunnableTasks() — the latter also excludes a task whose own
+    // status isn't pending/ready, which is correct for the proactive
+    // scheduler (dispatchNext shouldn't auto-redispatch an already-succeeded
+    // task) but wrong here: Forge re-invokes the SAME task multiple times
+    // with different actions (prPackage, then deployment.propose, then
+    // rollback.propose, ...), so an explicit call naming a taskId must still
+    // be allowed once that task has already succeeded once.
+    // harness.assignTask() has its own (equally dependency-only) guard too —
+    // defense in depth for any other caller of the pure package — but that
+    // throws a generic Error; this check gives a real 409 instead.
+    if (!dependenciesSucceeded(task, current.tasks)) {
+      throw new ConflictException(
+        `Task '${input.taskId}' is not runnable yet — one or more dependencies haven't succeeded.`
+      );
+    }
     harness.assignTask(input.runId, input.taskId, task.requestedRole);
 
     if (input.async) {
@@ -209,6 +244,20 @@ export class ForgeService {
         actor: input.actor.userId,
         detail: { taskId: input.taskId, agentRunId: agentRun.id }
       } as const);
+      // Without this, the task's persisted status stays whatever toDomain()
+      // derived it as on read (typically "pending", since it has no events
+      // of its own yet) — and because deriveTaskStatus() only re-infers
+      // when status is unset, that "pending" gets written back verbatim and
+      // never re-derived again. listRunnableTasks() (and the GET
+      // .../tasks/runnable endpoint exposing it) would then keep showing an
+      // already-dispatched task as runnable until it completes, risking a
+      // second dispatch. Guarded on "succeeded" for the same reason as the
+      // lease-denial path above: a task re-invoked with a later action must
+      // not lose an earlier action's completion for the duration of this call.
+      const dispatchedTaskIndex = updated.tasks.findIndex((candidate) => candidate.id === input.taskId);
+      if (dispatchedTaskIndex !== -1 && updated.tasks[dispatchedTaskIndex].status !== "succeeded") {
+        updated.tasks[dispatchedTaskIndex] = { ...updated.tasks[dispatchedTaskIndex], status: "running" };
+      }
 
       const persisted = await this.repository.update({
         tenantId: input.actor.tenantId,
@@ -249,6 +298,84 @@ export class ForgeService {
     });
 
     return { forgeRun, agentRun, result: result as unknown as Record<string, unknown> };
+  }
+
+  private static readonly DEFAULT_MAX_CONCURRENT_PER_RUN = 3;
+
+  /**
+   * Picks the highest-priority runnable tasks (up to a per-run concurrency
+   * cap) and dispatches each one async, reusing executeTask's own
+   * dependency/runnability re-check and lease/policy handling rather than
+   * duplicating it. Additive — doesn't change executeTask's existing
+   * explicit-taskId contract.
+   *
+   * The read (currentlyRunning/selectDispatchable) and the writes each
+   * executeTask() call makes (status: "running", persisted after enqueue)
+   * are not atomic with each other, so two concurrent dispatchNext() calls
+   * could otherwise both read the same "1 free slot" and both dispatch the
+   * same top-priority task. Reuses ForgeLeaseService (Fase 2) as a plain
+   * per-run mutual-exclusion lock — not a sensitive-resource-category lease
+   * in the usual sense, just the same Redis SET NX EX primitive keyed on
+   * the run instead of a file category — to serialize the whole
+   * select-and-dispatch sequence.
+   */
+  async dispatchNext(input: {
+    actor: ForgeActor;
+    runId: string;
+    maxConcurrentPerRun?: number;
+    requestId: string;
+  }): Promise<{ forgeRun: ForgeRun; dispatched: Array<{ taskId: string; agentRunId: string }> }> {
+    const dispatchLockCategory = `dispatch:${input.runId}`;
+    const lock = await this.leaseService.acquire({
+      category: dispatchLockCategory,
+      tenantId: input.actor.tenantId,
+      runId: input.runId,
+      taskId: "dispatch-next"
+    });
+    if (!lock.acquired) {
+      // Same reason/status-code split as applyTaskResult's leaseDenial
+      // handling: a real contention (another dispatchNext call holds it) is
+      // a 409 the caller should just retry shortly; Redis being unreachable
+      // (fail-closed) is a dependency outage, not a conflict, and reporting
+      // it as "already in progress" would be actively misleading during an
+      // incident.
+      if (lock.reason === "lease_coordination_unavailable") {
+        throw new ServiceUnavailableException(
+          `Dispatch coordination unavailable for run '${input.runId}'; retry once Redis is reachable.`
+        );
+      }
+      throw new ConflictException(`A dispatch is already in progress for run '${input.runId}'; retry shortly.`);
+    }
+
+    try {
+      const current = await this.repository.findById({ tenantId: input.actor.tenantId, runId: input.runId });
+      const currentlyRunning = current.tasks.filter((task) => task.status === "running").length;
+      const maxConcurrentPerRun = input.maxConcurrentPerRun ?? ForgeService.DEFAULT_MAX_CONCURRENT_PER_RUN;
+      const dispatchable = selectDispatchable(current.tasks, { maxConcurrentPerRun, currentlyRunning });
+
+      let forgeRun = current;
+      const dispatched: Array<{ taskId: string; agentRunId: string }> = [];
+      for (const task of dispatchable) {
+        const outcome = await this.executeTask({
+          actor: input.actor,
+          runId: input.runId,
+          taskId: task.id,
+          async: true,
+          requestId: input.requestId
+        });
+        forgeRun = outcome.forgeRun;
+        dispatched.push({ taskId: task.id, agentRunId: outcome.agentRun.id });
+      }
+
+      return { forgeRun, dispatched };
+    } finally {
+      await this.leaseService.release({
+        category: dispatchLockCategory,
+        tenantId: input.actor.tenantId,
+        runId: input.runId,
+        taskId: "dispatch-next"
+      });
+    }
   }
 
   async completeTask(input: {
@@ -298,6 +425,128 @@ export class ForgeService {
       : (input.task.allowedCommands[0] ?? "runtime.execute");
     const prPackage = payload.prPackage as ForgePRPackage | undefined;
 
+    // Resource leases (SEMSE_FORGE_AGENT_HARNESS.spec.md §9) — a distinct gate
+    // from the policy/approval evaluation below: even a task the policy would
+    // allow must not run concurrently with another task touching the same
+    // sensitive category (schema, migrations, auth, payments, ...). Acquired
+    // here, released in the `finally` below regardless of how this method
+    // exits — see ForgeLeaseService's header comment for why this is scoped
+    // to one applyTaskResult() call rather than a task's full lifecycle.
+    // Sorted so two concurrent requests touching the same set of categories
+    // always attempt acquisition in the same order. Without this, task A
+    // (files in [schema, migrations] order) and task B (the same files in
+    // [migrations, schema] order) running in parallel could each grab a
+    // different category and then both deny on the other's — neither making
+    // progress — instead of one deterministically winning both.
+    const leaseCategories = [...categoriesForPaths(prPackage?.changedFiles ?? [])].sort();
+    const acquiredLeases: string[] = [];
+    let leaseDenial:
+      | { category: string; heldBy?: { runId: string; taskId: string }; reason?: string }
+      | undefined;
+    for (const category of leaseCategories) {
+      const lease = await this.leaseService.acquire({
+        category,
+        tenantId: actor.tenantId,
+        runId: current.id,
+        taskId: task.id
+      });
+      if (lease.acquired) {
+        acquiredLeases.push(category);
+      } else {
+        leaseDenial = { category, heldBy: lease.heldBy, reason: lease.reason };
+        break;
+      }
+    }
+    if (leaseDenial) {
+      // Don't hold onto leases for an action that's already decided to be denied.
+      for (const category of acquiredLeases.splice(0, acquiredLeases.length)) {
+        await this.leaseService.release({ category, tenantId: actor.tenantId, runId: current.id, taskId: task.id });
+      }
+
+      // A lease denial is transient (concurrent contention, or Redis briefly
+      // unreachable) — unlike a policy/prPackage/etc. deny below, which is
+      // deterministic and belongs in "blocked" until a human intervenes.
+      // Persisting a state transition here would permanently wedge the run:
+      // every nextState branch further down derives from current.state, and
+      // none of them can ever move a "blocked" run back to
+      // "ready_for_review" without a manual transition. So this returns
+      // early instead — no state change, no agentRunId registered, nothing
+      // for authorizeTaskAction/approvals to react to — leaving the run
+      // exactly as it was so the same result can be resubmitted once the
+      // resource frees up. Only an audit trail entry marks that this
+      // attempt happened.
+      const blockedRun = harness.getRun(current.id);
+      blockedRun.events.push({
+        id: randomUUID(),
+        type: "FORGE_RUN_BLOCKED",
+        runId: blockedRun.id,
+        timestamp: new Date().toISOString(),
+        actor: actor.userId,
+        detail: {
+          taskId: task.id,
+          agentRunId,
+          reason:
+            leaseDenial.reason === "lease_coordination_unavailable"
+              ? "policy.resource_lock_unavailable"
+              : "policy.resource_locked",
+          category: leaseDenial.category,
+          heldBy: leaseDenial.heldBy
+        }
+      } as const);
+      // Without this, the task's last event is now FORGE_RUN_BLOCKED and
+      // toDomain()'s deriveTaskStatus() would infer "failed" on the next
+      // read — permanently, since nothing re-derives it again once status is
+      // set. That's exactly backwards for a denial this comment already
+      // documents as transient: explicitly keep the task "pending" so it
+      // stays eligible for listRunnableTasks() once the resource frees up.
+      // Guarded on the task not already being "succeeded": this same lease
+      // check runs on every action a task is re-invoked with, and a lease
+      // conflict on a LATER action (e.g. deployment.propose) must not erase
+      // an EARLIER action's completion — that would incorrectly re-block
+      // every sibling task depending on this one's success.
+      const blockedTaskIndex = blockedRun.tasks.findIndex((candidate) => candidate.id === task.id);
+      if (blockedTaskIndex !== -1 && blockedRun.tasks[blockedTaskIndex].status !== "succeeded") {
+        blockedRun.tasks[blockedTaskIndex] = { ...blockedRun.tasks[blockedTaskIndex], status: "pending" };
+      }
+      const blockedPersisted = await this.repository.update({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        userId: actor.userId,
+        run: blockedRun
+      });
+      await this.auditService.append({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        actorUserId: actor.userId,
+        action: "forge.task.complete",
+        entityType: "ForgeRun",
+        entityId: blockedPersisted.id,
+        requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { taskId: task.id, agentRunId, leaseDenial }
+      });
+
+      // The audit trail is written above regardless, but the HTTP response
+      // must NOT look like success: a 200 here would be indistinguishable
+      // from the result actually being applied, so the caller would never
+      // know to resubmit the same agentRunId once the resource frees up and
+      // the completed work would be silently lost. 409 for real contention
+      // (another run holds it — retrying immediately is expected to keep
+      // failing until that run finishes); 503 when the coordination
+      // mechanism itself is unavailable (Redis down — this affects every
+      // completion touching a sensitive path, not just genuinely contended
+      // ones, and is a dependency outage rather than a conflict).
+      if (leaseDenial.reason === "lease_coordination_unavailable") {
+        throw new ServiceUnavailableException(
+          `Resource lease coordination unavailable for category '${leaseDenial.category}'; retry once Redis is reachable.`
+        );
+      }
+      throw new ConflictException(
+        `Resource '${leaseDenial.category}' is locked by another run/task; retry once it releases.`
+      );
+    }
+
+    try {
     // The policy decision must come from the server's own evaluation, never
     // from the caller's payload — a caller could otherwise submit
     // `{ result: { payload: { policy: { decision: "allow" } } } }` and skip
@@ -315,7 +564,8 @@ export class ForgeService {
       taskId: task.id,
       role: task.requestedRole,
       action,
-      changedFiles: prPackage?.changedFiles
+      changedFiles: prPackage?.changedFiles,
+      requestedBy: actor.userId
     });
 
     const deployment = payload.deployment as ForgeDeploymentPlan | undefined;
@@ -331,18 +581,19 @@ export class ForgeService {
     for (const mode of observation?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of securityReport?.requiredApprovals ?? []) extraApprovalModes.add(mode);
     for (const mode of extraApprovalModes) {
-      harness.ensurePendingApproval(current.id, mode);
+      harness.ensurePendingApproval(current.id, mode, actor.userId);
     }
     const runAfterApprovals = harness.getRun(current.id);
 
-    let nextState = current.state;
-    if (
+    const anyDeny =
       policy?.decision === "deny" ||
       prPackage?.decision === "deny" ||
       deployment?.decision === "deny" ||
       rollback?.decision === "deny" ||
-      securityReport?.decision === "deny"
-    ) {
+      securityReport?.decision === "deny";
+
+    let nextState = current.state;
+    if (anyDeny) {
       nextState = "blocked";
     } else if (prPackage) {
       nextState = current.state === "building" || current.state === "verifying" ? "ready_for_review" : current.state;
@@ -398,6 +649,45 @@ export class ForgeService {
     const updated = harness.getRun(current.id);
     if (!updated.agentRunIds.includes(agentRunId)) {
       updated.agentRunIds.push(agentRunId);
+    }
+
+    // Every reachable outcome here sets an explicit task.status — never leaves
+    // it unset on a deny/require_approval path. Two reasons: (1) anyDeny is
+    // the SAME condition nextState above already used, not just policy's own
+    // decision — a policy=allow result can still be blocked by e.g.
+    // securityReport=deny, and that must not read as the task having
+    // succeeded; (2) toDomain()'s deriveTaskStatus() only exists to
+    // best-effort-infer status for rows persisted before this field existed —
+    // leaving it unset here would feed it a live task's event tail (which
+    // includes later unconditional events like FORGE_VERIFICATION_COMPLETED
+    // with this same agentRunId already registered) and it would misread a
+    // denied/pending task as "succeeded" on the next read. "blocked_on_approval"
+    // is coarser than Fase 3d's eventual per-mode tracking, but is still
+    // correctly excluded from listRunnableTasks() today.
+    //
+    // evaluateForgePolicy() is a pure function of manifest/action/risk/
+    // environment — it has no idea whether a human already approved this
+    // task's required modes, so policy.decision === "require_approval" on
+    // its own would stay true FOREVER, permanently wedging every dependent
+    // task once a single approval-gated role (9 of 14 in the registry have
+    // approvalMode !== "none") appears anywhere in the graph. Re-derive
+    // whether the gate has actually already been cleared using the same
+    // allModesApproved() helper the deployment/rollback/observation
+    // branches above already use for exactly this purpose — if it has, this
+    // outcome counts as succeeded even though the raw policy decision still
+    // says require_approval.
+    const requireApprovalCleared =
+      policy?.decision === "require_approval" &&
+      allModesApproved(runAfterApprovals.approvals, policy.requiredApprovals);
+    const taskStatus =
+      anyDeny
+        ? "failed"
+        : policy?.decision === "require_approval" && !requireApprovalCleared
+          ? "blocked_on_approval"
+          : "succeeded";
+    const taskIndex = updated.tasks.findIndex((candidate) => candidate.id === task.id);
+    if (taskIndex !== -1) {
+      updated.tasks[taskIndex] = { ...updated.tasks[taskIndex], status: taskStatus };
     }
 
     const sandbox = payload.sandbox;
@@ -584,6 +874,11 @@ export class ForgeService {
     });
 
     return persisted;
+    } finally {
+      for (const category of acquiredLeases) {
+        await this.leaseService.release({ category, tenantId: actor.tenantId, runId: current.id, taskId: task.id });
+      }
+    }
   }
 
   async decideApproval(input: {

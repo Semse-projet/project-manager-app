@@ -55,7 +55,7 @@ export function DownloadPdfButton({ invoiceId, docType, label }: Props) {
       }}
     >
       {downloading
-        ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+        ? <Loader2 size={13} className="animate-spin" />
         : <Download size={13} />}
       {label ?? (docType === "estimate" ? "Descargar Estimado" : "Descargar Factura")}
     </button>

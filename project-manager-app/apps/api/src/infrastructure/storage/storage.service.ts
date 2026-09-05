@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { constants, createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, stat, unlink } from "node:fs/promises";
+import { access, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import type { Readable } from "node:stream";
@@ -86,6 +86,17 @@ export class StorageService {
   createReadStream(key: string): ReturnType<typeof createReadStream> {
     const filePath = this.localPath(key);
     return createReadStream(filePath);
+  }
+
+  /**
+   * Read a stored file fully into memory — for server-side inspection of
+   * small files already on disk (e.g. EXIF parsing, m2.2-dispute-docs
+   * Bloque 2.2.A), not for serving large files (use createReadStream/
+   * publicUrl for that). Throws NotFoundException if the key doesn't exist.
+   */
+  async readBuffer(key: string): Promise<Buffer> {
+    await this.assertExists(key);
+    return readFile(this.localPath(key));
   }
 
   async stat(key: string): Promise<{ sizeBytes: number; exists: boolean }> {

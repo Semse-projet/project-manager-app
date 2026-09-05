@@ -1053,6 +1053,40 @@ export async function fetchUserMemberships(userId: string): Promise<UserMembersh
   return fetchSemse<UserMembershipView[]>(`/api/semse/users/${encodeURIComponent(userId)}/memberships`);
 }
 
+/** Cryptographic evidence that a separate verifier (OPS_ADMIN, never the
+ * user themselves) attested this user's identity — see
+ * docs/specs/core/identity-attestation.spec.md. `null` when the user has
+ * no id_document verification approved yet. */
+export type IdentityAttestationView = {
+  id: string;
+  userId: string;
+  verifiedByUserId: string;
+  verificationType: string;
+  keyId: string;
+  message: string;
+  signature: string;
+  createdAt: string;
+};
+
+export async function fetchIdentityAttestation(userId: string): Promise<IdentityAttestationView | null> {
+  return fetchSemse<IdentityAttestationView | null>(
+    `/api/semse/users/${encodeURIComponent(userId)}/identity-attestation`,
+  );
+}
+
+export type UserCapabilityView = {
+  role: string;
+  orgId: string;
+  verifiedAt: string | null;
+};
+
+export async function fetchMyCapabilities(): Promise<UserCapabilityView[]> {
+  const { capabilities } = await fetchSemse<{ capabilities: UserCapabilityView[] }>(
+    "/api/semse/users/me/capabilities",
+  );
+  return capabilities;
+}
+
 export async function verifyUser(
   userId: string,
   verificationType: "email" | "phone" | "id_document" | "background_check" = "email",
@@ -1070,6 +1104,7 @@ export async function updateUserStatus(
 export type AssistantTone      = "friendly" | "formal" | "technical" | "executive";
 export type AssistantLanguage  = "es" | "en";
 export type AssistantVerbosity = "short" | "balanced" | "detailed";
+export type ProximityCheckInMode = "ask" | "auto" | "off";
 
 export type UserProfileView = {
   userId: string;
@@ -1083,6 +1118,7 @@ export type UserProfileView = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode: boolean;
   expertMode: boolean;
+  proximityCheckInMode: ProximityCheckInMode;
   updatedAt: string;
 };
 
@@ -1097,6 +1133,7 @@ export type UserProfileUpdateInput = {
   assistantVerbosity?: AssistantVerbosity;
   unifiedMode?: boolean;
   expertMode?: boolean;
+  proximityCheckInMode?: ProximityCheckInMode;
 };
 
 export async function fetchMyProfile(): Promise<UserProfileView> {
@@ -1105,6 +1142,22 @@ export async function fetchMyProfile(): Promise<UserProfileView> {
 
 export async function updateMyProfile(data: UserProfileUpdateInput): Promise<UserProfileView> {
   return patchSemse<UserProfileView>("/api/semse/users/me/profile", data as Record<string, unknown>);
+}
+
+export type PasswordChangeResult = {
+  status: "updated";
+  userId: string;
+  revokedOtherSessions: number;
+};
+
+export async function changeMyPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<PasswordChangeResult> {
+  return mutateSemse<PasswordChangeResult>(
+    "/api/semse/auth/password-change",
+    input,
+  );
 }
 
 export async function fetchOpsAuditLog(): Promise<Record<string, unknown>[]> {
@@ -1545,6 +1598,20 @@ export async function fetchTravelAssignments(query?: {
 
 export async function fetchTravelAssignment(travelId: string): Promise<Record<string, unknown>> {
   return fetchSemse<Record<string, unknown>>(`/api/semse/travel/${encodeURIComponent(travelId)}`);
+}
+
+/** Batched equivalent of fetching each travel's settlement/expenses/lodging
+ * separately just to compute badge counters — see AUDIT_REMEDIATION_PLAN.md 2.36. */
+export async function fetchTravelAssignmentsSummary(query?: {
+  status?: string; jobId?: string; assignedTo?: string; scope?: "mine" | "all";
+}): Promise<Record<string, unknown>[]> {
+  const qs = new URLSearchParams();
+  if (query?.status) qs.set("status", query.status);
+  if (query?.jobId)  qs.set("jobId",  query.jobId);
+  if (query?.assignedTo) qs.set("assignedTo", query.assignedTo);
+  if (query?.scope) qs.set("scope", query.scope);
+  const q = qs.toString() ? `?${qs.toString()}` : "";
+  return fetchSemse<Record<string, unknown>[]>(`/api/semse/travel/summary${q}`);
 }
 
 export async function createTravelAssignment(input: {
@@ -2417,6 +2484,11 @@ export async function fetchPmoAlerts(): Promise<PmoAlert[]> {
 
 export async function suggestBudget(input: {
   title: string; scope: string; category?: string; location?: string;
+  /** Re-estimate an existing job once it has an assigned professional, applying
+   * that professional's real "Mis Tarifas" rate instead of the BLS average —
+   * only has an effect server-side if the job actually has an accepted bid/
+   * Contract and the caller owns it. See AUDIT_REMEDIATION_PLAN.md 2.40. */
+  jobId?: string;
 }): Promise<BudgetSuggestion> {
   return mutateSemse<BudgetSuggestion>("/api/semse/intelligence/budget/suggest", input as Record<string, unknown>);
 }

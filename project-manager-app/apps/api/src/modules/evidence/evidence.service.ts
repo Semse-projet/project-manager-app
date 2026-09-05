@@ -1,14 +1,17 @@
-import { Inject, Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, Inject, Injectable, Optional } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { EvidenceRepository } from "./evidence.repository.js";
+import { parsePhotoExif } from "./evidence-exif.js";
 
 @Injectable()
 export class EvidenceService {
   constructor(
     private readonly evidenceRepository: EvidenceRepository,
     private readonly auditService: AuditService,
+    private readonly storageService: StorageService,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
   ) {}
@@ -25,6 +28,11 @@ export class EvidenceService {
     key: string;
     kind: "PHOTO" | "VIDEO" | "DOCUMENT";
     filename?: string;
+    geoLat?: number;
+    geoLng?: number;
+    capturedAt?: Date;
+    category?: string;
+    description?: string;
   }) {
     const evidence = await this.evidenceRepository.create(input);
 
@@ -67,5 +75,46 @@ export class EvidenceService {
 
   async detail(input: { tenantId: string; orgId: string; userId: string; roles: string[]; evidenceId: string }) {
     return this.evidenceRepository.findById(input);
+  }
+
+  /**
+   * m2.2-dispute-docs Bloque 2.2.A — register a photo whose timestamp and
+   * GPS location come from the file's own EXIF data, not from the request
+   * body. `key` must reference a file already uploaded via the existing
+   * presign flow (POST /v1/evidence/presign → direct upload → this call).
+   * Fails closed with 400 if the photo has no DateTimeOriginal or GPS —
+   * the whole point of this endpoint is a timestamp/location a contractor
+   * can't just type in, so a photo that lacks them isn't useful evidence
+   * for the anti-dispute bundle this spec describes.
+   */
+  async registerPhotoWithExif(input: {
+    tenantId: string;
+    orgId: string;
+    userId: string;
+    roles: string[];
+    requestId: string;
+    projectId?: string;
+    jobId?: string;
+    milestoneId?: string;
+    key: string;
+    filename?: string;
+    category?: string;
+    description?: string;
+  }) {
+    const buffer = await this.storageService.readBuffer(input.key);
+    const exif = parsePhotoExif(buffer);
+    if (!exif) {
+      throw new BadRequestException(
+        "EXIF_INVALID: photo is missing a readable timestamp (DateTimeOriginal) and/or GPS coordinates"
+      );
+    }
+
+    return this.register({
+      ...input,
+      kind: "PHOTO",
+      geoLat: exif.latitude,
+      geoLng: exif.longitude,
+      capturedAt: exif.timestamp,
+    });
   }
 }

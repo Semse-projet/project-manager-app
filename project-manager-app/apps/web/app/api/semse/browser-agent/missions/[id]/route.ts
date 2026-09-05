@@ -7,7 +7,10 @@ export async function GET(
 ) {
   try {
     const { id } = await context.params;
-    const data = await fetchSemseDataForRequest(`/v1/browser-agent/missions/${id}`, request);
+    if (typeof id !== "string" || !/^[a-zA-Z0-9_\-]+$/.test(id)) {
+      return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
+    }
+    const data = await fetchSemseDataForRequest(`/v1/browser-agent/missions/${encodeURIComponent(id)}`, request);
     return NextResponse.json({ data });
   } catch (error) {
     return handleServerError(error);

@@ -31,7 +31,7 @@ export function InsulationToolClient({ section }: { section: InsulationSection }
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const matCost: Record<typeof input.material, number> = { fiberglass: 0.5, cellulose: 0.8, foam: 1.5, mineral_wool: 1.2 };
+    const matCost: Record<InsulationInput["material"], number> = { fiberglass: 0.5, cellulose: 0.8, foam: 1.5, mineral_wool: 1.2 };
     const base = matCost[input.material];
     const rFactor = { R13: 0.8, R15: 1, R19: 1.2, R21: 1.4 }[input.rValue];
     const locFactor = { attic: 1, walls: 1.3, basement: 1.2, crawlspace: 1.1 }[input.location];

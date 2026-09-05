@@ -74,7 +74,7 @@ test("ingest con batchId ya procesado devuelve duplicated sin escribir", async (
   assert.equal(calls.filter((c) => c.op !== "findUnique").length, 0);
 });
 
-test("ingest re-redacta PII server-side (defensa en profundidad)", async () => {
+test("ingest re-redacta PII server-side (defensa en profundidad) — email, teléfono y dirección", async () => {
   const { prisma, calls } = makeFakePrisma();
   const service = new ProductIntelligenceService(prisma as never);
   await service.ingest(
@@ -85,7 +85,9 @@ test("ingest re-redacta PII server-side (defensa en profundidad)", async () => {
           name: "auth.context_recovered",
           ts: new Date().toISOString(),
           route: "/login",
-          props: { target: "contactar a maria@ejemplo.com al 555-123-4567" },
+          props: {
+            target: "contactar a maria@ejemplo.com al 555-123-4567, vive en 123 Main Street apto 4",
+          },
         },
       ],
     }),
@@ -95,6 +97,7 @@ test("ingest re-redacta PII server-side (defensa en profundidad)", async () => {
   const target = String(data[0].propsJson.target);
   assert.ok(!target.includes("maria@ejemplo.com"), target);
   assert.ok(!target.includes("555-123-4567"), target);
+  assert.ok(!target.includes("123 Main Street"), target);
 });
 
 test("carrera P2002 en el ledger se trata como duplicado", async () => {

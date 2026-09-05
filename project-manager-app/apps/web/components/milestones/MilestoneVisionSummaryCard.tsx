@@ -19,8 +19,8 @@ type VisionSummary = {
 function ScorePill({ label, value, good }: { label: string; value: number | null; good: boolean }) {
   if (value === null) return null;
   const pct = Math.round(value * 100);
-  const color = good ? (pct >= 70 ? "#22c55e" : pct >= 45 ? "#eab308" : "#ef4444")
-                     : (pct <= 30 ? "#22c55e" : pct <= 60 ? "#eab308" : "#ef4444");
+  const color = good ? (pct >= 70 ? "#22c55e" : pct >= 45 ? "#eab308" : "var(--error)")
+                     : (pct <= 30 ? "#22c55e" : pct <= 60 ? "#eab308" : "var(--error)");
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
       <span style={{ fontSize: "10px", color: "var(--muted, #94a3b8)" }}>{label}</span>
@@ -48,7 +48,7 @@ export function MilestoneVisionSummaryCard({ milestoneId }: { milestoneId: strin
   if (!summary || summary.totalAnalyzed === 0) return null;
 
   const riskColors: Record<string, string> = {
-    critical: "#ef4444", high: "#f97316", medium: "#eab308", low: "#22c55e",
+    critical: "var(--error)", high: "#f97316", medium: "#eab308", low: "#22c55e",
   };
 
   return (
@@ -66,7 +66,7 @@ export function MilestoneVisionSummaryCard({ milestoneId }: { milestoneId: strin
         <span style={{ fontWeight: 700, color: "var(--ink, #f1f5f9)" }}>Vision AI</span>
         <span style={{
           fontSize: "10px", fontWeight: 700, textTransform: "uppercase",
-          color: summary.overallVisionReady ? "#22c55e" : "#ef4444",
+          color: summary.overallVisionReady ? "#22c55e" : "var(--error)",
           background: summary.overallVisionReady ? "rgba(34,197,94,.12)" : "rgba(239,68,68,.12)",
           border: `1px solid ${summary.overallVisionReady ? "rgba(34,197,94,.3)" : "rgba(239,68,68,.3)"}`,
           borderRadius: "4px", padding: "1px 6px",

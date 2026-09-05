@@ -31,6 +31,7 @@ export type BuildOpsProjectDto = {
   tenantId: string;
   orgId: string;
   jobId: string | null;
+  canonicalProjectId: string | null;
   createdBy: string;
   title: string;
   description: string | null;

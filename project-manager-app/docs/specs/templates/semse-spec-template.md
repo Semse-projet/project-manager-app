@@ -1,10 +1,20 @@
 ---
 id: "[domain.feature]"
 title: "[Feature Name]"
-domain: "[buildops | evidence | payments | rag | agents | marketplace | auth | worker | tools | ui | api]"
+domain: "[platform | core | buildops | evidence | payments | trust | prometeo | agents | agro | labor | ui]"
+sdd_version: "2.0"
+version: "1.0"
 status: "DRAFT"
 owner: "semse-core"
 risk: "medium"
+code_status: "NOT_STARTED"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 related_files: []
 related_tests: []
 related_endpoints: []
@@ -15,98 +25,152 @@ last_verified: ""
 
 # Spec: [Feature Name]
 
-## Problem Statement
+> Contrato ejecutable SDD 2.0. Completar todas las secciones aplicables y
+> cambiar `status` a `APPROVED` antes de implementar. Código, CI, merge,
+> deploy y activación se registran por separado; un deploy no demuestra
+> activación ni verificación funcional.
 
-Describe the business problem in one to three lines. Do not start with the technical solution.
+## 1. Problema y resultado
 
-## Scope
+**Para quién:** [actor]
 
-- In scope:
-- Out of scope:
+**Problema:** [dolor de negocio, sin describir primero la solución técnica]
 
-## Non-Goals
+**Resultado esperado:** [cambio observable y medible]
 
-- This spec does not:
+## 2. Alcance
 
-## API Contract
+### Incluido
 
-### `[METHOD] /v1/[path]`
+- [capacidad]
+
+### Fuera de alcance
+
+- [no-objetivo explícito]
+
+## 3. Actores, permisos y límites
+
+| Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
+|---|---|---|---|---|
+| [actor] | `[permission]` | [scope] | [acción] | [restricción] |
+
+- Tenant boundary:
+- Ownership/resource policy:
+- Step-up o aprobación humana:
+- Datos `privacyCritical`:
+- Requisitos de auditoría:
+
+## 4. Escenarios y criterios de aceptación
+
+### P1 — [journey crítico]
+
+```gherkin
+DADO [estado inicial]
+CUANDO [actor realiza acción]
+ENTONCES [resultado]
+Y [evento, evidencia o auditoría]
+```
+
+Casos borde:
+
+- [ ] [duplicado/reintento/concurrencia]
+- [ ] [fuente vacía, caída o no autorizada]
+- [ ] [aislamiento cross-tenant/cross-org]
+
+## 5. Contratos
+
+### API — `[METHOD] /v1/[path]`
 
 ```yaml
 auth: required
-roles: []
-privacyCritical: false
+permissions: []
 input_schema:
 output_schema:
 errors:
   400:
+  401:
   403:
   404:
   409:
 effects:
   audit_log:
-  event:
+  domain_event:
   sse:
+  payment_governance:
 ```
 
-## UI Contract
+### UI
 
 ```yaml
-screens: []
+surfaces: []
 states:
   - loading
   - empty
   - ready
+  - forbidden
+  - degraded
   - error
 required_behavior: []
 ```
 
-## Agent Contract
+### Agente/Prometeo
 
 ```yaml
-agent:
+tools: []
 input_schema:
 output_schema:
-privacy_routing:
+source_citations_required: true
+approval_policy:
 forbidden_behavior: []
 ```
 
-## SSE / Event Contract
+## 6. FSM, eventos y reconstrucción
 
-```yaml
-event:
-channel:
-payload:
-consumers: []
-expected_reaction: []
-```
+- Estado/FSM afectado:
+- Invariantes: `docs/foundation/DOMAIN_INVARIANTS.md`
+- Eventos declarados: `docs/foundation/EVENT_CATALOG.md`
+- Productor + outbox atómico:
+- Consumidores + idempotencia:
+- Replay/rebuild:
+- DLQ/compensación:
 
-## Data Model Impact
+## 7. Datos y migración
 
-- Prisma models:
-- Migrations:
+- Modelos Prisma:
+- Migración:
+- Estrategia expand/contract:
 - Backfill:
+- Compatibilidad hacia atrás:
+- Verificación de drift:
+- Rollback de código:
+- Rollback/forward-fix de datos:
 
-## Security / RBAC
+> Nunca usar `prisma db push` para producción. Una migración aplicada no se
+> edita: se restaura el archivo exacto o se reconcilia con el flujo oficial.
 
-- Required permissions:
-- Tenant boundary:
-- Audit requirements:
+## 8. Observabilidad, despliegue y activación
 
-## i18n Requirements
+- Métricas/SLO:
+- Logs/traces/correlation:
+- Health/readiness:
+- Feature flags/allowlists:
+- Plan de canary:
+- Evidencia de producción requerida:
+- Señal de rollback:
+- Owner operativo:
 
-- User-facing strings:
-- Required locales:
+## 9. Tests requeridos
 
-## Tests Required
+- [ ] Unitarios del dominio/proyección
+- [ ] Contrato API/BFF
+- [ ] Permiso denegado y aislamiento tenant/org
+- [ ] Validación y conflicto de estado
+- [ ] Idempotencia/reintento/concurrencia
+- [ ] Migración y compatibilidad
+- [ ] UI loading/empty/forbidden/degraded/error
+- [ ] Canary o smoke autenticado en producción
 
-- [ ] Success path
-- [ ] Permission denial
-- [ ] Validation failure
-- [ ] State conflict
-- [ ] Audit/event side effect
-
-## Implementation Map
+## 10. Mapa de implementación
 
 ### API
 
@@ -116,24 +180,32 @@ expected_reaction: []
 
 - `apps/web/...`
 
-### Packages
+### Worker/Packages/DB
 
+- `apps/worker/...`
 - `packages/...`
 
 ### Tests
 
-- `tests/...`
+- `apps/.../test/...`
 
-## Acceptance Criteria
+## 11. Investigación externa
 
-- [ ] Spec is linked from `docs/SPEC_INDEX.md`
-- [ ] Code files are listed in `related_files`
-- [ ] Tests are listed in `related_tests`
-- [ ] `pnpm spec:validate` passes
-- [ ] `pnpm spec:coverage` has no unaccepted high-risk gap
+- Reporte con tres búsquedas primarias:
+- Aplicado ahora:
+- Backlog:
+- Descartado:
 
-## Rollback Considerations
+## 12. Gates de cierre
 
-- How to disable:
-- Data rollback:
-- Operational owner:
+- [ ] Spec enlazado por `pnpm spec:index`
+- [ ] Spec, plan, tasks, analyze y checklist coherentes
+- [ ] Tests derivados del spec y verdes
+- [ ] `pnpm spec:validate:strict` verde
+- [ ] Migración reproducible y rollback/forward-fix documentado
+- [ ] CI `PASS`
+- [ ] PR fusionado y SHA registrado
+- [ ] Deployment terminal `DEPLOYED`
+- [ ] Activación/canary verificada por separado
+- [ ] `production_evidence` y `last_verified` actualizados
+- [ ] Sólo entonces `status: VERIFIED`

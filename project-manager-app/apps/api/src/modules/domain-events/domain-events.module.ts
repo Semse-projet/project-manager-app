@@ -1,4 +1,4 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Global, Module, forwardRef } from "@nestjs/common";
 import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
 import { DomainEventQueueModule } from "../../infrastructure/queue/domain-event-queue.module.js";
 import { AgentsModule } from "../agents/agents.module.js";
@@ -14,7 +14,12 @@ import { DomainEventBus } from "./domain-event-bus.service.js";
 import { OutboxRepository } from "./outbox.repository.js";
 import { OutboxDispatcherService } from "./outbox-dispatcher.service.js";
 import { OutboxOpsService } from "./outbox-ops.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "./project-lifecycle-projection-event-producer.service.js";
+import { ProjectsRepository } from "../projects/projects.repository.js";
+import { JobsRepository } from "../jobs/jobs.repository.js";
+import { SatelliteWebhooksService } from "../satellites/satellite-webhooks.service.js";
 
+@Global()
 @Module({
   controllers: [DomainEventsController],
   imports: [
@@ -34,7 +39,17 @@ import { OutboxOpsService } from "./outbox-ops.service.js";
     OutboxRepository,
     OutboxDispatcherService,
     OutboxOpsService,
+    ProjectLifecycleProjectionEventProducer,
+    ProjectsRepository,
+    JobsRepository,
+    SatelliteWebhooksService,
   ],
-  exports: [DomainEventBus, DomainEventsService, OutboxRepository],
+  exports: [
+    DomainEventBus,
+    DomainEventsService,
+    OutboxRepository,
+    OutboxOpsService,
+    ProjectLifecycleProjectionEventProducer,
+  ],
 })
 export class DomainEventsModule {}

@@ -1,5 +1,5 @@
 import type { ForgeApprovalMode, ForgeDeploymentPlan, ForgePolicyResult, ForgeRollbackPlan, ForgeTaskPacket } from "./types.js";
-import { matchesScope } from "./policy.js";
+import { isDataPath } from "./sensitive-resources.js";
 
 export type RollbackProviderInput = {
   runId: string;
@@ -14,16 +14,8 @@ export interface RollbackProvider {
 
 const ALLOWED_ENVIRONMENTS = new Set(["sandbox", "local", "ci", "staging", "production"]);
 
-const DATA_PATTERNS = [
-  "packages/db/prisma/schema.prisma",
-  "packages/db/prisma/migrations/**",
-  "**/*.sql"
-];
-
 function touchesDataFiles(allowedFiles?: string[]): boolean {
-  return (allowedFiles ?? []).some((path) =>
-    DATA_PATTERNS.some((scope) => matchesScope(path, scope))
-  );
+  return (allowedFiles ?? []).some(isDataPath);
 }
 
 class DryRunRollbackProvider implements RollbackProvider {

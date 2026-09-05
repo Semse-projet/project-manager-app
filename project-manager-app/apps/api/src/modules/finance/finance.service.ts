@@ -9,6 +9,7 @@ import {
   type TemplateCategory,
 } from "./finance.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 
 function computeTotals(lineItems: InvoiceLineItem[]): { subtotal: number; taxAmount: number; total: number } {
   let subtotal = 0, taxAmount = 0;
@@ -30,6 +31,8 @@ export class FinanceService {
     @Optional() private readonly sseBus?: SseEventBusService,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   private syncContext(tenantId: string, projectId: string | null | undefined, source: string, reason: string): void {
@@ -120,11 +123,37 @@ export class FinanceService {
       await this.repo.updateExpenseStatus(expense.id, input.tenantId, "pending");
       this.logger.warn(`[finance] potential duplicate expense id=${expense.id} duplicateOfId=${duplicateOfId}`);
       this.syncContext(input.tenantId, expense.projectId, "finance.expense.duplicate", "expense duplicate detected");
+      if (expense.projectId) {
+        await this.lifecycleProjectionEvents?.emit({
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          projectId: expense.projectId,
+          sourceEventType: "finance.expense.duplicate",
+          sourceEntityType: "ProjectExpense",
+          sourceEntityId: expense.id,
+          actorType: "user",
+          actorId: input.submittedBy,
+          correlationId: `expense:${expense.id}:duplicate`,
+        });
+      }
       return { ...expense, isDuplicate: true, duplicateOfId };
     }
 
     this.logger.log(`[finance] expense created id=${expense.id} amount=${input.amount} category=${input.category}`);
     this.syncContext(input.tenantId, expense.projectId, "finance.expense.created", "expense created");
+    if (expense.projectId) {
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        projectId: expense.projectId,
+        sourceEventType: "finance.expense.created",
+        sourceEntityType: "ProjectExpense",
+        sourceEntityId: expense.id,
+        actorType: "user",
+        actorId: input.submittedBy,
+        correlationId: `expense:${expense.id}:created`,
+      });
+    }
     return expense;
   }
 
@@ -145,6 +174,19 @@ export class FinanceService {
     await this.getExpense(id, tenantId);
     const updated = await this.repo.updateExpenseStatus(id, tenantId, "approved", approvedBy);
     this.syncContext(tenantId, updated.projectId, "finance.expense.approved", "expense approved");
+    if (updated.projectId) {
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId,
+        orgId: "system",
+        projectId: updated.projectId,
+        sourceEventType: "finance.expense.approved",
+        sourceEntityType: "ProjectExpense",
+        sourceEntityId: updated.id,
+        actorType: "user",
+        actorId: approvedBy,
+        correlationId: `expense:${updated.id}:approved`,
+      });
+    }
     return updated;
   }
 
@@ -152,6 +194,19 @@ export class FinanceService {
     await this.getExpense(id, tenantId);
     const updated = await this.repo.updateExpenseStatus(id, tenantId, "rejected");
     this.syncContext(tenantId, updated.projectId, "finance.expense.rejected", "expense rejected");
+    if (updated.projectId) {
+      await this.lifecycleProjectionEvents?.emit({
+        tenantId,
+        orgId: "system",
+        projectId: updated.projectId,
+        sourceEventType: "finance.expense.rejected",
+        sourceEntityType: "ProjectExpense",
+        sourceEntityId: updated.id,
+        actorType: "system",
+        actorId: "finance-service",
+        correlationId: `expense:${updated.id}:rejected`,
+      });
+    }
     return updated;
   }
 

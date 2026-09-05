@@ -19,7 +19,7 @@ type ImpactResult = {
 };
 
 function riskColor(r: ImpactResult["riskLevel"]): string {
-  if (r === "critical") return "#ef4444";
+  if (r === "critical") return "var(--error)";
   if (r === "high")     return "#fb7185";
   if (r === "medium")   return "#fbbf24";
   return "#86efac";
@@ -28,7 +28,7 @@ function riskColor(r: ImpactResult["riskLevel"]): string {
 function paymentImpactLabel(p: ImpactResult["paymentImpact"]): { label: string; color: string } {
   if (p === "already_applied")  return { label: "Ya aplicado",         color: "#6366f1" };
   if (p === "requires_approval") return { label: "Requiere aprobación", color: "#fbbf24" };
-  if (p === "hold_required")    return { label: "Pago en espera",      color: "#ef4444" };
+  if (p === "hold_required")    return { label: "Pago en espera",      color: "var(--error)" };
   return { label: "Sin impacto de pago", color: "#86efac" };
 }
 

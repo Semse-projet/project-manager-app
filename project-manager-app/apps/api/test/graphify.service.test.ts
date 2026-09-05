@@ -2,7 +2,7 @@ import "reflect-metadata";
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
+import { join } from "node:path";
 import { GraphifyService } from "../dist/modules/graphify/graphify.service.js";
 
 // ── isAvailable ───────────────────────────────────────────────────────────────
@@ -91,6 +91,7 @@ test("graphify: graphPath falls back to default graphify-out/graph.json", () => 
   delete process.env.GRAPHIFY_GRAPH_PATH;
   const service = new GraphifyService();
 
-  assert.equal(path.basename(service.graphPath), "graph.json");
-  assert.equal(path.basename(path.dirname(service.graphPath)), "graphify-out");
+  // El servicio arma la ruta con resolve(), así que el separador es el de la
+  // plataforma: join() para no comparar contra "/" en Windows.
+  assert.ok(service.graphPath.endsWith(join("graphify-out", "graph.json")));
 });

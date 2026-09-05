@@ -9,10 +9,12 @@ import {
   fetchJobContract,
   fetchJobEscrow,
   fetchJobPayments,
+  fetchMyProfile,
   fetchTimeTrackerJobs,
-  SemseApiError,
   type JobRecordView,
+  type ProximityCheckInMode,
 } from "../../../semse-api";
+import { useProximityCheckIn, type ProximityCheckIn, type ProximitySite } from "./useProximityCheckIn";
 import {
   createManualEntry,
   elapsedSeconds,
@@ -20,8 +22,8 @@ import {
   fetchFreeProjects,
   fetchLaborEntries,
   fetchMonthlySummary,
+  fetchProximityConfig,
   fetchWeeklySummary,
-  LaborApiError,
   pauseLaborTimer,
   resumeLaborTimer,
   startLaborTimer,
@@ -29,6 +31,7 @@ import {
   updateLaborTimerNotes,
   type FreeProjectView,
   type MonthlySummaryView,
+  type ProximityConfigView,
   type TimeEntryView,
   type WeeklySummaryView,
 } from "../../labor-api";
@@ -56,6 +59,25 @@ import { RegistrosTab } from "./sections/RegistrosTab";
 import { ProyectosTab } from "./sections/ProyectosTab";
 import { ReportesTab } from "./sections/ReportesTab";
 import { AsistenteTab } from "./sections/AsistenteTab";
+import { friendlyConnectionMessage, shouldPreserveLocalEvent } from "./sections/trackerUi";
+
+// Auto-sync retry policy for the offline queue. Every attempt rewrites the
+// local state, and that rewrite is what re-evaluates the auto-sync effect, so a
+// failing attempt must never schedule the next one immediately: that turns a
+// rejected pending event into an unbounded request loop that re-renders the
+// whole tracker on every round trip.
+const AUTO_SYNC_RETRY_BASE_MS = 5_000;
+const AUTO_SYNC_RETRY_MAX_MS = 5 * 60_000;
+const AUTO_SYNC_MAX_ATTEMPTS = 6;
+
+/** Shown once, before the proximity feature ever asks for a location
+ * permission, so the "why" isn't a surprise buried in a browser prompt. */
+const PROXIMITY_EXPLAINER_DISMISSED_KEY = "semse.tracker.proximity.explainer.dismissed";
+
+function autoSyncRetryDelay(attempts: number) {
+  const exponent = Math.max(0, attempts - 1);
+  return Math.min(AUTO_SYNC_RETRY_BASE_MS * 2 ** exponent, AUTO_SYNC_RETRY_MAX_MS);
+}
 
 function pad(n: number) {
   return String(Math.floor(n)).padStart(2, "0");
@@ -150,6 +172,10 @@ function localSessionToEntry(session: TrackerLocalSession): TimeEntryView {
     hourlyRate: null,
     currency: "MXN",
     location: null,
+    checkInLatitude: null,
+    checkInLongitude: null,
+    checkInDistanceMeters: null,
+    checkInMethod: null,
     notes: session.notes ?? null,
     createdAt: session.startedAt,
     updatedAt: session.updatedAt,
@@ -200,25 +226,6 @@ function resolveSyncedEntryId(sessionId: string, sessionIdMap: Map<string, strin
   );
 }
 
-function isLikelyConnectionError(caught: unknown) {
-  return (
-    typeof navigator !== "undefined" && !navigator.onLine
-  ) || (
-    caught instanceof TypeError && caught.message.toLowerCase().includes("fetch")
-  );
-}
-
-function friendlyConnectionMessage(action: string) {
-  return `${action}. Tu tiempo se sigue guardando en este dispositivo y se sincronizará cuando haya conexión.`;
-}
-
-function shouldPreserveLocalEvent(caught: unknown) {
-  if (isLikelyConnectionError(caught)) return true;
-  if (caught instanceof SemseApiError) return caught.status >= 500;
-  if (caught instanceof LaborApiError) return caught.status >= 500;
-  return false;
-}
-
 function manualDurationSeconds(date: string, startTime: string, endTime: string, breakMinutes: number): number | null {
   const startedAt = new Date(`${date}T${startTime}:00`);
   let endedAt = new Date(`${date}T${endTime}:00`);
@@ -251,10 +258,10 @@ function trackerHistoryFileLabel(range: TrackerHistoryRange, target: string) {
 }
 
 const ENTRY_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  running: { label: "Corriendo", color: "#10b981", bg: "rgba(16,185,129,.12)" },
+  running: { label: "Corriendo", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   paused: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
   completed: { label: "Completada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  pending_review: { label: "En revisión", color: "#3b82f6", bg: "rgba(59,130,246,.12)" },
+  pending_review: { label: "En revisión", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   approved: { label: "Aprobada", color: "#059669", bg: "rgba(5,150,105,.12)" },
 };
 
@@ -342,6 +349,7 @@ export default function WorkerTrackerPage() {
   const [manualEnd, setManualEnd] = useState("13:00");
   const [manualBreak, setManualBreak] = useState("0");
   const [manualNotes, setManualNotes] = useState("");
+  const [manualLocationAccuracy, setManualLocationAccuracy] = useState<number | null>(null);
   const [historyRange, setHistoryRange] = useState<TrackerHistoryRange>("week");
   const [historyTarget, setHistoryTarget] = useState<TrackerTargetKey>("all");
   const [historyStatus, setHistoryStatus] = useState<TrackerHistoryStatus>("all");
@@ -354,6 +362,23 @@ export default function WorkerTrackerPage() {
   const [trackerLocalState, setTrackerLocalState] = useState<TrackerLocalState>(() => createTrackerLocalState());
   const [isOnline, setIsOnline] = useState(true);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [autoSyncStopped, setAutoSyncStopped] = useState(false);
+  const [proximityCheckInMode, setProximityCheckInMode] = useState<ProximityCheckInMode>("ask");
+  const [proximityConfig, setProximityConfig] = useState<ProximityConfigView | null>(null);
+  const [proximityExplainerDismissed, setProximityExplainerDismissed] = useState(true);
+  const autoSyncAttemptsRef = useRef(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setProximityExplainerDismissed(window.localStorage.getItem(PROXIMITY_EXPLAINER_DISMISSED_KEY) === "1");
+  }, []);
+
+  function dismissProximityExplainer() {
+    setProximityExplainerDismissed(true);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PROXIMITY_EXPLAINER_DISMISSED_KEY, "1");
+    }
+  }
 
   const persistTrackerLocalState = useCallback((nextState: TrackerLocalState) => {
     setTrackerLocalState(nextState);
@@ -365,31 +390,76 @@ export default function WorkerTrackerPage() {
   }, []);
 
   const loadTracker = useCallback(async () => {
-    const [nextJobs, nextFreeProjects, nextActive, nextWeek, nextMonth] = await Promise.all([
+    // fetchActiveTimer() gets its own .catch() (not a bare call inside Promise.all)
+    // so one unstable request can't reject the whole batch and blank the page —
+    // jobs/free projects/summaries must still render even if this single call
+    // fails. We also can't just fall back to `null` on failure like the other
+    // calls here: that would silently overwrite a real in-progress timer (or one
+    // just recovered from local storage) with "no active timer" on screen.
+    // See docs/AUDIT_REMEDIATION_PLAN.md 2.2.
+    const activeTimerFetch = fetchActiveTimer()
+      .then((value) => ({ ok: true as const, value }))
+      .catch((caught: unknown) => ({ ok: false as const, error: caught }));
+
+    const [nextJobs, nextFreeProjects, activeTimerResult, nextWeek, nextMonth, nextProfile, nextProximityConfig] = await Promise.all([
       fetchTimeTrackerJobs().catch(() => [] as JobRecordView[]),
       fetchFreeProjects().catch(() => [] as FreeProjectView[]),
-      fetchActiveTimer(),
+      activeTimerFetch,
       fetchWeeklySummary().catch(() => null),
       fetchMonthlySummary().catch(() => null),
+      fetchMyProfile().catch(() => null),
+      fetchProximityConfig().catch(() => null),
     ]);
 
     setJobs(nextJobs);
     setFreeProjects(nextFreeProjects);
-    setActiveEntry(nextActive);
     setWeekSummary(nextWeek);
     setMonthSummary(nextMonth);
-    setElapsed(nextActive ? elapsedSeconds(nextActive) : 0);
+    if (nextProfile) setProximityCheckInMode(nextProfile.proximityCheckInMode ?? "ask");
+    if (nextProximityConfig) setProximityConfig(nextProximityConfig);
 
-    if (nextActive) {
-      setMode(modeFromEntry(nextActive));
-      if (nextActive.jobId) setSelectedJob(nextActive.jobId);
-      if (nextActive.freeProjectId) setSelectedFreeProject(nextActive.freeProjectId);
-      setNotes(nextActive.notes ?? "");
+    if (activeTimerResult.ok) {
+      const nextActive = activeTimerResult.value;
+      setActiveEntry(nextActive);
+      setElapsed(nextActive ? elapsedSeconds(nextActive) : 0);
+
+      if (nextActive) {
+        setMode(modeFromEntry(nextActive));
+        if (nextActive.jobId) setSelectedJob(nextActive.jobId);
+        if (nextActive.freeProjectId) setSelectedFreeProject(nextActive.freeProjectId);
+        setNotes(nextActive.notes ?? "");
+      } else {
+        setSelectedJob((prev) => prev || nextJobs[0]?.id || "");
+        setSelectedFreeProject((prev) => prev || nextFreeProjects[0]?.id || "");
+      }
     } else {
+      // Keep whatever active-timer state we already had (e.g. recovered from
+      // local storage on mount) instead of assuming "no timer running".
       setSelectedJob((prev) => prev || nextJobs[0]?.id || "");
       setSelectedFreeProject((prev) => prev || nextFreeProjects[0]?.id || "");
+      setSyncNotice("No pudimos confirmar el estado de tu timer con el servidor. El resto del tracker se cargó con normalidad; reintenta si el cronómetro no se ve correcto.");
     }
   }, []);
+
+  const loadFilteredHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      const target = parseTargetKey(historyTarget === "all" || historyTarget === "personal" ? "" : historyTarget);
+      const nextEntries = await fetchLaborEntries({
+        range: historyRange,
+        jobId: target.jobId,
+        freeProjectId: target.freeProjectId,
+        purpose: historyTarget === "personal" ? "personal" : undefined,
+        limit: 200,
+      });
+      setEntries(nextEntries);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyRange, historyTarget]);
 
   const syncPendingEvents = useCallback(async (state: TrackerLocalState = trackerLocalState) => {
     if (state.pendingEvents.length === 0 || saving) return;
@@ -448,6 +518,9 @@ export default function WorkerTrackerPage() {
               startTime: event.startTime,
               endTime: event.endTime,
               breakMinutes: event.breakMinutes,
+              hourlyRate: event.hourlyRate,
+              currency: event.currency,
+              location: event.location,
               notes: event.notes,
               clientEventId: event.id,
             });
@@ -471,15 +544,33 @@ export default function WorkerTrackerPage() {
       }
 
       const syncedState = markTrackerSynced(remainingState);
+      autoSyncAttemptsRef.current = 0;
+      setAutoSyncStopped(false);
       persistTrackerLocalState(syncedState);
+      setError(null);
       setSyncNotice("Sincronización completada. Tus horas ya están protegidas en SEMSE.");
-      await loadTracker();
+      // The synced events stop being rendered as pending work, so the entry list
+      // has to be re-read from the backend or it shows the hours as gone.
+      await Promise.all([loadTracker(), loadFilteredHistory()]);
     } catch (caught) {
       const failedState = markTrackerSyncFailed(remainingState, caught instanceof Error ? caught.message : "No se pudo sincronizar el tracker.");
+      // A rejection the backend will keep rejecting (4xx that isn't a transient
+      // outage) can't be fixed by retrying, so auto-sync stops and the pending
+      // work waits for "Reintentar ahora" instead of being resent forever.
+      const retryable = shouldPreserveLocalEvent(caught);
+      if (!retryable) setAutoSyncStopped(true);
       persistTrackerLocalState(failedState);
-      setSyncNotice("No pudimos sincronizar ahora. Seguiremos intentando automáticamente.");
+      setSyncNotice(retryable
+        ? "No pudimos sincronizar ahora. Seguiremos intentando automáticamente."
+        : "SEMSE rechazó un cambio pendiente. Tus horas siguen guardadas aquí; revisa el detalle y usa \"Reintentar ahora\".");
     }
-  }, [loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
+  }, [loadFilteredHistory, loadTracker, persistTrackerLocalState, saving, trackerLocalState]);
+
+  const retryPendingSyncNow = useCallback(() => {
+    autoSyncAttemptsRef.current = 0;
+    setAutoSyncStopped(false);
+    void syncPendingEvents(readTrackerLocalState(window.localStorage));
+  }, [syncPendingEvents]);
 
   const syncPendingEventsRef = useRef(syncPendingEvents);
 
@@ -508,6 +599,8 @@ export default function WorkerTrackerPage() {
     const handleOnline = () => {
       setIsOnline(true);
       setSyncNotice("Conexión restaurada. Sincronizando cambios pendientes...");
+      autoSyncAttemptsRef.current = 0;
+      setAutoSyncStopped(false);
       void syncPendingEventsRef.current(readTrackerLocalState(window.localStorage));
     };
     const handleOffline = () => {
@@ -525,10 +618,34 @@ export default function WorkerTrackerPage() {
   }, []);
 
   useEffect(() => {
-    if (isOnline && trackerLocalState.pendingEvents.length > 0 && trackerLocalState.syncStatus !== "syncing") {
-      void syncPendingEvents(trackerLocalState);
+    if (!isOnline || trackerLocalState.syncStatus === "syncing") return;
+
+    if (trackerLocalState.pendingEvents.length === 0) {
+      autoSyncAttemptsRef.current = 0;
+      if (autoSyncStopped) setAutoSyncStopped(false);
+      return;
     }
-  }, [isOnline, syncPendingEvents, trackerLocalState]);
+
+    const runSync = () => {
+      autoSyncAttemptsRef.current += 1;
+      void syncPendingEventsRef.current(readTrackerLocalState(window.localStorage));
+    };
+
+    if (trackerLocalState.syncStatus !== "failed") {
+      autoSyncAttemptsRef.current = 0;
+      runSync();
+      return;
+    }
+
+    if (autoSyncStopped) return;
+    if (autoSyncAttemptsRef.current >= AUTO_SYNC_MAX_ATTEMPTS) {
+      setAutoSyncStopped(true);
+      return;
+    }
+
+    const timer = window.setTimeout(runSync, autoSyncRetryDelay(autoSyncAttemptsRef.current));
+    return () => window.clearTimeout(timer);
+  }, [autoSyncStopped, isOnline, trackerLocalState]);
 
   useEffect(() => {
     const run = async () => {
@@ -545,26 +662,6 @@ export default function WorkerTrackerPage() {
 
     void run();
   }, [loadTracker]);
-
-  const loadFilteredHistory = useCallback(async () => {
-    setHistoryLoading(true);
-    setError(null);
-    try {
-      const target = parseTargetKey(historyTarget === "all" || historyTarget === "personal" ? "" : historyTarget);
-      const nextEntries = await fetchLaborEntries({
-        range: historyRange,
-        jobId: target.jobId,
-        freeProjectId: target.freeProjectId,
-        purpose: historyTarget === "personal" ? "personal" : undefined,
-        limit: 200,
-      });
-      setEntries(nextEntries);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo cargar el historial filtrado.");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [historyRange, historyTarget]);
 
   useEffect(() => {
     if (loading) return;
@@ -662,7 +759,7 @@ export default function WorkerTrackerPage() {
   const weekByDay = weekSummary?.byDay ?? [];
   const maxDayMinutes = weekByDay.reduce((max, day) => Math.max(max, day.minutes), 0);
 
-  const manualBreakMinutes = Number.parseInt(manualBreak, 10) || 0;
+  const manualBreakMinutes = Math.max(0, Number.parseInt(manualBreak, 10) || 0);
   const manualPreviewSeconds = manualDurationSeconds(manualDate, manualStart, manualEnd, manualBreakMinutes);
   const pendingEventCount = trackerLocalState.pendingEvents.length;
 
@@ -689,9 +786,11 @@ export default function WorkerTrackerPage() {
       return {
         tone: "danger" as const,
         title: "Sincronización pendiente",
-        message: trackerLocalState.lastError
-          ? `No pudimos sincronizar ahora: ${trackerLocalState.lastError}`
-          : "No pudimos sincronizar ahora. Seguiremos intentando automáticamente.",
+        message: `${trackerLocalState.lastError
+          ? `No pudimos sincronizar ahora: ${trackerLocalState.lastError}.`
+          : "No pudimos sincronizar ahora."} ${autoSyncStopped
+          ? "Tus horas siguen guardadas en este dispositivo; usa \"Reintentar ahora\" cuando quieras volver a intentarlo."
+          : "Seguiremos intentando automáticamente."}`,
       };
     }
     if (pendingEventCount > 0) {
@@ -709,26 +808,46 @@ export default function WorkerTrackerPage() {
       };
     }
     return null;
-  }, [isOnline, pendingEventCount, syncNotice, trackerLocalState.lastError, trackerLocalState.syncStatus]);
+  }, [autoSyncStopped, isOnline, pendingEventCount, syncNotice, trackerLocalState.lastError, trackerLocalState.syncStatus]);
 
   async function refreshAfterMutation() {
     await loadTracker();
     await loadFilteredHistory();
     setShowForm(false);
     setManualNotes("");
+    setManualLocationAccuracy(null);
   }
 
-  async function handleStart() {
-    if (startDisabled) return;
+  /** One-shot, best-effort position for "Solo calcular" manual entries — silent on denial/timeout. */
+  async function captureManualCheckIn(): Promise<{ latitude: number; longitude: number } | undefined> {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return undefined;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setManualLocationAccuracy(position.coords.accuracy);
+          resolve({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        },
+        () => resolve(undefined),
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 60_000 },
+      );
+    });
+  }
+
+  async function handleStart(overrides?: {
+    jobId?: string;
+    freeProjectId?: string;
+    checkIn?: { latitude: number; longitude: number; method?: "proximity_confirmed" | "proximity_auto" };
+  }) {
+    const jobId = overrides ? overrides.jobId : (mode === "job" ? selectedJob : undefined);
+    const freeProjectId = overrides ? overrides.freeProjectId : (mode === "free" ? selectedFreeProject : undefined);
+    const purpose = overrides ? (jobId ? "job_linked" : "payable") as TrackerPurpose : MODE_META[mode].purpose;
+    if (!overrides && startDisabled) return;
     if (activeEntry || trackerLocalState.activeSession) {
       setError("Ya hay una sesión activa. Pausa o detén la sesión actual antes de iniciar otra.");
       return;
     }
     setSaving(true);
     setError(null);
-    const purpose = MODE_META[mode].purpose;
-    const jobId = mode === "job" ? selectedJob : undefined;
-    const freeProjectId = mode === "free" ? selectedFreeProject : undefined;
     const localStart = startTrackerLocalSession(readTrackerLocalState(window.localStorage), {
       purpose,
       jobId,
@@ -741,7 +860,7 @@ export default function WorkerTrackerPage() {
     setActiveEntry(localSessionToEntry(localStart.localSession));
     setElapsed(0);
     try {
-      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, clientEventId: localStart.event.id });
+      const entry = await startLaborTimer({ purpose, jobId, freeProjectId, notes: notes.trim() || undefined, checkIn: overrides?.checkIn, clientEventId: localStart.event.id });
       const remainingEvents = localStart.state.pendingEvents.filter((event) => event.id !== localStart.event.id);
       persistTrackerLocalState({
         ...localStart.state,
@@ -767,6 +886,34 @@ export default function WorkerTrackerPage() {
       setSaving(false);
     }
   }
+
+  function handleProximityStart(site: ProximitySite, checkIn: ProximityCheckIn) {
+    if (site.kind === "job") {
+      setMode("job");
+      setSelectedJob(site.id);
+    } else {
+      setMode("free");
+      setSelectedFreeProject(site.id);
+    }
+    void handleStart({
+      jobId: site.kind === "job" ? site.id : undefined,
+      freeProjectId: site.kind === "free" ? site.id : undefined,
+      checkIn,
+    });
+    if (checkIn.method === "proximity_auto") {
+      setSyncNotice(`Reloj iniciado automáticamente: estás cerca de "${site.name}". Detenlo desde el timer si fue un error.`);
+    }
+  }
+
+  const { banner: proximityBanner, acceptBanner: acceptProximityBanner, dismissBanner: dismissProximityBanner, locationError: proximityLocationError, isWatching: proximityIsWatching } = useProximityCheckIn({
+    enabled: tab === "timer" && !activeEntry && !trackerLocalState.activeSession,
+    mode: proximityCheckInMode,
+    jobs,
+    freeProjects,
+    onStart: handleProximityStart,
+    radiusMeters: proximityConfig?.radiusMeters,
+    cooldownMs: proximityConfig ? proximityConfig.cooldownMinutes * 60_000 : undefined,
+  });
 
   async function handlePause() {
     if (!activeEntry || saving) return;
@@ -923,6 +1070,7 @@ export default function WorkerTrackerPage() {
       localTimestamp,
     };
     try {
+      const checkIn = target.purpose === "personal" ? await captureManualCheckIn() : undefined;
       await createManualEntry({
         purpose: target.purpose,
         jobId: target.jobId,
@@ -932,6 +1080,7 @@ export default function WorkerTrackerPage() {
         endTime: manualEnd,
         breakMinutes: manualBreakMinutes,
         notes: manualNotes.trim() || undefined,
+        checkIn,
         clientEventId: event.id,
       });
       await refreshAfterMutation();
@@ -1047,7 +1196,7 @@ export default function WorkerTrackerPage() {
                     width: "7px",
                     height: "7px",
                     borderRadius: "999px",
-                    background: activeEntry.status === "running" ? "#10b981" : "#f59e0b",
+                    background: activeEntry.status === "running" ? "var(--ok)" : "#f59e0b",
                     boxShadow: activeEntry.status === "running" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
                   }}
                 />
@@ -1064,7 +1213,7 @@ export default function WorkerTrackerPage() {
           {isOnline && pendingEventCount > 0 && trackerLocalState.syncStatus !== "syncing" ? (
             <button
               type="button"
-              onClick={() => void syncPendingEvents(readTrackerLocalState(window.localStorage))}
+              onClick={retryPendingSyncNow}
               disabled={saving}
               style={{ ...linkButton(), marginLeft: "auto" }}
             >
@@ -1109,6 +1258,129 @@ export default function WorkerTrackerPage() {
             ? `${activeStatusMeta.label}: ${activeTitle}`
             : "Elige el modo, selecciona el destino y presiona Iniciar"}
         </p>
+
+        {!activeEntry && proximityCheckInMode !== "off" && !proximityExplainerDismissed ? (
+          <div
+            data-testid="tracker-proximity-explainer"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+            }}
+          >
+            <span style={{ fontSize: "12px", color: "var(--muted)", flex: 1, minWidth: "200px" }}>
+              Vamos a pedirte permiso de ubicación para avisarte (o iniciar el reloj) cuando
+              llegues a un job o proyecto libre. Solo se usa con el tracker abierto, nunca en
+              segundo plano. Puedes cambiarlo en Configuración cuando quieras.
+            </span>
+            <button
+              type="button"
+              data-testid="tracker-proximity-explainer-dismiss"
+              onClick={dismissProximityExplainer}
+              style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "12px", fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+            >
+              Entendido
+            </button>
+          </div>
+        ) : null}
+
+        {!activeEntry && proximityBanner ? (
+          <div
+            data-testid="tracker-proximity-banner"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              padding: "12px 16px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--brand)",
+              background: "rgba(37,99,235,.08)",
+            }}
+          >
+            <span style={{ fontSize: "13px", fontWeight: 600 }}>
+              Estás en {proximityBanner.site.name}, ¿iniciar el reloj?
+            </span>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                data-testid="tracker-proximity-accept"
+                onClick={acceptProximityBanner}
+                style={{ padding: "6px 14px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Iniciar
+              </button>
+              <button
+                type="button"
+                data-testid="tracker-proximity-dismiss"
+                onClick={dismissProximityBanner}
+                style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--muted)", fontSize: "12px", fontWeight: 700, cursor: "pointer" }}
+              >
+                Descartar
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {!activeEntry && !proximityBanner && proximityLocationError ? (
+          <div
+            data-testid="tracker-proximity-location-error"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "10px 14px",
+              marginBottom: "14px",
+              borderRadius: "10px",
+              border: "1px solid var(--border)",
+              background: "var(--bg)",
+              fontSize: "12px",
+              color: "var(--muted)",
+            }}
+          >
+            {proximityLocationError === "denied"
+              ? "No podemos detectar cuándo llegas al sitio: el navegador tiene bloqueado el permiso de ubicación. Habilítalo en la configuración del sitio para que el check-in automático funcione."
+              : "No pudimos obtener tu ubicación ahora mismo. El check-in por proximidad se reintentará automáticamente."}
+          </div>
+        ) : null}
+
+        {!activeEntry && !proximityBanner && !proximityLocationError && proximityIsWatching ? (
+          <div
+            data-testid="tracker-proximity-watching"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "4px 10px",
+              marginBottom: "14px",
+              borderRadius: "999px",
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              fontSize: "11px",
+              color: "var(--muted)",
+            }}
+          >
+            <span
+              style={{
+                width: "6px",
+                height: "6px",
+                borderRadius: "50%",
+                background: "var(--ok, #22c55e)",
+                flexShrink: 0,
+              }}
+            />
+            Ubicación activa para check-in
+          </div>
+        ) : null}
 
         {!activeEntry ? (
           <div data-testid="tracker-mode-selector" style={{ display: "flex", justifyContent: "center", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
@@ -1172,9 +1444,10 @@ export default function WorkerTrackerPage() {
                     outline: "none",
                   }}
                 >
-                  {jobs.length === 0 ? (
-                    <option value="">Sin trabajos aceptados</option>
-                  ) : null}
+                  {/* jobs.length === 0 is already handled by the outer branch above
+                      (the "Aún no tienes trabajos aceptados" empty state) — this
+                      <select> only ever renders when jobs.length > 0, so an empty-jobs
+                      <option> here could never execute. See AUDIT_REMEDIATION_PLAN.md 2.15. */}
                   {jobs.map((job) => (
                     <option key={job.id} value={job.id}>
                       {job.title}
@@ -1289,7 +1562,7 @@ export default function WorkerTrackerPage() {
               data-testid="tracker-start-button"
               onClick={() => void handleStart()}
               disabled={startDisabled}
-              style={primaryButton("#10b981", startDisabled)}
+              style={primaryButton("var(--ok)", startDisabled)}
             >
               <Play size={16} fill="#fff" /> {saving ? "Iniciando..." : "Iniciar"}
             </button>
@@ -1315,14 +1588,14 @@ export default function WorkerTrackerPage() {
         </div>
       </HtmlInCanvasPanel>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
-        <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="#10b981" />
+        <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="var(--ok)" />
         <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="#8b5cf6" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px", marginBottom: "12px" }}>
             <div>
@@ -1382,7 +1655,7 @@ export default function WorkerTrackerPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.2fr .8fr", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
             <div>
@@ -1415,9 +1688,9 @@ export default function WorkerTrackerPage() {
 
           {currentJobId ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px" }}>
                 <MiniStat label="Estado job" value={currentJob?.status ?? "—"} icon={<Clock size={14} color="var(--brand)" />} />
-                <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="#10b981" />} />
+                <MiniStat label="Escrow" value={String(escrow?.status ?? "—")} icon={<ShieldCheck size={14} color="var(--ok)" />} />
                 <MiniStat label="Fondeado" value={formatMoney(fundedAmount)} icon={<Receipt size={14} color="var(--accent)" />} />
               </div>
 
@@ -1501,10 +1774,15 @@ export default function WorkerTrackerPage() {
                 Descanso (minutos)
                 <input value={manualBreak} onChange={(event) => setManualBreak(event.target.value)} type="number" min="0" step="5" style={inputStyle()} />
               </label>
-              <p style={{ fontSize: "12px", color: manualPreviewSeconds === null ? "#ef4444" : "var(--muted)", margin: 0 }}>
+              <p style={{ fontSize: "12px", color: manualPreviewSeconds === null ? "var(--error)" : "var(--muted)", margin: 0 }}>
                 Duración neta: {manualPreviewSeconds === null ? "rango inválido" : fmtSeconds(manualPreviewSeconds)}
               </p>
               <input value={manualNotes} onChange={(event) => setManualNotes(event.target.value)} placeholder="Descripción de la actividad" style={inputStyle()} />
+              {manualTarget === "personal" && manualLocationAccuracy !== null ? (
+                <p style={{ fontSize: "12px", color: "var(--muted)", margin: 0 }}>
+                  Ubicación registrada (~{Math.round(manualLocationAccuracy)}m de precisión)
+                </p>
+              ) : null}
               <div style={{ display: "flex", gap: "8px" }}>
                 <button onClick={() => void handleManualSave()} disabled={manualPreviewSeconds === null || saving} style={primaryButton("var(--brand)", manualPreviewSeconds === null || saving)}>
                   {saving ? "Guardando..." : "Guardar"}
@@ -1522,7 +1800,7 @@ export default function WorkerTrackerPage() {
 
           <div style={{ marginTop: "16px", display: "grid", gap: "8px" }}>
             <MiniStat label="Pagos" value={String(payments.length)} icon={<Receipt size={14} color="var(--brand)" />} />
-            <MiniStat label="Contrato" value={contract ? "Disponible" : "Sin contrato"} icon={<ShieldCheck size={14} color="#10b981" />} />
+            <MiniStat label="Contrato" value={contract ? "Disponible" : "Sin contrato"} icon={<ShieldCheck size={14} color="var(--ok)" />} />
           </div>
         </div>
       </div>
@@ -1630,7 +1908,7 @@ export default function WorkerTrackerPage() {
               {loading ? "Cargando tracker..." : "Cargando historial..."}
             </div>
           ) : error ? (
-            <div style={{ ...card, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
+            <div style={{ ...card, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
               {error}
             </div>
           ) : entries.length === 0 ? (
@@ -1754,7 +2032,7 @@ function dangerButton(): CSSProperties {
     borderRadius: "10px",
     background: "#ef444415",
     border: "1px solid #ef444430",
-    color: "#ef4444",
+    color: "var(--error)",
     fontSize: "14px",
     fontWeight: 600,
     cursor: "pointer",

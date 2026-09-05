@@ -17,6 +17,11 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "role.client": "Cliente",
     "role.admin": "Admin",
 
+    // ── Capacidad activa (F10, selector de capacidad) ────────────────────────
+    "capability.CLIENT": "Cliente",
+    "capability.PRO": "Profesional",
+    "capability.WORKER": "Trabajador",
+
     // ── Nav items ─────────────────────────────────────────────────────────────
     "nav.dashboard": "Dashboard",
     "nav.operations": "Operaciones",
@@ -45,6 +50,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.llmMetrics": "Métricas LLM",
     "nav.missionControl": "Mission Control",
     "nav.workops": "WorkOps",
+    "nav.laborEngine": "Labor Engine",
     "nav.intelligence": "Intelligence",
     "nav.toolHub": "Tool Hub",
     "nav.verticals": "Verticales",
@@ -78,6 +84,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.payments": "Pagos",
     "nav.travel": "Movilidad",
     "nav.myProfile": "Mi perfil",
+    "nav.accountSecurity": "Cuenta y seguridad",
     "nav.aiSettings": "Configuración del asistente",
     "nav.leads": "Leads & Clientes",
     "nav.postJob": "Publicar trabajo",
@@ -110,6 +117,9 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "section.field": "Campo",
     "section.ai": "IA",
     "section.lab": "Lab",
+    "section.buyer": "Como comprador — contratás profesionales",
+    "section.contractor": "Como contratista — ofrecés tus servicios",
+    "section.account": "Cuenta",
 
     // ── Common UI ─────────────────────────────────────────────────────────────
     "ui.signOut": "Salir",
@@ -234,7 +244,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "page.reports": "Reportes",
     "page.reports.sub": "Análisis y métricas de la plataforma",
     "page.settings": "Configuración",
-    "page.settings.sub": "Ajustes del sistema SEMSE OS",
+    "page.settings.sub": "Ajustes del sistema SEMSE Project",
     "page.fieldOps": "Operaciones de campo",
     "page.fieldOps.sub": "Gestión de unidades y trabajo presencial",
     "page.travelOps": "Viajes",
@@ -675,6 +685,11 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "role.client": "Client",
     "role.admin": "Admin",
 
+    // ── Active capability (F10, capability selector) ─────────────────────────
+    "capability.CLIENT": "Client",
+    "capability.PRO": "Professional",
+    "capability.WORKER": "Worker",
+
     // ── Nav items ─────────────────────────────────────────────────────────────
     "nav.dashboard": "Dashboard",
     "nav.operations": "Operations",
@@ -703,6 +718,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.llmMetrics": "LLM Metrics",
     "nav.missionControl": "Mission Control",
     "nav.workops": "WorkOps",
+    "nav.laborEngine": "Labor Engine",
     "nav.intelligence": "Intelligence",
     "nav.toolHub": "Tool Hub",
     "nav.verticals": "Verticals",
@@ -736,6 +752,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "nav.payments": "Payments",
     "nav.travel": "Travel Ops",
     "nav.myProfile": "My profile",
+    "nav.accountSecurity": "Account & security",
     "nav.aiSettings": "AI Settings",
     "nav.leads": "Leads & Clients",
     "nav.postJob": "Post job",
@@ -768,6 +785,9 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "section.field": "Field",
     "section.ai": "AI",
     "section.lab": "Lab",
+    "section.buyer": "As a buyer — hiring professionals",
+    "section.contractor": "As a contractor — offering your services",
+    "section.account": "Account",
 
     // ── Common UI ─────────────────────────────────────────────────────────────
     "ui.signOut": "Sign out",
@@ -892,7 +912,7 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "page.reports": "Reports",
     "page.reports.sub": "Platform analytics and metrics",
     "page.settings": "Settings",
-    "page.settings.sub": "SEMSE OS system settings",
+    "page.settings.sub": "SEMSE Project system settings",
     "page.fieldOps": "Field Operations",
     "page.fieldOps.sub": "Work units and on-site management",
     "page.travelOps": "Travel Ops",

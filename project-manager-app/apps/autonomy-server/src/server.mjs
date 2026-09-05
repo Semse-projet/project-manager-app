@@ -9,6 +9,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { runAutonomyTask } from "@semse/autonomy";
+import { createLogger, SEMSE_TRACE_HEADER_NAME } from "@semse/shared";
 
 const portArgIndex = process.argv.indexOf("--port");
 const repoArgIndex = process.argv.indexOf("--repo");
@@ -18,18 +19,18 @@ const STATE_PATH = join(process.cwd(), ".semse-autonomy", "runs.json");
 const SERVICE_ID = randomUUID();
 const TRACE_ID = process.env.TRACE_ID ?? randomUUID();
 
-// ── Structured logging ──────────────────────────────────────────────────────
-function log(level, message, data = {}) {
-  const entry = {
-    level,
-    message,
-    timestamp: new Date().toISOString(),
-    service: "autonomy-server",
-    runId: SERVICE_ID,
-    traceId: TRACE_ID,
-    ...data,
-  };
-  console.log(JSON.stringify(entry));
+// ── Structured logging (SEMSELogger from @semse/shared) ─────────────────────
+const SERVICE_NAME = "autonomy-server";
+const logger = createLogger(SERVICE_NAME, { runId: SERVICE_ID, traceId: TRACE_ID });
+
+function resolveTraceId(req) {
+  const header = req.headers[SEMSE_TRACE_HEADER_NAME];
+  const value = Array.isArray(header) ? header[0] : header;
+  return typeof value === "string" && value.trim() ? value.trim() : TRACE_ID;
+}
+
+function operationLogger(req, runId) {
+  return createLogger(SERVICE_NAME, { runId, traceId: resolveTraceId(req) });
 }
 
 function readRuns() {
@@ -179,7 +180,7 @@ createServer(async (req, res) => {
   const url = req.url ?? "/";
 
   if (req.method === "OPTIONS") {
-    res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type" });
+    res.writeHead(204, { "access-control-allow-origin": "*", "access-control-allow-headers": `content-type, ${SEMSE_TRACE_HEADER_NAME}` });
     res.end(); return;
   }
 
@@ -210,17 +211,15 @@ createServer(async (req, res) => {
     if (!body.task) return json(res, 400, { error: "missing_task" });
 
     const runId = randomUUID();
-    const traceId = req.headers["x-trace-id"] ?? TRACE_ID;
+    const runLogger = operationLogger(req, runId);
 
-    log("info", "Autonomy task received", {
-      runId,
-      traceId,
+    runLogger.info("Autonomy task received", {
       task: body.task.substring(0, 100),
       targetStage: body.targetStage ?? "pr",
     });
 
     try {
-      const result = await runAutonomyTask(body.task, {
+      const result = await runLogger.withSpan("run_autonomy_task", () => runAutonomyTask(body.task, {
         repoPath: body.repoPath ?? DEFAULT_REPO,
         baseBranch: body.baseBranch,
         targetStage: body.targetStage ?? "pr",
@@ -231,15 +230,14 @@ createServer(async (req, res) => {
         openAiModel: process.env.OPENAI_MODEL,
         openAiBaseUrl: process.env.OPENAI_BASE_URL,
         localPrMode: !process.env.GITHUB_TOKEN,
-      });
+      }));
       const entry = { ...result, runId: result.runId || runId };
       const runs = readRuns();
       runs.unshift(entry);
       writeRuns(runs.slice(0, 50));
 
-      log("info", "Autonomy task completed", {
-        runId: entry.runId,
-        traceId,
+      runLogger.info("Autonomy task completed", {
+        resultRunId: entry.runId,
         status: result.status,
         filesChanged: result.filesChanged?.length ?? 0,
         durationMs: result.durationMs,
@@ -247,9 +245,7 @@ createServer(async (req, res) => {
 
       return json(res, 200, entry);
     } catch (error) {
-      log("error", "Autonomy task failed", {
-        runId,
-        traceId,
+      runLogger.error("Autonomy task failed", {
         error: error instanceof Error ? error.message : String(error),
         errorType: error instanceof Error ? error.constructor.name : "Unknown",
       });
@@ -266,7 +262,7 @@ createServer(async (req, res) => {
 
   json(res, 404, { error: "not_found" });
 }).listen(PORT, "127.0.0.1", () => {
-  log("info", "SEMSE Autonomy Server started", {
+  logger.info("SEMSE Autonomy Server started", {
     url: `http://127.0.0.1:${PORT}`,
     repo: DEFAULT_REPO,
     llmModel: process.env.LLM_MODEL || process.env.OPENAI_MODEL || "not configured",

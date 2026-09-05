@@ -12,10 +12,10 @@ const DAY_NAMES = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   in_progress: { label: "En progreso", color: "#6366f1", dot: "#6366f1" },
-  accepted:    { label: "Aceptado",    color: "#10b981", dot: "#10b981" },
+  accepted:    { label: "Aceptado",    color: "var(--ok)", dot: "var(--ok)" },
   reserved:    { label: "Reservado",   color: "#f59e0b", dot: "#f59e0b" },
   review:      { label: "En revisión", color: "#06b6d4", dot: "#06b6d4" },
-  posted:      { label: "Publicado",   color: "#3b82f6", dot: "#3b82f6" },
+  posted:      { label: "Publicado",   color: "var(--brand)", dot: "var(--brand)" },
   completed:   { label: "Completado",  color: "#64748b", dot: "#64748b" },
 };
 
@@ -117,7 +117,7 @@ function MiniCalendar({
               {hasJob && !isSelected && (
                 <div style={{
                   position: "absolute", bottom: 1, left: "50%", transform: "translateX(-50%)",
-                  width: 4, height: 4, borderRadius: "50%", background: "#10b981",
+                  width: 4, height: 4, borderRadius: "50%", background: "var(--ok)",
                 }} />
               )}
             </button>

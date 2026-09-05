@@ -141,7 +141,7 @@ export default function WorkerRateJobPage() {
 
       {phase === "loading" && (
         <div style={{ ...card, display: "flex", alignItems: "center", justifyContent: "center", gap: "12px", minHeight: "180px", color: "var(--muted)" }}>
-          <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+          <Loader2 size={20} className="animate-spin" />
           Cargando…
         </div>
       )}
@@ -163,7 +163,7 @@ export default function WorkerRateJobPage() {
 
       {phase === "already_rated" && (
         <div style={{ ...card, textAlign: "center", padding: "48px 32px" }}>
-          <CheckCircle size={40} style={{ color: "#10b981", margin: "0 auto 16px" }} />
+          <CheckCircle size={40} style={{ color: "var(--ok)", margin: "0 auto 16px" }} />
           <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>
             Ya calificaste este trabajo
           </p>
@@ -178,7 +178,7 @@ export default function WorkerRateJobPage() {
 
       {phase === "error" && (
         <div style={{ ...card, textAlign: "center", padding: "48px 32px" }}>
-          <AlertCircle size={40} style={{ color: "#ef4444", margin: "0 auto 16px" }} />
+          <AlertCircle size={40} style={{ color: "var(--error)", margin: "0 auto 16px" }} />
           <p style={{ fontSize: "15px", fontWeight: 700, color: "var(--ink)", marginBottom: "8px" }}>
             Error
           </p>
@@ -191,7 +191,7 @@ export default function WorkerRateJobPage() {
 
       {phase === "success" && (
         <div style={{ ...card, textAlign: "center", padding: "48px 32px" }}>
-          <CheckCircle size={48} style={{ color: "#10b981", margin: "0 auto 20px" }} />
+          <CheckCircle size={48} style={{ color: "var(--ok)", margin: "0 auto 20px" }} />
           <p style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)", marginBottom: "8px" }}>
             ¡Gracias por calificar!
           </p>
@@ -290,7 +290,7 @@ export default function WorkerRateJobPage() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                    <Loader2 size={16} className="animate-spin" />
                     Enviando…
                   </>
                 ) : (

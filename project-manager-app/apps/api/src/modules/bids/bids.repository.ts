@@ -1,8 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
+import {
+  BID_ACCEPTED_V1_SCHEMA_REF,
+  BID_CREATED_V1_SCHEMA_REF,
+  BID_REJECTED_V1_SCHEMA_REF,
+  bidAcceptedV1EventSchema,
+  bidCreatedV1EventSchema,
+  bidRejectedV1EventSchema,
+} from "@semse/schemas";
 import { ActorContextService } from "../../infrastructure/persistence/actor-context.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { type BidRecord } from "../../common/domain-store.js";
+import { OutboxRepository } from "../domain-events/outbox.repository.js";
 
 type StoredBid = {
   id: string;
@@ -31,7 +41,8 @@ type BidTx = Prisma.TransactionClient & Pick<PrismaService, "bid" | "job" | "job
 export class BidsRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly actorContextService: ActorContextService
+    private readonly actorContextService: ActorContextService,
+    private readonly outboxRepository: OutboxRepository
   ) {}
 
   async listByJob(input: {
@@ -249,26 +260,59 @@ export class BidsRepository {
       throw new ConflictException("pro already has an active bid for this job");
     }
 
-    const bid = (await this.prisma.bid.create({
-      data: {
-        jobId: input.jobId,
-        proOrgId: input.proOrgId,
-        professionalUserId: input.userId,
-        amount: input.amount,
-        etaDays: input.etaDays,
-        note: input.note,
-        status: "SUBMITTED"
-      },
-      include: {
-        job: {
-          select: {
-            id: true,
-            tenantId: true,
-            status: true,
-            clientOrgId: true
+    const bid = (await this.prisma.$transaction(async (tx) => {
+      const created = await tx.bid.create({
+        data: {
+          jobId: input.jobId,
+          proOrgId: input.proOrgId,
+          professionalUserId: input.userId,
+          amount: input.amount,
+          etaDays: input.etaDays,
+          note: input.note,
+          status: "SUBMITTED"
+        },
+        include: {
+          job: {
+            select: {
+              id: true,
+              tenantId: true,
+              status: true,
+              clientOrgId: true
+            }
           }
         }
-      }
+      });
+
+      const recordedAt = new Date();
+      const event = bidCreatedV1EventSchema.parse({
+        eventId: randomUUID(),
+        eventType: "bid.created.v1",
+        version: 1,
+        envelopeVersion: 2,
+        occurredAt: recordedAt.toISOString(),
+        recordedAt: recordedAt.toISOString(),
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        module: "bids",
+        entityType: "Bid",
+        entityId: created.id,
+        actor: { type: "user", id: input.userId },
+        correlationId: created.id,
+        idempotencyKey: bidsEventIdempotencyKey("bid.created.v1", created.id),
+        schemaRef: BID_CREATED_V1_SCHEMA_REF,
+        payload: {
+          bidId: created.id,
+          jobId: created.jobId,
+          proOrgId: created.proOrgId,
+          professionalUserId: input.userId,
+          amount: created.amount.toNumber(),
+          etaDays: created.etaDays,
+        },
+        metadata: { source: "bids.create" },
+      });
+      await this.outboxRepository.create(tx, event);
+
+      return created;
     })) as StoredBid;
 
     return this.toRecord(bid);
@@ -376,6 +420,46 @@ export class BidsRepository {
         }
       });
 
+      const acceptedEventTime = new Date();
+      const acceptedEvent = bidAcceptedV1EventSchema.parse({
+        eventId: randomUUID(),
+        eventType: "bid.accepted.v1",
+        version: 1,
+        envelopeVersion: 2,
+        occurredAt: acceptedEventTime.toISOString(),
+        recordedAt: acceptedEventTime.toISOString(),
+        tenantId: input.tenantId,
+        orgId: input.orgId,
+        module: "bids",
+        entityType: "Bid",
+        entityId: updated.id,
+        actor: { type: "user", id: input.userId },
+        correlationId: updated.id,
+        idempotencyKey: bidsEventIdempotencyKey("bid.accepted.v1", updated.id),
+        schemaRef: BID_ACCEPTED_V1_SCHEMA_REF,
+        payload: {
+          bidId: updated.id,
+          jobId: updated.jobId,
+          proOrgId: updated.proOrgId,
+        },
+        metadata: { source: "bids.accept" },
+      });
+      await this.outboxRepository.create(db, acceptedEvent);
+
+      // Bulk-reject: every other SUBMITTED bid on this job loses out once one
+      // is accepted. Selected before the updateMany (which doesn't return
+      // rows) so each loses bid still gets its own bid.rejected.v1 — see
+      // jobs-bids-event-projection.tasks.md T-023 (decision: per-bid, not
+      // aggregated).
+      const outbid = await db.bid.findMany({
+        where: {
+          jobId: bid.jobId,
+          id: { not: bid.id },
+          status: "SUBMITTED"
+        },
+        select: { id: true, jobId: true, proOrgId: true }
+      });
+
       await db.bid.updateMany({
         where: {
           jobId: bid.jobId,
@@ -388,6 +472,35 @@ export class BidsRepository {
           status: "REJECTED"
         }
       });
+
+      for (const rejected of outbid) {
+        const rejectedEventTime = new Date();
+        const rejectedEvent = bidRejectedV1EventSchema.parse({
+          eventId: randomUUID(),
+          eventType: "bid.rejected.v1",
+          version: 1,
+          envelopeVersion: 2,
+          occurredAt: rejectedEventTime.toISOString(),
+          recordedAt: rejectedEventTime.toISOString(),
+          tenantId: input.tenantId,
+          orgId: input.orgId,
+          module: "bids",
+          entityType: "Bid",
+          entityId: rejected.id,
+          actor: { type: "user", id: input.userId },
+          correlationId: `${rejected.id}:${updated.id}`,
+          idempotencyKey: bidsEventIdempotencyKey("bid.rejected.v1", rejected.id),
+          schemaRef: BID_REJECTED_V1_SCHEMA_REF,
+          payload: {
+            bidId: rejected.id,
+            jobId: rejected.jobId,
+            proOrgId: rejected.proOrgId,
+            reason: "competing_bid_accepted",
+          },
+          metadata: { source: "bids.accept", acceptedBidId: updated.id },
+        });
+        await this.outboxRepository.create(db, rejectedEvent);
+      }
 
       if (!conflictingReservation) {
         const now = new Date();
@@ -499,4 +612,10 @@ export class BidsRepository {
       }
     });
   }
+}
+
+/** Anchored to the bid's own (DB-generated) id — see the matching comment
+ * in jobs.repository.ts for why this doesn't key off requestId. */
+function bidsEventIdempotencyKey(eventType: string, bidId: string): string {
+  return `${eventType}:${bidId}`;
 }

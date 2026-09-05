@@ -13,18 +13,20 @@ spec_index: "docs/SPEC_INDEX.md"
 related_files:
   - apps/api/src/modules/satellites
   - packages/sdk
+  - sdk-py/semse_sdk
   - packages/auth/src/rbac.ts
   - packages/db/prisma/migrations/20260705000000_satellite_tokens
 related_tests:
   - apps/api/test/satellites-service.test.ts
   - apps/api/test/satellite-scope-guard.test.ts
   - tests/unit/sdk-client.test.ts
+  - sdk-py/tests/test_client.py
 related_endpoints:
   - v1/satellites/tokens
   - v1/satellites/me
 related_events: []
 related_agents: []
-last_verified: "2026-07-07"
+last_verified: "2026-08-27"
 ---
 
 # Spec: `@semse/sdk` + `semse_py` + satellite tokens
@@ -99,13 +101,41 @@ output_schema: { id, name, token (solo una vez), scopes, createdAt, expiresAt }
 2. Guard `SatelliteScopeGuard` en la API + decorador `@SatelliteScopes(...)`.
 3. Endpoints admin de tokens + panel mínimo en `/admin` (hub existente).
 4. `packages/sdk` con auth + errores tipados + primer recurso (`intake`).
-5. `semse_py` auth + `intake`.
+5. `semse_py` auth + `intake` — implementado 2026-08-27 en `sdk-py/` (raíz del
+   monorepo, fuera de `apps/*`/`packages/*` para no interferir con el
+   workspace pnpm — ver decisión de empaquetado en el Anillo 2).
 6. `SATELLITES.md` inicial + entrada en SPEC_INDEX.
 
 ## 6. Acceptance Criteria (arnés SAT-000)
 
-- [ ] Anillo 1: contrato + caso negativo de scope + revocación → 401.
-- [ ] Anillo 2: SDK TS y Py testeados contra mocks del contrato.
+- [x] Anillo 1: contrato + caso negativo de scope + revocación → 401 — cubierto por
+      `apps/api/test/satellite-scope-guard.test.ts` (sin Authorization ⇒ 401, scheme
+      no-bearer ⇒ 401, scope faltante ⇒ 403, token revocado ⇒ 401 propagado del
+      servicio) y `apps/api/test/satellites-service.test.ts` (token desconocido/
+      revocado/expirado ⇒ 401). Verificado 2026-08-27 (sesión de continuación de
+      roadmap) — no hay commit de código nuevo, solo se confirmó cobertura existente.
+- [x] Anillo 2: SDK TS y Py testeados contra mocks del contrato — TS cubierto
+      (`packages/sdk`, `tests/unit/sdk-client.test.ts`). SDK Python implementado
+      2026-08-27 en `sdk-py/semse_sdk/` (paquete `semse-sdk`, stdlib-only —
+      `urllib`, sin dependencias externas — para no requerir gestión de
+      paquetes pip en un monorepo que hoy no la tiene): mismo cliente
+      (`SemseClient`), mismos errores tipados (`SemseAuthError`/
+      `SemseScopeError`/`SemseDisabledError`/`SemseNetworkError`/
+      `SemseApiError`), mismo mapeo de status HTTP, misma política de
+      reintentos (GET reintenta, POST/PATCH no) y el recurso `intake`
+      (`analyze`/`answer`/`get`), que es todo lo que esta sección 5 pedía —
+      jobs/milestones/satellites son extensiones del SDK TS posteriores a
+      este spec, fuera de su alcance original. 8/8 tests en
+      `sdk-py/tests/test_client.py` (`python3 -m unittest discover -s tests
+      -t . -v` desde `sdk-py/`), más `pip install -e .` verificado limpio en
+      un venv aislado. **Decisión de empaquetado:** vive en `sdk-py/` en la
+      raíz del monorepo (no en `packages/`) para no interferir con el glob
+      `packages/*` de `pnpm-workspace.yaml`, que espera un `package.json` en
+      cada paquete — no se agregó a ningún workspace ni pipeline de CI
+      Node; publicación a PyPI queda fuera de este pase (no autorizado sin
+      pedido explícito).
 - [ ] Anillo 3: e2e local — emitir token, llamar `intake` vía SDK, revocar, verificar 401.
 - [ ] Anillo 4: smoke en Railway con token real; evidencia en `docs/reportes/`.
-- [ ] Kill switch: `SATELLITE_TOKENS_ENABLED` (OFF ⇒ todo token satélite recibe 503 explícito).
+- [x] Kill switch: `SATELLITE_TOKENS_ENABLED` (OFF ⇒ todo token satélite recibe 503
+      explícito) — cubierto por `apps/api/test/satellites-service.test.ts`
+      ("kill switch apagado ⇒ 503 aunque el token sea válido"). Verificado 2026-08-27.

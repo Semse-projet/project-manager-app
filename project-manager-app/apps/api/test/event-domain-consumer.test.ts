@@ -157,6 +157,55 @@ test("F1-D worker stops BullMQ retries for a terminal API response", async () =>
   );
 });
 
+test("F1-F generalized dispatch: an eventType with no registered handler is rejected on its own terms, not attributed to evidence-readiness", async () => {
+  const previousEnabled = process.env.SEMSE_EVENT_CONSUMERS_ENABLED;
+  const previousTypes = process.env.SEMSE_EVENT_TYPE_ALLOWLIST;
+  const previousConsumers = process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST;
+  process.env.SEMSE_EVENT_CONSUMERS_ENABLED = "true";
+  process.env.SEMSE_EVENT_TYPE_ALLOWLIST = "widget.created.v1";
+  // Deliberately does NOT allowlist evidence-readiness.v1 — a pre-registry
+  // dispatch would have checked that allowlist anyway for any unknown
+  // eventType and failed with a misleading "consumer not allowlisted"
+  // error attributed to the wrong consumer.
+  delete process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST;
+
+  try {
+    const prisma = {
+      domainOutboxEvent: {
+        findUnique: async () => ({
+          eventId: EVENT_ID,
+          eventType: "widget.created.v1",
+        }),
+      },
+    };
+    const service = new DomainEventConsumerService(
+      prisma as never,
+      new MetricsService(),
+    );
+
+    await assert.rejects(
+      () => service.process(EVENT_ID),
+      (error: Error & { getStatus?: () => number; getResponse?: () => unknown }) => {
+        const response = error.getResponse?.() as
+          | { message?: string; eventType?: string }
+          | undefined;
+        return (
+          error.getStatus?.() === 422 &&
+          /no consumer handler is registered/i.test(response?.message ?? "") &&
+          response?.eventType === "widget.created.v1"
+        );
+      },
+    );
+  } finally {
+    if (previousEnabled === undefined) delete process.env.SEMSE_EVENT_CONSUMERS_ENABLED;
+    else process.env.SEMSE_EVENT_CONSUMERS_ENABLED = previousEnabled;
+    if (previousTypes === undefined) delete process.env.SEMSE_EVENT_TYPE_ALLOWLIST;
+    else process.env.SEMSE_EVENT_TYPE_ALLOWLIST = previousTypes;
+    if (previousConsumers === undefined) delete process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST;
+    else process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST = previousConsumers;
+  }
+});
+
 test("F1-D metrics expose consumer attempts, duplicates and dead letters", () => {
   const metrics = new MetricsService();
   metrics.recordEventConsumerAttempt(EVIDENCE_READINESS_CONSUMER, "completed");

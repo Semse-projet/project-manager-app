@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
+import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.semseproject.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
   title: {
     default: "SEMSE Project — Profesionales verificados y pagos seguros",
     template: "%s · SEMSE",
@@ -13,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_MX",
-    url: "https://semse-web-production.up.railway.app",
+    url: appUrl,
     siteName: "SEMSE Project",
     title: "SEMSE Project — Profesionales verificados y pagos seguros",
     description: "Conecta con profesionales verificados. Pagos seguros con escrow. Gestión con IA.",
@@ -26,6 +30,24 @@ export const metadata: Metadata = {
     images: ["/icon-1024.png"],
   },
   robots: { index: false },
+  applicationName: "SEMSE",
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    // iOS ignora el manifest para el icono de inicio y no respeta el alfa:
+    // este va aplanado sobre el degradado de marca.
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "SEMSE",
+    // "default" y no "black-translucent": este ultimo mete el contenido debajo
+    // de la barra de estado, y la app solo compensa `safe-area-inset-bottom`
+    // (nav inferior en app/(app)/layout.tsx), no el inset superior.
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
@@ -42,6 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         style={{ fontFamily: "var(--font-sans, 'Geist', system-ui)" }}
       >
         {children}
+        <ServiceWorkerRegistrar />
       </body>
     </html>
   );

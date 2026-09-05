@@ -8,7 +8,7 @@ import { parseWithSchema } from "../../common/zod-validation.js";
 import { RuntimeKnowledgeService } from "./runtime-knowledge.service.js";
 
 @Controller("v1/runtime-knowledge")
-@RequirePermissions("knowledge:read")
+@RequirePermissions("internal:architecture:read")
 export class RuntimeKnowledgeController {
   constructor(private readonly runtimeKnowledgeService: RuntimeKnowledgeService) {}
 

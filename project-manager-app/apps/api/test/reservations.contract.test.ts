@@ -73,6 +73,20 @@ function createPrismaHarness() {
         job.status = data.status;
         return { id: job.id, status: job.status };
       },
+      async updateMany({
+        where,
+        data,
+      }: {
+        where: { id: string; status?: string; deletedAt?: null };
+        data: { status: string };
+      }) {
+        const job = state.jobs.get(where.id);
+        if (!job || (where.status && job.status !== where.status) || (where.deletedAt !== undefined && job.deletedAt !== where.deletedAt)) {
+          return { count: 0 };
+        }
+        job.status = data.status;
+        return { count: 1 };
+      },
     },
     jobReservation: {
       async findMany({ where }: { where: { jobId?: string; status?: string; expiresAt?: { lte: Date }; job?: { tenantId: string; deletedAt: null } } }) {

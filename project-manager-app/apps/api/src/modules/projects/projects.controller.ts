@@ -7,12 +7,14 @@ import { resolveRequestContext } from "../../common/request-context.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ProjectsService } from "./projects.service.js";
 import { DigitalTwinService } from "../intelligence/digital-twin.service.js";
+import { OriginatorService } from "../originator/originator.service.js";
 
 @Controller("v1/projects")
 export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     @Optional() private readonly digitalTwin?: DigitalTwinService,
+    @Optional() private readonly originator?: OriginatorService,
   ) {}
 
   @Get()
@@ -47,6 +49,23 @@ export class ProjectsController {
       projectId
     });
     return ok(resolveRequestId(req.headers ?? {}), project);
+  }
+
+  @Get(":projectId/projection")
+  @RequirePermissions("projects:financials:read")
+  async lifecycleProjection(
+    @Req() req: { headers?: Record<string, unknown> },
+    @Param("projectId") projectId: string
+  ) {
+    const actor = resolveRequestContext(req);
+    const projection = await this.projectsService.lifecycleProjection({
+      tenantId: actor.tenantId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      roles: actor.roles,
+      projectId
+    });
+    return ok(resolveRequestId(req.headers ?? {}), projection);
   }
 
   @Get(":projectId/payments")
@@ -122,6 +141,13 @@ export class ProjectsController {
         tenantId: actor.tenantId,
         projectId,
         archivedBy: actor.userId,
+      }).catch(() => {/* non-blocking */});
+
+      void this.originator?.evaluateProjectCompletedTrigger({
+        tenantId: actor.tenantId,
+        orgId: actor.orgId,
+        executionProjectId: projectId,
+        requestId,
       }).catch(() => {/* non-blocking */});
     }
 

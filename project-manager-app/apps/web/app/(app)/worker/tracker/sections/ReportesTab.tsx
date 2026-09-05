@@ -13,20 +13,23 @@ import {
   type WeeklySummaryView,
 } from "../../../labor-api";
 import type { JobRecordView } from "../../../../semse-api";
+import { readTrackerLocalState, type TrackerLocalState } from "../trackerLocalStore";
 import {
   BarList,
   ChangeBadge,
   ChartCard,
   ColumnChart,
+  formatCostSummary,
   KpiCard,
+  pendingEntriesInRange,
+  pendingLocalEntries,
+  pendingSummaryEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
   TrendChart,
-  entryCost,
   entrySeconds,
   exportEntriesCsv,
   fmtHours,
-  fmtMoney,
   resolveEntryProject,
   sectionCard,
 } from "./trackerUi";
@@ -44,8 +47,10 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [weekly, setWeekly] = useState<WeeklySummaryView | null>(null);
   const [monthly, setMonthly] = useState<MonthlySummaryView | null>(null);
-  const [entries, setEntries] = useState<TimeEntryView[]>([]);
+  // Entradas reales de la semana seleccionada (no del mes fijo) — ver 2.13 más abajo.
+  const [weekEntriesRaw, setWeekEntriesRaw] = useState<TimeEntryView[]>([]);
   const [freeProjects, setFreeProjects] = useState<FreeProjectView[]>([]);
+  const [localState, setLocalState] = useState<TrackerLocalState | null>(null);
   const [loading, setLoading] = useState(true);
   const [weekLoading, setWeekLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,14 +61,12 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
       setLoading(true);
       setError(null);
       try {
-        const [monthlyResult, entriesResult, projectsResult] = await Promise.all([
+        const [monthlyResult, projectsResult] = await Promise.all([
           fetchMonthlySummary(),
-          fetchLaborEntries({ range: "month", limit: 500 }),
           fetchFreeProjects(),
         ]);
         if (cancelled) return;
         setMonthly(monthlyResult);
-        setEntries(entriesResult);
         setFreeProjects(projectsResult);
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "No se pudo cargar el reporte.");
@@ -77,13 +80,26 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
     };
   }, []);
 
+  // Antes esta pestaña solo cargaba `entries` una vez con range:"month" al montar,
+  // y filtraba esa lista fija para armar los gráficos/CSV de "la semana seleccionada"
+  // — así que navegar a cualquier semana fuera del mes calendario actual (flechas
+  // ◀ ▶) dejaba gráficos/CSV vacíos aunque el KPI "Total semana" (que sí viene del
+  // backend por weekOffset) mostrara números reales. Ahora se piden las entradas
+  // reales de esa semana calendario específica (mismo weekOffset que el resumen).
+  // Ver docs/AUDIT_REMEDIATION_PLAN.md 2.13.
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       setWeekLoading(true);
       try {
-        const result = await fetchWeeklySummary(weekOffset);
-        if (!cancelled) setWeekly(result);
+        const [weeklyResult, weekEntriesResult] = await Promise.all([
+          fetchWeeklySummary(weekOffset),
+          fetchLaborEntries({ weekOffset, limit: 500 }),
+        ]);
+        if (!cancelled) {
+          setWeekly(weeklyResult);
+          setWeekEntriesRaw(weekEntriesResult);
+        }
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "No se pudo cargar la semana.");
       } finally {
@@ -96,20 +112,26 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
     };
   }, [weekOffset]);
 
+  // Sesión activa aún no confirmada + entradas manuales encoladas offline
+  // (trackerLocalStore) — sin esto, Reportes solo cuenta lo ya sincronizado
+  // con el backend. Ver docs/AUDIT_REMEDIATION_PLAN.md 2.3.
+  useEffect(() => {
+    setLocalState(readTrackerLocalState(window.localStorage));
+  }, []);
+
   const resolveProject = useCallback(
     (entry: TimeEntryView) => resolveEntryProject(entry, freeProjects, jobs),
     [freeProjects, jobs]
   );
 
   const weekEntries = useMemo(() => {
-    if (!weekly) return [];
+    if (!localState) return weekEntriesRaw;
+    if (!weekly) return weekEntriesRaw;
     const from = weekly.from.slice(0, 10);
     const to = weekly.to.slice(0, 10);
-    return entries.filter((entry) => {
-      const day = entry.startedAt.slice(0, 10);
-      return day >= from && day <= to;
-    });
-  }, [entries, weekly]);
+    const pending = pendingEntriesInRange(pendingLocalEntries(localState), from, to);
+    return pending.length > 0 ? [...weekEntriesRaw, ...pending] : weekEntriesRaw;
+  }, [localState, weekEntriesRaw, weekly]);
 
   const weekColumns = useMemo(() => (
     (weekly?.byDay ?? []).map((day) => ({
@@ -149,10 +171,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
       .map((item) => ({ label: item.label, value: item.seconds, color: item.color }));
   }, [resolveProject, weekEntries]);
 
-  const weekCost = useMemo(
-    () => weekEntries.reduce((sum, entry) => sum + (entryCost(entry) ?? 0), 0),
-    [weekEntries]
-  );
+  const weekCostSummary = useMemo(() => formatCostSummary(weekEntries), [weekEntries]);
 
   const daysWorked = useMemo(
     () => (weekly?.byDay ?? []).filter((day) => day.minutes > 0).length,
@@ -165,13 +184,20 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
 
   if (error && !weekly && !monthly) {
     return (
-      <div style={{ ...sectionCard, color: "#ef4444", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
+      <div style={{ ...sectionCard, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
         {error}
       </div>
     );
   }
 
-  const weekSeconds = (weekly?.totalMinutes ?? 0) * 60;
+  // `weekly.totalMinutes` solo cuenta entradas `completed`, así que el total de
+  // la semana suma el pendiente incluyendo el cronómetro en curso aunque ya esté
+  // sincronizado (a diferencia de `weekEntries`, que ya lo recibe vía backend).
+  const weekPendingSeconds = localState && weekly
+    ? pendingEntriesInRange(pendingSummaryEntries(localState), weekly.from.slice(0, 10), weekly.to.slice(0, 10))
+      .reduce((sum, entry) => sum + entrySeconds(entry), 0)
+    : 0;
+  const weekSeconds = (weekly?.totalMinutes ?? 0) * 60 + weekPendingSeconds;
 
   return (
     <div style={{ display: "grid", gap: "16px" }}>
@@ -194,7 +220,6 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
             onClick={() => exportEntriesCsv(weekEntries, resolveProject, `semse-reporte-semana-${weekly?.from.slice(0, 10) ?? weekOffset}.csv`)}
             disabled={weekEntries.length === 0}
             style={navButton(weekEntries.length === 0)}
-            title={weekOffset > 0 ? "Exporta registros del mes cargado dentro de la semana seleccionada" : undefined}
           >
             <Download size={13} /> CSV semana
           </button>
@@ -205,27 +230,32 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
         <KpiCard
           label="Total semana"
           value={fmtHours(weekSeconds)}
-          color="#3b82f6"
+          color="var(--brand)"
           badge={<ChangeBadge value={weekly?.changePercent ?? null} />}
         />
         <KpiCard label="Días trabajados" value={String(daysWorked)} color="#059669" hint={daysWorked > 0 ? `${fmtHours(Math.round(weekSeconds / daysWorked))} promedio/día` : undefined} />
-        <KpiCard label="Registros" value={String(weekly?.totalEntries ?? 0)} color="#8b5cf6" hint="en la semana" />
-        <KpiCard label="Costo estimado" value={weekCost > 0 ? fmtMoney(weekCost) : "—"} color="var(--accent)" hint="según tarifas registradas" />
+        <KpiCard
+          label="Registros"
+          value={String((weekly?.totalEntries ?? 0) + weekEntries.filter((entry) => entry.status === "pending_sync").length)}
+          color="#8b5cf6"
+          hint="en la semana"
+        />
+        <KpiCard label="Costo estimado" value={weekCostSummary} color="var(--accent)" hint="según tarifas registradas" />
       </div>
 
       <ChartCard title="Horas por día" subtitle={`Semana ${weekRangeLabel(weekly)}`}>
         {weekLoading ? (
           <p style={{ fontSize: "13px", color: "var(--muted)", margin: 0 }}>Cargando semana...</p>
         ) : (
-          <ColumnChart points={weekColumns} color="#3b82f6" valueFmt={fmtHours} />
+          <ColumnChart points={weekColumns} color="var(--brand)" valueFmt={fmtHours} />
         )}
       </ChartCard>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "16px" }}>
-        <ChartCard title="Por propósito" subtitle="Semana seleccionada (registros del mes cargado)">
+        <ChartCard title="Por propósito" subtitle="Semana seleccionada">
           <BarList items={purposeBars} valueFmt={fmtHours} emptyText="Sin registros en esta semana." />
         </ChartCard>
-        <ChartCard title="Por proyecto" subtitle="Semana seleccionada (registros del mes cargado)">
+        <ChartCard title="Por proyecto" subtitle="Semana seleccionada">
           <BarList items={projectBars} valueFmt={fmtHours} emptyText="Sin registros en esta semana." />
         </ChartCard>
       </div>

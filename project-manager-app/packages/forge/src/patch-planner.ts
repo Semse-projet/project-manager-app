@@ -1,5 +1,6 @@
 import type { ForgeApprovalMode, ForgeRiskLevel, ForgeTaskPacket } from "./types.js";
 import { matchesScope } from "./policy.js";
+import { isCriticalPath } from "./sensitive-resources.js";
 
 export type PatchOperation = "create" | "update" | "delete";
 
@@ -38,19 +39,6 @@ export type PatchPlannerMode = "dry-run" | "live";
 
 const ABSOLUTE_OR_HOME = /^(?:\/|~)/;
 const ENV_FILE = /(^|\/)\.env/;
-
-const CRITICAL_PATTERNS = [
-  "packages/db/prisma/schema.prisma",
-  "packages/db/prisma/migrations/**",
-  ".github/workflows/**",
-  "**/railway.json",
-  "**/Dockerfile*",
-  "**/docker-compose*"
-];
-
-function isCriticalPath(path: string): boolean {
-  return CRITICAL_PATTERNS.some((scope) => matchesScope(path, scope));
-}
 
 function validateChange(change: ProposedFileChange, task: ForgeTaskPacket): PatchPlanChange {
   const violations: string[] = [];

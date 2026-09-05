@@ -11,8 +11,19 @@ import {
 } from "../../../labor-api";
 import type { JobRecordView } from "../../../../semse-api";
 import {
+  createTrackerEventId,
+  enqueueTrackerEvent,
+  readTrackerLocalState,
+  writeTrackerLocalState,
+  type TrackerLocalState,
+  type TrackerPendingEvent,
+} from "../trackerLocalStore";
+import {
   BarList,
+  formatCostSummary,
   KpiCard,
+  pendingEntriesInRange,
+  pendingLocalEntries,
   PURPOSE_CHART_COLORS,
   PURPOSE_SHORT_LABELS,
   PurposeChip,
@@ -25,8 +36,11 @@ import {
   fieldLabel,
   fmtHours,
   fmtMoney,
+  friendlyConnectionMessage,
   resolveEntryProject,
+  rollingWindowDayBounds,
   sectionCard,
+  shouldPreserveLocalEvent,
 } from "./trackerUi";
 
 type EntriesRange = "week" | "month" | "all";
@@ -39,11 +53,13 @@ const STATUS_LABELS: Record<TimeEntryView["status"], string> = {
   pending_review: "En revisión",
   approved: "Aprobada",
   deleted: "Eliminada",
+  pending_sync: "Pendiente de sincronizar",
 };
 
 export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
   const [entries, setEntries] = useState<TimeEntryView[]>([]);
   const [freeProjects, setFreeProjects] = useState<FreeProjectView[]>([]);
+  const [localState, setLocalState] = useState<TrackerLocalState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -87,7 +103,31 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
     void loadEntries(range);
   }, [loadEntries, range]);
 
-  const filtered = useMemo(() => entries.filter((entry) => {
+  // Sesión activa aún no confirmada + entradas manuales encoladas offline
+  // (trackerLocalStore) — sin esto, los totales de abajo solo cuentan lo ya
+  // sincronizado con el backend. Ver docs/AUDIT_REMEDIATION_PLAN.md 2.3.
+  useEffect(() => {
+    setLocalState(readTrackerLocalState(window.localStorage));
+  }, []);
+
+  const pendingEntries = useMemo(
+    () => (localState ? pendingLocalEntries(localState) : []),
+    [localState]
+  );
+
+  // El backend acota `entries` a la ventana móvil del filtro activo
+  // (Últimos 7/30 días), así que el trabajo pendiente se acota igual: si no, un
+  // registro manual encolado offline con fecha vieja aparecería dentro de
+  // "Últimos 7 días" y en sus totales.
+  const entriesWithPending = useMemo(() => {
+    if (pendingEntries.length === 0) return entries;
+    if (range === "all") return [...entries, ...pendingEntries];
+    const { from, to } = rollingWindowDayBounds(range === "week" ? 7 : 30);
+    const pendingInWindow = pendingEntriesInRange(pendingEntries, from, to);
+    return pendingInWindow.length > 0 ? [...entries, ...pendingInWindow] : entries;
+  }, [entries, pendingEntries, range]);
+
+  const filtered = useMemo(() => entriesWithPending.filter((entry) => {
     if (purposeFilter !== "all" && entry.purpose !== purposeFilter) return false;
     if (projectFilter !== "all") {
       if (projectFilter.startsWith("fp:") && entry.freeProjectId !== projectFilter.slice(3)) return false;
@@ -98,13 +138,13 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
       if (!haystack.includes(search.trim().toLowerCase())) return false;
     }
     return true;
-  }), [entries, projectFilter, purposeFilter, search]);
+  }), [entriesWithPending, projectFilter, purposeFilter, search]);
 
   const totals = useMemo(() => {
     const seconds = filtered.reduce((sum, entry) => sum + entrySeconds(entry), 0);
-    const cost = filtered.reduce((sum, entry) => sum + (entryCost(entry) ?? 0), 0);
+    const costSummary = formatCostSummary(filtered);
     const days = new Set(filtered.map((entry) => entry.startedAt.slice(0, 10))).size;
-    return { seconds, cost, days };
+    return { seconds, costSummary, days };
   }, [filtered]);
 
   const purposeBars = useMemo(() => (
@@ -144,26 +184,63 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
     setSaving(true);
     setError(null);
     setNotice(null);
+
+    const jobId = formPurpose === "job_linked" ? formJobId : undefined;
+    const freeProjectId = formPurpose !== "job_linked" && formFreeProjectId ? formFreeProjectId : undefined;
+    const breakMinutes = Math.max(0, Number(formBreak) || 0);
+    const hourlyRate = formRate ? Number(formRate) : undefined;
+    const location = formLocation || undefined;
+    const notes = formNotes || undefined;
+
     try {
       await createManualEntry({
         purpose: formPurpose,
-        jobId: formPurpose === "job_linked" ? formJobId : undefined,
-        freeProjectId: formPurpose !== "job_linked" && formFreeProjectId ? formFreeProjectId : undefined,
+        jobId,
+        freeProjectId,
         date: formDate,
         startTime: formStart,
         endTime: formEnd,
-        breakMinutes: Math.max(0, Number(formBreak) || 0),
-        hourlyRate: formRate ? Number(formRate) : undefined,
+        breakMinutes,
+        hourlyRate,
         currency: formCurrency,
-        location: formLocation || undefined,
-        notes: formNotes || undefined,
+        location,
+        notes,
       });
       setShowForm(false);
       setFormNotes("");
       setNotice(`Registro guardado: ${fmtHours(durationPreview)}.`);
       await loadEntries(range);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo guardar el registro manual.");
+      // Mismo fallback offline que el Timer tab (page.tsx handleManualSave):
+      // si el registro no llegó al backend por falta de conexión o un 5xx, se
+      // encola en el mismo almacén local del tracker en vez de perderse. Antes
+      // este formulario no tenía este fallback (ver AUDIT_REMEDIATION_PLAN.md 2.5).
+      if (shouldPreserveLocalEvent(caught)) {
+        const event: TrackerPendingEvent = {
+          id: createTrackerEventId(),
+          type: "manual_session",
+          purpose: formPurpose,
+          jobId,
+          freeProjectId,
+          date: formDate,
+          startTime: formStart,
+          endTime: formEnd,
+          breakMinutes,
+          hourlyRate,
+          currency: formCurrency,
+          location,
+          notes,
+          localTimestamp: new Date().toISOString(),
+        };
+        const nextState = enqueueTrackerEvent(readTrackerLocalState(window.localStorage), event);
+        writeTrackerLocalState(window.localStorage, nextState);
+        setLocalState(nextState);
+        setShowForm(false);
+        setFormNotes("");
+        setNotice(friendlyConnectionMessage("No pudimos guardar el registro en SEMSE ahora"));
+      } else {
+        setError(caught instanceof Error ? caught.message : "No se pudo guardar el registro manual.");
+      }
     } finally {
       setSaving(false);
     }
@@ -179,9 +256,9 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
-        <KpiCard label="Horas del filtro" value={fmtHours(totals.seconds)} color="#3b82f6" hint={`${filtered.length} registros · ${rangeLabel}`} />
+        <KpiCard label="Horas del filtro" value={fmtHours(totals.seconds)} color="var(--brand)" hint={`${filtered.length} registros · ${rangeLabel}`} />
         <KpiCard label="Días con actividad" value={String(totals.days)} color="#059669" hint={totals.days > 0 ? `${fmtHours(Math.round(totals.seconds / totals.days))} promedio/día` : undefined} />
-        <KpiCard label="Costo estimado" value={totals.cost > 0 ? fmtMoney(totals.cost) : "—"} color="var(--accent)" hint="según tarifas registradas" />
+        <KpiCard label="Costo estimado" value={totals.costSummary} color="var(--accent)" hint="según tarifas registradas" />
       </div>
 
       <div style={sectionCard}>
@@ -243,7 +320,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
           <p style={{ fontSize: "12px", color: "#059669", margin: "0 0 10px" }}>{notice}</p>
         ) : null}
         {error ? (
-          <p style={{ fontSize: "12px", color: "#ef4444", margin: "0 0 10px" }}>{error}</p>
+          <p style={{ fontSize: "12px", color: "var(--error)", margin: "0 0 10px" }}>{error}</p>
         ) : null}
 
         {showForm ? (
@@ -329,7 +406,7 @@ export function RegistrosTab({ jobs }: { jobs: JobRecordView[] }) {
                 {saving ? "Guardando..." : "Guardar registro"}
               </button>
               <button type="button" onClick={() => setShowForm(false)} style={toolbarButton(false)}>Cancelar</button>
-              <span style={{ fontSize: "12px", color: durationPreview === null ? "#ef4444" : "var(--muted)" }}>
+              <span style={{ fontSize: "12px", color: durationPreview === null ? "var(--error)" : "var(--muted)" }}>
                 Duración neta: {durationPreview === null ? "rango inválido" : fmtHours(durationPreview)}
               </span>
             </div>

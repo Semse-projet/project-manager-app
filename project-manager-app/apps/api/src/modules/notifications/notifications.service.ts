@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from "@nestjs/common";
 import { CommunicationsOutboxService } from "../communications/communications-outbox.service.js";
+import { PushDispatchService } from "../push-notifications/push-dispatch.service.js";
 import { NotificationsRepository } from "./notifications.repository.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 
@@ -513,6 +514,7 @@ export class NotificationsService {
     private readonly repository: NotificationsRepository,
     @Optional() private readonly communicationsOutbox?: CommunicationsOutboxService,
     @Optional() private readonly sse?: SseEventBusService,
+    @Optional() private readonly pushDispatch?: PushDispatchService,
   ) {}
 
   async listForUser(input: {
@@ -587,6 +589,20 @@ export class NotificationsService {
               "Failed to deliver WhatsApp notification — skipping",
             );
           });
+        }
+
+        if (this.pushDispatch) {
+          void this.pushDispatch
+            .sendToUser(input.tenantId, spec.userId, spec.title, spec.body, {
+              type: spec.type,
+              ...(spec.payload ?? {}),
+            })
+            .catch((error) => {
+              this.logger.warn(
+                { eventType: input.eventType, userId: spec.userId, notificationId: notification.id, error },
+                "Failed to deliver push notification — skipping",
+              );
+            });
         }
       } catch (error) {
         this.logger.warn(

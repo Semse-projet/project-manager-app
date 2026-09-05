@@ -16,6 +16,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { Public } from "../../common/public.decorator.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
+import { MetricsService } from "../../infrastructure/observability/metrics.service.js";
 import { ProductIntelligenceService } from "./product-intelligence.service.js";
 
 /**
@@ -33,7 +34,10 @@ function ingestEnabled(env = process.env): boolean {
 
 @Controller("v1/product-intelligence")
 export class ProductIntelligenceController {
-  constructor(private readonly service: ProductIntelligenceService) {}
+  constructor(
+    private readonly service: ProductIntelligenceService,
+    private readonly metrics: MetricsService,
+  ) {}
 
   // Público: telemetría anónima con consentimiento. El schema Zod aplica la
   // allowlist de props y las reglas de consentimiento; el rate limit lo pone
@@ -54,12 +58,14 @@ export class ProductIntelligenceController {
       ? (body as { events: unknown[] }).events.length
       : 0;
     if (eventCount > PRODUCT_EVENT_BATCH_MAX) {
+      this.metrics.recordProductIntelligenceIngestRejection("batch_too_large");
       throw new PayloadTooLargeException(`batch supera ${PRODUCT_EVENT_BATCH_MAX} eventos`);
     }
 
     const parsed = productEventBatchSchema.safeParse(body);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
+      this.metrics.recordProductIntelligenceIngestRejection("invalid_batch");
       throw new BadRequestException(
         `batch inválido: ${issue?.path?.join(".") ?? "?"} — ${issue?.message ?? "?"}`,
       );

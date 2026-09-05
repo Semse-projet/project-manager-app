@@ -4,6 +4,7 @@ import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import type { OperationalContextService } from "../ai-models/context/operational-context.service.js";
 import { OPERATIONAL_CONTEXT_SERVICE } from "../ai-models/context/operational-context.token.js";
 import { DomainEventBus } from "../domain-events/domain-event-bus.service.js";
+import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import { buildDisputeWorkspaceMemoryRecord } from "../knowledge/workspace-memory.business-records.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import { buildDisputeResolvedEvent, type DisputeResolutionType } from "./disputes.events.js";
@@ -18,6 +19,8 @@ export class DisputesService {
     private readonly workspaceMemoryRepository: WorkspaceMemoryRepository,
     @Optional() @Inject(OPERATIONAL_CONTEXT_SERVICE)
     private readonly operationalContext?: OperationalContextService,
+    @Optional()
+    private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
   ) {}
 
   private syncContext(tenantId: string, projectId: string | undefined, source: string, reason: string): void {
@@ -355,6 +358,17 @@ export class DisputesService {
       userId: input.userId,
       requestId: input.requestId
     });
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "dispute.resolved",
+      sourceEntityType: "Dispute",
+      sourceEntityId: dispute.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     await this.workspaceMemoryRepository.append(
       buildDisputeWorkspaceMemoryRecord({
@@ -403,6 +417,17 @@ export class DisputesService {
     });
 
     this.syncContext(input.tenantId, context.projectId, "dispute.archived", "dispute archived");
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "dispute.archived",
+      sourceEntityType: "Dispute",
+      sourceEntityId: archived.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return archived;
   }
@@ -434,6 +459,17 @@ export class DisputesService {
     });
 
     this.syncContext(input.tenantId, context.projectId, "dispute.restored", "dispute restored");
+    await this.lifecycleProjectionEvents?.emit({
+      tenantId: input.tenantId,
+      orgId: input.orgId,
+      projectId: context.projectId,
+      sourceEventType: "dispute.restored",
+      sourceEntityType: "Dispute",
+      sourceEntityId: restored.id,
+      actorType: "user",
+      actorId: input.userId,
+      correlationId: input.requestId,
+    });
 
     return restored;
   }

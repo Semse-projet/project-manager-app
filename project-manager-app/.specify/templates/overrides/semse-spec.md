@@ -1,205 +1,211 @@
 ---
-type: spec
-feature: "[FEATURE_NAME]"
-domain: "[DOMAIN: jobs | milestones | evidence | payments | disputes | intake | buildops | prometeo | communications | consciousness]"
+id: "[domain.feature]"
+title: "[Feature Name]"
+domain: "[platform | core | buildops | evidence | payments | trust | prometeo | agents | agro | labor | ui]"
+sdd_version: "2.0"
 version: "1.0"
-status: "[DRAFT | APPROVED | DEPRECATED]"
-branch: "feat/[feature-slug]"
-date: "[YYYY-MM-DD]"
-author: "[nombre o agente]"
-spec_index: "docs/SPEC_INDEX.md"
+status: "DRAFT"
+owner: "semse-core"
+risk: "medium"
+code_status: "NOT_STARTED"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
+related_files: []
+related_tests: []
+related_endpoints: []
+related_events: []
+related_agents: []
+last_verified: ""
 ---
 
-# Spec: [FEATURE_NAME]
+# Spec: [Feature Name]
 
-> **Instrucción para agente:** Este template es el contrato ejecutable de SEMSE.
-> Completar TODAS las secciones antes de pasar a /speckit.plan.
-> No generar código sin spec en estado APPROVED.
+> Contrato ejecutable SDD 2.0. Completar todas las secciones aplicables y
+> cambiar `status` a `APPROVED` antes de implementar. Código, CI, merge,
+> deploy y activación se registran por separado; un deploy no demuestra
+> activación ni verificación funcional.
 
----
+## 1. Problema y resultado
 
-## 1. Qué resuelve
+**Para quién:** [actor]
 
-<!-- Una o dos oraciones. Problema real de negocio, no descripción técnica. -->
+**Problema:** [dolor de negocio, sin describir primero la solución técnica]
 
-**Para quién:** [cliente | contratista | ops_admin | plataforma]
-**Problema:** [descripción del dolor]
-**Solución:** [qué hace este feature]
+**Resultado esperado:** [cambio observable y medible]
 
----
+## 2. Alcance
 
-## 2. Actores y Permisos
+### Incluido
 
-| Actor | Rol SEMSE | Puede hacer | No puede hacer |
-|-------|-----------|-------------|----------------|
-| | `CLIENT` | | |
-| | `PRO` | | |
-| | `OPS_ADMIN` | | |
-| | `PLATFORM` | | |
+- [capacidad]
 
-Referencia de roles: `docs/program/architecture/SEMSE_ROLE_MODEL.md`
-Referencia de permisos: `docs/program/governance/SEMSE_PERMISSION_MATRIX.md`
+### Fuera de alcance
 
----
+- [no-objetivo explícito]
 
-## 3. Escenarios de Usuario (P1/P2/P3)
+## 3. Actores, permisos y límites
 
-### P1 — [Escenario crítico de negocio]
+| Actor | Permiso backend | Alcance tenant/org/recurso | Puede | No puede |
+|---|---|---|---|---|
+| [actor] | `[permission]` | [scope] | [acción] | [restricción] |
 
-**Journey:** [descripción en lenguaje natural del flujo completo]
+- Tenant boundary:
+- Ownership/resource policy:
+- Step-up o aprobación humana:
+- Datos `privacyCritical`:
+- Requisitos de auditoría:
 
-**Criterio de aceptación:**
-```
-DADO   [estado inicial del sistema]
-CUANDO [acción del actor]
-ENTONCES [resultado esperado]
-  Y    [efecto secundario esperado: evento, notificación, audit]
-```
+## 4. Escenarios y criterios de aceptación
 
-**Casos borde:**
-- [ ] [caso borde 1]
-- [ ] [caso borde 2]
+### P1 — [journey crítico]
 
-**Errores esperados:**
-- `400` si [validación falla]
-- `403` si [permiso insuficiente]
-- `404` si [recurso no existe]
-- `409` si [conflicto de estado]
-
----
-
-### P2 — [Escenario secundario]
-
-<!-- Repetir estructura P1 -->
-
----
-
-## 4. FSM — Máquina de Estados
-
-> Obligatorio para cualquier feature con ciclo de vida (milestones, jobs, pagos, evidencia).
-
-**Entidad afectada:** `[Job | Milestone | Escrow | Contract | Evidence | BuildOpsProject]`
-
-```
-[ESTADO_INICIAL] → [ESTADO_SIGUIENTE]
-  guard: [condición para la transición]
-  effect: [evento emitido, qué pasa]
-
-[ESTADO_SIGUIENTE] → [ESTADO_FINAL]
-  guard: [condición]
-  effect: [evento]
-
-[ESTADOS_TERMINALES]: [ESTADO_A], [ESTADO_B]
-  regla: los estados terminales no se reabren sin policy explícita
+```gherkin
+DADO [estado inicial]
+CUANDO [actor realiza acción]
+ENTONCES [resultado]
+Y [evento, evidencia o auditoría]
 ```
 
-Referencia base: `docs/foundation/STATE_MACHINES.md`
-Verificar que las transiciones no violen: `docs/foundation/DOMAIN_INVARIANTS.md`
+Casos borde:
 
----
+- [ ] [duplicado/reintento/concurrencia]
+- [ ] [fuente vacía, caída o no autorizada]
+- [ ] [aislamiento cross-tenant/cross-org]
 
-## 5. Contratos de API
+## 5. Contratos
 
-> Por cada endpoint. Formato obligatorio en SEMSE.
-
-### `[MÉTODO] /v1/[ruta]`
+### API — `[METHOD] /v1/[path]`
 
 ```yaml
-método: [GET | POST | PATCH | DELETE]
-ruta: /v1/[path]
-descripción: [una línea]
-
-auth: [requerida | pública]
-roles: [CLIENT | PRO | OPS_ADMIN | PLATFORM]
-privacyCritical: [true | false]  # true → routing a Ollama local
-
-input:
-  schema: [NombreDelSchema]  # en packages/schemas/src/
-  campos:
-    - nombre: [campo]
-      tipo: [string | number | uuid | enum]
-      requerido: [true | false]
-      validación: [min/max/regex/enum values]
-
-output:
-  schema: [NombreDelSchema]
-  campos:
-    - nombre: [campo]
-      tipo: [tipo]
-
-errores:
-  400: [descripción — validación fallida]
-  403: [descripción — permiso insuficiente]
-  404: [descripción — recurso no existe]
-  409: [descripción — conflicto de estado]
-
-efectos:
-  auditLog: [true | false]
-  evento: [aggregate.action]  # del EVENT_CATALOG
-  sse: [true | false]  # emite SSE real-time
-  notificacion: [descripción de notificación si aplica]
-  fsmTransicion: [ESTADO_ORIGEN → ESTADO_DESTINO]
-  paymentGovernance: [true | false]  # si toca escrow o pagos
+auth: required
+permissions: []
+input_schema:
+output_schema:
+errors:
+  400:
+  401:
+  403:
+  404:
+  409:
+effects:
+  audit_log:
+  domain_event:
+  sse:
+  payment_governance:
 ```
 
----
+### UI
 
-## 6. Criterios de Éxito
-
-| Métrica | Valor objetivo |
-|---------|---------------|
-| Latencia P95 | < [X]ms |
-| Tasa de error | < [X]% |
-| Cobertura de tests | ≥ 80% branches |
-| Escenarios P1 cubiertos | 100% |
-
----
-
-## 7. Tests Requeridos (antes de implementar)
-
-> El test es el spec ejecutable. Se escribe ANTES del código.
-
-```typescript
-describe("[MÉTODO] /v1/[ruta]") {
-  it("[actor] puede [acción] en [estado válido]")
-  it("rechaza con 403 si el rol no es [rol_requerido]")
-  it("rechaza con 400 si [campo_requerido] está vacío")
-  it("rechaza con 409 si [entidad] está en estado [estado_inválido]")
-  it("emite evento [aggregate.action] en audit log")
-  it("emite SSE cuando [condición]")  // si aplica
-  it("libera escrow solo cuando [condición de pago]")  // si aplica
-}
+```yaml
+surfaces: []
+states:
+  - loading
+  - empty
+  - ready
+  - forbidden
+  - degraded
+  - error
+required_behavior: []
 ```
 
----
+### Agente/Prometeo
 
-## 8. Impacto en otros dominios
+```yaml
+tools: []
+input_schema:
+output_schema:
+source_citations_required: true
+approval_policy:
+forbidden_behavior: []
+```
 
-| Dominio | Impacto | Acción requerida |
-|---------|---------|-----------------|
-| Escrow/Payments | [sí/no] | [qué hay que verificar] |
-| Evidence | [sí/no] | [qué hay que verificar] |
-| Prometeo RAG | [sí/no] | [actualizar knowledge base si aplica] |
-| SSE/Real-time | [sí/no] | [qué evento SSE emitir] |
-| WhatsApp/Comms | [sí/no] | [notificación si aplica] |
-| Consciousness | [sí/no] | [observación si aplica] |
-| BuildOps | [sí/no] | [estado BuildOps si aplica] |
+## 6. FSM, eventos y reconstrucción
 
----
+- Estado/FSM afectado:
+- Invariantes: `docs/foundation/DOMAIN_INVARIANTS.md`
+- Eventos declarados: `docs/foundation/EVENT_CATALOG.md`
+- Productor + outbox atómico:
+- Consumidores + idempotencia:
+- Replay/rebuild:
+- DLQ/compensación:
 
-## 9. Supuestos y Dependencias
+## 7. Datos y migración
 
-- [ ] [Supuesto 1: qué debe ser verdad para que este spec sea válido]
-- [ ] [Dependencia: qué otro spec o feature debe existir primero]
+- Modelos Prisma:
+- Migración:
+- Estrategia expand/contract:
+- Backfill:
+- Compatibilidad hacia atrás:
+- Verificación de drift:
+- Rollback de código:
+- Rollback/forward-fix de datos:
 
----
+> Nunca usar `prisma db push` para producción. Una migración aplicada no se
+> edita: se restaura el archivo exacto o se reconcilia con el flujo oficial.
 
-## Checklist de aprobación
+## 8. Observabilidad, despliegue y activación
 
-- [ ] Todos los escenarios P1 tienen criterio de aceptación Given/When/Then
-- [ ] Todos los endpoints tienen input/output/errores/efectos completos
-- [ ] FSM declarada y verificada contra `STATE_MACHINES.md`
-- [ ] Tests requeridos listados
-- [ ] Ninguna invariante de `DOMAIN_INVARIANTS.md` violada
-- [ ] Spec agregado a `docs/SPEC_INDEX.md`
-- [ ] Status cambiado a `APPROVED` antes de pasar a /speckit.plan
+- Métricas/SLO:
+- Logs/traces/correlation:
+- Health/readiness:
+- Feature flags/allowlists:
+- Plan de canary:
+- Evidencia de producción requerida:
+- Señal de rollback:
+- Owner operativo:
+
+## 9. Tests requeridos
+
+- [ ] Unitarios del dominio/proyección
+- [ ] Contrato API/BFF
+- [ ] Permiso denegado y aislamiento tenant/org
+- [ ] Validación y conflicto de estado
+- [ ] Idempotencia/reintento/concurrencia
+- [ ] Migración y compatibilidad
+- [ ] UI loading/empty/forbidden/degraded/error
+- [ ] Canary o smoke autenticado en producción
+
+## 10. Mapa de implementación
+
+### API
+
+- `apps/api/src/...`
+
+### Web
+
+- `apps/web/...`
+
+### Worker/Packages/DB
+
+- `apps/worker/...`
+- `packages/...`
+
+### Tests
+
+- `apps/.../test/...`
+
+## 11. Investigación externa
+
+- Reporte con tres búsquedas primarias:
+- Aplicado ahora:
+- Backlog:
+- Descartado:
+
+## 12. Gates de cierre
+
+- [ ] Spec enlazado por `pnpm spec:index`
+- [ ] Spec, plan, tasks, analyze y checklist coherentes
+- [ ] Tests derivados del spec y verdes
+- [ ] `pnpm spec:validate:strict` verde
+- [ ] Migración reproducible y rollback/forward-fix documentado
+- [ ] CI `PASS`
+- [ ] PR fusionado y SHA registrado
+- [ ] Deployment terminal `DEPLOYED`
+- [ ] Activación/canary verificada por separado
+- [ ] `production_evidence` y `last_verified` actualizados
+- [ ] Sólo entonces `status: VERIFIED`

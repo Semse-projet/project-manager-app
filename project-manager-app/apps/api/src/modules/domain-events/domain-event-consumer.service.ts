@@ -5,15 +5,35 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import type { Prisma } from "@prisma/client";
+import type { DomainOutboxEvent, Prisma } from "@prisma/client";
 import prismaClientPackage from "../../../../../node_modules/.prisma/client/index.js";
 import {
+  bidAcceptedV1EventSchema,
+  bidCreatedV1EventSchema,
+  bidRejectedV1EventSchema,
   evidenceUploadedV1EventSchema,
   type EvidenceUploadedV1Event,
+  jobCompletedV1EventSchema,
+  jobCreatedV1EventSchema,
+  jobMatchedV1EventSchema,
+  jobStatusChangedV1EventSchema,
+  milestoneApprovedV1EventSchema,
+  milestoneRejectedV1EventSchema,
+  projectLifecycleSourceChangedV1EventSchema,
+  type ProjectLifecycleSourceChangedV1Event,
+  ratingRequestedV1EventSchema,
 } from "@semse/schemas";
 import { randomUUID } from "node:crypto";
 import { MetricsService } from "../../infrastructure/observability/metrics.service.js";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
+import { JobsRepository } from "../jobs/jobs.repository.js";
+import { ProjectsRepository } from "../projects/projects.repository.js";
+import { signWebhookPayload } from "../satellites/satellite-webhook-crypto.js";
+import { deliverSatelliteWebhook } from "../satellites/satellite-webhook-delivery.js";
+import {
+  satelliteWebhooksEnabled,
+  SatelliteWebhooksService,
+} from "../satellites/satellite-webhooks.service.js";
 import {
   calculateEvidenceReadiness,
   isDomainEventConsumersEnabled,
@@ -32,6 +52,34 @@ const { Prisma: PrismaRuntime } = prismaClientPackage as typeof import("../../..
 
 export const EVIDENCE_READINESS_CONSUMER = "evidence-readiness.v1";
 export const EVIDENCE_UPLOADED_EVENT_TYPE = "evidence.uploaded.v1";
+export const PROJECT_LIFECYCLE_PROJECTION_CONSUMER =
+  "project-lifecycle-projection.v1";
+export const PROJECT_LIFECYCLE_SOURCE_CHANGED_EVENT_TYPE =
+  "project.lifecycle-source-changed.v1";
+export const JOBS_BIDS_PROJECTION_CONSUMER = "jobs-bids-projection.v1";
+const JOBS_BIDS_PROJECTION_EVENT_TYPES = [
+  "job.created.v1",
+  "job.status_changed.v1",
+  "bid.created.v1",
+  "bid.accepted.v1",
+  "bid.rejected.v1",
+] as const;
+/**
+ * SAT-007 spec §6/§8. Fans an outbox event out to every ACTIVE satellite
+ * webhook subscribed to its bare event name. A per-webhook HTTP failure is
+ * absorbed into that webhook's own consecutive-failure counter
+ * (SatelliteWebhooksService.recordDeliveryFailure) and never fails this
+ * consumer's own attempt/dead-letter bookkeeping — the two retry
+ * mechanisms are deliberately independent (plan.md §1.1).
+ */
+export const SATELLITE_WEBHOOKS_CONSUMER = "satellite-webhooks.v1";
+const SATELLITE_WEBHOOKS_EVENT_TYPES = [
+  "job.matched.v1",
+  "job.completed.v1",
+  "rating.requested.v1",
+  "milestone.approved.v1",
+  "milestone.rejected.v1",
+] as const;
 const CONSUMER_MAX_ATTEMPTS = 5;
 
 type ConsumptionReceipt = {
@@ -47,12 +95,22 @@ type ConsumptionReceipt = {
 
 type ConsumerResult = {
   eventId: string;
-  consumer: typeof EVIDENCE_READINESS_CONSUMER;
+  consumer:
+    | typeof EVIDENCE_READINESS_CONSUMER
+    | typeof PROJECT_LIFECYCLE_PROJECTION_CONSUMER
+    | typeof JOBS_BIDS_PROJECTION_CONSUMER
+    | typeof SATELLITE_WEBHOOKS_CONSUMER
+    | (string & {});
   status: "completed";
-  effect: "updated" | "no_op";
-  milestoneId: string | null;
-  evidenceReadiness: EvidenceReadiness | null;
+  effect: "updated" | "no_op" | "disabled";
+  milestoneId?: string | null;
+  evidenceReadiness?: EvidenceReadiness | null;
+  projectId?: string;
+  jobId?: string;
+  revision?: string;
+  sourceUpdatedAt?: string;
   duplicate?: boolean;
+  deliveries?: Array<{ webhookId: string; delivered: boolean; reason?: string }>;
 };
 
 type ProcessingIdentity = {
@@ -60,21 +118,79 @@ type ProcessingIdentity = {
   serviceActorId?: string;
 };
 
+/**
+ * `process()` dispatches purely on `storedEvent.eventType → descriptor`
+ * (built once in the constructor via `buildHandlerRegistry()`). Adding a new
+ * event type/consumer is a new entry in that registry, not a new branch in
+ * `process()` — see `jobs-bids-event-projection.spec.md` §2 (F1-F) for the
+ * domain this unblocked.
+ */
+type EventHandlerDescriptor = {
+  eventType: string;
+  consumerName: string;
+  handle: (
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ) => Promise<ConsumerResult>;
+};
+
 class TerminalConsumerError extends Error {}
 class AlreadyDeadLetteredError extends Error {}
 
 @Injectable()
 export class DomainEventConsumerService {
+  private readonly handlersByEventType: ReadonlyMap<string, EventHandlerDescriptor>;
+  /** Swappable only by tests (plain instance property, not DI) — production
+   * always uses the real `deliverSatelliteWebhook`, which enforces SSRF
+   * validation and cannot itself be pointed at a private/loopback address. */
+  private deliverSatelliteWebhookFn: typeof deliverSatelliteWebhook = deliverSatelliteWebhook;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly metrics: MetricsService,
-  ) {}
+    private readonly projectsRepository?: ProjectsRepository,
+    private readonly jobsRepository?: JobsRepository,
+    private readonly satelliteWebhooksService?: SatelliteWebhooksService,
+  ) {
+    this.handlersByEventType = this.buildHandlerRegistry();
+  }
+
+  private buildHandlerRegistry(): ReadonlyMap<string, EventHandlerDescriptor> {
+    const descriptors: EventHandlerDescriptor[] = [
+      {
+        eventType: EVIDENCE_UPLOADED_EVENT_TYPE,
+        consumerName: EVIDENCE_READINESS_CONSUMER,
+        handle: (storedEvent, processingIdentity) =>
+          this.processEvidenceReadinessEvent(storedEvent, processingIdentity),
+      },
+      {
+        eventType: PROJECT_LIFECYCLE_SOURCE_CHANGED_EVENT_TYPE,
+        consumerName: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        handle: (storedEvent, processingIdentity) =>
+          this.processProjectLifecycleEvent(storedEvent, processingIdentity),
+      },
+      ...JOBS_BIDS_PROJECTION_EVENT_TYPES.map((eventType) => ({
+        eventType,
+        consumerName: JOBS_BIDS_PROJECTION_CONSUMER,
+        handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
+          this.processJobsBidsProjectionEvent(storedEvent, processingIdentity),
+      })),
+      ...SATELLITE_WEBHOOKS_EVENT_TYPES.map((eventType) => ({
+        eventType,
+        consumerName: SATELLITE_WEBHOOKS_CONSUMER,
+        handle: (storedEvent: DomainOutboxEvent, processingIdentity: ProcessingIdentity) =>
+          this.processSatelliteWebhooksEvent(storedEvent, processingIdentity),
+      })),
+    ];
+
+    return new Map(descriptors.map((descriptor) => [descriptor.eventType, descriptor]));
+  }
 
   async process(
     eventId: string,
     processingIdentity: ProcessingIdentity = {},
   ): Promise<ConsumerResult> {
-    this.assertEnabledAndAllowlisted();
+    this.assertConsumersEnabled();
 
     const storedEvent = await this.prisma.domainOutboxEvent.findUnique({
       where: { eventId },
@@ -94,6 +210,43 @@ export class DomainEventConsumerService {
       });
     }
 
+    const descriptor = this.handlersByEventType.get(storedEvent.eventType);
+    if (!descriptor) {
+      throw new UnprocessableEntityException({
+        message: "No consumer handler is registered for this domain event type",
+        eventId,
+        eventType: storedEvent.eventType,
+      });
+    }
+
+    this.assertConsumerAllowlisted(descriptor.consumerName);
+    return descriptor.handle(storedEvent, processingIdentity);
+  }
+
+  private assertConsumersEnabled(): void {
+    if (!isDomainEventConsumersEnabled()) {
+      throw new ServiceUnavailableException({
+        message: "Domain event consumers are disabled by kill switch",
+      });
+    }
+  }
+
+  private assertConsumerAllowlisted(consumerName: string): void {
+    const consumers = parseEventConsumerAllowlist(
+      process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST,
+    );
+    if (!consumers.has(consumerName)) {
+      throw new ServiceUnavailableException({
+        message: "Domain event consumer is not allowlisted",
+        consumer: consumerName,
+      });
+    }
+  }
+
+  private async processEvidenceReadinessEvent(
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
     if (storedEvent.eventType !== EVIDENCE_UPLOADED_EVENT_TYPE) {
       return this.rejectTerminal(
         storedEvent.eventId,
@@ -155,14 +308,14 @@ export class DomainEventConsumerService {
       if (error instanceof AlreadyDeadLetteredError) {
         throw new UnprocessableEntityException({
           message: error.message,
-          eventId,
+          eventId: storedEvent.eventId,
           consumer: EVIDENCE_READINESS_CONSUMER,
         });
       }
 
       const terminal = error instanceof TerminalConsumerError;
       const failure = await this.recordFailure({
-        eventId,
+        eventId: storedEvent.eventId,
         tenantId: parsedEvent.data.tenantId,
         error: redactConsumerError(error),
         terminal,
@@ -172,7 +325,7 @@ export class DomainEventConsumerService {
         this.metrics.recordEventConsumerDeadLetter(EVIDENCE_READINESS_CONSUMER);
         throw new UnprocessableEntityException({
           message: "Domain event consumer moved delivery to dead letter",
-          eventId,
+          eventId: storedEvent.eventId,
           consumer: EVIDENCE_READINESS_CONSUMER,
           attempts: failure.attempts,
         });
@@ -180,47 +333,840 @@ export class DomainEventConsumerService {
 
       throw new InternalServerErrorException({
         message: "Domain event consumer failed; retry is allowed",
-        eventId,
+        eventId: storedEvent.eventId,
         consumer: EVIDENCE_READINESS_CONSUMER,
         attempts: failure.attempts,
       });
     }
   }
 
-  private assertEnabledAndAllowlisted(): void {
-    if (!isDomainEventConsumersEnabled()) {
+  private async processProjectLifecycleEvent(
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    if (!this.projectsRepository) {
       throw new ServiceUnavailableException({
-        message: "Domain event consumers are disabled by kill switch",
+        message: "Project lifecycle projection consumer is unavailable",
+        consumer: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
       });
     }
-    const consumers = parseEventConsumerAllowlist(
-      process.env.SEMSE_EVENT_CONSUMER_ALLOWLIST,
-    );
-    if (!consumers.has(EVIDENCE_READINESS_CONSUMER)) {
-      throw new ServiceUnavailableException({
-        message: "Evidence readiness consumer is not allowlisted",
-        consumer: EVIDENCE_READINESS_CONSUMER,
+
+    const parsedEvent = projectLifecycleSourceChangedV1EventSchema.safeParse({
+      eventId: storedEvent.eventId,
+      eventType: storedEvent.eventType,
+      version: storedEvent.version,
+      envelopeVersion: storedEvent.envelopeVersion,
+      occurredAt: storedEvent.occurredAt.toISOString(),
+      recordedAt: storedEvent.recordedAt.toISOString(),
+      tenantId: storedEvent.tenantId,
+      orgId: storedEvent.orgId,
+      module: storedEvent.module,
+      entityType: storedEvent.entityType,
+      entityId: storedEvent.entityId,
+      actor: { type: storedEvent.actorType, id: storedEvent.actorId },
+      correlationId: storedEvent.correlationId,
+      ...(storedEvent.causationId
+        ? { causationId: storedEvent.causationId }
+        : {}),
+      idempotencyKey: storedEvent.idempotencyKey,
+      schemaRef: storedEvent.schemaRef,
+      payload: storedEvent.payloadJson,
+      ...(storedEvent.metadataJson
+        ? { metadata: storedEvent.metadataJson }
+        : {}),
+      ...(storedEvent.traceContextJson
+        ? { traceContext: storedEvent.traceContextJson }
+        : {}),
+    });
+    if (!parsedEvent.success) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Invalid canonical lifecycle event: ${
+          parsedEvent.error.issues[0]?.message ?? "schema validation failed"
+        }`,
+        PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+      );
+    }
+
+    try {
+      const result = await this.consumeProjectLifecycleProjection(
+        parsedEvent.data,
+        processingIdentity,
+      );
+      if (result.duplicate) {
+        this.metrics.recordEventConsumerDuplicate(
+          PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        );
+      } else {
+        this.metrics.recordEventConsumerAttempt(
+          PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+          "completed",
+        );
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof AlreadyDeadLetteredError) {
+        throw new UnprocessableEntityException({
+          message: error.message,
+          eventId: storedEvent.eventId,
+          consumer: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        });
+      }
+
+      const terminal = error instanceof TerminalConsumerError;
+      const failure = await this.recordFailure({
+        eventId: storedEvent.eventId,
+        tenantId: parsedEvent.data.tenantId,
+        error: redactConsumerError(error),
+        terminal,
+        consumerName: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+      });
+      this.metrics.recordEventConsumerAttempt(
+        PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        "failed",
+      );
+      if (failure.status === "DEAD_LETTER") {
+        this.metrics.recordEventConsumerDeadLetter(
+          PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        );
+        throw new UnprocessableEntityException({
+          message: "Domain event consumer moved delivery to dead letter",
+          eventId: storedEvent.eventId,
+          consumer: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+          attempts: failure.attempts,
+        });
+      }
+
+      throw new InternalServerErrorException({
+        message: "Domain event consumer failed; retry is allowed",
+        eventId: storedEvent.eventId,
+        consumer: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        attempts: failure.attempts,
       });
     }
+  }
+
+  private async consumeProjectLifecycleProjection(
+    event: ProjectLifecycleSourceChangedV1Event,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    const existing = await this.prisma.domainEventConsumption.findUnique({
+      where: {
+        eventId_consumerName: {
+          eventId: event.eventId,
+          consumerName: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        },
+      },
+      select: { status: true, resultJson: true },
+    });
+    if (existing?.status === "COMPLETED") {
+      return {
+        ...(existing.resultJson as ConsumerResult),
+        duplicate: true,
+      };
+    }
+    if (existing?.status === "DEAD_LETTER") {
+      throw new AlreadyDeadLetteredError(
+        "Domain event consumer delivery is already in dead letter",
+      );
+    }
+
+    let rebuild: Awaited<
+      ReturnType<ProjectsRepository["rebuildLifecycleProjection"]>
+    >;
+    try {
+      rebuild = await this.projectsRepository!.rebuildLifecycleProjection({
+        tenantId: event.tenantId,
+        projectId: event.payload.projectId,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new TerminalConsumerError(
+          "Lifecycle event project does not exist in the event tenant",
+        );
+      }
+      throw error;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.$executeRaw(
+        PrismaRuntime.sql`
+          INSERT INTO "DomainEventConsumption" (
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "nextAttemptAt", "createdAt", "updatedAt"
+          ) VALUES (
+            ${randomUUID()}, ${event.eventId}::uuid, ${event.tenantId},
+            ${PROJECT_LIFECYCLE_PROJECTION_CONSUMER}, 'PENDING'::"DomainConsumptionStatus",
+            0, ${CONSUMER_MAX_ATTEMPTS}, ${now}, ${now}, ${now}
+          )
+          ON CONFLICT ("eventId", "consumerName") DO NOTHING
+        `,
+      );
+
+      const receipts = await tx.$queryRaw<ConsumptionReceipt[]>(
+        PrismaRuntime.sql`
+          SELECT
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "resultJson"
+          FROM "DomainEventConsumption"
+          WHERE "eventId" = ${event.eventId}::uuid
+            AND "consumerName" = ${PROJECT_LIFECYCLE_PROJECTION_CONSUMER}
+          FOR UPDATE
+        `,
+      );
+      const receipt = receipts[0];
+      if (!receipt) {
+        throw new Error("Lifecycle consumer receipt was not created");
+      }
+      if (receipt.status === "COMPLETED") {
+        return {
+          ...(receipt.resultJson as ConsumerResult),
+          duplicate: true,
+        };
+      }
+      if (receipt.status === "DEAD_LETTER") {
+        throw new AlreadyDeadLetteredError(
+          "Domain event consumer delivery is already in dead letter",
+        );
+      }
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "PROCESSING",
+          attempts: receipt.attempts + 1,
+          startedAt: now,
+          completedAt: null,
+          lastError: null,
+        },
+      });
+
+      const result: ConsumerResult = {
+        eventId: event.eventId,
+        consumer: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+        status: "completed",
+        effect: rebuild.effect,
+        projectId: event.payload.projectId,
+        revision: rebuild.revision,
+        sourceUpdatedAt: rebuild.sourceUpdatedAt,
+      };
+      await tx.auditLog.create({
+        data: {
+          tenantId: event.tenantId,
+          entityType: "ProjectLifecycleProjection",
+          entityId: event.payload.projectId,
+          action: `domain_event.consumer.project_lifecycle.${rebuild.effect}`,
+          afterJson: {
+            eventId: event.eventId,
+            correlationId: event.correlationId,
+            causationId: event.causationId ?? null,
+            consumer: PROJECT_LIFECYCLE_PROJECTION_CONSUMER,
+            sourceEventType: event.payload.sourceEventType,
+            sourceEntityType: event.payload.sourceEntityType,
+            sourceEntityId: event.payload.sourceEntityId,
+            revision: rebuild.revision,
+            sourceUpdatedAt: rebuild.sourceUpdatedAt,
+            workerId: processingIdentity.workerId ?? null,
+            serviceActorId: processingIdentity.serviceActorId ?? null,
+          },
+        },
+      });
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          nextAttemptAt: now,
+          lastError: null,
+          resultJson: result as Prisma.InputJsonValue,
+        },
+      });
+      return result;
+    });
+  }
+
+  private selectJobsBidsProjectionSchema(eventType: string) {
+    switch (eventType) {
+      case "job.created.v1":
+        return jobCreatedV1EventSchema;
+      case "job.status_changed.v1":
+        return jobStatusChangedV1EventSchema;
+      case "bid.created.v1":
+        return bidCreatedV1EventSchema;
+      case "bid.accepted.v1":
+        return bidAcceptedV1EventSchema;
+      case "bid.rejected.v1":
+        return bidRejectedV1EventSchema;
+      default:
+        return null;
+    }
+  }
+
+  private async processJobsBidsProjectionEvent(
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    if (!this.jobsRepository) {
+      throw new ServiceUnavailableException({
+        message: "Jobs & bids projection consumer is unavailable",
+        consumer: JOBS_BIDS_PROJECTION_CONSUMER,
+      });
+    }
+
+    const schema = this.selectJobsBidsProjectionSchema(storedEvent.eventType);
+    if (!schema) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Unsupported jobs/bids event type: ${storedEvent.eventType}`,
+        JOBS_BIDS_PROJECTION_CONSUMER,
+      );
+    }
+
+    const parsedEvent = schema.safeParse({
+      eventId: storedEvent.eventId,
+      eventType: storedEvent.eventType,
+      version: storedEvent.version,
+      envelopeVersion: storedEvent.envelopeVersion,
+      occurredAt: storedEvent.occurredAt.toISOString(),
+      recordedAt: storedEvent.recordedAt.toISOString(),
+      tenantId: storedEvent.tenantId,
+      orgId: storedEvent.orgId,
+      module: storedEvent.module,
+      entityType: storedEvent.entityType,
+      entityId: storedEvent.entityId,
+      actor: { type: storedEvent.actorType, id: storedEvent.actorId },
+      correlationId: storedEvent.correlationId,
+      ...(storedEvent.causationId
+        ? { causationId: storedEvent.causationId }
+        : {}),
+      idempotencyKey: storedEvent.idempotencyKey,
+      schemaRef: storedEvent.schemaRef,
+      payload: storedEvent.payloadJson,
+      ...(storedEvent.metadataJson
+        ? { metadata: storedEvent.metadataJson }
+        : {}),
+      ...(storedEvent.traceContextJson
+        ? { traceContext: storedEvent.traceContextJson }
+        : {}),
+    });
+    if (!parsedEvent.success) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Invalid canonical jobs/bids event: ${parsedEvent.error.issues[0]?.message ?? "schema validation failed"}`,
+        JOBS_BIDS_PROJECTION_CONSUMER,
+      );
+    }
+
+    const payload = storedEvent.payloadJson as { jobId?: unknown };
+    if (typeof payload.jobId !== "string" || payload.jobId.length === 0) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        "jobs/bids event payload is missing jobId",
+        JOBS_BIDS_PROJECTION_CONSUMER,
+      );
+    }
+
+    try {
+      const result = await this.consumeJobsBidsProjection(
+        {
+          eventId: storedEvent.eventId,
+          tenantId: storedEvent.tenantId,
+          correlationId: storedEvent.correlationId,
+          causationId: storedEvent.causationId ?? undefined,
+          jobId: payload.jobId,
+        },
+        processingIdentity,
+      );
+      if (result.duplicate) {
+        this.metrics.recordEventConsumerDuplicate(JOBS_BIDS_PROJECTION_CONSUMER);
+      } else {
+        this.metrics.recordEventConsumerAttempt(
+          JOBS_BIDS_PROJECTION_CONSUMER,
+          "completed",
+        );
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof AlreadyDeadLetteredError) {
+        throw new UnprocessableEntityException({
+          message: error.message,
+          eventId: storedEvent.eventId,
+          consumer: JOBS_BIDS_PROJECTION_CONSUMER,
+        });
+      }
+
+      const terminal = error instanceof TerminalConsumerError;
+      const failure = await this.recordFailure({
+        eventId: storedEvent.eventId,
+        tenantId: storedEvent.tenantId,
+        error: redactConsumerError(error),
+        terminal,
+        consumerName: JOBS_BIDS_PROJECTION_CONSUMER,
+      });
+      this.metrics.recordEventConsumerAttempt(JOBS_BIDS_PROJECTION_CONSUMER, "failed");
+      if (failure.status === "DEAD_LETTER") {
+        this.metrics.recordEventConsumerDeadLetter(JOBS_BIDS_PROJECTION_CONSUMER);
+        throw new UnprocessableEntityException({
+          message: "Domain event consumer moved delivery to dead letter",
+          eventId: storedEvent.eventId,
+          consumer: JOBS_BIDS_PROJECTION_CONSUMER,
+          attempts: failure.attempts,
+        });
+      }
+
+      throw new InternalServerErrorException({
+        message: "Domain event consumer failed; retry is allowed",
+        eventId: storedEvent.eventId,
+        consumer: JOBS_BIDS_PROJECTION_CONSUMER,
+        attempts: failure.attempts,
+      });
+    }
+  }
+
+  private async consumeJobsBidsProjection(
+    event: {
+      eventId: string;
+      tenantId: string;
+      correlationId: string;
+      causationId?: string;
+      jobId: string;
+    },
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    const existing = await this.prisma.domainEventConsumption.findUnique({
+      where: {
+        eventId_consumerName: {
+          eventId: event.eventId,
+          consumerName: JOBS_BIDS_PROJECTION_CONSUMER,
+        },
+      },
+      select: { status: true, resultJson: true },
+    });
+    if (existing?.status === "COMPLETED") {
+      return {
+        ...(existing.resultJson as ConsumerResult),
+        duplicate: true,
+      };
+    }
+    if (existing?.status === "DEAD_LETTER") {
+      throw new AlreadyDeadLetteredError(
+        "Domain event consumer delivery is already in dead letter",
+      );
+    }
+
+    let rebuild: Awaited<
+      ReturnType<JobsRepository["rebuildJobsBidsProjection"]>
+    >;
+    try {
+      rebuild = await this.jobsRepository!.rebuildJobsBidsProjection({
+        tenantId: event.tenantId,
+        jobId: event.jobId,
+      });
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new TerminalConsumerError(
+          "Jobs/bids event job does not exist in the event tenant",
+        );
+      }
+      throw error;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.$executeRaw(
+        PrismaRuntime.sql`
+          INSERT INTO "DomainEventConsumption" (
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "nextAttemptAt", "createdAt", "updatedAt"
+          ) VALUES (
+            ${randomUUID()}, ${event.eventId}::uuid, ${event.tenantId},
+            ${JOBS_BIDS_PROJECTION_CONSUMER}, 'PENDING'::"DomainConsumptionStatus",
+            0, ${CONSUMER_MAX_ATTEMPTS}, ${now}, ${now}, ${now}
+          )
+          ON CONFLICT ("eventId", "consumerName") DO NOTHING
+        `,
+      );
+
+      const receipts = await tx.$queryRaw<ConsumptionReceipt[]>(
+        PrismaRuntime.sql`
+          SELECT
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "resultJson"
+          FROM "DomainEventConsumption"
+          WHERE "eventId" = ${event.eventId}::uuid
+            AND "consumerName" = ${JOBS_BIDS_PROJECTION_CONSUMER}
+          FOR UPDATE
+        `,
+      );
+      const receipt = receipts[0];
+      if (!receipt) {
+        throw new Error("Jobs/bids consumer receipt was not created");
+      }
+      if (receipt.status === "COMPLETED") {
+        return {
+          ...(receipt.resultJson as ConsumerResult),
+          duplicate: true,
+        };
+      }
+      if (receipt.status === "DEAD_LETTER") {
+        throw new AlreadyDeadLetteredError(
+          "Domain event consumer delivery is already in dead letter",
+        );
+      }
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "PROCESSING",
+          attempts: receipt.attempts + 1,
+          startedAt: now,
+          completedAt: null,
+          lastError: null,
+        },
+      });
+
+      const result: ConsumerResult = {
+        eventId: event.eventId,
+        consumer: JOBS_BIDS_PROJECTION_CONSUMER,
+        status: "completed",
+        effect: rebuild.effect,
+        jobId: event.jobId,
+        revision: rebuild.revision,
+        sourceUpdatedAt: rebuild.sourceUpdatedAt,
+      };
+      await tx.auditLog.create({
+        data: {
+          tenantId: event.tenantId,
+          entityType: "JobsBidsProjection",
+          entityId: event.jobId,
+          action: `domain_event.consumer.jobs_bids_projection.${rebuild.effect}`,
+          afterJson: {
+            eventId: event.eventId,
+            correlationId: event.correlationId,
+            causationId: event.causationId ?? null,
+            consumer: JOBS_BIDS_PROJECTION_CONSUMER,
+            revision: rebuild.revision ?? null,
+            sourceUpdatedAt: rebuild.sourceUpdatedAt ?? null,
+            workerId: processingIdentity.workerId ?? null,
+            serviceActorId: processingIdentity.serviceActorId ?? null,
+          },
+        },
+      });
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          nextAttemptAt: now,
+          lastError: null,
+          resultJson: result as Prisma.InputJsonValue,
+        },
+      });
+      return result;
+    });
+  }
+
+  private selectSatelliteWebhooksSchema(eventType: string) {
+    switch (eventType) {
+      case "job.matched.v1":
+        return jobMatchedV1EventSchema;
+      case "job.completed.v1":
+        return jobCompletedV1EventSchema;
+      case "rating.requested.v1":
+        return ratingRequestedV1EventSchema;
+      case "milestone.approved.v1":
+        return milestoneApprovedV1EventSchema;
+      case "milestone.rejected.v1":
+        return milestoneRejectedV1EventSchema;
+      default:
+        return null;
+    }
+  }
+
+  private async processSatelliteWebhooksEvent(
+    storedEvent: DomainOutboxEvent,
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    const schema = this.selectSatelliteWebhooksSchema(storedEvent.eventType);
+    if (!schema) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Unsupported satellite webhook event type: ${storedEvent.eventType}`,
+        SATELLITE_WEBHOOKS_CONSUMER,
+      );
+    }
+
+    const parsedEvent = schema.safeParse({
+      eventId: storedEvent.eventId,
+      eventType: storedEvent.eventType,
+      version: storedEvent.version,
+      envelopeVersion: storedEvent.envelopeVersion,
+      occurredAt: storedEvent.occurredAt.toISOString(),
+      recordedAt: storedEvent.recordedAt.toISOString(),
+      tenantId: storedEvent.tenantId,
+      orgId: storedEvent.orgId,
+      module: storedEvent.module,
+      entityType: storedEvent.entityType,
+      entityId: storedEvent.entityId,
+      actor: { type: storedEvent.actorType, id: storedEvent.actorId },
+      correlationId: storedEvent.correlationId,
+      ...(storedEvent.causationId ? { causationId: storedEvent.causationId } : {}),
+      idempotencyKey: storedEvent.idempotencyKey,
+      schemaRef: storedEvent.schemaRef,
+      payload: storedEvent.payloadJson,
+      ...(storedEvent.metadataJson ? { metadata: storedEvent.metadataJson } : {}),
+      ...(storedEvent.traceContextJson ? { traceContext: storedEvent.traceContextJson } : {}),
+    });
+    if (!parsedEvent.success) {
+      return this.rejectTerminal(
+        storedEvent.eventId,
+        storedEvent.tenantId,
+        `Invalid canonical satellite webhook event: ${parsedEvent.error.issues[0]?.message ?? "schema validation failed"}`,
+        SATELLITE_WEBHOOKS_CONSUMER,
+      );
+    }
+
+    try {
+      const result = await this.consumeSatelliteWebhooksDelivery(
+        {
+          eventId: storedEvent.eventId,
+          tenantId: storedEvent.tenantId,
+          correlationId: storedEvent.correlationId,
+          causationId: storedEvent.causationId ?? undefined,
+          bareEventType: storedEvent.eventType.replace(/\.v1$/, ""),
+          occurredAt: storedEvent.occurredAt.toISOString(),
+          payload: storedEvent.payloadJson,
+        },
+        processingIdentity,
+      );
+      if (result.duplicate) {
+        this.metrics.recordEventConsumerDuplicate(SATELLITE_WEBHOOKS_CONSUMER);
+      } else {
+        this.metrics.recordEventConsumerAttempt(SATELLITE_WEBHOOKS_CONSUMER, "completed");
+      }
+      return result;
+    } catch (error) {
+      if (error instanceof AlreadyDeadLetteredError) {
+        throw new UnprocessableEntityException({
+          message: error.message,
+          eventId: storedEvent.eventId,
+          consumer: SATELLITE_WEBHOOKS_CONSUMER,
+        });
+      }
+
+      const terminal = error instanceof TerminalConsumerError;
+      const failure = await this.recordFailure({
+        eventId: storedEvent.eventId,
+        tenantId: storedEvent.tenantId,
+        error: redactConsumerError(error),
+        terminal,
+        consumerName: SATELLITE_WEBHOOKS_CONSUMER,
+      });
+      this.metrics.recordEventConsumerAttempt(SATELLITE_WEBHOOKS_CONSUMER, "failed");
+      if (failure.status === "DEAD_LETTER") {
+        this.metrics.recordEventConsumerDeadLetter(SATELLITE_WEBHOOKS_CONSUMER);
+        throw new UnprocessableEntityException({
+          message: "Domain event consumer moved delivery to dead letter",
+          eventId: storedEvent.eventId,
+          consumer: SATELLITE_WEBHOOKS_CONSUMER,
+          attempts: failure.attempts,
+        });
+      }
+
+      throw new InternalServerErrorException({
+        message: "Domain event consumer failed; retry is allowed",
+        eventId: storedEvent.eventId,
+        consumer: SATELLITE_WEBHOOKS_CONSUMER,
+        attempts: failure.attempts,
+      });
+    }
+  }
+
+  private async consumeSatelliteWebhooksDelivery(
+    event: {
+      eventId: string;
+      tenantId: string;
+      correlationId: string;
+      causationId?: string;
+      bareEventType: string;
+      occurredAt: string;
+      payload: unknown;
+    },
+    processingIdentity: ProcessingIdentity,
+  ): Promise<ConsumerResult> {
+    const existing = await this.prisma.domainEventConsumption.findUnique({
+      where: {
+        eventId_consumerName: {
+          eventId: event.eventId,
+          consumerName: SATELLITE_WEBHOOKS_CONSUMER,
+        },
+      },
+      select: { status: true, resultJson: true },
+    });
+    if (existing?.status === "COMPLETED") {
+      return { ...(existing.resultJson as ConsumerResult), duplicate: true };
+    }
+    if (existing?.status === "DEAD_LETTER") {
+      throw new AlreadyDeadLetteredError(
+        "Domain event consumer delivery is already in dead letter",
+      );
+    }
+
+    let effect: "updated" | "no_op" | "disabled" = "no_op";
+    let deliveries: Array<{ webhookId: string; delivered: boolean; reason?: string }> = [];
+
+    if (!this.satelliteWebhooksService || !satelliteWebhooksEnabled()) {
+      effect = "disabled";
+    } else {
+      const webhooks = await this.satelliteWebhooksService.findActiveForEvent(event.bareEventType);
+      if (webhooks.length > 0) {
+        effect = "updated";
+        const body = JSON.stringify({
+          event: event.bareEventType,
+          eventId: event.eventId,
+          occurredAt: event.occurredAt,
+          payload: event.payload,
+        });
+
+        const settled = await Promise.allSettled(
+          webhooks.map(async (webhook) => {
+            const signature = signWebhookPayload(body, webhook.secret);
+            const outcome = await this.deliverSatelliteWebhookFn(webhook.url, body, signature);
+            if (outcome.delivered) {
+              await this.satelliteWebhooksService!.recordDeliverySuccess(webhook.id);
+              return { webhookId: webhook.id, delivered: true };
+            }
+            await this.satelliteWebhooksService!.recordDeliveryFailure(webhook.id);
+            return { webhookId: webhook.id, delivered: false, reason: outcome.reason };
+          }),
+        );
+
+        deliveries = settled.map((outcome, index) =>
+          outcome.status === "fulfilled"
+            ? outcome.value
+            : { webhookId: webhooks[index]!.id, delivered: false, reason: "handler_threw" },
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      await tx.$executeRaw(
+        PrismaRuntime.sql`
+          INSERT INTO "DomainEventConsumption" (
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "nextAttemptAt", "createdAt", "updatedAt"
+          ) VALUES (
+            ${randomUUID()}, ${event.eventId}::uuid, ${event.tenantId},
+            ${SATELLITE_WEBHOOKS_CONSUMER}, 'PENDING'::"DomainConsumptionStatus",
+            0, ${CONSUMER_MAX_ATTEMPTS}, ${now}, ${now}, ${now}
+          )
+          ON CONFLICT ("eventId", "consumerName") DO NOTHING
+        `,
+      );
+
+      const receipts = await tx.$queryRaw<ConsumptionReceipt[]>(
+        PrismaRuntime.sql`
+          SELECT
+            "id", "eventId", "tenantId", "consumerName", "status",
+            "attempts", "maxAttempts", "resultJson"
+          FROM "DomainEventConsumption"
+          WHERE "eventId" = ${event.eventId}::uuid
+            AND "consumerName" = ${SATELLITE_WEBHOOKS_CONSUMER}
+          FOR UPDATE
+        `,
+      );
+      const receipt = receipts[0];
+      if (!receipt) {
+        throw new Error("Satellite webhooks consumer receipt was not created");
+      }
+      if (receipt.status === "COMPLETED") {
+        return { ...(receipt.resultJson as ConsumerResult), duplicate: true };
+      }
+      if (receipt.status === "DEAD_LETTER") {
+        throw new AlreadyDeadLetteredError(
+          "Domain event consumer delivery is already in dead letter",
+        );
+      }
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "PROCESSING",
+          attempts: receipt.attempts + 1,
+          startedAt: now,
+          completedAt: null,
+          lastError: null,
+        },
+      });
+
+      const result: ConsumerResult = {
+        eventId: event.eventId,
+        consumer: SATELLITE_WEBHOOKS_CONSUMER,
+        status: "completed",
+        effect,
+        deliveries,
+      };
+      await tx.auditLog.create({
+        data: {
+          tenantId: event.tenantId,
+          entityType: "SatelliteWebhookDelivery",
+          entityId: event.eventId,
+          action: `domain_event.consumer.satellite_webhooks.${effect}`,
+          afterJson: {
+            eventId: event.eventId,
+            correlationId: event.correlationId,
+            causationId: event.causationId ?? null,
+            consumer: SATELLITE_WEBHOOKS_CONSUMER,
+            bareEventType: event.bareEventType,
+            deliveries,
+            workerId: processingIdentity.workerId ?? null,
+            serviceActorId: processingIdentity.serviceActorId ?? null,
+          },
+        },
+      });
+
+      await tx.domainEventConsumption.update({
+        where: { id: receipt.id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          nextAttemptAt: now,
+          lastError: null,
+          resultJson: result as Prisma.InputJsonValue,
+        },
+      });
+      return result;
+    });
   }
 
   private async rejectTerminal(
     eventId: string,
     tenantId: string,
     error: string,
+    consumerName: string = EVIDENCE_READINESS_CONSUMER,
   ): Promise<never> {
     const failure = await this.recordFailure({
       eventId,
       tenantId,
       error,
       terminal: true,
+      consumerName,
     });
-    this.metrics.recordEventConsumerAttempt(EVIDENCE_READINESS_CONSUMER, "failed");
-    this.metrics.recordEventConsumerDeadLetter(EVIDENCE_READINESS_CONSUMER);
+    this.metrics.recordEventConsumerAttempt(consumerName, "failed");
+    this.metrics.recordEventConsumerDeadLetter(consumerName);
     throw new UnprocessableEntityException({
       message: "Domain event rejected by canonical consumer contract",
       eventId,
-      consumer: EVIDENCE_READINESS_CONSUMER,
+      consumer: consumerName,
       attempts: failure.attempts,
     });
   }
@@ -431,7 +1377,9 @@ export class DomainEventConsumerService {
     tenantId: string;
     error: string;
     terminal: boolean;
+    consumerName?: string;
   }): Promise<{ status: "FAILED" | "DEAD_LETTER"; attempts: number }> {
+    const consumerName = input.consumerName ?? EVIDENCE_READINESS_CONSUMER;
     return this.prisma.$transaction(async (tx) => {
       const now = new Date();
       await tx.$executeRaw(
@@ -441,7 +1389,7 @@ export class DomainEventConsumerService {
             "attempts", "maxAttempts", "nextAttemptAt", "createdAt", "updatedAt"
           ) VALUES (
             ${randomUUID()}, ${input.eventId}::uuid, ${input.tenantId},
-            ${EVIDENCE_READINESS_CONSUMER}, 'PENDING'::"DomainConsumptionStatus",
+            ${consumerName}, 'PENDING'::"DomainConsumptionStatus",
             0, ${CONSUMER_MAX_ATTEMPTS}, ${now}, ${now}, ${now}
           )
           ON CONFLICT ("eventId", "consumerName") DO NOTHING
@@ -454,7 +1402,7 @@ export class DomainEventConsumerService {
             "attempts", "maxAttempts", "resultJson"
           FROM "DomainEventConsumption"
           WHERE "eventId" = ${input.eventId}::uuid
-            AND "consumerName" = ${EVIDENCE_READINESS_CONSUMER}
+            AND "consumerName" = ${consumerName}
           FOR UPDATE
         `,
       );

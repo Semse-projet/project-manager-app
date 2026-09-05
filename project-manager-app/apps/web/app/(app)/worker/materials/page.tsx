@@ -25,7 +25,7 @@ const STATUS_MAP: Record<MaterialRequest["status"], { variant: "warning" | "succ
   pending:   { variant: "warning", label: "Pendiente" },
   approved:  { variant: "info",    label: "Aprobado"  },
   delivered: { variant: "success", label: "Entregado" },
-  rejected:  { variant: "neutral", label: "Rechazado" },
+  rejected:  { variant: "error",   label: "Rechazado" },
 };
 
 function rawToReq(m: Record<string, unknown>, jobTitleMap: Record<string, string>): MaterialRequest {
@@ -79,16 +79,34 @@ export default function WorkerMaterialsPage() {
   useEffect(() => { void load(); }, [load]);
 
   async function handleSubmit() {
-    if (!formItem.trim() || !formQty || !formJobId || submitting) return;
+    const qtyNum = Number(formQty);
+    const costNum = formCost ? Number(formCost) : undefined;
+    if (submitting) return;
+    if (!formJobId) {
+      setSubmitError("Selecciona un trabajo antes de enviar la solicitud.");
+      return;
+    }
+    if (!formItem.trim()) {
+      setSubmitError("Escribe el nombre del material o ítem.");
+      return;
+    }
+    if (!formQty || Number.isNaN(qtyNum) || qtyNum <= 0) {
+      setSubmitError("La cantidad debe ser un número mayor a 0.");
+      return;
+    }
+    if (costNum !== undefined && (Number.isNaN(costNum) || costNum < 0)) {
+      setSubmitError("El costo estimado no puede ser negativo.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
       await createMaterialRequest({
         jobId: formJobId,
         item: formItem.trim(),
-        quantity: Number(formQty),
+        quantity: qtyNum,
         unit: formUnit,
-        estimatedCost: formCost ? Number(formCost) : undefined,
+        estimatedCost: costNum,
       });
       setFormItem(""); setFormQty(""); setFormCost("");
       setShowForm(false);
@@ -124,7 +142,7 @@ export default function WorkerMaterialsPage() {
         <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <NotificationBanner audience="worker" />
           <button onClick={() => void load()} disabled={loading} style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }} title="Recargar">
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
           </button>
           <button onClick={() => setShowForm(v => !v)} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "10px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer" }}>
             <Plus size={15} /> Solicitar material
@@ -179,7 +197,7 @@ export default function WorkerMaterialsPage() {
                 <input type="number" value={formCost} onChange={e => setFormCost(e.target.value)} placeholder="0" style={{ width: "100%", padding: "9px 12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg)", color: "var(--ink)", fontSize: "13px", outline: "none", boxSizing: "border-box" }} />
               </div>
             </div>
-            {submitError && <p style={{ fontSize: "12px", color: "#ef4444" }}>{submitError}</p>}
+            {submitError && <p style={{ fontSize: "12px", color: "var(--error)" }}>{submitError}</p>}
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setShowForm(false)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--muted)", fontSize: "13px", fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
               <button onClick={() => void handleSubmit()} disabled={submitting || !formItem.trim() || !formQty} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "none", background: "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: "pointer", opacity: submitting ? 0.7 : 1 }}>

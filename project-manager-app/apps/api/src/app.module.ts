@@ -26,6 +26,7 @@ import { ReservationsModule } from "./modules/reservations/reservations.module.j
 import { TrustModule } from "./modules/trust/trust.module.js";
 import { FieldOpsModule } from "./modules/field-ops/field-ops.module.js";
 import { LaborEngineModule } from "./modules/labor-engine/labor-engine.module.js";
+import { PushNotificationsModule } from "./modules/push-notifications/push-notifications.module.js";
 import { AgroModule } from "./modules/agro/agro.module.js";
 import { DemoModule } from "./modules/demo/demo.module.js";
 import { DomainEventsModule } from "./modules/domain-events/domain-events.module.js";
@@ -61,6 +62,7 @@ import { ContractorModule } from "./modules/contractor/contractor.module.js";
 import { AssistantModule } from "./modules/assistant/assistant.module.js";
 import { ToolsModule } from "./modules/tools/tools.module.js";
 import { BuildOpsModule } from "./modules/buildops/buildops.module.js";
+import { OriginatorModule } from "./modules/originator/originator.module.js";
 import { SmartIntakeModule } from "./modules/smart-intake/smart-intake.module.js";
 import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge/intake-operations-bridge.module.js";
 import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module.js";
@@ -77,6 +79,8 @@ import { BrowserAgentModule } from "./modules/browser-agent/browser-agent.module
 import { VisionModule } from "./modules/vision/vision.module.js";
 import { SatellitesModule } from "./modules/satellites/satellites.module.js";
 import { AdminModule } from "./modules/admin/admin.module.js";
+import { LiensModule } from "./modules/liens/liens.module.js";
+import { WeatherModule } from "./modules/weather/weather.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -118,6 +122,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     TrustModule,
     FieldOpsModule,
     LaborEngineModule,
+    PushNotificationsModule,
     AgroModule,
     DemoModule,
     OrganizationsModule,
@@ -150,6 +155,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     AssistantModule,
     ToolsModule,
     BuildOpsModule,
+    OriginatorModule,
     SmartIntakeModule,
     IntakeOperationsBridgeModule,
     ChangeOrdersModule,
@@ -166,6 +172,8 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     VisionModule,
     SatellitesModule,
     AdminModule,
+    LiensModule,
+    WeatherModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#3b82f6" />
+    <title>Sin conexion · SEMSE</title>
+    <style>
+      /* Sin fuentes remotas ni assets externos: esta pagina debe renderizar sin red. */
+      :root {
+        --base: #050810;
+        --ink: #f1f5f9;
+        --muted: #94a3b8;
+        --brand: #3b82f6;
+        --border: #1f2d3d;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--base);
+        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-align: center;
+      }
+      .card { max-width: 24rem; }
+      img { width: 88px; height: 88px; margin-bottom: 20px; }
+      h1 { font-size: 1.375rem; font-weight: 600; margin: 0 0 10px; }
+      p { color: var(--muted); line-height: 1.6; margin: 0 0 24px; font-size: 0.9375rem; }
+      button {
+        background: var(--brand);
+        color: #fff;
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 22px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover { filter: brightness(1.08); }
+      .hint {
+        margin-top: 22px;
+        padding-top: 18px;
+        border-top: 1px solid var(--border);
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <img src="/icon-192.png" alt="SEMSE" />
+      <h1>Sin conexion</h1>
+      <p>
+        No pudimos contactar con SEMSE. Revisa tu conexion e intentalo de nuevo; tu
+        sesion sigue activa.
+      </p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+      <div class="hint">Se reintentara solo en cuanto vuelva la señal.</div>
+    </div>
+    <script>
+      // Recarga automatica en cuanto el navegador recupere la red.
+      addEventListener("online", function () {
+        location.reload();
+      });
+    </script>
+  </body>
+</html>

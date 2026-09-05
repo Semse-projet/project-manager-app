@@ -1,8 +1,9 @@
 # Arquitectura vigente de SEMSEproject
 
 **Estado:** CANONICA
-**Corte verificado:** 2026-07-16
-**Codigo/produccion verificados:** `main@6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d`
+**Corte verificado:** 2026-07-31
+**Código/producción verificados:** `main@114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`
+**F3 desplegado/activo en canary:** contenido desde `f1234291`
 **Repositorio:** `Semse-projet/project-manager-app`
 **Raiz de aplicacion:** `project-manager-app/`
 
@@ -10,6 +11,9 @@ Este documento describe la arquitectura vigente y la direccion aprobada. No
 reemplaza los contratos SDD, modelos Prisma ni tests. Su funcion es ordenar esas
 fuentes y evitar que documentos historicos vuelvan a describir el repositorio
 como una app local sin backend.
+
+El aterrizaje de la síntesis transversal sobre componentes actuales vive en
+[`PRODUCTION_CONVERGENCE_MAP.md`](PRODUCTION_CONVERGENCE_MAP.md).
 
 ## 1. Tesis de producto
 
@@ -24,19 +28,16 @@ dinero, confianza, conocimiento e inteligencia artificial.
   backend paralelo ni sustituye los modulos de dominio.
 - Mission Control supervisa excepciones, salud, decisiones y ejecucion.
 
-## 2. Jerarquia de fuentes de verdad
+## 2. Ejes de fuentes de verdad
 
-En caso de contradiccion se usa este orden:
+Constitución/specs, código `main`, producción comprobada y contratos
+ejecutables son ejes distintos. Ninguno borra una contradicción del otro: se
+registra drift y se reconcilia. La precedencia y ownership completos están en
+[`../SOURCE_OF_TRUTH.md`](../SOURCE_OF_TRUTH.md).
 
-1. Codigo actual de `main`.
-2. Specs aprobados, contratos Zod, modelos Prisma, migrations y tests.
-3. Estado comprobado en produccion.
-4. Documentacion operativa actualizada.
-5. Conversaciones y vision de producto.
-6. Investigacion externa.
-
-Una capacidad puede estar implementada, probada, integrada y desplegada en
-momentos distintos. Los documentos deben declarar esas etapas por separado.
+Una capacidad puede estar implementada, probada, integrada, desplegada y
+activada en momentos distintos. Los documentos declaran esas etapas por
+separado y acotan `CANARY` frente a `ACTIVE`.
 
 ## 3. Taxonomia oficial
 
@@ -50,7 +51,7 @@ un renombramiento masivo.
 | SEMSE Payments | Pagos, estados de escrow operativo, releases, refunds y gobierno financiero | `payments`, `escrow`, `payment-governance`, `finance`, `liens` |
 | SEMSE Trust | Reputacion, verificacion, cumplimiento, disputas y governance | `ratings`, `trust`, `governance`, `compliance`, `disputes` |
 | SEMSE AI | Prometeo, agentes, autonomia, Vision, Browser Agent e inteligencia | `prometeo`, `agents`, `autonomy`, `vision`, `browser-agent`, `operational-intelligence` |
-| SEMSE Agro | Fincas, animales, cultivos, inventario, costos y trazabilidad | `apps/api/src/modules/agro`, `apps/web/app/agro`, `apps/mobile` |
+| SEMSE Agro | Fincas, animales, cultivos, inventario, costos y trazabilidad | `apps/api/src/modules/agro`, `apps/web/app/agro` |
 | SEMSE BuildOps | Proyectos, hitos, ProTools, materiales, incidentes y operaciones de construccion | `buildops`, `milestones`, `projects`, `pricing`, `materials`, `incidents`, `tools` |
 | SEMSE Knowledge | RAG, documentos, trade library, Graphify, embeddings y memoria institucional | `knowledge`, `repo-knowledge`, `runtime-knowledge`, `graphify`, `skills` |
 | SEMSE Integrations | Stripe, WhatsApp, Railway, modelos, storage, webhooks, SDK y satelites | adapters en API, `developer-runtime`, `evidence-gateway`, specs SAT |
@@ -119,9 +120,16 @@ La raiz canónica es un monorepo pnpm. Las aplicaciones principales son:
 - `apps/worker`: BullMQ, timers y trabajos asincronos.
 - `apps/vision-service`: analisis visual especializado.
 - `apps/autonomy-server`: runtime de autonomia donde se despliegue.
-- `apps/mobile`: cliente movil y primitives offline.
 - `apps/angular` y `apps/assistant-portal`: superficies adicionales o de
   transicion; no redefinen la raiz canónica.
+
+> **Cliente movil: planeado, no existente.** Hubo un `apps/mobile` con un spike
+> de React Native/Expo (2026-06-22) que nunca llego a compilar — sin
+> `package.json` ni `tsconfig`, y con dependencias que jamas se instalaron en el
+> monorepo. Se retiro el 2026-07-26 y queda archivado en el tag
+> `archive/mobile-spike-2026-06`. El diseño vigente del cliente movil es la spec
+> `SAT-003`, que lo define como **satelite externo** consumiendo el BFF/API via
+> SDK, no como una app del monorepo.
 
 Paquetes compartidos existentes:
 
@@ -140,18 +148,19 @@ en los modulos actuales.
 
 | Sistema | Estado | Hecho verificado | Brecha principal |
 | --- | --- | --- | --- |
-| Domain Events | Implementado/parcial (F1-D) | Envelope v2, `evidence.uploaded.v1`, producer atomico, dispatcher BullMQ y consumer idempotente de Evidence | Falta Ops/replay, trace extendido, canary y adopcion dominio por dominio |
-| Transactional Outbox | Implementado/parcial (F1-D) | Evidence + outbox comparten transaccion; dispatcher usa leases y jobId deterministico; effect + receipt del consumer son atomicos | Feature flags siguen default-off; faltan replay operativo, canary y producers adicionales |
+| Domain Events | Implementado/parcial y activo en canary acotado | Envelope v2; Evidence F1; F3 `project.lifecycle-source-changed.v1`; dispatcher BullMQ; consumers idempotentes, ops/replay | Falta adopción transaccional dominio por dominio y cierre global F1-F |
+| Transactional Outbox | Implementado/parcial y ejercitado | Evidence + outbox comparten transacción; dispatcher usa leases; effect + receipt son atómicos; F3 verificó publicación, consumo y replay | Hooks F3 fuera de Evidence siguen post-commit best-effort |
 | BullMQ y loops | Implementado/parcial | Worker, retries, backpressure, kill switch y agent runs dead-lettered | Falta unificar observabilidad, replay y DLQ por evento |
 | Prometeo Runtime P2 | Implementado y desplegado | Misiones persistentes sobre `AgentWorkPlan`, aprobacion y checkpoints | Mutaciones, compensacion, budgets y verificacion transversal pendientes |
-| Prometeo Tool Registry | Parcial | 23 tools read y 7 write declaradas; 17 casos read cableados | Write bloqueado; tools declaradas sin adapter; permisos por tool aun dispersos |
+| Prometeo Tool Registry | Implementado/parcial | 31 descriptors; 23/24 read y 7/7 write cableados; policy/audit/approval gobiernan escritura | `vision.analyze_video` y verification/compensación explícita |
 | Evidence provenance | Parcial | Evidence, checksum, metadata, geo, analisis visual y storage abstraction | Chain of custody, firmas, retencion y acceso no estan unificados |
 | Economic Ledger | Pendiente como sistema comun | `PaymentTxn` y ledgers verticales registran movimientos operativos | No existe double-entry compartido, cuentas, lineas, reversals ni trial balance |
 | Policy/Approval | Parcial | RBAC default-deny y aprobaciones en Prometeo, BuildOps y Payments | No existe decision engine transversal versionado |
-| Mission Control | Parcial | UI, signals, incidents, SSE, AI health y acciones operativas | Las colas y workspaces siguen fragmentados; no hay cockpit unico de eventos/DLQ |
+| Mission Control | F4 implementado local; SDD 2.0 aprobado | cola normalizada, receipts idempotentes, runbooks allowlisted, adapters con autoridad de dominio, UI/BFF exception-first y SSE autenticado tenant-safe | CI/merge/deploy y canary `tenant_default` |
+| Project Lifecycle Projection | Verificado en canary (F3) | API/BFF/UI, snapshot durable, rebuild tenant-scoped, evento/consumer, CAS, duplicado y replay verificados para `tenant_default` | Ventana SLO y promoción global; outbox atómica por dominio |
 | Product Intelligence | Implementado/parcial (PI-00..PI-06) | SDK separado, contratos, modelos, ingesta, retencion, instrumentacion auth/wizard y funnels de experiencia/economico | Activacion de flags no verificada; PI-07 Friction Engine y fases PI-08..PI-11 pendientes |
 | Workspace/Context Bridge | Parcial | Developer runtime, context bridge panel y capas de contexto existentes | Registry de terminales, shared mission context y scopes uniformes |
-| SDD/Blueprint Engine | Parcial | Specs, preflight, developer runtime y flujos de plan | Pipeline idea->spec->tasks->PR->deploy gobernado de punta a punta |
+| SDD/Blueprint Engine | Implementado/parcial | 98 specs; strict 0/0; templates SDD 2.0; estados code/CI/merge/deploy/activation separados | Migrar specs al tocarlas y cerrar evidencia de producción |
 | Observabilidad | Parcial | Sentry, metricas Prometheus, health/readiness y auditoria | No hay trazas OTel end-to-end ni SLOs de negocio completos |
 | Storage | Parcial | Storage service con local y S3/R2, MinIO local, Evidence bucket keys | Debe verificarse provider y politicas de retencion en cada ambiente |
 | Offline | Parcial | Mobile offline store y Agro sync service | No hay sincronizacion compartida completa ni UX offline uniforme |
@@ -208,20 +217,23 @@ correlationId, causationId, idempotencyKey,
 payload, metadata, traceContext, schemaRef
 ```
 
-No se migrara con un big bang. F1-A-F1-D ya introdujeron el envelope y la outbox
-en Evidence, el dispatcher BullMQ y el consumer idempotente
-`evidence-readiness.v1`. El worker recibe solo `eventId`; API reconstruye el
-evento durable desde PostgreSQL; efecto, AuditLog y receipt se confirman en la
-misma transaccion. El consumer no cambia `Milestone.status`, Payments ni
-`paymentReadiness`.
+No se migra con un big bang. F1 introdujo el envelope, outbox Evidence,
+dispatcher BullMQ, consumers idempotentes y operaciones de replay. F3 adoptó el
+backbone con `project.lifecycle-source-changed.v1` y
+`project-lifecycle-projection.v1`. El worker recibe sólo `eventId`; API
+reconstruye el evento durable desde PostgreSQL y confirma effect, AuditLog y
+receipt del consumer en una transacción.
 
-El contrato F1 esta aprobado en
+El canary F3 activó dispatcher/consumers con allowlists acotadas y verificó
+cinco publicaciones, cinco consumos, duplicado y replay. Esto demuestra el
+slice F3, no cierra F1 globalmente. Evidence conserva escritura+outbox atómica;
+los hooks F3 de otros dominios son post-commit best-effort y dependen de
+read-through/rebuild como recuperación hasta su migración transaccional.
+
+El contrato F1 está en
 [`../specs/platform/event-backbone.spec.md`](../specs/platform/event-backbone.spec.md)
-y ADR-022. Su estado es **parcial hasta F1-D, integrado en `main` y contenido en
-el deploy del corte**. Los switches de dispatcher y consumers son default-off;
-su valor real en Railway no pudo inspeccionarse por falta de sesion CLI. F1-E
-debe completar Ops/replay/RBAC/trace y F1-F debe ejecutar el canary antes de
-declarar el backbone activo o cerrado.
+y ADR-022. F1-F sigue pendiente como cierre transversal de canary/SLO y
+adopción general.
 
 ## 9. Flujos canónicos
 
@@ -288,26 +300,30 @@ su cuenta.
 
 ## 11. Estado de produccion verificado
 
-Verificado el 2026-07-16 para el SHA exacto de `main`:
+Verificado el 2026-07-31:
 
-- `main`: `6a8b4a0de5ce8bce5c464aa8a7e6e268073dc22d` (PR #312).
-- CI, CodeQL, API Smoke, API Integration, Operacion Asistida y Autonomy Staged:
-  exitosos para ese SHA.
-- Railway Deploy: exitoso; el workflow resolvio y desplego el SHA exacto.
-- Production Health Gate: exitoso.
-- API `/v1/health`: HTTP 200.
-- Web: HTTP 200.
-- `/v1/prometeo/tools`: HTTP 401 sin token, confirmando ruta protegida.
-- Product Intelligence `/v1/product-intelligence/funnel` y
-  `/funnel/economic`: HTTP 401 sin token, confirmando rutas protegidas.
-- F1-D y PI-00..PI-06 estan contenidos en el codigo desplegado. Esto no
-  demuestra que sus feature flags esten activas.
-- La CLI de Railway no estaba autenticada durante F0; valores de flags,
-  allowlists, servicios no publicos y provider de storage quedan **no
-  verificados**.
+- `origin/main` y producción:
+  `114cb9ca4007d32bf3fbbfc9c36d54b1e862236a`.
+- F3 events: PR #477, merge
+  `f1234291fc190c6611d3f2258630ac08315bd060`; CI, CodeQL, integración
+  PostgreSQL y E2E verdes.
+- Railway Deploy workflow `30597913257`: éxito.
+- API `575a82f1-ac99-4d60-a5d2-e6aeb645e096`, Web
+  `3ffb51d5-6dd1-4fd3-afa2-b7c6b1cff489`, Worker
+  `8fe3b3fc-c10a-4843-82cf-d4a2e79297ec` y Vision
+  `bf804e3b-9a56-4b94-b1ad-6e6bcafd57cd`: `SUCCESS`, `114cb9ca`.
+- El Worker conserva rol `EVENT_CONSUMER`.
+- API health por dominio Railway y `api.semseproject.com` = 200; Web health por
+  dominio custom y Railway = 200.
+- F3: 5 outbox `PUBLISHED`, 5 receipts `COMPLETED`, cero
+  pending/failed/dead-letter; replay idempotente `no_op`.
+- `api.semseproject.com` figura `ACTIVE`, valida TLS estricto y responde health
+  200; `app.semseproject.com` también responde health 200.
 
-La evidencia reproducible y la divergencia del checkout local se registran en
-[`../reportes/F0_TRUTH_SYNC_2026-07-16.md`](../reportes/F0_TRUTH_SYNC_2026-07-16.md).
+La evidencia operativa detallada vive en
+[`../PRODUCTION_CONVERGENCE_TRACKER.md`](../PRODUCTION_CONVERGENCE_TRACKER.md)
+y el runbook
+[`../runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md`](../runbooks/F3_PROJECT_LIFECYCLE_EVENT_CANARY.md).
 
 Estos datos son un snapshot, no una garantia permanente. Cada documento de
 estado posterior debe registrar nuevo SHA, fecha y evidencia de CI/deploy.
@@ -320,7 +336,7 @@ El orden aprobado es F0-F9 y se mantiene en [`../../ROADMAP.md`](../../ROADMAP.m
 2. F1: Event Backbone.
 3. F2: Prometeo Tool Registry gobernado.
 4. F3: Project Lifecycle Projection.
-5. F4: Mission Control 2.0.
+5. F4: Mission Control 2.0 — implementación local completa; CI, merge, deploy y canary siguientes.
 6. F5: Shared Economic Ledger.
 7. F6: Agenda y Dispatch.
 8. F7: Prometeo Multimodal.

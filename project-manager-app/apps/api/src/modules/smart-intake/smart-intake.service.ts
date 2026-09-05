@@ -533,6 +533,8 @@ export class SmartIntakeService {
     subcategoryId?: string;
     locationType?: "on_site" | "remote" | "hybrid";
     city?: string;
+    latitude?: number;
+    longitude?: number;
     urgency?: "low" | "medium" | "high" | "urgent";
     deadline?: string;
     budgetType?: "fixed" | "range" | "hourly";
@@ -585,6 +587,8 @@ export class SmartIntakeService {
       budgetMax,
       locationType,
       city,
+      latitude: input.latitude,
+      longitude: input.longitude,
       urgency,
       deadline: input.deadline,
       preferredProfessional: input.preferredProfessional,

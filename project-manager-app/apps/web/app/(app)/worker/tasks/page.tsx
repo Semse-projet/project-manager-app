@@ -29,7 +29,7 @@ const STATUS_MAP: Record<TaskStatus, { variant: "success" | "warning" | "info" |
 };
 
 const PRIORITY_COLOR: Record<TaskPriority, string> = {
-  high:   "#ef4444",
+  high:   "var(--error)",
   medium: "#fbbf24",
   low:    "#6b7280",
 };
@@ -121,7 +121,7 @@ export default function WorkerTasksPage() {
             style={{ padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", cursor: "pointer", display: "flex" }}
             title="Recargar"
           >
-            <RefreshCw size={15} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={15} className={loading ? "animate-spin" : undefined} />
           </button>
         </div>
       </HtmlInCanvasPanel>
@@ -178,7 +178,7 @@ export default function WorkerTasksPage() {
                     {task.milestone ? ` · ${task.milestone}` : ""}
                   </p>
                   {task.dueDate && (
-                    <p style={{ fontSize: "11px", color: overdue ? "#ef4444" : "var(--faint)", marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <p style={{ fontSize: "11px", color: overdue ? "var(--error)" : "var(--faint)", marginTop: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
                       {overdue && <AlertCircle size={10} />}
                       <Clock size={10} /> {task.dueDate}
                       {overdue && " · VENCIDA"}

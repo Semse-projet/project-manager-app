@@ -23,9 +23,9 @@ const CATEGORY_COLORS: Record<string, string> = {
   mechanical:  "#06b6d4",
   finish:      "#8b5cf6",
   remodel:     "#f59e0b",
-  exterior:    "#10b981",
+  exterior:    "var(--ok)",
   specialty:   "#ec4899",
-  structural:  "#ef4444",
+  structural:  "var(--error)",
   services:    "#64748b",
 };
 
@@ -74,7 +74,6 @@ export default function AdminToolsPage() {
         icon={Wrench}
         iconColor="#22d3ee"
         iconBg="rgba(34,211,238,.12)"
-        showBack={false}
       />
 
       {/* Filters */}

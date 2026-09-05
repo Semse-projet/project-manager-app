@@ -156,7 +156,7 @@ export class OpsController {
     const t0 = Date.now();
     try {
       const res = await this.llmOrchestrator.chat({
-        systemPrompt: "You are a SEMSE OS health check assistant.",
+        systemPrompt: "You are a SEMSE Project health check assistant.",
         history: [],
         userMessage: "Respond with only: {\"status\":\"ok\",\"provider\":\"ollama\"}",
         context: { localOnly: true, source: "ai-mission-control:test", routingReason: "admin-test" },

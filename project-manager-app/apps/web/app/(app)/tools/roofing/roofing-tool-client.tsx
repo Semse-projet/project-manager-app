@@ -58,7 +58,7 @@ export function RoofingToolClient({ section }: RoofingToolClientProps) {
   const [error, setError] = useState<string | null>(null);
 
   const costPerSqft = useMemo(() => {
-    const baseCost: Record<typeof input.materialType, number> = {
+    const baseCost: Record<RoofingInput["materialType"], number> = {
       asphalt_shingles: 3.5, metal: 8.0, tile: 12.0, slate: 15.0, wood_shakes: 10.0, flat_membrane: 5.0,
     };
     const base = baseCost[input.materialType] || 5.0;

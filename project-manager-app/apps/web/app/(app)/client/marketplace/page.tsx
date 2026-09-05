@@ -318,7 +318,7 @@ export default function ClientMarketplacePage() {
         </button>
         <button onClick={load} disabled={loading}
           style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", color: "var(--muted)" }}>
-          <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+          <RefreshCw size={13} className={loading ? "animate-spin" : undefined} />
         </button>
       </div>
 
@@ -396,7 +396,6 @@ export default function ClientMarketplacePage() {
         </div>
       )}
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

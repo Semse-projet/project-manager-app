@@ -5,12 +5,21 @@
 
 import { randomUUID } from "node:crypto";
 
-export enum LogLevel {
-  DEBUG = "debug",
-  INFO = "info",
-  WARN = "warn",
-  ERROR = "error",
-}
+export const LogLevel = {
+  DEBUG: "debug",
+  INFO: "info",
+  WARN: "warn",
+  ERROR: "error",
+} as const;
+
+export type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
+
+const LEVEL_ORDER: readonly LogLevel[] = [
+  LogLevel.DEBUG,
+  LogLevel.INFO,
+  LogLevel.WARN,
+  LogLevel.ERROR,
+];
 
 export interface LogEntry {
   level: string;
@@ -96,6 +105,42 @@ export class SEMSELogger {
     this.spanStack.pop();
   }
 
+  /**
+   * Async-friendly span: logs start/end (or error) around `fn` and returns its value.
+   */
+  async withSpan<T>(
+    name: string,
+    fn: (spanId: string) => T | Promise<T>,
+    data?: Record<string, unknown>
+  ): Promise<T> {
+    const spanId = randomUUID();
+    const startTime = Date.now();
+    this.spanStack.push({ spanId, name, startTime });
+
+    this.info(`[span.start] ${name}`, { spanId, spanName: name, ...data });
+
+    try {
+      const result = await fn(spanId);
+      this.info(`[span.end] ${name}`, {
+        spanId,
+        spanName: name,
+        durationMs: Date.now() - startTime,
+      });
+      return result;
+    } catch (error) {
+      this.error(`[span.error] ${name}`, {
+        spanId,
+        spanName: name,
+        durationMs: Date.now() - startTime,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : "Unknown",
+      });
+      throw error;
+    } finally {
+      this.spanStack.pop();
+    }
+  }
+
   context(ctx: Record<string, unknown>, fn: () => void | Promise<void>) {
     this.contextStack.push(ctx);
     try {
@@ -142,8 +187,7 @@ export class SEMSELogger {
   }
 
   private shouldSkipLevel(level: LogLevel): boolean {
-    const order = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR];
-    return order.indexOf(level) < order.indexOf(this.minLevel);
+    return LEVEL_ORDER.indexOf(level) < LEVEL_ORDER.indexOf(this.minLevel);
   }
 }
 

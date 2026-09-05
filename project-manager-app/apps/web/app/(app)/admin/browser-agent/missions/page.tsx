@@ -125,7 +125,7 @@ export default function BrowserMissionsPage() {
         title="Misiones Autónomas de Navegación"
         subtitle="Automatiza flujos interactivos de múltiples pasos bajo gobernanza de riesgo"
         icon={Layers}
-        iconColor="#3b82f6"
+        iconColor="var(--brand)"
         iconBg="rgba(59,130,246,.15)"
         panel={true}
         actions={

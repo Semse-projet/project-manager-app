@@ -2,12 +2,15 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Queue, type QueueOptions } from "bullmq";
 import { Redis } from "ioredis";
 import { SEMSE_AGENT_RUN_QUEUE } from "@semse/shared";
+import { buildQueueTracePayload } from "../observability/request-context.store.js";
 
 type QueueRunInput = {
   runId: string;
   tenantId: string;
   agentType: string;
   correlationId: string;
+  /** Overrides AGENT_PRIORITY for this one job — e.g. a Forge task's own declared priority. */
+  priority?: number;
 };
 
 // Lower number = higher priority in BullMQ
@@ -49,12 +52,13 @@ export class AgentQueueService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    const { priority, ...jobData } = input;
     await this.queue.add(
       input.agentType,
-      input,
+      { ...jobData, ...buildQueueTracePayload() },
       {
         jobId: toQueueJobId(input),
-        priority: resolveJobPriority(input.agentType)
+        priority: priority ?? resolveJobPriority(input.agentType)
       }
     );
   }

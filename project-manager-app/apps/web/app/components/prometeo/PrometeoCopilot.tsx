@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bot, X } from "lucide-react";
+import Image from "next/image";
+import { X } from "lucide-react";
 import type { CopilotMissionSuggestion, CopilotSuggestedAction } from "@semse/schemas";
 import { useCopilotContext } from "../../../lib/hooks/useCopilotContext";
 import {
@@ -117,10 +118,10 @@ export function PrometeoCopilot() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition hover:bg-slate-800"
+        className="fixed bottom-24 right-6 z-50 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-slate-900 shadow-lg transition hover:scale-105"
         aria-label="Abrir Prometeo Copilot"
       >
-        <Bot className="h-6 w-6" />
+        <Image src="/brand/prometeo/avatar-256.png" alt="Prometeo" width={56} height={56} className="h-full w-full object-cover" />
       </button>
     );
   }
@@ -129,8 +130,8 @@ export function PrometeoCopilot() {
     <div className="fixed bottom-24 right-6 z-50 flex h-[32rem] max-h-[calc(100vh-8rem)] w-96 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
       <header className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
         <div className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-white">
-            <Bot className="h-4 w-4" />
+          <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-900">
+            <Image src="/brand/prometeo/avatar-256.png" alt="Prometeo" width={28} height={28} className="h-full w-full object-cover" />
           </span>
           <span className="text-sm font-semibold text-slate-800">Prometeo Copilot</span>
         </div>

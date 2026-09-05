@@ -67,14 +67,14 @@ async function apiDelete(path: string) {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, [string, string]> = {
-    indexed:    ["#10b981", "rgba(16,185,129,.12)"],
+    indexed:    ["var(--ok)", "rgba(16,185,129,.12)"],
     processing: ["#f59e0b", "rgba(245,158,11,.12)"],
     pending:    ["#94a3b8", "rgba(148,163,184,.1)"],
-    failed:     ["#ef4444", "rgba(239,68,68,.12)"],
+    failed:     ["var(--error)", "rgba(239,68,68,.12)"],
     open:       ["#6366f1", "rgba(99,102,241,.12)"],
     in_progress:["#f59e0b", "rgba(245,158,11,.12)"],
-    closed:     ["#10b981", "rgba(16,185,129,.12)"],
-    available:  ["#10b981", "rgba(16,185,129,.12)"],
+    closed:     ["var(--ok)", "rgba(16,185,129,.12)"],
+    available:  ["var(--ok)", "rgba(16,185,129,.12)"],
     in_use:     ["#f59e0b", "rgba(245,158,11,.12)"],
   };
   const [color, bg] = colors[status] ?? ["#94a3b8", "rgba(148,163,184,.1)"];
@@ -415,11 +415,11 @@ export default function PrometeoPage() {
                         <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
                           {d.sourceType} · {d.chunkCount} chunks · {new Date(d.createdAt).toLocaleDateString("es-MX")}
                         </div>
-                        {d.errorMsg && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 2 }}>{d.errorMsg}</div>}
+                        {d.errorMsg && <div style={{ fontSize: 11, color: "var(--error)", marginTop: 2 }}>{d.errorMsg}</div>}
                       </div>
                       <StatusBadge status={d.status} />
                       <button onClick={() => { if (window.confirm(`¿Borrar "${d.title}" de la base de conocimiento? Esta acción es permanente.`)) void handleDeleteDoc(d.id); }}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: 4 }}>
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--error)", padding: 4 }}>
                         <Trash2 size={14} />
                       </button>
                     </div>

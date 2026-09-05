@@ -6,7 +6,7 @@
  * Adaptado: React Router → Next.js, Supabase → API REST
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { HtmlInCanvasPanel } from "@semse/ui";
@@ -15,14 +15,18 @@ import {
   Globe, Home, AlertCircle, Sparkles,
 } from "lucide-react";
 import { ClientPageHeader } from "../../../../components/client/ClientPageHeader";
+import LocationPickerMap from "../../../../components/maps/LocationPickerMap";
 import { CLIENT_ROUTES } from "../../../../lib/client-routes";
 import { trackProductEvent } from "../../../../../lib/product-intelligence";
 import { suggestBudget, type BudgetSuggestion } from "../../../../semse-api";
 import {
+  clearJobWizardDraft,
   computeInitialJobWizardStep,
   JOB_CATEGORIES,
   JOB_URGENCY_OPTIONS,
+  loadJobWizardDraft,
   parseJobIntakePrefill,
+  saveJobWizardDraft,
 } from "../../../../../lib/job-intake";
 import type { ProjectIntake } from "../../../../../lib/smart-intake";
 import {
@@ -113,6 +117,7 @@ export default function NewJobPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeIntakeId, setActiveIntakeId] = useState(prefill.intakeId);
   const [intakeRecovered, setIntakeRecovered] = useState(false);
+  const [draftRecovered, setDraftRecovered] = useState(false);
 
   useEffect(() => {
     if (prefill.categoryId || prefill.intakeId) {
@@ -135,6 +140,8 @@ export default function NewJobPage() {
   const [description, setDescription] = useState(prefill.description);
   const [locationType, setLocationType] = useState<"remote" | "on_site" | "hybrid">(prefill.locationType);
   const [city, setCity] = useState(prefill.city);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [files, setFiles] = useState<File[]>([]);
 
   // Step 3
@@ -164,6 +171,75 @@ export default function NewJobPage() {
     if (step === 3) return budgetMin > 0 && budgetMax >= budgetMin;
     return true;
   };
+
+  const isInitialDraftSave = useRef(true);
+  const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPublishedRef = useRef(false);
+
+  useEffect(() => {
+    const hasPrefillParams = Array.from(searchParams?.keys() ?? []).some((key) => key !== "source");
+    if (prefill.intakeId || getPersistedIntakeId() || hasPrefillParams) {
+      return;
+    }
+    const draft = loadJobWizardDraft();
+    if (!draft) return;
+
+    setStep(draft.step);
+    setCategoryId(draft.categoryId);
+    setSubcategoryId(draft.subcategoryId);
+    setTitle(draft.title);
+    setDescription(draft.description);
+    setLocationType(draft.locationType);
+    setCity(draft.city);
+    setLatitude(draft.latitude);
+    setLongitude(draft.longitude);
+    setBudgetType(draft.budgetType);
+    setBudgetMin(draft.budgetMin);
+    setBudgetMax(draft.budgetMax);
+    setUrgency(draft.urgency);
+    setDeadline(draft.deadline);
+    setDraftRecovered(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (isInitialDraftSave.current) {
+      isInitialDraftSave.current = false;
+      return;
+    }
+    if (hasPublishedRef.current) return;
+
+    if (draftSaveTimeoutRef.current) {
+      clearTimeout(draftSaveTimeoutRef.current);
+    }
+    const timeout = setTimeout(() => {
+      if (hasPublishedRef.current) return;
+      saveJobWizardDraft({
+        step,
+        categoryId,
+        subcategoryId,
+        title,
+        description,
+        locationType,
+        city,
+        latitude,
+        longitude,
+        budgetType,
+        budgetMin,
+        budgetMax,
+        urgency,
+        deadline,
+        savedAt: new Date().toISOString(),
+      });
+    }, 500);
+    draftSaveTimeoutRef.current = timeout;
+    return () => {
+      clearTimeout(timeout);
+      if (draftSaveTimeoutRef.current === timeout) {
+        draftSaveTimeoutRef.current = null;
+      }
+    };
+  }, [step, categoryId, subcategoryId, title, description, locationType, city, latitude, longitude, budgetType, budgetMin, budgetMax, urgency, deadline]);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,6 +326,7 @@ export default function NewJobPage() {
         urgency,
         locationType,
         ...(city ? { city } : {}),
+        ...(locationType !== "remote" && latitude != null && longitude != null ? { latitude, longitude } : {}),
         ...(deadline ? { deadline } : {}),
         ...(preferredProfessional ? {
           preferredProfessional: {
@@ -277,6 +354,7 @@ export default function NewJobPage() {
             budgetMin,
             budgetMax: budgetType === "range" ? budgetMax : budgetMin,
             ...(city ? { city } : {}),
+            ...(locationType !== "remote" && latitude != null && longitude != null ? { latitude, longitude } : {}),
             ...(deadline ? { deadline } : {}),
             ...(preferredProfessional ? {
               preferredProfessional: {
@@ -302,7 +380,13 @@ export default function NewJobPage() {
         setSubmitting(false);
         return;
       }
+      hasPublishedRef.current = true;
+      if (draftSaveTimeoutRef.current) {
+        clearTimeout(draftSaveTimeoutRef.current);
+        draftSaveTimeoutRef.current = null;
+      }
       clearPersistedIntakeId();
+      clearJobWizardDraft();
       trackProductEvent("wizard.published", {
         category: categoryId || null,
         durationMs: Date.now() - wizardStartedAt,
@@ -373,6 +457,12 @@ export default function NewJobPage() {
           {intakeRecovered
             ? "Recuperamos el intake de la landing y rellenamos el wizard con el borrador guardado."
             : "Trajimos el briefing desde la landing. Ya aterrizaste en el paso correcto para terminar la publicación."}
+        </div>
+      )}
+
+      {draftRecovered && (
+        <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "12px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.18)", color: "#34d399", fontSize: "13px" }}>
+          Recuperamos tu borrador guardado. Puedes seguir editando desde el último paso completado.
         </div>
       )}
 
@@ -510,6 +600,13 @@ export default function NewJobPage() {
               <div>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: "var(--muted)", marginBottom: "8px" }}>CIUDAD / DIRECCIÓN</label>
                 <input style={input} value={city} onChange={e => setCity(e.target.value)} placeholder="Ej: Miami, FL" />
+                <div style={{ marginTop: "10px" }}>
+                  <LocationPickerMap
+                    latitude={latitude}
+                    longitude={longitude}
+                    onChange={({ latitude: lat, longitude: lng }) => { setLatitude(lat); setLongitude(lng); }}
+                  />
+                </div>
               </div>
             )}
 
@@ -629,7 +726,7 @@ export default function NewJobPage() {
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
                       background: budgetSuggestion.confidence === "high" ? "rgba(16,185,129,.15)" : budgetSuggestion.confidence === "medium" ? "rgba(251,191,36,.15)" : "rgba(148,163,184,.15)",
-                      color: budgetSuggestion.confidence === "high" ? "#10b981" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "#94a3b8",
+                      color: budgetSuggestion.confidence === "high" ? "var(--ok)" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "#94a3b8",
                       textTransform: "uppercase",
                     }}>
                       {budgetSuggestion.confidence}
@@ -648,7 +745,7 @@ export default function NewJobPage() {
                     {budgetSuggestion.basis} · {budgetSuggestion.similarJobsFound} trabajos similares
                   </p>
                   {budgetSuggestion.min > 0 && (
-                    <p style={{ fontSize: 11, color: "#10b981", marginTop: 6, fontWeight: 600 }}>✓ Rango aplicado automáticamente a los sliders</p>
+                    <p style={{ fontSize: 11, color: "var(--ok)", marginTop: 6, fontWeight: 600 }}>✓ Rango aplicado automáticamente a los sliders</p>
                   )}
                 </div>
               )}
@@ -713,7 +810,7 @@ export default function NewJobPage() {
 
       {/* Submit error */}
       {submitError && (
-        <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.25)", borderRadius: "10px", color: "#ef4444", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+        <div style={{ marginTop: "14px", padding: "12px 16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.25)", borderRadius: "10px", color: "var(--error)", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
           <AlertCircle size={15} style={{ flexShrink: 0 }} />
           {submitError}
         </div>

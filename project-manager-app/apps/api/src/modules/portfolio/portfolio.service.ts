@@ -2,6 +2,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service.js';
 
+/**
+ * Not registered in any module/controller — unreachable by any real
+ * request today (checked 2026-08-27). Its own test file (portfolio.
+ * service.test.ts) passes only because it feeds `findMany` synthetic
+ * `Project` rows carrying `contractAmount`/`totalSpent` fields that don't
+ * exist on the real `Project` model in packages/db/prisma/schema.prisma
+ * — against a real Prisma-returned Project, both are always undefined, so
+ * every computed field here (totalBudget, totalSpent, remaining,
+ * utilizationPercent) would be 0 or NaN, and avgProjectHealth is a bare
+ * hardcoded 85. No approved spec references a "portfolio" feature, so
+ * this wasn't redesigned — just flagged so nobody wires it up trusting
+ * the passing tests.
+ */
 @Injectable()
 export class PortfolioService {
   private readonly logger = new Logger(PortfolioService.name);

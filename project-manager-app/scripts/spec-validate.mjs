@@ -1,10 +1,17 @@
 #!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import {
   ALLOWED_STATUSES,
   CANONICAL_STATUSES,
+  DELIVERY_METADATA_FIELDS,
+  DELIVERY_STATUS_VALUES,
+  SDD_VERSION,
+  deliveryStateErrors,
   findSpecFiles,
+  isSddV2,
   isFile,
   missingCanonicalMetadata,
+  missingDeliveryMetadata,
   pathExists,
   readSpec,
   searchRepo,
@@ -14,6 +21,12 @@ const strict = process.argv.includes("--strict") || process.env.SEMSE_SPEC_STRIC
 const specFiles = findSpecFiles();
 const errors = [];
 const warnings = [];
+const ids = new Map();
+
+validateTemplateParity(
+  ".specify/templates/overrides/semse-spec.md",
+  "docs/specs/templates/semse-spec-template.md",
+);
 
 if (specFiles.length === 0) {
   errors.push("No specs found under docs/specs/**/*.spec.md");
@@ -28,6 +41,12 @@ for (const file of specFiles) {
   requireField(label, "title", metadata.title);
   requireField(label, "domain", metadata.domain);
   requireField(label, "status", metadata.status);
+
+  if (ids.has(metadata.id)) {
+    errors.push(`${label}: duplicate spec id "${metadata.id}" (already used by ${ids.get(metadata.id)})`);
+  } else if (metadata.id) {
+    ids.set(metadata.id, label);
+  }
 
   if (metadata.status && !ALLOWED_STATUSES.has(metadata.status)) {
     errors.push(`${label}: invalid status "${metadata.status}"`);
@@ -45,6 +64,27 @@ for (const file of specFiles) {
     } else {
       warnings.push(message);
     }
+  }
+
+  if (metadata.sdd_version && metadata.sdd_version !== SDD_VERSION) {
+    errors.push(`${label}: unsupported sdd_version "${metadata.sdd_version}"; expected "${SDD_VERSION}"`);
+  }
+
+  if (isSddV2(spec)) {
+    const missingDelivery = missingDeliveryMetadata(spec);
+    if (missingDelivery.length > 0) {
+      errors.push(`${label}: SDD ${SDD_VERSION} is missing delivery metadata fields: ${missingDelivery.join(", ")}`);
+    }
+
+    for (const field of DELIVERY_METADATA_FIELDS) {
+      const allowed = DELIVERY_STATUS_VALUES[field];
+      const value = metadata[field];
+      if (allowed && value && !allowed.has(value)) {
+        errors.push(`${label}: invalid ${field} "${value}"`);
+      }
+    }
+
+    errors.push(...deliveryStateErrors(label, metadata));
   }
 
   for (const relatedFile of metadata.related_files) {
@@ -95,6 +135,14 @@ if (errors.length > 0) {
 
 function requireField(label, field, value) {
   if (!value) errors.push(`${label}: missing required metadata field "${field}"`);
+}
+
+function validateTemplateParity(canonicalPath, mirrorPath) {
+  const canonical = readFileSync(canonicalPath, "utf8").replace(/\r\n/g, "\n");
+  const mirror = readFileSync(mirrorPath, "utf8").replace(/\r\n/g, "\n");
+  if (canonical !== mirror) {
+    errors.push(`${mirrorPath}: template diverges from canonical ${canonicalPath}`);
+  }
 }
 
 function printSection(title) {

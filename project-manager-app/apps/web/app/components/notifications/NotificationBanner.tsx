@@ -6,8 +6,8 @@ import { Bell, CheckCheck, Scale, ShieldAlert, Wallet, X } from "lucide-react";
 import { fetchNotifications, markNotificationRead, type NotificationItem } from "../../semse-api";
 
 const KIND_META: Record<string, { color: string; Icon: React.ComponentType<{ size: number }> }> = {
-  dispute:  { color: "#ef4444", Icon: Scale       },
-  payment:  { color: "#10b981", Icon: Wallet      },
+  dispute:  { color: "var(--error)", Icon: Scale       },
+  payment:  { color: "var(--ok)", Icon: Wallet      },
   approval: { color: "#f59e0b", Icon: ShieldAlert },
   system:   { color: "#6366f1", Icon: Bell        },
 };
@@ -108,11 +108,11 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen((v) => !v)}
-        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: `1px solid ${unread.length > 0 ? "rgba(239,68,68,.28)" : "var(--border)"}`, background: unread.length > 0 ? "rgba(239,68,68,.06)" : "var(--surface)", color: unread.length > 0 ? "#ef4444" : "var(--muted)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+        style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: `1px solid ${unread.length > 0 ? "rgba(239,68,68,.28)" : "var(--border)"}`, background: unread.length > 0 ? "rgba(239,68,68,.06)" : "var(--surface)", color: unread.length > 0 ? "var(--error)" : "var(--muted)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
       >
         <Bell size={14} />
         {unread.length > 0 ? (
-          <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
+          <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: "var(--error)", color: "#fff", fontSize: 10, fontWeight: 900, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>
             {unread.length}
           </span>
         ) : null}

@@ -303,6 +303,15 @@ En paralelo, la operación asistida del ecosistema debe endurecerse como una cap
 4. observabilidad y estado efímero
 5. resiliencia y respaldo
 
+**Referencia cruzada:** el punto 1 (identidad operativa) incluye el
+programa transversal "Prometeo OS: Identidad Universal y Orquestación
+Externa" (`../../ROADMAP.md`) — extender `Membership`/`Role` a producto
+multi-capacidad por proyecto, sin migración de schema. El punto 3 (runtime
+agentic) incluye la evaluación, todavía no aprobada, de orquestación de
+herramientas externas vía MCP (`ADR-025-mcp-external-tool-gateway.md`, a
+crear); no altera el orden de capas `Jobs → Ops → Trust → Prometeo` de
+arriba.
+
 ## 11. Regla de Seguridad Temporal
 
 Mientras no exista auth real:
