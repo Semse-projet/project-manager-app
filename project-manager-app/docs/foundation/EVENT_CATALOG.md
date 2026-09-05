@@ -242,6 +242,32 @@ Consume:
 - `forge.run.blocked`
 - `forge.run.rolled_back`
 
+## Capability Control Plane — contratos v1 reservados
+
+> Aceptados en F0 y todavía no implementados. Ningún productor puede emitirlos
+> hasta existir schemas, state+outbox, tests y autorización de implementación.
+
+Todos usan Domain Event envelope v2. El payload común incluye tenant/org,
+actor original, correlation/causation, idempotency y schemaRef; nunca secretos,
+archivos Compose completos ni logs sin redacción.
+
+| Evento | Agregado | Payload específico mínimo | Consumidores previstos |
+| --- | --- | --- | --- |
+| `capability.operation_requested.v1` | operation | operationId, installationId, intent | Audit, Control Plane |
+| `capability.plan_created.v1` | operation | operationId, planDigest, risk, targetId | Audit, Governance |
+| `capability.approval_required.v1` | operation | operationId, approvalMode, expiresAt | Governance, Notifications |
+| `capability.apply_started.v1` | operation | operationId, adapterKind, targetId | Audit, Mission Control |
+| `capability.verification_completed.v1` | operation | operationId, passed, checks | Audit, Mission Control |
+| `capability.activated.v1` | installation | installationId, version, targetId | Mission Control |
+| `capability.degraded.v1` | installation | installationId, reasonCode, operationId | Ops, Mission Control |
+| `capability.rollback_requested.v1` | operation | operationId, targetRevision, reasonCode | Governance, Audit |
+| `capability.rolled_back.v1` | installation | installationId, version, operationId | Ops, Mission Control |
+| `capability.suspended.v1` | installation | installationId, reasonCode, operationId | Mission Control |
+
+`capability.plan_created.v1` no contiene `planJson`; el plan durable se recupera
+por `operationId`. Eventos de approval no sustituyen el registro de approval ni
+conceden execution grants.
+
 ## Definition of Done para un evento
 
 Un evento se considera correctamente introducido cuando:

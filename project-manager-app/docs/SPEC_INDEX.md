@@ -93,6 +93,7 @@ implementacion aunque aparezcan enlazados desde reportes antiguos.
 | [labor.time-tracking-consolidation](specs/labor/time-tracking-consolidation.spec.md) | labor | IMPLEMENTED | high | yes | no | yes | 8 | 2026-07-19 |
 | [platform.event-backbone-f1](specs/platform/event-backbone.spec.md) | platform | APPROVED | critical | yes | no | yes | 11 | 2026-07-12 |
 | [platform.product-intelligence](specs/platform/product-intelligence.spec.md) | platform | APPROVED | high | yes | yes | yes | 7 | 2026-07-17 |
+| [platform.semse-os-control-plane](specs/platform/semse-os-control-plane.spec.md) | platform | APPROVED | critical | no | no | no | 9 | 2026-07-19 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | critical | yes | no | no | 10 | 2026-07-20 |
 | [satellites.sdd-harness](specs/satellites/SAT-000-sdd-harness.spec.md) | agents | APPROVED | high | no | no | no | 3 | 2026-07-12 |
 | [satellites.semse-sdk](specs/satellites/SAT-001-semse-sdk.spec.md) | api | APPROVED | high | yes | no | yes | 4 | 2026-07-07 |

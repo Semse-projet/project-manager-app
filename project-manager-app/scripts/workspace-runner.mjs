@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import { dirname, join } from "node:path";
 
 const TASKS = {
   "build:packages": [
     ["pnpm", ["--filter", "@semse/schemas", "build"]],
+    ["pnpm", ["--filter", "@semse/control-plane", "build"]],
     ["pnpm", ["--filter", "@semse/shared", "build"]],
     ["pnpm", ["--filter", "@semse/auth", "build"]],
     ["pnpm", ["--filter", "@semse/knowledge", "build"]],
@@ -39,10 +41,25 @@ const TASKS = {
 function run(command, args) {
   const label = `${command} ${args.join(" ")}`;
   console.log(`\n[workspace-runner] ${label}`);
-  const result = spawnSync(command, args, {
+  let result = spawnSync(command, args, {
     stdio: "inherit",
     env: process.env,
   });
+
+  // Corepack can execute the pinned package manager even when Windows cannot
+  // create global pnpm shims under Program Files. Retry only when the original
+  // executable was not found; never repeat a command that actually started.
+  if (command === "pnpm" && result.error?.code === "ENOENT") {
+    const corepack = process.platform === "win32" ? process.execPath : "corepack";
+    const corepackArgs = process.platform === "win32"
+      ? [join(dirname(process.execPath), "node_modules", "corepack", "dist", "corepack.js"), "pnpm", ...args]
+      : ["pnpm", ...args];
+    console.warn(`[workspace-runner] pnpm shim unavailable; retrying with corepack pnpm`);
+    result = spawnSync(corepack, corepackArgs, {
+      stdio: "inherit",
+      env: process.env,
+    });
+  }
 
   if (result.error) {
     throw result.error;

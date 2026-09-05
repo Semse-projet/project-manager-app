@@ -1,29 +1,25 @@
-version: '3.8'
-
 services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.api
     ports:
-      - "3000:3000"
+      - "4000:4000"
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/projectmanager_dev
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: dev-secret-key
+      AUTH_SECRET: local-development-only-change-me
       LOG_LEVEL: debug
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - ./apps/api/src:/app/apps/api/src
     networks:
       - project-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:4000/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3

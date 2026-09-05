@@ -270,6 +270,79 @@ Estados persistidos de compatibilidad, no visibles como estados nuevos:
 - `trust` puede elevar riesgo, no autorizar por sí solo
 - cambios de banda deben ser explicables por señales registradas
 
+## Capability Installation / Operation
+
+> Contrato de diseño aceptado para `platform.semse-os-control-plane`. No está
+> implementado y no autoriza runtime, Docker ni producción.
+
+### Estados observados canónicos
+
+- `PENDING`
+- `PLANNED`
+- `AWAITING_APPROVAL`
+- `APPLYING`
+- `VERIFYING`
+- `ACTIVE`
+- `DEGRADED`
+- `SUSPENDING`
+- `SUSPENDED`
+- `ROLLING_BACK`
+- `ROLLED_BACK`
+- `BLOCKED`
+
+El estado deseado solo puede ser `ACTIVE` o `SUSPENDED`; nunca sustituye el
+estado observado.
+
+### Transiciones válidas
+
+- `PENDING -> PLANNED`
+- `PLANNED -> AWAITING_APPROVAL`
+- `PLANNED -> APPLYING` cuando policy no exige approvals pendientes
+- `PLANNED -> BLOCKED`
+- `AWAITING_APPROVAL -> APPLYING`
+- `AWAITING_APPROVAL -> BLOCKED`
+- `APPLYING -> VERIFYING`
+- `APPLYING -> DEGRADED`
+- `APPLYING -> ROLLING_BACK`
+- `VERIFYING -> ACTIVE`
+- `VERIFYING -> DEGRADED`
+- `VERIFYING -> ROLLING_BACK`
+- `ACTIVE -> APPLYING`
+- `ACTIVE -> SUSPENDING`
+- `ACTIVE -> DEGRADED`
+- `DEGRADED -> APPLYING`
+- `DEGRADED -> ROLLING_BACK`
+- `DEGRADED -> BLOCKED`
+- `ROLLING_BACK -> ROLLED_BACK`
+- `ROLLING_BACK -> BLOCKED`
+- `ROLLED_BACK -> PLANNED`
+- `ROLLED_BACK -> SUSPENDED`
+- `SUSPENDING -> SUSPENDED`
+- `SUSPENDING -> DEGRADED`
+- `SUSPENDED -> PLANNED`
+- `BLOCKED -> PLANNED`
+
+### Guards
+
+- `PENDING -> PLANNED` requiere manifest válido, dependencias resueltas,
+  `planDigest`, target y policy decision persistidos.
+- `PLANNED|AWAITING_APPROVAL -> APPLYING` exige approvals vigentes, grant,
+  digest/revisión/target sin drift y lease exclusivo.
+- riesgo `critical` exige dos aprobadores humanos distintos entre sí y del
+  requester; `CAPABILITY_EXECUTOR` no puede aprobar.
+- `VERIFYING -> ACTIVE` exige liveness y todos los readiness checks obligatorios.
+- `* -> ROLLING_BACK` exige revisión anterior direccionable y autoridad vigente.
+- `ACTIVE -> SUSPENDING` rechaza una operación incompatible con lease activo.
+- cada transición material persiste AuditLog y Domain Event v2 en la misma
+  transacción que el estado.
+- un fallo de adapter no se convierte directamente en `ACTIVE` o `SUSPENDED`.
+
+### Estados terminales
+
+No hay estado terminal absoluto: `BLOCKED`, `ROLLED_BACK` y `SUSPENDED` solo
+reingresan mediante una operación nueva, idempotency key nueva y policy actual.
+No se reanuda una operación vieja reutilizando approval o grant vencidos.
+
 ## Regla de implementación
 
 - Controllers validan inputs y contexto.

@@ -1,0 +1,35 @@
+{
+  "apiVersion": "semse.io/v1alpha1",
+  "kind": "CapabilityDefinition",
+  "metadata": {
+    "name": "mutable-ai-runtime",
+    "version": "1.0.0",
+    "publisher": "semse-core"
+  },
+  "spec": {
+    "domain": "ai",
+    "description": "Manifest inválido fijado a una etiqueta mutable",
+    "dependencies": {
+      "required": [],
+      "optional": []
+    },
+    "interfaces": {
+      "mcpTools": []
+    },
+    "permissions": ["ai:invoke"],
+    "dataClassification": "confidential",
+    "runtime": {
+      "profile": "local-ai",
+      "adapterKinds": ["compose"],
+      "image": "ollama/ollama:latest"
+    },
+    "health": {
+      "livenessPath": "/api/version",
+      "readinessPath": "/api/tags"
+    },
+    "rollout": {
+      "strategy": "canary",
+      "rollbackRequired": true
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "apiVersion": "semse.io/v1alpha1",
+  "kind": "CapabilityDefinition",
+  "metadata": {
+    "name": "local-ai-runtime",
+    "version": "1.0.0",
+    "publisher": "semse-core",
+    "attestation": {
+      "scheme": "cosign",
+      "signer": "semse-core",
+      "signatureDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  },
+  "spec": {
+    "domain": "ai",
+    "description": "Runtime local de modelos para datos sensibles",
+    "dependencies": {
+      "required": ["identity@^1.0.0", "events@^1.0.0"],
+      "optional": ["governance@^1.0.0"]
+    },
+    "interfaces": {
+      "apiBasePath": "/v1/ai-models",
+      "mcpTools": ["ai.models.list", "ai.models.invoke"]
+    },
+    "permissions": ["ai:read", "ai:invoke"],
+    "dataClassification": "confidential",
+    "runtime": {
+      "profile": "local-ai",
+      "adapterKinds": ["compose"],
+      "image": "ollama/ollama@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "configuration": {
+      "secretReferences": [
+        {
+          "name": "model-registry-token",
+          "handle": "secret://local/model-registry-token"
+        }
+      ]
+    },
+    "health": {
+      "livenessPath": "/api/version",
+      "readinessPath": "/api/tags"
+    },
+    "rollout": {
+      "strategy": "canary",
+      "rollbackRequired": true
+    }
+  }
+}

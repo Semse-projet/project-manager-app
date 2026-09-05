@@ -174,19 +174,23 @@ Then update:
 
 Deploy all three services.
 
-The API config runs:
+The API config runs this fail-closed pre-deploy command:
 
 ```bash
-npm run db:migrate
+node scripts/pre-migrate.mjs
 ```
 
-as a Railway pre-deploy command before the new deployment starts.
+before the new deployment starts. The script executes only reviewed
+`prisma migrate deploy` migrations. It does not rewrite migration history,
+silently synchronize schema, deduplicate rows or repair production data.
+If it fails, Railway must keep the previous deployment active.
 
 Important Railway detail:
 
 - pre-deploy commands run in a separate container with env vars available
 - they do not persist filesystem changes and do not mount volumes
 - that is fine for Prisma migrations, but not for upload/data initialization
+- API startup itself must never mutate schema or delete application rows
 
 ## 10. Seed demo data once
 
@@ -231,6 +235,7 @@ Expected:
 - API and Web have public domains
 - API and Web healthchecks are green
 - PostgreSQL migrations run clean on deploy
+- a current PostgreSQL backup or restore point exists before approving migrations
 - Redis is connected
 - API volume exists and is mounted at `/data`
 - Demo login UI is disabled in production

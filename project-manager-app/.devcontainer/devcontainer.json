@@ -1,0 +1,35 @@
+{
+  "name": "SEMSE OS",
+  "dockerComposeFile": [
+    "docker-compose.devcontainer.yml",
+    "../infra/docker/compose.semse-mvp.yml"
+  ],
+  "service": "workspace",
+  "workspaceFolder": "/workspaces/SEMSEproject",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "containerEnv": {
+    "DATABASE_URL": "postgresql://semse:semse@postgres:5432/semse",
+    "REDIS_URL": "redis://redis:6379",
+    "S3_ENDPOINT": "http://minio:9000"
+  },
+  "forwardPorts": [3000, 4000],
+  "portsAttributes": {
+    "3000": { "label": "SEMSE Web" },
+    "4000": { "label": "SEMSE API" }
+  },
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@10.33.0 --activate && pnpm install --frozen-lockfile",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "Prisma.prisma",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}

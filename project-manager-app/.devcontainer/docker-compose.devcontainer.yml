@@ -1,0 +1,26 @@
+services:
+  workspace:
+    image: mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm
+    command: sleep infinity
+    volumes:
+      - ..:/workspaces/SEMSEproject:cached
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - default
+
+  ollama:
+    image: ollama/ollama:0.32.1
+    profiles: ["local-ai"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - semse_ollama_data:/root/.ollama
+
+volumes:
+  semse_ollama_data:

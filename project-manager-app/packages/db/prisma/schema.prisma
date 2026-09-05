@@ -120,6 +120,85 @@ enum DomainConsumptionStatus {
   DEAD_LETTER
 }
 
+enum CapabilityDefinitionStatus {
+  ACTIVE
+  DEPRECATED
+  REVOKED
+}
+
+enum CapabilityActorType {
+  USER
+  AGENT
+  SYSTEM
+}
+
+enum CapabilityRuntimeTargetKind {
+  COMPOSE
+  RAILWAY
+  KUBERNETES
+}
+
+enum CapabilityRuntimeTargetStatus {
+  ACTIVE
+  DISABLED
+  DEGRADED
+}
+
+enum CapabilityDesiredState {
+  ACTIVE
+  SUSPENDED
+}
+
+enum CapabilityObservedState {
+  PENDING
+  PLANNED
+  AWAITING_APPROVAL
+  APPLYING
+  VERIFYING
+  ACTIVE
+  DEGRADED
+  SUSPENDING
+  SUSPENDED
+  ROLLING_BACK
+  ROLLED_BACK
+  BLOCKED
+}
+
+enum CapabilityOperationIntent {
+  ACTIVATE
+  UPDATE
+  SUSPEND
+  ROLLBACK
+  RECONCILE
+}
+
+enum CapabilityRisk {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CapabilityApprovalMode {
+  SINGLE
+  DUAL
+}
+
+enum CapabilityApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REVOKED
+}
+
+enum CapabilityReceiptStatus {
+  SUCCEEDED
+  FAILED
+  TIMED_OUT
+  CANCELLED
+}
+
 model Tenant {
   id                            String                            @id @default(cuid())
   slug                          String                            @unique
@@ -191,6 +270,10 @@ model Tenant {
   buildOpsTasks                 BuildOpsTask[]
   forgeRuns                     ForgeRun[]
   tenantSettings                TenantSettings?
+  capabilityRuntimeTargets      CapabilityRuntimeTarget[]
+  capabilityInstallations       CapabilityInstallation[]
+  capabilityOperations          CapabilityOperation[]
+  capabilityApprovals           CapabilityOperationApproval[]
   createdAt                     DateTime                          @default(now())
   updatedAt                     DateTime                          @updatedAt
 }
@@ -224,6 +307,7 @@ model Org {
   tenant                        Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   buildOpsProjects              BuildOpsProject[]
   buildOpsTasks                 BuildOpsTask[]
+  capabilityInstallations       CapabilityInstallation[]
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
 
@@ -266,6 +350,8 @@ model User {
   profile                             UserProfile?
   contractorRate                      ContractorRateOverride?
   stripeConnect                       StripeConnectAccount?
+  capabilityApprovalsRequested        CapabilityOperationApproval[] @relation("CapabilityApprovalRequester")
+  capabilityApprovalsDecided          CapabilityOperationApproval[] @relation("CapabilityApprovalDecider")
   createdAt                           DateTime                      @default(now())
   updatedAt                           DateTime                      @updatedAt
 
@@ -808,6 +894,163 @@ model DomainEventConsumption {
 
   @@unique([eventId, consumerName])
   @@index([tenantId, status, nextAttemptAt])
+}
+
+model CapabilityDefinition {
+  id             String                     @id @default(cuid())
+  name           String
+  version        String
+  publisher      String
+  manifestJson   Json
+  manifestDigest String
+  status         CapabilityDefinitionStatus @default(ACTIVE)
+  installations  CapabilityInstallation[]
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @db.Timestamptz(3)
+
+  @@unique([name, version])
+  @@index([publisher, status])
+}
+
+model CapabilityRuntimeTarget {
+  id            String                        @id @default(cuid())
+  tenantId      String
+  workspaceId   String
+  kind          CapabilityRuntimeTargetKind
+  name          String
+  configRef     String
+  status        CapabilityRuntimeTargetStatus @default(ACTIVE)
+  tenant        Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  installations CapabilityInstallation[]
+  operations    CapabilityOperation[]
+  approvals     CapabilityOperationApproval[]
+  createdAt     DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime                      @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, workspaceId, name])
+  @@index([tenantId, workspaceId, status])
+}
+
+model CapabilityInstallation {
+  id                    String                  @id @default(cuid())
+  tenantId              String
+  orgId                 String
+  workspaceId           String
+  capabilityName        String
+  definitionId          String
+  runtimeTargetId       String
+  desiredState          CapabilityDesiredState  @default(ACTIVE)
+  observedState         CapabilityObservedState @default(PENDING)
+  desiredVersion        String
+  resolvedVersion       String?
+  configurationRevision Int                     @default(1)
+  lastOperationId       String?                 @unique
+  observedAt            DateTime?               @db.Timestamptz(3)
+  tenant                Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  org                   Org                     @relation(fields: [orgId], references: [id], onDelete: Restrict)
+  definition            CapabilityDefinition    @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+  runtimeTarget         CapabilityRuntimeTarget @relation(fields: [runtimeTargetId], references: [id], onDelete: Restrict)
+  operations            CapabilityOperation[]   @relation("CapabilityInstallationOperations")
+  lastOperation         CapabilityOperation?    @relation("CapabilityInstallationLastOperation", fields: [lastOperationId], references: [id], onDelete: SetNull)
+  createdAt             DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, workspaceId, capabilityName])
+  @@index([tenantId, workspaceId, observedState])
+  @@index([orgId])
+  @@index([definitionId])
+  @@index([runtimeTargetId, observedState])
+}
+
+model CapabilityOperation {
+  id                    String                        @id @default(cuid())
+  tenantId              String
+  workspaceId           String
+  installationId        String
+  runtimeTargetId       String
+  intent                CapabilityOperationIntent
+  status                CapabilityObservedState       @default(PENDING)
+  risk                  CapabilityRisk
+  idempotencyKey        String
+  policyDecisionJson    Json
+  planJson              Json
+  planDigest            String
+  correlationId         String
+  requestedByType       CapabilityActorType
+  requestedById         String
+  configurationRevision Int
+  observationJson       Json?
+  observedAt            DateTime?                     @db.Timestamptz(3)
+  attempts              Int                           @default(0)
+  maxAttempts           Int                           @default(5)
+  nextAttemptAt         DateTime                      @default(now()) @db.Timestamptz(3)
+  lockedAt              DateTime?                     @db.Timestamptz(3)
+  lockExpiresAt         DateTime?                     @db.Timestamptz(3)
+  lockedBy              String?
+  lastError             String?
+  startedAt             DateTime?                     @db.Timestamptz(3)
+  completedAt           DateTime?                     @db.Timestamptz(3)
+  tenant                Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  installation          CapabilityInstallation        @relation("CapabilityInstallationOperations", fields: [installationId], references: [id], onDelete: Restrict)
+  runtimeTarget         CapabilityRuntimeTarget       @relation(fields: [runtimeTargetId], references: [id], onDelete: Restrict)
+  lastForInstallation   CapabilityInstallation?       @relation("CapabilityInstallationLastOperation")
+  approvals             CapabilityOperationApproval[]
+  receipts              CapabilityExecutionReceipt[]
+  createdAt             DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                      @updatedAt @db.Timestamptz(3)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, workspaceId, status, createdAt])
+  @@index([installationId, status, createdAt])
+  @@index([runtimeTargetId, status])
+  @@index([tenantId, status, nextAttemptAt, lockExpiresAt])
+}
+
+model CapabilityOperationApproval {
+  id                    String                   @id @default(cuid())
+  tenantId              String
+  operationId           String
+  runtimeTargetId       String
+  approvalMode          CapabilityApprovalMode
+  slot                  Int
+  status                CapabilityApprovalStatus @default(PENDING)
+  planDigest            String
+  configurationRevision Int
+  requestedByUserId     String
+  decidedByUserId       String?
+  reason                String?
+  expiresAt             DateTime                 @db.Timestamptz(3)
+  decidedAt             DateTime?                @db.Timestamptz(3)
+  tenant                Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  operation             CapabilityOperation      @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  runtimeTarget         CapabilityRuntimeTarget  @relation(fields: [runtimeTargetId], references: [id], onDelete: Restrict)
+  requester             User                     @relation("CapabilityApprovalRequester", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  decider               User?                    @relation("CapabilityApprovalDecider", fields: [decidedByUserId], references: [id], onDelete: SetNull)
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @db.Timestamptz(3)
+
+  @@unique([operationId, approvalMode, slot])
+  @@index([tenantId, status, expiresAt])
+  @@index([operationId])
+  @@index([runtimeTargetId])
+  @@index([requestedByUserId])
+  @@index([decidedByUserId])
+}
+
+model CapabilityExecutionReceipt {
+  id                 String                      @id @default(cuid())
+  operationId        String
+  stepId             String
+  adapterKind        CapabilityRuntimeTargetKind
+  status             CapabilityReceiptStatus
+  outputJsonRedacted Json
+  startedAt          DateTime                    @db.Timestamptz(3)
+  completedAt        DateTime                    @db.Timestamptz(3)
+  operation          CapabilityOperation         @relation(fields: [operationId], references: [id], onDelete: Restrict)
+  createdAt          DateTime                    @default(now()) @db.Timestamptz(3)
+
+  @@unique([operationId, stepId])
+  @@index([operationId, status])
 }
 
 model AgentRun {
