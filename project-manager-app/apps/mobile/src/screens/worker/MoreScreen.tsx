@@ -18,9 +18,11 @@ const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Ma
   { route: "Payments", icon: "💳", label: "Pagos", hint: "Historial de pagos por job." },
 ];
 
-const FUSION_ITEMS: { route: "Prometeo" | "LiveInspection"; icon: string; label: string; hint: string }[] = [
+const FUSION_ITEMS: { route: "Prometeo" | "LiveInspection" | "Tasks" | "Notifications"; icon: string; label: string; hint: string }[] = [
   { route: "Prometeo", icon: "*", label: "Prometeo", hint: "Consulta tus trabajos y próximos pasos." },
   { route: "LiveInspection", icon: "o", label: "Inspección en vivo", hint: "Conecta cámara y audio con Prometeo." },
+  { route: "Tasks", icon: "✓", label: "Mis tareas", hint: "Revisa y actualiza tus compromisos." },
+  { route: "Notifications", icon: "!", label: "Notificaciones", hint: "Consulta la actividad reciente." },
 ];
 
 export default function MoreScreen({ navigation }: Props) {

@@ -17,6 +17,9 @@ export type LiveSessionMediaToken = {
   token: string;
 };
 
+export type MobileTask = { id: string; jobId: string; title: string; description?: string; status: "pending" | "in_progress" | "done" | "blocked"; priority?: string; dueDate?: string };
+export type MobileNotification = { id: string; title?: string; message?: string; body?: string; readAt?: string | null; createdAt?: string };
+
 export async function createLiveSession(input: {
   scopeType: "job" | "project";
   scopeId: string;
@@ -56,4 +59,21 @@ export async function askPrometeo(input: { message: string; threadId?: string; a
     body: JSON.stringify(input),
     headers: { "content-type": "application/json" },
   });
+}
+
+export async function fetchMobileTasks(status?: string) {
+  return apiFetch<MobileTask[]>(`/v1/tasks${status ? `?status=${encodeURIComponent(status)}` : ""}`);
+}
+
+export async function updateMobileTask(taskId: string, status: MobileTask["status"]) {
+  return apiFetch<MobileTask>(`/v1/tasks/${encodeURIComponent(taskId)}/status`, { method: "PATCH", body: JSON.stringify({ status }), headers: { "content-type": "application/json" } });
+}
+
+export async function fetchMobileNotifications() {
+  const result = await apiFetch<MobileNotification[] | { items?: MobileNotification[] }>("/v1/notifications?limit=50");
+  return Array.isArray(result) ? result : result.items ?? [];
+}
+
+export async function markMobileNotificationRead(notificationId: string) {
+  return apiFetch<MobileNotification>(`/v1/notifications/${encodeURIComponent(notificationId)}/read`, { method: "POST" });
 }

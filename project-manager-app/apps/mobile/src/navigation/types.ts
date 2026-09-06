@@ -55,6 +55,8 @@ export type WorkerMoreStackParamList = {
   Payments: undefined;
   Prometeo: undefined;
   LiveInspection: undefined;
+  Tasks: undefined;
+  Notifications: undefined;
   Settings: undefined;
 };
 
