@@ -100,15 +100,18 @@ pnpm check:mobile        # typecheck (tsc --noEmit)
 pnpm --filter @semse/mobile test   # jest-expo + @testing-library/react-native — geo/proximity logic and screens
 ```
 
+Para instalar el development build Android actualizado, abre el artefacto del build
+EAS `515222d2-c731-48fd-bf2a-c4a7b8061850` cuando termine, descarga el APK y ábrelo
+en el teléfono. Es un build interno con `expo-dev-client`; no requiere Expo Go.
+
 `EXPO_PUBLIC_SEMSE_API_BASE_URL` must be reachable from the **device/simulator**, not
 just your machine — `localhost` only works in an iOS simulator talking to a Mac host;
 everywhere else (Android emulator, physical device, Expo Go) use your LAN IP or a
 tunnel (`expo start --tunnel`).
 
-**This app was built in a sandbox with no Xcode/Android SDK/simulator available** —
-`pnpm --filter @semse/mobile check` (`tsc --noEmit`) passes, but nothing here has
-been run on an actual simulator or device. Treat the first real run as this app's
-first end-to-end test, not a formality.
+El build remoto permite validar el APK sin Xcode/Android SDK local. TypeScript y la
+suite Jest móvil pasan; la validación en un teléfono físico sigue siendo necesaria
+para permisos, geolocalización, LiveKit y notificaciones.
 
 ## Building (EAS)
 
