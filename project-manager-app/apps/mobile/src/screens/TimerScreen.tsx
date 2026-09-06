@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { fetchActiveTimer, startTimer, stopTimer, type ActiveTimer } from "../api/labor";
@@ -25,6 +25,17 @@ export default function TimerScreen() {
   const [trackingEnabled, setTrackingEnabled] = useState(false);
   const [togglingTracking, setTogglingTracking] = useState(false);
   const [showPermissionPrimer, setShowPermissionPrimer] = useState(false);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!activeTimer) return;
+    setClockNow(Date.now());
+    const interval = setInterval(() => setClockNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [activeTimer]);
+
+  const elapsedSeconds = activeTimer ? getElapsedSeconds(activeTimer, clockNow) : 0;
+  const staleTimer = elapsedSeconds > MAX_ACTIVE_TIMER_SECONDS;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,9 +177,17 @@ export default function TimerScreen() {
         <Text style={styles.cardLabel}>Estado</Text>
         <Text style={styles.cardValue}>{activeTimer ? "Corriendo" : "Sin sesión activa"}</Text>
         {activeTimer ? (
-          <Pressable style={[styles.button, styles.buttonDanger]} onPress={() => void handleStop()} disabled={saving}>
-            {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Detener</Text>}
-          </Pressable>
+          <>
+            <Text style={[styles.elapsed, staleTimer && styles.staleElapsed]}>
+              {staleTimer ? "Sesión antigua: revisa y detenla" : formatElapsed(elapsedSeconds)}
+            </Text>
+            <Text style={styles.cardHint}>
+              El tiempo se calcula desde la sesión del servidor y continúa aunque cambies de pantalla.
+            </Text>
+            <Pressable style={[styles.button, styles.buttonDanger]} onPress={() => void handleStop()} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Detener</Text>}
+            </Pressable>
+          </>
         ) : (
           <Pressable style={styles.button} onPress={() => void handleStart()} disabled={saving}>
             {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Iniciar (solo calcular)</Text>}
@@ -197,6 +216,26 @@ export default function TimerScreen() {
   );
 }
 
+const MAX_ACTIVE_TIMER_SECONDS = 24 * 60 * 60;
+
+function getElapsedSeconds(timer: ActiveTimer, nowMs: number): number {
+  if (!timer) return 0;
+  const accumulated = Number.isFinite(timer.accumulatedSeconds) ? Math.max(0, timer.accumulatedSeconds) : 0;
+  if (timer.status !== "running") return accumulated;
+
+  const anchorMs = Date.parse(timer.resumedAt ?? timer.startedAt);
+  if (!Number.isFinite(anchorMs)) return accumulated;
+  return accumulated + Math.max(0, Math.floor((nowMs - anchorMs) / 1000));
+}
+
+function formatElapsed(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainder = safeSeconds % 60;
+  return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(remainder).padStart(2, "0")}s`;
+}
+
 function buildStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     container: { padding: 20, gap: 16 },
@@ -211,6 +250,8 @@ function buildStyles(theme: ReturnType<typeof useTheme>) {
     },
     cardLabel: { fontSize: 12, fontWeight: "700", color: theme.colors.muted, textTransform: "uppercase" },
     cardValue: { fontSize: 20, fontWeight: "800", color: theme.colors.ink },
+    elapsed: { fontSize: 30, fontWeight: "800", color: theme.colors.brand, fontVariant: ["tabular-nums"] },
+    staleElapsed: { color: theme.colors.error },
     cardHint: { fontSize: 12, color: theme.colors.muted, marginTop: 4 },
     rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
     flexShrink: { flex: 1 },
