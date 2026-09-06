@@ -1,5 +1,22 @@
 import { apiFetch } from "./client";
 
+export type PrometeoSuggestedAction = { action: string; description: string };
+export type PrometeoResource = { id: string | null; type: string; data: unknown | null };
+export type PrometeoContext = {
+  module: string;
+  resource: PrometeoResource;
+  permissions: string[];
+  suggestedActions: PrometeoSuggestedAction[];
+  confidence: number;
+};
+export type PrometeoMessageResponse = {
+  sessionId: string;
+  response: string;
+  suggestedActions: PrometeoSuggestedAction[];
+  requiresWorkspace: boolean;
+  missionSuggestion?: { title: string; type: string; reason: string };
+};
+
 export type LiveSessionSnapshot = {
   id: string;
   scopeType: "job" | "project";
@@ -58,6 +75,34 @@ export async function askPrometeo(input: { message: string; threadId?: string; a
     method: "POST",
     body: JSON.stringify(input),
     headers: { "content-type": "application/json" },
+  });
+}
+
+export async function fetchPrometeoContext(): Promise<PrometeoContext> {
+  return apiFetch<PrometeoContext>("/v1/prometeo/copilot/context", {
+    method: "POST",
+    body: JSON.stringify({ currentUrl: "/mobile/worker/prometeo" }),
+  });
+}
+
+export async function sendPrometeoCopilotMessage(input: {
+  message: string;
+  sessionId?: string;
+  context?: { module: string; resource?: PrometeoResource; permissions?: string[] };
+}): Promise<PrometeoMessageResponse> {
+  return apiFetch<PrometeoMessageResponse>("/v1/prometeo/copilot/message", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function executePrometeoAction(input: {
+  action: string;
+  targetResource: { resourceId: string; resourceType: string };
+}): Promise<{ actionId: string; status: "pending" | "completed" | "failed"; result: unknown; requiresWorkspace: boolean }> {
+  return apiFetch("/v1/prometeo/copilot/action/execute", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
