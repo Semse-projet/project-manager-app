@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 
 const TASKS = {
   "build:packages": [
+    ["pnpm", ["--filter", "@semse/design-tokens", "build"]],
     ["pnpm", ["--filter", "@semse/schemas", "build"]],
     ["pnpm", ["--filter", "@semse/control-plane", "build"]],
     ["pnpm", ["--filter", "@semse/shared", "build"]],
