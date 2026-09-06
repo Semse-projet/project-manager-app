@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, FlatList, TouchableOpacity, Text } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import type { WorkerTabParamList } from '../navigation/types';
 
 interface Project {
   id: string;
@@ -12,7 +13,7 @@ interface Project {
 
 export const ProjectsScreen = () => {
   const [projects, setProjects] = useState<Project[]>([]);
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<WorkerTabParamList>>();
 
   useEffect(() => {
     fetchProjects();
@@ -38,7 +39,7 @@ export const ProjectsScreen = () => {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() => navigation.navigate('ProjectDetail', { projectId: item.id })}
+            onPress={() => navigation.navigate('Jobs', { screen: 'JobDetail', params: { jobId: item.id } })}
             style={{
               padding: 12,
               marginBottom: 8,

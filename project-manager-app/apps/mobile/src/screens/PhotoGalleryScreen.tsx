@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, FlatList, Image, TouchableOpacity, Text } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { API_BASE_URL, getAccessToken } from '../api/client';
 
 interface Photo {
   id: string;
@@ -38,12 +39,13 @@ export const PhotoGalleryScreen = () => {
         uri: photo.uri,
         type: 'image/jpeg',
         name: `photo_${photo.id}.jpg`,
-      });
+      } as unknown as Blob);
 
-      await fetch('/v1/projects/photos', {
+      const token = await getAccessToken();
+      await fetch(`${API_BASE_URL}/v1/projects/photos`, {
         method: 'POST',
         body: formData,
-        headers: { Authorization: 'Bearer token' },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
     } catch (error) {
       console.error('Upload failed', error);

@@ -6,6 +6,8 @@ export const useNotifications = () => {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
       }),
@@ -16,7 +18,7 @@ export const useNotifications = () => {
     send: async (title: string, body: string) => {
       await Notifications.scheduleNotificationAsync({
         content: { title, body, sound: 'default', badge: 1 },
-        trigger: { seconds: 2 },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: 2 },
       });
     },
     requestPermission: async () => {

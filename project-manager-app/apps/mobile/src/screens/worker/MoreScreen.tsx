@@ -18,6 +18,11 @@ const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Ma
   { route: "Payments", icon: "💳", label: "Pagos", hint: "Historial de pagos por job." },
 ];
 
+const FUSION_ITEMS: { route: "Prometeo" | "LiveInspection"; icon: string; label: string; hint: string }[] = [
+  { route: "Prometeo", icon: "*", label: "Prometeo", hint: "Consulta tus trabajos y próximos pasos." },
+  { route: "LiveInspection", icon: "o", label: "Inspección en vivo", hint: "Conecta cámara y audio con Prometeo." },
+];
+
 export default function MoreScreen({ navigation }: Props) {
   const theme = useTheme();
   const styles = buildStyles(theme);
@@ -25,7 +30,7 @@ export default function MoreScreen({ navigation }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {ITEMS.map((item) => (
+      {[...FUSION_ITEMS, ...ITEMS].map((item) => (
         <Pressable key={item.route} style={styles.row} onPress={() => navigation.navigate(item.route)}>
           <Text style={styles.icon}>{item.icon}</Text>
           <View style={styles.flex1}>

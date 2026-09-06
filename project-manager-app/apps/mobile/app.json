@@ -39,6 +39,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "@livekit/react-native-expo-plugin",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "SEMSE necesita la cámara para compartir inspecciones visuales en vivo.",
+          "microphonePermission": "SEMSE necesita el micrófono para la asistencia de inspección en vivo."
+        }
+      ],
       [
         "expo-location",
         {

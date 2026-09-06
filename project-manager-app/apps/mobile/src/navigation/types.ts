@@ -53,6 +53,8 @@ export type WorkerMoreStackParamList = {
   Review: undefined;
   ReviewForm: { jobId: string; jobTitle: string; toUserId: string; toUserEmail?: string };
   Payments: undefined;
+  Prometeo: undefined;
+  LiveInspection: undefined;
   Settings: undefined;
 };
 
