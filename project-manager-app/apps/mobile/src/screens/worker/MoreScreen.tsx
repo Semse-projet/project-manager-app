@@ -6,7 +6,7 @@ import type { WorkerMoreStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<WorkerMoreStackParamList, "MoreMenu">;
 
-const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Materials" | "Rates" | "Agenda" | "Review" | "Payments"; icon: string; label: string; hint: string }[] = [
+const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Materials" | "Rates" | "Agenda" | "Review" | "Payments" | "Prometeo"; icon: string; label: string; hint: string }[] = [
   { route: "Agenda", icon: "📅", label: "Agenda", hint: "Tus jobs activos, agrupados por fecha." },
   { route: "FreeProjects", icon: "🗂️", label: "Proyectos libres", hint: "Tus proyectos propios fuera del marketplace." },
   { route: "Disputes", icon: "⚖️", label: "Disputas", hint: "Reclamos abiertos sobre tus proyectos." },
@@ -16,6 +16,7 @@ const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Ma
   { route: "Rates", icon: "💵", label: "Tarifas", hint: "Tu tarifa por hora y margen de materiales." },
   { route: "Review", icon: "⭐", label: "Reseñas", hint: "Califica a tus clientes y revisa tu historial." },
   { route: "Payments", icon: "💳", label: "Pagos", hint: "Historial de pagos por job." },
+  { route: "Prometeo", icon: "✨", label: "Prometeo", hint: "Asistente operativo con control de aprobaciones." },
 ];
 
 export default function MoreScreen({ navigation }: Props) {

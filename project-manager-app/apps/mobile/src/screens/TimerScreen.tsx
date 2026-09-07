@@ -14,6 +14,7 @@ import { refreshProximitySites } from "../geo/refreshSites";
 import { loadProximityMode } from "../geo/siteCache";
 import { registerProximityNotificationCategory, requestNotificationPermissions } from "../notifications/notifications";
 import { useTheme } from "../theme/theme";
+import { isReasonableActiveTimer, loadLocalTimer, saveLocalTimer, startLocalTimer, stopLocalTimer } from "../timer/localTimer";
 
 export default function TimerScreen() {
   const theme = useTheme();
@@ -25,20 +26,23 @@ export default function TimerScreen() {
   const [trackingEnabled, setTrackingEnabled] = useState(false);
   const [togglingTracking, setTogglingTracking] = useState(false);
   const [showPermissionPrimer, setShowPermissionPrimer] = useState(false);
+  const [offlineMode, setOfflineMode] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [timer, active] = await Promise.all([
-        fetchActiveTimer(),
-        isProximityTrackingActive(),
-        refreshProximitySites(),
-      ]);
-      setActiveTimer(timer);
+      const [timer, active] = await Promise.all([fetchActiveTimer(), isProximityTrackingActive(), refreshProximitySites()]);
+      const usable = isReasonableActiveTimer(timer) ? timer : null;
+      setActiveTimer(usable);
+      await saveLocalTimer(usable);
+      setOfflineMode(false);
       setTrackingEnabled(active);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo cargar el estado del timer.");
+      const local = await loadLocalTimer().catch(() => null);
+      setActiveTimer(local);
+      setOfflineMode(Boolean(local));
+      if (!local) setError(caught instanceof Error ? caught.message : "No se pudo cargar el estado del timer.");
     } finally {
       setLoading(false);
     }
@@ -54,10 +58,14 @@ export default function TimerScreen() {
     setSaving(true);
     setError(null);
     try {
+      const local = await startLocalTimer();
+      setActiveTimer(local);
       const entry = await startTimer({ purpose: "personal", clientEventId: `manual-${Date.now()}` });
       setActiveTimer(entry);
+      await saveLocalTimer(entry);
+      setOfflineMode(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo iniciar.");
+      setOfflineMode(true);
     } finally {
       setSaving(false);
     }
@@ -68,8 +76,14 @@ export default function TimerScreen() {
     setSaving(true);
     setError(null);
     try {
-      await stopTimer(activeTimer.id);
+      if (activeTimer.id.startsWith("local-timer-")) {
+        await stopLocalTimer(activeTimer);
+      } else {
+        await stopTimer(activeTimer.id);
+        await saveLocalTimer(null);
+      }
       setActiveTimer(null);
+      setOfflineMode(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "No se pudo detener.");
     } finally {
@@ -160,6 +174,7 @@ export default function TimerScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {offlineMode ? <Text style={styles.offline}>Modo local activo: se sincronizará al recuperar conexión.</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.card}>
@@ -217,6 +232,7 @@ function buildStyles(theme: ReturnType<typeof useTheme>) {
     button: { backgroundColor: theme.colors.brand, borderRadius: theme.radius.md, padding: 12, alignItems: "center", marginTop: 4 },
     buttonDanger: { backgroundColor: theme.colors.error },
     buttonText: { color: "#fff", fontWeight: "700" },
+    offline: { color: theme.colors.brand, fontSize: 13, fontWeight: "700" },
     error: { color: theme.colors.error, fontSize: 13 },
   });
 }

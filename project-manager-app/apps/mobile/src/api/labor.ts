@@ -64,7 +64,29 @@ export async function startTimer(input: StartTimerInput): Promise<ActiveTimer> {
 }
 
 export async function stopTimer(id: string): Promise<ActiveTimer> {
-  return apiFetch<ActiveTimer>(`/v1/labor/timer/${encodeURIComponent(id)}/stop`, { method: "POST" });
+  return apiFetch<ActiveTimer>(`/v1/labor/timer/${encodeURIComponent(id)}/stop`, { method: "POST", body: JSON.stringify({}) });
+}
+
+export async function pauseTimer(id: string): Promise<ActiveTimer> {
+  return apiFetch<ActiveTimer>(`/v1/labor/timer/${encodeURIComponent(id)}/pause`, { method: "POST" });
+}
+
+export async function resumeTimer(id: string): Promise<ActiveTimer> {
+  return apiFetch<ActiveTimer>(`/v1/labor/timer/${encodeURIComponent(id)}/resume`, { method: "POST" });
+}
+
+export async function createManualEntry(input: {
+  purpose: TimerPurpose;
+  date: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes?: number;
+  jobId?: string;
+  freeProjectId?: string;
+  notes?: string;
+  clientEventId?: string;
+}): Promise<NonNullable<ActiveTimer>> {
+  return apiFetch<NonNullable<ActiveTimer>>("/v1/labor/entries/manual", { method: "POST", body: JSON.stringify(input) });
 }
 
 /** OPS_ADMIN only (ops:dashboard:read) — QualityGuard alerts + team weekly summary, read-only. */
