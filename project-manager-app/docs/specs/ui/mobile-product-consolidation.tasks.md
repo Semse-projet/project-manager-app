@@ -49,10 +49,13 @@ date: "2026-09-06"
       `docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md`. Límites Expo Go:
       LiveKit/nativos no se fuerzan dentro de Expo Go (spec §7).
 - [~] T-030: trazabilidad iOS/Android y diagnóstico local — IDs de build y
-      proyectos EAS registrados en `MOBILE_SOURCE_REGISTER.md`. Pendiente: los
-      commits `2deefd26…`/`cd534762…` de los builds EAS recientes no están en
-      ningún Git accesible — sin recuperar no se puede afirmar paridad con esos
-      builds (bloqueo externo: solo el propietario sabe en qué máquina/clon están).
+      proyectos EAS registrados en `MOBILE_SOURCE_REGISTER.md`. **Bloqueo externo
+      confirmado 2026-09-07:** los commits `2deefd26…`/`cd534762…` de los builds
+      EAS recientes están en **otra máquina del propietario, sin pushear**. Se
+      recuperan trayendo esa rama a `origin` (o a este clon como remoto) antes
+      de poder afirmar paridad con esos builds. Hasta entonces la consolidación
+      parte de `main@88171003` + lo verificable en los clones locales de esta
+      máquina.
 - [x] T-040: suite móvil, TypeScript, exportaciones y SDD — `tsc --noEmit` limpio;
       `spec:validate:strict` 119 specs 0 errores; **suite móvil 45/45 · 213/213**
       (dos corridas) tras `jest.config.js testTimeout 15000` que estabilizó los
