@@ -71,7 +71,9 @@ date: "2026-09-06"
       2026-09-07. Falta CI terminal + review.
 - [~] T-060: builds desde la misma revisión, instalación y canary en dispositivos.
       **Android**: build `preview` `680386ee-ee03-47f3-b18a-52a4827ddb08` desde
-      `22ce0a06` lanzado 2026-09-07. **iOS**: **bloqueado** — la cuota de builds
+      `22ce0a06` — **`finished` 2026-09-07 15:06**. APK:
+      `https://expo.dev/artifacts/eas/NNT-3wR2Ub_IW02zqTbBn20Kb9dRdmPAEk6i4RKX8uo.apk`
+      **iOS**: **bloqueado** — la cuota de builds
       iOS del plan Free de EAS se agotó este mes (resetea 2026-10-01); los builds
       iOS `preview` del 2026-09-06 (`2deefd26…`) la consumieron. Opciones: esperar
       al reset, subir de plan, o probar iOS con el build `2deefd26…` existente
