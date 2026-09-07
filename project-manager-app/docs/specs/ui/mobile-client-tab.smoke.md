@@ -17,10 +17,10 @@ o simulador real con una cuenta `CLIENT` de verdad y un job con datos.
 ## 0. Prerrequisitos
 
 - [ ] Build EAS `preview` instalado en el device:
-  - **Android:** APK del build `preview` (lanzado 2026-09-06 desde `main`
-    `88171003`). Descargar el `.apk` de
-    `https://expo.dev/accounts/semseproject.com/projects/semse-mobile/builds`
-    y sideload (`adb install <archivo>.apk` o abrir el link en el device).
+  - **Android:** APK del build `preview` `167bd926-bd28-4d4f-a6b7-f6d98b7bd05d`
+    (`main` `88171003`, `finished` 2026-09-06 18:10). Descarga directa:
+    `https://expo.dev/artifacts/eas/A6cSud3ehsaWkNymw627v4Gfve_5v6WYF_EguYG-AcY.apk`
+    Sideload con `adb install <archivo>.apk` o abriendo el link en el device.
   - **iOS:** build `preview` del 2026-09-06 (internal distribution) —
     instalar vía el link de EAS con el UDID del device ya registrado, o
     correr en simulador con el `.app`/`.tar.gz` del build.

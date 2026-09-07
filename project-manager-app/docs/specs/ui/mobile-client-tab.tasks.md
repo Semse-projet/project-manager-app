@@ -129,13 +129,14 @@ date: "2026-08-05"
       `apps/mobile/package.json` y corrió OK en los builds EAS previos.
 - [x] [T-061] N/A `apps/api`/`apps/web`/`apps/worker` (sin cambios); el
       "deployment" de esta superficie es el build EAS.
-- [~] [T-062] `eas build --profile preview` — builds `preview` de **iOS**
+- [x] [T-062] `eas build --profile preview` — builds `preview` de **iOS**
       terminados en EAS el 2026-09-06 (proyecto `semse-mobile`, cuenta
-      `semseproject.com`). **Android**: build `167bd926-bd28-4d4f-a6b7-f6d98b7bd05d`
-      lanzado en esta sesión desde `main` `88171003`
-      (`--profile preview --platform android --non-interactive`), `in progress`
-      al momento de escribir. Falta confirmar que termina sin error y anotar
-      su Application Archive URL (APK) para el sideload del smoke.
+      `semseproject.com`). **Android**: build
+      `167bd926-bd28-4d4f-a6b7-f6d98b7bd05d` desde `main` `88171003`
+      (`--profile preview --platform android --non-interactive`) —
+      **`finished` sin error** (2026-09-06 18:10). APK:
+      `https://expo.dev/artifacts/eas/A6cSud3ehsaWkNymw627v4Gfve_5v6WYF_EguYG-AcY.apk`
+      (`EXPO_PUBLIC_SEMSE_API_BASE_URL=https://api.semseproject.com`).
 - [x] [T-063] N/A canary/flag — sin flag para esta fase (plan §7 Fase F).
 - [ ] [T-064] **Pendiente — lo ejecuta el usuario en device.** Smoke
       autenticado real con cuenta `CLIENT`: ver jobs, abrir detalle, aceptar
