@@ -141,10 +141,12 @@ date: "2026-08-05"
 - [ ] [T-064] **Pendiente — lo ejecuta el usuario en device.** Smoke
       autenticado real con cuenta `CLIENT`: ver jobs, abrir detalle, aceptar
       un bid, aprobar un milestone, enviar un rating. Runbook en
-      `docs/specs/ui/mobile-client-tab.smoke.md`.
+      `docs/specs/ui/mobile-client-tab.smoke.md`; resultados se cargan en
+      `docs/reportes/2026-09-06_mobile_client_fase2_smoke.md` (borrador ya
+      creado con el contexto del build; faltan los resultados por paso).
 - [ ] [T-065] **Pendiente — smoke negativo, en el mismo run que T-064.**
       Confirmar que fund/deposit/release no son alcanzables desde esta
-      superficie (spec `risk: high`).
+      superficie (spec `risk: high`). Checklist en el mismo reporte.
 - [ ] [T-066] Promover a `production` o revertir según T-064/T-065.
 - [ ] [T-067] Registrar `production_evidence`, `last_verified` y
       `status: VERIFIED` en el spec una vez que el smoke pase.
