@@ -24,6 +24,20 @@
 | Device / OS usado | _PENDIENTE_ |
 | Cuenta `CLIENT` usada | _PENDIENTE (no anotar credenciales — solo el rol y, si aplica, el email)_ |
 
+## 1b. Verificación automática previa (2026-09-07, `main` `88171003`)
+
+No sustituye el smoke en device (T-064 exige un run real de la UI), pero
+confirma que el código está verde antes de instalar:
+
+- `pnpm --filter @semse/schemas build` — OK (necesario primero; sin esto el
+  typecheck de mobile falla por exports de Admin Fase 7 no linkeados).
+- `pnpm --filter @semse/mobile check` (`tsc --noEmit`) — **limpio**.
+- `pnpm --filter @semse/mobile test` — **43 suites / 191 tests en verde**,
+  incluidas `src/screens/client/{JobsListScreen,JobDetailScreen,RatingFormScreen}.test.tsx`.
+  Nota: una corrida lenta (~70 s) tuvo 3 timeouts flaky de 5 s en
+  `src/screens/TimerScreen.test.tsx` (pantalla de **Worker**, no Client);
+  en corridas de ~38 s pasan las 191. No es regresión.
+
 ## 2. T-064 — Smoke funcional
 
 Resultado por paso (`OK` / `FALLA` + nota):
