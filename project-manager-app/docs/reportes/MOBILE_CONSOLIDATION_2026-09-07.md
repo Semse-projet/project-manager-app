@@ -61,8 +61,10 @@ Se estableció `origin/main` como base de integración en el worktree `semse-con
 | LiveSession (T-022) | gateado — ver `docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md` |
 | Procedencia de `2deefd26…` / `cd534762…` (T-030) | bloqueo externo — commits en ninguna Git accesible |
 | Docs canónicas: ROADMAP / IMPLEMENTATION_STATUS_MATRIX / SPEC_INDEX (T-041) | pendiente |
-| CI / push / PR (T-050) | rama sin pushear |
-| Builds EAS desde esta revisión + canary autenticado (T-060) | pendiente |
-| Bump de deps de Expo SDK 57 (patch) | recomendado, diferido |
+| CI / push / PR (T-050) | ✅ rama pusheada, **PR draft #598** — falta CI + review |
+| Build EAS Android desde esta revisión (T-060) | 🔄 `680386ee` desde `22ce0a06`, en curso |
+| Build EAS iOS desde esta revisión (T-060) | ❌ **cuota Free agotada** — resetea 2026-10-01; los iOS del 06-09 (`2deefd26…`) la consumieron |
+| Instalación + canary autenticado en device (T-060) | pendiente del propietario |
+| Bump de deps de Expo SDK 57 (patch) | ✅ hecho — `22ce0a06`, regresión completa verde |
 
 Ninguna fuente borrada. Ningún cambio local pisado. Sin push ni deploy.

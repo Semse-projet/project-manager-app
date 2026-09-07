@@ -66,8 +66,17 @@ date: "2026-09-06"
       este archivo y `reportes/MOBILE_CONSOLIDATION_2026-09-07.md` actualizados
       con hallazgos. Pendiente: `ROADMAP.md`, `IMPLEMENTATION_STATUS_MATRIX.md`,
       `docs/SPEC_INDEX.md` (regenerar con `pnpm spec:index`).
-- [ ] T-050: CI, revisión e integración de GitHub — rama sin pushear, sin PR.
-- [ ] T-060: builds desde la misma revisión, instalación y canary en dispositivos.
+- [~] T-050: CI, revisión e integración de GitHub — rama pusheada
+      (`feat/semse-product-consolidation-20260906`), **PR draft #598** abierto
+      2026-09-07. Falta CI terminal + review.
+- [~] T-060: builds desde la misma revisión, instalación y canary en dispositivos.
+      **Android**: build `preview` `680386ee-ee03-47f3-b18a-52a4827ddb08` desde
+      `22ce0a06` lanzado 2026-09-07. **iOS**: **bloqueado** — la cuota de builds
+      iOS del plan Free de EAS se agotó este mes (resetea 2026-10-01); los builds
+      iOS `preview` del 2026-09-06 (`2deefd26…`) la consumieron. Opciones: esperar
+      al reset, subir de plan, o probar iOS con el build `2deefd26…` existente
+      (no es esta revisión). Instalación + canary autenticado por rol: pendiente
+      del propietario en device.
 
 Cada marca corresponde a evidencia observada; compilar no cierra T-060.
 
