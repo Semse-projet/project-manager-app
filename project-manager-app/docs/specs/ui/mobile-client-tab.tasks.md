@@ -16,8 +16,16 @@ date: "2026-08-05"
 >
 > **2026-08-05: spec aprobado por el usuario.** Bloqueo de T-001 levantado.
 > Fases 0–4 (código + verificación local) completadas en la misma sesión —
-> ver notas por tarea. Fases 5–6 (PR/CI/merge/deploy/activación) siguen
-> pendientes, no se abrió PR ni se corrió build EAS todavía.
+> ver notas por tarea.
+>
+> **2026-09-06: actualización de estado.** Fase 5 quedó cerrada fuera de
+> este `tasks.md`: el código de Client Fase 2 se mergeó a `main` en
+> **PR #542** (`699e2a2e`, 2026-08-06) y recibió retoques de UX en **#556**
+> y **#558**. CI de esos PRs pasó al mergear. Falta solo la Fase 6: build
+> EAS `preview` + smoke real en device con cuenta `CLIENT` + marcar el spec
+> `VERIFIED`. Builds `preview` de iOS ya corrieron en EAS (2026-09-06); en
+> esta sesión se lanzó el `preview` de Android desde `main` `88171003`. El
+> smoke de T-064/T-065 lo ejecuta el usuario en device — sigue pendiente.
 
 ## Fase 0 — SDD y verdad
 
@@ -103,22 +111,42 @@ date: "2026-08-05"
 
 ## Fase 5 — PR, CI y merge
 
-- [ ] [T-050] Revisar diff y secretos (`git status`/`git diff` completo antes de `git add`, mismo hábito ya seguido en esta sesión)
-- [ ] [T-051] Abrir PR — sin migración que documentar; incluir evidencia de T-040/T-042 en la descripción
-- [ ] [T-052] Esperar CI terminal y registrar `ci_status`
-- [ ] [T-053] Resolver review sin ampliar scope — en particular, resistir la tentación de agregar marketplace/job-posting/pagos en el mismo PR (ver riesgo de scope creep en plan §8)
-- [ ] [T-054] Fusionar y registrar SHA; actualizar `merge_status`
+> **Cerrada 2026-08-06 vía PR #542**, no con una rama `feat/mobile-client-tab`
+> dedicada — el código de Client Fase 2 entró junto con Worker Fase 1
+> extendido + push notifications en el mismo PR (`699e2a2e`). UX afinada
+> después en #556 (Client Jobs UX uplift) y #558.
+
+- [x] [T-050] Revisado en el PR #542; sin secretos en el diff de `apps/mobile`.
+- [x] [T-051] PR #542 abierto y descrito (ver también #556 / #558).
+- [x] [T-052] CI de #542/#556/#558 en verde al mergear → `ci_status: PASS`.
+- [x] [T-053] Scope respetado — no se agregó marketplace/job-posting/pagos.
+- [x] [T-054] Fusionado en `main` `699e2a2e` (2026-08-06) → `merge_status: MERGED`.
 
 ## Fase 6 — Deploy y activación
 
-- [ ] [T-060] Verificar pre-deploy — N/A migración, confirmar solamente que `pnpm build:packages`/`eas-build-post-install` (ya configurado en `apps/mobile/package.json`) sigue funcionando
-- [ ] [T-061] Esperar deployment terminal — no aplica a `apps/api`/`apps/web`/`apps/worker` (sin cambios ahí); aplica al build EAS
-- [ ] [T-062] `eas build --profile preview --platform all`, verificar que el build termina sin error
-- [ ] [T-063] N/A canary/flag — no hay flag para esta fase (plan §7 Fase F)
-- [ ] [T-064] Ejecutar smoke autenticado **real**, en device/simulador, con una cuenta `CLIENT` real (no solo `tsc --noEmit`) — cubrir: ver jobs, abrir detalle, aceptar un bid, aprobar un milestone, enviar un rating
-- [ ] [T-065] Validar que las acciones de dinero (fund/deposit/release) siguen sin ser alcanzables desde esta superficie — smoke negativo explícito, dado el `risk: high` del spec
-- [ ] [T-066] Promover el build a `production` o pausar/revertir según el resultado de T-064/T-065
-- [ ] [T-067] Registrar `production_evidence`, `last_verified` y `status: VERIFIED` en el spec
+- [x] [T-060] Pre-deploy — sin migración; `eas-build-post-install`
+      (`cd ../.. && pnpm run build:packages`) sigue configurado en
+      `apps/mobile/package.json` y corrió OK en los builds EAS previos.
+- [x] [T-061] N/A `apps/api`/`apps/web`/`apps/worker` (sin cambios); el
+      "deployment" de esta superficie es el build EAS.
+- [~] [T-062] `eas build --profile preview` — builds `preview` de **iOS**
+      terminados en EAS el 2026-09-06 (proyecto `semse-mobile`, cuenta
+      `semseproject.com`). **Android**: build `167bd926-bd28-4d4f-a6b7-f6d98b7bd05d`
+      lanzado en esta sesión desde `main` `88171003`
+      (`--profile preview --platform android --non-interactive`), `in progress`
+      al momento de escribir. Falta confirmar que termina sin error y anotar
+      su Application Archive URL (APK) para el sideload del smoke.
+- [x] [T-063] N/A canary/flag — sin flag para esta fase (plan §7 Fase F).
+- [ ] [T-064] **Pendiente — lo ejecuta el usuario en device.** Smoke
+      autenticado real con cuenta `CLIENT`: ver jobs, abrir detalle, aceptar
+      un bid, aprobar un milestone, enviar un rating. Runbook en
+      `docs/specs/ui/mobile-client-tab.smoke.md`.
+- [ ] [T-065] **Pendiente — smoke negativo, en el mismo run que T-064.**
+      Confirmar que fund/deposit/release no son alcanzables desde esta
+      superficie (spec `risk: high`).
+- [ ] [T-066] Promover a `production` o revertir según T-064/T-065.
+- [ ] [T-067] Registrar `production_evidence`, `last_verified` y
+      `status: VERIFIED` en el spec una vez que el smoke pase.
 
 ## Criterio de Done
 
