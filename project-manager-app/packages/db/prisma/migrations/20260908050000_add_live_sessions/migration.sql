@@ -45,9 +45,6 @@ CREATE TABLE "live_session_participant" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "live_session_tenantId_idempotencyKey_key" ON "live_session"("tenantId", "idempotencyKey");
-
--- CreateIndex
 CREATE INDEX "live_session_tenantId_status_createdAt_idx" ON "live_session"("tenantId", "status", "createdAt");
 
 -- CreateIndex
@@ -60,13 +57,16 @@ CREATE INDEX "live_session_tenantId_createdById_createdAt_idx" ON "live_session"
 CREATE INDEX "live_session_status_expiresAt_idx" ON "live_session"("status", "expiresAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "live_session_participant_sessionId_userId_key" ON "live_session_participant"("sessionId", "userId");
+CREATE UNIQUE INDEX "live_session_tenantId_idempotencyKey_key" ON "live_session"("tenantId", "idempotencyKey");
 
 -- CreateIndex
 CREATE INDEX "live_session_participant_tenantId_userId_idx" ON "live_session_participant"("tenantId", "userId");
 
 -- CreateIndex
 CREATE INDEX "live_session_participant_sessionId_idx" ON "live_session_participant"("sessionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "live_session_participant_sessionId_userId_key" ON "live_session_participant"("sessionId", "userId");
 
 -- AddForeignKey
 ALTER TABLE "live_session" ADD CONSTRAINT "live_session_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { LiveSessionRecordView, LiveSessionTransitionAction } from "@semse/schemas";
 import {
   getLiveSession,
@@ -11,9 +10,10 @@ import {
 } from "../api/liveSessions";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../theme/theme";
-import type { WorkerMoreStackParamList } from "../navigation/types";
 
-type Props = NativeStackScreenProps<WorkerMoreStackParamList, "LiveSession">;
+// La pantalla se monta en varios stacks (Worker/Client Jobs, Worker More) y
+// sólo lee `route.params.sessionId`, así que se tipa laxo aquí.
+type Props = { route: { params: { sessionId: string } } };
 
 const POLL_MS = 4000;
 

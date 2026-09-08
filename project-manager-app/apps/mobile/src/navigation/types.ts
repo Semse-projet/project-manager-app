@@ -37,6 +37,7 @@ export type WorkerJobsStackParamList = {
   JobsList: undefined;
   JobDetail: { jobId: string };
   Evidence: { jobId: string; jobTitle?: string };
+  LiveSession: { sessionId: string };
 };
 
 export type WorkerMoreStackParamList = {
@@ -69,6 +70,7 @@ export type ClientJobsStackParamList = {
   JobsList: undefined;
   JobDetail: { jobId: string };
   Rating: { jobId: string; jobTitle: string; toUserId: string; toUserEmail: string };
+  LiveSession: { sessionId: string };
 };
 
 export type AdminTabParamList = {
