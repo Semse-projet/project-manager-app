@@ -3,8 +3,8 @@ id: "prometeo.live-sessions"
 title: "Sesiones en vivo (LiveSession) — inspección y asistencia asistidas por Prometeo"
 domain: "prometeo"
 sdd_version: "2.0"
-version: "1.0"
-status: "DRAFT"
+version: "1.1"
+status: "APPROVED"
 owner: "semse-core"
 risk: "high"
 code_status: "NOT_STARTED"
@@ -28,10 +28,20 @@ last_verified: "2026-09-07"
 
 # Spec: Sesiones en vivo (LiveSession)
 
-> Contrato ejecutable SDD 2.0. `status: DRAFT` — pendiente de sign-off humano
-> (gate §7 "Economía" no aplica; gate de dominio/FSM y de dependencia externa
-> sí). No implementar hasta `APPROVED`. Código, CI, merge, deploy y activación
-> se registran por separado.
+> Contrato ejecutable SDD 2.0. **`status: APPROVED`** — el propietario firmó el
+> spec en sesión el 2026-09-07 con estas decisiones cerradas:
+>
+> | Gate | Decisión |
+> |---|---|
+> | Membresía de participantes | **Tabla `LiveSessionParticipant` explícita** (no derivada del recurso) |
+> | Alcance del primer corte | **`inspection` + `assist`** ambos |
+> | Recurso sin acceso | **404** (no filtrar la existencia de la sesión/recurso) |
+> | LiveKit (cuenta/plan, `LIVEKIT_*` en Railway) | **Acción humana pendiente** — bloquea la fase de implementación de media, no el plan/tasks ni el modelo/FSM |
+> | Outbox vs best-effort para `live_session.*` | Se decide en el plan §6 (recomendación: best-effort + snapshot al reconectar) |
+>
+> Sigue: plan → tasks → analyze → checklist → implement. Código, CI, merge,
+> deploy y activación se registran por separado. La migración es aditiva y
+> **no se aplica a producción** durante el desarrollo.
 >
 > **Origen del material.** Existe una implementación de referencia casi
 > completa en el árbol sin Git `C:\Users\SEMSEproject\project-manager-app-main`
@@ -125,16 +135,19 @@ No se graba ni se retiene media en este alcance.
 |---|---|---|---|---|
 | `CLIENT` (dueño del job/project) | `live_sessions:write` + acceso al recurso | su `job`/`project`, su tenant | Crear sesión, aceptar, pausar/reanudar, terminar, cancelar; unirse; ver por SSE | Crear sesión sobre un recurso ajeno; ver sesiones de otro tenant/recurso |
 | `PRO`/`WORKER` asignado al recurso | `live_sessions:write` + asignación al recurso | el `job`/`project` donde está asignado | Crear (`assist`), unirse, pausar/reanudar/terminar | Operar sesiones de recursos donde no está asignado |
-| Cualquiera con `live_sessions:read` pero sin acceso al recurso | `live_sessions:read` | — | nada | Ver, obtener `media-token`, suscribirse (403, no 404-leak salvo decisión de producto) |
+| Cualquiera con `live_sessions:read` pero sin acceso al recurso o no participante | `live_sessions:read` | — | nada | Ver, obtener `media-token`, suscribirse — responde **404** (no revela que la sesión existe) |
 | `OPS_ADMIN` | `live_sessions:read` (+ `:write` para `cancel`) | tenant | Ver/cancelar sesiones colgadas del tenant para operación | Unirse al media room sin ser participante |
 | Prometeo (servicio) | — | la sesión | Observador lógico (recibe eventos), propone acciones sujetas a aprobación (Tool Registry F2) | Transicionar la FSM por su cuenta |
 
 - **Tenant boundary:** `resolveRequestContext` inyecta `tenantId`/`orgId` del
   token; nunca viajan en body/query. `@@unique([tenantId, idempotencyKey])`.
-- **Ownership/resource policy:** **además** del `tenantId`, toda operación
-  valida que el actor tenga acceso al `scopeId` (job/project) vía el
-  servicio dueño de ese recurso. Este es el hueco principal de la referencia
-  (§13.1) y es requisito de cierre.
+- **Ownership/resource policy:** `get`/`media-token`/`transition`/SSE exigen
+  `tenantId` del actor **y** una fila activa en `LiveSessionParticipant`
+  (`sessionId, userId`, sin `leftAt`). Sin eso → **404** (no se distingue de
+  "no existe"). En `create`, además de `tenantId`, se valida acceso al
+  `scopeId` (job/project) vía el servicio dueño del recurso para sembrar los
+  participantes iniciales. Este era el hueco principal de la referencia
+  (§13.1); es requisito de cierre.
 - **Step-up o aprobación humana:** ninguna acción de esta sesión requiere
   step-up; tampoco destraba ninguna acción que hoy lo requeriría.
 - **Datos `privacyCritical`:** el stream de cámara/audio es contenido de obra,
@@ -187,9 +200,9 @@ ENTONCES sólo una gana; la otra recibe 409 "version conflict"
 Casos borde:
 
 - [ ] Reintento de `create` (idempotente) y de `transition` (rechazo por versión).
-- [ ] Recurso inexistente / sin acceso → 403 (o 404 según decisión de producto), nunca fuga de datos de otro tenant.
-- [ ] Aislamiento cross-tenant y cross-recurso: un usuario del mismo tenant sin acceso al job NO ve la sesión ni obtiene `media-token`.
-- [ ] `media-token` sobre sesión `ENDED`/`CANCELLED`/`FAILED` o `expiresAt` vencido → 409/403, no token.
+- [ ] Recurso inexistente / sin acceso / no participante → **404** (idéntico a "no existe"), nunca fuga de datos de otro tenant ni confirmación de que la sesión existe.
+- [ ] Aislamiento cross-tenant y cross-recurso: un usuario del mismo tenant sin acceso al job y no listado en `LiveSessionParticipant` NO ve la sesión ni obtiene `media-token` (404).
+- [ ] `media-token` sobre sesión `ENDED`/`CANCELLED`/`FAILED` o `expiresAt` vencido → 409, no token.
 - [ ] Transición ilegal (`pause` desde `REQUESTED`) → 409.
 - [ ] SSE: al perder autorización (sesión termina, usuario removido) el stream se cierra; keepalive cada 20 s.
 - [ ] Expo Go: la pantalla carga y muestra "no disponible", sin intentar importar el módulo nativo de LiveKit.
@@ -206,8 +219,7 @@ output_schema: LiveSessionRecordView   # { id, tenantId, scopeType, scopeId, pur
 errors:
   400: input inválido
   401: sin sesión
-  403: sin acceso al scopeId
-  404: scopeId inexistente (o 403 si se prefiere no distinguir)
+  404: scopeId inexistente O el actor no tiene acceso al recurso (mismo cuerpo — no se distingue)
   409: idempotencyKey ligada a otro comando
 effects:
   audit_log: live_session.requested
@@ -222,7 +234,7 @@ effects:
 auth: required
 permissions: ["live_sessions:read"]
 output_schema: LiveSessionRecordView
-errors: { 401, 403 (sin acceso al recurso), 404 }
+errors: { 401, 404 (no existe, o el actor no es participante — mismo cuerpo) }
 effects: {}
 ```
 
@@ -233,7 +245,7 @@ auth: required
 permissions: ["live_sessions:read"]
 precondition: actor es participante autorizado del recurso Y status in [CONNECTING, ACTIVE, PAUSED] Y no vencida
 output_schema: { token: string, url: string, room: string, expiresAt: string }  # token efímero LiveKit, TTL <= vida de sesión
-errors: { 401, 403, 404, 409 (estado/expiración no permite media) }
+errors: { 401, 404 (no existe / no participante), 409 (estado/expiración no permite media) }
 effects: { audit_log: live_session.media_token_issued (sin el token en el registro) }
 ```
 
@@ -246,8 +258,7 @@ input_schema: liveSessionTransitionSchema  # { action: accept|pause|resume|end|c
 output_schema: LiveSessionRecordView
 errors:
   400: input inválido
-  403: sin acceso al recurso
-  404: sesión inexistente
+  404: sesión inexistente O el actor no es participante (mismo cuerpo)
   409: version conflict | transición ilegal desde el estado actual
 effects:
   audit_log: live_session.<action> (beforeJson/afterJson)
@@ -274,7 +285,7 @@ surfaces: ["apps/mobile: LiveSessionScreen (dentro del stack del job/project)"]
 states: [loading, empty, ready, forbidden, degraded, error]
 required_behavior:
   - "degraded = Expo Go / sin permisos de cámara/mic: explica y ofrece la acción para concederlos, no crashea"
-  - "forbidden = 403 del backend: mensaje claro, sin exponer datos del recurso"
+  - "forbidden/not-found = 404 del backend: 'esta sesión no está disponible', sin exponer nada del recurso"
   - "el SSE se cierra al salir de la pantalla; el media room se abandona en unmount"
 ```
 
@@ -335,14 +346,41 @@ CANCELLED               CANCELLED                                     CANCELLED/
 
 ## 7. Datos y migración
 
-- **Modelos Prisma:** `LiveSession` + enums `LiveSessionStatus`,
-  `LiveSessionScopeType`, `LiveSessionPurpose`. (Opcional, evaluar: tabla
-  `LiveSessionParticipant(sessionId, userId, role, joinedAt, leftAt)` para
-  expresar membresía explícita en vez de derivarla del recurso — recomendado
-  si `assist` va a permitir invitados.)
-- **Migración:** **aditiva** — `CREATE TYPE` para los 3 enums + `CREATE TABLE
-  live_session` + 3 índices + `@@unique([tenantId, idempotencyKey])`. Cero
-  `ALTER`/`DROP` sobre tablas existentes. `prisma migrate dev --name add_live_session`.
+- **Modelos Prisma:**
+  - `LiveSession` + enums `LiveSessionStatus`, `LiveSessionScopeType`,
+    `LiveSessionPurpose` (como en §1 / la referencia).
+  - **`LiveSessionParticipant`** (decisión del propietario 2026-09-07 — membresía
+    explícita, no derivada del recurso):
+    ```prisma
+    model LiveSessionParticipant {
+      id            String   @id @default(cuid())
+      tenantId      String
+      sessionId     String
+      userId        String
+      role          LiveSessionParticipantRole   // owner | inspector | assistant | observer
+      invitedById   String
+      joinedAt      DateTime?
+      leftAt        DateTime?
+      createdAt     DateTime @default(now())
+      session       LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+      @@unique([sessionId, userId])
+      @@index([tenantId, userId])
+      @@index([sessionId])
+    }
+    ```
+    En `create`, el backend inserta al creador como `owner` y a la contraparte
+    del recurso (p. ej. el `PRO` asignado al job, o el `CLIENT` dueño) como
+    `inspector`/`assistant`. `assist` puede añadir un `observer` invitado
+    **sólo** por el `owner`, sujeto a `live_sessions:write` + acceso al recurso.
+- **Autorización = tenant + fila en `LiveSessionParticipant`.** Todo `get`/
+  `media-token`/`transition`/SSE exige `tenantId` del actor **y** una fila
+  `(sessionId, userId)` sin `leftAt`. Sin eso → 404.
+- **Migración:** **aditiva** — `CREATE TYPE` para los 4 enums (`LiveSessionStatus`,
+  `LiveSessionScopeType`, `LiveSessionPurpose`, `LiveSessionParticipantRole`) +
+  `CREATE TABLE live_session` + `CREATE TABLE live_session_participant` + índices
+  + `@@unique([tenantId, idempotencyKey])` y `@@unique([sessionId, userId])`.
+  Cero `ALTER`/`DROP` sobre tablas existentes.
+  `prisma migrate dev --name add_live_sessions`.
 - **Estrategia expand/contract:** sólo expand; nada consume la tabla hasta que
   el flag se active.
 - **Backfill:** ninguno.
@@ -372,7 +410,7 @@ CANCELLED               CANCELLED                                     CANCELLED/
   en device nativo (iOS + Android), 2 participantes, con red interrumpida y
   regreso de background; verificar aislamiento con un 3er usuario sin acceso.
 - **Evidencia de producción requerida:** grabación del canary + logs de las
-  transiciones + prueba negativa del 3er usuario (403).
+  transiciones + prueba negativa del 3er usuario (404).
 - **Señal de rollback:** cualquier fuga cross-recurso/cross-tenant, media-token
   emitido a un no-participante, o crash en el journey → flag off.
 - **Owner operativo:** semse-core / equipo Prometeo.
@@ -382,8 +420,9 @@ CANCELLED               CANCELLED                                     CANCELLED/
 - [ ] Unitarios FSM: `canTransitionLiveSession` + `transitionTarget` para las
       20+ combinaciones acción×estado, incluidas las ilegales.
 - [ ] Contrato API de los 5 endpoints contra `@semse/schemas`.
-- [ ] **Ownership/aislamiento**: usuario del mismo tenant sin acceso al job →
-      403 en get/media-token/transition/SSE; usuario de otro tenant → 404/403.
+- [ ] **Ownership/aislamiento**: usuario del mismo tenant sin acceso al job y
+      no listado en `LiveSessionParticipant` → **404** en get/media-token/
+      transition/SSE; usuario de otro tenant → 404 idéntico.
 - [ ] Validación y conflicto de estado: transición ilegal → 409; `expectedVersion`
       desactualizado → 409.
 - [ ] Idempotencia: `create` con misma key/atributos → misma fila; con key y
@@ -444,13 +483,16 @@ CANCELLED               CANCELLED                                     CANCELLED/
 
 ## 12. Gates de cierre
 
-- [ ] Sign-off humano del spec (`DRAFT → APPROVED`) — revisión contra
-      `STATE_MACHINES.md` y `DOMAIN_INVARIANTS.md`.
-- [ ] Eventos `live_session.*` agregados a `EVENT_CATALOG.md`.
-- [ ] Decisión de producto: ¿tabla `LiveSessionParticipant` explícita, o
-      membresía derivada del recurso? ¿403 vs 404 para recurso sin acceso?
+- [x] Sign-off humano del spec (`DRAFT → APPROVED`) — el propietario firmó en
+      sesión 2026-09-07. Revisión formal contra `STATE_MACHINES.md` /
+      `DOMAIN_INVARIANTS.md` se hace al escribir el plan.
+- [x] Decisión de producto: **tabla `LiveSessionParticipant` explícita**;
+      **`inspection` + `assist`** en el primer corte; **404** (no 403) para
+      recurso/sesión sin acceso.
+- [ ] Eventos `live_session.*` agregados a `EVENT_CATALOG.md` (en el plan/tasks).
 - [ ] Decisión de infra: cuenta/plan LiveKit, `LIVEKIT_*` en Railway
-      (acción humana — agentes no tocan env de producción).
+      (acción humana — agentes no tocan env de producción). **Bloquea la fase
+      de media, no el modelo/FSM/tests.**
 - [ ] Plan → tasks → checklist → analyze.
 - [ ] Migración aditiva verificada en local (nunca `db push`).
 - [ ] Implementación con guard de ownership y drivers de FSM completos.
@@ -477,9 +519,10 @@ CANCELLED               CANCELLED                                     CANCELLED/
    PAUSED}` + no vencida; auditar la emisión sin registrar el token.
 4. **`expiresAt` declarado y nunca usado.** No se setea en `create` ni se
    chequea. → TTL por defecto + enforcement + barrido a terminal.
-5. **Sin modelo de participantes.** Sólo `createdById`. Para `inspection`
-   (PRO + CLIENT) hace falta expresar 2 participantes autorizados. → Evaluar
-   tabla `LiveSessionParticipant` (§12).
+5. **Sin modelo de participantes.** Sólo `createdById`. → **Resuelto:** se
+   añade `LiveSessionParticipant` (§7). La autorización es tenant + fila de
+   participante activa; nada se deriva del recurso en runtime salvo para
+   sembrar los participantes en `create`.
 6. **Eventos no catalogados.** `live_session.requested.v1` /
    `status_changed.v1` no están en `EVENT_CATALOG.md` (viola regla de AGENTS.md).
 7. **Acoplamiento de nombres.** El schema de referencia se llama
