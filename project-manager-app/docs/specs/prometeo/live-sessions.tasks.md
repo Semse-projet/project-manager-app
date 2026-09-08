@@ -4,7 +4,7 @@ feature: "Sesiones en vivo (LiveSession)"
 domain: "prometeo"
 plan: "docs/specs/prometeo/live-sessions.plan.md"
 version: "1.0"
-status: "PENDING"
+status: "IN_PROGRESS"
 branch: "feat/prometeo-live-sessions"
 date: "2026-09-07"
 ---
@@ -164,14 +164,34 @@ date: "2026-09-07"
 
 ## Fase 4 — Verificación local
 
-- [ ] [T-040] `pnpm --filter @semse/api test` dirigido (FSM, ownership 404,
-      idempotencia, versión, media-token, barrido).
-- [ ] [T-041] `pnpm --filter @semse/mobile test` + `check`; regresión API/web
-      (`build` + `tsc`), proporcional al riesgo.
-- [ ] [T-042] `pnpm --filter @semse/mobile` `expo export --platform android --platform ios`.
-- [ ] [T-043] `pnpm spec:validate:strict`.
-- [ ] [T-044] `pnpm spec:coverage` y `pnpm spec:index`.
-- [ ] [T-045] Spec a `code_status: COMPLETE`, `status: IMPLEMENTED`.
+> Verificado 2026-09-08 en el worktree `Desktop/ls-b-wt` (rama
+> `feat/prometeo-live-sessions` @ `9d7a8310`). Antes de correr nada hubo que
+> reparar ~35 junctions `@semse/*` corruptas (`realpathSync` → `UNKNOWN`) que
+> dejó un `pnpm install` interrumpido de la sesión previa — recreadas con
+> `New-Item -ItemType Junction`. No hubo cambios de código en esta fase, sólo
+> verificación + bookkeeping.
+
+- [x] [T-040] Contrato API dirigido — `node --test apps/api/test/live-sessions.service.test.ts`
+      **20/20 verde** (create/ownership 404, idempotencia, version conflict,
+      FSM happy-path + aristas ilegales, media-token gate por estado/expiración/
+      participante, barrido `CANCELLED`/`FAILED`, webhook edge inválido,
+      addParticipant). `tests/unit/live-session-schema.test.ts` **12/12 verde**
+      (FSM contra STATE_MACHINES, targets de acción, schemas + `liveSessionEventSchema`).
+- [x] [T-041] Móvil: `tsc --noEmit` **limpio**; `jest` **46 suites / 218 tests
+      verde** (incl. `LiveSessionScreen.test.tsx` 5/5, sin flakies este run).
+      Regresión de packages: `pnpm build:packages` **verde** tras la reparación
+      de junctions. Regresión API/web `build` completa: no corrida (CI del repo
+      sigue caída — matriz §9; se registra como verificación local en T-052).
+- [x] [T-042] `npx expo export --platform android --platform ios` **OK** — bundles
+      Android (1228 módulos) + iOS (1240 módulos), HBC 3.4 MB c/u, 44 assets.
+- [x] [T-043] `pnpm spec:validate:strict` — **120 specs, 0 errores / 0 warnings**.
+- [x] [T-044] `pnpm spec:coverage` verde; `pnpm spec:index` regeneró
+      `docs/SPEC_INDEX.md` (fila `prometeo.live-sessions` → `IMPLEMENTED` / `COMPLETE`).
+- [x] [T-045] `live-sessions.spec.md`: `status: APPROVED → IMPLEMENTED`,
+      `code_status: IN_PROGRESS → COMPLETE`, `migration_status: NOT_APPLICABLE →
+      PENDING`, `related_files`/`related_tests`/`related_endpoints`/
+      `related_events` poblados, `last_verified: 2026-09-08`. `ci_status` sigue
+      `NOT_RUN` (lo cierra T-052).
 
 ## Fase 5 — PR, CI y merge
 

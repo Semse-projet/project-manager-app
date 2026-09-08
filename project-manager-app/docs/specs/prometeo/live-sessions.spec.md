@@ -4,25 +4,50 @@ title: "Sesiones en vivo (LiveSession) — inspección y asistencia asistidas po
 domain: "prometeo"
 sdd_version: "2.0"
 version: "1.1"
-status: "APPROVED"
+status: "IMPLEMENTED"
 owner: "semse-core"
 risk: "high"
-code_status: "IN_PROGRESS"
+code_status: "COMPLETE"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "NOT_APPLICABLE"
+migration_status: "PENDING"
 feature_flags: ["SEMSE_LIVE_SESSIONS_ENABLED", "SEMSE_LIVE_SESSIONS_CANARY_TENANT_IDS"]
 production_evidence: []
 related_files:
   - packages/db/prisma/schema.prisma
-related_tests: []
-related_endpoints: []
-related_events: []
+  - packages/db/prisma/migrations/20260908050000_add_live_sessions/migration.sql
+  - packages/schemas/src/live-session.schema.ts
+  - apps/api/src/modules/live-sessions/live-sessions.service.ts
+  - apps/api/src/modules/live-sessions/live-sessions.controller.ts
+  - apps/api/src/modules/live-sessions/live-sessions.repository.ts
+  - apps/api/src/modules/live-sessions/live-sessions.resource-access.ts
+  - apps/api/src/modules/live-sessions/livekit.service.ts
+  - apps/api/src/modules/live-sessions/livekit-webhook.controller.ts
+  - apps/mobile/src/screens/LiveSessionScreen.tsx
+  - apps/mobile/src/api/liveSessions.ts
+related_tests:
+  - apps/api/test/live-sessions.service.test.ts
+  - tests/unit/live-session-schema.test.ts
+  - apps/mobile/src/screens/LiveSessionScreen.test.tsx
+related_endpoints:
+  - "POST /v1/prometeo/live-sessions"
+  - "GET /v1/prometeo/live-sessions/:sessionId"
+  - "GET /v1/prometeo/live-sessions/:sessionId/participants"
+  - "POST /v1/prometeo/live-sessions/:sessionId/participants"
+  - "GET /v1/prometeo/live-sessions/:sessionId/media-token"
+  - "POST /v1/prometeo/live-sessions/:sessionId/transition"
+  - "POST /v1/prometeo/live-sessions/:sessionId/participant-ready"
+  - "POST /v1/prometeo/live-sessions/sweep-expired"
+  - "GET /v1/prometeo/live-sessions/:sessionId/events"
+  - "POST /v1/prometeo/live-sessions/webhooks/livekit"
+related_events:
+  - live_session.requested.v1
+  - live_session.status_changed.v1
 related_agents:
   - prometeo
-last_verified: "2026-09-07"
+last_verified: "2026-09-08"
 ---
 
 # Spec: Sesiones en vivo (LiveSession)
