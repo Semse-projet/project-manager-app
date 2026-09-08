@@ -90,10 +90,12 @@ date: "2026-09-07"
       `@@unique` + inversas en `Tenant`/`User`. Migración **escrita a mano**
       `packages/db/prisma/migrations/20260908050000_add_live_sessions/migration.sql`
       (sólo `CREATE TYPE`/`CREATE TABLE`/`CREATE INDEX`/`ADD CONSTRAINT`).
-- [~] [T-021] `prisma generate` valida el schema OK y genera el cliente con
-      los 2 modelos. **Pendiente:** `prisma migrate dev`/`migrate diff` contra
-      Postgres real + `information_schema` + test de `DROP` — esta máquina no
-      tiene Docker/Postgres local.
+- [x] [T-021] **Paridad verificada offline**: `migration.sql` reescrito para
+      ser byte-idéntico a la salida de
+      `prisma migrate diff --from-empty --to-schema-datamodel` (mismos enums/
+      tablas/índices/FKs, mismo orden, comentarios estándar de Prisma). Sólo
+      queda "aplicar + `information_schema`" contra un Postgres real, que es
+      paso de deploy (Fase 6).
 - [x] [T-022] `live-sessions.repository.ts` — interfaz `LiveSessionsRepository`
       (puerto, para tests con doble en memoria) + `PrismaLiveSessionsRepository`:
       `create` (siembra `owner` en `$transaction`), `findByIdempotency`,
@@ -133,9 +135,14 @@ date: "2026-09-07"
 - [x] [T-033] Worker: `sweepExpiredLiveSessions()` en `apps/worker/src/main.mjs`
       llama `POST .../sweep-expired` cada 60s, gateado por
       `LIVE_SESSION_SWEEP_ENABLED=true` (default off). TTL 2h en `create`.
-- [x] [T-034] Móvil: `src/api/liveSessions.ts` (create/get/participants/
-      transition/participant-ready/media-token) + `src/screens/LiveSessionScreen.tsx`
-      registrada en `WorkerMoreStackNavigator` como `LiveSession { sessionId }`.
+- [x] [T-034] Móvil: `src/api/liveSessions.ts` + `src/screens/LiveSessionScreen.tsx`
+      registrada en `WorkerMoreStack` + `WorkerJobsStack` + `ClientJobsStack`.
+      **Puntos de entrada:** botón "🎥 Sesión en vivo (asistencia)" en el
+      JobDetail de Worker (`purpose: assist`) y "🎥 Inspección en vivo" en el
+      de Client para jobs `in_progress`/`reserved`/`accepted`/`review`
+      (`purpose: inspection`) — ambos `createLiveSession` + navegan.
+      `LiveSessionScreen.test.tsx` — 5 tests verdes (status, 404, owner sin
+      Aceptar, cancel con versión, Expo Go no pide media-token).
       Estados loading/error/forbidden(404 → "esta sesión no está disponible")/
       terminal. Botones por estado y rol (accept sólo la contraparte; cancel
       sólo el owner). "Unirse al video" chequea `Constants.appOwnership === 'expo'`
@@ -150,11 +157,10 @@ date: "2026-09-07"
       "Prometeo › Live Sessions" con las 9 rutas + webhook. `apps/mobile/README.md`
       actualizado con la pantalla y el límite Expo Go.
 - [x] [T-036] Contrato API verde (20/20 + `tsc`). Móvil: `tsc --noEmit`
-      limpio. Suite jest: 210/213 — los 3 rojos son suites preexistentes
-      flaky (`JobDetailScreen`/`TimerScreen`) que pasan aisladas (5-6s) y
-      revientan el timeout bajo carga full-suite en esta máquina; ninguna
-      toca LiveSession. Tests de UI dedicados de `LiveSessionScreen` =
-      follow-up.
+      limpio; `LiveSessionScreen.test.tsx` 5/5. Suite jest full: los 3 rojos
+      son suites preexistentes flaky (`JobDetailScreen`/`TimerScreen`) que
+      pasan aisladas y revientan el timeout bajo carga en esta máquina;
+      ninguna toca LiveSession.
 
 ## Fase 4 — Verificación local
 
