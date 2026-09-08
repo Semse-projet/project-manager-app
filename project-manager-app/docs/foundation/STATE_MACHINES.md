@@ -270,6 +270,68 @@ Estados persistidos de compatibilidad, no visibles como estados nuevos:
 - `trust` puede elevar riesgo, no autorizar por sí solo
 - cambios de banda deben ser explicables por señales registradas
 
+## LiveSession
+
+> Reservado por [`../specs/prometeo/live-sessions.spec.md`](../specs/prometeo/live-sessions.spec.md)
+> (`APPROVED` 2026-09-07). Productor pendiente — no hay módulo en `main`
+> todavía. Sesión de vídeo/audio en vivo (`inspection`|`assist`) atada a un
+> `Job`/`Project`; **no** muta la FSM de esos recursos.
+
+### Estados
+
+- `REQUESTED`
+- `PERMISSION_PENDING`
+- `CONNECTING`
+- `ACTIVE`
+- `PAUSED`
+- `ENDING`
+- `ENDED` (terminal)
+- `CANCELLED` (terminal)
+- `FAILED` (terminal)
+
+### Transiciones válidas
+
+- `REQUESTED -> PERMISSION_PENDING`
+- `REQUESTED -> CANCELLED`
+- `PERMISSION_PENDING -> CONNECTING`
+- `PERMISSION_PENDING -> CANCELLED`
+- `CONNECTING -> ACTIVE`
+- `CONNECTING -> FAILED`
+- `CONNECTING -> CANCELLED`
+- `ACTIVE -> PAUSED`
+- `ACTIVE -> ENDING`
+- `PAUSED -> ACTIVE`
+- `PAUSED -> ENDING`
+- `ENDING -> ENDED`
+- `ENDING -> FAILED`
+
+### Autorización por transición
+
+- `REQUESTED -> PERMISSION_PENDING` (`accept`): la contraparte del recurso
+  (participante `inspector`/`assistant`), no el creador.
+- `ACTIVE <-> PAUSED` (`pause`/`resume`), `-> ENDING` (`end`): cualquier
+  participante activo con `live_sessions:write`.
+- `* -> CANCELLED` (`cancel`): sólo desde `REQUESTED`/`PERMISSION_PENDING`/
+  `CONNECTING`, por un participante `owner`; o el barrido de `expiresAt`.
+- `PERMISSION_PENDING -> CONNECTING`: el backend, cuando **todos** los
+  participantes activos reportaron permisos de cámara/mic (`participant-ready`).
+- `CONNECTING -> ACTIVE`, `ENDING -> ENDED`, `CONNECTING -> FAILED`: drivers
+  del webhook de LiveKit (`room_started`/`room_finished`/error), verificados
+  contra la sesión.
+
+### Condiciones
+
+- Toda operación exige `tenantId` del actor **y** una fila activa (sin
+  `leftAt`) en `LiveSessionParticipant`; sin eso la sesión responde `404`
+  (no se distingue de "no existe").
+- `transition` usa concurrencia optimista: `expectedVersion` debe coincidir
+  con `LiveSession.version` o la transición falla con `409`.
+- Los estados terminales (`ENDED`/`CANCELLED`/`FAILED`) no se reabren.
+- Cada transición deja `AuditLog` (`live_session.<action>`, `beforeJson`/
+  `afterJson`) y emite `live_session.status_changed.v1`.
+- No se enruta media a Ollama ni se persiste stream en este alcance
+  (`privacyCritical`).
+
 ## Regla de implementación
 
 - Controllers validan inputs y contexto.

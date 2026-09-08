@@ -25,27 +25,63 @@ date: "2026-09-07"
 ## Fase 0 — SDD y verdad
 
 - [x] [T-001] Spec `APPROVED` e indexado — firmado 2026-09-07; en `SPEC_INDEX.md`.
-- [ ] [T-002] Registrar SHA de `origin/main` al ramificar, migraciones y flags
-      actuales en el plan §1.
-- [ ] [T-003] Completar `analyze` (spec↔plan↔constitución) y `checklist`.
-- [ ] [T-004] `ADR-026-livekit-media-transport.md` escrito y en `REVIEW`.
+      #599 (spec+plan+tasks) mergeado a `main` como `831dc472` (2026-09-08 03:45 UTC);
+      Fase 0 (analyze/checklist/ADR-026) + T-014 no entraron en ese squash y se
+      recuperaron por cherry-pick a esta rama.
+- [x] [T-002] Rama `feat/prometeo-live-sessions` creada desde `origin/main`
+      `831dc472` (2026-09-08 04:34 UTC). Sin migración de LiveSession aplicada
+      en ningún entorno. Flags `SEMSE_LIVE_SESSIONS_ENABLED` /
+      `_CANARY_TENANT_IDS`: no existen todavía. `SseEventBusService` confirmado
+      en `main` (ver T-014).
+- [x] [T-003] `analyze` y `checklist` escritos —
+      `docs/specs/prometeo/live-sessions.analyze.md` (consistencia
+      spec↔plan↔tasks↔constitución: alineados; gaps de secuencia + dependencia
+      humana, todos rastreados) y `docs/specs/prometeo/live-sessions.checklist.md`.
+- [x] [T-004] `docs/architecture/ADR-026-livekit-media-transport.md` escrito,
+      `PROPOSED` — 4 opciones evaluadas (LiveKit / P2P WebRTC / proveedor
+      llave-en-mano / no-media), decisión LiveKit reusando la impl. de
+      referencia, reversibilidad vía flag. Pendiente pre-`APPROVED` del ADR:
+      decisión cloud-vs-self-host y revisión de seguridad del webhook.
 
 ## Fase 1 — Tests y contratos
 
-- [ ] [T-010] Tests rojos: FSM (`canTransitionLiveSession` + `transitionTarget`,
-      todas las combinaciones acción×estado, incluidas las ilegales); contrato
-      de los 5 endpoints + SSE; **aislamiento**: no-participante y otro-tenant →
-      **404** en get/media-token/transition/SSE; `media-token` fuera de
-      `{CONNECTING,ACTIVE,PAUSED}` o vencido → 409; barrido de `expiresAt`.
-- [ ] [T-011] [P] `packages/schemas/src/live-session.schema.ts` — `create`,
-      `transition`, `status`, `participantRole`, `event`, `LiveSessionRecordView`,
-      `LiveSessionParticipantView`. **Sin** `mediaClass` ni `observationMission`.
-- [ ] [T-012] [P] Fixtures de idempotencia (`idempotencyKey` mismo/otro payload)
-      y de concurrencia (dos `transition` con el mismo `expectedVersion`).
-- [ ] [T-013] Confirmar que el fallo inicial demuestra cada gap de spec §13
-      (en especial §13.1 ownership y §13.3 media-token).
-- [ ] [T-014] Eventos `live_session.requested.v1` / `status_changed.v1` en
-      `docs/foundation/EVENT_CATALOG.md`; FSM en `docs/foundation/STATE_MACHINES.md`.
+- [~] [T-010] **Parte testeable ahora hecha:** `tests/unit/live-session-schema.test.ts`
+      — FSM (`canTransitionLiveSession` para las 81 combinaciones estado×estado
+      contra STATE_MACHINES.md; `liveSessionTransitionTarget` para cada
+      acción×estado, legales e ilegales; toda acción-target es arista válida),
+      estados terminales sin salida, estados de media-token, y parse/reject de
+      todos los schemas y del `liveSessionEventSchema` (version literal 1,
+      aggregateType literal). **Pendiente Fase B/C:** los casos de
+      comportamiento del servicio/endpoints (aislamiento 404, media-token
+      gate, version-conflict, barrido, webhooks) están declarados como
+      `test.todo` en `tests/unit/live-session-behavior.todo.test.ts` — 29
+      casos que Fase B/C convierte en tests reales en `apps/api/test/`.
+- [x] [T-011] `packages/schemas/src/live-session.schema.ts` — enums
+      (`status`/`scopeType`/`purpose`/`participantRole`/`transitionAction`),
+      inputs (`create`/`transition`/`participantReady`/`inviteObserver`),
+      vistas (`RecordView`/`ParticipantView`/`MediaTokenView`), `event`
+      (`liveSessionEventSchema` + types), y los helpers de FSM
+      (`canTransitionLiveSession`, `liveSessionTransitionTarget`,
+      `isLiveSessionTerminal`, `LIVE_SESSION_TERMINAL_STATUSES`,
+      `LIVE_SESSION_MEDIA_STATUSES`). Exportado en `packages/schemas/src/index.ts`.
+      **Sin** `mediaClass` ni `observationMission`.
+- [~] [T-012] Fixtures de idempotencia/concurrencia — los casos están en
+      `live-session-behavior.todo.test.ts`; los fixtures concretos se crean con
+      el servicio en Fase B (necesitan un repo/Prisma mock).
+- [~] [T-013] Cada gap de spec §13 tiene su `test.todo` correspondiente en
+      `live-session-behavior.todo.test.ts` (§13.1 ownership, §13.3 media-token,
+      §13.2 drivers de FSM, §13.4 expiración). Se "confirman rojos" cuando el
+      servicio exista y los todos se activen.
+- [~] [T-014] **Catálogo/FSM hechos (2026-09-07):** eventos
+      `live_session.requested.v1` / `status_changed.v1` en
+      `docs/foundation/EVENT_CATALOG.md` (§Prometeo — Live Sessions,
+      "productor pendiente", entrega best-effort al bus SSE in-process, no
+      outbox); FSM completa en `docs/foundation/STATE_MACHINES.md`
+      (§LiveSession, 9 estados / 13 transiciones / autorización por arista).
+      **Verificado:** `SseEventBusService` existe en `main`
+      (`apps/api/src/infrastructure/sse/`) con el API que usa la referencia —
+      in-process only, aceptable para 1:1 por pod (ver `analyze.md` gap 2).
+      Falta: el `liveSessionEventSchema` en `packages/schemas` (parte de T-011).
 
 ## Fase 2 — Datos y dominio
 

@@ -59,3 +59,5 @@ export * from "./admin-settings.schema.js";
 export * from "./workspace.schema.js";
 export * from "./prometeo-orchestration.schema.js";
 export * from "./prometeo-copilot.schema.js";
+// Prometeo LiveSession (spec: prometeo/live-sessions; ADR-026)
+export * from "./live-session.schema.js";
