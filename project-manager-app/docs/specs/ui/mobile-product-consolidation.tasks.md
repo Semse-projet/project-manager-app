@@ -62,10 +62,12 @@ date: "2026-09-06"
       timeouts flaky de `TravelScreen`/`TimerScreen` bajo carga (`50045d9e`);
       **export Metro OK ambos targets** — Android 1233 módulos, iOS 1236 módulos,
       44 assets, bundles `.hbc` 3.3 MB c/u (`expo export --platform android --platform ios`).
-- [~] T-041: actualizar fuentes canónicas, roadmap y registro de entrega —
-      este archivo y `reportes/MOBILE_CONSOLIDATION_2026-09-07.md` actualizados
-      con hallazgos. Pendiente: `ROADMAP.md`, `IMPLEMENTATION_STATUS_MATRIX.md`,
-      `docs/SPEC_INDEX.md` (regenerar con `pnpm spec:index`).
+- [x] T-041: actualizar fuentes canónicas, roadmap y registro de entrega —
+      este archivo + `reportes/MOBILE_CONSOLIDATION_2026-09-07.md` +
+      `MOBILE_SOURCE_REGISTER.md` + `LIVESESSION_RECOVERY_CONTRACT.md`;
+      **`ROADMAP.md`** nueva sección "Programa transversal — Consolidación del
+      producto móvil"; **`IMPLEMENTATION_STATUS_MATRIX.md`** fila "Cliente móvil
+      (`apps/mobile`)" + hallazgo §10; `docs/SPEC_INDEX.md` regenerado (119 specs).
 - [~] T-050: CI, revisión e integración de GitHub — rama pusheada
       (`feat/semse-product-consolidation-20260906`), **PR draft #598** abierto
       2026-09-07. Falta CI terminal + review.
