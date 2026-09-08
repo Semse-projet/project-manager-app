@@ -27,8 +27,15 @@ date: "2026-09-07"
 - [x] [T-001] Spec `APPROVED` e indexado — firmado 2026-09-07; en `SPEC_INDEX.md`.
 - [ ] [T-002] Registrar SHA de `origin/main` al ramificar, migraciones y flags
       actuales en el plan §1.
-- [ ] [T-003] Completar `analyze` (spec↔plan↔constitución) y `checklist`.
-- [ ] [T-004] `ADR-026-livekit-media-transport.md` escrito y en `REVIEW`.
+- [x] [T-003] `analyze` y `checklist` escritos —
+      `docs/specs/prometeo/live-sessions.analyze.md` (consistencia
+      spec↔plan↔tasks↔constitución: alineados; gaps de secuencia + dependencia
+      humana, todos rastreados) y `docs/specs/prometeo/live-sessions.checklist.md`.
+- [x] [T-004] `docs/architecture/ADR-026-livekit-media-transport.md` escrito,
+      `PROPOSED` — 4 opciones evaluadas (LiveKit / P2P WebRTC / proveedor
+      llave-en-mano / no-media), decisión LiveKit reusando la impl. de
+      referencia, reversibilidad vía flag. Pendiente pre-`APPROVED` del ADR:
+      decisión cloud-vs-self-host y revisión de seguridad del webhook.
 
 ## Fase 1 — Tests y contratos
 
