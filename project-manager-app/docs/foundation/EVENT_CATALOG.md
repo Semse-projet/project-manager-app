@@ -302,6 +302,29 @@ Ambos se emiten vía `DomainEventBus` (audit + routing canónico). La detección
 contexto, el chat y las quick-actions read-only del Copilot, y la navegación del
 Workspace, son estado de UI y **no** producen eventos (regla anti-ruido).
 
+### Prometeo — Live Sessions
+
+Reservado por [`../specs/prometeo/live-sessions.spec.md`](../specs/prometeo/live-sessions.spec.md)
+(`APPROVED` 2026-09-07). **Productor pendiente** — no hay módulo `live-sessions`
+en `main` todavía; los nombres quedan reservados para que la implementación no
+invente otros.
+
+- `live_session.requested.v1` — productor: `LiveSessionsService.create`
+  (`POST /v1/prometeo/live-sessions`). `aggregateType: LiveSession`.
+- `live_session.status_changed.v1` — productor: `LiveSessionsService.transition`
+  (`POST /v1/prometeo/live-sessions/:id/transition`) y los drivers de webhook
+  de LiveKit. Payload extiende el mínimo con `previousStatus`, `status`
+  (ver `LiveSessionStatus` en `STATE_MACHINES.md`) y `sessionVersion`.
+
+Entrega: **best-effort** al bus SSE in-process
+(`apps/api/src/infrastructure/sse/sse-event-bus.service.ts`, canal
+`live-session:<tenantId>:<sessionId>`), **no** por el outbox atómico F1. El
+endpoint SSE entrega un `snapshot` al (re)conectar, así que una pérdida de
+evento no deja al cliente inconsistente. Si aparece un consumidor durable
+(analítica, `ObservationMission`), el productor se agrega al outbox F1 en su
+propio incremento. Cada transición deja además `AuditLog`
+(`live_session.<action>`).
+
 ## Notifications
 
 - `notification.queued`

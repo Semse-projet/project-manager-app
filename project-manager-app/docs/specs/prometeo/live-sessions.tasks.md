@@ -51,8 +51,16 @@ date: "2026-09-07"
       y de concurrencia (dos `transition` con el mismo `expectedVersion`).
 - [ ] [T-013] Confirmar que el fallo inicial demuestra cada gap de spec §13
       (en especial §13.1 ownership y §13.3 media-token).
-- [ ] [T-014] Eventos `live_session.requested.v1` / `status_changed.v1` en
-      `docs/foundation/EVENT_CATALOG.md`; FSM en `docs/foundation/STATE_MACHINES.md`.
+- [~] [T-014] **Catálogo/FSM hechos (2026-09-07):** eventos
+      `live_session.requested.v1` / `status_changed.v1` en
+      `docs/foundation/EVENT_CATALOG.md` (§Prometeo — Live Sessions,
+      "productor pendiente", entrega best-effort al bus SSE in-process, no
+      outbox); FSM completa en `docs/foundation/STATE_MACHINES.md`
+      (§LiveSession, 9 estados / 13 transiciones / autorización por arista).
+      **Verificado:** `SseEventBusService` existe en `main`
+      (`apps/api/src/infrastructure/sse/`) con el API que usa la referencia —
+      in-process only, aceptable para 1:1 por pod (ver `analyze.md` gap 2).
+      Falta: el `liveSessionEventSchema` en `packages/schemas` (parte de T-011).
 
 ## Fase 2 — Datos y dominio
 
