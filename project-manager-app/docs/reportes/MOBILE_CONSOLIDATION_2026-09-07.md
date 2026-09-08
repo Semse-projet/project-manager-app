@@ -68,3 +68,18 @@ Se estableció `origin/main` como base de integración en el worktree `semse-con
 | Bump de deps de Expo SDK 57 (patch) | ✅ hecho — `22ce0a06`, regresión completa verde |
 
 Ninguna fuente borrada. Ningún cambio local pisado. Sin push ni deploy.
+
+## Verificación del blast radius del bump de deps (2026-09-07)
+
+El bump `22ce0a06` sólo cambió `apps/mobile/package.json`, pero re-resolvió el
+lockfile del workspace (614/366 líneas). Verificado que no rompió nada fuera de
+móvil:
+
+- `pnpm db:generate` + `pnpm --filter @semse/api build` → **limpio** (los ~1443
+  errores iniciales eran sólo el `prisma generate` que pnpm v10 saltea por
+  defecto en `install`, no una regresión).
+- `pnpm --filter @semse/web exec tsc` → **1 error preexistente**, ajeno a esta
+  rama: `app/(app)/tools/labor/labor-tool-client.tsx:61` usa `baseRate` (no
+  existe; es `BASE_RATES`). El commit que tocó ese archivo (`f9303121`) es
+  ancestro de `main@88171003` — está roto en `main`, no lo introdujo la
+  consolidación. No se corrige aquí (fuera de alcance, es `apps/web`).
