@@ -59,11 +59,19 @@ primer corte `inspection` + `assist`; recurso/sesión sin acceso → **404**;
 
 ## Gaps / riesgos residuales
 
-1. **Eventos sin catalogar** — bloqueante para implementar; resuelto por T-014.
-2. **`SseEventBusService` de la referencia** — el spec §13.8 y plan §3 no
-   confirman que ese bus SSE in-process exista en `main`. **Verificar al abrir
-   la rama de implementación** (T-002); si no existe, usar el mecanismo SSE
-   vigente (`@Sse` de Nest + un bus propio o el de Mission Control F4).
+1. **Eventos sin catalogar** — ~~bloqueante~~ **resuelto 2026-09-07**:
+   `live_session.requested.v1` / `status_changed.v1` agregados a
+   `docs/foundation/EVENT_CATALOG.md` (§Prometeo — Live Sessions) y la FSM a
+   `docs/foundation/STATE_MACHINES.md` (§LiveSession), ambos marcados
+   "productor pendiente". Falta la parte de tests de T-014.
+2. **`SseEventBusService`** — **verificado 2026-09-07: EXISTE en `main`**
+   (`apps/api/src/infrastructure/sse/sse-event-bus.service.ts`, `a23ca60e`,
+   ancestro de `origin/main`). API: `emit(channel, event, data)` /
+   `on(channel)` / `onPrefix(prefix)`, exactamente lo que usa el controller de
+   referencia. Caveat: es un `Subject` **in-process** (una sola instancia, sin
+   Redis/fan-out cross-pod) — suficiente para una sesión 1:1 por pod y
+   consistente con la entrega best-effort + snapshot del plan §6; anotarlo en
+   el plan si el deploy pasa a multi-instancia.
 3. **PR grande** — plan §10 y tasks lo marcan `[~]`: fallback a PR-1
    (modelo+FSM+tests, sin LiveKit ni móvil) / PR-2 (LiveKit + webhook + móvil +
    canary). Decidir al escribir el diff de Fase E.
