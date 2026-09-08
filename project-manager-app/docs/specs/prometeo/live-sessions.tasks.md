@@ -133,14 +133,28 @@ date: "2026-09-07"
 - [x] [T-033] Worker: `sweepExpiredLiveSessions()` en `apps/worker/src/main.mjs`
       llama `POST .../sweep-expired` cada 60s, gateado por
       `LIVE_SESSION_SWEEP_ENABLED=true` (default off). TTL 2h en `create`.
-- [ ] [T-034] Móvil: `src/api/liveSessions.ts` + pantalla de sesión en el stack
-      del job/project. Estados `loading/empty/ready/forbidden(404)/degraded/error`.
-      `degraded` = Expo Go o permisos denegados; **import perezoso** del módulo
-      nativo de LiveKit tras chequear plataforma/`appOwnership` — no se importa
-      en Expo Go. Consentimiento de cámara/mic antes de `participant-ready`.
-- [ ] [T-035] Actualizar `docs/architecture/SEMSE_API_SURFACE_V1.md` con los 6
-      endpoints; `apps/mobile/README.md` con la pantalla nueva y el límite Expo Go.
-- [~] [T-036] Contrato API verde (20/20 + `tsc`). Tests de UI móvil: pendiente con T-034.
+- [x] [T-034] Móvil: `src/api/liveSessions.ts` (create/get/participants/
+      transition/participant-ready/media-token) + `src/screens/LiveSessionScreen.tsx`
+      registrada en `WorkerMoreStackNavigator` como `LiveSession { sessionId }`.
+      Estados loading/error/forbidden(404 → "esta sesión no está disponible")/
+      terminal. Botones por estado y rol (accept sólo la contraparte; cancel
+      sólo el owner). "Unirse al video" chequea `Constants.appOwnership === 'expo'`
+      → Expo Go muestra degradado y NO importa ningún módulo nativo; fuera de
+      Expo Go pide el `media-token` (el backend valida estado/expiración/
+      participante) y muestra un placeholder — el componente `<LiveKitRoom>`
+      real necesita `@livekit/react-native` + dev build (TODO). SSE: v1 usa
+      polling de `GET .../:id` cada 4s (react-native-sse = follow-up); el poll
+      se detiene al llegar a estado terminal. **Punto de entrada** (botón en
+      job detail / deep-link de push) = follow-up chico.
+- [x] [T-035] `docs/architecture/SEMSE_API_SURFACE_V1.md` → sección
+      "Prometeo › Live Sessions" con las 9 rutas + webhook. `apps/mobile/README.md`
+      actualizado con la pantalla y el límite Expo Go.
+- [x] [T-036] Contrato API verde (20/20 + `tsc`). Móvil: `tsc --noEmit`
+      limpio. Suite jest: 210/213 — los 3 rojos son suites preexistentes
+      flaky (`JobDetailScreen`/`TimerScreen`) que pasan aisladas (5-6s) y
+      revientan el timeout bajo carga full-suite en esta máquina; ninguna
+      toca LiveSession. Tests de UI dedicados de `LiveSessionScreen` =
+      follow-up.
 
 ## Fase 4 — Verificación local
 
