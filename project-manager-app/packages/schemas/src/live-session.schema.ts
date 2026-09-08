@@ -83,13 +83,18 @@ export type LiveSessionParticipantReadyInput = z.infer<
   typeof liveSessionParticipantReadySchema
 >;
 
-/** Invitar un `observer` a una sesión `assist` (sólo el `owner`). */
-export const liveSessionInviteObserverSchema = z.object({
+/**
+ * Agregar un participante a una sesión (sólo el `owner`). `inspector`/
+ * `assistant` sólo antes de conectar; `observer` en cualquier estado no
+ * terminal. El backend revalida que `userId` tenga acceso al recurso.
+ */
+export const liveSessionAddParticipantSchema = z.object({
   userId: z.string().min(1),
+  role: z.enum(["inspector", "assistant", "observer"]),
   expectedVersion: z.number().int().nonnegative(),
 });
-export type LiveSessionInviteObserverInput = z.infer<
-  typeof liveSessionInviteObserverSchema
+export type LiveSessionAddParticipantInput = z.infer<
+  typeof liveSessionAddParticipantSchema
 >;
 
 // ---------------------------------------------------------------------------

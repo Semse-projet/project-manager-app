@@ -55,6 +55,8 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    "live_sessions:read",
+    "live_sessions:write",
     "payments:connect:self",
     "project:originate"
   ],
@@ -106,6 +108,8 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    "live_sessions:read",
+    "live_sessions:write",
     "payments:connect:self",
     "project:originate"
   ],
@@ -124,6 +128,8 @@ export const rolePermissions: Record<string, string[]> = {
     "vision:run",
     "weather:read",
     "users:verify:request",
+    "live_sessions:read",
+    "live_sessions:write",
     "payments:connect:self",
     "project:originate"
   ],
@@ -218,6 +224,8 @@ export const rolePermissions: Record<string, string[]> = {
     "weather:write",
     "agro:read",
     "agro:write",
+    "live_sessions:read",
+    "live_sessions:write",
     "satellites:admin"
   ],
   // Sesión demo pública (ui.demo-sandbox): SOLO agro, nada más — el aislamiento
