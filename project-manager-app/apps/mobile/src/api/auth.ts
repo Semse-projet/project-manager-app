@@ -29,7 +29,11 @@ export async function fetchMe(): Promise<AuthMeView> {
 }
 
 export async function logout(): Promise<void> {
-  await clearTokens();
+  try {
+    await apiFetch("/v1/auth/logout", { method: "POST" }, false);
+  } finally {
+    await clearTokens();
+  }
 }
 
 /**

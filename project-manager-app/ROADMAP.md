@@ -1,6 +1,6 @@
 # Roadmap maestro de SEMSEproject
 
-**Actualizado:** 2026-08-08
+**Actualizado:** 2026-09-07
 **Arquitectura:** [`docs/architecture/CURRENT_ARCHITECTURE.md`](docs/architecture/CURRENT_ARCHITECTURE.md)
 **Matriz:** [`docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md`](docs/architecture/IMPLEMENTATION_STATUS_MATRIX.md)
 
@@ -181,6 +181,63 @@ antes de `APPROVED`):
 - `docs/architecture/ADR-025-mcp-external-tool-gateway.md` — decisión
   formal, en estado de propuesta, de si/cómo reabrir `SPEC-INT-001`
   (retirado más arriba). No es alcance activo hasta que se apruebe.
+
+## Programa transversal — Consolidación del producto móvil (`apps/mobile`)
+
+> Iniciativa transversal (2026-09). No reordena F0-F9; consolida el cliente
+> móvil del ecosistema actual (Expo SDK 57, React Native) contra el API de
+> Railway y `@semse/schemas`, sin reescritura, sin renombrar y sin borrar
+> ninguna de las copias/checkouts de origen.
+
+Contrato: [`docs/specs/ui/mobile-product-consolidation.spec.md`](docs/specs/ui/mobile-product-consolidation.spec.md)
+(`APPROVED`, `risk: high`) + plan/tasks/checklist/analyze +
+[`docs/consolidation/MOBILE_SOURCE_REGISTER.md`](docs/consolidation/MOBILE_SOURCE_REGISTER.md).
+Rama de integración `feat/semse-product-consolidation-20260906`, **PR draft #598**,
+base `main@88171003`.
+
+Entregables al corte (2026-09-07):
+
+- **Capa de sesión** (`ad7cb6f1`): `src/config/environment.ts` + `src/api/client.ts`
+  reescrito — una sola conexión, variable pública histórica y canónica,
+  validación de origen/rutas absolutas, timeout, **refresh concurrente**
+  (una sola renovación compartida), logout que no restaura la sesión previa,
+  expiración comunicada al `AuthProvider`. Autoridad (tenant/org/rol) siempre
+  del backend vía `GET /v1/auth/me`.
+- **Timer offline** (`ad7cb6f1`): `src/timer/localTimer.ts` — modo local sólo
+  ante fallo de red, no acepta sesiones remotas imposibles, no da un stop por
+  sincronizado sin respuesta; API de pausa/reanudar/entrada manual.
+- **Prometeo en móvil** (`ad7cb6f1`): `PrometeoScreen` + `src/api/prometeo.ts`
+  → `POST /v1/ai-models/prometeo/chat`; acciones propuestas sujetas a aprobación.
+- **Pull-to-refresh del dashboard Admin** (`50045d9e`, portado de
+  `Desktop/project-manager-app`).
+- **Bump Expo SDK 57** a último patch (57.0.9→57.0.20, RN 0.86.3), `22ce0a06`.
+- Verificación: `tsc --noEmit` limpio; **jest 45/45 · 213/213**;
+  `expo export` iOS+Android OK; `spec:validate:strict` 119/0; build EAS
+  Android `preview` `680386ee` `finished` desde `22ce0a06`.
+
+Hallazgos de inventario:
+
+- **Pagos móvil: no era un gap.** La superficie Worker (`PaymentsScreen`,
+  `PayoutMethodScreen`, `api/payments.ts`, `config/stripe.ts`) ya estaba en
+  `main@88171003` (PRs #550/#558). El único otro `PaymentsScreen` es del
+  spike retirado (PR #439) con credencial hardcodeada — no se recuperó.
+- `Desktop/project-manager-app` (HEAD `34143dc9`): de sus cambios móviles sin
+  commitear sólo el pull-to-refresh era mejora real; el resto ya está superado
+  por la Fase 7 completa de Admin en `main`.
+
+Gates de salida (abiertos):
+
+- **Canary autenticado por rol en device** (iOS/Android) — no cerrado por
+  compilar (spec §8, T-060);
+- **Build iOS** — cuota EAS del plan Free agotada, resetea 2026-10-01;
+- **Sesiones en vivo (LiveSession)** — recuperación por contrato aparte, con
+  spec propio + migración SQL aditiva + tests de ownership antes de suscribir
+  SSE: [`docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md`](docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md);
+- **Procedencia** de los commits `2deefd26…`/`cd534762…` de builds EAS
+  recientes — en otra máquina del propietario, sin pushear;
+- **CI real** — mismo hallazgo transversal de infra (ver matriz §9);
+- **Docs canónicas** — esta entrada y la fila de la matriz; `SPEC_INDEX`
+  regenerado.
 
 ## F2 — Prometeo Tool Registry gobernado (GOBERNANZA EN MAIN — PRs #369/#371/#372; adapters `vision.*` cableados 2026-07-20 salvo `analyze_video`)
 

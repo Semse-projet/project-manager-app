@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import type { JobRecordView } from "@semse/schemas";
 import { fetchJobsList } from "../../api/jobs";
@@ -65,7 +65,16 @@ export default function AdminDashboardScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => void load(true)}
+          tintColor={theme.colors.brand}
+        />
+      }
+    >
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <View style={styles.grid}>
