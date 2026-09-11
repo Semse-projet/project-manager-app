@@ -1,58 +1,34 @@
 import test from "node:test";
 
 /**
- * T-010 — casos de comportamiento de LiveSession que Fase B/C debe volver
- * verdes. Se declaran como `test.todo` porque el módulo
- * `apps/api/src/modules/live-sessions/` todavía no existe (spec §13: la
- * implementación de referencia se audita, no se importa). Cuando exista el
- * servicio, cada `todo` se convierte en un test real en
- * `apps/api/test/live-sessions.service.test.ts` / `...ownership.test.ts`.
+ * T-010 — casos de comportamiento de LiveSession.
  *
- * Fuente: docs/specs/prometeo/live-sessions.spec.md §4/§5,
- * .plan.md §7 Fase A, .tasks.md T-010, .analyze.md.
+ * **La mayoría ya son tests reales** en
+ * `apps/api/test/live-sessions.service.test.ts` (20 casos, verdes):
+ * aislamiento 404 por tenant/no-participante, idempotencia + 409, FSM
+ * (accept por la contraparte, cancel sólo owner, aristas ilegales),
+ * concurrencia optimista, media-token gateado por estado/expiración,
+ * driveFromWebhook ignora aristas inválidas, barrido de expiración
+ * (CANCELLED / CONNECTING->FAILED), add-participant (sólo owner + acceso al
+ * recurso del target).
+ *
+ * Lo que sigue como `todo` necesita superficie que todavía no se testea con
+ * un doble en memoria:
  */
 
-// ── Aislamiento (los huecos §13.1 / §13.3 de la referencia) ────────────────
-test.todo("get: usuario del mismo tenant sin fila en LiveSessionParticipant -> 404");
-test.todo("get: usuario de otro tenant -> 404 idéntico (no distingue de 'no existe')");
-test.todo("transition: no-participante -> 404, no muta la sesión");
-test.todo("SSE events: se cierra el stream al perder autorización (sesión termina / participante removido)");
-test.todo("media-token: sólo para participante activo Y status in {CONNECTING,ACTIVE,PAUSED} Y no vencida");
-test.todo("media-token: status terminal (ENDED/CANCELLED/FAILED) -> 409, sin token");
-test.todo("media-token: la emisión se audita SIN el token en el registro");
+// ── Webhook de LiveKit (necesita el controller + firma) ───────────────────
+test.todo("livekit-webhook: firma inválida -> 401, sin efecto en la FSM");
+test.todo("livekit-webhook: room_finished con firma válida -> ENDING -> ENDED");
+test.todo("livekit-webhook: room name no reconocido -> 400");
 
-// ── Autorización de recurso ───────────────────────────────────────────────
-test.todo("create: scopeId de un job/project sin acceso -> 404 (valida vía JobsService/ProjectsService)");
-test.todo("create: siembra participantes owner=creador + contraparte del recurso (inspector/assistant)");
-test.todo("invite-observer: sólo el owner; sólo usuarios con acceso al recurso; queda en AuditLog");
+// ── SSE (necesita un test de integración del endpoint) ────────────────────
+test.todo("SSE events: emite snapshot al conectar y status_changed en cada transición");
+test.todo("SSE events: no-participante -> el stream emite live_session.error.v1 y no push");
 
-// ── Idempotencia y concurrencia ──────────────────────────────────────────
-test.todo("create: misma idempotencyKey + mismos scope/purpose/creador -> devuelve la sesión existente");
-test.todo("create: misma idempotencyKey + atributos distintos -> 409");
-test.todo("transition: expectedVersion desactualizado -> 409 (updateMany where {id, version} devuelve 0 filas)");
-test.todo("transition: dos transiciones con el mismo expectedVersion -> sólo una gana");
-
-// ── FSM y drivers ────────────────────────────────────────────────────────
-test.todo("transition: acción ilegal desde el estado actual (pause desde REQUESTED) -> 409");
-test.todo("participant-ready: PERMISSION_PENDING -> CONNECTING sólo cuando TODOS los participantes activos reportaron permisos");
-test.todo("webhook LiveKit room_started/participant_joined (firma verificada) -> CONNECTING -> ACTIVE");
-test.todo("webhook LiveKit room_finished -> ENDING -> ENDED; timeout de conexión -> CONNECTING -> FAILED");
-test.todo("webhook con firma inválida -> 401, sin efecto en la FSM");
-
-// ── Expiración ───────────────────────────────────────────────────────────
-test.todo("create: setea expiresAt con el TTL por defecto");
-test.todo("barrido: sesión vencida no-terminal -> CANCELLED/FAILED según estado");
-test.todo("sesión vencida: media-token y transiciones no-terminales -> rechazadas");
-
-// ── Auditoría y eventos ──────────────────────────────────────────────────
-test.todo("create: AuditLog live_session.requested + evento live_session.requested.v1");
-test.todo("transition: AuditLog live_session.<action> (beforeJson/afterJson/reason) + live_session.status_changed.v1");
-test.todo("evento se publica al canal SSE live-session:<tenantId>:<sessionId> (best-effort, sin outbox)");
-
-// ── Invariante de dominio ────────────────────────────────────────────────
-test.todo("ninguna transición de LiveSession escribe FSM de Job/Project/Milestone/Payment/Dispute");
-
-// ── UI móvil (Fase C) ────────────────────────────────────────────────────
+// ── UI móvil (Fase C mobile) ─────────────────────────────────────────────
 test.todo("mobile: Expo Go -> estado 'degraded', no importa el módulo nativo de LiveKit");
-test.todo("mobile: 404 del backend -> estado 'forbidden/not-found' sin exponer datos del recurso");
+test.todo("mobile: 404 del backend -> 'esta sesión no está disponible', sin datos del recurso");
 test.todo("mobile: el SSE se cierra y el room se abandona al desmontar la pantalla");
+
+// ── Refinamiento pendiente (documentado en el controller) ─────────────────
+test.todo("participant-ready: PERMISSION_PENDING -> CONNECTING sólo cuando TODOS los participantes activos reportaron permisos (v1 lo hace con el primero)");

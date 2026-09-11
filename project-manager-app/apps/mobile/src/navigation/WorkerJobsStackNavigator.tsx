@@ -3,6 +3,7 @@ import type { WorkerJobsStackParamList } from "./types";
 import JobsListScreen from "../screens/worker/JobsListScreen";
 import JobDetailScreen from "../screens/worker/JobDetailScreen";
 import EvidenceScreen from "../screens/worker/EvidenceScreen";
+import LiveSessionScreen from "../screens/LiveSessionScreen";
 
 const Stack = createNativeStackNavigator<WorkerJobsStackParamList>();
 
@@ -12,6 +13,7 @@ export default function WorkerJobsStackNavigator() {
       <Stack.Screen name="JobsList" component={JobsListScreen} options={{ title: "Jobs" }} />
       <Stack.Screen name="JobDetail" component={JobDetailScreen} options={{ title: "Detalle" }} />
       <Stack.Screen name="Evidence" component={EvidenceScreen} options={{ title: "Evidencia" }} />
+      <Stack.Screen name="LiveSession" component={LiveSessionScreen} options={{ title: "Sesión en vivo" }} />
     </Stack.Navigator>
   );
 }

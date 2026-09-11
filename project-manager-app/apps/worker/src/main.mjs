@@ -98,6 +98,7 @@ const connection = new Redis(config.redisUrl, {
 });
 
 const RESERVATION_SWEEP_INTERVAL_MS = 60_000;
+const LIVE_SESSION_SWEEP_INTERVAL_MS = 60_000;
 const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curator decides if 7d passed
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
@@ -107,6 +108,7 @@ const WEATHER_CHECK_INTERVAL_MS = 60 * 60 * 1_000; // m2.3-weather: cada hora
 let shouldStop = false;
 let reclaimTimer;
 let reservationSweepTimer;
+let liveSessionSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
 let lienDeadlineTimer;
@@ -314,6 +316,14 @@ async function main() {
     void sweepExpiredReservations();
   }, RESERVATION_SWEEP_INTERVAL_MS);
 
+  if (process.env.LIVE_SESSION_SWEEP_ENABLED === "true") {
+    logger.info("live session sweep enabled");
+    void sweepExpiredLiveSessions();
+    liveSessionSweepTimer = setInterval(() => {
+      void sweepExpiredLiveSessions();
+    }, LIVE_SESSION_SWEEP_INTERVAL_MS);
+  }
+
   // Skill curator — checks every 6h, actually runs at most once per 7 days
   void runCuratorSafe();
   curatorTimer = setInterval(() => { void runCuratorSafe(); }, CURATOR_CHECK_INTERVAL_MS);
@@ -367,6 +377,7 @@ async function main() {
 
   if (reclaimTimer) clearInterval(reclaimTimer);
   if (reservationSweepTimer) clearInterval(reservationSweepTimer);
+  if (liveSessionSweepTimer) clearInterval(liveSessionSweepTimer);
   if (curatorTimer) clearInterval(curatorTimer);
   if (piRetentionTimer) clearInterval(piRetentionTimer);
   if (piEnginesTimer) clearInterval(piEnginesTimer);
@@ -548,6 +559,16 @@ async function sweepExpiredReservations() {
     }
   } catch (error) {
     logger.warn({ error }, "reservation sweep failed — will retry next interval");
+  }
+}
+
+async function sweepExpiredLiveSessions() {
+  try {
+    const response = await postJson("/v1/prometeo/live-sessions/sweep-expired", { maxItems: 100 });
+    const closed = response?.data?.closed ?? 0;
+    if (closed > 0) logger.info({ closed }, "swept expired live sessions");
+  } catch (error) {
+    logger.warn({ error }, "live session sweep failed -- will retry next interval");
   }
 }
 
