@@ -154,7 +154,7 @@ test("getMyCapabilities requests memberships scoped to the actor's own userId an
 
 // ── Verification requests (AUDIT_REMEDIATION_PLAN.md 2.28) ────────────────────
 
-function createServiceWithWorkspaceMemory() {
+function createServiceWithWorkspaceMemory(options: { attestationFails?: boolean } = {}) {
   const stored = new Map<string, { id: string; body?: string }>();
   const workspaceMemory = {
     async append(record: { id: string; body?: string }) {
@@ -169,12 +169,17 @@ function createServiceWithWorkspaceMemory() {
     },
   };
   const attestations: Array<Record<string, unknown>> = [];
+  const verifyUserCalls: Array<Record<string, unknown>> = [];
   const repository = {
     async findUserById() { return { id: "usr_target", verificationStatus: "unverified" }; },
     async verifyUser(input: Record<string, unknown>) {
+      verifyUserCalls.push(input);
       return { id: input.targetUserId, verificationStatus: "verified" };
     },
     async createIdentityAttestation(input: Record<string, unknown>) {
+      if (options.attestationFails) {
+        throw new Error("SEMSE_ATTESTATION_PRIVATE_KEY and SEMSE_ATTESTATION_KEY_ID must be configured in production");
+      }
       const record = { id: `att_${attestations.length + 1}`, createdAt: new Date(), ...input };
       attestations.push(record);
       return record;
@@ -186,7 +191,7 @@ function createServiceWithWorkspaceMemory() {
   const auditService = { async append() { /* no-op */ } };
   const domainEventBus = { async emit() { /* no-op */ } };
   const service = new UsersService(repository as never, auditService as never, domainEventBus as never, workspaceMemory as never);
-  return { service, workspaceMemory, attestations };
+  return { service, workspaceMemory, attestations, verifyUserCalls };
 }
 
 void test("requestVerification queues a pending request for the requester's own account", async () => {
@@ -291,6 +296,30 @@ void test("approving an id_document review produces a signed identity attestatio
   assert.equal(attestations[0]?.verificationType, "id_document");
   assert.ok(typeof attestations[0]?.signature === "string" && (attestations[0]?.signature as string).length > 0);
   assert.ok(typeof attestations[0]?.keyId === "string" && (attestations[0]?.keyId as string).length > 0);
+});
+
+// F04 (SEMSEproject_Auditoria_2026-09-11.md): a signing/persistence failure
+// must never leave the user marked verified without a backing attestation.
+void test("a failed attestation blocks verifyUser and leaves the request pending, not approved", async () => {
+  const { service, verifyUserCalls } = createServiceWithWorkspaceMemory({ attestationFails: true });
+
+  await service.requestVerification({
+    tenantId: "tnt", orgId: "org", userId: "usr_pro", roles: ["PRO"],
+    targetUserId: "usr_pro", verificationType: "id_document",
+  });
+
+  await assert.rejects(
+    () => service.reviewVerificationRequest({
+      tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"],
+      targetUserId: "usr_pro", verificationType: "id_document", decision: "approved", requestId: "req_1",
+    }),
+    /SEMSE_ATTESTATION_PRIVATE_KEY/,
+  );
+
+  assert.equal(verifyUserCalls.length, 0, "verifyUser must not run when the attestation failed");
+
+  const pending = await service.listVerificationRequests({ tenantId: "tnt", orgId: "org", userId: "usr_admin", roles: ["OPS_ADMIN"] });
+  assert.equal(pending.length, 1, "the request must still read as pending, not silently approved");
 });
 
 void test("approving an email/phone review does not produce an identity attestation", async () => {
