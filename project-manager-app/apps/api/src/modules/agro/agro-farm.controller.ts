@@ -104,7 +104,8 @@ export class AgroFarmController {
   @Get("farm-units/:unitId")
   @RequirePermissions("agro:read")
   async getUnit(@Param("unitId") unitId: string, @Req() req: any) {
-    const unit = await this.service.getUnit(unitId);
+    const ctx = resolveRequestContext(req);
+    const unit = await this.service.getUnit(unitId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { unit });
   }
 

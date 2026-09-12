@@ -116,6 +116,16 @@ export class AiModelGatewayService {
     const providerName = slug === "claude-sonnet" ? "anthropic" : slug === "openai-gpt4" ? "openai" : slug === "ollama-local" ? "ollama" : undefined;
     const startedAt = Date.now();
 
+    // Privacy is immutable through this call: whenever the request's own
+    // privacyLevel requires a local/private provider, the orchestrator must
+    // enforce that itself too (not just rely on the router having picked
+    // "ollama-local") — otherwise its own fallback chain could still fall
+    // through to a cloud provider if the local one errors.
+    const privacyRestricted =
+      request.privacyLevel === "local_only" ||
+      request.privacyLevel === "sensitive" ||
+      request.privacyLevel === "restricted";
+
     const result = await this.llmOrchestrator.chat({
       systemPrompt: buildSafeSystemPrompt(
         request.systemPrompt,
@@ -129,6 +139,8 @@ export class AiModelGatewayService {
         preferredProvider: providerName as "anthropic" | "openai" | "ollama" | "template" | undefined,
         taskType: "chat",
         requiresTools: false,
+        localOnly: privacyRestricted,
+        privacyCritical: privacyRestricted,
       },
       maxTokens: request.maxTokens,
     });
