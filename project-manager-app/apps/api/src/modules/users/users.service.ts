@@ -286,6 +286,19 @@ export class UsersService {
       ? (JSON.parse(existing[0].body) as { requestedAt?: string }).requestedAt
       : undefined;
 
+    // Sign/persist the attestation BEFORE recording the decision or marking
+    // the user verified — a signing failure (missing keys, DB error) must
+    // never leave an approval on record without the attestation that backs
+    // it. See docs/specs/core/identity-attestation.spec.md.
+    if (input.decision === "approved" && ATTESTABLE_VERIFICATION_TYPES.has(input.verificationType)) {
+      await this.createIdentityAttestation({
+        tenantId: input.tenantId,
+        userId: input.targetUserId,
+        verifiedByUserId: input.userId,
+        verificationType: input.verificationType
+      });
+    }
+
     const record = buildVerificationRequestWorkspaceMemoryRecord({
       tenantId: input.tenantId,
       orgId: input.orgId,
@@ -309,15 +322,6 @@ export class UsersService {
         verificationType: input.verificationType,
         requestId: input.requestId
       });
-
-      if (ATTESTABLE_VERIFICATION_TYPES.has(input.verificationType)) {
-        await this.createIdentityAttestation({
-          tenantId: input.tenantId,
-          userId: input.targetUserId,
-          verifiedByUserId: input.userId,
-          verificationType: input.verificationType
-        });
-      }
     }
 
     return { status: input.decision };
