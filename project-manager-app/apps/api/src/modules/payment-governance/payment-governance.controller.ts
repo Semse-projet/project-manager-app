@@ -29,6 +29,7 @@ export class PaymentGovernanceController {
       amount: Number(body.amount ?? 0),
       reason: String(body.reason ?? ""),
       releasedBy: ctx.userId,
+      tenantId: ctx.tenantId,
     });
 
     return ok(rid, result);
@@ -47,6 +48,7 @@ export class PaymentGovernanceController {
       String(body.escrowId ?? ""),
       String(body.reason ?? ""),
       ctx.userId,
+      ctx.tenantId,
     );
 
     return ok(rid, result);
@@ -59,7 +61,8 @@ export class PaymentGovernanceController {
     @Param("escrowId") escrowId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
-    const result = await this.service.getPaymentHistory(escrowId);
+    const ctx = actor(req);
+    const result = await this.service.getPaymentHistory(escrowId, ctx.tenantId);
     return ok(rid, result);
   }
 
@@ -71,9 +74,11 @@ export class PaymentGovernanceController {
     @Param("milestoneId") milestoneId: string,
   ) {
     const rid = resolveRequestId(req.headers ?? {});
+    const ctx = actor(req);
     const score = await this.service.calculatePaymentScore(
       escrowId,
       milestoneId,
+      ctx.tenantId,
     );
     return ok(rid, score);
   }

@@ -41,7 +41,7 @@ export class PaymentGovernanceService {
     input: PaymentReleaseInput,
   ): Promise<PaymentReleaseResult> {
     try {
-      const escrow = await this.repository.getEscrow(input.escrowId);
+      const escrow = await this.repository.getEscrow(input.escrowId, input.tenantId);
       if (!escrow) {
         throw new NotFoundException(
           `Escrow ${input.escrowId} not found`,
@@ -52,6 +52,7 @@ export class PaymentGovernanceService {
       const blockers = await this.checkReleaseBlockers(
         input.escrowId,
         input.milestoneId,
+        input.tenantId,
       );
 
       if (blockers.length > 0) {
@@ -68,6 +69,7 @@ export class PaymentGovernanceService {
       const score = await this.calculatePaymentScore(
         input.escrowId,
         input.milestoneId,
+        input.tenantId,
       );
 
       // If score is below threshold (0.6), require additional approval
@@ -127,9 +129,10 @@ export class PaymentGovernanceService {
     escrowId: string,
     reason: string,
     blockedBy: string,
+    tenantId: string,
   ): Promise<PaymentBlockResult> {
     try {
-      const escrow = await this.repository.getEscrow(escrowId);
+      const escrow = await this.repository.getEscrow(escrowId, tenantId);
       if (!escrow) {
         throw new NotFoundException(`Escrow ${escrowId} not found`);
       }
@@ -171,20 +174,22 @@ export class PaymentGovernanceService {
 
   async getPaymentHistory(
     escrowId: string,
+    tenantId: string,
   ) {
-    return this.repository.getEscrow(escrowId);
+    return this.repository.getEscrow(escrowId, tenantId);
   }
 
   async calculatePaymentScore(
     escrowId: string,
     milestoneId: string,
+    tenantId: string,
   ): Promise<PaymentScore> {
     let evidenceQuality = 0.5;
     let contractorVerification = 0.5;
     let operationalReadiness = 0.5;
 
     try {
-      const escrow = await this.repository.getEscrow(escrowId);
+      const escrow = await this.repository.getEscrow(escrowId, tenantId);
       if (!escrow) {
         return {
           overall: 0.3,
@@ -245,11 +250,12 @@ export class PaymentGovernanceService {
   private async checkReleaseBlockers(
     escrowId: string,
     milestoneId: string,
+    tenantId: string,
   ): Promise<string[]> {
     const blockers: string[] = [];
 
     try {
-      const escrow = await this.repository.getEscrow(escrowId);
+      const escrow = await this.repository.getEscrow(escrowId, tenantId);
       if (!escrow) {
         blockers.push("escrow_not_found");
         return blockers;
