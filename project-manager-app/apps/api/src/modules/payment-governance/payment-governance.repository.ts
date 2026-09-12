@@ -8,6 +8,7 @@ export interface PaymentReleaseInput {
   amount: number;
   reason: string;
   releasedBy: string;
+  tenantId: string;
 }
 
 export interface PaymentBlockInput {
@@ -33,9 +34,9 @@ export class PaymentGovernanceRepository {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async getEscrow(escrowId: string) {
-    return this.prisma.paymentEscrow.findUnique({
-      where: { id: escrowId },
+  async getEscrow(escrowId: string, tenantId: string) {
+    return this.prisma.paymentEscrow.findFirst({
+      where: { id: escrowId, project: { tenantId } },
       include: {
         transactions: {
           orderBy: { createdAt: "desc" },
