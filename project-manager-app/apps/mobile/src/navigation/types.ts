@@ -37,6 +37,7 @@ export type WorkerJobsStackParamList = {
   JobsList: undefined;
   JobDetail: { jobId: string };
   Evidence: { jobId: string; jobTitle?: string };
+  LiveSession: { sessionId: string };
 };
 
 export type WorkerMoreStackParamList = {
@@ -53,6 +54,9 @@ export type WorkerMoreStackParamList = {
   Review: undefined;
   ReviewForm: { jobId: string; jobTitle: string; toUserId: string; toUserEmail?: string };
   Payments: undefined;
+  Prometeo: undefined;
+  /** Sesión de vídeo/audio en vivo (inspection|assist) — se llega desde el detalle de un job o una push, no desde el menú. Ver docs/specs/prometeo/live-sessions.spec.md. */
+  LiveSession: { sessionId: string };
   Settings: undefined;
 };
 
@@ -66,6 +70,7 @@ export type ClientJobsStackParamList = {
   JobsList: undefined;
   JobDetail: { jobId: string };
   Rating: { jobId: string; jobTitle: string; toUserId: string; toUserEmail: string };
+  LiveSession: { sessionId: string };
 };
 
 export type AdminTabParamList = {

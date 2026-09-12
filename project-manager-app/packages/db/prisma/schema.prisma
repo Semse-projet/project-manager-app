@@ -202,6 +202,8 @@ model Tenant {
   buildOpsTasks                 BuildOpsTask[]
   forgeRuns                     ForgeRun[]
   tenantSettings                TenantSettings?
+  liveSessions                  LiveSession[]
+  liveSessionParticipants       LiveSessionParticipant[]
   createdAt                     DateTime                          @default(now())
   updatedAt                     DateTime                          @updatedAt
 }
@@ -278,6 +280,8 @@ model User {
   contractorRate                      ContractorRateOverride?
   stripeConnect                       StripeConnectAccount?
   identityAttestations                IdentityAttestation[]
+  createdLiveSessions                 LiveSession[]
+  liveSessionParticipations           LiveSessionParticipant[]
   createdAt                           DateTime                      @default(now())
   updatedAt                           DateTime                      @updatedAt
 
@@ -4031,4 +4035,86 @@ model PrometeoToolInvocationAudit {
   @@index([tenantId, occurredAt])
   @@index([tenantId, status, occurredAt])
   @@map("prometeo_tool_invocation_audit")
+}
+
+// ── LiveSession (spec: docs/specs/prometeo/live-sessions.spec.md, ADR-026) ──
+// Sesión de vídeo/audio en vivo (inspection|assist) atada a un Job/Project.
+// FSM: docs/foundation/STATE_MACHINES.md §LiveSession. NO muta la FSM de esos
+// recursos. Aditivo; sin backfill.
+
+enum LiveSessionStatus {
+  REQUESTED
+  PERMISSION_PENDING
+  CONNECTING
+  ACTIVE
+  PAUSED
+  ENDING
+  ENDED
+  CANCELLED
+  FAILED
+}
+
+enum LiveSessionScopeType {
+  job
+  project
+}
+
+enum LiveSessionPurpose {
+  inspection
+  assist
+}
+
+enum LiveSessionParticipantRole {
+  owner
+  inspector
+  assistant
+  observer
+}
+
+model LiveSession {
+  id             String                @id @default(cuid())
+  tenantId       String
+  scopeType      LiveSessionScopeType
+  scopeId        String
+  purpose        LiveSessionPurpose
+  status         LiveSessionStatus     @default(REQUESTED)
+  version        Int                   @default(0)
+  createdById    String
+  idempotencyKey String
+  expiresAt      DateTime?
+  endedAt        DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy    User                     @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  participants LiveSessionParticipant[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, scopeType, scopeId, status])
+  @@index([tenantId, createdById, createdAt])
+  @@index([status, expiresAt])
+  @@map("live_session")
+}
+
+model LiveSessionParticipant {
+  id          String                     @id @default(cuid())
+  tenantId    String
+  sessionId   String
+  userId      String
+  role        LiveSessionParticipantRole
+  invitedById String
+  joinedAt    DateTime?
+  leftAt      DateTime?
+  createdAt   DateTime                   @default(now())
+
+  session LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([tenantId, userId])
+  @@index([sessionId])
+  @@map("live_session_participant")
 }

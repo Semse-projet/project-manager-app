@@ -8,6 +8,7 @@ import { fetchJobDetail } from "../../api/jobs";
 import { acceptBid, fetchJobBids } from "../../api/bids";
 import { approveMilestone, fetchMilestonesByJob } from "../../api/milestones";
 import { buildEvidenceFileUrl, fetchEvidenceByJob } from "../../api/evidence";
+import { createLiveSession } from "../../api/liveSessions";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
 import type { ClientJobsStackParamList } from "../../navigation/types";
@@ -43,6 +44,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busyBidId, setBusyBidId] = useState<string | null>(null);
   const [busyMilestoneId, setBusyMilestoneId] = useState<string | null>(null);
+  const [startingLive, setStartingLive] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,6 +98,25 @@ export default function JobDetailScreen({ route, navigation }: Props) {
       setError(caught instanceof Error ? caught.message : "No se pudo aprobar el milestone.");
     } finally {
       setBusyMilestoneId(null);
+    }
+  }
+
+  async function handleStartLiveSession() {
+    if (startingLive) return;
+    setStartingLive(true);
+    setError(null);
+    try {
+      const session = await createLiveSession({
+        scopeType: "job",
+        scopeId: jobId,
+        purpose: "inspection",
+        idempotencyKey: `job-${jobId}-live-${Date.now()}`,
+      });
+      navigation.navigate("LiveSession", { sessionId: session.id });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo iniciar la inspección en vivo.");
+    } finally {
+      setStartingLive(false);
     }
   }
 
@@ -160,6 +181,20 @@ export default function JobDetailScreen({ route, navigation }: Props) {
 
       <Text style={styles.sectionLabel}>Alcance</Text>
       <Text style={styles.scope}>{job.scope}</Text>
+
+      {["in_progress", "reserved", "accepted", "review"].includes(job.status) ? (
+        <Pressable
+          style={[styles.secondaryButton, startingLive && styles.buttonDisabled]}
+          onPress={() => void handleStartLiveSession()}
+          disabled={startingLive}
+          accessibilityRole="button"
+          accessibilityLabel="Iniciar inspección en vivo"
+        >
+          <Text style={styles.secondaryButtonText}>
+            {startingLive ? "Abriendo…" : "🎥 Inspección en vivo"}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {job.status === "completed" && acceptedBid ? (
         <Pressable

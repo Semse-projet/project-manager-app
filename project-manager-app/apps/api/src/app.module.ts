@@ -81,6 +81,7 @@ import { SatellitesModule } from "./modules/satellites/satellites.module.js";
 import { AdminModule } from "./modules/admin/admin.module.js";
 import { LiensModule } from "./modules/liens/liens.module.js";
 import { WeatherModule } from "./modules/weather/weather.module.js";
+import { LiveSessionsModule } from "./modules/live-sessions/live-sessions.module.js";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const apiDir = path.resolve(appDir, "..");
@@ -174,6 +175,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     AdminModule,
     LiensModule,
     WeatherModule,
+    LiveSessionsModule,
   ],
   controllers: [HealthController],
   providers: [

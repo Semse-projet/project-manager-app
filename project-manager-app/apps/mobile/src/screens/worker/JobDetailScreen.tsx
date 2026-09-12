@@ -7,6 +7,7 @@ import type { BidRecordView, JobRecordView } from "@semse/schemas";
 import { fetchJobDetail } from "../../api/jobs";
 import { fetchMyBids, submitBid } from "../../api/bids";
 import { fetchActiveTimer, startTimer } from "../../api/labor";
+import { createLiveSession } from "../../api/liveSessions";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
 import type { WorkerJobsStackParamList } from "../../navigation/types";
@@ -34,6 +35,7 @@ export default function JobDetailScreen({ route, navigation }: Props) {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [startingTimer, setStartingTimer] = useState(false);
+  const [startingLive, setStartingLive] = useState(false);
   const [timerMessage, setTimerMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -96,6 +98,25 @@ export default function JobDetailScreen({ route, navigation }: Props) {
       setError(caught instanceof Error ? caught.message : "No se pudo iniciar el reloj.");
     } finally {
       setStartingTimer(false);
+    }
+  }
+
+  async function handleStartLiveSession() {
+    if (startingLive) return;
+    setStartingLive(true);
+    setError(null);
+    try {
+      const session = await createLiveSession({
+        scopeType: "job",
+        scopeId: jobId,
+        purpose: "assist",
+        idempotencyKey: `job-${jobId}-live-${Date.now()}`,
+      });
+      navigation.navigate("LiveSession", { sessionId: session.id });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "No se pudo iniciar la sesión en vivo.");
+    } finally {
+      setStartingLive(false);
     }
   }
 
@@ -162,6 +183,18 @@ export default function JobDetailScreen({ route, navigation }: Props) {
         onPress={() => navigation.navigate("Evidence", { jobId: job.id, jobTitle: job.title })}
       >
         <Text style={styles.secondaryButtonText}>📷 Evidencia de este job</Text>
+      </Pressable>
+
+      <Pressable
+        style={[styles.secondaryButton, startingLive && styles.buttonDisabled]}
+        onPress={() => void handleStartLiveSession()}
+        disabled={startingLive}
+        accessibilityRole="button"
+        accessibilityLabel="Iniciar sesión en vivo"
+      >
+        <Text style={styles.secondaryButtonText}>
+          {startingLive ? "Abriendo…" : "🎥 Sesión en vivo (asistencia)"}
+        </Text>
       </Pressable>
 
       {existingBid ? (

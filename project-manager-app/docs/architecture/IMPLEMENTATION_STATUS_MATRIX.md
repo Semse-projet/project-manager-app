@@ -34,6 +34,7 @@ Para specs SDD 2.0 mandan las columnas separadas de
 | Web/BFF | IMPLEMENTADO/DESPLEGADO | Next.js + Railway `114cb9ca` | SLO y journeys autenticados |
 | API NestJS/Prisma | IMPLEMENTADO/DESPLEGADO | NestJS/Prisma + Railway `114cb9ca` | Trazas y migration gates |
 | Worker/BullMQ | IMPLEMENTADO/DESPLEGADO | worker Railway `SUCCESS` | Consola común lag/retries/DLQ |
+| Cliente móvil (`apps/mobile`) | IMPLEMENTADO/PARCIAL | Expo SDK 57 (RN); Worker (timer/proximidad/jobs/bids/evidencia/push), Client Fase 2, Admin Fase 7a-7h en `main`. Consolidación en curso — rama `feat/semse-product-consolidation-20260906` / PR draft #598 (`ad7cb6f1`→`5c19e8da`): `environment.ts`/`client.ts` (una sola conexión, refresh concurrente, logout seguro, timeout), timer offline (`localTimer.ts`), Prometeo (`/v1/ai-models/prometeo/chat`), pull-to-refresh Admin, bump Expo 57 patch. `tsc` limpio, jest 45/45·213/213, `expo export` iOS+Android OK, build EAS Android `preview` `680386ee` `finished` desde `22ce0a06`. Sin CI real (ver §9), sin merge, sin release a tienda, sin canary en device | Canary autenticado por rol en device; build iOS (cuota EAS Free hasta 2026-10-01); LiveSession por contrato aparte (`docs/consolidation/LIVESESSION_RECOVERY_CONTRACT.md`) |
 | Identidad/Tenant/RBAC | IMPLEMENTADO/PARCIAL | guards, permissions, policies | PrincipalContext/policy transversal |
 | Identidad universal multi-rol | ver fila F10 más abajo | `Membership(userId, orgId, roleId)` ya permite multi-rol a nivel de datos; UX/producto asume rol fijo | — |
 | Originador/Facilitador (referral) | ver fila F10 más abajo | — | — |
@@ -104,6 +105,17 @@ Tiempo validator estricto:          ~2.1 s (antes ~106 s)
    agente. Cualquier "PASS" de CI citado en specs/tareas desde esa fecha
    se refiere a verificación local (`tsc`/`eslint`/`node --test`/`pnpm
    build`), no a un run real del pipeline.
+
+10. **Consolidación móvil (2026-09-07, fuera del corte de arriba — no
+    re-verifica el resto de esta matriz):** la fila "Cliente móvil" se agregó
+    en esta pasada. Base `main@88171003` (posterior a `114cb9ca` del corte).
+    Evidencia local verificable (`tsc`, jest 45/45·213/213, `expo export`
+    ambos targets, build EAS Android `680386ee`); **sin** merge, deploy,
+    release a tienda ni canary autenticado en device — esos gates siguen
+    abiertos (PR draft #598, spec `mobile-product-consolidation`
+    `code_status: IN_PROGRESS`). El "PASS" de tests es verificación local, no
+    un run real del pipeline (mismo hallazgo §9). Ninguna fuente/checkout
+    móvil se borró (`docs/consolidation/MOBILE_SOURCE_REGISTER.md`).
 
 ## Protocolo de actualización
 

@@ -14,6 +14,8 @@ import ReviewScreen from "../screens/worker/ReviewScreen";
 import WorkerReviewFormScreen from "../screens/worker/WorkerReviewFormScreen";
 import PaymentsScreen from "../screens/worker/PaymentsScreen";
 import SettingsScreen from "../screens/SettingsScreen";
+import PrometeoScreen from "../screens/worker/PrometeoScreen";
+import LiveSessionScreen from "../screens/LiveSessionScreen";
 
 const Stack = createNativeStackNavigator<WorkerMoreStackParamList>();
 
@@ -33,6 +35,8 @@ export default function WorkerMoreStackNavigator() {
       <Stack.Screen name="Review" component={ReviewScreen} options={{ title: "Reseñas" }} />
       <Stack.Screen name="ReviewForm" component={WorkerReviewFormScreen} options={{ title: "Calificar" }} />
       <Stack.Screen name="Payments" component={PaymentsScreen} options={{ title: "Pagos" }} />
+      <Stack.Screen name="Prometeo" component={PrometeoScreen} options={{ title: "Prometeo" }} />
+      <Stack.Screen name="LiveSession" component={LiveSessionScreen} options={{ title: "Sesión en vivo" }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: "Ajustes" }} />
     </Stack.Navigator>
   );

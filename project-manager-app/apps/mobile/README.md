@@ -90,6 +90,8 @@ critical-risk payment-governance spec pending owner sign-off, not yet
 implemented. The rest of Fase 7 — finance, disputes management actions,
 dispute/timer mutations — is still pending.
 
+**Live Sessions (spec `prometeo/live-sessions`, detrás del flag `SEMSE_LIVE_SESSIONS_ENABLED`):** `src/screens/LiveSessionScreen.tsx` sigue el estado de una `LiveSession` (inspección/asistencia en vivo sobre un job/project) y expone las acciones de la FSM por rol. El **video en vivo usa LiveKit, que es un módulo nativo** — la pantalla detecta Expo Go (`Constants.appOwnership === "expo"`) y en ese caso muestra un estado degradado sin importar nada nativo; en un development/production build pide un `media-token` efímero al backend. El componente `<LiveKitRoom>` real (`@livekit/react-native` + config plugin + dev build) todavía no está integrado. El estado se sigue por polling de `GET /v1/prometeo/live-sessions/:id` cada 4 s (SSE nativo = follow-up).
+
 ## Setup
 
 ```bash

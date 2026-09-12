@@ -207,6 +207,34 @@ test("agro-farm: createUnit throws when farm not found", async () => {
   );
 });
 
+// ── getUnit / updateUnit (F02b: ownership check, closes cross-owner read) ─────
+
+test("agro-farm: getUnit returns unit when owner matches", async () => {
+  const service = new AgroFarmService(makeFarmRepo(), makeAuditRepo());
+
+  const unit = await service.getUnit("unit_1", "usr_1");
+
+  assert.equal(unit.id, "unit_1");
+});
+
+test("agro-farm: getUnit throws NotFoundException for wrong owner", async () => {
+  const service = new AgroFarmService(makeFarmRepo(), makeAuditRepo());
+
+  await assert.rejects(
+    () => service.getUnit("unit_1", "usr_hacker"),
+    NotFoundException,
+  );
+});
+
+test("agro-farm: updateUnit throws NotFoundException for wrong owner", async () => {
+  const service = new AgroFarmService(makeFarmRepo(), makeAuditRepo());
+
+  await assert.rejects(
+    () => service.updateUnit("unit_1", "usr_hacker", { name: "Renamed" }),
+    NotFoundException,
+  );
+});
+
 // ── getAuditEvents ────────────────────────────────────────────────────────────
 
 test("agro-farm: getAuditEvents returns events for farm", async () => {
