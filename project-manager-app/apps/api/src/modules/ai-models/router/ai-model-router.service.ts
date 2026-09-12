@@ -15,18 +15,14 @@ export class AiModelRouterService {
     const enabled = new Set(getEnabledModels().map((m) => m.slug));
     const has = (slug: string) => enabled.has(slug);
 
-    // Forced model
-    if (request.forceModelSlug) {
-      return { primaryModelSlug: request.forceModelSlug, reason: "Forced model." };
-    }
-
     // Privacy: local-only, sensitive and restricted must never resolve to a
-    // cloud provider — no fallbackModelSlug on purpose, so a failure here
-    // fails closed (AiModelGatewayService.generate() returns success:false
-    // instead of falling through to a cloud model). See SPEC-GTW-001 §2:
-    // this was previously enforced only for "local_only", leaving
-    // "sensitive"/"restricted" requests to fall through to the taskType
-    // routing below with zero privacy enforcement.
+    // cloud provider — checked before forceModelSlug so an override can
+    // never bypass this restriction. No fallbackModelSlug on purpose, so a
+    // failure here fails closed (AiModelGatewayService.generate() returns
+    // success:false instead of falling through to a cloud model). See
+    // SPEC-GTW-001 §2: this was previously enforced only for "local_only",
+    // leaving "sensitive"/"restricted" requests to fall through to the
+    // taskType routing below with zero privacy enforcement.
     if (
       request.privacyLevel === "local_only" ||
       request.privacyLevel === "sensitive" ||
@@ -36,6 +32,11 @@ export class AiModelRouterService {
         primaryModelSlug: "ollama-local",
         reason: `Privacy level "${request.privacyLevel}" requires a private/local provider.`,
       };
+    }
+
+    // Forced model — only reachable once the privacy check above has passed.
+    if (request.forceModelSlug) {
+      return { primaryModelSlug: request.forceModelSlug, reason: "Forced model." };
     }
 
     const { taskType } = request;

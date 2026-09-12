@@ -57,10 +57,24 @@ test("privacyLevel=standard_external / internal / unset still route normally (no
   }
 });
 
-test("forceModelSlug still wins over privacy level (explicit operator override, unchanged behavior)", () => {
+// F05 (SEMSEproject_Auditoria_2026-09-11.md): forceModelSlug is not a
+// trusted internal override — POST /v1/agents/generate spreads the raw
+// request body straight into AiGenerateRequest
+// (ai-models.controller.ts `generate()`), so any authenticated caller with
+// `agents:run:create` can set forceModelSlug themselves. Privacy must win
+// over it, otherwise privacyLevel is fully bypassable by the caller.
+test("privacyLevel wins over forceModelSlug (forceModelSlug cannot bypass privacy)", () => {
   const router = new AiModelRouterService();
   const route = router.selectRoute(
     makeRequest({ privacyLevel: "sensitive", forceModelSlug: "claude-sonnet" }),
+  );
+  assert.equal(route.primaryModelSlug, "ollama-local");
+});
+
+test("forceModelSlug is honored when privacy allows it", () => {
+  const router = new AiModelRouterService();
+  const route = router.selectRoute(
+    makeRequest({ forceModelSlug: "claude-sonnet" }),
   );
   assert.equal(route.primaryModelSlug, "claude-sonnet");
 });

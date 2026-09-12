@@ -81,9 +81,11 @@ export class AgroFarmService {
     return this.repo.listUnits(farmId);
   }
 
-  async getUnit(unitId: string) {
+  async getUnit(unitId: string, ownerId: string) {
     const unit = await this.repo.findUnit(unitId);
     if (!unit) throw new NotFoundException(`Farm unit not found: ${unitId}`);
+    const farm = await this.repo.findFarm(unit.farmId);
+    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm unit not found: ${unitId}`);
     return unit;
   }
 
@@ -120,9 +122,7 @@ export class AgroFarmService {
     areaUnit?: string;
     notes?: string;
   }) {
-    const unit = await this.getUnit(unitId);
-    const farm = await this.repo.findFarm(unit.farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm unit not found: ${unitId}`);
+    const unit = await this.getUnit(unitId, ownerId);
     if (input.type && !VALID_UNIT_TYPES.includes(input.type as any)) {
       throw new BadRequestException(`Invalid unit type: ${input.type}`);
     }
