@@ -4,14 +4,12 @@ import {
   Get,
   Param,
   Body,
-  Req,
   UseGuards,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
-import { resolveRequestContext } from '../../common/request-context.js';
 import { LiensService } from './liens.service.js';
 
 /**
@@ -157,42 +155,6 @@ export class LiensController {
       };
     } catch (error) {
       this.logger.error(`Failed to update calendar status`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * POST /v1/projects/:projectId/liens/waivers/:waiverId/sign
-   *
-   * Firmar un waiver (capturar firma digital).
-   */
-  @Post('waivers/:waiverId/sign')
-  async signWaiver(
-    @Req() req: { headers?: Record<string, unknown> },
-    @Param('projectId') projectId: string,
-    @Param('waiverId') waiverId: string,
-    @Body() body: { signature: string }
-  ) {
-    this.logger.log(`POST /liens/waivers/:waiverId/sign: ${waiverId}`);
-
-    if (!body.signature) {
-      throw new BadRequestException('signature is required');
-    }
-
-    const actor = resolveRequestContext(req);
-
-    try {
-      const signed = await this.liensService.signWaiver(waiverId, {
-        signature: body.signature,
-        signedBy: actor.userId,
-      });
-
-      return {
-        success: true,
-        data: signed,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to sign waiver`, error);
       throw error;
     }
   }

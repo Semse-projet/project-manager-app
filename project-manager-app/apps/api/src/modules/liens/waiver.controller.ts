@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, Req, UseGuards, Logger } from '@nestjs/common';
+import { Controller, Post, Get, Param, Body, Req, UseGuards, Logger, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthenticatedAccess } from '../../common/permissions.decorator.js';
 import { resolveRequestContext } from '../../common/request-context.js';
@@ -53,6 +53,10 @@ export class WaiverController {
     @Body() body: { signature: string }
   ) {
     this.logger.log(`POST /waivers/:waiverId/sign: ${waiverId}`);
+
+    if (!body.signature) {
+      throw new BadRequestException('signature is required');
+    }
 
     const actor = resolveRequestContext(req);
     const signed = await this.liensService.signWaiver(waiverId, {
