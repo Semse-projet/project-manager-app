@@ -9,7 +9,6 @@ import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
 import { MilestonesController } from "./milestones.controller.js";
 import { MilestonesRepository } from "./milestones.repository.js";
 import { MilestonesService } from "./milestones.service.js";
-import { PaymentGovernanceService } from "../payments/payment-governance.service.js";
 import { PaymentsModule } from "../payments/payments.module.js";
 
 @Module({
@@ -24,7 +23,7 @@ import { PaymentsModule } from "../payments/payments.module.js";
     forwardRef(() => PaymentsModule),
   ],
   controllers: [MilestonesController],
-  providers: [MilestonesRepository, MilestonesService, PaymentGovernanceService],
+  providers: [MilestonesRepository, MilestonesService],
   exports: [MilestonesRepository, MilestonesService]
 })
 export class MilestonesModule {}
