@@ -6,7 +6,8 @@ import type { WorkerMoreStackParamList } from "../../navigation/types";
 
 type Props = NativeStackScreenProps<WorkerMoreStackParamList, "MoreMenu">;
 
-const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Materials" | "Rates" | "Agenda" | "Review" | "Payments" | "Prometeo"; icon: string; label: string; hint: string }[] = [
+const ITEMS: { route: "FreeProjects" | "Disputes" | "Incidents" | "Travel" | "Materials" | "Rates" | "Agenda" | "Review" | "Payments" | "Prometeo" | "PayoutMethod"; icon: string; label: string; hint: string }[] = [
+  { route: "PayoutMethod", icon: "💳", label: "Método de cobro", hint: "Configura dónde recibir tus pagos." },
   { route: "Agenda", icon: "📅", label: "Agenda", hint: "Tus jobs activos, agrupados por fecha." },
   { route: "FreeProjects", icon: "🗂️", label: "Proyectos libres", hint: "Tus proyectos propios fuera del marketplace." },
   { route: "Disputes", icon: "⚖️", label: "Disputas", hint: "Reclamos abiertos sobre tus proyectos." },

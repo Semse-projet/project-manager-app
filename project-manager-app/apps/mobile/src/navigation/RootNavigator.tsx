@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import { NavigationContainer, type Theme as NavigationTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAuth } from "../context/AuthContext";
 import LoginScreen from "../screens/LoginScreen";
@@ -16,15 +16,24 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   const { loading, isAuthenticated, roles, userId, tenantId, sessionError, retrySession, logout } = useAuth();
   const theme = useTheme();
-  const navigationTheme = {
-    ...(theme.colors.base === "#050810" ? DarkTheme : DefaultTheme),
+  const isWorker = isAuthenticated && resolveAvailableTargets(roles).includes("worker");
+  const navigationTheme: NavigationTheme = {
+    dark: theme.colors.base === "#050810",
     colors: {
-      primary: theme.colors.brand, background: theme.colors.base,
-      card: theme.colors.surface, text: theme.colors.ink,
-      border: theme.colors.border, notification: theme.colors.accent,
+      primary: theme.colors.brand,
+      background: theme.colors.base,
+      card: theme.colors.surface,
+      text: theme.colors.ink,
+      border: theme.colors.border,
+      notification: theme.colors.accent,
+    },
+    fonts: {
+      regular: { fontFamily: "System", fontWeight: "400" },
+      medium: { fontFamily: "System", fontWeight: "500" },
+      bold: { fontFamily: "System", fontWeight: "700" },
+      heavy: { fontFamily: "System", fontWeight: "900" },
     },
   };
-  const isWorker = isAuthenticated && resolveAvailableTargets(roles).includes("worker");
 
   useEffect(() => {
     if (!isWorker) return;

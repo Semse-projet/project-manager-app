@@ -31,6 +31,9 @@ it("lists all menu items and navigates on press", async () => {
 
   await fireEvent.press(screen.getByText("Ajustes"));
   expect(navigate).toHaveBeenCalledWith("Settings");
+
+  await fireEvent.press(screen.getByText("Método de cobro"));
+  expect(navigate).toHaveBeenCalledWith("PayoutMethod");
 });
 
 it("logs out when the button is pressed", async () => {
