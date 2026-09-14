@@ -10,12 +10,12 @@ import { refreshProximitySites } from "../geo/refreshSites";
 import { hasSeenProximityPrimer, markProximityPrimerSeen } from "../geo/permissionPrimer";
 import { loadProximityMode } from "../geo/siteCache";
 import { registerProximityNotificationCategory, requestNotificationPermissions } from "../notifications/notifications";
-import TimerScreen from "./TimerScreen";
+import TimerScreen, { formatElapsedSeconds, getElapsedSeconds } from "./TimerScreen";
 
 jest.mock("@react-navigation/native", () => ({
   useFocusEffect: (effect: () => void | (() => void)) => require("react").useEffect(effect, []),
 }));
-jest.mock("../api/labor", () => ({ fetchActiveTimer: jest.fn(), startTimer: jest.fn(), stopTimer: jest.fn() }));
+jest.mock("../api/labor", () => ({ fetchActiveTimer: jest.fn(), startTimer: jest.fn(), stopTimer: jest.fn(), pauseTimer: jest.fn(), resumeTimer: jest.fn() }));
 jest.mock("../geo/backgroundLocation", () => ({
   isProximityTrackingActive: jest.fn(),
   requestProximityPermissions: jest.fn(),
@@ -28,6 +28,16 @@ jest.mock("../geo/siteCache", () => ({ loadProximityMode: jest.fn() }));
 jest.mock("../notifications/notifications", () => ({
   registerProximityNotificationCategory: jest.fn(),
   requestNotificationPermissions: jest.fn(),
+}));
+jest.mock("../timer/localTimer", () => ({
+  isReasonableActiveTimer: jest.fn((timer) => Boolean(timer && timer.status !== "completed")),
+  loadLocalTimer: jest.fn().mockResolvedValue(null),
+  loadLocalHistory: jest.fn().mockResolvedValue([]),
+  saveLocalTimer: jest.fn().mockResolvedValue(undefined),
+  startLocalTimer: jest.fn().mockResolvedValue({ id: "local-timer-test", status: "running", purpose: "personal", startedAt: new Date().toISOString(), accumulatedSeconds: 0, durationMinutes: null }),
+  pauseLocalTimer: jest.fn().mockResolvedValue({ id: "local-timer-test", status: "paused", purpose: "personal", startedAt: new Date().toISOString(), accumulatedSeconds: 0, durationMinutes: null }),
+  resumeLocalTimer: jest.fn().mockResolvedValue({ id: "local-timer-test", status: "running", purpose: "personal", startedAt: new Date().toISOString(), accumulatedSeconds: 0, durationMinutes: null }),
+  stopLocalTimer: jest.fn().mockResolvedValue({ id: "local-timer-test", status: "completed", purpose: "personal", startedAt: new Date().toISOString(), accumulatedSeconds: 0, durationMinutes: 0 }),
 }));
 
 beforeEach(() => {
@@ -43,18 +53,34 @@ beforeEach(() => {
 it("shows no active session and an Iniciar button when nothing is running", async () => {
   await render(<TimerScreen />);
   await waitFor(() => expect(screen.getByText("Sin sesión activa")).toBeTruthy());
-  expect(screen.getByText("Iniciar (solo calcular)")).toBeTruthy();
+  expect(screen.getByText("Iniciar reloj personal")).toBeTruthy();
+});
+
+it("keeps the timer available when proximity site refresh fails", async () => {
+  (refreshProximitySites as jest.Mock).mockRejectedValue(new Error("GPS unavailable"));
+
+  await render(<TimerScreen />);
+
+  await waitFor(() => expect(screen.getByText("Iniciar reloj personal")).toBeTruthy());
+  expect(screen.queryByText("GPS unavailable")).toBeNull();
 });
 
 it("starting a timer calls the API and flips to the running state", async () => {
   (startTimer as jest.Mock).mockResolvedValue({ id: "te1", status: "running", purpose: "personal", jobId: null, freeProjectId: null, startedAt: new Date().toISOString() });
   await render(<TimerScreen />);
-  await waitFor(() => expect(screen.getByText("Iniciar (solo calcular)")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("Iniciar reloj personal")).toBeTruthy());
 
-  await fireEvent.press(screen.getByText("Iniciar (solo calcular)"));
+  await fireEvent.press(screen.getByText("Iniciar reloj personal"));
 
   await waitFor(() => expect(screen.getByText("Corriendo")).toBeTruthy());
   expect(startTimer).toHaveBeenCalledWith(expect.objectContaining({ purpose: "personal" }));
+});
+
+it("calculates and formats elapsed time for running and paused timers", () => {
+  const now = Date.parse("2026-08-30T12:00:10.000Z");
+  expect(getElapsedSeconds({ status: "running", startedAt: "2026-08-30T12:00:00.000Z", resumedAt: null, accumulatedSeconds: 5, durationMinutes: null }, now)).toBe(15);
+  expect(getElapsedSeconds({ status: "paused", startedAt: "2026-08-30T12:00:00.000Z", resumedAt: null, accumulatedSeconds: 125, durationMinutes: null }, now)).toBe(125);
+  expect(formatElapsedSeconds(3661)).toBe("01:01:01");
 });
 
 it("shows the running state from a pre-existing active timer and stops it", async () => {
