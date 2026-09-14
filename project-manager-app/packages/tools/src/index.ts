@@ -23,6 +23,18 @@ export { calculateConcrete, runConcreteEngine } from "./trades/concrete/concrete
 export type { ConcreteInput } from "./trades/concrete/concrete.engine.js";
 export { calculateElectrical, runElectricalEngine } from "./trades/electrical/electrical.engine.js";
 export type { ElectricalInput } from "./trades/electrical/electrical.engine.js";
+export {
+  calculateConduitOffset,
+  assertBenderVerifiedForMarking,
+  InvalidConduitOffsetInputError,
+  UnverifiedBenderError,
+} from "./trades/electrical/conduit-offset.engine.js";
+export type {
+  ConduitOffsetInput,
+  ConduitOffsetResult,
+  BenderProfile,
+  BenderVerification,
+} from "./trades/electrical/conduit-offset.engine.js";
 export { calculateRoofing, runRoofingEngine } from "./trades/roofing.engine.js";
 export type { RoofingInput, ShingleType } from "./trades/roofing.engine.js";
 export { calculatePlumbing, runPlumbingEngine } from "./trades/plumbing.engine.js";
