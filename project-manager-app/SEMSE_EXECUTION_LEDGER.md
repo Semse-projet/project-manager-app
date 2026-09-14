@@ -40,7 +40,7 @@ As of this batch this table is **backed by a real database**, not hand-maintaine
 | `conduit-offset-engine` | TESTED | HEALTHY | ADR-031 + `conduit-offset.test.ts` |
 | `capability-reality-registry` | DEPLOYED | UNKNOWN | ADR-032 — migration merged to `main`, not yet run against production (health UNKNOWN until it is) |
 
-Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows seeded — `conduit-offset-6in-30deg` is `PASSING`; the other 8 (payment-release canonical path, privacy local-only fallback, migration/startup safety, cross-tenant isolation, duplicate command/event, stale approval, offline conflict) are seeded `NOT_WIRED` — decided ground truth, not yet automated.
+Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows. As of Phase 1 batch 4: 4 `PASSING` (`conduit-offset-6in-30deg`, `migration-startup-safety`, `cross-tenant-isolation`, `duplicate-event-dedupe`), 2 `FAILING` (`payment-release-canonical-path`, `offline-conflict-resolution` — real, documented gaps, not fabricated passes), 3 `NOT_WIRED` (`privacy-local-only-fallback`, `duplicate-command-rejection`, `stale-approval-rejection` — investigated, no real implementation exists yet for any of the three as literally worded). See Golden Regressions Status below for detail on each.
 
 ### Phase 0 ADRs
 
@@ -284,7 +284,7 @@ Not applicable.
 
 Revert this batch's commit. Note that rolling back *restores* the fake-success bug — see ADR-034's Rollback section for why that's not actually a safe fallback.
 
-## Current Batch — Phase 1: D08 follow-up, Web/Worker deploy provenance
+## Previous Batch — Phase 1: D08 follow-up, Web/Worker deploy provenance (CLOSED, merged as PR #622, production-verified in PR #625)
 
 ### Goal
 
@@ -349,18 +349,76 @@ Not applicable.
 
 Revert this batch's commit. Pure read-only diagnostic addition plus an internal import-path move — no schema, no state, no migration to unwind.
 
+## Current Batch — Phase 1, batch 4: wire 3 more golden regressions
+
+### Goal
+
+Continue closing the 6 remaining `NOT_WIRED` golden regressions from batch 1, per the Execution Pack's governing rule: "No fake production claims... Unknown is not safe." Investigated all 6; wired the 3 with a discoverable, honest answer.
+
+### Files changed
+
+- `packages/db/prisma/migrations/20260914170000_wire_cross_tenant_duplicate_event_offline_conflict_regressions/migration.sql` (new) — additive `UPDATE` of 3 `golden_regression` rows. Zero schema changes.
+- `tests/unit/offline-conflict-resolution.test.mjs` (new) — `test.todo` proving the TimerScreen gap described below.
+- `SEMSE_EXECUTION_LEDGER.md` (this file).
+
+### Migrations
+
+`20260914170000_wire_cross_tenant_duplicate_event_offline_conflict_regressions` — 3 `UPDATE` statements against existing rows by primary key. No DDL, fully reversible by re-running the batch-1 seed values.
+
+### Tests added/changed
+
+- `apps/api/test/agro-farm.service.test.ts` — pre-existing, unmodified. Confirmed 17/17 passing; already covers F02b (cross-owner `getUnit`/`updateUnit` rejection).
+- `apps/api/test/event-domain-consumer-integration.test.ts` — pre-existing, unmodified. Confirmed 4/4 passing against a fresh scratch Postgres with all 90 migrations applied; covers F1-D concurrent/re-delivered event dedup.
+- `tests/unit/offline-conflict-resolution.test.mjs` (new) — `test.todo`, deliberately not a passing assertion (see Results).
+
+### Commands executed
+
+- Fresh scratch Postgres 16 in Docker (isolated, not the shared dev container), all 90 migrations applied via `prisma migrate deploy`, container removed after verification.
+- `pnpm db:generate && pnpm build:packages && pnpm --filter @semse/api build` — clean.
+- `node --experimental-strip-types --test apps/api/test/agro-farm.service.test.ts` — 17/17 passing.
+- `DATABASE_URL=... node --experimental-strip-types --test apps/api/test/event-domain-consumer-integration.test.ts` — 4/4 passing.
+- `node --experimental-strip-types --test tests/unit/offline-conflict-resolution.test.mjs` — confirmed failing as expected (todo).
+- Full `pnpm test:unit` — 1049 pass / 0 fail / 4 skip / 11 todo.
+- `psql` read-back of the 3 updated `golden_regression` rows against the scratch DB — confirmed correct.
+
+### Results
+
+3 more of the 6 `NOT_WIRED` golden regressions now have real evidence: `cross-tenant-isolation` and `duplicate-event-dedupe` are genuinely `PASSING` (existing, already-passing tests generalized to this claim — not new fixes). `offline-conflict-resolution` exposed a real (low-stakes) gap: `apps/mobile/src/screens/TimerScreen.tsx`'s `load()` silently prefers the local timer when it conflicts with a different remote session, folding the conflict into the same generic `offlineMode` banner used for plain no-connectivity — the actor is never told two sessions existed and one was discarded. Not fixed here (out of scope; needs its own UX decision).
+
+The remaining 3 (`privacy-local-only-fallback`, `duplicate-command-rejection`, `stale-approval-rejection`) stay `NOT_WIRED` — no real implementation exists yet for any of them as literally worded: no multi-tenant local-cache fallback layer was found (search covered API + mobile); no client-facing command-level idempotency layer exists outside internal event-emission `idempotencyKey`s (already covered by `duplicate-event-dedupe`); `expectedVersion` optimistic-concurrency only exists in `live-sessions` (session locking), not an approval workflow. Under-claiming, not forcing a fit.
+
+### Known failures
+
+`offline-conflict-resolution` test fails by design (documents reality, `test.todo` so it doesn't red-block CI). See Blockers.
+
+### Security checks
+
+No new endpoints or write paths. `agro-farm.service.test.ts`/`event-domain-consumer-integration.test.ts` are pre-existing and unmodified; `offline-conflict-resolution.test.mjs` is read-only source inspection.
+
+### Offline checks
+
+`offline-conflict-resolution.test.mjs` is itself about an offline/reconnect scenario — see Results for the gap it documents.
+
+### Production verification
+
+Not applicable — this batch changes test coverage and registry metadata only, no runtime behavior change. `golden_regression` row values will reflect in production once this migration is deployed (`railway redeploy --from-source`).
+
+### Rollback
+
+Re-run 3 `UPDATE`s restoring `status = 'NOT_WIRED'`, `testReference = 'not yet wired to an automated regression'`, `lastCheckedAt = NULL` for the 3 rows (batch-1 seed values). Deleting the 1 new test file is independently safe and reversible.
+
 ## Golden Regressions Status
 
 - 6" @30° = 12": **✅ REAL AND TESTED as of this batch.** `packages/tools/src/trades/electrical/conduit-offset.engine.ts` (`calculateConduitOffset`), golden-case test at `packages/tools/test/conduit-offset.test.ts`. Built per `docs/architecture/ADR-031-conduit-offset-engine-v1.md`. Not yet wired into any UI/endpoint — that's Phase-4 scope.
 - Unknown bender blocks exact marking: **✅ REAL AND TESTED.** `assertBenderVerifiedForMarking` throws `UnverifiedBenderError` unless a verified `BenderProfile` is supplied; geometry (`calculateConduitOffset`) remains available regardless. Tested in the same file.
 - Payment release canonical path: **❌ FAILING — wired to a real test this batch, and it correctly reports the gap.** `tests/unit/payment-release-canonical-path.test.mjs` (`test.todo`, so it doesn't red-block CI) proves `PaymentGovernanceService.releasePayment()` — live at `POST /v1/payments/release` — never calls Stripe/`EscrowReleaseService`. The earlier "✅ confirmed" line in this ledger (Phase 0) was wrong; corrected here and in the D02 row above. Status in the `golden_regression` table is `FAILING`, not `PASSING` — see top Blocker below.
-- Privacy local-only fallback: not evaluated this pass (out of D01–D08 scope as literally stated in the baseline doc; would need its own inspection).
-- Migration/startup: **✅ PASSING — wired to a real automated test this batch.** `tests/unit/pre-migrate-startup-safety.test.mjs` reproduces the exact P3009 shape (a `_prisma_migrations` row with `finished_at`/`rolled_back_at` both NULL) against a live Postgres and asserts `scripts/pre-migrate.mjs` exits non-zero with a clear FATAL log instead of proceeding or failing silently. Previously this was "confirmed fixed" only by the manual incident response (Baseline section) with no regression test — now it's pinned.
-- Cross-tenant: ✅ confirmed fixed for the specific F02a/F02b scope from PR #609; not verified as a repo-wide guarantee.
-- Duplicate command: ⚠️ open — see D03/D04/D05 in the overlap matrix.
-- Duplicate event: not evaluated this pass.
-- Stale approval: not evaluated this pass.
-- Offline conflict: not evaluated this pass (mobile not inspected).
+- Privacy local-only fallback: **NOT_WIRED — investigated, no fit found.** Searched API + mobile for a multi-tenant local-cache/fallback layer matching the regression's literal wording ("must never leak another tenant's data via a local/offline fallback path"); none exists yet. Not the same claim as AI-router privacy routing (`ai-model-router-privacy.test.ts`, which tests provider selection, not tenant-data leakage) — do not conflate the two.
+- Migration/startup: **✅ PASSING — wired to a real automated test.** `tests/unit/pre-migrate-startup-safety.test.mjs` reproduces the exact P3009 shape (a `_prisma_migrations` row with `finished_at`/`rolled_back_at` both NULL) against a live Postgres and asserts `scripts/pre-migrate.mjs` exits non-zero with a clear FATAL log instead of proceeding or failing silently. Previously this was "confirmed fixed" only by the manual incident response (Baseline section) with no regression test — now it's pinned.
+- Cross-tenant: **✅ PASSING — wired to a real automated test this batch.** `apps/api/test/agro-farm.service.test.ts` (pre-existing, F02b) proves `AgroFarmService.getUnit()`/`updateUnit()` reject a caller whose `ownerId` doesn't match the farm's owner with the same `NotFoundException` used for a missing resource — 17/17 passing. Ownership-scoped (Agro's `AgroFarm.ownerId`, not a `tenantId` column), the closest real evidence available; not a repo-wide tenant-boundary guarantee.
+- Duplicate command: **NOT_WIRED — investigated, no fit found.** No client-facing command-level idempotency layer exists outside internal event-emission `idempotencyKey`s (already covered by duplicate-event-dedupe below) — this belongs to Phase 3's `UnifiedActionGateway`/`commandId`, not built yet.
+- Duplicate event: **✅ PASSING — wired to a real automated test this batch.** `apps/api/test/event-domain-consumer-integration.test.ts` (F1-D, pre-existing) proves concurrent/re-delivered domain events are deduped by `idempotencyKey` — a second delivery returns `{ duplicate: true }` with no additional side effect. 4/4 passing against a live scratch Postgres.
+- Stale approval: **NOT_WIRED — investigated, no fit found.** `expectedVersion` optimistic concurrency only exists in `live-sessions` (session locking), not an approval workflow — the regression as worded needs Phase 3's approval-staleness mechanism, not built yet.
+- Offline conflict: **❌ FAILING — wired to a real test this batch, and it correctly reports the gap.** `tests/unit/offline-conflict-resolution.test.mjs` (`test.todo`) proves `apps/mobile/src/screens/TimerScreen.tsx` silently prefers the local timer over a conflicting remote session, folding the conflict into the same generic `offlineMode` banner used for plain no-connectivity — the actor is never told a conflict was auto-resolved. Real but low-stakes (worker time-tracking UX, not money/security). See Blockers.
 
 ## Blockers
 
@@ -372,11 +430,12 @@ Revert this batch's commit. Pure read-only diagnostic addition plus an internal 
 | D03/D04/D05 physical code duplication (decisions made, migration not yet done) | Internal, migration execution risk (especially D05 given incident history) | Execute the migration plans in ADR-027/028/029 — each is explicitly incremental with its own regression-test gate | Phase-1+ implementation work, not blocked on further user decisions per ADRs already accepted |
 | Conduit Offset Engine not yet wired into any UI/endpoint | Internal, intentional | Phase-4 scope: wire `calculateConduitOffset`/`assertBenderVerifiedForMarking` into ProTools/mobile UI | Deferred by design, not a Phase-0/1 blocker |
 | No CI/deploy hook keeps the registry in sync automatically | Internal, intentional deferral (ADR-032 "Deferred") | Design a hook once a second batch shows real usage patterns — premature now | Future Phase-1 batch |
+| Offline conflict not surfaced to the actor — `TimerScreen.tsx` silently prefers the local timer over a conflicting remote session, no distinct UI signal from plain offline mode | Internal, low-stakes UX gap (worker time-tracking, not money/security) | Design what "surfaced" should look like on this screen (a distinct banner/state naming the discarded session, or a resolve-conflict dialog), then implement + flip `tests/unit/offline-conflict-resolution.test.mjs` to a real assertion | Future Phase-1+ batch, not urgent |
 
 ## Next 3 concrete actions
 
 1. **Design and execute D02's real fix** (top Blocker above) — the immediate money-safety risk has a fail-safe mitigation live in production (PR #623, ADR-034: `releasePayment()` now fails loudly instead of fabricating success); the real fix (delegation target, escrow→milestone resolution, reconciling the two identically-named `PaymentGovernanceService` classes) is still a separate future batch.
-2. **Phase 1, batch 3 candidates**: synthetic/canary strategy design, a minimal Mission Control surface reading from `GET /v1/capabilities`, or wiring the remaining 6 `NOT_WIRED` golden regressions (privacy local-only fallback, cross-tenant isolation, duplicate command/event, stale approval, offline conflict).
+2. **Phase 1, batch 5 candidates**: synthetic/canary strategy design, a minimal Mission Control surface reading from `GET /v1/capabilities`, or designing+implementing the offline-conflict UX fix (see Blockers) to flip `offline-conflict-resolution` to a real `PASSING`. The remaining 3 `NOT_WIRED` regressions (privacy-local-only-fallback, duplicate-command-rejection, stale-approval-rejection) genuinely need Phase 2/3 primitives (UnifiedActionGateway/commandId, approval staleness) that don't exist yet — not wireable as standalone batches.
 3. **Execute ADR-027/028/029's migration plans** as their own future implementation batches (one PR per ADR) — ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed. Also still open: `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
 
 ## Last verified production behavior
