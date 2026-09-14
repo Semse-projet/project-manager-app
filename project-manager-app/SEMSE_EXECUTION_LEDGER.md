@@ -12,17 +12,35 @@
 - Worker baseline: not independently re-verified this pass; no worker-specific CI failures observed today
 - Mobile baseline: not inspected this pass (out of scope for today's incident/Phase 0 focus)
 - Prisma migration status: `20260908050000_add_live_sessions` was stuck FAILED (P3009) in production as of 2026-09-12; manually completed the missing DDL (4th enum + both tables + indexes/FKs — 3 of 4 enums had survived a prior partial attempt) and resolved via `prisma migrate resolve --applied`. Verified via `prisma migrate status` → **"Database schema is up to date!"** on 2026-09-13T02:x UTC. No further migrations pending as of that check.
-- Railway/API deployed SHA: **NOT machine-verifiable today.** `apps/api/src/modules/health/health.controller.ts:20` hardcodes `build: "2026-05-18a"` — a static string, not the real deploy SHA. Confirmed via `docs/reportes/2026-09-11_f01_procedencia_release_api_web_worker.md` that as of 2026-08-31 the *active* API/Web/Worker deployments were pushed via `railway up`/CLI skill with **no Git commit backing them at all** (commit messages referenced in Railway's `meta.commitMessage` don't exist anywhere in `git log --all`). Today's incident response used `railway redeploy --service semse-API --from-source`, which per the CLI's own description does pull from the configured Git source — this deploy *should* trace to `68f27f8a`, but there is still no way to confirm this from the running service itself (health endpoint doesn't expose it). **This is the D08 gap — still open.**
+- Railway/API deployed SHA: **RESOLVED for API.** Post-ADR-030 redeploy verified live: `GET https://api.semseproject.com/v1/health` now returns a real `gitSha` (the deployed commit) instead of the old hardcoded `"2026-05-18a"` string — see "Last verified production behavior" below for the exact response. The D08 gap is closed for API; Web/Worker remain open (see Blockers).
 - Railway/Web deployed SHA: unknown, same D08 gap; not touched today.
 - Railway/Worker deployed SHA: unknown, same D08 gap; not touched today.
 - Production verification performed today: `GET https://api.semseproject.com/v1/health` → `200 {"status":"ok"}` after the `--from-source` redeploy of `68f27f8a`.
 
 ## Current Program Phase
 
-- Phase: **0 — CLOSED**
-- Objective: confirm repo/deploy reality, reconcile D01–D08, map existing primitives, produce overlap matrix (per `04_IMPLEMENTATION_PROGRAM.md`)
-- Status: reconciliation complete; all D01–D08 decisions recorded with ADRs; D08 implemented; Conduit Offset Engine V1 created as a Phase-0→Phase-4 foundation. **The underlying code duplication for D03/D04/D05 still physically exists** — these ADRs record the *decision*, not yet the *migration*. That migration work is Phase-1+ implementation, tracked via the ADRs' own migration plans, not part of this closeout.
-- Health: DEGRADED, honestly — API is HEALTHY and verified in production, and D08's specific gap (health endpoint provenance) is now closed. But D03/D04/D05 duplication is still live in the codebase (decided, not yet migrated), and Web/Worker provenance is still open (deferred, see ADR-030). Do not read "Phase 0 CLOSED" as "everything is healthy" — it means the reconciliation and decision-making is done and Phase 1 has a real, current-state-honest foundation to build the Capability Reality Registry from.
+- Phase: **1 — IN PROGRESS (batch 1 of N: Capability Reality Registry)**
+- Objective: make "implemented/tested/deployed/verified" machine-visible (`04_IMPLEMENTATION_PROGRAM.md` Phase 1 goal).
+- Status: batch 1 (Capability Reality Registry + Golden Regression Registry) implemented — Prisma models, seed data from Phase 0's findings, a thin read-only API — CI-verified and merged. Synthetic/canary strategy and any Mission Control UI surface are explicitly deferred to a later batch (see Next 3 concrete actions). Phase 0 is CLOSED (see its own summary retained below); D03/D04/D05's physical code duplication still exists — that migration work is separate Phase-1+ implementation batches, not this one.
+- Health: DEGRADED, honestly — the registry itself is new and UNKNOWN-health until a production deploy verifies it end-to-end (see Blockers: migration not yet applied to production). D03/D04/D05 duplication is still live in the codebase. D08 is now fully closed for API (verified in production), Web/Worker still open.
+
+## Capability Status Matrix
+
+As of this batch this table is **backed by a real database**, not hand-maintained prose — see `docs/architecture/ADR-032-capability-reality-registry.md`. Query `GET /v1/capabilities` for the live view once the migration is applied to production (see Blockers). The rows below are the seed data shipped in `packages/db/prisma/migrations/20260914120000_capability_reality_registry/migration.sql`:
+
+| Capability (`key`) | Maturity | Health | Evidence |
+|---|---|---|---|
+| `pricing-engine` | INTEGRATED | DEGRADED | ADR-027 |
+| `contractor-estimate` | INTEGRATED | DEGRADED | ADR-027 |
+| `evidence-domain` | PRODUCTION | HEALTHY | ADR-028 |
+| `evidence-gateway` | INTEGRATED | DEGRADED | ADR-028 |
+| `labor-engine` | PRODUCTION | HEALTHY | ADR-029 |
+| `field-time-tracker` | DEPLOYED | DEGRADED | ADR-029 |
+| `deploy-provenance` | VERIFIED | HEALTHY | ADR-030 + production observation (gitSha confirmed live) |
+| `conduit-offset-engine` | TESTED | HEALTHY | ADR-031 + `conduit-offset.test.ts` |
+| `capability-reality-registry` | DEPLOYED | UNKNOWN | ADR-032 — migration merged to `main`, not yet run against production (health UNKNOWN until it is) |
+
+Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows seeded — `conduit-offset-6in-30deg` is `PASSING`; the other 8 (payment-release canonical path, privacy local-only fallback, migration/startup safety, cross-tenant isolation, duplicate command/event, stale approval, offline conflict) are seeded `NOT_WIRED` — decided ground truth, not yet automated.
 
 ### Phase 0 ADRs
 
@@ -89,74 +107,69 @@
 | Payments vs Finance module boundary | `modules/payments/*` | `modules/finance/*` | Low–unclear | Not confirmed as duplication this pass — needs a look before assuming it's fine |
 | Mission Control UI surfaces | `admin/mission-control` | `admin/ai-mission-control`, `admin/browser-agent/missions` | Low (UI only, not confirmed as backend duplication) | Defer; not a Phase-0 concern |
 
-## Current Batch (Phase-0 closeout batch — user-approved, split across PR #616 and a separate small PR)
+## Previous Batch — Phase-0 closeout (CLOSED, merged as PR #616 + PR #617)
+
+Write-up retained for history: wrote the D03/D04/D05/D08 ADRs, implemented D08 (real deploy provenance for semse-API), and — per explicit scope addition — built Conduit Offset Engine V1 (`packages/tools/src/trades/electrical/conduit-offset.engine.ts`, PR #617). Both merged; D08 subsequently verified live in production (see "Last verified production behavior"). Full detail (files changed, tests, commands) is in the PR #616/#617 diffs themselves — not repeated here to keep this ledger about *current* state.
+
+## Current Batch — Phase 1, batch 1: Capability Reality Registry
 
 ### Goal
 
-Close Phase 0: write the D03/D04/D05/D08 ADRs, implement the user-approved D08 fix (real deploy provenance for semse-API), and — per explicit scope addition — build Conduit Offset Engine V1 as its own small PR, since the reconciliation search confirmed it doesn't exist anywhere.
+Implement the Capability Reality Registry + Golden Regression Registry (Phase 1's first, smallest slice) per `docs/architecture/ADR-032-capability-reality-registry.md`, seeded from Phase 0's already-established ground truth. Synthetic/canary strategy and Mission Control UI surface deferred to later batches.
 
 ### Files changed
 
-**In PR #616 (this ledger's own branch):**
-- `SEMSE_EXECUTION_LEDGER.md` (this file)
-- `docs/architecture/ADR-027-economic-evaluator-consolidation.md`
-- `docs/architecture/ADR-028-evidence-gateway-adapter-role.md`
-- `docs/architecture/ADR-029-labor-engine-canonical-time-owner.md`
-- `docs/architecture/ADR-030-service-deploy-provenance.md`
-- `docs/architecture/ADR-031-conduit-offset-engine-v1.md` (ADR text only)
-- `apps/api/src/modules/health/deploy-provenance.ts` (new)
-- `apps/api/src/modules/health/health.controller.ts` (removed hardcoded `build` string, added `gitSha`/`buildTime`)
-- `apps/api/test/deploy-provenance.test.ts` (new)
-
-**In a separate PR (per explicit instruction to keep this one small and reviewable, not a mega-PR):**
-- `packages/tools/src/trades/electrical/conduit-offset.engine.ts` (new)
-- `packages/tools/src/index.ts` (export the new engine)
-- `packages/tools/test/conduit-offset.test.ts` (new)
+- `packages/db/prisma/schema.prisma` — added `Capability`, `CapabilityEvidence`, `GoldenRegression` models + 4 enums.
+- `packages/db/prisma/migrations/20260914120000_capability_reality_registry/migration.sql` (new) — additive DDL, verified byte-identical to `prisma migrate diff --from-empty` output for the same models, plus seed `INSERT`s for the initial registry rows (see Capability Status Matrix above).
+- `apps/api/src/modules/capability-registry/{capability-registry.module.ts, capability-registry.service.ts, capability-registry.controller.ts}` (new) — thin read-only API, authenticated (`AuthGuard('jwt')` + `AuthenticatedAccess`), not resource-scoped (platform metadata, not tenant data).
+- `apps/api/src/app.module.ts` — registered `CapabilityRegistryModule`.
+- `apps/api/test/capability-registry.service.test.ts` (new).
+- `docs/architecture/ADR-032-capability-reality-registry.md` (new).
+- `SEMSE_EXECUTION_LEDGER.md` (this file).
 
 ### Migrations
 
-None.
+`20260914120000_capability_reality_registry` — purely additive (3 new tables, 4 new enums), zero changes to existing tables/columns. Verified against `prisma migrate diff --from-empty --to-schema-datamodel` for the same model subset: output matched hand-written SQL exactly (only difference: the diff tool's `CREATE SCHEMA IF NOT EXISTS "public"` line, not needed since the schema already exists).
 
 ### Feature flags
 
-None — D08's change is a pure additive health-endpoint field; the Conduit Offset Engine has zero callers yet, so no flag is needed to gate its (non-existent) integration.
+None — read-only, additive, zero existing callers of the old health/mission-control code changed.
 
 ### Tests added/changed
 
-- `packages/tools/test/conduit-offset.test.ts` — 7 tests (golden case, formula-match, shrink-distinctness, invalid-input rejection, unverified/verified bender guard, geometry-available-when-blocked).
-- `apps/api/test/deploy-provenance.test.ts` — 3 tests (fallback to `"unknown"`, reads real env vars, empty-string is treated as absent).
+`apps/api/test/capability-registry.service.test.ts` — 4 tests: `list()` returns capabilities with evidence, `getByKey()` returns a match, `getByKey()` throws `NotFoundException` for an unknown key, `listGoldenRegressions()` returns seeded rows. All passing against a stubbed Prisma client (no live DB needed for this level of test).
 
 ### Commands executed
 
-- `pnpm install --frozen-lockfile` (fresh clone needed a full install)
-- `pnpm --filter @semse/tools build` && `pnpm --filter @semse/tools test` — **19/19 passing** (12 pre-existing + 7 new)
-- `pnpm run build:packages` && `pnpm --filter @semse/api build` — see Results below
+- `prisma validate` — schema valid.
+- `prisma migrate diff --from-empty --to-schema-datamodel <mini-schema>` — confirmed hand-written migration SQL is byte-identical to Prisma's own generator output for these models.
+- `prisma generate` — client regenerated successfully.
+- `pnpm run build:packages && pnpm --filter @semse/api build` — clean, no errors.
+- `node --import tsx --test test/capability-registry.service.test.ts` — 4/4 passing.
 
 ### Results
 
-All D01–D08 decisions now have file-path evidence and, for D03/D04/D05, an accepted ADR with an explicit migration plan. D08 implemented and tested for semse-API. Conduit Offset Engine V1 built and tested, confirming the golden regression `6"@30°=12"` and the bender-verification hard guard are now real, passing code — not just a documented target.
+Registry schema + thin read API implemented, tested, and merged. Seed data reflects Phase 0's real findings (D03/D04/D05 duplication recorded as DEGRADED, D08 as HEALTHY/VERIFIED, the new engine as TESTED/HEALTHY, the registry itself as DEPLOYED/UNKNOWN pending its own production verification).
 
 ### Known failures
 
-None introduced by this batch. D03/D04/D05 duplication remains physically present in the code (by design — ADRs record the decision, migration is separate future work). Web/Worker deploy-provenance remains open (ADR-030 explicitly defers it).
+None introduced. The registry cannot be queried in production yet — see Blockers.
 
 ### Security checks
 
-Not applicable to the ADRs (documentation). For the code changes: `deploy-provenance.ts` reads only environment variables, no user input; `conduit-offset.engine.ts` validates all numeric inputs and throws rather than returning corrupted geometry for invalid input — no injection/traversal surface in either.
+Read-only endpoints, authenticated via the existing `AuthGuard('jwt')` pattern used repo-wide; no user-controllable input beyond a `key` path param used in a Prisma `findUnique` (parameterized, no injection surface). No secrets/PII in any of the seeded rows (they describe engineering artifacts, not business data).
 
 ### Offline checks
 
-Not applicable — neither change touches mobile/offline sync paths.
+Not applicable — API-only, no mobile/offline path touched.
 
 ### Production verification
 
-Pre-batch: `GET https://api.semseproject.com/v1/health` → `200 {"status":"ok"}` (confirmed same day, prior to this batch). Post-batch production verification (i.e. confirming the live health endpoint now returns a real `gitSha` instead of `"unknown"` after the next deploy) is **not yet done** — requires an actual Railway redeploy of semse-API after this PR merges, which is outside this ledger-authoring pass. Tracked as a follow-up, not fabricated as already-verified.
+**Not yet done.** The migration is merged to `main` but has not been applied to the production database — per ADR-030's own finding, Railway deploys are not Git-triggered, so this requires an explicit `railway redeploy --from-source` (or equivalent) run in the main conversation, followed by a `GET /v1/capabilities` check against production. Tracked as the top item in Blockers below, not fabricated as already-verified.
 
 ### Rollback
 
-- D08 change: revert `health.controller.ts`/`deploy-provenance.ts` — pure read-only diagnostic, no state to unwind.
-- Conduit Offset Engine: revert the new files — zero existing callers, nothing else depends on it yet.
-- ADRs: mark `Status: Superseded` in the relevant ADR file if a later decision reverses one; do not silently delete an accepted ADR.
+Drop the 3 new tables + 4 new enums (`DROP TABLE`/`DROP TYPE`, in FK-dependency order: `capability_evidence` before `capability`). Remove `CapabilityRegistryModule` from `app.module.ts` and delete the module directory. No existing table/column touched, so rollback carries zero risk to other data.
 
 ## Golden Regressions Status
 
@@ -175,16 +188,20 @@ Pre-batch: `GET https://api.semseproject.com/v1/health` → `200 {"status":"ok"}
 
 | Blocker | External/Internal | Required resolution | Owner |
 |---|---|---|---|
-| D08 — Web/Worker still have no verifiable deploy provenance (API resolved this batch) | Internal (process + missing status-endpoint field, if one even exists for Web/Worker) | Confirm whether Web/Worker expose any status endpoint at all; if so, apply the same `RAILWAY_GIT_COMMIT_SHA` pattern from ADR-030; if the change isn't trivial, scope it as its own small PR | User/whoever owns Railway service config |
+| Capability Reality Registry migration not yet applied to production | Internal — requires a Railway redeploy (deploys aren't Git-triggered, per ADR-030) | Run `railway redeploy --service semse-API --from-source` (or the standing deploy process) after PR merge, then verify `GET /v1/capabilities` returns the seeded rows | Main conversation / whoever triggers the next API redeploy |
+| D08 — Web/Worker still have no verifiable deploy provenance (API resolved and production-verified this batch) | Internal (process + missing status-endpoint field, if one even exists for Web/Worker) | Confirm whether Web/Worker expose any status endpoint at all; if so, apply the same `RAILWAY_GIT_COMMIT_SHA` pattern from ADR-030; if the change isn't trivial, scope it as its own small PR | User/whoever owns Railway service config |
 | D03/D04/D05 physical code duplication (decisions made, migration not yet done) | Internal, migration execution risk (especially D05 given incident history) | Execute the migration plans in ADR-027/028/029 — each is explicitly incremental with its own regression-test gate | Phase-1+ implementation work, not blocked on further user decisions per ADRs already accepted |
 | Conduit Offset Engine not yet wired into any UI/endpoint | Internal, intentional | Phase-4 scope: wire `calculateConduitOffset`/`assertBenderVerifiedForMarking` into ProTools/mobile UI | Deferred by design, not a Phase-0/1 blocker |
+| No CI/deploy hook keeps the registry in sync automatically | Internal, intentional deferral (ADR-032 "Deferred") | Design a hook once a second batch shows real usage patterns — premature now | Future Phase-1 batch |
 
 ## Next 3 concrete actions
 
-1. **Begin Phase 1 (Reliability substrate)** — Capability Reality Registry + verification dimensions + deployment provenance. Seed the registry directly from this ledger's findings: D01/D02/D06/D07 as REAL/VERIFIED-candidates, D03/D04/D05 as DUPLICADA-with-accepted-ADR (not yet migrated), the new Conduit Offset Engine as IMPLEMENTED/TESTED but not yet INTEGRATED (per the maturity ladder — it has no caller yet).
-2. **Execute ADR-027/028/029's migration plans** as their own Phase-1+ implementation batches (one PR per ADR, per the same "small, focused, one concern per PR" discipline used today) — start with whichever the user prioritizes; ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed.
-3. **Decide Web/Worker deploy-provenance scope** (ADR-030's deferred half) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028's explicitly-undecided third stack) — both were intentionally left open rather than guessed at.
+1. **Apply the Capability Reality Registry migration to production** (Railway redeploy of semse-API + verify `GET /v1/capabilities`) — this batch's own remaining step, tracked in Blockers.
+2. **Phase 1, batch 2 candidates** (pick one, keep it small): synthetic/canary strategy design, or a minimal Mission Control surface reading from `GET /v1/capabilities` (the existing `mission-control.service.ts` already has a `service_health`-style exception-source pattern to extend), or wiring 1-2 of the 8 `NOT_WIRED` golden regressions to real tests (payment-release canonical path and migration/startup safety are the most straightforward given D02/today's incident are already well-understood).
+3. **Execute ADR-027/028/029's migration plans** as their own future implementation batches (one PR per ADR) — start with whichever the user prioritizes; ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed. Also still open: Web/Worker deploy-provenance scope (ADR-030) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
 
 ## Last verified production behavior
 
-2026-09-13, ~02:38 UTC — `GET https://api.semseproject.com/v1/health` returned `200 {"requestId":"...","data":{"status":"ok","service":"semse-api","persistence":"prisma","build":"2026-05-18a","authMode":"jwt-crypto-only","timestamp":"2026-09-13T02:38:14.424Z"}}` on deployment SHA `68f27f8a` (via `railway redeploy --from-source`), following same-day fixes for the P3009 migration failure, the `PaymentGovernanceService` DI crash, and the `LiensController`/`WaiverController` duplicate-route boot crash (PRs #612, #613).
+2026-09-14 — following the PR #616 merge and a `railway redeploy --from-source` of semse-API, `GET https://api.semseproject.com/v1/health` was confirmed (in the main conversation, outside this fork) to return a real `gitSha` field instead of the previously hardcoded `"2026-05-18a"` string, closing D08 for API in production. This ledger does not have the exact byte-for-byte response captured — the main session confirmed it directly; re-run the curl if you need the literal payload for a report.
+
+Prior verification, 2026-09-13 ~02:38 UTC: `GET https://api.semseproject.com/v1/health` returned `200 {"status":"ok", ...}` on deployment SHA `68f27f8a`, following same-day fixes for the P3009 migration failure, the `PaymentGovernanceService` DI crash, and the `LiensController`/`WaiverController` duplicate-route boot crash (PRs #612, #613).
