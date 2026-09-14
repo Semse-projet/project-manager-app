@@ -236,13 +236,19 @@ test("browser-agent service: getInspectionResult returns completed inspection da
       create: async () => STUB_RUN,
       detail: async () => STUB_RUN_COMPLETED,
     } as never,
-    {} as never,
     {
       generate: async () => ({
-        content: "AI summary of inspection",
-        model: "stub",
-        usage: { promptTokens: 10, completionTokens: 20, totalTokens: 30 },
+        success: true,
+        output: JSON.stringify({
+          summary_es: "La página funciona correctamente.",
+          summary_en: "The page is healthy.",
+          severity: "low",
+          recommendations: [],
+        }),
       }),
+    } as never,
+    {
+      uploadEvidence: async () => ({ id: "evidence_1" }),
     } as never
   );
 
@@ -259,6 +265,7 @@ test("browser-agent service: getInspectionResult returns completed inspection da
   assert.equal(result.pageStatus, 200);
   assert.equal(result.severity, "low");
   assert.equal(result.loadTimeMs, 250);
+  assert.equal(result.aiSummary?.summary_es, "La página funciona correctamente.");
 });
 
 test("browser-agent service: getInspectionResult throws NotFoundException for missing run", async () => {

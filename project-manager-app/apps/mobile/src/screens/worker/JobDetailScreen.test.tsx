@@ -40,7 +40,7 @@ it("shows job details and offers a bid form when the job is open", async () => {
   });
   await render(<JobDetailScreen navigation={mockNavigation} route={baseRoute} />);
 
-  await waitFor(() => expect(screen.getByText("Reparar techo")).toBeTruthy());
+  expect(await screen.findByText("Reparar techo")).toBeTruthy();
   expect(screen.getByText("Reemplazar tejas dañadas")).toBeTruthy();
   expect(screen.getByText("Enviar propuesta")).toBeTruthy();
 });
