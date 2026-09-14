@@ -385,11 +385,11 @@ function EscrowPanel({ txns, escrows, loading, onRefresh }: {
                 <div style={{ fontWeight: 800, fontSize: 14 }}>{fmt(e.amount)}</div>
                 <button
                   data-testid={`admin-escrow-release-${e.escrowId}`}
-                  disabled={releaseBusy === e.escrowId}
-                  onClick={() => { setReleaseTarget(e); setReleaseError(null); setReleaseOk(null); setRefundOk(null); setRefundTarget(null); }}
-                  style={smBtn("rgba(16,185,129,.15)", "var(--ok)")}
+                  disabled
+                  title="Liberación manual temporalmente deshabilitada: este panel no mueve fondos reales todavía (ver SEMSE_EXECUTION_LEDGER.md, bloqueador D02)"
+                  style={smBtn("rgba(148,163,184,.12)", "var(--muted)")}
                 >
-                  Liberar
+                  Liberar (deshabilitado)
                 </button>
                 <button
                   data-testid={`admin-escrow-refund-${e.escrowId}`}
