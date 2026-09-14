@@ -15,6 +15,7 @@ import { AgentsModule } from "./modules/agents/agents.module.js";
 import { PrismaModule } from "./infrastructure/prisma/prisma.module.js";
 import { BidsModule } from "./modules/bids/bids.module.js";
 import { ContractsModule } from "./modules/contracts/contracts.module.js";
+import { CapabilityRegistryModule } from "./modules/capability-registry/capability-registry.module.js";
 import { DisputesModule } from "./modules/disputes/disputes.module.js";
 import { EvidenceModule } from "./modules/evidence/evidence.module.js";
 import { JobsModule } from "./modules/jobs/jobs.module.js";
@@ -113,6 +114,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     JobsModule,
     ContractsModule,
     BidsModule,
+    CapabilityRegistryModule,
     DisputesModule,
     EvidenceModule,
     MilestonesModule,

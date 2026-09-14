@@ -4118,3 +4118,94 @@ model LiveSessionParticipant {
   @@index([sessionId])
   @@map("live_session_participant")
 }
+
+// ─── Capability Reality Registry (Phase 1 — Reliability substrate) ───────
+//
+// General-purpose reality-tracking for product/engineering capabilities.
+// Not the same as the Phase 2 Agent Capability Protocol (risk ceilings,
+// tool bindings, offline modes) — this is the simpler "is X actually done
+// and healthy, with what evidence" registry that supersedes manual
+// spreadsheet-style audits (see SEMSE_EXECUTION_LEDGER.md).
+//
+// Maturity ladder (reconciled from 08_EXECUTION_LEDGER_TEMPLATE.md and
+// 03_PROTOCOLS_AND_CONTRACTS.md §3.2, which used DEPLOYED vs BETA at the
+// same rung — DEPLOYED chosen as the more concrete, checkable state):
+//   DESIGNED -> IMPLEMENTED -> TESTED -> INTEGRATED -> DEPLOYED -> VERIFIED -> PRODUCTION
+
+enum CapabilityMaturity {
+  DESIGNED
+  IMPLEMENTED
+  TESTED
+  INTEGRATED
+  DEPLOYED
+  VERIFIED
+  PRODUCTION
+}
+
+enum CapabilityHealth {
+  HEALTHY
+  DEGRADED
+  BROKEN
+  UNKNOWN
+}
+
+enum CapabilityEvidenceKind {
+  TEST
+  DEPLOYMENT
+  PRODUCTION_OBSERVATION
+  ADR
+}
+
+enum GoldenRegressionStatus {
+  PASSING
+  FAILING
+  NOT_WIRED
+}
+
+model Capability {
+  id          String             @id @default(cuid())
+  key         String             @unique
+  domain      String
+  description String
+  maturity    CapabilityMaturity
+  health      CapabilityHealth   @default(UNKNOWN)
+  ownerModule String
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  evidence CapabilityEvidence[]
+
+  @@index([domain])
+  @@index([maturity])
+  @@index([health])
+  @@map("capability")
+}
+
+model CapabilityEvidence {
+  id           String                 @id @default(cuid())
+  capabilityId String
+  kind         CapabilityEvidenceKind
+  reference    String
+  note         String?
+  recordedAt   DateTime               @default(now())
+
+  capability Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  @@index([capabilityId])
+  @@map("capability_evidence")
+}
+
+model GoldenRegression {
+  id             String                  @id @default(cuid())
+  key            String                  @unique
+  description    String
+  expectedResult String
+  testReference  String
+  status         GoldenRegressionStatus  @default(NOT_WIRED)
+  lastCheckedAt  DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@index([status])
+  @@map("golden_regression")
+}
