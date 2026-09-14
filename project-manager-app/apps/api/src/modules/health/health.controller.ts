@@ -5,7 +5,7 @@ import { databaseEnabled } from "../../infrastructure/persistence/persistence-mo
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { ReadinessService } from "./readiness.service.js";
-import { getDeployProvenance } from "./deploy-provenance.js";
+import { getDeployProvenance } from "@semse/shared";
 
 @Controller("v1")
 export class HealthController {

@@ -12,17 +12,17 @@
 - Worker baseline: not independently re-verified this pass; no worker-specific CI failures observed today
 - Mobile baseline: not inspected this pass (out of scope for today's incident/Phase 0 focus)
 - Prisma migration status: `20260908050000_add_live_sessions` was stuck FAILED (P3009) in production as of 2026-09-12; manually completed the missing DDL (4th enum + both tables + indexes/FKs — 3 of 4 enums had survived a prior partial attempt) and resolved via `prisma migrate resolve --applied`. Verified via `prisma migrate status` → **"Database schema is up to date!"** on 2026-09-13T02:x UTC. No further migrations pending as of that check.
-- Railway/API deployed SHA: **RESOLVED for API.** Post-ADR-030 redeploy verified live: `GET https://api.semseproject.com/v1/health` now returns a real `gitSha` (the deployed commit) instead of the old hardcoded `"2026-05-18a"` string — see "Last verified production behavior" below for the exact response. The D08 gap is closed for API; Web/Worker remain open (see Blockers).
-- Railway/Web deployed SHA: unknown, same D08 gap; not touched today.
-- Railway/Worker deployed SHA: unknown, same D08 gap; not touched today.
+- Railway/API deployed SHA: **RESOLVED for API.** Post-ADR-030 redeploy verified live: `GET https://api.semseproject.com/v1/health` now returns a real `gitSha` (the deployed commit) instead of the old hardcoded `"2026-05-18a"` string — see "Last verified production behavior" below for the exact response.
+- Railway/Web deployed SHA: **CODE READY, NOT YET DEPLOYED.** ADR-033 extends the same pattern to `/api/semse/healthz` (Web's actual Railway healthcheck target). Builds clean, not yet verified against a live redeploy — see Blockers.
+- Railway/Worker deployed SHA: **CODE READY, NOT YET DEPLOYED.** ADR-033 adds `gitSha`/`buildTime` to the worker's startup log line (no HTTP surface exists to add a health endpoint to). Not yet verified against a live redeploy — see Blockers.
 - Production verification performed today: `GET https://api.semseproject.com/v1/health` → `200 {"status":"ok"}` after the `--from-source` redeploy of `68f27f8a`.
 
 ## Current Program Phase
 
 - Phase: **1 — IN PROGRESS (batch 2 of N: golden-regression wiring)**
 - Objective: make "implemented/tested/deployed/verified" machine-visible (`04_IMPLEMENTATION_PROGRAM.md` Phase 1 goal).
-- Status: batch 1 (Capability Reality Registry + Golden Regression Registry) implemented, merged, and deployed to production. Batch 2 wired 2 of the 8 `NOT_WIRED` golden regressions to real automated tests: `migration-startup-safety` (now `PASSING`) and `payment-release-canonical-path` (now `FAILING` — a real gap, honestly reported, not fixed in this batch; see Blockers). Synthetic/canary strategy and any Mission Control UI surface are still deferred (see Next 3 concrete actions). Phase 0 is CLOSED; D03/D04/D05's physical code duplication still exists — separate Phase-1+ implementation batches.
-- Health: `capability-reality-registry` itself now **DEPLOYED + reachable in production** — `GET https://api.semseproject.com/v1/health` reports `gitSha: 087d2e2c...` (the PR #618 merge commit) and `GET /v1/capabilities` returns `401` unauthenticated (route mounted, guard active) rather than `404`. Full authenticated read-through (actual seeded rows returned) not yet captured in this ledger — see Blockers. D03/D04/D05 duplication is still live in the codebase, unchanged by this batch. D08 is fully closed for API (verified in production), Web/Worker still open.
+- Status: batch 1 (Capability Reality Registry + Golden Regression Registry) implemented, merged, and deployed to production. Batch 2 wired 2 of the 8 `NOT_WIRED` golden regressions to real automated tests: `migration-startup-safety` (now `PASSING`) and `payment-release-canonical-path` (now `FAILING` — a real gap, honestly reported, and since mitigated as a fail-safe pending the real fix; see ADR-034 and Blockers). Synthetic/canary strategy and any Mission Control UI surface are still deferred (see Next 3 concrete actions). Phase 0 is CLOSED; D03/D04/D05's physical code duplication still exists — separate Phase-1+ implementation batches.
+- Health: `capability-reality-registry` itself now **DEPLOYED + reachable in production** — `GET https://api.semseproject.com/v1/health` reports `gitSha: 087d2e2c...` (the PR #618 merge commit) and `GET /v1/capabilities` returns `401` unauthenticated (route mounted, guard active) rather than `404`. Full authenticated read-through (actual seeded rows returned) not yet captured in this ledger — see Blockers. D03/D04/D05 duplication is still live in the codebase, unchanged by this batch. D08 is closed in code for API+Web+Worker (ADR-033, `@semse/shared` now the single owner) and production-verified for API only; Web/Worker deploy-verification is pending the next redeploy (see Blockers).
 
 ## Capability Status Matrix
 
@@ -51,6 +51,7 @@ Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows s
 | `docs/architecture/ADR-029-labor-engine-canonical-time-owner.md` | REUSE/EXTEND Labor Engine + ADAPT field-ops/time-tracker | D05 |
 | `docs/architecture/ADR-030-service-deploy-provenance.md` | CREATE (implemented for API this batch; Web/Worker deferred) | D08 |
 | `docs/architecture/ADR-031-conduit-offset-engine-v1.md` | CREATE | Electrical Field foundation (Phase 4 prerequisite, built ahead per explicit approval) |
+| `docs/architecture/ADR-033-web-worker-deploy-provenance.md` | EXTEND to Web/Worker + moved canonical owner to `@semse/shared` | D08 (closes the ADR-030 deferral) |
 
 ### Phase 0 exit-gate checklist (per `04_IMPLEMENTATION_PROGRAM.md`)
 
@@ -60,7 +61,7 @@ Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows s
 | Canonical payment release path identified | ✅ MET | See D02 |
 | Per-resource authorization pattern identified | ✅ MET | See D01 |
 | Privacy contract preserved end-to-end | ✅ MET (for the scope PR #609 covered) | See D07 |
-| Migration/deploy path verified | ⚠️ PARTIAL (improved this batch) | Migration: yes (schema up to date). Deploy provenance: API now real via ADR-030; Web/Worker still open. |
+| Migration/deploy path verified | ⚠️ PARTIAL (improved this batch) | Migration: yes (schema up to date). Deploy provenance: API real + production-verified via ADR-030; Web/Worker closed in code via ADR-033, pending a redeploy to production-verify. |
 | Overlapping primitives mapped | ✅ MET, decisions recorded | See Overlap Matrix below + ADR-027/028/029 |
 
 ## Reconciliation Decisions (D01–D08)
@@ -74,7 +75,7 @@ Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows s
 | D05 | One owner for time commands (Labor Engine) | `apps/api/src/modules/labor-engine/*` **vs** `apps/api/src/modules/field-ops/time-tracker.controller.ts` | **DUPLICADA — REUSE/EXTEND Labor Engine + ADAPT field-ops/time-tracker into a capture surface** — see `docs/architecture/ADR-029-labor-engine-canonical-time-owner.md` | `labor-engine/labor-engine.service.ts` | `field-ops/time-tracker.controller.ts` uses its own `FieldOpsService`, not `LaborEngineService`. Highest-caution ADR of the batch given the 2026-07-27 phantom-migration Time Tracker outage — ADR mandates a regression suite for that failure mode *before* any migration code is written. |
 | D06 | Consistent identity approval | `apps/api/src/common/request-context.ts` (`resolveRequestContext`) | **REUSE** | `resolveRequestContext` | Used in 78 files across modules — broad, consistent adoption. No competing identity-resolution helper found. No ADR needed — no duplication to resolve. |
 | D07 | Immutable request privacy | Tenant-scoping fixes in PR #609 (`50b03219`) | **REUSE (recently reconciled, scope-limited)** | Per-endpoint tenant scoping via Prisma relation filters | PR #609 fixed F02a (payment-governance escrow lookup now scoped by `tenantId` via `project` relation — cross-tenant request 404s instead of leaking) and F02b (Agro farm/unit ownership check). Not a repo-wide guarantee that every endpoint is tenant-scoped — no such sweep was done. No ADR needed — no duplication, just scope-limited coverage to track. |
-| D08 | Independent service provenance | `docs/reportes/2026-09-11_f01_procedencia_release_api_web_worker.md` | **CREATE — implemented for semse-API this batch** — see `docs/architecture/ADR-030-service-deploy-provenance.md` | `apps/api/src/modules/health/deploy-provenance.ts` | `health.controller.ts` now reads `RAILWAY_GIT_COMMIT_SHA`/`RAILWAY_DEPLOYMENT_CREATED_AT` at runtime, falling back to `"unknown"` (never fabricated) instead of the old hardcoded `"2026-05-18a"` string. Web/Worker equivalents explicitly deferred — not confirmed trivial, needs its own pass. |
+| D08 | Independent service provenance | `docs/reportes/2026-09-11_f01_procedencia_release_api_web_worker.md` | **CREATE, then EXTEND to Web/Worker** — see `docs/architecture/ADR-030-service-deploy-provenance.md` and `docs/architecture/ADR-033-web-worker-deploy-provenance.md` | `packages/shared/src/deploy-provenance.ts` (moved from `apps/api`, now the one owner for all three apps) | API (`health.controller.ts`), Web (`/api/semse/healthz` route) and Worker (startup log line) all now read `RAILWAY_GIT_COMMIT_SHA`/`RAILWAY_DEPLOYMENT_CREATED_AT` via the same `getDeployProvenance()`, falling back to `"unknown"` (never fabricated). Production-verified for API only; Web/Worker verified in build/typecheck/unit tests, pending their next redeploy. |
 
 ## Existing Primitives Inventory (focused, not exhaustive)
 
@@ -225,7 +226,7 @@ Not applicable — this batch changes test coverage and registry metadata only, 
 
 Re-run 2 `UPDATE`s restoring `status = 'NOT_WIRED'`, `testReference = 'not yet wired to an automated regression'`, `lastCheckedAt = NULL` for both rows (batch-1 seed values). Deleting the 2 new test files is independently safe and reversible.
 
-## Current Batch — Phase 1: D02 emergency mitigation (fail-safe, not the real fix)
+## Previous Batch — Phase 1: D02 emergency mitigation (fail-safe, not the real fix; CLOSED, merged as PR #623)
 
 ### Goal
 
@@ -283,6 +284,71 @@ Not applicable.
 
 Revert this batch's commit. Note that rolling back *restores* the fake-success bug — see ADR-034's Rollback section for why that's not actually a safe fallback.
 
+## Current Batch — Phase 1: D08 follow-up, Web/Worker deploy provenance
+
+### Goal
+
+Close the ADR-030 deferral: extend deploy-provenance (`gitSha`/`buildTime`) to semse-web and semse-worker, and stop the primitive from being re-implemented per-app by moving it to `@semse/shared`. See `docs/architecture/ADR-033-web-worker-deploy-provenance.md`.
+
+### Files changed
+
+- `packages/shared/src/deploy-provenance.ts` (new) + `deploy-provenance.js` (checked-in re-export shim, matching this package's existing convention) — canonical `getDeployProvenance()`/`DeployProvenance`, moved from `apps/api`.
+- `packages/shared/src/index.ts` — re-exports the new module.
+- `apps/api/src/modules/health/health.controller.ts` — imports `getDeployProvenance` from `@semse/shared` instead of the local file.
+- `apps/api/src/modules/health/deploy-provenance.ts` (deleted) — superseded by the shared package.
+- `apps/api/test/deploy-provenance.test.ts` (deleted) — coverage moved to `tests/unit/deploy-provenance.test.ts`.
+- `apps/web/app/api/semse/healthz/route.ts` — now returns `gitSha`/`buildTime` (this is Web's actual Railway healthcheck target per `infra/railway/web.railway.json`).
+- `apps/worker/src/main.mjs` — startup diagnostic log line now includes `gitSha`/`buildTime` (no HTTP surface exists on the worker to add a health endpoint to).
+- `tests/unit/deploy-provenance.test.ts` (new) — the 3 cases from the original API test, now covering the shared package.
+- `docs/architecture/ADR-033-web-worker-deploy-provenance.md` (new).
+- `SEMSE_EXECUTION_LEDGER.md` (this file).
+
+### Migrations
+
+None — no schema change.
+
+### Feature flags
+
+None — additive diagnostic fields only, no existing caller depends on their absence.
+
+### Tests added/changed
+
+`tests/unit/deploy-provenance.test.ts` — 3 tests (absent → `"unknown"`, present → passthrough, empty-string → `"unknown"`), moved verbatim from the deleted `apps/api/test/deploy-provenance.test.ts`.
+
+### Commands executed
+
+- `pnpm --filter @semse/shared build` — clean.
+- `pnpm build:packages` — clean.
+- `pnpm --filter @semse/api build` — clean (after `pnpm db:generate`, needed for the unrelated Capability Registry Prisma models from the previous batch).
+- `pnpm --filter @semse/web build` — clean.
+- `pnpm --filter @semse/worker check` (`node --check src/main.mjs`) — clean.
+- `pnpm typecheck` — clean across api/web/worker/mobile.
+- `pnpm test:unit` — 1048 pass / 0 fail / 4 skip / 9 todo (full suite, after the fix below).
+
+### Results
+
+Web and Worker now read the exact same deploy-provenance primitive API already uses, from one shared owner. Caught and fixed one real bug in-flight: `packages/shared/src/index.ts`'s `export * from "./deploy-provenance.js"` initially broke `node --experimental-strip-types --test tests/unit/shared.test.ts` with `ERR_MODULE_NOT_FOUND`, because this package's convention requires a checked-in `.js` shim (`export * from "./X.ts"`) alongside every `.ts` source module for Node's direct-`.ts`-execution test path to resolve `.js`-specifier imports — added `packages/shared/src/deploy-provenance.js` to match `safe-url.js`/`ui-helpers.js`/etc., confirmed fixed by rerunning the full suite green.
+
+### Known failures
+
+None.
+
+### Security checks
+
+No new input surface — `getDeployProvenance()` only reads `process.env`, never user input. No secrets exposed (`gitSha`/`buildTime` are not sensitive).
+
+### Offline checks
+
+Not applicable.
+
+### Production verification
+
+**Not yet done.** Code is merged-ready and build/test-verified locally; requires `railway redeploy --from-source` for semse-web and semse-worker to confirm in production. Tracked in Blockers, not fabricated as already-verified.
+
+### Rollback
+
+Revert this batch's commit. Pure read-only diagnostic addition plus an internal import-path move — no schema, no state, no migration to unwind.
+
 ## Golden Regressions Status
 
 - 6" @30° = 12": **✅ REAL AND TESTED as of this batch.** `packages/tools/src/trades/electrical/conduit-offset.engine.ts` (`calculateConduitOffset`), golden-case test at `packages/tools/test/conduit-offset.test.ts`. Built per `docs/architecture/ADR-031-conduit-offset-engine-v1.md`. Not yet wired into any UI/endpoint — that's Phase-4 scope.
@@ -302,16 +368,16 @@ Revert this batch's commit. Note that rolling back *restores* the fake-success b
 |---|---|---|---|
 | ~~🔴 Payment release has two live, independent paths; only one moves real money~~ — **MITIGATED 2026-09-14, see `docs/architecture/ADR-034-payment-release-fail-safe-mitigation.md`.** `PaymentGovernanceService.releasePayment()` now throws `ServiceUnavailableException` instead of fabricating success, and the admin/finance "Liberar" button is disabled. This is a fail-safe, **not** the real fix. Investigating the fix surfaced the problem is bigger than one function: two entirely different classes are both named `PaymentGovernanceService` (`apps/api/src/modules/payments/payment-governance.service.ts`, the real evaluator used by `EscrowReleaseService`, vs. `apps/api/src/modules/payment-governance/payment-governance.service.ts`, the disabled one), there are three parallel release-adjacent paths in total (`EscrowReleaseService.tryAutoRelease`, `PaymentsService.release`, and this one), and the admin UI only sends `escrowId`+`amount` (no `milestoneId`) while both real paths are milestone-scoped and a project can have multiple milestones — an unresolved design gap, not a one-line delegate call. | **Internal, money-safety — design work remaining** | Decide the milestone-resolution approach (infer server-side vs. add UI selection) and which real path to delegate to, then reconcile or merge the two identically-named `PaymentGovernanceService` classes, as its own dedicated future batch. | Future Phase-1 batch, not blocking other work |
 | ~~Capability Reality Registry migration not applied to production~~ — **RESOLVED 2026-09-14T09:29 UTC** via `railway redeploy --from-source` (deployment `b71b9a41`, SHA `087d2e2c`). `/v1/capabilities` now returns `401` (mounted + guarded) instead of `404`. Not yet re-checked: an authenticated call confirming the seeded rows read back correctly. | — | If it matters for the next batch, do one authenticated `GET /v1/capabilities` and paste the response here | — |
-| D08 — Web/Worker still have no verifiable deploy provenance (API resolved and production-verified this batch) | Internal (process + missing status-endpoint field, if one even exists for Web/Worker) | Confirm whether Web/Worker expose any status endpoint at all; if so, apply the same `RAILWAY_GIT_COMMIT_SHA` pattern from ADR-030; if the change isn't trivial, scope it as its own small PR | User/whoever owns Railway service config |
+| D08 — Web/Worker provenance closed in code (ADR-033), not yet production-verified | Internal, low risk | Merge + `railway redeploy --from-source` for semse-web and semse-worker, then confirm `GET /api/semse/healthz` shows a real `gitSha` and `railway logs --service semse-worker` shows it in the startup line | Next redeploy cycle |
 | D03/D04/D05 physical code duplication (decisions made, migration not yet done) | Internal, migration execution risk (especially D05 given incident history) | Execute the migration plans in ADR-027/028/029 — each is explicitly incremental with its own regression-test gate | Phase-1+ implementation work, not blocked on further user decisions per ADRs already accepted |
 | Conduit Offset Engine not yet wired into any UI/endpoint | Internal, intentional | Phase-4 scope: wire `calculateConduitOffset`/`assertBenderVerifiedForMarking` into ProTools/mobile UI | Deferred by design, not a Phase-0/1 blocker |
 | No CI/deploy hook keeps the registry in sync automatically | Internal, intentional deferral (ADR-032 "Deferred") | Design a hook once a second batch shows real usage patterns — premature now | Future Phase-1 batch |
 
 ## Next 3 concrete actions
 
-1. **Design and execute D02's real fix** (ADR-034's Blocker row above) — resolve the escrow→milestone ambiguity, pick the real delegation target, and reconcile the two identically-named `PaymentGovernanceService` classes. The immediate money-safety risk is mitigated (fails safe now); this is the follow-up design/implementation batch.
-2. **Phase 1, batch 3 candidates**: synthetic/canary strategy design, a minimal Mission Control surface reading from `GET /v1/capabilities`, or wiring the remaining 6 `NOT_WIRED` golden regressions (privacy local-only fallback, cross-tenant isolation, duplicate command/event, stale approval, offline conflict).
-3. **Execute ADR-027/028/029's migration plans** as their own future implementation batches (one PR per ADR) — ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed. Also still open: Web/Worker deploy-provenance scope (ADR-030) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
+1. **Design and execute D02's real fix** (top Blocker above) — the immediate money-safety risk has a fail-safe mitigation live (PR #623, ADR-034: `releasePayment()` now fails loudly instead of fabricating success); the real fix (delegation target, escrow→milestone resolution, reconciling the two identically-named `PaymentGovernanceService` classes) is still a separate future batch.
+2. **Redeploy semse-API and semse-web and semse-worker** to production-verify PR #623 (payment-release fail-safe) and ADR-033 (Web/Worker deploy provenance) the same way ADR-030 was verified for API.
+3. **Phase 1, batch 3 candidates**: synthetic/canary strategy design, a minimal Mission Control surface reading from `GET /v1/capabilities`, or wiring the remaining 6 `NOT_WIRED` golden regressions (privacy local-only fallback, cross-tenant isolation, duplicate command/event, stale approval, offline conflict). Also still open: execute ADR-027/028/029's migration plans (ADR-029/Labor Engine carries the highest risk given incident history and should not be rushed) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
 
 ## Last verified production behavior
 
