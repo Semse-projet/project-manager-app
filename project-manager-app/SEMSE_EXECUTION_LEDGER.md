@@ -111,7 +111,7 @@ Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows s
 
 Write-up retained for history: wrote the D03/D04/D05/D08 ADRs, implemented D08 (real deploy provenance for semse-API), and — per explicit scope addition — built Conduit Offset Engine V1 (`packages/tools/src/trades/electrical/conduit-offset.engine.ts`, PR #617). Both merged; D08 subsequently verified live in production (see "Last verified production behavior"). Full detail (files changed, tests, commands) is in the PR #616/#617 diffs themselves — not repeated here to keep this ledger about *current* state.
 
-## Current Batch — Phase 1, batch 1: Capability Reality Registry
+## Previous Batch — Phase 1, batch 1: Capability Reality Registry (CLOSED, merged as PR #618, ledger update PR #620)
 
 ### Goal
 
@@ -171,7 +171,7 @@ Not applicable — API-only, no mobile/offline path touched.
 
 Drop the 3 new tables + 4 new enums (`DROP TABLE`/`DROP TYPE`, in FK-dependency order: `capability_evidence` before `capability`). Remove `CapabilityRegistryModule` from `app.module.ts` and delete the module directory. No existing table/column touched, so rollback carries zero risk to other data.
 
-## Current Batch — Phase 1, batch 2: wire 2 golden regressions to real tests
+## Previous Batch — Phase 1, batch 2: wire 2 golden regressions to real tests (CLOSED, merged as PR #621)
 
 ### Goal
 
@@ -225,6 +225,64 @@ Not applicable — this batch changes test coverage and registry metadata only, 
 
 Re-run 2 `UPDATE`s restoring `status = 'NOT_WIRED'`, `testReference = 'not yet wired to an automated regression'`, `lastCheckedAt = NULL` for both rows (batch-1 seed values). Deleting the 2 new test files is independently safe and reversible.
 
+## Current Batch — Phase 1: D02 emergency mitigation (fail-safe, not the real fix)
+
+### Goal
+
+Stop `PaymentGovernanceService.releasePayment()` from fabricating a `success: true` response for an admin action whose own UI copy claims it moves real, irreversible money. See `docs/architecture/ADR-034-payment-release-fail-safe-mitigation.md` for the full decision record, including the deeper finding (two identically-named `PaymentGovernanceService` classes, three parallel release paths, an unresolved escrow→milestone ambiguity in the admin UI's request shape) that makes the *real* D02 fix its own future batch, not this one.
+
+### Files changed
+
+- `apps/api/src/modules/payment-governance/payment-governance.service.ts` — `releasePayment()` now throws `ServiceUnavailableException` immediately after the existing tenant-ownership check, instead of creating a transaction/logging a decision/emitting SSE/reporting success.
+- `apps/api/test/payment-governance-release-disabled.test.ts` (new) — asserts the owning-tenant case now fails safe and never calls `createPaymentTransaction`/`logPaymentDecision`.
+- `apps/web/app/(app)/admin/finance/page.tsx` — the "Liberar" button is `disabled` with an explanatory tooltip; label changed to "Liberar (deshabilitado)".
+- `docs/architecture/ADR-034-payment-release-fail-safe-mitigation.md` (new).
+- `SEMSE_EXECUTION_LEDGER.md` (this file) — Blockers/Next-3-actions updated to reflect mitigated-but-not-fixed status.
+
+### Migrations
+
+None.
+
+### Feature flags
+
+None — the mitigation is unconditional (no flag to bypass it), since there is no safe "old behavior" to fall back to.
+
+### Tests added/changed
+
+`apps/api/test/payment-governance-release-disabled.test.ts` — 1 new test. Existing `apps/api/test/payment-governance-tenant-scope.test.ts` re-run unmodified to confirm the tenant-ownership security check (F02a, PR #609) still runs and rejects before the new disabled-path error is reached.
+
+### Commands executed
+
+- `pnpm --filter @semse/api build` — clean.
+- `pnpm --filter @semse/web build` — clean.
+- `node --experimental-strip-types --test apps/api/test/payment-governance-release-disabled.test.ts apps/api/test/payment-governance-tenant-scope.test.ts` — 7/7 passing.
+- `pnpm --filter @semse/api test:unit` — 2225 pass / 0 fail (full suite, includes the new test, discovered automatically by `scripts/run-tests.mjs`).
+- `pnpm test:unit` (root) — 1048 pass / 0 fail.
+
+### Results
+
+The admin/finance "Liberar" button can no longer report a false success. `POST /v1/payments/release` now always returns a 503 with an honest message instead of ever fabricating a released-funds outcome. This closes the immediate trust/correctness incident; it does not close D02 — see the Blockers row for what real work remains.
+
+### Known failures
+
+None introduced. `tests/unit/payment-release-canonical-path.test.mjs` (PR #621) remains `test.todo`/documenting the still-open canonical-path gap — this batch does not flip it to `PASSING`, since the real delegation still doesn't exist.
+
+### Security checks
+
+The tenant-ownership check (`getEscrow` scoped by `tenantId`) runs unchanged before the new disabled-path error — verified by the pre-existing cross-tenant test still passing. No new input surface introduced.
+
+### Offline checks
+
+Not applicable.
+
+### Production verification
+
+**Not yet done.** Merged-ready and build/test-verified locally; requires the next Railway redeploy of semse-API and semse-web to confirm `POST /v1/payments/release` returns 503 in production and the admin/finance button renders disabled.
+
+### Rollback
+
+Revert this batch's commit. Note that rolling back *restores* the fake-success bug — see ADR-034's Rollback section for why that's not actually a safe fallback.
+
 ## Golden Regressions Status
 
 - 6" @30° = 12": **✅ REAL AND TESTED as of this batch.** `packages/tools/src/trades/electrical/conduit-offset.engine.ts` (`calculateConduitOffset`), golden-case test at `packages/tools/test/conduit-offset.test.ts`. Built per `docs/architecture/ADR-031-conduit-offset-engine-v1.md`. Not yet wired into any UI/endpoint — that's Phase-4 scope.
@@ -242,7 +300,7 @@ Re-run 2 `UPDATE`s restoring `status = 'NOT_WIRED'`, `testReference = 'not yet w
 
 | Blocker | External/Internal | Required resolution | Owner |
 |---|---|---|---|
-| **🔴 TOP — Payment release has two live, independent paths; only one moves real money.** `POST /v1/payments/release` → `PaymentGovernanceService.releasePayment()` returns `{success: true, message: "Payment released successfully"}` after creating a payment-transaction row, **without calling Stripe**. The only path that actually transfers funds is `EscrowReleaseService.tryAutoRelease()` (via `StripeConnectService`), invoked separately from `milestones.service.ts`. Any caller of the `/v1/payments/release` endpoint today receives a false "success" for a payment that never happened. Proven by `tests/unit/payment-release-canonical-path.test.mjs` (this batch). | **Internal, money-safety** | Needs an explicit human/product decision: (a) retire `PaymentGovernanceService.releasePayment()`'s mutation and have it delegate to `EscrowReleaseService`, or (b) determine it's dead/unused in practice and remove the route entirely. Do not silently patch — this is exactly the kind of "second canonical model" the baseline doc's Core Architectural Laws forbid, and fixing it is a D02 consolidation batch of its own, not a drive-by. | **User decision required before any fix is attempted** |
+| ~~🔴 Payment release has two live, independent paths; only one moves real money~~ — **MITIGATED 2026-09-14, see `docs/architecture/ADR-034-payment-release-fail-safe-mitigation.md`.** `PaymentGovernanceService.releasePayment()` now throws `ServiceUnavailableException` instead of fabricating success, and the admin/finance "Liberar" button is disabled. This is a fail-safe, **not** the real fix. Investigating the fix surfaced the problem is bigger than one function: two entirely different classes are both named `PaymentGovernanceService` (`apps/api/src/modules/payments/payment-governance.service.ts`, the real evaluator used by `EscrowReleaseService`, vs. `apps/api/src/modules/payment-governance/payment-governance.service.ts`, the disabled one), there are three parallel release-adjacent paths in total (`EscrowReleaseService.tryAutoRelease`, `PaymentsService.release`, and this one), and the admin UI only sends `escrowId`+`amount` (no `milestoneId`) while both real paths are milestone-scoped and a project can have multiple milestones — an unresolved design gap, not a one-line delegate call. | **Internal, money-safety — design work remaining** | Decide the milestone-resolution approach (infer server-side vs. add UI selection) and which real path to delegate to, then reconcile or merge the two identically-named `PaymentGovernanceService` classes, as its own dedicated future batch. | Future Phase-1 batch, not blocking other work |
 | ~~Capability Reality Registry migration not applied to production~~ — **RESOLVED 2026-09-14T09:29 UTC** via `railway redeploy --from-source` (deployment `b71b9a41`, SHA `087d2e2c`). `/v1/capabilities` now returns `401` (mounted + guarded) instead of `404`. Not yet re-checked: an authenticated call confirming the seeded rows read back correctly. | — | If it matters for the next batch, do one authenticated `GET /v1/capabilities` and paste the response here | — |
 | D08 — Web/Worker still have no verifiable deploy provenance (API resolved and production-verified this batch) | Internal (process + missing status-endpoint field, if one even exists for Web/Worker) | Confirm whether Web/Worker expose any status endpoint at all; if so, apply the same `RAILWAY_GIT_COMMIT_SHA` pattern from ADR-030; if the change isn't trivial, scope it as its own small PR | User/whoever owns Railway service config |
 | D03/D04/D05 physical code duplication (decisions made, migration not yet done) | Internal, migration execution risk (especially D05 given incident history) | Execute the migration plans in ADR-027/028/029 — each is explicitly incremental with its own regression-test gate | Phase-1+ implementation work, not blocked on further user decisions per ADRs already accepted |
@@ -251,7 +309,7 @@ Re-run 2 `UPDATE`s restoring `status = 'NOT_WIRED'`, `testReference = 'not yet w
 
 ## Next 3 concrete actions
 
-1. **Decide D02's resolution** (top Blocker above) — human/product decision required: delegate `PaymentGovernanceService.releasePayment()` to `EscrowReleaseService`, or retire the `/v1/payments/release` route. This is money-safety, not routine engineering judgment.
+1. **Design and execute D02's real fix** (ADR-034's Blocker row above) — resolve the escrow→milestone ambiguity, pick the real delegation target, and reconcile the two identically-named `PaymentGovernanceService` classes. The immediate money-safety risk is mitigated (fails safe now); this is the follow-up design/implementation batch.
 2. **Phase 1, batch 3 candidates**: synthetic/canary strategy design, a minimal Mission Control surface reading from `GET /v1/capabilities`, or wiring the remaining 6 `NOT_WIRED` golden regressions (privacy local-only fallback, cross-tenant isolation, duplicate command/event, stale approval, offline conflict).
 3. **Execute ADR-027/028/029's migration plans** as their own future implementation batches (one PR per ADR) — ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed. Also still open: Web/Worker deploy-provenance scope (ADR-030) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
 
