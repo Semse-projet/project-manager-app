@@ -19,9 +19,9 @@
 
 ## Current Program Phase
 
-- Phase: **1 — IN PROGRESS (batch 1 of N: Capability Reality Registry)**
+- Phase: **1 — IN PROGRESS (batch 2 of N: golden-regression wiring)**
 - Objective: make "implemented/tested/deployed/verified" machine-visible (`04_IMPLEMENTATION_PROGRAM.md` Phase 1 goal).
-- Status: batch 1 (Capability Reality Registry + Golden Regression Registry) implemented — Prisma models, seed data from Phase 0's findings, a thin read-only API — CI-verified, merged, and deployed to production (2026-09-14T09:3x UTC, `railway redeploy --from-source`). Synthetic/canary strategy and any Mission Control UI surface are explicitly deferred to a later batch (see Next 3 concrete actions). Phase 0 is CLOSED (see its own summary retained below); D03/D04/D05's physical code duplication still exists — that migration work is separate Phase-1+ implementation batches, not this one.
+- Status: batch 1 (Capability Reality Registry + Golden Regression Registry) implemented, merged, and deployed to production. Batch 2 wired 2 of the 8 `NOT_WIRED` golden regressions to real automated tests: `migration-startup-safety` (now `PASSING`) and `payment-release-canonical-path` (now `FAILING` — a real gap, honestly reported, not fixed in this batch; see Blockers). Synthetic/canary strategy and any Mission Control UI surface are still deferred (see Next 3 concrete actions). Phase 0 is CLOSED; D03/D04/D05's physical code duplication still exists — separate Phase-1+ implementation batches.
 - Health: `capability-reality-registry` itself now **DEPLOYED + reachable in production** — `GET https://api.semseproject.com/v1/health` reports `gitSha: 087d2e2c...` (the PR #618 merge commit) and `GET /v1/capabilities` returns `401` unauthenticated (route mounted, guard active) rather than `404`. Full authenticated read-through (actual seeded rows returned) not yet captured in this ledger — see Blockers. D03/D04/D05 duplication is still live in the codebase, unchanged by this batch. D08 is fully closed for API (verified in production), Web/Worker still open.
 
 ## Capability Status Matrix
@@ -68,7 +68,7 @@ Golden Regression Registry (`GET /v1/capabilities/golden-regressions`): 9 rows s
 | # | Primitive | Existing location | Decision | Canonical owner | Evidence |
 |---|---|---|---|---|---|
 | D01 | Per-resource authorization | `apps/api/src/common/{permissions.decorator.ts, rbac.guard.ts, auth.guard.ts}` | **REUSE** | `common/rbac.guard.ts` enforcing `REQUIRED_PERMISSIONS_KEY` | Used in 75/87 controllers via `RequirePermissions`/`AuthenticatedAccess`. 12 controllers don't use it — worth a follow-up sweep, not a Phase-0 blocker. |
-| D02 | One canonical payment-release command/path | `apps/api/src/modules/payments/escrow-release.service.ts` | **REUSE** | `EscrowReleaseService`, invoked only from `milestones.service.ts` | `waiver-payment-gate.service.ts` and `change-orders.service.ts` are pre-check *gates* that reference the same release math, not competing implementations (change-orders.service.ts:392 explicitly comments it reuses `PaymentsService.release()`'s pre-check). |
+| D02 | One canonical payment-release command/path | `apps/api/src/modules/payments/escrow-release.service.ts` | **REUSE — CORRECTED, see below** | `EscrowReleaseService`, invoked only from `milestones.service.ts` | `waiver-payment-gate.service.ts` and `change-orders.service.ts` are pre-check *gates* that reference the same release math, not competing implementations (change-orders.service.ts:392 explicitly comments it reuses `PaymentsService.release()`'s pre-check). **⚠️ CORRECTION (Phase 1, batch 2, 2026-09-14):** the original Phase-0 REUSE verdict above was incomplete. `PaymentGovernanceService.releasePayment()` (`apps/api/src/modules/payment-governance/payment-governance.service.ts`) is a second, independently reachable release path — live at `POST /v1/payments/release` via `payment-governance.controller.ts` — that creates a payment-transaction row and returns `success: true` **without ever calling Stripe/`EscrowReleaseService`**. Two release paths exist in production today; only one moves real money. See the `payment-release-canonical-path` golden regression (now wired and correctly marked `FAILING`, not `PASSING`) and the new Blocker below. Not fixed in this batch — requires an explicit D02 consolidation decision, out of scope for a reconciliation/test-wiring batch. |
 | D03 | One economic evaluator | `apps/api/src/modules/pricing/{material-pricing,location-cost}.service.ts` **vs** `apps/api/src/modules/contractor/contractor-estimate.service.ts` | **DUPLICADA — EXTEND pricing/* + ADAPT contractor-estimate** — see `docs/architecture/ADR-027-economic-evaluator-consolidation.md` | `pricing/*` (canonical); migration not yet performed | `ContractorEstimateService` imports `AiModelGatewayService` + `FinanceService` directly and does **not** import anything from `pricing/`. Two independent estimate/cost paths exist today. Decision recorded; code still duplicated pending Phase-1+ migration per the ADR's plan. |
 | D04 | One evidence registration contract | `apps/api/src/modules/evidence/*` **vs** `apps/api/src/modules/evidence-gateway/*` | **DUPLICADA — REUSE evidence/* + ADAPT evidence-gateway/* into an integration adapter only** — see `docs/architecture/ADR-028-evidence-gateway-adapter-role.md` | `evidence/evidence.service.ts` + `evidence.policy.ts` (canonical) | `evidence-gateway.service.ts` uses its own `EvidenceGatewayRepository`, not `EvidenceRepository`. `agro/agro-evidence.*` explicitly left undecided by the ADR — needs its own focused look before Phase 1 touches Evidence. |
 | D05 | One owner for time commands (Labor Engine) | `apps/api/src/modules/labor-engine/*` **vs** `apps/api/src/modules/field-ops/time-tracker.controller.ts` | **DUPLICADA — REUSE/EXTEND Labor Engine + ADAPT field-ops/time-tracker into a capture surface** — see `docs/architecture/ADR-029-labor-engine-canonical-time-owner.md` | `labor-engine/labor-engine.service.ts` | `field-ops/time-tracker.controller.ts` uses its own `FieldOpsService`, not `LaborEngineService`. Highest-caution ADR of the batch given the 2026-07-27 phantom-migration Time Tracker outage — ADR mandates a regression suite for that failure mode *before* any migration code is written. |
@@ -171,13 +171,67 @@ Not applicable — API-only, no mobile/offline path touched.
 
 Drop the 3 new tables + 4 new enums (`DROP TABLE`/`DROP TYPE`, in FK-dependency order: `capability_evidence` before `capability`). Remove `CapabilityRegistryModule` from `app.module.ts` and delete the module directory. No existing table/column touched, so rollback carries zero risk to other data.
 
+## Current Batch — Phase 1, batch 2: wire 2 golden regressions to real tests
+
+### Goal
+
+Wire `payment-release-canonical-path` and `migration-startup-safety` (2 of the 8 `NOT_WIRED` golden regressions from batch 1) to real automated tests, per the Execution Pack's own governing rule: "No fake production claims... Unknown is not safe."
+
+### Files changed
+
+- `tests/unit/pre-migrate-startup-safety.test.mjs` (new) — reproduces the P3009 shape live against Postgres, asserts `scripts/pre-migrate.mjs` fails loudly.
+- `tests/unit/payment-release-canonical-path.test.mjs` (new) — `test.todo` proving the D02 gap described in the Blocker above; deliberately not a passing assertion.
+- `packages/db/prisma/migrations/20260914150000_wire_payment_and_migration_golden_regressions/migration.sql` (new) — additive `UPDATE` of 2 `golden_regression` rows' `testReference`/`status`/`lastCheckedAt`. Zero schema changes.
+- `SEMSE_EXECUTION_LEDGER.md` (this file) — corrected the Phase-0 D02 verdict and Golden Regressions Status now that the real behavior is proven, not assumed.
+
+### Migrations
+
+`20260914150000_wire_payment_and_migration_golden_regressions` — 2 `UPDATE` statements against existing rows by primary key (`gr_migration_startup` → `PASSING`, `gr_payment_release_canonical` → `FAILING`). No DDL, no new tables/columns, fully reversible by re-running the batch-1 seed values.
+
+### Tests added/changed
+
+See Files changed. Both run under `pnpm test:unit` (`node --test tests/unit/*.test.mjs`).
+
+### Commands executed
+
+- Local Postgres 16 in Docker (isolated scratch instance, not the shared `semse-postgres` dev container) with the exact `postgres:16` image/env CI uses.
+- `pnpm install --frozen-lockfile`, `pnpm db:generate`, `pnpm db:migrate` — all 89 migrations applied cleanly including this batch's.
+- `pnpm build:packages && pnpm --filter @semse/api build` — clean, exit 0.
+- `node --experimental-strip-types --test tests/unit/pre-migrate-startup-safety.test.mjs tests/unit/payment-release-canonical-path.test.mjs` — 1 pass, 1 todo (expected), 0 fail.
+- Full `pnpm test:unit` — 914 pass / 11 fail / 10 todo. The 11 failures (`agro-*`, `autonomy.service`, `browser-agent.service`, `contracts.service`, `ecosystem-5d.service`, `vision.service.expanded`) are **pre-existing and unrelated** — confirmed by building `apps/api` dist and re-running those exact files individually: all 43 sub-tests then pass. `pnpm test:unit`'s own `build:packages` step doesn't build `apps/api` dist, which some of those tests import from; not touched or caused by this batch.
+- Verified the migration's `UPDATE` rows read back correctly via `psql` against the scratch DB.
+
+### Results
+
+2 of 8 `NOT_WIRED` golden regressions now have real evidence behind their status instead of "decided ground truth, not yet automated." One is genuinely healthy (`migration-startup-safety`); one exposed a real, previously-undetected production bug (`payment-release-canonical-path`) that Phase 0's D02 reconciliation had missed.
+
+### Known failures
+
+`payment-release-canonical-path` test fails by design (documents reality, marked `test.todo` so it doesn't block CI). See top Blocker.
+
+### Security checks
+
+No new endpoints or write paths introduced. The new tests are read-only against source files (`payment-release-canonical-path`) or scoped to a synthetic row cleaned up in a `finally` block (`pre-migrate-startup-safety`) — no risk to real migration history.
+
+### Offline checks
+
+Not applicable — API/DB-only.
+
+### Production verification
+
+Not applicable — this batch changes test coverage and registry metadata only, no runtime behavior change. `golden_regression` row values will reflect in production once this migration is deployed the same way batch 1's was (`railway redeploy --from-source`).
+
+### Rollback
+
+Re-run 2 `UPDATE`s restoring `status = 'NOT_WIRED'`, `testReference = 'not yet wired to an automated regression'`, `lastCheckedAt = NULL` for both rows (batch-1 seed values). Deleting the 2 new test files is independently safe and reversible.
+
 ## Golden Regressions Status
 
 - 6" @30° = 12": **✅ REAL AND TESTED as of this batch.** `packages/tools/src/trades/electrical/conduit-offset.engine.ts` (`calculateConduitOffset`), golden-case test at `packages/tools/test/conduit-offset.test.ts`. Built per `docs/architecture/ADR-031-conduit-offset-engine-v1.md`. Not yet wired into any UI/endpoint — that's Phase-4 scope.
 - Unknown bender blocks exact marking: **✅ REAL AND TESTED.** `assertBenderVerifiedForMarking` throws `UnverifiedBenderError` unless a verified `BenderProfile` is supplied; geometry (`calculateConduitOffset`) remains available regardless. Tested in the same file.
-- Payment release canonical path: ✅ confirmed — single path via `EscrowReleaseService` (see D02).
+- Payment release canonical path: **❌ FAILING — wired to a real test this batch, and it correctly reports the gap.** `tests/unit/payment-release-canonical-path.test.mjs` (`test.todo`, so it doesn't red-block CI) proves `PaymentGovernanceService.releasePayment()` — live at `POST /v1/payments/release` — never calls Stripe/`EscrowReleaseService`. The earlier "✅ confirmed" line in this ledger (Phase 0) was wrong; corrected here and in the D02 row above. Status in the `golden_regression` table is `FAILING`, not `PASSING` — see top Blocker below.
 - Privacy local-only fallback: not evaluated this pass (out of D01–D08 scope as literally stated in the baseline doc; would need its own inspection).
-- Migration/startup: ✅ confirmed fixed today — see Baseline section (P3009 resolved, DI crash fixed, route collision fixed, prod healthcheck green).
+- Migration/startup: **✅ PASSING — wired to a real automated test this batch.** `tests/unit/pre-migrate-startup-safety.test.mjs` reproduces the exact P3009 shape (a `_prisma_migrations` row with `finished_at`/`rolled_back_at` both NULL) against a live Postgres and asserts `scripts/pre-migrate.mjs` exits non-zero with a clear FATAL log instead of proceeding or failing silently. Previously this was "confirmed fixed" only by the manual incident response (Baseline section) with no regression test — now it's pinned.
 - Cross-tenant: ✅ confirmed fixed for the specific F02a/F02b scope from PR #609; not verified as a repo-wide guarantee.
 - Duplicate command: ⚠️ open — see D03/D04/D05 in the overlap matrix.
 - Duplicate event: not evaluated this pass.
@@ -188,6 +242,7 @@ Drop the 3 new tables + 4 new enums (`DROP TABLE`/`DROP TYPE`, in FK-dependency 
 
 | Blocker | External/Internal | Required resolution | Owner |
 |---|---|---|---|
+| **🔴 TOP — Payment release has two live, independent paths; only one moves real money.** `POST /v1/payments/release` → `PaymentGovernanceService.releasePayment()` returns `{success: true, message: "Payment released successfully"}` after creating a payment-transaction row, **without calling Stripe**. The only path that actually transfers funds is `EscrowReleaseService.tryAutoRelease()` (via `StripeConnectService`), invoked separately from `milestones.service.ts`. Any caller of the `/v1/payments/release` endpoint today receives a false "success" for a payment that never happened. Proven by `tests/unit/payment-release-canonical-path.test.mjs` (this batch). | **Internal, money-safety** | Needs an explicit human/product decision: (a) retire `PaymentGovernanceService.releasePayment()`'s mutation and have it delegate to `EscrowReleaseService`, or (b) determine it's dead/unused in practice and remove the route entirely. Do not silently patch — this is exactly the kind of "second canonical model" the baseline doc's Core Architectural Laws forbid, and fixing it is a D02 consolidation batch of its own, not a drive-by. | **User decision required before any fix is attempted** |
 | ~~Capability Reality Registry migration not applied to production~~ — **RESOLVED 2026-09-14T09:29 UTC** via `railway redeploy --from-source` (deployment `b71b9a41`, SHA `087d2e2c`). `/v1/capabilities` now returns `401` (mounted + guarded) instead of `404`. Not yet re-checked: an authenticated call confirming the seeded rows read back correctly. | — | If it matters for the next batch, do one authenticated `GET /v1/capabilities` and paste the response here | — |
 | D08 — Web/Worker still have no verifiable deploy provenance (API resolved and production-verified this batch) | Internal (process + missing status-endpoint field, if one even exists for Web/Worker) | Confirm whether Web/Worker expose any status endpoint at all; if so, apply the same `RAILWAY_GIT_COMMIT_SHA` pattern from ADR-030; if the change isn't trivial, scope it as its own small PR | User/whoever owns Railway service config |
 | D03/D04/D05 physical code duplication (decisions made, migration not yet done) | Internal, migration execution risk (especially D05 given incident history) | Execute the migration plans in ADR-027/028/029 — each is explicitly incremental with its own regression-test gate | Phase-1+ implementation work, not blocked on further user decisions per ADRs already accepted |
@@ -196,8 +251,9 @@ Drop the 3 new tables + 4 new enums (`DROP TABLE`/`DROP TYPE`, in FK-dependency 
 
 ## Next 3 concrete actions
 
-1. **Phase 1, batch 2 candidates** (pick one, keep it small): synthetic/canary strategy design, or a minimal Mission Control surface reading from `GET /v1/capabilities` (the existing `mission-control.service.ts` already has a `service_health`-style exception-source pattern to extend), or wiring 1-2 of the 8 `NOT_WIRED` golden regressions to real tests (payment-release canonical path and migration/startup safety are the most straightforward given D02/today's incident are already well-understood).
-2. **Execute ADR-027/028/029's migration plans** as their own future implementation batches (one PR per ADR) — start with whichever the user prioritizes; ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed. Also still open: Web/Worker deploy-provenance scope (ADR-030) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
+1. **Decide D02's resolution** (top Blocker above) — human/product decision required: delegate `PaymentGovernanceService.releasePayment()` to `EscrowReleaseService`, or retire the `/v1/payments/release` route. This is money-safety, not routine engineering judgment.
+2. **Phase 1, batch 3 candidates**: synthetic/canary strategy design, a minimal Mission Control surface reading from `GET /v1/capabilities`, or wiring the remaining 6 `NOT_WIRED` golden regressions (privacy local-only fallback, cross-tenant isolation, duplicate command/event, stale approval, offline conflict).
+3. **Execute ADR-027/028/029's migration plans** as their own future implementation batches (one PR per ADR) — ADR-029 (Labor Engine) carries the highest risk given incident history and should not be rushed. Also still open: Web/Worker deploy-provenance scope (ADR-030) and `agro-evidence.*`'s relationship to canonical Evidence (ADR-028).
 
 ## Last verified production behavior
 
