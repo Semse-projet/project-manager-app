@@ -5,8 +5,11 @@
 // that bypassed Git entirely (e.g. `railway up`, as happened to semse-API/
 // Web/Worker as of 2026-08-31 — see
 // docs/reportes/2026-09-11_f01_procedencia_release_api_web_worker.md) is
-// immediately visible as "unknown" in /v1/health instead of requiring a
-// manual `railway deployment list` audit to discover.
+// immediately visible as "unknown" instead of requiring a manual
+// `railway deployment list` audit to discover.
+//
+// Lives in @semse/shared (not apps/api) so API, Web and Worker each read
+// their own provenance the same way — one owner, no per-service duplicate.
 //
 // Never fabricate a value here. "unknown" is the only acceptable fallback.
 

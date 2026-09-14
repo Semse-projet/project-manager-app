@@ -46,6 +46,7 @@ import { executeGovernedAgentRun } from "@semse/agents";
 import "@semse/agents/verifiers";
 import {
   buildIdentityHeaders,
+  getDeployProvenance,
   parseRoleList,
   SEMSE_AGENT_RUN_QUEUE,
   SEMSE_BOOTSTRAP_HEADER_NAME,
@@ -175,6 +176,10 @@ async function acquireWorkerLock() {
 
 async function main() {
   // ── Startup diagnostic — shows config state without secret values ──────────
+  // ADR-030: worker has no HTTP surface to expose /health-style provenance
+  // on, so gitSha/buildTime are logged at boot instead — queryable via
+  // `railway logs` the same way API/Web expose theirs over HTTP.
+  const { gitSha, buildTime } = getDeployProvenance();
   console.log(JSON.stringify({
     level: "info",
     service: "semse-worker",
@@ -182,6 +187,8 @@ async function main() {
     timestamp: new Date().toISOString(),
     pid: process.pid,
     nodeEnv: process.env.NODE_ENV,
+    gitSha,
+    buildTime,
     apiBaseUrl: config.apiBaseUrl,
     redisUrl: maskRedisUrl(config.redisUrl),
     authSecret: env.AUTH_SECRET ? `SET(len=${env.AUTH_SECRET.length})` : "NOT_SET",
