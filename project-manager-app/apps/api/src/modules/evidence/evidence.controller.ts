@@ -24,7 +24,7 @@ type MultipartSessionManifest = {
   createdAt: string;
   expiresAt: string;
   key: string;
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
   contentType: string;
   fileSizeBytes: number;
   source: string;
@@ -58,7 +58,7 @@ export class EvidenceController {
 
   private buildUploadPlan(input: {
     tenantId: string;
-    domain: "evidence" | "contract" | "dispute" | "travel";
+    domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
     filename: string;
     contentType: string;
     fileSizeBytes?: number;
@@ -77,7 +77,7 @@ export class EvidenceController {
         ? Math.ceil(fileSizeBytes / recommendedChunkSizeBytes)
         : undefined;
 
-    const domainGuidance: Record<"evidence" | "contract" | "dispute" | "travel", string> = {
+    const domainGuidance: Record<"evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution", string> = {
       evidence:
         recommendedStrategy === "external_transfer"
           ? "Use transferencia externa o carga por partes para video largo, ZIP pesado, CAD o lotes de evidencia."
@@ -93,7 +93,11 @@ export class EvidenceController {
       travel:
         recommendedStrategy === "external_transfer"
           ? "Para comprobantes de viaje pesados usa transferencia externa o multipart y conserva el soporte final por gasto."
-          : "Carga directa recomendada para tickets, facturas y recibos de viaje."
+          : "Carga directa recomendada para tickets, facturas y recibos de viaje.",
+      knowledge_contribution:
+        recommendedStrategy === "external_transfer"
+          ? "Para clips de video largos usa transferencia externa o multipart; puedes subir varios clips cortos en vez de uno solo."
+          : "Carga directa recomendada para clips cortos, fotos, notas de audio o texto de una misión de conocimiento."
     };
 
     const key = buildTenantStorageKey({
@@ -176,7 +180,7 @@ export class EvidenceController {
 
   private createMultipartSession(input: {
     tenantId: string;
-    domain: "evidence" | "contract" | "dispute" | "travel";
+    domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
     filename: string;
     contentType: string;
     fileSizeBytes: number;

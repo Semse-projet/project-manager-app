@@ -1,7 +1,7 @@
 import path from "node:path";
 
 const STORAGE_KEY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]*$/;
-const STORAGE_DOMAINS = new Set(["evidence", "contract", "dispute", "travel"]);
+const STORAGE_DOMAINS = new Set(["evidence", "contract", "dispute", "travel", "knowledge_contribution"]);
 
 export function normalizeStorageKey(key: string): string {
   const value = key.trim();
@@ -23,17 +23,19 @@ export function normalizeStorageKey(key: string): string {
   return value;
 }
 
-export function normalizeStorageDomain(domain: string): "evidence" | "contract" | "dispute" | "travel" {
+export type StorageDomain = "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
+
+export function normalizeStorageDomain(domain: string): StorageDomain {
   const value = domain.trim().toLowerCase();
   if (!STORAGE_DOMAINS.has(value)) {
     throw new Error("Invalid storage domain");
   }
-  return value as "evidence" | "contract" | "dispute" | "travel";
+  return value as StorageDomain;
 }
 
 export function buildTenantStorageKey(input: {
   tenantId: string;
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: StorageDomain;
   filename: string;
   nonce: string;
   scope?: "public-intake";
@@ -51,13 +53,13 @@ export function buildTenantStorageKey(input: {
 export function isTenantScopedStorageKey(input: {
   key: string;
   tenantId: string;
-  domain?: "evidence" | "contract" | "dispute" | "travel";
+  domain?: StorageDomain;
 }): boolean {
   const key = normalizeStorageKey(input.key);
   const domainSuffix = input.domain ? `/${input.domain}/` : "/";
   return key.startsWith(`tenants/${input.tenantId}/`) && key.includes(domainSuffix);
 }
 
-export function isLegacyDomainStorageKey(key: string, domain: "evidence" | "contract" | "dispute" | "travel"): boolean {
+export function isLegacyDomainStorageKey(key: string, domain: StorageDomain): boolean {
   return normalizeStorageKey(key).startsWith(`${domain}/`);
 }

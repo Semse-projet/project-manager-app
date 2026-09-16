@@ -10,6 +10,7 @@ export * from "./ops.schema.js";
 export * from "./trust.schema.js";
 export * from "./payment.schema.js";
 export * from "./evidence.schema.js";
+export * from "./contributor-program.schema.js";
 export * from "./milestone.schema.js";
 export * from "./rating.schema.js";
 export * from "./dispute.schema.js";
