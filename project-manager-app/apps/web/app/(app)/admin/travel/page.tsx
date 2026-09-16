@@ -384,7 +384,7 @@ export default function AdminTravelPage() {
         title={t("page.travelOps")}
         subtitle={t("page.travelOps.sub")}
         icon={PlaneTakeoff}
-        iconColor="#8b5cf6"
+        iconColor="var(--violet)"
         iconBg="rgba(139,92,246,0.15)"
         panel
         actions={

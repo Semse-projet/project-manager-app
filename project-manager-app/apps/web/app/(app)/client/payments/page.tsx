@@ -50,9 +50,9 @@ type PaymentReadiness = {
 const TYPE_CONFIG: Record<string, { variant: "success" | "warning" | "info" | "neutral"; label: string; color: string }> = {
   DEPOSIT:  { variant: "info",    label: "Escrow",     color: "var(--brand)" },
   RELEASE:  { variant: "success", label: "Liberado",   color: "var(--ok)" },
-  HOLDBACK: { variant: "warning", label: "Retención",  color: "#f59e0b" },
-  FEE:      { variant: "neutral", label: "Fee",        color: "#8b5cf6" },
-  REFUND:   { variant: "warning", label: "Reembolso",  color: "#f59e0b" },
+  HOLDBACK: { variant: "warning", label: "Retención",  color: "var(--warn)" },
+  FEE:      { variant: "neutral", label: "Fee",        color: "var(--violet)" },
+  REFUND:   { variant: "warning", label: "Reembolso",  color: "var(--warn)" },
 };
 
 function displayText(value: unknown, fallback = ""): string {
@@ -337,7 +337,7 @@ export default function ClientPaymentsPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {paymentReadiness.rails.filter((rail) => rail.clientFunding).map((rail) => (
-                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "var(--warn)", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
                   {rail.label}{rail.automatic ? "" : " · manual"}
                 </span>
               ))}
@@ -360,9 +360,9 @@ export default function ClientPaymentsPage() {
           minHeight={86}
         >
           <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-            {canFundSelectedJob ? <CheckCircle size={18} color="var(--ok)" /> : <AlertTriangle size={18} color="#f59e0b" />}
+            {canFundSelectedJob ? <CheckCircle size={18} color="var(--ok)" /> : <AlertTriangle size={18} color="var(--warn)" />}
             <div style={{ flex: 1 }}>
-              <p data-testid="client-payments-readiness-title" style={{ fontSize: "13px", fontWeight: 800, color: canFundSelectedJob ? "var(--ok)" : "#f59e0b", marginBottom: "6px" }}>
+              <p data-testid="client-payments-readiness-title" style={{ fontSize: "13px", fontWeight: 800, color: canFundSelectedJob ? "var(--ok)" : "var(--warn)", marginBottom: "6px" }}>
                 {canFundSelectedJob ? "Proyecto listo para fondear escrow" : "Precondiciones de pago pendientes"}
               </p>
               <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "10px" }}>

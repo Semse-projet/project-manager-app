@@ -127,7 +127,7 @@ export const SMART_INTAKE_CATEGORY_IDS = new Set([
 
 export const JOB_URGENCY_OPTIONS: JobUrgencyOption[] = [
   { value: "low", label: "Baja", description: "Sin prisa, flexible", color: "var(--ok)" },
-  { value: "medium", label: "Media", description: "En las próximas semanas", color: "#f59e0b" },
+  { value: "medium", label: "Media", description: "En las próximas semanas", color: "var(--warn)" },
   { value: "high", label: "Alta", description: "Esta semana", color: "#f97316" },
   { value: "urgent", label: "Urgente", description: "Lo antes posible", color: "var(--error)" },
 ];

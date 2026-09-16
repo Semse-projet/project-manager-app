@@ -39,7 +39,7 @@ const PRESETS = [
   {
     label: "Admin",
     email: "admin@demo.semse",
-    color: "#8b5cf6",
+    color: "var(--violet)",
     icon: "⚙️",
     desc: "Operaciones · Disputas · Config",
   },
@@ -124,7 +124,7 @@ export default function LoginPage() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), var(--violet))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -346,7 +346,7 @@ export default function LoginPage() {
                 border: "none",
                 background: loading
                   ? "var(--faint, #4b6280)"
-                  : "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                  : "linear-gradient(135deg, var(--brand), var(--violet))",
                 color: "#fff",
                 fontSize: "14px",
                 fontWeight: 700,

@@ -51,10 +51,10 @@ function formatDate(s?: string) {
 const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   draft:       { label: "Borrador",    color: "#64748b", bg: "rgba(100,116,139,.12)" },
   posted:      { label: "Publicado",   color: "var(--brand)", bg: "rgba(59,130,246,.12)"  },
-  reserved:    { label: "Reservado",   color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
-  accepted:    { label: "Aceptado",    color: "#8b5cf6", bg: "rgba(139,92,246,.12)"  },
-  in_progress: { label: "En progreso", color: "#06b6d4", bg: "rgba(6,182,212,.12)"   },
-  review:      { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
+  reserved:    { label: "Reservado",   color: "var(--warn)", bg: "rgba(245,158,11,.12)"  },
+  accepted:    { label: "Aceptado",    color: "var(--violet)", bg: "rgba(139,92,246,.12)"  },
+  in_progress: { label: "En progreso", color: "var(--info)", bg: "rgba(6,182,212,.12)"   },
+  review:      { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)"  },
   dispute:     { label: "En disputa",  color: "var(--error)", bg: "rgba(239,68,68,.12)"   },
   completed:   { label: "Completado",  color: "var(--ok)", bg: "rgba(16,185,129,.12)"  },
   cancelled:   { label: "Cancelado",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
@@ -62,17 +62,17 @@ const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string
 
 const MILESTONE_META: Record<string, { label: string; color: string; bg: string }> = {
   DRAFT:           { label: "Pendiente",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
-  AWAITING_REVIEW: { label: "En revisión", color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
-  SUBMITTED:       { label: "Enviado",     color: "#06b6d4", bg: "rgba(6,182,212,.12)"   },
+  AWAITING_REVIEW: { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)"  },
+  SUBMITTED:       { label: "Enviado",     color: "var(--info)", bg: "rgba(6,182,212,.12)"   },
   APPROVED:        { label: "Aprobado",    color: "var(--ok)", bg: "rgba(16,185,129,.12)"  },
   REJECTED:        { label: "Rechazado",   color: "var(--error)", bg: "rgba(239,68,68,.12)"   },
   PAID:            { label: "Pagado",      color: "#22c55e", bg: "rgba(34,197,94,.12)"   },
 };
 
 const WORKER_NEXT_ACTION: Record<string, { label: string; detail: string; tone: string }> = {
-  reserved:    { label: "Reservado — confirma tu disponibilidad",           detail: "El cliente aún no acepta. Puedes esperar o contactarlo.",           tone: "#f59e0b" },
-  in_progress: { label: "En progreso — avanza y envía los milestones",      detail: "Sube evidencia y marca cada milestone como completado.",            tone: "#06b6d4" },
-  review:      { label: "En revisión — el cliente está evaluando tu entrega", detail: "Espera aprobación. Puedes subir evidencia adicional si hace falta.", tone: "#f59e0b" },
+  reserved:    { label: "Reservado — confirma tu disponibilidad",           detail: "El cliente aún no acepta. Puedes esperar o contactarlo.",           tone: "var(--warn)" },
+  in_progress: { label: "En progreso — avanza y envía los milestones",      detail: "Sube evidencia y marca cada milestone como completado.",            tone: "var(--info)" },
+  review:      { label: "En revisión — el cliente está evaluando tu entrega", detail: "Espera aprobación. Puedes subir evidencia adicional si hace falta.", tone: "var(--warn)" },
   dispute:     { label: "Disputa activa — aporta evidencia",                detail: "El equipo de ops está revisando. Sube pruebas de tu trabajo.",      tone: "var(--error)" },
   completed:   { label: "Trabajo completado",                               detail: "El trabajo se cerró correctamente.",                                tone: "var(--ok)" },
 };
@@ -80,7 +80,7 @@ const WORKER_NEXT_ACTION: Record<string, { label: string; detail: string; tone: 
 function EvidenceIcon({ kind }: { kind: string }) {
   if (kind === "PHOTO") return <ImageIcon size={13} color="var(--ok)" />;
   if (kind === "VIDEO") return <Video size={13} color="var(--brand)" />;
-  return <FileText size={13} color="#8b5cf6" />;
+  return <FileText size={13} color="var(--violet)" />;
 }
 
 export default function WorkerJobDetailPage() {
@@ -154,7 +154,7 @@ export default function WorkerJobDetailPage() {
 
   const acceptedGuide = escrowFunded
     ? { label: "Escrow fondeado — puedes iniciar el trabajo", detail: "Los fondos ya están protegidos. Presiona 'Iniciar trabajo' cuando estés listo.", tone: "var(--ok)" }
-    : { label: "Aceptado — espera el fondeo del escrow", detail: "El cliente debe fondear el escrow antes de que puedas comenzar. Te notificaremos cuando esté listo.", tone: "#8b5cf6" };
+    : { label: "Aceptado — espera el fondeo del escrow", detail: "El cliente debe fondear el escrow antes de que puedas comenzar. Te notificaremos cuando esté listo.", tone: "var(--violet)" };
 
   const nextAction = normalizedStatus === "accepted"
     ? acceptedGuide
@@ -240,7 +240,7 @@ export default function WorkerJobDetailPage() {
                         finally { setPendingAction(null); }
                       }}
                       disabled={pendingAction !== null}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "#06b6d4", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "var(--info)", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: pendingAction ? 0.7 : 1 }}
                     >
                       Enviar para revisión →
                     </button>
@@ -364,7 +364,7 @@ export default function WorkerJobDetailPage() {
                             <button
                               onClick={() => void handleSubmitMilestone(milestoneId)}
                               disabled={isBusy}
-                              style={{ alignSelf: "start", padding: "7px 16px", borderRadius: "8px", border: "none", background: isBusy ? "var(--muted)" : "#06b6d4", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: isBusy ? "not-allowed" : "pointer" }}
+                              style={{ alignSelf: "start", padding: "7px 16px", borderRadius: "8px", border: "none", background: isBusy ? "var(--muted)" : "var(--info)", color: "#fff", fontSize: "12px", fontWeight: 700, cursor: isBusy ? "not-allowed" : "pointer" }}
                             >
                               {isBusy ? "Enviando..." : "Marcar como completado"}
                             </button>

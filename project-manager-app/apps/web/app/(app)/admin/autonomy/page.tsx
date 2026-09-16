@@ -291,7 +291,7 @@ function buildTimeline(run: AutonomyRunView | null): TimelineEntry[] {
           timestamp: entry.timestamp,
           title: "Objetivo solicitado",
           detail: summarizeLogData(entry.data),
-          accent: "#f59e0b"
+          accent: "var(--warn)"
         };
       }
 
@@ -603,7 +603,7 @@ export default function AdminAutonomyPage() {
             <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>Estado staged del run seleccionado</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
               <span style={badgeStyle("#60a5fa", "rgba(59,130,246,0.12)")}>Actual: {stageLabel(currentStage)}</span>
-              <span style={badgeStyle("#f59e0b", "rgba(245,158,11,0.12)")}>Target: {stageLabel(targetStage)}</span>
+              <span style={badgeStyle("var(--warn)", "rgba(245,158,11,0.12)")}>Target: {stageLabel(targetStage)}</span>
               <span style={badgeStyle("#a78bfa", "rgba(167,139,250,0.12)")}>Siguiente: {stageLabel(nextStage)}</span>
             </div>
             <div style={{ fontSize: "0.92rem", color: "var(--muted)" }}>{progressLabel(selected)}</div>
@@ -839,7 +839,7 @@ export default function AdminAutonomyPage() {
                         {run.branchName ?? "pending"} · {formatTimestamp(run.createdAt)}
                       </div>
                       <div style={{ marginTop: "8px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                        <span style={badgeStyle("#f59e0b", "rgba(245,158,11,0.12)")}>Target {stageLabel(runTargetStage)}</span>
+                        <span style={badgeStyle("var(--warn)", "rgba(245,158,11,0.12)")}>Target {stageLabel(runTargetStage)}</span>
                         <span style={badgeStyle("#a78bfa", "rgba(167,139,250,0.12)")}>Siguiente {stageLabel(runNextStage)}</span>
                       </div>
                       <div style={{ marginTop: "8px", color: "var(--muted)", fontSize: "0.82rem" }}>
@@ -910,7 +910,7 @@ export default function AdminAutonomyPage() {
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                   <span style={badgeStyle("#60a5fa", "rgba(59,130,246,0.12)")}>Actual {stageLabel(currentStage)}</span>
-                  <span style={badgeStyle("#f59e0b", "rgba(245,158,11,0.12)")}>Target {stageLabel(targetStage)}</span>
+                  <span style={badgeStyle("var(--warn)", "rgba(245,158,11,0.12)")}>Target {stageLabel(targetStage)}</span>
                   <span style={badgeStyle("#a78bfa", "rgba(167,139,250,0.12)")}>Siguiente {stageLabel(nextStage)}</span>
                 </div>
                 <div style={{ fontSize: "0.9rem", color: "var(--muted)" }}>{progressLabel(selected)}</div>

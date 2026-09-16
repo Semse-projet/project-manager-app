@@ -273,7 +273,7 @@ export default function IntelligenceRoomPage() {
           marginBottom: "18px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-            <div style={{ width: "26px", height: "26px", borderRadius: "7px", background: "linear-gradient(135deg, #8b5cf6, var(--brand))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>⚡</div>
+            <div style={{ width: "26px", height: "26px", borderRadius: "7px", background: "linear-gradient(135deg, var(--violet), var(--brand))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>⚡</div>
             <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink, #f1f5f9)" }}>Prometeo Brief — Este proyecto</span>
             <span style={{ fontSize: "10px", color: "var(--faint, #4b6280)", marginLeft: "auto" }}>{new Date(brief.generatedAt).toLocaleTimeString()}</span>
           </div>

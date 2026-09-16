@@ -36,7 +36,7 @@ export function shouldPreserveLocalEvent(caught: unknown): boolean {
 export const PURPOSE_CHART_COLORS: Record<TimeEntryView["purpose"], string> = {
   job_linked: "var(--brand)",
   payable: "#d97706",
-  personal: "#8b5cf6",
+  personal: "var(--violet)",
 };
 
 export const PURPOSE_SHORT_LABELS: Record<TimeEntryView["purpose"], string> = {
@@ -45,7 +45,7 @@ export const PURPOSE_SHORT_LABELS: Record<TimeEntryView["purpose"], string> = {
   personal: "Personal",
 };
 
-export const FREE_PROJECT_SWATCHES = ["var(--brand)", "#d97706", "#059669", "#dc2626", "#8b5cf6", "#0891b2"];
+export const FREE_PROJECT_SWATCHES = ["var(--brand)", "#d97706", "#059669", "#dc2626", "var(--violet)", "#0891b2"];
 
 export const sectionCard: CSSProperties = {
   background: "var(--surface)",

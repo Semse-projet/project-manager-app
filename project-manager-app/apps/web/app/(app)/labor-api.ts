@@ -264,6 +264,6 @@ export const PURPOSE_LABELS: Record<string, string> = {
 
 export const PURPOSE_COLORS: Record<string, string> = {
   personal: "#6b7280",
-  payable: "#f59e0b",
+  payable: "var(--warn)",
   job_linked: "var(--brand)",
 };

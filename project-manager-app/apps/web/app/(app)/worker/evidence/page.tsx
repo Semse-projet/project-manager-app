@@ -359,7 +359,7 @@ export default function WorkerEvidencePage() {
                 return (
                   <div key={asString(ev.id) ?? idx} style={{ ...card, display: "flex", alignItems: "center", gap: "14px", padding: "12px 16px" }}>
                     <div style={{ width: "38px", height: "38px", borderRadius: "10px", flexShrink: 0, background: isImage ? "rgba(59,130,246,.12)" : "rgba(139,92,246,.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isImage ? <ImageIcon size={17} color="var(--brand)" /> : <FileText size={17} color="#8b5cf6" />}
+                      {isImage ? <ImageIcon size={17} color="var(--brand)" /> : <FileText size={17} color="var(--violet)" />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--ink)", marginBottom: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</p>

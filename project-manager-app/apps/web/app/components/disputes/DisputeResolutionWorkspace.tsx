@@ -119,7 +119,7 @@ function formatDate(value?: string) {
 function EvidenceKindIcon({ kind }: { kind?: string }) {
   if (kind === "PHOTO") return <ImageIcon size={14} color="var(--ok)" />;
   if (kind === "VIDEO") return <Video size={14} color="var(--brand)" />;
-  return <FileText size={14} color="#8b5cf6" />;
+  return <FileText size={14} color="var(--violet)" />;
 }
 
 function inferCopilotDecision(message: string): "self_resolve" | "needs_third_party" | "unclear" {
@@ -235,7 +235,7 @@ export function DisputeResolutionWorkspace({
     return {
       title: "Aporta pruebas concretas antes de escalar",
       detail: "Documenta avance real, entregables y contexto técnico. Si el bloqueo sigue, deja que el copiloto evalúe si ya requiere tercero humano.",
-      tone: "#8b5cf6"
+      tone: "var(--violet)"
     };
   }, [audience, dispute.status]);
 
@@ -262,7 +262,7 @@ export function DisputeResolutionWorkspace({
         detail: dispute.status === "resolved"
           ? `La disputa ya figura resuelta. ${dispute.resolution ? `Resolución: ${dispute.resolution}` : ""}`.trim()
           : `Estado actual: ${dispute.status}. Razón base: ${dispute.reason}`,
-        tone: dispute.status === "resolved" ? "var(--ok)" : "#f59e0b",
+        tone: dispute.status === "resolved" ? "var(--ok)" : "var(--warn)",
       }
     ]);
     setLatestApproval(null);
@@ -364,7 +364,7 @@ export function DisputeResolutionWorkspace({
             ? "Copiloto recomienda autogestión"
             : "Copiloto deja señal mixta",
         detail: message,
-        tone: decision === "needs_third_party" ? "var(--error)" : decision === "self_resolve" ? "var(--ok)" : "#f59e0b",
+        tone: decision === "needs_third_party" ? "var(--error)" : decision === "self_resolve" ? "var(--ok)" : "var(--warn)",
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "No se pudo obtener criterio del copiloto.";
@@ -403,7 +403,7 @@ export function DisputeResolutionWorkspace({
         kind: "escalation",
         title: "Escalación solicitada",
         detail: `${message}${approvalId ? ` Approval ${approvalId} · modo ${approvalMode} · estado ${approvalStatus}.` : ""}`,
-        tone: approvalStatus === "approved" ? "var(--ok)" : approvalStatus === "rejected" ? "var(--error)" : "#f59e0b",
+        tone: approvalStatus === "approved" ? "var(--ok)" : approvalStatus === "rejected" ? "var(--error)" : "var(--warn)",
       });
       if (approvalId) {
         try {
@@ -521,7 +521,7 @@ export function DisputeResolutionWorkspace({
         kind: "state",
         title: `${authorLabel} dejó un comentario`,
         detail: text.length > 80 ? text.slice(0, 80) + "…" : text,
-        tone: audience === "admin" ? "var(--error)" : audience === "client" ? "#6366f1" : "#8b5cf6",
+        tone: audience === "admin" ? "var(--error)" : audience === "client" ? "#6366f1" : "var(--violet)",
       });
       await loadComments();
     } catch (error) {
@@ -635,7 +635,7 @@ export function DisputeResolutionWorkspace({
                   ) : copilotDecision === "self_resolve" ? (
                     <StatusPill color="var(--ok)" label="Puede resolverse entre partes" />
                   ) : (
-                    <StatusPill color="#f59e0b" label="Señal mixta" />
+                    <StatusPill color="var(--warn)" label="Señal mixta" />
                   )}
                 </div>
                 <p style={{ margin: 0, fontSize: 13, color: "var(--ink)", lineHeight: 1.65 }}>{copilotMessage}</p>
@@ -703,7 +703,7 @@ export function DisputeResolutionWorkspace({
                 <strong style={{ fontSize: 13, color: "var(--ink)" }}>
                   {asString(latestApproval.title) ?? `Approval ${asString(latestApproval.id) ?? "registrada"}`}
                 </strong>
-                <span style={{ fontSize: 11, fontWeight: 800, color: asString(latestApproval.status) === "approved" ? "var(--ok)" : asString(latestApproval.status) === "rejected" ? "var(--error)" : "#f59e0b" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: asString(latestApproval.status) === "approved" ? "var(--ok)" : asString(latestApproval.status) === "rejected" ? "var(--error)" : "var(--warn)" }}>
                   {asString(latestApproval.status) ?? "pending"}
                 </span>
               </div>
@@ -720,7 +720,7 @@ export function DisputeResolutionWorkspace({
 
           {audience === "admin" && relatedApprovals.length > 0 ? (
             <div style={{ display: "grid", gap: 8 }}>
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "#f59e0b" }}>APROBACIONES PENDIENTES — ACCIÓN REQUERIDA</p>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: "var(--warn)" }}>APROBACIONES PENDIENTES — ACCIÓN REQUERIDA</p>
               {relatedApprovals.map((approval) => {
                 const isBusy = decidingApprovalId === approval.id;
                 const note = approvalActionNote?.id === approval.id ? approvalActionNote : null;
@@ -728,7 +728,7 @@ export function DisputeResolutionWorkspace({
                   <div key={approval.id} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.28)", background: "rgba(245,158,11,.06)", display: "grid", gap: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                       <strong style={{ fontSize: 13, color: "var(--ink)" }}>{approval.title}</strong>
-                      <span style={{ fontSize: 11, fontWeight: 800, color: "#f59e0b" }}>{approval.riskLevel} risk</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--warn)" }}>{approval.riskLevel} risk</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", lineHeight: 1.5 }}>{approval.reason}</p>
                     {note ? (
@@ -775,7 +775,7 @@ export function DisputeResolutionWorkspace({
       <HtmlInCanvasPanel as="section" style={{ padding: "16px 18px" }} canvasClassName="rounded-2xl" minHeight={170}>
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <FileArchive size={16} color="#f59e0b" />
+            <FileArchive size={16} color="var(--warn)" />
             <strong style={{ fontSize: 14, color: "var(--ink)" }}>Paquete de evidencia</strong>
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
@@ -799,7 +799,7 @@ export function DisputeResolutionWorkspace({
             <p style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>Esta disputa no tiene un trabajo vinculado — no se puede registrar evidencia aquí.</p>
           ) : null}
           {uploadPlan?.recommendedStrategy === "external_transfer" ? (
-            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", fontSize: 12, color: "#f59e0b" }}>
+            <div style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid rgba(245,158,11,.22)", background: "rgba(245,158,11,.08)", fontSize: 12, color: "var(--warn)" }}>
               Archivos grandes (transferencia externa) todavía no tienen una ruta de subida real — usa un archivo más chico por ahora.
             </div>
           ) : null}
@@ -895,7 +895,7 @@ export function DisputeResolutionWorkspace({
                               <EvidenceKindIcon kind={asString(item.kind)} />
                               <strong style={{ fontSize: 13, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayName}</strong>
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: validation === "approved" ? "var(--ok)" : validation === "rejected" ? "var(--error)" : "#f59e0b" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: validation === "approved" ? "var(--ok)" : validation === "rejected" ? "var(--error)" : "var(--warn)" }}>
                               {validation}
                             </span>
                           </div>
@@ -1053,7 +1053,7 @@ export function DisputeResolutionWorkspace({
           ) : comments.length > 0 ? (
             <div style={{ display: "grid", gap: 8 }}>
               {comments.map((comment, index) => {
-                const roleColor = comment.role === "admin" ? "var(--error)" : comment.role === "client" ? "#6366f1" : comment.role === "worker" ? "#8b5cf6" : "var(--muted)";
+                const roleColor = comment.role === "admin" ? "var(--error)" : comment.role === "client" ? "#6366f1" : comment.role === "worker" ? "var(--violet)" : "var(--muted)";
                 const roleLabel = comment.role === "admin" ? "Ops" : comment.role === "client" ? "Cliente" : comment.role === "worker" ? "Profesional" : comment.author ?? "Sistema";
                 return (
                   <div key={comment.id ?? index} style={{ padding: "12px 14px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--surface)", display: "grid", gap: 6 }}>

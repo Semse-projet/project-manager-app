@@ -23,7 +23,7 @@ const SUBCATEGORY_LABELS: Record<string, string> = {
 };
 
 const CONFIDENCE_COLORS: Record<string, string> = {
-  high: "#a3e635", medium: "#f59e0b", low: "#f87171",
+  high: "#a3e635", medium: "var(--warn)", low: "#f87171",
 };
 
 function DraftRow({ label, value, icon }: { label: string; value: string | null | undefined; icon?: string }) {
@@ -150,7 +150,7 @@ export function DraftPreviewCard({ draft, prefillHref, budgetSuggestion, onConfi
         <div style={{ marginTop: 10, padding: "8px 10px", background: "rgba(163,230,53,0.08)", border: "1px solid rgba(163,230,53,0.2)", borderRadius: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>Rango estimado (IA)</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: CONFIDENCE_COLORS[budgetSuggestion.confidence] ?? "#f59e0b", background: "rgba(0,0,0,0.3)", padding: "1px 6px", borderRadius: 10 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: CONFIDENCE_COLORS[budgetSuggestion.confidence] ?? "var(--warn)", background: "rgba(0,0,0,0.3)", padding: "1px 6px", borderRadius: 10 }}>
               {budgetSuggestion.confidence === "high" ? "Alta confianza" : budgetSuggestion.confidence === "medium" ? "Media confianza" : "Baja confianza"}
             </span>
           </div>

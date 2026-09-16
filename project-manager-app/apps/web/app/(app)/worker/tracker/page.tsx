@@ -259,7 +259,7 @@ function trackerHistoryFileLabel(range: TrackerHistoryRange, target: string) {
 
 const ENTRY_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
   running: { label: "Corriendo", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
-  paused: { label: "En pausa", color: "#f59e0b", bg: "rgba(245,158,11,.12)" },
+  paused: { label: "En pausa", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   completed: { label: "Completada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
   pending_review: { label: "En revisión", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   approved: { label: "Aprobada", color: "#059669", bg: "rgba(5,150,105,.12)" },
@@ -1196,7 +1196,7 @@ export default function WorkerTrackerPage() {
                     width: "7px",
                     height: "7px",
                     borderRadius: "999px",
-                    background: activeEntry.status === "running" ? "var(--ok)" : "#f59e0b",
+                    background: activeEntry.status === "running" ? "var(--ok)" : "var(--warn)",
                     boxShadow: activeEntry.status === "running" ? "0 0 0 3px rgba(16,185,129,.25)" : "none",
                   }}
                 />
@@ -1591,7 +1591,7 @@ export default function WorkerTrackerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
         <MetricCard label="Esta semana" value={fmtSeconds(displayedWeekSeconds)} color="var(--brand)" />
         <MetricCard label="Este mes" value={fmtSeconds(displayedMonthSeconds)} color="var(--ok)" />
-        <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="#8b5cf6" />
+        <MetricCard label="Días trabajados" value={loading ? "—" : String(daysWorkedThisWeek)} color="var(--violet)" />
         <MetricCard label="Liberado" value={formatMoney(releasedAmount)} color="var(--accent)" />
       </div>
 

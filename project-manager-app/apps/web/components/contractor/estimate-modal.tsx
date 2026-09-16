@@ -20,7 +20,7 @@ interface Props {
 const CATEGORY_COLORS = {
   materials: "#60a5fa",
   labor: "#34d399",
-  other: "#f59e0b",
+  other: "var(--warn)",
 };
 
 export function EstimateModal({ lead, onClose, onCreated }: Props) {

@@ -238,14 +238,14 @@ export default function WorkerSettingsPage() {
 
       {/* Language */}
       <HtmlInCanvasPanel style={card} minHeight={60}>
-        <Section icon={<Globe size={14} color="#06b6d4" />} title="Idioma de respuesta">
+        <Section icon={<Globe size={14} color="var(--info)" />} title="Idioma de respuesta">
           <OptionCard<AssistantLanguage> options={LANGUAGE_OPTIONS} value={language} onChange={setLanguage} />
         </Section>
       </HtmlInCanvasPanel>
 
       {/* Verbosity */}
       <HtmlInCanvasPanel style={card} minHeight={80}>
-        <Section icon={<ChevronDown size={14} color="#f59e0b" />} title="Nivel de detalle">
+        <Section icon={<ChevronDown size={14} color="var(--warn)" />} title="Nivel de detalle">
           <OptionCard<AssistantVerbosity> options={VERBOSITY_OPTIONS} value={verbosity} onChange={setVerbosity} />
         </Section>
       </HtmlInCanvasPanel>

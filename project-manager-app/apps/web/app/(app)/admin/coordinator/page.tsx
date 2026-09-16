@@ -17,14 +17,14 @@ const STATUS_META: Record<DelegationStatus, { label: string; color: string; bg: 
   executing: { label: "Ejecutando", color: "#6366f1", bg: "rgba(99,102,241,.12)",  icon: Activity     },
   completed: { label: "Completado", color: "var(--ok)", bg: "rgba(16,185,129,.12)",  icon: CheckCircle  },
   failed:    { label: "Fallido",    color: "var(--error)", bg: "rgba(239,68,68,.12)",    icon: XCircle      },
-  rejected:  { label: "Rechazado",  color: "#f59e0b", bg: "rgba(245,158,11,.12)",  icon: AlertTriangle },
+  rejected:  { label: "Rechazado",  color: "var(--warn)", bg: "rgba(245,158,11,.12)",  icon: AlertTriangle },
 };
 
 const AGENT_COLORS: Record<string, string> = {
   "field-ops":        "var(--ok)",
   "trust-match":      "#818cf8",
-  "pricing":          "#f59e0b",
-  "evidence-coach":   "#06b6d4",
+  "pricing":          "var(--warn)",
+  "evidence-coach":   "var(--info)",
   "dispute":          "var(--error)",
   "project-copilot":  "#c084fc",
   "backend-agent":    "#34d399",

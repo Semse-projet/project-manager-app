@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, CheckCheck, Scale, ShieldAlert, Wallet, X } from "lucide-react";
+import { AlertTriangle, Bell, CheckCheck, Scale, ShieldAlert, Wallet, X } from "lucide-react";
 import { fetchNotifications, markNotificationRead, type NotificationItem } from "../../semse-api";
 
 const KIND_META: Record<string, { color: string; Icon: React.ComponentType<{ size: number }> }> = {
-  dispute:  { color: "var(--error)", Icon: Scale       },
-  payment:  { color: "var(--ok)", Icon: Wallet      },
-  approval: { color: "#f59e0b", Icon: ShieldAlert },
-  system:   { color: "#6366f1", Icon: Bell        },
+  dispute:         { color: "var(--error)", Icon: Scale       },
+  payment:         { color: "var(--ok)", Icon: Wallet      },
+  approval:        { color: "var(--warn)", Icon: ShieldAlert },
+  system:          { color: "#6366f1", Icon: Bell        },
+  invoice_overdue: { color: "var(--error)", Icon: AlertTriangle },
 };
 
 function kindMeta(kind: string) {
@@ -28,7 +29,16 @@ function relativeTime(iso: string): string {
   } catch { return "—"; }
 }
 
-export function NotificationBanner({ audience }: { audience: "client" | "worker" | "admin" }) {
+export function NotificationBanner({
+  audience,
+  extraItems,
+  onDismissExtraItem,
+}: {
+  audience: "client" | "worker" | "admin";
+  /** Locally-computed items (e.g. a live SSE alert) merged into the same panel instead of a bespoke floating toast. Always shown as unread until dismissed by the caller. */
+  extraItems?: NotificationItem[];
+  onDismissExtraItem?: (id: string) => void;
+}) {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -88,9 +98,14 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
     return () => clearInterval(timer);
   }, [loadNotifications]);
 
-  const unread = items.filter((n) => !n.read);
+  const allItems = extraItems && extraItems.length > 0 ? [...extraItems, ...items] : items;
+  const unread = allItems.filter((n) => !n.read);
 
   async function handleMarkRead(id: string) {
+    if (extraItems?.some((n) => n.id === id)) {
+      onDismissExtraItem?.(id);
+      return;
+    }
     try {
       await markNotificationRead(id);
       setItems((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
@@ -98,11 +113,12 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
   }
 
   async function handleMarkAllRead() {
-    await Promise.all(unread.map((n) => markNotificationRead(n.id).catch(() => {})));
+    extraItems?.forEach((n) => onDismissExtraItem?.(n.id));
+    await Promise.all(items.filter((n) => !n.read).map((n) => markNotificationRead(n.id).catch(() => {})));
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
-  if (items.length === 0 && !loading) return null;
+  if (allItems.length === 0 && !loading) return null;
 
   return (
     <div style={{ position: "relative" }}>
@@ -142,13 +158,13 @@ export function NotificationBanner({ audience }: { audience: "client" | "worker"
             </div>
           </div>
 
-          {items.length === 0 ? (
+          {allItems.length === 0 ? (
             <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 13, color: "var(--muted)" }}>
               No hay notificaciones.
             </div>
           ) : (
             <div style={{ display: "grid" }}>
-              {items.slice(0, 20).map((item) => {
+              {allItems.slice(0, 20).map((item) => {
                 const meta = kindMeta(item.kind);
                 const Icon = meta.Icon;
                 return (

@@ -392,7 +392,7 @@ export default function WorkerProfilePage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "10px" }}>
             {[
               { label: "Cuenta", value: formatStatusLabel(currentUser?.status ?? "active") },
-              { label: "Verificación", value: formatVerificationLabel(currentUser?.verificationStatus ?? "unverified"), color: isVerified ? "var(--ok)" : "#f59e0b" },
+              { label: "Verificación", value: formatVerificationLabel(currentUser?.verificationStatus ?? "unverified"), color: isVerified ? "var(--ok)" : "var(--warn)" },
               { label: "Miembro desde", value: memberSince },
               { label: "Risk", value: currentUser?.riskLevel ?? "low" },
               { label: "Flags", value: String(currentUser?.flags.length ?? 0) },
@@ -442,9 +442,9 @@ export default function WorkerProfilePage() {
         {!isVerified && (
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(245,158,11,.04)", borderColor: "rgba(245,158,11,.25)" }} canvasClassName="rounded-2xl" minHeight={80}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "14px" }}>
-              <BadgeCheck size={17} color="#f59e0b" />
+              <BadgeCheck size={17} color="var(--warn)" />
               <div>
-                <h3 style={{ fontSize: "13px", fontWeight: 800, color: "#f59e0b", margin: 0 }}>Verificar tu perfil</h3>
+                <h3 style={{ fontSize: "13px", fontWeight: 800, color: "var(--warn)", margin: 0 }}>Verificar tu perfil</h3>
                 <p style={{ fontSize: "11px", color: "var(--muted)", margin: 0 }}>Los profesionales verificados reciben 3× más propuestas.</p>
               </div>
             </div>
@@ -465,7 +465,7 @@ export default function WorkerProfilePage() {
                     type="button"
                     disabled={verifyBusy || verifyDone === item.type}
                     onClick={() => void requestVerification(item.type)}
-                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "var(--ok)" : "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
+                    style={{ padding: "6px 14px", borderRadius: "8px", border: "1px solid rgba(245,158,11,.4)", background: verifyDone === item.type ? "rgba(16,185,129,.1)" : "rgba(245,158,11,.1)", color: verifyDone === item.type ? "var(--ok)" : "var(--warn)", fontSize: "12px", fontWeight: 700, cursor: verifyBusy ? "not-allowed" : "pointer", whiteSpace: "nowrap", opacity: verifyBusy ? 0.7 : 1 }}
                   >
                     {verifyDone === item.type ? "✓ Enviado" : "Solicitar"}
                   </button>
@@ -525,9 +525,9 @@ export default function WorkerProfilePage() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       {[1, 2, 3, 4, 5].map((v) => (
-                        <Star key={v} size={12} color={v <= r.score ? "#f59e0b" : "var(--faint)"} fill={v <= r.score ? "#f59e0b" : "transparent"} />
+                        <Star key={v} size={12} color={v <= r.score ? "var(--warn)" : "var(--faint)"} fill={v <= r.score ? "var(--warn)" : "transparent"} />
                       ))}
-                      <span style={{ fontSize: "12px", fontWeight: 800, color: "#f59e0b" }}>{r.score}/5</span>
+                      <span style={{ fontSize: "12px", fontWeight: 800, color: "var(--warn)" }}>{r.score}/5</span>
                     </div>
                     <span style={{ fontSize: "11px", color: "var(--faint)" }}>
                       {new Date(r.createdAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })}
@@ -543,10 +543,10 @@ export default function WorkerProfilePage() {
 
         {currentUser?.flags && currentUser.flags.length > 0 ? (
           <HtmlInCanvasPanel as="section" style={{ ...card, background: "rgba(245,158,11,.05)", borderColor: "rgba(245,158,11,.2)" }} canvasClassName="rounded-2xl" minHeight={80}>
-            <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#f59e0b", marginBottom: "10px" }}>Flags de seguridad</h3>
+            <h3 style={{ fontSize: "13px", fontWeight: 700, color: "var(--warn)", marginBottom: "10px" }}>Flags de seguridad</h3>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               {currentUser.flags.map((flag) => (
-                <span key={flag} style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(245,158,11,.12)", color: "#f59e0b", fontSize: "12px", fontWeight: 700 }}>{flag}</span>
+                <span key={flag} style={{ padding: "5px 10px", borderRadius: "999px", background: "rgba(245,158,11,.12)", color: "var(--warn)", fontSize: "12px", fontWeight: 700 }}>{flag}</span>
               ))}
             </div>
           </HtmlInCanvasPanel>

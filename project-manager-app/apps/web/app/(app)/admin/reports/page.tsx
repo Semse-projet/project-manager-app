@@ -18,8 +18,8 @@ type Period = typeof PERIODS[number];
 const REPORT_TYPES = [
   { id: "ops",      label: "Operaciones",     description: "Trabajos creados, completados, tasa de cierre y tiempo promedio.", icon: Briefcase,   color: "var(--brand)" },
   { id: "finance",  label: "Financiero",      description: "Escrow total, comisiones, liberaciones y disputas por período.",   icon: DollarSign,  color: "var(--ok)" },
-  { id: "agents",   label: "Rendimiento IA",  description: "Runs de agentes, tasas de confianza, revisión humana requerida.", icon: TrendingUp,  color: "#8b5cf6" },
-  { id: "users",    label: "Usuarios",        description: "Nuevos registros, actividad por rol y retención.",                 icon: Users,       color: "#f59e0b" },
+  { id: "agents",   label: "Rendimiento IA",  description: "Runs de agentes, tasas de confianza, revisión humana requerida.", icon: TrendingUp,  color: "var(--violet)" },
+  { id: "users",    label: "Usuarios",        description: "Nuevos registros, actividad por rol y retención.",                 icon: Users,       color: "var(--warn)" },
 ];
 
 interface Metric { label: string; value: string; change: string; up: boolean }

@@ -72,12 +72,12 @@ const STATUS_STYLE: Record<string, { bg: string; border: string; text: string; d
   ready:     { bg: "rgba(129,140,248,.12)", border: "rgba(129,140,248,.45)", text: "#818cf8",     dot: "#818cf8" },
   executing: { bg: "rgba(99,102,241,.15)",  border: "rgba(99,102,241,.55)",  text: "#6366f1",     dot: "#6366f1" },
   completed: { bg: "rgba(16,185,129,.10)",  border: "rgba(16,185,129,.40)",  text: "var(--ok)",     dot: "var(--ok)" },
-  blocked:   { bg: "rgba(245,158,11,.10)",  border: "rgba(245,158,11,.40)",  text: "#f59e0b",     dot: "#f59e0b" },
+  blocked:   { bg: "rgba(245,158,11,.10)",  border: "rgba(245,158,11,.40)",  text: "var(--warn)",     dot: "var(--warn)" },
   failed:    { bg: "rgba(239,68,68,.10)",   border: "rgba(239,68,68,.40)",   text: "var(--error)",     dot: "var(--error)" },
   skipped:   { bg: "rgba(100,116,139,.06)", border: "rgba(100,116,139,.18)", text: "var(--faint)", dot: "var(--faint)" },
 };
 
-const RISK_COLORS: Record<string, string> = { low: "var(--ok)", medium: "#f59e0b", high: "var(--error)" };
+const RISK_COLORS: Record<string, string> = { low: "var(--ok)", medium: "var(--warn)", high: "var(--error)" };
 
 const CAPABILITY_EMOJI: Record<string, string> = {
   searching:    "🔍",
@@ -195,7 +195,7 @@ function StepNodeCard({
           fill="rgba(245,158,11,.18)" stroke="rgba(245,158,11,.3)" strokeWidth={0.5} />
       )}
       {step.requiresApproval && (
-        <text x={NODE_W - 22} y={63} fontSize={8} fill="#f59e0b" textAnchor="middle" fontWeight={700}>
+        <text x={NODE_W - 22} y={63} fontSize={8} fill="var(--warn)" textAnchor="middle" fontWeight={700}>
           APROV
         </text>
       )}
@@ -257,7 +257,7 @@ function StepDetail({ step, onClose }: { step: WorkPlanStep; onClose: () => void
         </div>
       )}
       {step.requiredEvidence && step.requiredEvidence.length > 0 && (
-        <div style={{ fontSize: 10, color: "#f59e0b" }}>
+        <div style={{ fontSize: 10, color: "var(--warn)" }}>
           <span style={{ fontWeight: 700 }}>Evidencia: </span>{step.requiredEvidence.join(", ")}
         </div>
       )}
@@ -277,7 +277,7 @@ function GraphLegend() {
     { label: "Listo",      color: "#818cf8" },
     { label: "Ejecutando", color: "#6366f1" },
     { label: "Completado", color: "var(--ok)" },
-    { label: "Bloqueado",  color: "#f59e0b" },
+    { label: "Bloqueado",  color: "var(--warn)" },
     { label: "Fallido",    color: "var(--error)" },
     { label: "Pendiente",  color: "var(--faint)" },
   ];

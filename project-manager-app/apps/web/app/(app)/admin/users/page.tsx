@@ -51,7 +51,7 @@ const STATUS_CONFIG: Record<UserStatus, { variant: "success" | "warning" | "erro
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string }> = {
   client: { label: "Cliente",      color: "var(--brand)" },
   worker: { label: "Profesional",  color: "var(--ok)"      },
-  admin:  { label: "Operaciones",  color: "#f59e0b"      },
+  admin:  { label: "Operaciones",  color: "var(--warn)"      },
 };
 
 // Todos los IDs de este schema son cuid() de Prisma: "c" + ~24 caracteres
@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
         title={t("page.users")}
         subtitle="Gestión de clientes y profesionales del marketplace"
         icon={Users}
-        iconColor="#8b5cf6"
+        iconColor="var(--violet)"
         iconBg="rgba(139,92,246,.15)"
         actions={
           <>
@@ -258,7 +258,7 @@ export default function AdminUsersPage() {
           { label: "Total usuarios",         value: users.length,                                                           color: "var(--brand)" },
           { label: "Clientes activos",        value: users.filter(u => u.role === "client" && u.status === "active").length, color: "var(--brand)" },
           { label: "Profesionales activos",   value: users.filter(u => u.role === "worker" && u.status === "active").length, color: "var(--ok)" },
-          { label: "Pendientes verificación", value: pendingVerification, color: pendingVerification > 0 ? "#f59e0b" : "var(--ok)" },
+          { label: "Pendientes verificación", value: pendingVerification, color: pendingVerification > 0 ? "var(--warn)" : "var(--ok)" },
         ].map(kpi => (
           <div key={kpi.label} style={{ ...card, padding: "12px 14px" }}>
             <p style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 600 }}>{kpi.label.toUpperCase()}</p>
@@ -273,7 +273,7 @@ export default function AdminUsersPage() {
           {(["all", "client", "worker", "admin"] as const).map(r => (
             <button key={r} onClick={() => setRoleFilter(r)} style={{
               padding: "5px 12px", borderRadius: "7px", border: "none",
-              background: roleFilter === r ? "#8b5cf6" : "transparent",
+              background: roleFilter === r ? "var(--violet)" : "transparent",
               color: roleFilter === r ? "#fff" : "var(--muted)",
               fontSize: "12px", fontWeight: 600, cursor: "pointer",
             }}>
@@ -382,7 +382,7 @@ export default function AdminUsersPage() {
                 <div>
                   {u.rating ? (
                     <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <Star size={12} color="#f59e0b" fill="#f59e0b" />
+                      <Star size={12} color="var(--warn)" fill="var(--warn)" />
                       <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>{u.rating}</span>
                     </div>
                   ) : <span style={{ fontSize: "12px", color: "var(--faint)" }}>—</span>}

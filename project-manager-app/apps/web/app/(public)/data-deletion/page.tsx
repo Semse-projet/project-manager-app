@@ -104,7 +104,7 @@ export default function DataDeletionPage() {
                 width: 44,
                 height: 44,
                 borderRadius: 12,
-                background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
+                background: "linear-gradient(135deg, var(--brand), var(--violet))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",

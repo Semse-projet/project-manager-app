@@ -102,7 +102,7 @@ const STATUS_CONFIG: Record<string, { variant: "error" | "warning" | "success" |
 
 const SEVERITY_COLOR: Record<string, string> = {
   high:   "var(--error)",
-  medium: "#f59e0b",
+  medium: "var(--warn)",
   low:    "var(--ok)",
 };
 
@@ -111,7 +111,7 @@ type DisputeResolutionType = "client_favor" | "pro_favor" | "partial_50_50" | "e
 const RESOLVE_OPTIONS = [
   { label: "Resolver a favor del cliente",      value: "Resuelto a favor del cliente",      resolutionType: "client_favor", color: "var(--ok)", icon: CheckCircle },
   { label: "Resolver a favor del profesional",  value: "Resuelto a favor del profesional",  resolutionType: "pro_favor", color: "var(--brand)", icon: CheckCircle },
-  { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", resolutionType: "partial_50_50", color: "#f59e0b", icon: Scale      },
+  { label: "Solución parcial (50/50)",          value: "Solución parcial acordada: 50%/50% entre ambas partes", resolutionType: "partial_50_50", color: "var(--warn)", icon: Scale      },
   { label: "Escalar a legal",                   value: "Escalado al equipo legal para revisión", resolutionType: "escalated_legal", color: "var(--error)", icon: XCircle    },
 ] as const;
 
@@ -430,7 +430,7 @@ export default function AdminDisputesPage() {
           </>
         }
         icon={Scale}
-        iconColor="#f59e0b"
+        iconColor="var(--warn)"
         iconBg="rgba(245,158,11,.15)"
         actions={
           <>
@@ -463,7 +463,7 @@ export default function AdminDisputesPage() {
       {/* Summary KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "10px", marginBottom: "20px" }}>
         {[
-          { label: "Abiertas",          value: loading ? "—" : openCount,                          color: "#f59e0b", icon: AlertTriangle },
+          { label: "Abiertas",          value: loading ? "—" : openCount,                          color: "var(--warn)", icon: AlertTriangle },
           { label: "Escaladas",         value: loading ? "—" : escalatedCount,                     color: "var(--error)", icon: ShieldAlert  },
           { label: "Approval pendiente",value: loading ? "—" : disputeIdsWithPendingApproval.size, color: "#f97316", icon: CheckCircle  },
           { label: "Resueltas",         value: loading ? "—" : resolvedCount,                      color: "var(--ok)", icon: CheckCircle  },
@@ -512,7 +512,7 @@ export default function AdminDisputesPage() {
                   onClick={() => setPriorityFilter(f.key)}
                   style={{
                     padding: "5px 12px", borderRadius: "7px", border: "none",
-                    background: priorityFilter === f.key ? "#f59e0b" : "transparent",
+                    background: priorityFilter === f.key ? "var(--warn)" : "transparent",
                     color: priorityFilter === f.key ? "#fff" : "var(--muted)",
                     fontSize: "11px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
                   }}
@@ -541,7 +541,7 @@ export default function AdminDisputesPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {pagedDisputes.map(d => {
                 const s = STATUS_CONFIG[d.status] ?? { variant: "neutral" as const, label: d.status };
-                const severityColor = SEVERITY_COLOR[d.severity ?? "medium"] ?? "#f59e0b";
+                const severityColor = SEVERITY_COLOR[d.severity ?? "medium"] ?? "var(--warn)";
                 return (
                   <button
                     key={d.id}
@@ -563,7 +563,7 @@ export default function AdminDisputesPage() {
                         </p>
                         <StatusBadge variant={s.variant} text={s.label} size="sm" />
                         {disputeIdsWithPendingApproval.has(d.id) ? (
-                          <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,.28)" }}>
+                          <span style={{ fontSize: "10px", fontWeight: 800, padding: "2px 7px", borderRadius: 999, background: "rgba(245,158,11,.15)", color: "var(--warn)", border: "1px solid rgba(245,158,11,.28)" }}>
                             APPROVAL PENDIENTE
                           </span>
                         ) : null}

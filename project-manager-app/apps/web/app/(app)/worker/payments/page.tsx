@@ -206,7 +206,7 @@ export default function WorkerPaymentsPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {paymentReadiness.rails.filter((rail) => rail.professionalPayout).map((rail) => (
-                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
+                <span key={rail.key} style={{ padding: "4px 8px", borderRadius: 999, fontSize: 11, fontWeight: 800, color: rail.ready ? "var(--ok)" : "var(--warn)", background: rail.ready ? "rgba(16,185,129,.10)" : "rgba(245,158,11,.10)", border: `1px solid ${rail.ready ? "rgba(16,185,129,.25)" : "rgba(245,158,11,.25)"}` }}>
                   {rail.label}{rail.automatic ? "" : " · manual"}
                 </span>
               ))}
@@ -316,9 +316,9 @@ export default function WorkerPaymentsPage() {
           y el color deben decirlo explícitamente en vez de sonar neutrales. */}
       {totalEscrow > 0 && connectAccount?.status !== "active" && (
         <HtmlInCanvasPanel as="section" style={{ ...card, padding: "14px 18px", marginBottom: "20px", background: "rgba(245,158,11,.08)", borderColor: "rgba(245,158,11,.3)", display: "flex", alignItems: "center", gap: "12px" }} canvasClassName="rounded-2xl" minHeight={66}>
-          <AlertTriangle size={18} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <AlertTriangle size={18} color="var(--warn)" style={{ flexShrink: 0 }} />
           <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.5 }}>
-            <strong style={{ color: "#f59e0b" }}>${totalEscrow.toLocaleString()} en escrow no se podrán cobrar todavía.</strong>{" "}
+            <strong style={{ color: "var(--warn)" }}>${totalEscrow.toLocaleString()} en escrow no se podrán cobrar todavía.</strong>{" "}
             {connectAccount
               ? "Tu cuenta Stripe Connect no está activa — completa el onboarding arriba para desbloquear el cobro."
               : "No tienes una cuenta Stripe Connect — créala arriba para poder cobrar cuando el cliente apruebe cada milestone."}

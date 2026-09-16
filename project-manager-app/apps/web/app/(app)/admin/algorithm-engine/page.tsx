@@ -47,9 +47,9 @@ type ReplayResult = {
 };
 
 const TRADE_COLORS: Record<string, string> = {
-  painting:   "#06b6d4",
-  siding:     "#8b5cf6",
-  bathroom:   "#f59e0b",
+  painting:   "var(--info)",
+  siding:     "var(--violet)",
+  bathroom:   "var(--warn)",
   kitchen:    "var(--ok)",
   cleaning:   "#ec4899",
   drywall:    "#64748b",

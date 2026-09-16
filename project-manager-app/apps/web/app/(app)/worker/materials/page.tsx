@@ -228,7 +228,7 @@ export default function WorkerMaterialsPage() {
               return (
                 <div key={req.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", display: "flex", alignItems: "center", gap: "14px", padding: "14px 16px" }}>
                   <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: "rgba(139,92,246,.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Package size={18} color="#8b5cf6" />
+                    <Package size={18} color="var(--violet)" />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", marginBottom: "2px" }}>{req.item}</p>
