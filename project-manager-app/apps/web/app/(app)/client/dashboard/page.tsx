@@ -147,7 +147,7 @@ export default function ClientDashboardPage() {
               gap: "7px",
               padding: "10px 18px",
               borderRadius: "10px",
-              background: "linear-gradient(135deg, var(--brand), #2563eb)",
+              background: "linear-gradient(135deg, var(--brand), var(--brand-dark))",
               color: "#fff",
               fontWeight: 700,
               fontSize: "13px",
@@ -352,7 +352,7 @@ export default function ClientDashboardPage() {
             { label: "Publicar nuevo trabajo", href: CLIENT_ROUTES.newJob,      icon: Plus,         color: "var(--brand)" },
             { label: "Proyectos y copiloto",   href: CLIENT_ROUTES.projects,    icon: FolderKanban, color: "var(--violet)" },
             { label: "Ver milestones",         href: CLIENT_ROUTES.milestones,  icon: CheckSquare,  color: "var(--ok)" },
-            { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "#ff6a00" },
+            { label: "Historial pagos",        href: CLIENT_ROUTES.payments,    icon: DollarSign,   color: "var(--accent)" },
             { label: pendingBidCount > 0 ? `Propuestas recibidas (${pendingBidCount})` : "Propuestas recibidas", href: "/client/proposals", icon: Users, color: "#6366f1" },
             { label: "Disputas abiertas",      href: clientDisputesHref({ status: "open" }), icon: AlertTriangle, color: "var(--error)" },
           ].map(action => {

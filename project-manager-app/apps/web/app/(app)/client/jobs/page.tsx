@@ -144,7 +144,7 @@ export default function ClientJobsPage() {
               style={{
                 display: "inline-flex", alignItems: "center", gap: "7px",
                 padding: "9px 16px", borderRadius: "9px",
-                background: "linear-gradient(135deg, var(--brand), #2563eb)",
+                background: "linear-gradient(135deg, var(--brand), var(--brand-dark))",
                 color: "#fff", fontWeight: 700, fontSize: "13px",
                 textDecoration: "none", boxShadow: "0 4px 12px rgba(59,130,246,.3)",
               }}
