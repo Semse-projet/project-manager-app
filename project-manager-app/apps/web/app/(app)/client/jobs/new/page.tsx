@@ -852,7 +852,7 @@ export default function NewJobPage() {
             style={{
               display: "flex", alignItems: "center", gap: "6px",
               padding: "10px 18px", borderRadius: "9px",
-              background: canProceed() ? "linear-gradient(135deg, var(--brand), #2563eb)" : "var(--surface)",
+              background: canProceed() ? "linear-gradient(135deg, var(--brand), var(--brand-dark))" : "var(--surface)",
               color: canProceed() ? "#fff" : "var(--faint)", cursor: canProceed() ? "pointer" : "not-allowed",
               fontSize: "13px", fontWeight: 700, border: "none",
               boxShadow: canProceed() ? "0 4px 12px rgba(59,130,246,.3)" : "none",

@@ -224,7 +224,7 @@ export default function ClientMilestonesPage() {
             style={{
               display: "inline-flex", alignItems: "center", gap: "6px",
               padding: "10px 16px", borderRadius: "9px",
-              background: "linear-gradient(135deg, var(--brand), #2563eb)",
+              background: "linear-gradient(135deg, var(--brand), var(--brand-dark))",
               color: "#fff", textDecoration: "none", fontSize: "13px", fontWeight: 700,
             }}
           >

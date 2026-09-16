@@ -221,7 +221,7 @@ export default function WorkerDashboardPage() {
               borderRadius: "10px",
               color: "#fff",
               textDecoration: "none",
-              background: "linear-gradient(135deg, var(--brand), #2563eb)",
+              background: "linear-gradient(135deg, var(--brand), var(--brand-dark))",
               fontSize: "13px",
               fontWeight: 700,
             }}
@@ -387,7 +387,7 @@ export default function WorkerDashboardPage() {
               { href: "/worker/evidence", label: "Subir evidencia", description: "Enviar fotos y documentos", icon: Camera, color: "var(--ok)" },
               { href: "/worker/materials", label: "Materiales", description: "Solicitar o rastrear materiales", icon: Package, color: "var(--warn)" },
               { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "var(--error)" },
-              { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "#ff6a00" },
+              { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "var(--accent)" },
               { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },
               { href: "/worker/review", label: "Calificar clientes", description: "Enviar reseñas de trabajos completados", icon: Star, color: "#fbbf24" },
               { href: "/worker/opportunities", label: "Ver oportunidades", description: "Trabajos disponibles — envía propuestas", icon: Briefcase, color: "#6366f1" },
