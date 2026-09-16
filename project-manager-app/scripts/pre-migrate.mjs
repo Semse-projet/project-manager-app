@@ -253,6 +253,47 @@ async function repairPhantomMigrations() {
 }
 
 // ---------------------------------------------------------------------------
+// Reparar migraciones realmente fallidas (P3009/P3018)
+// ---------------------------------------------------------------------------
+//
+// Distinto del caso fantasma de arriba: aqui la migracion nunca termino
+// (finished_at IS NULL) porque su SQL literalmente fallo a mitad de camino
+// (p.ej. error de sintaxis). Mientras esa fila exista, `migrate deploy`
+// rechaza CUALQUIER migracion nueva con P3009 -ni siquiera revisa las demas
+// pendientes- asi que un solo nombre stuck bloquea todos los deploys futuros
+// hasta resolverse a mano en produccion.
+//
+// 20260916_fix_contributor_terms_v1_0 fallo en produccion (#629) por dos bugs
+// de SQL crudo (apostrofe sin escapar rompiendo un string entre comillas
+// simples, y una columna "updatedAt" inexistente + id sin valor explicito).
+// El archivo ya esta corregido, pero la fila fallida en `_prisma_migrations`
+// sigue bloqueando -corregir el .sql no alcanza, Prisma nunca reintenta una
+// migracion que ya registro como fallida. Mismo patron que
+// repairPhantomMigrations: lista explicita y revisada a mano, borra el
+// registro stuck para que `migrate deploy` la reintente de verdad con el SQL
+// ya corregido (que ahora es un no-op seguro via ON CONFLICT DO NOTHING,
+// porque 20260916021252_fix_contributor_terms_v1_0 ya inserto la fila real).
+const FAILED_MIGRATION_REPAIRS = ["20260916_fix_contributor_terms_v1_0"];
+
+async function repairFailedMigrations() {
+  const stuckRows = await prisma.$queryRaw`
+    SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NULL
+  `;
+
+  for (const row of stuckRows) {
+    if (!FAILED_MIGRATION_REPAIRS.includes(row.migration_name)) continue; // no es un caso conocido, no tocar
+
+    console.warn(
+      `  [pre-migrate] ⚠ migracion fallida detectada: ${row.migration_name} sin finished_at — reabriendo para reintento`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "_prisma_migrations" WHERE migration_name = $1`,
+      row.migration_name,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Dedup rows that would block unique-constraint migrations
 // ---------------------------------------------------------------------------
 
@@ -341,6 +382,12 @@ try {
   await repairPhantomMigrations();
 } catch (err) {
   console.warn("[pre-migrate] warn: repair de migraciones fantasma fallo:", err?.message ?? err);
+}
+
+try {
+  await repairFailedMigrations();
+} catch (err) {
+  console.warn("[pre-migrate] warn: repair de migraciones fallidas fallo:", err?.message ?? err);
 }
 
 try {

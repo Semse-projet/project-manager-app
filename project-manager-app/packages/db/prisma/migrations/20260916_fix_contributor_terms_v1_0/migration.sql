@@ -2,20 +2,34 @@
 -- This fixes the 404 on GET /v1/contributor-program/terms/active
 -- The schema migration 20260916021251 created the table but seed.ts was never run
 --
--- Idempotent: Uses ON CONFLICT(...) DO NOTHING, safe to re-run
+-- Corrected (two bugs in the original version of this migration):
+-- 1. Used single-quoted SQL string literals for the terms content, which
+--    broke on the first unescaped apostrophe ("don't" in the English text)
+--    — Postgres error 42601, syntax error at or near "t". Rewritten with
+--    dollar-quoting ($terms_es$...$terms_es$), the same safe pattern
+--    already used by migration 20260916021252_fix_contributor_terms_v1_0,
+--    which applied successfully.
+-- 2. Listed a non-existent "updatedAt" column (ContributorTermsVersion has
+--    no updatedAt field) and omitted "id" — Prisma's @default(cuid()) is a
+--    client-side default, not a database default, so a raw SQL INSERT must
+--    supply id explicitly or the NOT NULL constraint fails.
+--
+-- Idempotent: ON CONFLICT (version) DO NOTHING — safe to re-run, and this is
+-- now a no-op in practice since 20260916021252 already inserted this row.
 
 INSERT INTO "ContributorTermsVersion" (
+  "id",
   "version",
   "contentEs",
   "contentEn",
   "contentHash",
   "effectiveAt",
   "isActive",
-  "createdAt",
-  "updatedAt"
+  "createdAt"
 ) VALUES (
+  'contributor_terms_v1_0_b',
   '1.0',
-  '# Programa de Contribuidores de Conocimiento SEMSE — Términos v1.0
+  $terms_es$# Programa de Contribuidores de Conocimiento SEMSE — Términos v1.0
 
 **Fecha de vigencia:** 15 de septiembre de 2026
 
@@ -62,8 +76,8 @@ Algunas compensaciones podrían estar sujetas a requisitos tributarios o de repo
 SEMSE recopila únicamente la información necesaria para operar el programa (identidad, evidencia enviada, consentimiento, historial de pago). Consulta la Política de Privacidad de SEMSE para más detalles.
 
 ## Actualizaciones
-Estos términos están versionados. Una nueva versión material requiere una nueva aceptación para futuras misiones. Tu aceptación de la versión 1.0 permanece registrada incluso si en el futuro existe una versión 1.1 o posterior.',
-  '# SEMSE Knowledge Contributor Program — Terms v1.0
+Estos términos están versionados. Una nueva versión material requiere una nueva aceptación para futuras misiones. Tu aceptación de la versión 1.0 permanece registrada incluso si en el futuro existe una versión 1.1 o posterior.$terms_es$,
+  $terms_en$# SEMSE Knowledge Contributor Program — Terms v1.0
 
 **Effective date:** September 15, 2026
 
@@ -110,11 +124,9 @@ Some compensation may be subject to tax or reporting requirements depending on y
 SEMSE collects only the information necessary to operate the program (identity, submitted evidence, consent, payment history). See SEMSE's Privacy Policy for details.
 
 ## Updates
-These terms are versioned. A material new version requires new acceptance for future missions. Your acceptance of version 1.0 stays on record even once a version 1.1 or later exists.',
+These terms are versioned. A material new version requires new acceptance for future missions. Your acceptance of version 1.0 stays on record even once a version 1.1 or later exists.$terms_en$,
   'd346c1f1c633e42bf0443ff9b792c04031601f4fbfa71d985e68fae56f1c84f5',
   '2026-09-15 00:00:00.000',
   true,
-  NOW(),
   NOW()
 ) ON CONFLICT ("version") DO NOTHING;
-
