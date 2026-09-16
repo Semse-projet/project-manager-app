@@ -177,11 +177,11 @@ export function ResumenTab({ jobs }: { jobs: JobRecordView[] }) {
         <KpiCard
           label="Esta semana"
           value={fmtHours((weekly?.totalMinutes ?? 0) * 60 + weekPendingSeconds)}
-          color="#059669"
+          color="var(--ok)"
           badge={<ChangeBadge value={weekly?.changePercent ?? null} />}
           hint={weekPendingSeconds > 0 ? "incluye horas pendientes de sincronizar" : undefined}
         />
-        <KpiCard label="Este mes" value={fmtHours((monthly?.totalMinutes ?? 0) * 60 + monthPendingSeconds)} color="#d97706" hint={`${monthly?.from.slice(0, 10) ?? ""} → hoy`} />
+        <KpiCard label="Este mes" value={fmtHours((monthly?.totalMinutes ?? 0) * 60 + monthPendingSeconds)} color="var(--warn)" hint={`${monthly?.from.slice(0, 10) ?? ""} → hoy`} />
         <KpiCard label="Proyectos libres" value={String(activeProjects)} color="var(--violet)" hint="activos en tu espacio" />
       </div>
 

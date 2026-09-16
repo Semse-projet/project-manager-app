@@ -233,7 +233,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
           color="var(--brand)"
           badge={<ChangeBadge value={weekly?.changePercent ?? null} />}
         />
-        <KpiCard label="Días trabajados" value={String(daysWorked)} color="#059669" hint={daysWorked > 0 ? `${fmtHours(Math.round(weekSeconds / daysWorked))} promedio/día` : undefined} />
+        <KpiCard label="Días trabajados" value={String(daysWorked)} color="var(--ok)" hint={daysWorked > 0 ? `${fmtHours(Math.round(weekSeconds / daysWorked))} promedio/día` : undefined} />
         <KpiCard
           label="Registros"
           value={String((weekly?.totalEntries ?? 0) + weekEntries.filter((entry) => entry.status === "pending_sync").length)}
@@ -261,7 +261,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
       </div>
 
       <ChartCard title="Tendencia mensual" subtitle={`${monthly?.totalEntries ?? 0} registros · ${fmtHours((monthly?.totalMinutes ?? 0) * 60)} en el mes`}>
-        <TrendChart points={monthTrend} color="#059669" valueFmt={fmtHours} />
+        <TrendChart points={monthTrend} color="var(--ok)" valueFmt={fmtHours} />
       </ChartCard>
     </div>
   );

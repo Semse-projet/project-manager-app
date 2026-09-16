@@ -144,7 +144,7 @@ export function AsistenteTab() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "#059669", fontSize: "10px", fontWeight: 800 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "4px 9px", borderRadius: "999px", background: "rgba(16,185,129,.12)", color: "var(--ok)", fontSize: "10px", fontWeight: 800 }}>
             <Lock size={11} /> 100% local · Ollama
           </span>
           <button type="button" onClick={handleClear} style={clearButton()}>

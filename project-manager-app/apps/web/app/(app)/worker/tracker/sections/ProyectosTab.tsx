@@ -24,7 +24,7 @@ import {
 } from "./trackerUi";
 
 const STATUS_META: Record<FreeProjectView["status"], { label: string; color: string }> = {
-  active: { label: "Activo", color: "#059669" },
+  active: { label: "Activo", color: "var(--ok)" },
   archived: { label: "Archivado", color: "#64748b" },
   converted: { label: "Convertido a job", color: "var(--brand)" },
 };
