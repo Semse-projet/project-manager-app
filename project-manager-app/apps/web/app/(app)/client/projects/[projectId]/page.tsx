@@ -23,7 +23,7 @@ type MilestoneRow = {
 const STATUS_COLOR: Record<string, string> = {
   completed: "var(--ok)",
   approved:  "var(--ok)",
-  in_review: "#f59e0b",
+  in_review: "var(--warn)",
   blocked:   "var(--error)",
   pending:   "#94a3b8",
 };
@@ -159,7 +159,7 @@ export default function ClientProjectDetailPage() {
         {[
           { label: "Avance", value: `${project.completion ?? 0}%`, color: "var(--ok)" },
           { label: "Hitos", value: `${completedMilestones}/${milestones.length}`, color: "#6366f1" },
-          { label: "Presupuesto", value: formatCurrency(project.budgetEstimate), color: "#f59e0b" },
+          { label: "Presupuesto", value: formatCurrency(project.budgetEstimate), color: "var(--warn)" },
           { label: "Riesgo", value: (project.riskLevel ?? "low").toUpperCase(), color: project.riskLevel === "critical" ? "var(--error)" : project.riskLevel === "high" ? "#fb7185" : project.riskLevel === "medium" ? "#fbbf24" : "#86efac" },
         ].map(stat => (
           <div key={stat.label} style={{ padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", textAlign: "center" }}>
@@ -217,7 +217,7 @@ export default function ClientProjectDetailPage() {
                   href={`/client/jobs?projectId=${projectId}`}
                   style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "10px", border: "1px solid var(--border)", textDecoration: "none", color: "var(--ink)", fontSize: "13px" }}
                 >
-                  <FileText size={14} style={{ color: "#f59e0b" }} />
+                  <FileText size={14} style={{ color: "var(--warn)" }} />
                   <span style={{ flex: 1 }}>Ver trabajos del proyecto</span>
                   <ChevronRight size={12} style={{ color: "var(--muted)" }} />
                 </Link>

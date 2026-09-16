@@ -15,7 +15,7 @@ const KIND_META: Record<AgentMemoryKind | string, { label: string; color: string
   decision:      { label: "Decision",      color: "#c084fc", bg: "rgba(192,132,252,.12)" },
   run_summary:   { label: "Run Summary",   color: "#34d399", bg: "rgba(52,211,153,.12)"  },
   task_state:    { label: "Task State",    color: "#60a5fa", bg: "rgba(96,165,250,.12)"  },
-  runtime_fact:  { label: "Runtime Fact",  color: "#f59e0b", bg: "rgba(245,158,11,.12)"  },
+  runtime_fact:  { label: "Runtime Fact",  color: "var(--warn)", bg: "rgba(245,158,11,.12)"  },
   repo_fact:     { label: "Repo Fact",     color: "#818cf8", bg: "rgba(129,140,248,.12)" },
   operator_note: { label: "Operator Note", color: "#f87171", bg: "rgba(248,113,113,.12)" },
 };

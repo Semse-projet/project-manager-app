@@ -343,7 +343,7 @@ export default function AdminChangeOrdersPage() {
                         <button
                           disabled={busyId === `risk:${co.id}`}
                           onClick={() => runRiskAgent(co.id)}
-                          style={btn("#f59e0b", busyId === `risk:${co.id}`)}
+                          style={btn("var(--warn)", busyId === `risk:${co.id}`)}
                         >
                           <Sparkles size={11} style={{ display: "inline", marginRight: 4 }} />
                           {busyId === `risk:${co.id}` ? "Analizando…" : "Agente de riesgo"}

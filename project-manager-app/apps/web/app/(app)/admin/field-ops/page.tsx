@@ -104,19 +104,19 @@ const UNIT_STATUS_META: Record<UnitStatus, { label: string; color: string; bg: s
   PENDING: { label: "Pendiente", color: "#6b7280", bg: "#f3f4f6", Icon: Clock },
   IN_PROGRESS: { label: "En progreso", color: "var(--ok)", bg: "#d1fae5", Icon: CheckCircle2 },
   COMPLETE: { label: "Completada", color: "#0ea5e9", bg: "#dbeafe", Icon: CheckCircle2 },
-  ON_HOLD: { label: "En pausa", color: "#f59e0b", bg: "#fef3c7", Icon: AlertCircle },
+  ON_HOLD: { label: "En pausa", color: "var(--warn)", bg: "#fef3c7", Icon: AlertCircle },
   CANCELLED: { label: "Cancelada", color: "var(--error)", bg: "#fee2e2", Icon: AlertCircle }
 };
 
 const VISIBILITY_COLOR: Record<FactVisibility, string> = {
   TEAM: "var(--ok)",
   ORG: "var(--brand)",
-  PUBLIC: "#8b5cf6"
+  PUBLIC: "var(--violet)"
 };
 
 const COMPLIANCE_META: Record<ComplianceStatus, { label: string; color: string; Icon: typeof ShieldCheck }> = {
   APPROVED: { label: "Aprobado", color: "var(--ok)", Icon: ShieldCheck },
-  PENDING: { label: "Pendiente", color: "#f59e0b", Icon: ShieldAlert },
+  PENDING: { label: "Pendiente", color: "var(--warn)", Icon: ShieldAlert },
   EXPIRED: { label: "Expirado", color: "var(--error)", Icon: ShieldX },
   MISSING: { label: "Faltante", color: "#6b7280", Icon: ShieldAlert }
 };
@@ -132,7 +132,7 @@ function confidenceBar(confidence: number) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <div style={{ width: 72, height: 6, borderRadius: 20, background: "var(--border)", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 20, background: pct >= 80 ? "var(--ok)" : pct >= 60 ? "#f59e0b" : "var(--error)" }} />
+        <div style={{ width: `${pct}%`, height: "100%", borderRadius: 20, background: pct >= 80 ? "var(--ok)" : pct >= 60 ? "var(--warn)" : "var(--error)" }} />
       </div>
       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>{pct}%</span>
     </div>
@@ -720,7 +720,7 @@ function KnowledgeTab({ state, onRefresh }: { state: RemoteState<ContextMemoryEn
                 <tr key={fact.id} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "11px 14px", fontWeight: 600, fontSize: 13, color: "var(--brand)" }}>{fact.subject}</td>
                   <td style={{ padding: "11px 14px" }}>
-                    <code style={{ fontSize: 12, background: "var(--faint)", padding: "2px 7px", borderRadius: 4, color: "#8b5cf6" }}>{fact.predicate}</code>
+                    <code style={{ fontSize: 12, background: "var(--faint)", padding: "2px 7px", borderRadius: 4, color: "var(--violet)" }}>{fact.predicate}</code>
                   </td>
                   <td style={{ padding: "11px 14px", fontSize: 13, maxWidth: 240 }}>{fact.object}</td>
                   <td style={{ padding: "11px 14px", minWidth: 120 }}>{confidenceBar(fact.confidence)}</td>
@@ -795,7 +795,7 @@ function VendorsTab({ state, onRefresh }: { state: RemoteState<Vendor[]>; onRefr
     if (total === 0) return { pct: 0, color: "#6b7280" };
     const approved = vendor.compliance.filter((doc) => doc.status === "APPROVED").length;
     const pct = Math.round((approved / total) * 100);
-    return { pct, color: pct === 100 ? "var(--ok)" : pct >= 60 ? "#f59e0b" : "var(--error)" };
+    return { pct, color: pct === 100 ? "var(--ok)" : pct >= 60 ? "var(--warn)" : "var(--error)" };
   }
 
   if (state.loading) return <LoadingState />;

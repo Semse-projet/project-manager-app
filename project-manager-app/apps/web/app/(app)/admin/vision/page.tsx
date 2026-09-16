@@ -133,7 +133,7 @@ function SummaryStats({ analyses }: { analyses: VisionAnalysis[] }) {
   const stats = [
     { label: "Analizadas", value: completed.length, icon: <Camera size={18} color="var(--brand)" /> },
     { label: "Calidad promedio", value: pct(avgQuality), icon: <TrendingUp size={18} color="var(--ok)" /> },
-    { label: "Duplicados", value: duplicates, icon: <Layers size={18} color="#f59e0b" />, warn: duplicates > 0 },
+    { label: "Duplicados", value: duplicates, icon: <Layers size={18} color="var(--warn)" />, warn: duplicates > 0 },
     { label: "Baja calidad", value: lowQuality, icon: <AlertTriangle size={18} color="#fbbf24" />, warn: lowQuality > 0 },
     { label: "Riesgo alto/crítico", value: critical, icon: <XCircle size={18} color="var(--error)" />, warn: critical > 0 },
   ];
@@ -142,7 +142,7 @@ function SummaryStats({ analyses }: { analyses: VisionAnalysis[] }) {
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
       {stats.map(s => (
         <div key={s.label} style={{
-          flex: "1 1 140px", background: "#1f2937", border: `1px solid ${s.warn ? "#f59e0b" : "#374151"}`,
+          flex: "1 1 140px", background: "#1f2937", border: `1px solid ${s.warn ? "var(--warn)" : "#374151"}`,
           borderRadius: 8, padding: "12px 14px",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>

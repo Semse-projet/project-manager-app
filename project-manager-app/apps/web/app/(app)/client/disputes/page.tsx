@@ -34,7 +34,7 @@ type DisputeRow = {
 
 const STATUS_META: Record<DisputeRow["status"], { variant: "error" | "warning" | "success"; label: string; tone: string }> = {
   open: { variant: "error", label: "Abierta", tone: "var(--error)" },
-  assigned: { variant: "warning", label: "Asignada", tone: "#f59e0b" },
+  assigned: { variant: "warning", label: "Asignada", tone: "var(--warn)" },
   resolved: { variant: "success", label: "Resuelta", tone: "var(--ok)" }
 };
 

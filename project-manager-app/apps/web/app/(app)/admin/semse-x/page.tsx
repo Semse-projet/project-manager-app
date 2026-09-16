@@ -53,7 +53,7 @@ function taskLabel(t: string): string {
 }
 
 function modelColor(slug: string): string {
-  if (slug.includes("claude")) return "#06b6d4";
+  if (slug.includes("claude")) return "var(--info)";
   if (slug.includes("prometeo")) return "#818cf8";
   if (slug.includes("gpt")) return "var(--ok)";
   return "#94a3b8";

@@ -1289,7 +1289,7 @@ export default function AdminOpsPage() {
           <section style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "10px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                <ShieldAlert size={18} color="#f59e0b" />
+                <ShieldAlert size={18} color="var(--warn)" />
                 <h2 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>Aprobaciones Pendientes</h2>
                 {pendingApprovals.length > 0 && (
                   <span style={{ padding: "2px 8px", borderRadius: 999, background: "rgba(245,158,11,0.15)", color: "#fbbf24", fontSize: 11, fontWeight: 800 }}>

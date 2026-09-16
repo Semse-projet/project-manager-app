@@ -32,7 +32,7 @@ export function LandingNav() {
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: "linear-gradient(135deg, var(--brand), #8b5cf6)",
+            background: "linear-gradient(135deg, var(--brand), var(--violet))",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "#fff", fontWeight: 900, fontSize: 16,
             boxShadow: "0 4px 12px rgba(99,102,241,0.3)",

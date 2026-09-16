@@ -237,7 +237,7 @@ export function ReportesTab({ jobs }: { jobs: JobRecordView[] }) {
         <KpiCard
           label="Registros"
           value={String((weekly?.totalEntries ?? 0) + weekEntries.filter((entry) => entry.status === "pending_sync").length)}
-          color="#8b5cf6"
+          color="var(--violet)"
           hint="en la semana"
         />
         <KpiCard label="Costo estimado" value={weekCostSummary} color="var(--accent)" hint="según tarifas registradas" />

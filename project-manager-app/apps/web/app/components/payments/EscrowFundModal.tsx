@@ -19,7 +19,7 @@ const PROVIDERS: { id: Provider; label: string; description: string; icon: typeo
   { id: "paypal",        label: "PayPal",          description: "Cuenta PayPal o tarjeta vinculada",    icon: Globe,       color: "#003087" },
   { id: "bank-transfer", label: "Transferencia",   description: "ACH / SEPA / transferencia bancaria",  icon: Building2,   color: "var(--ok)" },
   { id: "adyen",         label: "Adyen",           description: "Pagos globales multi-canal",           icon: Wallet,      color: "#0abf53" },
-  { id: "mock",          label: "Sandbox",         description: "Simulación para pruebas y desarrollo", icon: CheckCircle, color: "#8b5cf6" },
+  { id: "mock",          label: "Sandbox",         description: "Simulación para pruebas y desarrollo", icon: CheckCircle, color: "var(--violet)" },
 ];
 
 const METHODS_FOR_PROVIDER: Record<Provider, { id: MethodType; label: string }[]> = {

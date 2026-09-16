@@ -26,8 +26,8 @@ interface DocRow {
 const KIND_COLOR: Record<string, string> = {
   PHOTO:    "var(--ok)",
   VIDEO:    "var(--brand)",
-  DOCUMENT: "#8b5cf6",
-  CONTRACT: "#f59e0b",
+  DOCUMENT: "var(--violet)",
+  CONTRACT: "var(--warn)",
 };
 
 const KIND_LABEL: Record<string, string> = {
@@ -196,7 +196,7 @@ export default function ClientDocumentsPage() {
         {[
           { label: "Archivos totales", value: String(docs.length), color: "var(--brand)" },
           { label: "Con acceso directo", value: String(withDirectUrl), color: "var(--ok)" },
-          { label: "Validados", value: String(approvedDocs), color: "#8b5cf6" },
+          { label: "Validados", value: String(approvedDocs), color: "var(--violet)" },
         ].map((item) => (
           <div key={item.label} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px", padding: "14px 16px" }}>
             <p style={{ fontSize: "11px", color: "var(--muted)", fontWeight: 700, marginBottom: "6px" }}>{item.label.toUpperCase()}</p>

@@ -77,9 +77,9 @@ function SupportBanner({ supported }: { supported: boolean }) {
         gap: "14px"
       }}
     >
-      {supported ? <CheckCircle size={20} color="#34d399" /> : <Layers size={20} color="#f59e0b" />}
+      {supported ? <CheckCircle size={20} color="#34d399" /> : <Layers size={20} color="var(--warn)" />}
       <div>
-        <div style={{ fontWeight: 800, color: supported ? "#34d399" : "#f59e0b", fontSize: "0.95rem" }}>
+        <div style={{ fontWeight: 800, color: supported ? "#34d399" : "var(--warn)", fontSize: "0.95rem" }}>
           {supported ? "HTML-in-Canvas activo en este navegador" : "Modo fallback DOM activo"}
         </div>
         <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: "4px" }}>
@@ -509,7 +509,7 @@ export default function AdminHtmlInCanvasPage() {
                 name: "canvas.onpaint",
                 type: "evento",
                 desc: "Se dispara cuando el renderizado del subtree cambia. Ideal para sincronizar el redibujado.",
-                color: "#f59e0b"
+                color: "var(--warn)"
               }
             ].map((item) => (
               <div

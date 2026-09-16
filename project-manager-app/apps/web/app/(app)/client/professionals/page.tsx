@@ -104,7 +104,7 @@ function ScoreBar({ value, label, color }: { value: number; label: string; color
 
 function CandidateCard({ candidate, preferred }: { candidate: Candidate; preferred?: boolean }) {
   const scorePercent = Math.round(candidate.score * 100);
-  const scoreColor = scorePercent >= 70 ? "var(--ok)" : scorePercent >= 40 ? "#f59e0b" : "var(--error)";
+  const scoreColor = scorePercent >= 70 ? "var(--ok)" : scorePercent >= 40 ? "var(--warn)" : "var(--error)";
 
   return (
     <div style={{
@@ -142,8 +142,8 @@ function CandidateCard({ candidate, preferred }: { candidate: Candidate; preferr
                 <span style={{ fontSize: 11, color: "var(--muted)" }}>{candidate.verificationStatus}</span>
               )}
               {candidate.avgRating > 0 && (
-                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "#f59e0b" }}>
-                  <Star size={10} fill="#f59e0b" />
+                <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--warn)" }}>
+                  <Star size={10} fill="var(--warn)" />
                   {candidate.avgRating.toFixed(1)} ({candidate.totalRatings})
                 </span>
               )}
@@ -160,8 +160,8 @@ function CandidateCard({ candidate, preferred }: { candidate: Candidate; preferr
       <div style={{ display: "grid", gap: 6 }}>
         <ScoreBar value={candidate.breakdown.textSimilarity}    label="Similitud de trabajo" color="#818cf8" />
         <ScoreBar value={candidate.breakdown.trustSignal}       label="Confianza"             color="var(--ok)" />
-        <ScoreBar value={candidate.breakdown.verificationSignal} label="Verificación"         color="#06b6d4" />
-        <ScoreBar value={candidate.breakdown.ratingSignal}      label="Calificaciones"        color="#f59e0b" />
+        <ScoreBar value={candidate.breakdown.verificationSignal} label="Verificación"         color="var(--info)" />
+        <ScoreBar value={candidate.breakdown.ratingSignal}      label="Calificaciones"        color="var(--warn)" />
       </div>
     </div>
   );
@@ -475,7 +475,7 @@ export default function ClientProfessionalsPage() {
 
           {preferredTarget && !preferredMatchedCandidate && result.preferredCandidateStatus && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.18)" }}>
-              <Shield size={15} color="#f59e0b" />
+              <Shield size={15} color="var(--warn)" />
               <span style={{ fontSize: 13, color: "var(--ink)" }}>
                 <strong>{preferredTarget.name || "El perfil objetivo"}</strong> no quedó en resultados finales. {result.preferredCandidateStatus.reason}
               </span>

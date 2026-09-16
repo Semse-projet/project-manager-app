@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
-import { AlertCircle, AlertTriangle, CheckCircle, Clock, DollarSign, FileText, Plus, Receipt, RefreshCw, Scan, TrendingUp, X } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, DollarSign, FileText, Plus, Receipt, RefreshCw, Scan, TrendingUp, X } from "lucide-react";
 import { DownloadPdfButton } from "../../../../components/finance/download-pdf-button";
+import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import {
   approveExpense,
   createExpense,
@@ -19,6 +20,7 @@ import {
   type ExtractedReceipt,
   type Invoice,
   type InvoiceLineItem,
+  type NotificationItem,
   type ProjectExpense,
 } from "../../../semse-api";
 
@@ -82,7 +84,7 @@ export default function FinancePage() {
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showScanForm, setShowScanForm] = useState(false);
-  const [overdueToasts, setOverdueToasts] = useState<Array<{ id: string; number: string; total: number }>>([]);
+  const [overdueToasts, setOverdueToasts] = useState<Array<{ id: string; number: string; total: number; createdAt: string }>>([]);
 
   async function load() {
     setLoading(true);
@@ -105,7 +107,7 @@ export default function FinancePage() {
     es.addEventListener("invoice-overdue", (e) => {
       try {
         const data = JSON.parse(e.data) as { invoiceId: string; number: string; total: number };
-        setOverdueToasts(prev => [...prev.slice(-2), { id: data.invoiceId, number: data.number, total: data.total }]);
+        setOverdueToasts(prev => [...prev.slice(-2), { id: data.invoiceId, number: data.number, total: data.total, createdAt: new Date().toISOString() }]);
         void load();
       } catch { /* ignore */ }
     });
@@ -117,6 +119,15 @@ export default function FinancePage() {
   const totalExpenses = expenses.filter(e => e.status !== "rejected" && e.status !== "archived").reduce((s, e) => s + (e.amount ?? 0), 0);
   const pendingInvoices = invoices.filter(i => ["sent", "viewed", "approved"].includes(i.status)).length;
 
+  const overdueNotificationItems: NotificationItem[] = overdueToasts.map(t => ({
+    id: t.id,
+    title: "Factura vencida",
+    body: `Factura ${t.number} vencida — ${fmt(t.total)}`,
+    kind: "invoice_overdue",
+    read: false,
+    createdAt: t.createdAt,
+  }));
+
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px", display: "grid", gap: 20 }}>
       {/* Header */}
@@ -125,7 +136,12 @@ export default function FinancePage() {
           <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "var(--ink)" }}>Finance Hub</h1>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>Facturas, gastos y control financiero</p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <NotificationBanner
+            audience="client"
+            extraItems={overdueNotificationItems}
+            onDismissExtraItem={(id) => setOverdueToasts(prev => prev.filter(t => t.id !== id))}
+          />
           <button onClick={() => void load()} disabled={loading} style={btnStyle("#334155", "#94a3b8")}>
             <RefreshCw size={14} className={loading ? "animate-spin" : undefined} />
           </button>
@@ -192,26 +208,6 @@ export default function FinancePage() {
           )}
           {expenses.map(exp => (
             <ExpenseRow key={exp.id} expense={exp} onRefresh={load} />
-          ))}
-        </div>
-      )}
-
-      {/* Overdue toasts */}
-      {overdueToasts.length > 0 && (
-        <div style={{ position: "fixed", bottom: 24, right: 24, display: "grid", gap: 8, zIndex: 200 }}>
-          {overdueToasts.map(toast => (
-            <div key={toast.id} style={{
-              background: "rgba(239,68,68,.95)", borderRadius: 12, padding: "12px 16px",
-              display: "flex", alignItems: "center", gap: 10, color: "white", fontSize: 13, fontWeight: 600,
-              boxShadow: "0 8px 24px rgba(0,0,0,.3)",
-            }}>
-              <AlertTriangle size={16} />
-              Factura {toast.number} vencida — ${toast.total.toLocaleString()}
-              <button onClick={() => setOverdueToasts(p => p.filter(t => t.id !== toast.id))}
-                style={{ background: "none", border: "none", color: "white", cursor: "pointer", marginLeft: 4 }}>
-                <X size={14} />
-              </button>
-            </div>
           ))}
         </div>
       )}

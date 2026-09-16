@@ -34,7 +34,7 @@ const CAT_LABEL: Record<ComplianceCategory, string> = {
   legal: "Legal", license: "Licencia", insurance: "Seguro", escrow: "Escrow", data: "Datos",
 };
 const CAT_COLOR: Record<ComplianceCategory, string> = {
-  legal: "#8b5cf6", license: "var(--brand)", insurance: "var(--ok)", escrow: "#f59e0b", data: "#ec4899",
+  legal: "var(--violet)", license: "var(--brand)", insurance: "var(--ok)", escrow: "var(--warn)", data: "#ec4899",
 };
 
 async function buildChecks(): Promise<ComplianceItem[]> {

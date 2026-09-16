@@ -16,7 +16,7 @@ function formatRelative(iso: string): string {
 
 const SEVERITY_ICON = {
   critical: <ShieldAlert size={14} style={{ color: "var(--error)" }} />,
-  warning:  <AlertTriangle size={14} style={{ color: "#f59e0b" }} />,
+  warning:  <AlertTriangle size={14} style={{ color: "var(--warn)" }} />,
   info:     <Info size={14} style={{ color: "#6366f1" }} />,
 };
 

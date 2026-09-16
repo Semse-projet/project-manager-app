@@ -13,8 +13,8 @@ const DAY_NAMES = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   in_progress: { label: "En progreso", color: "#6366f1", dot: "#6366f1" },
   accepted:    { label: "Aceptado",    color: "var(--ok)", dot: "var(--ok)" },
-  reserved:    { label: "Reservado",   color: "#f59e0b", dot: "#f59e0b" },
-  review:      { label: "En revisión", color: "#06b6d4", dot: "#06b6d4" },
+  reserved:    { label: "Reservado",   color: "var(--warn)", dot: "var(--warn)" },
+  review:      { label: "En revisión", color: "var(--info)", dot: "var(--info)" },
   posted:      { label: "Publicado",   color: "var(--brand)", dot: "var(--brand)" },
   completed:   { label: "Completado",  color: "#64748b", dot: "#64748b" },
 };

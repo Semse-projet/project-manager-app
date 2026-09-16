@@ -376,10 +376,10 @@ export default function MissionControlPage() {
 
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label="Total" value={payload?.counts.total ?? 0} />
-        <Metric label="Critical" value={payload?.counts.bySeverity.critical ?? 0} tone="#ef4444" />
+        <Metric label="Critical" value={payload?.counts.bySeverity.critical ?? 0} tone="var(--error)" />
         <Metric label="Dead letter" value={payload?.counts.byStatus.dead_letter ?? 0} tone="#f97316" />
         <Metric label="Failed" value={payload?.counts.byStatus.failed ?? 0} tone="#eab308" />
-        <Metric label="Pending approval" value={payload?.counts.byStatus.pending_approval ?? 0} tone="#8b5cf6" />
+        <Metric label="Pending approval" value={payload?.counts.byStatus.pending_approval ?? 0} tone="var(--violet)" />
       </div>
 
       {payload?.sourceErrors.length ? (

@@ -5,9 +5,9 @@ const BADGE_META: Record<string, { label: string; color: string; emoji: string }
   top_rated:      { label: "Top Rated",      color: "#fbbf24", emoji: "⭐" },
   zero_disputes:  { label: "Cero Disputas",  color: "var(--ok)", emoji: "🛡" },
   fast_deliverer: { label: "Entrega Puntual", color: "#818cf8", emoji: "⚡" },
-  high_volume:    { label: "Alto Volumen",    color: "#06b6d4", emoji: "📊" },
+  high_volume:    { label: "Alto Volumen",    color: "var(--info)", emoji: "📊" },
   verified:       { label: "Verificado",      color: "#34d399", emoji: "✓" },
-  elite:          { label: "Elite",           color: "#f59e0b", emoji: "👑" },
+  elite:          { label: "Elite",           color: "var(--warn)", emoji: "👑" },
 };
 
 function TrustMeter({ score }: { score: number }) {

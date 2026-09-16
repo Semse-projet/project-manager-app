@@ -105,7 +105,7 @@ function EmptyPanel({
 const TRUST_TIER: Record<string, { label: string; color: string }> = {
   emerging:    { label: "Emergente",    color: "#64748b" },
   growing:     { label: "En crecimiento", color: "var(--brand)" },
-  established: { label: "Establecido", color: "#8b5cf6" },
+  established: { label: "Establecido", color: "var(--violet)" },
   trusted:     { label: "De confianza", color: "var(--ok)" },
 };
 
@@ -383,9 +383,9 @@ export default function WorkerDashboardPage() {
 
           <div style={{ display: "grid", gap: "10px" }}>
             {[
-              { href: "/worker/tracker", label: "Registrar horas", description: "Abrir control de jornada", icon: Clock, color: "#06b6d4" },
+              { href: "/worker/tracker", label: "Registrar horas", description: "Abrir control de jornada", icon: Clock, color: "var(--info)" },
               { href: "/worker/evidence", label: "Subir evidencia", description: "Enviar fotos y documentos", icon: Camera, color: "var(--ok)" },
-              { href: "/worker/materials", label: "Materiales", description: "Solicitar o rastrear materiales", icon: Package, color: "#f59e0b" },
+              { href: "/worker/materials", label: "Materiales", description: "Solicitar o rastrear materiales", icon: Package, color: "var(--warn)" },
               { href: "/worker/incidents", label: "Incidencias", description: "Reportar un problema en campo", icon: AlertTriangle, color: "var(--error)" },
               { href: "/worker/payments", label: "Ver mis pagos", description: "Revisar escrow y liberaciones", icon: Wallet, color: "#ff6a00" },
               { href: "/worker/field-ops", label: t("nav.fieldOps"), description: t("dash.fieldOpsDesc"), icon: Wrench, color: "#a78bfa" },

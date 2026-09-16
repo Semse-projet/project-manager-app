@@ -234,7 +234,7 @@ export default function AdminFinancePage() {
               <div key={rail.key} style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <span style={{ fontSize: 12, fontWeight: 800, color: "var(--ink)" }}>{rail.label}</span>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "var(--ok)" : "#f59e0b" }}>{rail.ready ? "READY" : "SETUP"}</span>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: rail.ready ? "var(--ok)" : "var(--warn)" }}>{rail.ready ? "READY" : "SETUP"}</span>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
                   {rail.clientFunding ? "cliente" : ""}{rail.clientFunding && rail.professionalPayout ? " + " : ""}{rail.professionalPayout ? "profesional" : ""} · {rail.automatic ? "automático" : "manual"}
