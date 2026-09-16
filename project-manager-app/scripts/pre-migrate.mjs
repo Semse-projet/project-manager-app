@@ -253,6 +253,55 @@ async function repairPhantomMigrations() {
 }
 
 // ---------------------------------------------------------------------------
+// Reparar migraciones realmente fallidas (P3009/P3018)
+// ---------------------------------------------------------------------------
+//
+// Distinto del caso fantasma de arriba: aqui la migracion nunca termino
+// (finished_at IS NULL) porque su SQL literalmente fallo a mitad de camino
+// (p.ej. error de sintaxis). Mientras esa fila exista, `migrate deploy`
+// rechaza CUALQUIER migracion nueva con P3009 -ni siquiera revisa las demas
+// pendientes- asi que un solo nombre stuck bloquea todos los deploys futuros
+// hasta resolverse a mano en produccion.
+//
+// 20260916_fix_contributor_terms_v1_0 (PR #629) fallo en produccion por un
+// bug de SQL crudo (apostrofe sin escapar). Su carpeta fue eliminada del
+// repo (no solo corregida): con el nombre de 8 digitos "20260916_..." sin
+// hora/minuto/segundo presente en el directorio de migraciones, el motor de
+// Prisma dejaba de descubrir *otras* migraciones validas que ordenan antes
+// alfabeticamente (20260916021251_knowledge_contributor_program y
+// 20260916021252_fix_contributor_terms_v1_0) al aplicar desde cero -se
+// reproduce de forma consistente contra una base nueva/CI, aunque nunca se
+// manifesto en produccion porque esas dos ya estaban aplicadas antes de que
+// la carpeta rota existiera-. Eliminar la carpeta resuelve ese bug de
+// descubrimiento; el dato real ya quedo insertado por
+// 20260916021252_fix_contributor_terms_v1_0. Pero borrar el archivo no
+// limpia la fila fallida que produccion ya grabo en `_prisma_migrations`
+// -Prisma nunca reintenta una migracion que ya registro como fallida, exista
+// o no su carpeta-, asi que sigue bloqueando todo con P3009. Mismo patron
+// que repairPhantomMigrations: lista explicita y revisada a mano, borra el
+// registro stuck para que `migrate deploy` deje de verlo como pendiente
+// (ya no hay carpeta que aplicar) y continue con normalidad.
+const FAILED_MIGRATION_REPAIRS = ["20260916_fix_contributor_terms_v1_0"];
+
+async function repairFailedMigrations() {
+  const stuckRows = await prisma.$queryRaw`
+    SELECT migration_name FROM "_prisma_migrations" WHERE finished_at IS NULL
+  `;
+
+  for (const row of stuckRows) {
+    if (!FAILED_MIGRATION_REPAIRS.includes(row.migration_name)) continue; // no es un caso conocido, no tocar
+
+    console.warn(
+      `  [pre-migrate] ⚠ migracion fallida detectada: ${row.migration_name} sin finished_at — reabriendo para reintento`,
+    );
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM "_prisma_migrations" WHERE migration_name = $1`,
+      row.migration_name,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Dedup rows that would block unique-constraint migrations
 // ---------------------------------------------------------------------------
 
@@ -341,6 +390,12 @@ try {
   await repairPhantomMigrations();
 } catch (err) {
   console.warn("[pre-migrate] warn: repair de migraciones fantasma fallo:", err?.message ?? err);
+}
+
+try {
+  await repairFailedMigrations();
+} catch (err) {
+  console.warn("[pre-migrate] warn: repair de migraciones fallidas fallo:", err?.message ?? err);
 }
 
 try {
