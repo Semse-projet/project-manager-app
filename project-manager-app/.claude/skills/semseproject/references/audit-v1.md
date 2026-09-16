@@ -16,6 +16,13 @@ origen, no el documento vivo. El documento vivo es `SKILL.md`.
 
 ---
 
+## Estado de esta auditoría
+
+**Actualizado en v2.1.0**: los cuatro hallazgos medios que v2.0.0 dejó `PROPOSED` o
+parcialmente resueltos (M-01, M-06, M-11, M-12) ya están resueltos — ver sus entradas abajo.
+No queda ningún hallazgo crítico, alto o medio abierto sin resolución o sin marca `PROPOSED`
+explícita justificada por requerir una decisión de producto/legal.
+
 ## Resumen ejecutivo
 
 El skill establece una dirección sólida en trazabilidad, separación entre diseño y realidad,
@@ -110,9 +117,10 @@ probatorio, disponibilidad y recuperación. **Resuelto: `SKILL.md` §7.**
 ## Hallazgos medios
 
 - **M-01** — tenant/org y project/farm/worksite sin jerarquía ni reglas de herencia.
-  **Parcialmente resuelto** (`operations.md`, "Tenant/org, jerarquía de recursos" fija reglas
-  de referencia con tenant explícito); la jerarquía completa de pertenencia/herencia queda
-  **PROPOSED**, pendiente de decisión de producto.
+  **Resuelto (v2.1.0): `operations.md`, "Tenant/org, jerarquía de recursos"** — jerarquía
+  Tenant→Project/Farm/Worksite→Job/Milestone/Evidence, membresía multi-organización con
+  tenant activo, herencia de permisos evaluada por el Policy Engine (no implícita), y
+  `ResourceGrant` para acceso cross-tenant explícito y auditable.
 - **M-02** — no se define el modelo de idempotencia. **Resuelto: `operations.md`,
   "Idempotencia".**
 - **M-03** — "Verification" no tiene niveles ni independencia requerida. **Resuelto:
@@ -122,8 +130,10 @@ probatorio, disponibilidad y recuperación. **Resuelto: `SKILL.md` §7.**
 - **M-05** — browser/computer use no define aislamiento técnico suficiente. **Resuelto:
   `prometeo-and-agents.md`, "Computer / Browser Use — aislamiento técnico mínimo".**
 - **M-06** — no se define la política de retención y borrado de transcripts, prompts,
-  imágenes y evidencias. **Parcialmente resuelto** (`operations.md`, "Retención y borrado");
-  la matriz completa por tipo/finalidad/jurisdicción queda **PROPOSED**.
+  imágenes y evidencias. **Resuelto (v2.1.0): `operations.md`, "Retención y borrado de
+  transcripts/evidencia"** — matriz por `DataClass` × finalidad × retención por defecto ×
+  legal hold, con la regla explícita de que un borrado de usuario nunca purga el AuditEvent
+  que registra el borrado.
 - **M-07** — el modo offline/degraded carece de límites de seguridad. **Resuelto:
   `operations.md`, "Modo offline/degraded".**
 - **M-08** — no se define la política de cambios de esquema y migraciones. **Resuelto:
@@ -132,13 +142,18 @@ probatorio, disponibilidad y recuperación. **Resuelto: `SKILL.md` §7.**
   legítimas. **Resuelto:** misma sección, permite dual-write temporal con condiciones.
 - **M-10** — no se define cómo se manejan secretos en logs, errores, trazas y evidencia.
   **Resuelto: `operations.md`, "Secretos en logs, errores, trazas y evidencia".**
-- **M-11** — no se define la seguridad de subagentes y delegación interna. **Parcialmente
-  resuelto** vía el modelo de delegación de `SKILL.md` §4 (alcance, tiempo, capacidad,
-  recurso, no transferible por defecto); presupuesto/deadline explícito por subagente queda
-  **PROPOSED**.
-- **M-12** — no se define observabilidad mínima ni objetivos operativos. **PROPOSED** —
-  fuera del alcance de este skill; corresponde a `docs/runbooks/` y al Observability
-  Platform (ver `SKILL.md` §11, registro de dependencias).
+- **M-11** — no se define la seguridad de subagentes y delegación interna. **Resuelto
+  (v2.1.0): `SKILL.md` §4, "Subagentes — contrato de delegación interna"** — `SubagentGrant`
+  explícito (capabilities, resourceScope, budget, deadline, dataScope), no transferible ni
+  auto-ampliable, con la autoridad de decisión real permaneciendo en el Action Kernel/Policy
+  Engine del delegador, nunca en el subagente.
+- **M-12** — no se define observabilidad mínima ni objetivos operativos. **Resuelto
+  parcialmente (v2.1.0): `operations.md`, "Observabilidad mínima"** — métricas mínimas
+  obligatorias (error/latencia, denegaciones de policy, DLQ, bloqueos de privacidad,
+  aprobaciones expiradas) antes de declarar una capacidad `DEPLOYED`/
+  `OBSERVED_IN_PRODUCTION`. La propiedad del Observability Platform y sus SLOs completos
+  siguen siendo una dependencia externa (`SKILL.md` §11) — este skill define el mínimo que
+  exige de esa plataforma, no la reemplaza.
 
 ## Ambigüedades y contradicciones específicas
 
@@ -205,10 +220,12 @@ migraciones, observabilidad y runbooks, backup/restore, gobernanza del Living Sp
 confirmar (`SKILL.md` §11), no como contratos nuevos de este skill.
 
 **P2 (antes de escalar verticales y conectores)** — catálogo de dependencias, matriz de
-riesgo, modelo offline, subagentes y presupuestos, cross-tenant rules, compatibilidad de
-schemas, revisión periódica de políticas, pruebas de drift, transparencia de modelos,
-métricas de calidad y coste: **parcialmente resuelto**, con los ítems marcados `PROPOSED`
-arriba pendientes de decisión de producto/legal antes de formalizarse como MUST.
+riesgo, modelo offline, subagentes y presupuestos (M-11), cross-tenant rules (M-01),
+compatibilidad de schemas, revisión periódica de políticas, pruebas de drift, transparencia
+de modelos, métricas de calidad y coste (M-12): **resuelto en v2.1.0** salvo los ítems
+marcados `PROPOSED` explícitamente (compatibilidad de schemas de eventos entre versiones,
+pruebas de drift automatizadas, y la propiedad plena del Observability Platform), que
+siguen pendientes de decisión de producto/plataforma antes de formalizarse como MUST.
 
 ## Criterio de aceptación para una versión corregida
 

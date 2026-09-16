@@ -35,9 +35,57 @@ bloqueo (`SKILL.md` §7), no degradar a cloud.
 **MUST**: toda consulta/comando/evento/cache/clave de idempotencia incluye contexto de
 tenant explícito. **MUST NOT**: resolver referencias ambiguas de `projectId`/`farmId`/
 worksite "adivinando" el tenant — denegar (mitiga R-02, ver `SKILL.md` §5).
-**PROPOSED**: definir formalmente si un usuario puede pertenecer a varias organizaciones,
-herencia de permisos entre proyecto/farm/worksite y reglas de cross-tenant access antes de
-construir features que las asuman.
+
+### Jerarquía de recursos y pertenencia
+
+```
+Tenant/Org
+ └─ Project | Farm | Worksite            (siempre bajo exactamente un Tenant)
+     └─ Job | Milestone | Evidence | …   (siempre bajo exactamente un Project/Farm/Worksite)
+```
+
+**MUST**: cada `Resource` declara su padre inmediato en esta jerarquía; nunca se infiere por
+convención de nombres o coincidencia de ID. **MUST NOT**: un `Project`/`Farm`/`Worksite`
+pertenece a más de un `Tenant` a la vez — moverlo de tenant es una operación de migración
+explícita (ver "Migraciones y dual-write"), no una actualización de campo.
+
+### Pertenencia de un `HUMAN_USER` a múltiples organizaciones
+
+**MUST**: un `HUMAN_USER` puede tener membresías en N tenants simultáneamente, cada una con
+su propio rol y permisos — la membresía es un objeto de primera clase
+(`{userId, tenantId, role, grantedAt, grantedBy}`), no un campo único `user.tenantId`.
+**MUST**: toda sesión/request activa exactamente un `tenantId` de contexto (el "tenant
+activo"); cambiar de tenant activo es una acción explícita del usuario, nunca una inferencia
+del sistema a partir de qué recurso se pidió.
+
+### Herencia de permisos
+
+**MUST**: los permisos se evalúan en el nivel de `Tenant` (rol) y, cuando exista, en el nivel
+de `Resource` (asignación directa — p. ej. `assignedTo` en un `Job`). **MUST NOT**: asumir que
+un permiso en `Project` se hereda automáticamente a todo `Job`/`Milestone` bajo él sin que el
+Policy Engine (`SKILL.md` §5) lo evalúe explícitamente para ese recurso — la jerarquía indica
+*pertenencia*, no *autorización implícita*. Un rol de `Tenant` (p. ej. `OPS_ADMIN`) **MAY**
+otorgar acceso a todos los recursos del tenant; eso se declara en la política, no se asume por
+la posición en el árbol.
+
+### Recursos compartidos entre proyectos y cross-tenant access
+
+**MUST NOT**: un `Resource` se comparte entre dos `Tenant`s por referencia directa (p. ej. un
+`Job` de Contratista A visible para Contratista B por compartir `worksiteId`). Cuando dos
+tenants necesitan ver el mismo recurso físico (p. ej. un `Worksite` con múltiples
+contratistas), **MUST**: modelarlo como una relación explícita y auditable
+(`ResourceGrant {resourceId, granteeTenantId, grantedScope, grantedBy, expiresAt}`), evaluada
+por el Policy Engine igual que cualquier otro `PolicyDecision` — nunca como acceso implícito
+por coincidencia de ID. **MUST NOT**: un agente resuelve una referencia cross-tenant
+"porque parece la misma obra" sin un `ResourceGrant` explícito — eso es exactamente la
+ambigüedad que R-02 prohíbe.
+
+### Excepciones y prohibición de referencias ambiguas
+
+**MUST**: toda API/servicio que reciba `projectId`/`farmId`/`worksiteId` sin `tenantId`
+explícito lo trata como entrada inválida (400/denegado), no como "buscar en todos los
+tenants" — incluso si el ID es técnicamente único en la base de datos hoy. La unicidad
+incidental de un UUID no es una garantía de aislamiento; el `tenantId` explícito sí lo es.
 
 ## Idempotencia (resuelve M-02)
 
@@ -194,11 +242,30 @@ rotación documentado ante una exposición confirmada.
 
 ### Retención y borrado de transcripts/evidencia (resuelve M-06)
 
-**PROPOSED**: matriz de retención por tipo de dato, finalidad, tenant y jurisdicción,
-alineada con `SKILL.md` §7 (retención del AuditEvent) y con Evidence (cadena de custodia).
-**MUST**: cuando se ejecute un borrado legal, propagarlo a derivados (caches, índices,
-backups) cuando sea legal y técnicamente posible, dejando solo el registro mínimo permitido
-por obligación de auditoría.
+Matriz mínima de retención — cada fila combina `DataClass` (`SKILL.md` §3) con finalidad;
+**MUST**: todo dato nuevo que el sistema empiece a persistir se ubica en una fila existente
+o añade una fila nueva antes de almacenarse, no después:
+
+| Tipo de dato | `DataClass` | Finalidad | Retención por defecto | Legal hold / excepción |
+|---|---|---|---|---|
+| Transcript de conversación con Prometeo | confidencial/personal | Mission Runtime, soporte | 90 días activo, luego purgable | Legal hold la extiende; disputa activa (`Disputes`) la extiende hasta resolución + 30 días |
+| Prompts/imágenes subidos por el usuario | personal/evidencia contractual | Evidence, Engineering Core | igual que la `Evidence`/`Milestone` a la que están ligados | No purgable mientras el milestone esté abierto o en disputa |
+| `AuditEvent` (`SKILL.md` §7) | dato de seguridad crítica | Auditoría, reconciliación | según obligación regulatoria aplicable (mínimo el plazo legal de la jurisdicción del tenant) | Nunca purgable por debajo del mínimo legal, incluso con borrado de usuario — ver A-05 |
+| Evidence (fotos/documentos de obra) | evidencia contractual | Milestones, Payments, Disputes | mientras el proyecto/contrato esté activo + plazo de prescripción de disputas | Legal hold si hay disputa o auditoría en curso |
+| Logs técnicos/traces (Observability) | interno, redactado de secretos | Debugging, SRE | 30–90 días según volumen (ver dependencia Observability Platform, `SKILL.md` §11) | No es evidencia legal; no extiende el AuditEvent |
+| Credenciales/secretos | credencial/secreto | Operación del sistema | nunca en logs/transcripts (ver "Secretos en logs" arriba); en vault, según su propia política de rotación | N/A — no aplica retención "de negocio" |
+| Datos financieros (pagos, cuentas) | financiero | Payments, compliance | según obligación fiscal/PCI-DSS de la jurisdicción | Nunca purgable por debajo del mínimo fiscal/legal |
+
+**MUST**: cuando se ejecute un borrado legal (derecho de supresión), propagarlo a derivados
+(caches, índices, backups, exports) cuando sea legal y técnicamente posible, dejando solo el
+registro mínimo permitido por obligación de auditoría/fiscal — nunca por debajo de la fila
+correspondiente en la matriz de arriba. **MUST NOT**: un borrado de usuario elimina el
+`AuditEvent` que registra que el borrado ocurrió — ese registro es, en sí mismo, la fila
+"dato de seguridad crítica" de la matriz.
+
+**SHOULD**: cuando un tipo de dato no encaje claramente en una fila existente, tratarlo por
+defecto como la fila más restrictiva aplicable (nunca la más permisiva) hasta que se añada
+una fila explícita para él.
 
 ---
 
@@ -232,6 +299,32 @@ expiración de autorización, almacenamiento cifrado local, colas locales, clave
 idempotencia generadas offline, y resolución de conflictos definida al reconectar.
 **MUST NOT**: ejecutar pagos, deletes o cambios contractuales en modo offline — quedan en
 cola bloqueada hasta reconexión y revalidación por el Policy Engine.
+
+### Observabilidad mínima (resuelve M-12)
+
+Este skill no reemplaza al Observability Platform (`SKILL.md` §11, dependencia no
+confirmada) ni a los runbooks de `docs/runbooks/` — pero sí exige un mínimo antes de
+considerar una capacidad `riskLevel=high`/`critical` como "operable":
+
+**MUST**: toda capacidad `high`/`critical` (`SKILL.md` §10) emite, como mínimo:
+
+- una métrica de tasa de error y una de latencia (p99) por `Capability`/endpoint;
+- un contador de `PolicyDecision` denegadas/`require_approval` (permite ver intentos de
+  escalada de privilegio, R-01);
+- un contador de reintentos y de mensajes en DLQ por consumidor de eventos (ver "Eventos y
+  consistencia");
+- un contador de bloqueos de privacidad (`local-only` que falló cerrado, ver H-06);
+- un contador de acciones bloqueadas por Approval Gate expirado/revocado (`SKILL.md` §6).
+
+**MUST**: cada una de estas métricas tiene un owner (`SKILL.md` §10, campo `owner`) y, para
+`critical`, una alerta definida — no basta con que el dato exista en un dashboard que nadie
+revisa. **SHOULD**: un runbook en `docs/runbooks/` por cada alerta `critical`, enlazado desde
+la Capability Registry.
+
+**MUST NOT**: declarar una capacidad `DEPLOYED`/`OBSERVED_IN_PRODUCTION`
+(`vision-and-truth.md` §6) sin que al menos las métricas de error y latencia existan — sin
+ellas, "observado en producción" no es verificable y debe reportarse como `UNKNOWN`
+(`SKILL.md` §1) en vez de asumirse.
 
 ---
 

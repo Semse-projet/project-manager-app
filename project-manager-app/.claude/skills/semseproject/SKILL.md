@@ -1,24 +1,44 @@
 ---
 name: semseproject
-version: 2.0.0
+version: 2.1.0
 status: draft-canonical
 language: es
 description: >
   Skill maestro para investigar, diseñar, implementar, auditar y evolucionar SEMSEproject
   sin perder contexto, sin confundir diseño con realidad y preservando seguridad,
-  trazabilidad, compatibilidad y continuidad entre agentes. v2.0.0 incorpora la
+  trazabilidad, compatibilidad y continuidad entre agentes. v2.0.0 incorporó la
   remediación P0 de la auditoría interna del skill (ver `references/audit-v1.md`):
   jerarquía normativa, contratos mínimos de identidad/policy/approval/audit, taxonomía
   de obligatoriedad, modos de operación del agente, registro de dependencias y
-  gobernanza. Usar para arquitectura, implementación, auditoría, Prometeo/agentes,
+  gobernanza. v2.1.0 cierra los últimos hallazgos medios (M-01/M-06/M-11/M-12): jerarquía
+  de tenant/recursos, matriz de retención, contrato de delegación a subagentes y mínimos
+  de observabilidad. Usar para arquitectura, implementación, auditoría, Prometeo/agentes,
   BuildOps/ProTools/Engineering Core, Evidence/Milestones/Payments/Trust, conectores,
   seguridad/permisos/privacidad, apps web/móvil, producción/Railway/CI/CD, Living Spec
   y documentación/handoffs de SEMSEproject.
 ---
 
-# SEMSEproject Skill (v2.0.0)
+# SEMSEproject Skill (v2.1.0)
 
-## 0. Qué cambió respecto a v1.0.0
+## 0. Qué cambió
+
+**v2.1.0** cierra los hallazgos medios que v2.0.0 había dejado `PROPOSED` o parcialmente
+resueltos, ahora que no queda ningún hallazgo crítico o alto abierto:
+
+- **M-01** (jerarquía tenant/recursos) → `references/operations.md`, "Tenant/org, jerarquía
+  de recursos" (membresía multi-organización, herencia, `ResourceGrant` para recursos
+  cross-tenant).
+- **M-06** (retención) → `references/operations.md`, "Retención y borrado de
+  transcripts/evidencia" (matriz por `DataClass` × finalidad).
+- **M-11** (subagentes) → `SKILL.md` §4, "Subagentes — contrato de delegación interna"
+  (`SubagentGrant`: capabilities, resourceScope, budget, deadline, dataScope).
+- **M-12** (observabilidad) → `references/operations.md`, "Observabilidad mínima" (métricas
+  obligatorias antes de declarar una capacidad `DEPLOYED`/`OBSERVED_IN_PRODUCTION`).
+
+Ver `references/audit-v1.md` para el detalle completo de qué seguía abierto y cómo quedó
+resuelto. Lo demás en esta sección describe la remediación P0 de v2.0.0, sin cambios.
+
+## 0.1 Qué cambió respecto a v1.0.0
 
 v1.0.0 de este skill fue auditado (`references/audit-v1.md`, íntegro y sin editar, para
 trazabilidad) y calificado como **manifiesto arquitectónico, no especificación operativa
@@ -111,6 +131,10 @@ misma forma.
 - **Connector** — integración externa con su propio contrato de seguridad.
 - **DataClass** — clasificación de sensibilidad de un dato (público, interno, confidencial,
   personal, financiero, credencial/secreto, evidencia contractual, dato de seguridad crítica).
+- **SubagentGrant** — alcance delegado a un subagente: capabilities, resourceScope, budget,
+  deadline, dataScope (§4, "Subagentes — contrato de delegación interna").
+- **ResourceGrant** — concesión explícita de acceso cross-tenant a un Resource compartido
+  (`references/operations.md`, "Recursos compartidos entre proyectos y cross-tenant access").
 
 Cada objeto nuevo que un agente introduzca en código o specs debe poder mapearse a uno de
 estos tipos o justificar por qué necesita uno nuevo (y entonces proponerlo al Living Spec).
@@ -151,8 +175,39 @@ Approval Gate salvo que la delegación lo autorice explícitamente y quede regis
 cadena `initiator → delegator → executor`.
 
 Sesiones, rotación de credenciales, service accounts y prueba de posesión son responsabilidad
-del Identity Provider (ver §9, registro de dependencias) — este skill no lo reimplementa; solo
+del Identity Provider (ver §11, registro de dependencias) — este skill no lo reimplementa; solo
 exige que la cadena de arriba se preserve en cada AuditEvent (§7).
+
+### Subagentes — contrato de delegación interna (resuelve M-11)
+
+Un subagente (un `AGENT` que otro `AGENT` invoca — p. ej. un worker especializado lanzado por
+Prometeo, o un subagente de este mismo harness) es delegación, no un principal nuevo con
+autoridad propia. **MUST**: todo subagente recibe, al lanzarse, un `SubagentGrant` explícito:
+
+- `capabilities`: lista cerrada de Capabilities permitidas (§Capability Registry en
+  `prometeo-and-agents.md`) — nunca "las mismas que el agente padre", siempre una lista
+  explícita igual o más estrecha.
+- `resourceScope`: los `Resource`/`tenantId` concretos que puede tocar (§5) — nunca acceso
+  abierto a "lo que encuentre".
+- `budget`: límite de tiempo, de llamadas a Capability, y de costo (tokens/dinero) antes de
+  detenerse y devolver control al delegador.
+- `deadline`: momento en que el `SubagentGrant` expira, análogo a `expiresAt` en una
+  `Approval` (§6) — un subagente que sigue corriendo después de su `deadline` se trata como
+  no autorizado, no como "todavía terminando".
+- `dataScope`: qué `DataClass` puede leer/escribir (§3).
+
+**MUST NOT**: un subagente amplía su propia autoridad — no puede pedir Capabilities fuera de
+su `SubagentGrant`, ni sub-delegar a otro subagente con un alcance mayor al que él mismo
+recibió (mismo principio de no-transferibilidad que en delegación humano-agente, arriba).
+**MUST**: la autoridad real de decisión permanece en el Action Kernel y el Policy Engine del
+agente delegador (`prometeo-and-agents.md` → Action Kernel) — un subagente nunca ejecuta una
+acción `riskLevel=high`/`critical` (§10) sin que esa decisión pase, igual que cualquier otra
+Action, por `authorize()` (§5) y, si corresponde, por el Approval Gate (§6) del sistema, no
+por una aprobación que el propio agente padre se dé a sí mismo.
+
+**MUST**: toda Action de un subagente conserva la cadena completa de arriba con el subagente
+como `executor` y el agente que lo lanzó como `delegator` — un AuditEvent (§7) de un
+subagente sin esa cadena es indistinguible de una acción no autorizada.
 
 ---
 
