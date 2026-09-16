@@ -64,6 +64,7 @@ import { AssistantModule } from "./modules/assistant/assistant.module.js";
 import { ToolsModule } from "./modules/tools/tools.module.js";
 import { BuildOpsModule } from "./modules/buildops/buildops.module.js";
 import { OriginatorModule } from "./modules/originator/originator.module.js";
+import { ContributorProgramModule } from "./modules/contributor-program/contributor-program.module.js";
 import { SmartIntakeModule } from "./modules/smart-intake/smart-intake.module.js";
 import { IntakeOperationsBridgeModule } from "./modules/intake-operations-bridge/intake-operations-bridge.module.js";
 import { ChangeOrdersModule } from "./modules/change-orders/change-orders.module.js";
@@ -159,6 +160,7 @@ const repoRoot = path.resolve(apiDir, "..", "..");
     ToolsModule,
     BuildOpsModule,
     OriginatorModule,
+    ContributorProgramModule,
     SmartIntakeModule,
     IntakeOperationsBridgeModule,
     ChangeOrdersModule,

@@ -204,6 +204,17 @@ model Tenant {
   tenantSettings                TenantSettings?
   liveSessions                  LiveSession[]
   liveSessionParticipants       LiveSessionParticipant[]
+  // Knowledge Contributor Program
+  contributorProfiles           ContributorProfile[]
+  contributorConsents           ContributorConsent[]
+  knowledgeMissions              KnowledgeMission[]
+  knowledgeMissionAcceptances    KnowledgeMissionAcceptance[]
+  knowledgeSubmissions           KnowledgeSubmission[]
+  knowledgeAssets                KnowledgeAsset[]
+  knowledgeReviews               KnowledgeReview[]
+  knowledgeAppeals               KnowledgeAppeal[]
+  knowledgeExtractions           KnowledgeExtraction[]
+  contributorRewards             ContributorReward[]
   createdAt                     DateTime                          @default(now())
   updatedAt                     DateTime                          @updatedAt
 }
@@ -282,6 +293,17 @@ model User {
   identityAttestations                IdentityAttestation[]
   createdLiveSessions                 LiveSession[]
   liveSessionParticipations           LiveSessionParticipant[]
+  // Knowledge Contributor Program
+  contributorProfile                  ContributorProfile?
+  contributorConsents                 ContributorConsent[]
+  createdKnowledgeMissions            KnowledgeMission[]
+  knowledgeMissionAcceptances         KnowledgeMissionAcceptance[]
+  knowledgeSubmissions                KnowledgeSubmission[]
+  uploadedKnowledgeAssets             KnowledgeAsset[]
+  knowledgeReviewsAuthored            KnowledgeReview[]
+  knowledgeAppealsRaised              KnowledgeAppeal[]             @relation("KnowledgeAppealUser")
+  knowledgeAppealsResolved            KnowledgeAppeal[]             @relation("KnowledgeAppealResolver")
+  contributorRewards                  ContributorReward[]
   createdAt                           DateTime                      @default(now())
   updatedAt                           DateTime                      @updatedAt
 
@@ -4208,4 +4230,368 @@ model GoldenRegression {
 
   @@index([status])
   @@map("golden_regression")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SEMSE Knowledge Contributor Program (docs/specs/core/knowledge-contributor-program).
+// Trade-agnostic; the first seeded mission targets electricians. Public
+// pages: /contributors, /contributors/terms, /contributors/dashboard.
+// Provenance chain: KnowledgeAsset -> KnowledgeExtraction -> RAG ingestion
+// (external, not modeled here) always keeps submissionId/assetId/model/
+// version so derived knowledge can be traced back to source evidence.
+// ─────────────────────────────────────────────────────────────────────────
+
+enum KnowledgeMissionStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+enum KnowledgeMissionAcceptanceStatus {
+  ACCEPTED
+  IN_PROGRESS
+  SUBMITTED
+  CANCELLED
+  EXPIRED
+}
+
+// Mirrors the contract states in the program's public terms (docs/specs) —
+// never collapse REJECTED into a delete; appeal/correction flow needs it.
+enum KnowledgeSubmissionStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  PAYMENT_PENDING
+  PAID
+  DISPUTED
+  CANCELLED
+}
+
+enum KnowledgeAssetKind {
+  VIDEO
+  IMAGE
+  AUDIO
+  TEXT
+}
+
+enum KnowledgeAssetClipRole {
+  BEFORE
+  PLANNING
+  EXECUTION
+  PROBLEM_CORRECTION
+  RESULT
+  OTHER
+}
+
+enum KnowledgeAssetProcessingStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+enum KnowledgeReviewDecision {
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum KnowledgeAppealStatus {
+  OPEN
+  UNDER_REVIEW
+  UPHELD
+  OVERTURNED
+}
+
+// Pipeline stages from AGENTS.md's Prometeo intake — each row is one stage
+// output for one asset (or the whole submission), never original evidence.
+enum KnowledgeExtractionKind {
+  TRANSCRIPTION
+  SEGMENTATION
+  ENTITY
+  TASK_STEP
+  MEASUREMENT
+  TOOL_MATERIAL
+  PROBLEM_SOLUTION
+  QUALITY_FLAG
+}
+
+enum KnowledgeExtractionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum ContributorRewardStatus {
+  PENDING_REVIEW
+  APPROVED
+  PAYMENT_PENDING
+  PAID
+  BLOCKED_NO_PAYOUT_ACCOUNT
+  FAILED
+  REVERSED
+}
+
+model ContributorProfile {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String   @unique
+  trade     String   @default("electrician")
+  status    String   @default("active") // active | suspended
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+}
+
+// Not tenant-scoped: one global, versioned policy document for the whole
+// program (spec §4 "Actualizaciones" — v1.0 acceptance must remain on
+// record even once v1.1 exists). contentHash lets ContributorConsent pin
+// the exact text a user accepted without duplicating it per consent row.
+model ContributorTermsVersion {
+  id          String   @id @default(cuid())
+  version     String   @unique // "1.0"
+  effectiveAt DateTime
+  contentEs   String   @db.Text
+  contentEn   String   @db.Text
+  contentHash String
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  consents ContributorConsent[]
+
+  @@index([isActive])
+}
+
+// Immutable by design: no update/delete path is exposed by the service —
+// spec §5 requires an auditable, unrevisable acceptance record per version.
+model ContributorConsent {
+  id               String   @id @default(cuid())
+  tenantId         String
+  userId           String
+  termsVersionId   String
+  termsContentHash String
+  locale           String
+  source           String   @default("CONTRIBUTOR_PROGRAM")
+  checkboxesJson   Json
+  acceptedAt       DateTime @default(now())
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  termsVersion ContributorTermsVersion @relation(fields: [termsVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, termsVersionId])
+  @@index([tenantId, userId])
+}
+
+model KnowledgeMission {
+  id                     String                 @id @default(cuid())
+  tenantId               String
+  title                  String
+  trade                  String
+  category               String
+  description            String                 @db.Text
+  difficulty             String // beginner | intermediate | advanced
+  requirementsJson       Json
+  evidenceRequestedJson  Json
+  acceptanceCriteriaJson Json
+  baseCompensationCents  Int
+  currency               String                 @default("USD")
+  bonusJson              Json?
+  deadlineAt             DateTime?
+  maxParticipants        Int?
+  status                 KnowledgeMissionStatus @default(DRAFT)
+  version                Int                    @default(1)
+  isDemo                 Boolean                @default(false)
+  createdByUserId        String
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+
+  tenant      Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User                         @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  acceptances KnowledgeMissionAcceptance[]
+  submissions KnowledgeSubmission[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, trade, status])
+}
+
+// Pins compensation/currency/deadline at acceptance time (spec §4 "No
+// modificar retroactivamente el pago de una misión ya aceptada") — later
+// edits to KnowledgeMission (a new .version) never change these snapshots.
+model KnowledgeMissionAcceptance {
+  id                        String                            @id @default(cuid())
+  tenantId                  String
+  missionId                 String
+  missionVersionSnapshot    Int
+  userId                    String
+  compensationCentsSnapshot Int
+  currencySnapshot          String
+  deadlineAtSnapshot        DateTime?
+  status                    KnowledgeMissionAcceptanceStatus @default(ACCEPTED)
+  acceptedAt                DateTime                          @default(now())
+  updatedAt                 DateTime                          @updatedAt
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mission     KnowledgeMission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  submissions KnowledgeSubmission[]
+
+  @@unique([missionId, userId])
+  @@index([tenantId, userId, status])
+}
+
+model KnowledgeSubmission {
+  id           String                    @id @default(cuid())
+  tenantId     String
+  acceptanceId String
+  missionId    String
+  userId       String
+  status       KnowledgeSubmissionStatus @default(DRAFT)
+  notes        String?                   @db.Text
+  version      Int                       @default(1)
+  submittedAt  DateTime?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+
+  tenant      Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  acceptance  KnowledgeMissionAcceptance @relation(fields: [acceptanceId], references: [id], onDelete: Cascade)
+  mission     KnowledgeMission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user        User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assets      KnowledgeAsset[]
+  reviews     KnowledgeReview[]
+  appeals     KnowledgeAppeal[]
+  extractions KnowledgeExtraction[]
+  reward      ContributorReward?
+
+  @@index([tenantId, userId, status])
+  @@index([tenantId, missionId, status])
+}
+
+// storageKey/mimeType are nullable only for kind=TEXT (inline notes have no
+// uploaded file); every other kind requires them at the service layer.
+model KnowledgeAsset {
+  id               String                         @id @default(cuid())
+  tenantId         String
+  submissionId     String
+  uploadedByUserId String
+  kind             KnowledgeAssetKind
+  clipRole         KnowledgeAssetClipRole         @default(OTHER)
+  storageKey       String?
+  textContent      String?                        @db.Text
+  checksum         String?
+  mimeType         String?
+  sizeBytes        Int?
+  processingStatus KnowledgeAssetProcessingStatus @default(PENDING)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission  KnowledgeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  uploadedBy  User                  @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  extractions KnowledgeExtraction[]
+
+  @@unique([submissionId, storageKey])
+  @@index([tenantId, submissionId])
+}
+
+model KnowledgeReview {
+  id               String                  @id @default(cuid())
+  tenantId         String
+  submissionId     String
+  reviewerUserId   String
+  decision         KnowledgeReviewDecision
+  reason           String                  @db.Text
+  qualityFlagsJson Json?
+  createdAt        DateTime                @default(now())
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer   User                @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+  appeals    KnowledgeAppeal[]
+
+  @@index([tenantId, submissionId])
+}
+
+model KnowledgeAppeal {
+  id               String               @id @default(cuid())
+  tenantId         String
+  submissionId     String
+  userId           String
+  originalReviewId String
+  reason           String               @db.Text
+  status           KnowledgeAppealStatus @default(OPEN)
+  resolverUserId   String?
+  resolutionReason String?              @db.Text
+  resolvedAt       DateTime?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission     KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user           User                @relation("KnowledgeAppealUser", fields: [userId], references: [id], onDelete: Restrict)
+  originalReview KnowledgeReview     @relation(fields: [originalReviewId], references: [id], onDelete: Restrict)
+  resolver       User?               @relation("KnowledgeAppealResolver", fields: [resolverUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, submissionId])
+  @@index([tenantId, status])
+}
+
+// Provenance record for one pipeline stage on one asset (or the whole
+// submission when assetId is null) — dataJson never overwrites the
+// original KnowledgeAsset; it only ever adds a new row.
+model KnowledgeExtraction {
+  id             String                    @id @default(cuid())
+  tenantId       String
+  submissionId   String
+  assetId        String?
+  kind           KnowledgeExtractionKind
+  status         KnowledgeExtractionStatus @default(PENDING)
+  modelOrProcess String
+  version        Int                       @default(1)
+  timeRangeJson  Json?
+  dataJson       Json?
+  extractedAt    DateTime?
+  createdAt      DateTime                  @default(now())
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  asset      KnowledgeAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, submissionId])
+}
+
+// One reward per submission (submissionId unique) is the idempotency guard
+// on creation; idempotencyKey + the tenant-scoped unique constraint is the
+// same durable-receipt convention DomainOutboxEvent uses for payout calls.
+model ContributorReward {
+  id                 String                   @id @default(cuid())
+  tenantId           String
+  submissionId       String                   @unique
+  userId             String
+  amountCents        Int
+  currency           String
+  status             ContributorRewardStatus @default(PENDING_REVIEW)
+  idempotencyKey     String
+  authorizedByUserId String?
+  authorizedAt       DateTime?
+  paidAt             DateTime?
+  failureReason      String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  user       User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, status])
 }

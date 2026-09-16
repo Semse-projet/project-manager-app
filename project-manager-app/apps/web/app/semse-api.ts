@@ -604,7 +604,7 @@ export async function transitionJobStatus(
 }
 
 export async function planUpload(input: {
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
   filename: string;
   contentType: string;
   fileSizeBytes: number;
@@ -3008,4 +3008,272 @@ export async function updateAdminSettings(input: Partial<AdminSettings>): Promis
     headers: { "content-type": "application/json" },
     body: JSON.stringify(input),
   });
+}
+
+// ── SEMSE Knowledge Contributor Program ─────────────────────────────────────
+// Public reads go through /api/semse/contributors/public/* (no session
+// required); everything else needs a logged-in contributor or OPS_ADMIN.
+
+export type ContributorTermsVersionView = {
+  id: string;
+  version: string;
+  effectiveAt: string;
+  contentEs: string;
+  contentEn: string;
+  contentHash: string;
+  isActive: boolean;
+};
+
+export type KnowledgeMissionView = {
+  id: string;
+  title: string;
+  trade: string;
+  category: string;
+  description: string;
+  difficulty: string;
+  requirements: string[];
+  evidenceRequested: string[];
+  acceptanceCriteria: string[];
+  baseCompensationCents: number;
+  currency: string;
+  bonus: { description: string; amountCents: number } | null;
+  deadlineAt: string | null;
+  maxParticipants: number | null;
+  acceptedCount?: number;
+  status: string;
+  version: number;
+  isDemo: boolean;
+  createdAt: string;
+};
+
+export type KnowledgeAssetView = {
+  id: string;
+  kind: "VIDEO" | "IMAGE" | "AUDIO" | "TEXT";
+  clipRole: string;
+  mimeType: string | null;
+  sizeBytes: number | null;
+  processingStatus: string;
+  createdAt: string;
+};
+
+export type KnowledgeSubmissionView = {
+  id: string;
+  acceptanceId: string;
+  missionId: string;
+  missionTitle: string;
+  status: string;
+  notes: string | null;
+  assets: KnowledgeAssetView[];
+  compensationCentsSnapshot: number;
+  currencySnapshot: string;
+  submittedAt: string | null;
+  createdAt: string;
+  reward: { status: string; amountCents: number; currency: string; paidAt: string | null } | null;
+};
+
+export type KnowledgeMissionAcceptanceView = {
+  id: string;
+  missionId: string;
+  missionTitle: string;
+  compensationCentsSnapshot: number;
+  currencySnapshot: string;
+  deadlineAtSnapshot: string | null;
+  status: string;
+  acceptedAt: string;
+};
+
+export type ContributorDashboardView = {
+  profile: { trade: string; status: string } | null;
+  hasAcceptedActiveTerms: boolean;
+  acceptances: KnowledgeMissionAcceptanceView[];
+  submissions: KnowledgeSubmissionView[];
+  totalPaidCents: number;
+  currency: string;
+};
+
+export type ContributorRewardView = {
+  id: string;
+  submissionId: string;
+  userId: string;
+  amountCents: number;
+  currency: string;
+  status: string;
+  missionTitle?: string;
+  createdAt: string;
+  paidAt: string | null;
+};
+
+export async function fetchActiveContributorTerms(): Promise<ContributorTermsVersionView> {
+  return fetchSemse<ContributorTermsVersionView>("/api/semse/contributors/public/terms");
+}
+
+export async function fetchPublicContributorMissions(): Promise<KnowledgeMissionView[]> {
+  return fetchSemse<KnowledgeMissionView[]>("/api/semse/contributors/public/missions");
+}
+
+export async function fetchPublicContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return fetchSemse<KnowledgeMissionView>(`/api/semse/contributors/public/missions/${encodeURIComponent(missionId)}`);
+}
+
+export async function acceptContributorTerms(input: {
+  termsVersionId: string;
+  termsContentHash: string;
+  locale: "es" | "en";
+  checkboxes: {
+    isAdult: true;
+    acceptedTerms: true;
+    authorizedToRecord: true;
+    understandsSafetyPriority: true;
+    understandsDataUse: true;
+  };
+}): Promise<{ id: string; acceptedAt: string }> {
+  return mutateSemse<{ id: string; acceptedAt: string }>("/api/semse/contributors/consent", input);
+}
+
+export async function acceptContributorMission(missionId: string): Promise<KnowledgeMissionAcceptanceView> {
+  return mutateSemse<KnowledgeMissionAcceptanceView>(
+    `/api/semse/contributors/missions/${encodeURIComponent(missionId)}/accept`
+  );
+}
+
+export async function createContributorSubmission(acceptanceId: string): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>("/api/semse/contributors/submissions", { acceptanceId });
+}
+
+export async function fetchContributorSubmission(submissionId: string): Promise<KnowledgeSubmissionView> {
+  return fetchSemse<KnowledgeSubmissionView>(`/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}`);
+}
+
+export async function registerContributorAsset(
+  submissionId: string,
+  input: {
+    kind: "VIDEO" | "IMAGE" | "AUDIO" | "TEXT";
+    clipRole?: "BEFORE" | "PLANNING" | "EXECUTION" | "PROBLEM_CORRECTION" | "RESULT" | "OTHER";
+    key?: string;
+    filename?: string;
+    checksum?: string;
+    mimeType?: string;
+    sizeBytes?: number;
+    textContent?: string;
+  }
+): Promise<KnowledgeAssetView> {
+  return mutateSemse<KnowledgeAssetView>(
+    `/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}/assets`,
+    input
+  );
+}
+
+export async function submitContributorSubmission(
+  submissionId: string,
+  notes?: string
+): Promise<KnowledgeSubmissionView> {
+  return mutateSemse<KnowledgeSubmissionView>(
+    `/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}/submit`,
+    notes ? { notes } : {}
+  );
+}
+
+export async function appealContributorSubmission(
+  submissionId: string,
+  reason: string
+): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>(
+    `/api/semse/contributors/submissions/${encodeURIComponent(submissionId)}/appeal`,
+    { reason }
+  );
+}
+
+export async function fetchContributorDashboard(): Promise<ContributorDashboardView> {
+  return fetchSemse<ContributorDashboardView>("/api/semse/contributors/dashboard");
+}
+
+// ── Admin ────────────────────────────────────────────────────────────────
+
+export async function fetchAdminContributorMissions(): Promise<KnowledgeMissionView[]> {
+  return fetchSemse<KnowledgeMissionView[]>("/api/semse/contributors/admin/missions");
+}
+
+export async function createAdminContributorMission(input: {
+  title: string;
+  trade: string;
+  category: string;
+  description: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  requirements: string[];
+  evidenceRequested: string[];
+  acceptanceCriteria: string[];
+  baseCompensationCents: number;
+  currency?: string;
+  bonus?: { description: string; amountCents: number };
+  deadlineAt?: string;
+  maxParticipants?: number;
+  isDemo?: boolean;
+}): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>("/api/semse/contributors/admin/missions", input);
+}
+
+export async function publishAdminContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>(
+    `/api/semse/contributors/admin/missions/${encodeURIComponent(missionId)}/publish`
+  );
+}
+
+export async function pauseAdminContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>(
+    `/api/semse/contributors/admin/missions/${encodeURIComponent(missionId)}/pause`
+  );
+}
+
+export async function closeAdminContributorMission(missionId: string): Promise<KnowledgeMissionView> {
+  return mutateSemse<KnowledgeMissionView>(
+    `/api/semse/contributors/admin/missions/${encodeURIComponent(missionId)}/close`
+  );
+}
+
+export async function fetchAdminContributorSubmissions(status?: string): Promise<KnowledgeSubmissionView[]> {
+  const suffix = status ? `?status=${encodeURIComponent(status)}` : "";
+  return fetchSemse<KnowledgeSubmissionView[]>(`/api/semse/contributors/admin/submissions${suffix}`);
+}
+
+export async function reviewAdminContributorSubmission(
+  submissionId: string,
+  input: { decision: "APPROVED" | "REJECTED" | "CHANGES_REQUESTED"; reason: string; qualityFlags?: string[] }
+): Promise<{ id: string; decision: string }> {
+  return mutateSemse<{ id: string; decision: string }>(
+    `/api/semse/contributors/admin/submissions/${encodeURIComponent(submissionId)}/review`,
+    input
+  );
+}
+
+export type ContributorAppealView = {
+  id: string;
+  submissionId: string;
+  missionTitle?: string;
+  reason: string;
+  status: string;
+  createdAt: string;
+};
+
+export async function fetchAdminContributorAppeals(): Promise<ContributorAppealView[]> {
+  return fetchSemse<ContributorAppealView[]>("/api/semse/contributors/admin/appeals");
+}
+
+export async function resolveAdminContributorAppeal(
+  appealId: string,
+  input: { status: "UPHELD" | "OVERTURNED"; resolutionReason: string }
+): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>(
+    `/api/semse/contributors/admin/appeals/${encodeURIComponent(appealId)}/resolve`,
+    input
+  );
+}
+
+export async function fetchAdminContributorRewards(): Promise<ContributorRewardView[]> {
+  return fetchSemse<ContributorRewardView[]>("/api/semse/contributors/admin/rewards");
+}
+
+export async function authorizeAdminContributorRewardPayout(rewardId: string): Promise<{ id: string; status: string }> {
+  return mutateSemse<{ id: string; status: string }>(
+    `/api/semse/contributors/admin/rewards/${encodeURIComponent(rewardId)}/authorize-payout`
+  );
 }

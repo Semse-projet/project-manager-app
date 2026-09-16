@@ -9,7 +9,7 @@ export const PUBLIC_SEMSE_API_EXACT_PATHS = [
   "/api/semse/product-intelligence/ingest",
 ] as const;
 
-export const PUBLIC_SEMSE_API_PREFIXES = ["/api/semse/public/"] as const;
+export const PUBLIC_SEMSE_API_PREFIXES = ["/api/semse/public/", "/api/semse/contributors/public/"] as const;
 
 export function isSemseApiPath(pathname: string): boolean {
   return pathname === "/api/semse" || pathname.startsWith("/api/semse/");

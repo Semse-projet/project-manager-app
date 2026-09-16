@@ -61,6 +61,7 @@ export const rolePermissions: Record<string, string[]> = {
     "project:originate"
   ],
   PRO: [
+    "contributor-program:participate",
     "jobs:read",
     "travel:manage",
     "bids:read",
@@ -114,6 +115,7 @@ export const rolePermissions: Record<string, string[]> = {
     "project:originate"
   ],
   WORKER: [
+    "contributor-program:participate",
     "agents:run:worker",
     "agents:run:manage",
     "agents:run:create",
@@ -121,6 +123,10 @@ export const rolePermissions: Record<string, string[]> = {
     "bids:read",
     "field-ops:read",
     "field-ops:write",
+    // Needed to upload contributor-program evidence (video/photo/audio) via
+    // the shared /v1/uploads/* pipeline — reused rather than duplicated.
+    "evidence:read",
+    "evidence:write",
     "knowledge:read",
     "tools:read",
     "tools:run",
@@ -137,6 +143,8 @@ export const rolePermissions: Record<string, string[]> = {
     "domain-events:consume"
   ],
   OPS_ADMIN: [
+    "contributor-program:participate",
+    "contributor-program:manage",
     "jobs:read",
     "jobs:create",
     "travel:manage",

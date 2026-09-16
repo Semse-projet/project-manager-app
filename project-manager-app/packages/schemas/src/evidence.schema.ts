@@ -11,7 +11,7 @@ export const presignEvidenceSchema = z.object({
 });
 
 export const uploadPlanSchema = z.object({
-  domain: z.enum(["evidence", "contract", "dispute", "travel"]),
+  domain: z.enum(["evidence", "contract", "dispute", "travel", "knowledge_contribution"]),
   filename: z.string().min(1),
   contentType: z.string().min(1),
   fileSizeBytes: z.number().int().positive().max(1024 * 1024 * 1024 * 20),
