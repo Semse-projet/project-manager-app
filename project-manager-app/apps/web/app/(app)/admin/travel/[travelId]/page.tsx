@@ -291,7 +291,7 @@ export default function AdminTravelDetailPage() {
           </button>
         )}
         {missingLodgingReceipts > 0 && (
-          <button onClick={() => setTab("hospedaje")} style={{ ...statusChipBase, background: "rgba(139,92,246,.12)", color: "#7c3aed" }}>
+          <button onClick={() => setTab("hospedaje")} style={{ ...statusChipBase, background: "rgba(139,92,246,.12)", color: "var(--violet)" }}>
             {missingLodgingReceipts} hospedaje{missingLodgingReceipts > 1 ? "s" : ""} sin soporte
           </button>
         )}
@@ -387,7 +387,7 @@ export default function AdminTravelDetailPage() {
           </button>
         )}
         {status === "ACTIVE" && (
-          <button onClick={() => void handlePending()} disabled={busy || Boolean(blockedPendingReason)} style={{ padding: "9px 14px", borderRadius: "10px", border: "none", background: blockedPendingReason ? "#94a3b8" : "#d97706", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: busy || blockedPendingReason ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
+          <button onClick={() => void handlePending()} disabled={busy || Boolean(blockedPendingReason)} style={{ padding: "9px 14px", borderRadius: "10px", border: "none", background: blockedPendingReason ? "#94a3b8" : "var(--warn)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: busy || blockedPendingReason ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
             Mover a liquidación
           </button>
         )}
@@ -398,7 +398,7 @@ export default function AdminTravelDetailPage() {
         )}
         {status === "PENDING_SETTLEMENT" && (
           <>
-            <button onClick={() => { if (window.confirm("¿Cerrar la liquidación de este viaje? Esto finaliza el saldo de reembolso de gastos del profesional de forma permanente.")) void handleClose(); }} disabled={busy || missingReceipts > 0} style={{ padding: "9px 14px", borderRadius: "10px", border: "none", background: missingReceipts > 0 ? "#94a3b8" : "#2563eb", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: busy || missingReceipts > 0 ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
+            <button onClick={() => { if (window.confirm("¿Cerrar la liquidación de este viaje? Esto finaliza el saldo de reembolso de gastos del profesional de forma permanente.")) void handleClose(); }} disabled={busy || missingReceipts > 0} style={{ padding: "9px 14px", borderRadius: "10px", border: "none", background: missingReceipts > 0 ? "#94a3b8" : "var(--brand)", color: "#fff", fontSize: "13px", fontWeight: 700, cursor: busy || missingReceipts > 0 ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
               Cerrar liquidación
             </button>
             {missingReceipts > 0 && (
@@ -483,7 +483,7 @@ export default function AdminTravelDetailPage() {
                         href={String(item.googleMapsUri)}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ display: "inline-flex", fontSize: "12px", fontWeight: 600, color: "#2563eb", textDecoration: "none" }}
+                        style={{ display: "inline-flex", fontSize: "12px", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}
                       >
                         Abrir en Maps
                       </a>
@@ -493,7 +493,7 @@ export default function AdminTravelDetailPage() {
                         href={String(item.receiptUrl)}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ display: "inline-flex", fontSize: "12px", fontWeight: 600, color: "#2563eb", textDecoration: "none" }}
+                        style={{ display: "inline-flex", fontSize: "12px", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}
                       >
                         Ver comprobante
                       </a>
@@ -519,13 +519,13 @@ export default function AdminTravelDetailPage() {
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)" }}>{fmtMoney(item.amount)}</p>
-                    <p style={{ fontSize: "12px", color: item.receiptUrl ? "#2563eb" : "var(--faint)" }}>{item.receiptUrl ? "con comprobante" : "sin comprobante"}</p>
+                    <p style={{ fontSize: "12px", color: item.receiptUrl ? "var(--brand)" : "var(--faint)" }}>{item.receiptUrl ? "con comprobante" : "sin comprobante"}</p>
                     {Boolean(item.receiptUrl) && (
                       <a
                         href={String(item.receiptUrl)}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ display: "inline-flex", marginTop: "6px", fontSize: "12px", fontWeight: 600, color: "#2563eb", textDecoration: "none" }}
+                        style={{ display: "inline-flex", marginTop: "6px", fontSize: "12px", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}
                       >
                         Abrir comprobante
                       </a>

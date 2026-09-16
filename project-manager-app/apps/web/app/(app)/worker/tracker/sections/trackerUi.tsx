@@ -35,7 +35,7 @@ export function shouldPreserveLocalEvent(caught: unknown): boolean {
 // Paleta categórica por propósito, validada (contraste/CVD) sobre superficie clara y oscura.
 export const PURPOSE_CHART_COLORS: Record<TimeEntryView["purpose"], string> = {
   job_linked: "var(--brand)",
-  payable: "#d97706",
+  payable: "var(--warn)",
   personal: "var(--violet)",
 };
 
@@ -216,7 +216,7 @@ export function KpiCard({ label, value, hint, color, badge }: {
 export function ChangeBadge({ value }: { value: number | null }) {
   if (value === null || !Number.isFinite(value)) return null;
   const positive = value >= 0;
-  const color = positive ? "#059669" : "#dc2626";
+  const color = positive ? "var(--ok)" : "var(--error)";
   return (
     <span
       style={{

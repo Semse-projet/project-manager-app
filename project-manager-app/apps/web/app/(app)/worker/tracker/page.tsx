@@ -262,7 +262,7 @@ const ENTRY_STATUS_META: Record<string, { label: string; color: string; bg: stri
   paused: { label: "En pausa", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   completed: { label: "Completada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
   pending_review: { label: "En revisión", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
-  approved: { label: "Aprobada", color: "#059669", bg: "rgba(5,150,105,.12)" },
+  approved: { label: "Aprobada", color: "var(--ok)", bg: "rgba(5,150,105,.12)" },
 };
 
 function entryStatusMeta(status: string) {
