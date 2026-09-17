@@ -8,11 +8,253 @@ import { Badge, Button, Card, ErrorState, Spinner, Textarea, statusVariant } fro
 import {
   fetchAdminContributorAppeals,
   fetchAdminContributorSubmissions,
+  fetchAdminContributorExtractions,
+  correctAdminContributorObservation,
   reviewAdminContributorSubmission,
   resolveAdminContributorAppeal,
   type ContributorAppealView,
   type KnowledgeSubmissionView,
+  type KnowledgeExtractionView,
+  type ObservationView,
 } from "../../../../semse-api";
+
+const OBSERVATION_FIELD_NAMES = ["objective", "condition", "decision", "reason", "method", "action", "result"] as const;
+type ObservationFieldName = (typeof OBSERVATION_FIELD_NAMES)[number];
+
+function extractionStatusVariant(status: string): "default" | "success" | "info" | "warn" | "error" {
+  switch (status) {
+    case "COMPLETED":
+      return "success";
+    case "PROCESSING":
+      return "info";
+    case "PENDING":
+      return "warn";
+    case "FAILED":
+      return "error";
+    default:
+      return "default";
+  }
+}
+
+function formatMs(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function ObservationCorrectionForm({
+  observation,
+  onDone,
+  onCancel,
+}: {
+  observation: ObservationView;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [values, setValues] = useState<Record<ObservationFieldName, string>>(() => {
+    const initial = {} as Record<ObservationFieldName, string>;
+    for (const field of OBSERVATION_FIELD_NAMES) {
+      initial[field] = observation[field] ?? "";
+    }
+    return initial;
+  });
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!reason.trim()) {
+      setError(t("contributors.admin.reasonRequired"));
+      return;
+    }
+    const correctedFields: Record<string, string> = {};
+    for (const field of OBSERVATION_FIELD_NAMES) {
+      const nextValue = values[field].trim();
+      const originalValue = observation[field] ?? "";
+      if (nextValue && nextValue !== originalValue) {
+        correctedFields[field] = nextValue;
+      }
+    }
+    if (Object.keys(correctedFields).length === 0) {
+      setError(t("contributors.admin.reasonRequired"));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await correctAdminContributorObservation(observation.id, { correctedFields, reason: reason.trim() });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-3">
+      {OBSERVATION_FIELD_NAMES.map((field) => (
+        <Textarea
+          key={field}
+          className="mt-2"
+          label={field.toUpperCase()}
+          value={values[field]}
+          onChange={(event) => setValues((prev) => ({ ...prev, [field]: event.target.value }))}
+          rows={2}
+        />
+      ))}
+      <Textarea
+        className="mt-2"
+        label={t("contributors.admin.extractions.correctionReason")}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        rows={2}
+      />
+      {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
+      <div className="mt-2 flex gap-2">
+        <Button size="sm" loading={busy} onClick={submit}>
+          {t("contributors.admin.extractions.correctionSubmit")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          {t("contributors.admin.extractions.correctionCancel")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ObservationCard({ observation, onCorrected }: { observation: ObservationView; onCorrected: () => void }) {
+  const { t } = useLanguage();
+  const [correcting, setCorrecting] = useState(false);
+
+  const fields = OBSERVATION_FIELD_NAMES.map((field) => ({ field, value: observation[field] })).filter(
+    (entry) => entry.value
+  );
+
+  return (
+    <div className="mt-2 rounded border border-white/10 p-2 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant={observation.isCorrected ? "success" : "default"}>
+          {observation.isCorrected ? t("contributors.admin.extractions.corrected") : t("contributors.admin.extractions.raw")}
+        </Badge>
+        {!observation.isCorrected && !correcting ? (
+          <Button size="sm" variant="ghost" onClick={() => setCorrecting(true)}>
+            {t("contributors.admin.extractions.correct")}
+          </Button>
+        ) : null}
+      </div>
+      <dl className="mt-2 space-y-1">
+        {fields.map(({ field, value }) => (
+          <div key={field}>
+            <dt className="font-semibold text-muted">{field.toUpperCase()}</dt>
+            <dd className="text-ink">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {correcting ? (
+        <ObservationCorrectionForm
+          observation={observation}
+          onDone={() => {
+            setCorrecting(false);
+            onCorrected();
+          }}
+          onCancel={() => setCorrecting(false)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ExtractionsSection({ submissionId }: { submissionId: string }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [extractions, setExtractions] = useState<KnowledgeExtractionView[]>([]);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    fetchAdminContributorExtractions(submissionId)
+      .then(setExtractions)
+      .catch((err) => setError(err instanceof Error ? err.message : "error"))
+      .finally(() => setLoading(false));
+  }, [submissionId]);
+
+  useEffect(() => {
+    if (open) load();
+  }, [open, load]);
+
+  return (
+    <div className="mt-3">
+      <Button size="sm" variant="ghost" onClick={() => setOpen((prev) => !prev)}>
+        {open ? t("contributors.admin.extractions.toggleHide") : t("contributors.admin.extractions.toggleShow")}
+      </Button>
+
+      {open ? (
+        <div className="mt-2">
+          {loading ? (
+            <div className="flex justify-center py-4">
+              <Spinner />
+            </div>
+          ) : error ? (
+            <ErrorState message={error} onRetry={load} />
+          ) : extractions.length === 0 ? (
+            <p className="text-xs text-muted">{t("contributors.admin.extractions.empty")}</p>
+          ) : (
+            <div className="space-y-3">
+              {extractions.map((extraction) => (
+                <div key={extraction.id} className="rounded border border-white/10 p-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={extractionStatusVariant(extraction.status)}>{extraction.status}</Badge>
+                    <span className="text-xs text-muted">{extraction.kind}</span>
+                  </div>
+
+                  {extraction.status === "PENDING" ? (
+                    <p className="mt-2 text-xs text-muted">{t("contributors.admin.extractions.pending")}</p>
+                  ) : null}
+                  {extraction.status === "PROCESSING" ? (
+                    <p className="mt-2 text-xs text-muted">{t("contributors.admin.extractions.processing")}</p>
+                  ) : null}
+                  {extraction.status === "FAILED" ? (
+                    <p className="mt-2 text-xs text-red-400">
+                      {t("contributors.admin.extractions.failed")}
+                      {extraction.failureReason ? `: ${extraction.failureReason}` : ""}
+                    </p>
+                  ) : null}
+
+                  {extraction.transcriptSegments.length > 0 ? (
+                    <ul className="mt-2 space-y-1 text-xs">
+                      {extraction.transcriptSegments.map((segment) => (
+                        <li key={segment.id}>
+                          <span className="font-mono text-muted">
+                            [{formatMs(segment.startMs)}–{formatMs(segment.endMs)}]
+                          </span>{" "}
+                          {segment.text}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {extraction.observations.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-ink">{t("contributors.admin.extractions.observations")}</p>
+                      {extraction.observations.map((observation) => (
+                        <ObservationCard key={observation.id} observation={observation} onCorrected={load} />
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 function AppealPanel({ appeal, onDone }: { appeal: ContributorAppealView; onDone: () => void }) {
   const { t } = useLanguage();
@@ -106,6 +348,8 @@ function ReviewPanel({ submission, onDone }: { submission: KnowledgeSubmissionVi
           </li>
         ))}
       </ul>
+
+      <ExtractionsSection submissionId={submission.id} />
 
       <Textarea
         className="mt-3"

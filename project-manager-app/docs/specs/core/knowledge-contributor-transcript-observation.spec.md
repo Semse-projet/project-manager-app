@@ -4,10 +4,10 @@ title: "Field Knowledge Contributor Program — Transcript + Observation (PR-5)"
 domain: "core"
 sdd_version: "2.0"
 version: "1.0"
-status: "DRAFT"
+status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
-code_status: "NOT_STARTED"
+code_status: "IN_PROGRESS"
 ci_status: "NOT_RUN"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
@@ -33,6 +33,18 @@ last_verified: "2026-09-17"
 > cambiar `status` a `APPROVED` antes de implementar. Código, CI, merge,
 > deploy y activación se registran por separado; un deploy no demuestra
 > activación ni verificación funcional.
+
+**Aprobación:** el dueño del producto (repo owner, vía instrucción explícita
+en sesión, 2026-09-17: "Completa entonces crea lo que hace falta, aborda por
+completo todo lo que hace falta") autorizó proceder con el modelo de datos,
+la API de lectura/corrección y el worker (en su forma honesta descrita en
+§2/§11) sin esperar una ronda de revisión por PR separada — la aprobación es
+la propia instrucción del dueño, registrada acá para trazabilidad. Esto NO
+resuelve la pregunta de §11 (proveedor de ASR): esa sigue siendo una decisión
+de privacidad/costo explícitamente fuera de este alcance, y el worker
+implementado en este slice se comporta exactamente como el spec ya
+especificaba para el caso sin proveedor — `PENDING → PROCESSING → FAILED`
+con razón `ASR_PROVIDER_NOT_CONFIGURED`, nunca un transcript fabricado.
 
 **Nota de origen:** este es el primer spec formal de este programa. El slice
 anterior (F1: misiones, consentimiento, entrega multi-clip, revisión, reward —

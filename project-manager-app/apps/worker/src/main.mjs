@@ -100,6 +100,7 @@ const connection = new Redis(config.redisUrl, {
 
 const RESERVATION_SWEEP_INTERVAL_MS = 60_000;
 const LIVE_SESSION_SWEEP_INTERVAL_MS = 60_000;
+const CONTRIBUTOR_EXTRACTION_SWEEP_INTERVAL_MS = 60_000;
 const CURATOR_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000; // check every 6h, curator decides if 7d passed
 const PI_RETENTION_INTERVAL_MS = 24 * 60 * 60 * 1_000; // PI-03.2: retención diaria
 const PI_ENGINES_INTERVAL_MS = 6 * 60 * 60 * 1_000; // PI-07/08: engines cada 6h
@@ -110,6 +111,7 @@ let shouldStop = false;
 let reclaimTimer;
 let reservationSweepTimer;
 let liveSessionSweepTimer;
+let contributorExtractionSweepTimer;
 let curatorTimer;
 let piRetentionTimer;
 let lienDeadlineTimer;
@@ -331,6 +333,19 @@ async function main() {
     }, LIVE_SESSION_SWEEP_INTERVAL_MS);
   }
 
+  // PR-5 (docs/specs/core/knowledge-contributor-transcript-observation.spec.md):
+  // drives KnowledgeExtraction rows PENDING -> PROCESSING -> COMPLETED/FAILED.
+  // No ASR provider is wired up yet (see transcription-provider.ts), so every
+  // row this sweeps ends FAILED with an honest reason today — that's expected,
+  // not a bug; see the spec's §2/§11 for why the worker still ships now.
+  if (process.env.CONTRIBUTOR_EXTRACTION_SWEEP_ENABLED === "true") {
+    logger.info("contributor extraction sweep enabled");
+    void sweepPendingContributorExtractions();
+    contributorExtractionSweepTimer = setInterval(() => {
+      void sweepPendingContributorExtractions();
+    }, CONTRIBUTOR_EXTRACTION_SWEEP_INTERVAL_MS);
+  }
+
   // Skill curator — checks every 6h, actually runs at most once per 7 days
   void runCuratorSafe();
   curatorTimer = setInterval(() => { void runCuratorSafe(); }, CURATOR_CHECK_INTERVAL_MS);
@@ -385,6 +400,7 @@ async function main() {
   if (reclaimTimer) clearInterval(reclaimTimer);
   if (reservationSweepTimer) clearInterval(reservationSweepTimer);
   if (liveSessionSweepTimer) clearInterval(liveSessionSweepTimer);
+  if (contributorExtractionSweepTimer) clearInterval(contributorExtractionSweepTimer);
   if (curatorTimer) clearInterval(curatorTimer);
   if (piRetentionTimer) clearInterval(piRetentionTimer);
   if (piEnginesTimer) clearInterval(piEnginesTimer);
@@ -576,6 +592,18 @@ async function sweepExpiredLiveSessions() {
     if (closed > 0) logger.info({ closed }, "swept expired live sessions");
   } catch (error) {
     logger.warn({ error }, "live session sweep failed -- will retry next interval");
+  }
+}
+
+async function sweepPendingContributorExtractions() {
+  try {
+    const response = await postJson("/v1/contributor-program/admin/extractions/process-pending", { maxItems: 20 });
+    const { processed, completed, failed } = response?.data ?? {};
+    if (processed > 0) {
+      logger.info({ processed, completed, failed }, "swept pending contributor-program extractions");
+    }
+  } catch (error) {
+    logger.warn({ error }, "contributor extraction sweep failed — will retry next interval");
   }
 }
 

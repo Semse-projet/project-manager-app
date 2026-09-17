@@ -392,6 +392,153 @@ export class ContributorProgramRepository {
     });
   }
 
+  // ── Extractions: read + pipeline (PR-5, transcript/observation) ──────
+
+  async listExtractionsForSubmission(tenantId: string, submissionId: string) {
+    return this.prisma.knowledgeExtraction.findMany({
+      where: { tenantId, submissionId },
+      include: {
+        transcriptSegments: { orderBy: { startMs: "asc" } },
+        observations: { orderBy: { createdAt: "asc" } }
+      },
+      orderBy: { createdAt: "asc" }
+    });
+  }
+
+  async findObservationById(id: string) {
+    return this.prisma.observation.findUnique({ where: { id } });
+  }
+
+  // Conditional update guards the 409 in the service: it only succeeds
+  // against a row that is still uncorrected (correctedAt: null), so two
+  // concurrent correction requests for the same Observation can't both win.
+  // Writes the corrected text into the actual OBSERVATION field(s) too, not
+  // just correctedFieldsJson (the audit trail of what changed) — otherwise
+  // the row's visible objective/condition/.../result would silently keep
+  // showing the pre-correction text forever, defeating the whole point of a
+  // correction.
+  async correctObservation(input: {
+    id: string;
+    correctedFields: Partial<
+      Record<"objective" | "condition" | "decision" | "reason" | "method" | "action" | "result", string>
+    >;
+    correctedByUserId: string;
+    reason: string;
+  }) {
+    const claimed = await this.prisma.observation.updateMany({
+      where: { id: input.id, correctedAt: null },
+      data: {
+        ...input.correctedFields,
+        correctedFieldsJson: toJson(input.correctedFields),
+        correctedByUserId: input.correctedByUserId,
+        correctedReason: input.reason,
+        correctedAt: new Date()
+      }
+    });
+    if (claimed.count === 0) return null;
+    return this.prisma.observation.findUnique({ where: { id: input.id } });
+  }
+
+  // Worker entry point. The findFirst + conditional updateMany (WHERE
+  // status = 'PENDING') is the idempotency guard the spec (§6) asks for: the
+  // UPDATE only affects a row still PENDING, so if a second worker races for
+  // the same row its updateMany.count is 0 and it moves on — no
+  // SELECT ... FOR UPDATE SKIP LOCKED needed for single-worker-instance
+  // correctness, only for claim-contention throughput under many instances
+  // (out of scope here, same "por definir en plan" the spec already flags).
+  // tenantId is optional: omitted, this sweeps PENDING rows across every
+  // tenant (the real worker's normal mode — same as sweepExpiredLiveSessions
+  // having no tenant filter). Passing it scopes the sweep to one tenant,
+  // which is what the spec's §8 canary plan asks for ("procesar primero
+  // solo las entregas del tenant demo") — this was the only way to satisfy
+  // that requirement without ever touching another tenant's queue.
+  async claimNextPendingTranscriptionExtraction(tenantId?: string) {
+    const candidate = await this.prisma.knowledgeExtraction.findFirst({
+      where: { kind: "TRANSCRIPTION", status: "PENDING", tenantId },
+      orderBy: { createdAt: "asc" },
+      include: { asset: true }
+    });
+    if (!candidate) return null;
+    const claimed = await this.prisma.knowledgeExtraction.updateMany({
+      where: { id: candidate.id, status: "PENDING" },
+      data: { status: "PROCESSING" }
+    });
+    if (claimed.count === 0) return null;
+    return candidate;
+  }
+
+  async failExtraction(id: string, reason: string) {
+    return this.prisma.knowledgeExtraction.update({
+      where: { id },
+      data: { status: "FAILED", dataJson: toJson({ failureReason: reason }) }
+    });
+  }
+
+  async completeExtractionWithTranscript(input: {
+    extractionId: string;
+    tenantId: string;
+    submissionId: string;
+    assetId: string;
+    segments: Array<{ startMs: number; endMs: number; text: string; confidence?: number | null }>;
+  }) {
+    return this.prisma.$transaction(async (tx) => {
+      const createdSegments = [];
+      for (const segment of input.segments) {
+        createdSegments.push(
+          await tx.transcriptSegment.create({
+            data: {
+              tenantId: input.tenantId,
+              submissionId: input.submissionId,
+              assetId: input.assetId,
+              extractionId: input.extractionId,
+              startMs: segment.startMs,
+              endMs: segment.endMs,
+              text: segment.text,
+              confidence: segment.confidence ?? undefined
+            }
+          })
+        );
+      }
+      const extraction = await tx.knowledgeExtraction.update({
+        where: { id: input.extractionId },
+        data: { status: "COMPLETED", extractedAt: new Date() }
+      });
+      return { extraction, segments: createdSegments };
+    });
+  }
+
+  async createObservation(input: {
+    tenantId: string;
+    submissionId: string;
+    extractionId: string;
+    objective?: string | null;
+    condition?: string | null;
+    decision?: string | null;
+    reason?: string | null;
+    method?: string | null;
+    action?: string | null;
+    result?: string | null;
+    sourceSegmentIds: string[];
+    generatedBy: string;
+  }) {
+    return this.prisma.observation.create({
+      data: {
+        tenantId: input.tenantId,
+        submissionId: input.submissionId,
+        extractionId: input.extractionId,
+        objective: input.objective ?? undefined,
+        condition: input.condition ?? undefined,
+        decision: input.decision ?? undefined,
+        reason: input.reason ?? undefined,
+        method: input.method ?? undefined,
+        action: input.action ?? undefined,
+        result: input.result ?? undefined,
+        sourceSegmentIdsJson: toJson(input.sourceSegmentIds),
+        generatedBy: input.generatedBy
+      }
+    });
+  }
+
   // ── Rewards ───────────────────────────────────────────────────────────
 
   async findRewardBySubmissionId(submissionId: string) {

@@ -3308,3 +3308,63 @@ export async function authorizeAdminContributorRewardPayout(rewardId: string): P
     `/api/semse/contributors/admin/rewards/${encodeURIComponent(rewardId)}/authorize-payout`
   );
 }
+
+// ── Extractions: transcript + observation (PR-5) ───────────────────────────
+// docs/specs/core/knowledge-contributor-transcript-observation.spec.md §5
+
+export type TranscriptSegmentView = {
+  id: string;
+  assetId: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+  confidence: number | null;
+  createdAt: string;
+};
+
+export type ObservationView = {
+  id: string;
+  objective: string | null;
+  condition: string | null;
+  decision: string | null;
+  reason: string | null;
+  method: string | null;
+  action: string | null;
+  result: string | null;
+  sourceSegmentIds: string[];
+  generatedBy: string;
+  isCorrected: boolean;
+  correctedFields: Record<string, string> | null;
+  correctedByUserId: string | null;
+  correctedReason: string | null;
+  correctedAt: string | null;
+  createdAt: string;
+};
+
+export type KnowledgeExtractionView = {
+  id: string;
+  assetId: string | null;
+  kind: string;
+  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  failureReason: string | null;
+  extractedAt: string | null;
+  createdAt: string;
+  transcriptSegments: TranscriptSegmentView[];
+  observations: ObservationView[];
+};
+
+export async function fetchAdminContributorExtractions(submissionId: string): Promise<KnowledgeExtractionView[]> {
+  return fetchSemse<KnowledgeExtractionView[]>(
+    `/api/semse/contributors/admin/submissions/${encodeURIComponent(submissionId)}/extractions`
+  );
+}
+
+export async function correctAdminContributorObservation(
+  observationId: string,
+  input: { correctedFields: Record<string, string>; reason: string }
+): Promise<ObservationView> {
+  return mutateSemse<ObservationView>(
+    `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/correct`,
+    input
+  );
+}

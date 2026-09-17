@@ -247,6 +247,71 @@ export const knowledgeAppealViewSchema = z.object({
   createdAt: z.string()
 });
 
+// ── Extractions / Transcript / Observation (PR-5) ──────────────────────────
+// docs/specs/core/knowledge-contributor-transcript-observation.spec.md
+
+export const knowledgeExtractionStatusSchema = z.enum(["PENDING", "PROCESSING", "COMPLETED", "FAILED"]);
+
+export const transcriptSegmentViewSchema = z.object({
+  id: z.string().min(1),
+  assetId: z.string().min(1),
+  startMs: z.number().int().nonnegative(),
+  endMs: z.number().int().nonnegative(),
+  text: z.string(),
+  confidence: z.number().nullable().optional(),
+  createdAt: z.string()
+});
+
+export const observationViewSchema = z.object({
+  id: z.string().min(1),
+  objective: z.string().nullable().optional(),
+  condition: z.string().nullable().optional(),
+  decision: z.string().nullable().optional(),
+  reason: z.string().nullable().optional(),
+  method: z.string().nullable().optional(),
+  action: z.string().nullable().optional(),
+  result: z.string().nullable().optional(),
+  sourceSegmentIds: z.array(z.string()),
+  generatedBy: z.string(),
+  isCorrected: z.boolean(),
+  correctedFields: z.record(z.string(), z.string()).nullable().optional(),
+  correctedByUserId: z.string().nullable().optional(),
+  correctedReason: z.string().nullable().optional(),
+  correctedAt: z.string().nullable().optional(),
+  createdAt: z.string()
+});
+
+export const knowledgeExtractionViewSchema = z.object({
+  id: z.string().min(1),
+  assetId: z.string().nullable().optional(),
+  kind: z.string(),
+  status: knowledgeExtractionStatusSchema,
+  failureReason: z.string().nullable().optional(),
+  extractedAt: z.string().nullable().optional(),
+  createdAt: z.string(),
+  transcriptSegments: z.array(transcriptSegmentViewSchema),
+  observations: z.array(observationViewSchema)
+});
+
+export const observationFieldNameSchema = z.enum([
+  "objective",
+  "condition",
+  "decision",
+  "reason",
+  "method",
+  "action",
+  "result"
+]);
+
+export const correctObservationSchema = z.object({
+  correctedFields: z
+    .record(observationFieldNameSchema, z.string().min(1).max(5000))
+    .refine((fields) => Object.keys(fields).length > 0, {
+      message: "correctedFields must contain at least one OBSERVATION field"
+    }),
+  reason: z.string().min(1).max(5000)
+});
+
 // ── Rewards ──────────────────────────────────────────────────────────────
 
 export const contributorRewardStatusSchema = z.enum([
@@ -300,3 +365,9 @@ export type ResolveKnowledgeAppealInput = z.infer<typeof resolveKnowledgeAppealS
 export type KnowledgeAppealView = z.infer<typeof knowledgeAppealViewSchema>;
 export type ContributorRewardView = z.infer<typeof contributorRewardViewSchema>;
 export type ContributorDashboardView = z.infer<typeof contributorDashboardViewSchema>;
+export type KnowledgeExtractionStatus = z.infer<typeof knowledgeExtractionStatusSchema>;
+export type TranscriptSegmentView = z.infer<typeof transcriptSegmentViewSchema>;
+export type ObservationView = z.infer<typeof observationViewSchema>;
+export type KnowledgeExtractionView = z.infer<typeof knowledgeExtractionViewSchema>;
+export type ObservationFieldName = z.infer<typeof observationFieldNameSchema>;
+export type CorrectObservationInput = z.infer<typeof correctObservationSchema>;
