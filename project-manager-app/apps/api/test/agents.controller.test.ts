@@ -2,7 +2,7 @@ import "reflect-metadata";
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agentCatalog } from "@semse/agents";
+import { agentCatalog, runtimeAgentRoles } from "@semse/agents";
 import { REQUIRED_PERMISSIONS_KEY } from "../src/common/permissions.decorator.ts";
 import { AgentsController } from "../dist/modules/agents/agents.controller.js";
 
@@ -271,4 +271,55 @@ test("agents controller declares permissions and wraps representative payloads",
   assert.ok(calls.some((call) => call.method === "executeFromApproval"));
   assert.ok(calls.some((call) => call.method === "createRun"));
   assert.ok(calls.some((call) => call.method === "listTemplates"));
+});
+
+// Reachability proof (Agents Governance Reconciliation, semse-agents-governance):
+// createAgentRunSchema (agents.controller.ts) is never mocked below — only the
+// downstream AgentsService.create is faked, exactly like the test above. This
+// proves the REAL public API entrypoint's schema gate (not a reimplementation
+// of it) actually rejects the 4 roles missing from agentCatalog before they
+// ever reach the service/policy layer, and accepts a real agentCatalog member
+// through to the service.
+test("createRun's real schema gate rejects designed-but-unwired roles before the service layer, accepts catalog roles through", async () => {
+  const { controller, calls } = createController();
+  const actor = {
+    headers: { "x-request-id": "req_reach_1" },
+    authContext: { tenantId: "tenant_1", orgId: "org_1", userId: "usr_1", roles: ["OPS_ADMIN"] },
+  };
+
+  // "forge" is also absent from agentCatalog (packages/agents/src/index.ts:395-407),
+  // correcting an earlier reconciliation note that counted only 4 excluded roles.
+  // forge is still PRODUCTION_REACHABLE — it has its own dedicated creation path
+  // (ForgeAgentAdapterService.execute calling agentsRepository.create directly)
+  // that bypasses this public schema gate entirely, so its exclusion here proves
+  // a *second* real fact worth an ADR line: not every reachable role goes through
+  // POST /v1/agents/runs — this endpoint's reach is narrower than agentCatalog's
+  // own 11 entries would suggest, and forge deliberately opts out of it.
+  const excludedFromPublicSchema = runtimeAgentRoles.filter((role) => !(agentCatalog as readonly string[]).includes(role));
+  assert.deepEqual(
+    [...excludedFromPublicSchema].sort(),
+    ["technical-agent", "legal-agent", "financial-agent", "qa-agent", "forge"].sort(),
+    "the set of roles missing from agentCatalog should be exactly the 4 DESIGNED_BUT_UNWIRED roles plus forge (which reaches production via a different, dedicated path)",
+  );
+
+  const trulyUnwiredRoles = excludedFromPublicSchema.filter((role) => role !== "forge");
+  for (const agentType of trulyUnwiredRoles) {
+    await assert.rejects(
+      () => controller.createRun(actor as never, { agentType, correlationId: `corr_${agentType}`, triggerType: "manual" }),
+      /BadRequestException/,
+      `expected ${agentType} to be rejected by the real Zod schema, not reach AgentsService.create`,
+    );
+  }
+  assert.ok(
+    !calls.some((call) => call.method === "createRun"),
+    "AgentsService.create must never be called for a role the public schema rejects",
+  );
+
+  const reachableRun = await controller.createRun(actor as never, {
+    agentType: "dispute",
+    correlationId: "corr_reach_dispute",
+    triggerType: "manual",
+  });
+  assert.equal(reachableRun.data.agentType, "dispute");
+  assert.ok(calls.some((call) => call.method === "createRun" && (call.input as { agentType?: string }).agentType === "dispute"));
 });
