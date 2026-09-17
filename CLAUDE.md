@@ -82,4 +82,22 @@ New Prisma model: edit `packages/db/prisma/schema.prisma` → `pnpm --filter @se
 
 ## Project-local skills
 
-`project-manager-app/.claude/skills/` has repo-specific skills worth checking before diving in: `semse-audit-remediation` (RBAC/JobStatus/evidence-upload fixes tied to the audit remediation plan), `semse-local-observability-testing` (running the full local stack — Postgres, Redis, API, worker, autonomy-server — with structured logging), `testing-worker-tracker` (exercising `/worker/tracker` in a browser), a scoped `semse-ecosystem-architect` for product/design work, and `semseproject` — the master governance skill (normative precedence hierarchy, identity/policy/approval/audit contracts, risk matrix, agent operating modes) that gates any mutating, financial, or cross-tenant agent action; read its `SKILL.md` before any of the others when the task involves agentic mutation.
+`project-manager-app/.claude/skills/` has repo-specific skills worth checking before diving in. Two are gating/governance skills, read first when applicable:
+
+- `semseproject` — the master governance skill (normative precedence hierarchy, identity/policy/approval/audit contracts, risk matrix, agent operating modes) that gates any mutating, financial, or cross-tenant agent action; read its `SKILL.md` before any of the others when the task involves agentic mutation.
+- `semse-audit-remediation` — RBAC/JobStatus/evidence-upload fixes tied to `docs/AUDIT_REMEDIATION_PLAN.md`; owns the SDD governance gate for that specific backlog.
+
+Task/module-specific skills (each documents a real, already-verified gap or gotcha — not aspirational design — and ends with a "notas para futuros agentes" section flagging what it doesn't cover):
+
+- `semse-design-tokens` — keeping `packages/design-tokens/src/colors.ts`, `apps/web/app/globals.css` (4 blocks), and `apps/mobile/src/theme` in sync; the `--brand-dark`/`--ok-dark` "bright second stop" pattern; the safe-fix heuristic for `#hex`→`var(--token)` sweeps, including the hex-alpha-suffix trap.
+- `semse-rbac-permissions` — the real role→permission map in `packages/auth/src/rbac.ts`, `@RequirePermissions`, the dev header-auth shortcut, and the RC3 "missing permission" bug shape.
+- `semse-prisma-workflow` — the 4-step migration order and the `_prisma_migrations`/`P3018` reconciliation trap.
+- `semse-bff-pattern` — the web BFF route shape (`apps/web/app/api/semse/**/route.ts` + `_server.ts`) and the fact that client-side API functions live in **4** files, not just `semse-api.ts`.
+- `semse-domain-events` — `EVENT_CATALOG.md` discipline and the fact that the outbox pattern is not applied uniformly across bounded contexts.
+- `semse-spec-kit-flow` — how to actually run the SDD flow `AGENTS.md` requires for new (non-backlog) features: templates, SEMSE-specific frontmatter, validation scripts.
+- `semse-labor-engine-boundary` — the real field-ops (legacy) vs. Labor Engine (current) split across 3 overlapping API controllers, so you don't invest in or "fix" code destined for removal.
+- `semse-mobile-offline-sync` — corrects the `CLAUDE.md` implication of one shared offline pattern: mobile's `localTimer.ts` is separate from web's `trackerLocalStore.ts`.
+- `semse-report-writer` — where/how to write the end-of-session report `AGENTS.md` requires, and the naming inconsistency already present in `docs/reportes/`.
+- `semse-security-baseline` — quick-reference for the RC4-RC6 root-cause bug shapes (IDOR, unverified payment status, auth weaknesses) already confirmed in this codebase.
+
+A scoped `semse-ecosystem-architect` also exists for product/design work, and `semse-local-observability-testing`/`testing-worker-tracker` cover local-stack and tracker-UI testing respectively.
