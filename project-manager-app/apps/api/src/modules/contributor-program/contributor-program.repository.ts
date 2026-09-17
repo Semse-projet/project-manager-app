@@ -412,15 +412,23 @@ export class ContributorProgramRepository {
   // Conditional update guards the 409 in the service: it only succeeds
   // against a row that is still uncorrected (correctedAt: null), so two
   // concurrent correction requests for the same Observation can't both win.
+  // Writes the corrected text into the actual OBSERVATION field(s) too, not
+  // just correctedFieldsJson (the audit trail of what changed) — otherwise
+  // the row's visible objective/condition/.../result would silently keep
+  // showing the pre-correction text forever, defeating the whole point of a
+  // correction.
   async correctObservation(input: {
     id: string;
-    correctedFields: Record<string, string>;
+    correctedFields: Partial<
+      Record<"objective" | "condition" | "decision" | "reason" | "method" | "action" | "result", string>
+    >;
     correctedByUserId: string;
     reason: string;
   }) {
     const claimed = await this.prisma.observation.updateMany({
       where: { id: input.id, correctedAt: null },
       data: {
+        ...input.correctedFields,
         correctedFieldsJson: toJson(input.correctedFields),
         correctedByUserId: input.correctedByUserId,
         correctedReason: input.reason,
