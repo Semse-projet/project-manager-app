@@ -2,6 +2,20 @@
 
 Esta carpeta agrupa evidencia fechada del trabajo hecho sobre `labsemse` y `project-manager-app`.
 
+## Convención de nombre para reportes nuevos
+
+```
+YYYY-MM-DD_topic-corto-en-kebab-case.md
+```
+
+Ejemplo: `2026-09-17_labor-engine-boundary-cleanup.md`.
+
+Esta carpeta (y sus subcarpetas) tiene archivos históricos con al menos 3 convenciones de nombre distintas (fecha al principio, fecha al final con guiones, fecha al final con guiones bajos) — **no se renombraron** para no romper las decenas de citas cruzadas que ya apuntan a esos nombres exactos desde `docs/specs/**`, runbooks, ADRs y comentarios de código (ver `packages/forge/src/creator.ts`, `apps/api/src/infrastructure/forge/forge-lease.service.ts`). Este README solo fija la convención para reportes **nuevos**, no reescribe el pasado. Ver `.claude/skills/semse-report-writer/SKILL.md` para el detalle de esta decisión (2026-09-17).
+
+### Estructura sugerida para el contenido (no obligatoria)
+
+No hay una plantilla `.specify` para reportes (a diferencia de spec/plan/tasks/checklist, que sí tienen override en `.specify/templates/overrides/`). Reutilizar la misma forma que ya pide el PR template del repo (`.github/pull_request_template.md`) mantiene consistencia con lo que un reviewer ya espera: **Resumen** (qué cambió y por qué), **Checklist final** (items concretos hechos, ✅/❌), **Evidencia** (comandos de validación corridos y su resultado), **Siguientes pasos** (qué debería recoger una sesión futura).
+
 ## Taxonomía
 
 ### Raíz de `reportes/`
