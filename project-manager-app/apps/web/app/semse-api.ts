@@ -124,7 +124,8 @@ export class SemseApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly path: string,
-    message?: string
+    message?: string,
+    public readonly code?: string
   ) {
     super(message ?? `SEMSE API ${path} returned ${status}`);
   }
@@ -156,16 +157,20 @@ export function normalizeErrorMessage(value: unknown): string | undefined {
   return undefined;
 }
 
-async function readErrorMessage(response: Response): Promise<string | undefined> {
+async function readErrorPayload(response: Response): Promise<{ message?: string; code?: string }> {
   try {
     const payload = (await response.json()) as {
       error?: unknown;
       message?: unknown;
     };
-
-    return normalizeErrorMessage(payload.error) ?? normalizeErrorMessage(payload.message);
+    const message = normalizeErrorMessage(payload.error) ?? normalizeErrorMessage(payload.message);
+    const code =
+      payload.error && typeof payload.error === "object" && "code" in (payload.error as Record<string, unknown>)
+        ? (payload.error as Record<string, unknown>).code
+        : undefined;
+    return { message, code: typeof code === "string" ? code : undefined };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
@@ -176,8 +181,8 @@ async function fetchSemse<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const message = await readErrorMessage(response);
-    throw new SemseApiError(response.status, path, message);
+    const { message, code } = await readErrorPayload(response);
+    throw new SemseApiError(response.status, path, message, code);
   }
 
   const envelope = (await response.json()) as ApiEnvelope<T>;

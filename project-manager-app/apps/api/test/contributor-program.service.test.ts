@@ -154,7 +154,7 @@ dbTest("mission acceptance keeps its price/version snapshot even after the missi
       acceptanceCriteria: ["crit"],
       baseCompensationCents: 500,
       currency: "USD",
-      isDemo: true,
+      isDemo: false,
     });
     await repository.updateMissionStatus(mission.id, "PUBLISHED");
 
@@ -196,6 +196,70 @@ dbTest("mission acceptance keeps its price/version snapshot even after the missi
   } finally {
     await cleanupFixture(fixture);
     await prisma.contributorTermsVersion.deleteMany({ where: { contentHash: "h" } });
+  }
+});
+
+// T: a demo/example mission (seeded for onboarding, never payable) can never
+// be accepted — regardless of its PUBLISHED status or a valid consent.
+dbTest("accepting a demo mission is rejected and never creates an acceptance", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+
+    const mission = await repository.createMission({
+      tenantId: fixture.tenantId,
+      createdByUserId: fixture.adminUserId,
+      title: "Documentar un offset EMT (demo)",
+      trade: "electrician",
+      category: "conduit_bending",
+      description: "test",
+      difficulty: "intermediate",
+      requirements: ["req"],
+      evidenceRequested: ["ev"],
+      acceptanceCriteria: ["crit"],
+      baseCompensationCents: 500,
+      currency: "USD",
+      isDemo: true,
+    });
+    await repository.updateMissionStatus(mission.id, "PUBLISHED");
+
+    await prisma.contributorTermsVersion.updateMany({ where: { isActive: true }, data: { isActive: false } });
+    const terms = await prisma.contributorTermsVersion.create({
+      data: {
+        version: uniqueId("v"),
+        effectiveAt: new Date(),
+        contentEs: "c",
+        contentEn: "c",
+        contentHash: "h-demo",
+        isActive: true,
+      },
+    });
+    await repository.createConsent({
+      tenantId: fixture.tenantId,
+      userId: fixture.contributorUserId,
+      termsVersionId: terms.id,
+      termsContentHash: terms.contentHash,
+      locale: "es",
+      checkboxes: { isAdult: true, acceptedTerms: true, authorizedToRecord: true, understandsSafetyPriority: true, understandsDataUse: true },
+    });
+
+    await assert.rejects(
+      () =>
+        service.acceptMission(
+          { tenantId: fixture.tenantId, orgId: fixture.orgId, userId: fixture.contributorUserId, roles: ["WORKER"], requestId: "req-1" },
+          mission.id
+        ),
+      (error: unknown) => {
+        assert.equal((error as { getResponse?: () => { code?: string } }).getResponse?.().code, "CONTRIBUTOR_PROGRAM_MISSION_IS_DEMO");
+        return true;
+      }
+    );
+
+    const existing = await repository.findAcceptance(mission.id, fixture.contributorUserId);
+    assert.equal(existing, null, "a demo mission must never produce an acceptance row");
+  } finally {
+    await cleanupFixture(fixture);
+    await prisma.contributorTermsVersion.deleteMany({ where: { contentHash: "h-demo" } });
   }
 });
 
