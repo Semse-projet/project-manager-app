@@ -254,7 +254,7 @@ export default function ClientDocumentsPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "2px", flexWrap: "wrap" }}>
                       <p style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "320px" }}>{doc.name}</p>
                       <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: `${color}14`, color, fontWeight: 600 }}>{KIND_LABEL[doc.kind] ?? doc.kind}</span>
-                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: doc.accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: doc.accessMode === "direct" ? "var(--ok)" : "#64748b", fontWeight: 700 }}>
+                      <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: doc.accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: doc.accessMode === "direct" ? "var(--ok)" : "var(--faint)", fontWeight: 700 }}>
                         {doc.accessMode === "direct" ? "Acceso directo" : "Desde proyecto"}
                       </span>
                     </div>

@@ -147,8 +147,8 @@ export default function WorkerPage() {
             <div key={h.type} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, padding: "10px 12px", background: "rgba(255,255,255,.03)", borderRadius: 10, border: "1px solid var(--border)", alignItems: "center" }}>
               <span style={{ fontSize: 10, fontWeight: 800, color: "#818cf8", background: "rgba(99,102,241,.15)", padding: "2px 8px", borderRadius: 6, fontFamily: "monospace" }}>{h.type}</span>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>{h.description}</span>
-              <span style={{ fontSize: 10, color: "#94a3b8" }}>{h.handler}</span>
-              <span style={{ fontSize: 10, color: "#94a3b8" }}>P{h.priority}</span>
+              <span style={{ fontSize: 10, color: "var(--muted)" }}>{h.handler}</span>
+              <span style={{ fontSize: 10, color: "var(--muted)" }}>P{h.priority}</span>
             </div>
           ))}
         </div>

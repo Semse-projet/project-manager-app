@@ -177,7 +177,7 @@ function PatchCard({ patch, onApply }: { patch: SimPatch; onApply: (id: string) 
               {patch.impactAnalysis.notes.map((n, i) => (
                 <div key={i} style={{ fontSize: 11, color: "var(--muted)", padding: "2px 0" }}>• {n}</div>
               ))}
-              <div style={{ marginTop: 6, fontSize: 10, color: "#94a3b8" }}>
+              <div style={{ marginTop: 6, fontSize: 10, color: "var(--muted)" }}>
                 breakingRisk: {patch.impactAnalysis.breakingRisk} · rollbackable: {String(patch.impactAnalysis.rollbackable)}
               </div>
             </div>
@@ -295,7 +295,7 @@ export function SimulationPanel() {
             </summary>
             <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
               {report.guardrails.map((g, i) => (
-                <div key={i} style={{ fontSize: 10, color: "#94a3b8", padding: "3px 0" }}>🔒 {g}</div>
+                <div key={i} style={{ fontSize: 10, color: "var(--muted)", padding: "3px 0" }}>🔒 {g}</div>
               ))}
             </div>
           </details>

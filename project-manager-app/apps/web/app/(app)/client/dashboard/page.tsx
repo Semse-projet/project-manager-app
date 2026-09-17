@@ -23,7 +23,7 @@ import { fetchRatings, type RatingListItem } from "../../../semse-api";
 // ─────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  draft:       { label: "Borrador",    color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  draft:       { label: "Borrador",    color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
   posted:      { label: "Publicado",   color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   reserved:    { label: "Reservado",   color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   accepted:    { label: "Aceptado",    color: "var(--violet)", bg: "rgba(139,92,246,.12)" },
@@ -31,7 +31,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }
   review:      { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   dispute:     { label: "En disputa",  color: "var(--error)", bg: "rgba(239,68,68,.12)" },
   completed:   { label: "Completado",  color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
-  cancelled:   { label: "Cancelado",   color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  cancelled:   { label: "Cancelado",   color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
 };
 
 function formatBudget(min?: number, max?: number): string {

@@ -16,7 +16,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   reserved:    { label: "Reservado",   color: "var(--warn)", dot: "var(--warn)" },
   review:      { label: "En revisión", color: "var(--info)", dot: "var(--info)" },
   posted:      { label: "Publicado",   color: "var(--brand)", dot: "var(--brand)" },
-  completed:   { label: "Completado",  color: "#64748b", dot: "#64748b" },
+  completed:   { label: "Completado",  color: "var(--faint)", dot: "var(--faint)" },
 };
 
 type AgendaJob = {

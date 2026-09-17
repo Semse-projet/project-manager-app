@@ -141,7 +141,7 @@ function WeatherWidget() {
             <p style={{ fontSize: 10, color: "var(--faint)" }}>Humedad</p>
           </div>
           <div style={{ textAlign: "center" }}>
-            <Wind size={14} color="#94a3b8" style={{ margin: "0 auto 3px" }} />
+            <Wind size={14} color="var(--muted)" style={{ margin: "0 auto 3px" }} />
             <p style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700 }}>{weather.windspeed} km/h</p>
             <p style={{ fontSize: 10, color: "var(--faint)" }}>Viento</p>
           </div>

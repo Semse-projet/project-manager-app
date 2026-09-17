@@ -342,7 +342,7 @@ const STEP_STATUS_COLORS: Record<string, string> = {
   completed: "var(--ok)",
   blocked: "var(--warn)",
   failed: "var(--error)",
-  skipped: "#64748b",
+  skipped: "var(--faint)",
 };
 
 const CAPABILITY_ICONS: Record<string, any> = {
