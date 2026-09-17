@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Post, Query, Req } from "@nestjs/common";
 import {
   acceptContributorTermsSchema,
+  correctObservationSchema,
   createKnowledgeAppealSchema,
   createKnowledgeMissionSchema,
   createKnowledgeSubmissionSchema,
@@ -286,5 +287,45 @@ export class ContributorProgramController {
     const requestId = resolveRequestId(req.headers ?? {});
     const reward = await this.service.authorizePayout({ ...actor, requestId }, rewardId);
     return ok(requestId, { id: reward.id, status: reward.status });
+  }
+
+  // ── Extractions: transcript + observation (PR-5) ────────────────────
+
+  @Get("admin/submissions/:submissionId/extractions")
+  @RequirePermissions("contributor-program:manage")
+  async getExtractionsForSubmission(@Req() req: Req_, @Param("submissionId") submissionId: string) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const extractions = await this.service.getExtractionsForSubmission({ ...actor, requestId }, submissionId);
+    return ok(requestId, extractions);
+  }
+
+  @Post("admin/observations/:observationId/correct")
+  @RequirePermissions("contributor-program:manage")
+  async correctObservation(@Req() req: Req_, @Param("observationId") observationId: string, @Body() body: unknown) {
+    const input = parseBody(correctObservationSchema, body);
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const observation = await this.service.correctObservation({ ...actor, requestId }, observationId, input);
+    return ok(requestId, observation);
+  }
+
+  /**
+   * Driven by apps/worker on an interval (kill switch
+   * CONTRIBUTOR_EXTRACTION_SWEEP_ENABLED) — same pattern as
+   * POST .../live-sessions/sweep-expired. See transcription-provider.ts:
+   * with no ASR provider configured (the only state today), every claimed
+   * row ends FAILED honestly, never a fabricated transcript.
+   */
+  @Post("admin/extractions/process-pending")
+  @RequirePermissions("contributor-program:manage")
+  async processPendingExtractions(@Req() req: Req_, @Body() body: { maxItems?: number }) {
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const result = await this.service.processPendingExtractions(
+      { ...actor, requestId },
+      Number(body?.maxItems) || 20
+    );
+    return ok(requestId, result);
   }
 }

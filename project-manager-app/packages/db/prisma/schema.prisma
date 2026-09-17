@@ -192,8 +192,8 @@ model Tenant {
   // Contractor CRM
   contractorLeads               ContractorLead[]
   communicationChannelAccounts  CommunicationChannelAccount[]
-  communicationThreads           CommunicationThread[]
-  communications          Communication[]
+  communicationThreads          CommunicationThread[]
+  communications                Communication[]
   communicationMessageTemplates CommunicationMessageTemplate[]
   outboundDeliveries            OutboundDelivery[]
   contactIdentities             ContactIdentity[]
@@ -207,24 +207,26 @@ model Tenant {
   // Knowledge Contributor Program
   contributorProfiles           ContributorProfile[]
   contributorConsents           ContributorConsent[]
-  knowledgeMissions              KnowledgeMission[]
-  knowledgeMissionAcceptances    KnowledgeMissionAcceptance[]
-  knowledgeSubmissions           KnowledgeSubmission[]
-  knowledgeAssets                KnowledgeAsset[]
-  knowledgeReviews               KnowledgeReview[]
-  knowledgeAppeals               KnowledgeAppeal[]
-  knowledgeExtractions           KnowledgeExtraction[]
-  contributorRewards             ContributorReward[]
+  knowledgeMissions             KnowledgeMission[]
+  knowledgeMissionAcceptances   KnowledgeMissionAcceptance[]
+  knowledgeSubmissions          KnowledgeSubmission[]
+  knowledgeAssets               KnowledgeAsset[]
+  knowledgeReviews              KnowledgeReview[]
+  knowledgeAppeals              KnowledgeAppeal[]
+  knowledgeExtractions          KnowledgeExtraction[]
+  transcriptSegments            TranscriptSegment[]
+  observations                  Observation[]
+  contributorRewards            ContributorReward[]
   createdAt                     DateTime                          @default(now())
   updatedAt                     DateTime                          @updatedAt
 }
 
 model TenantSettings {
-  id            String   @id @default(cuid())
-  tenantId      String   @unique
-  settingsJson  Json     @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  settingsJson Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
@@ -240,7 +242,7 @@ model Org {
   projects                      Project[]
   reservations                  JobReservation[]
   communicationChannelAccounts  CommunicationChannelAccount[]
-  communicationThreads           CommunicationThread[]
+  communicationThreads          CommunicationThread[]
   communicationMessageTemplates CommunicationMessageTemplate[]
   contactIdentities             ContactIdentity[]
   clientContracts               Contract[]                     @relation("ContractClientOrg")
@@ -281,9 +283,9 @@ model User {
   auditEvents                         AuditLog[]
   notifications                       Notification[]
   createdCommunicationChannelAccounts CommunicationChannelAccount[] @relation("CommunicationChannelAccountCreatedBy")
-  contactCommunicationThreads          CommunicationThread[]          @relation("CommunicationThreadContactUser")
-  assignedCommunicationThreads         CommunicationThread[]          @relation("CommunicationThreadAssignedUser")
-  sentCommunications            Communication[]         @relation("CommunicationSender")
+  contactCommunicationThreads         CommunicationThread[]         @relation("CommunicationThreadContactUser")
+  assignedCommunicationThreads        CommunicationThread[]         @relation("CommunicationThreadAssignedUser")
+  sentCommunications                  Communication[]               @relation("CommunicationSender")
   requestedOutboundDeliveries         OutboundDelivery[]            @relation("OutboundDeliveryRequestedBy")
   contactIdentities                   ContactIdentity[]
   passwordResetTokens                 PasswordResetToken[]
@@ -335,24 +337,24 @@ model IdentityAttestation {
 }
 
 model UserProfile {
-  id                 String   @id @default(cuid())
-  userId             String   @unique
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName        String?
-  bio                String?
-  location           String?
-  trades             String[] @default([])
-  availability       Boolean  @default(true)
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName          String?
+  bio                  String?
+  location             String?
+  trades               String[] @default([])
+  availability         Boolean  @default(true)
   // Assistant AI preferences
-  assistantTone      String? // friendly | formal | technical | executive
-  assistantLanguage  String? // es | en
-  assistantVerbosity String? // short | balanced | detailed
-  unifiedMode        Boolean  @default(false)
-  expertMode         Boolean  @default(false)
+  assistantTone        String? // friendly | formal | technical | executive
+  assistantLanguage    String? // es | en
+  assistantVerbosity   String? // short | balanced | detailed
+  unifiedMode          Boolean  @default(false)
+  expertMode           Boolean  @default(false)
   // Time Tracker proximity check-in preference: "ask" | "auto" | "off"
-  proximityCheckInMode String? @default("ask")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  proximityCheckInMode String?  @default("ask")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 /// Expo push token per user+device, registered by apps/mobile
@@ -360,15 +362,15 @@ model UserProfile {
 /// A user can hold multiple rows (multiple devices); dispatch.service.ts
 /// sends to every non-revoked token for a user.
 model PushDeviceToken {
-  id              String    @id @default(cuid())
-  tenantId        String
-  userId          String
-  deviceId        String
-  expoPushToken   String
-  platform        String // ios | android
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  revokedAt       DateTime?
+  id            String    @id @default(cuid())
+  tenantId      String
+  userId        String
+  deviceId      String
+  expoPushToken String
+  platform      String // ios | android
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  revokedAt     DateTime?
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -495,16 +497,16 @@ model PasswordResetToken {
 }
 
 model SatelliteToken {
-  id         String    @id @default(cuid())
-  name       String    @unique
-  tokenHash  String    @unique
+  id         String             @id @default(cuid())
+  name       String             @unique
+  tokenHash  String             @unique
   scopes     String[]
-  status     String    @default("ACTIVE")
+  status     String             @default("ACTIVE")
   expiresAt  DateTime?
   revokedAt  DateTime?
   lastUsedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
   webhooks   SatelliteWebhook[]
 
   @@index([status])
@@ -515,19 +517,19 @@ model SatelliteToken {
 /// the clear to sign each delivery's HMAC. secretKeyVersion allows rotating
 /// SATELLITE_WEBHOOK_SECRET_KEY without invalidating existing webhooks.
 model SatelliteWebhook {
-  id                  String    @id @default(cuid())
+  id                  String         @id @default(cuid())
   satelliteTokenId    String
   url                 String
   events              String[]
   secretCiphertext    String
   secretIv            String
   secretTag           String
-  secretKeyVersion    Int       @default(1)
-  status              String    @default("ACTIVE") // ACTIVE | SUSPENDED
-  consecutiveFailures Int       @default(0)
+  secretKeyVersion    Int            @default(1)
+  status              String         @default("ACTIVE") // ACTIVE | SUSPENDED
+  consecutiveFailures Int            @default(0)
   lastDeliveryAt      DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
   satelliteToken      SatelliteToken @relation(fields: [satelliteTokenId], references: [id], onDelete: Cascade)
 
   @@unique([satelliteTokenId, url])
@@ -572,44 +574,44 @@ model Membership {
 }
 
 model Job {
-  id                  String               @id @default(cuid())
-  tenantId            String
-  clientOrgId         String
-  title               String
-  category            String?
-  scope               String
-  status              JobStatus            @default(PUBLISHED)
-  budgetType          String?
-  budgetMin           Decimal?             @db.Decimal(12, 2)
-  budgetMax           Decimal?             @db.Decimal(12, 2)
-  location            String?
-  latitude            Decimal?             @db.Decimal(10, 7)
-  longitude           Decimal?             @db.Decimal(10, 7)
-  locationSource      String? // "geocoded" | "manual"
+  id                   String                @id @default(cuid())
+  tenantId             String
+  clientOrgId          String
+  title                String
+  category             String?
+  scope                String
+  status               JobStatus             @default(PUBLISHED)
+  budgetType           String?
+  budgetMin            Decimal?              @db.Decimal(12, 2)
+  budgetMax            Decimal?              @db.Decimal(12, 2)
+  location             String?
+  latitude             Decimal?              @db.Decimal(10, 7)
+  longitude            Decimal?              @db.Decimal(10, 7)
+  locationSource       String? // "geocoded" | "manual"
   // ── Active-model fields ──────────────────────────────────────────────────
-  urgency             String? // low | medium | high | urgent
-  deadline            DateTime?
-  policyProfileId     String? // references PolicyRule group
-  scopeSnapshot       Json? // immutable snapshot at ACCEPTED
-  isOutOfTown         Boolean              @default(false) // travel assignment required
-  destinationCity     String? // filled when isOutOfTown = true
+  urgency              String? // low | medium | high | urgent
+  deadline             DateTime?
+  policyProfileId      String? // references PolicyRule group
+  scopeSnapshot        Json? // immutable snapshot at ACCEPTED
+  isOutOfTown          Boolean               @default(false) // travel assignment required
+  destinationCity      String? // filled when isOutOfTown = true
   // ─────────────────────────────────────────────────────────────────────────
-  bids                Bid[]
-  reservations        JobReservation[]
-  contract            Contract?
-  escrow              PaymentEscrow?
-  ratings             Rating[]
+  bids                 Bid[]
+  reservations         JobReservation[]
+  contract             Contract?
+  escrow               PaymentEscrow?
+  ratings              Rating[]
   communicationThreads CommunicationThread[]
-  timeEntries         TimeEntry[]
-  travelAssignments   TravelAssignment[]
-  buildOpsProject     BuildOpsProject?
-  bidsProjection      JobsBidsProjection?
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  clientOrg           Org                  @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
-  project             Project?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  deletedAt           DateTime?
+  timeEntries          TimeEntry[]
+  travelAssignments    TravelAssignment[]
+  buildOpsProject      BuildOpsProject?
+  bidsProjection       JobsBidsProjection?
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  clientOrg            Org                   @relation(fields: [clientOrgId], references: [id], onDelete: Restrict)
+  project              Project?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?
 
   @@index([tenantId, status])
   @@index([tenantId, clientOrgId])
@@ -689,14 +691,14 @@ model Bid {
 }
 
 model Project {
-  id                            String               @id @default(cuid())
+  id                            String                      @id @default(cuid())
   tenantId                      String
-  jobId                         String               @unique
+  jobId                         String                      @unique
   assignedProOrgId              String
-  promotedFromBuildOpsProjectId String?              @unique
+  promotedFromBuildOpsProjectId String?                     @unique
   promotedAt                    DateTime?
   promotedByUserId              String?
-  status                        ProjectStatus        @default(OPEN)
+  status                        ProjectStatus               @default(OPEN)
   startAt                       DateTime?
   dueAt                         DateTime?
   milestones                    Milestone[]
@@ -704,18 +706,18 @@ model Project {
   disputes                      Dispute[]
   lifecycleProjection           ProjectLifecycleProjection?
   escrow                        PaymentEscrow?
-  communicationThreads           CommunicationThread[]
-  tenant                        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  job                           Job                  @relation(fields: [jobId], references: [id], onDelete: Restrict)
-  assignedProOrg                Org                  @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
+  communicationThreads          CommunicationThread[]
+  tenant                        Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  job                           Job                         @relation(fields: [jobId], references: [id], onDelete: Restrict)
+  assignedProOrg                Org                         @relation(fields: [assignedProOrgId], references: [id], onDelete: Restrict)
   // Field Ops
   fieldUnits                    FieldUnit[]
   // Lien management
   lienCalendars                 LienCalendar[]
   // Weather alerts
   weatherAlerts                 WeatherAlert[]
-  createdAt                     DateTime             @default(now())
-  updatedAt                     DateTime             @updatedAt
+  createdAt                     DateTime                    @default(now())
+  updatedAt                     DateTime                    @updatedAt
 
   @@index([tenantId, status])
   @@index([tenantId, promotedFromBuildOpsProjectId])
@@ -870,7 +872,7 @@ model Evidence {
   // Agro-specific fields to be fully utilized when AgroEvidenceItem migrates (Fase 2)
   mediaType                     String? // NOTE | PHOTO | VIDEO | DOCUMENT | EXTERNAL_URL | OTHER
   title                         String?
-  notes                         String?   @db.Text
+  notes                         String?      @db.Text
   fileUrl                       String?
   capturedById                  String?
   promotedFromBuildOpsProjectId String?
@@ -1365,9 +1367,9 @@ model CommunicationChannelAccount {
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
 
-  tenant    Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  org       Org?                 @relation(fields: [orgId], references: [id], onDelete: SetNull)
-  createdBy User?                @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  tenant    Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  org       Org?                  @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  createdBy User?                 @relation("CommunicationChannelAccountCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   threads   CommunicationThread[]
 
   @@unique([tenantId, provider, phoneNumberId])
@@ -1434,9 +1436,9 @@ model Communication {
   readAt            DateTime?
   createdAt         DateTime                   @default(now())
 
-  tenant Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   thread CommunicationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender User?              @relation("CommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  sender User?               @relation("CommunicationSender", fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, provider, externalMessageId])
   @@index([tenantId, threadId, createdAt])
@@ -1484,10 +1486,10 @@ model OutboundDelivery {
   createdAt         DateTime                   @default(now())
   updatedAt         DateTime                   @updatedAt
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   thread       CommunicationThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
-  notification Notification?       @relation(fields: [notificationId], references: [id], onDelete: SetNull)
-  requestedBy  User?               @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  notification Notification?        @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  requestedBy  User?                @relation("OutboundDeliveryRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, channel, status, createdAt])
   @@index([tenantId, recipientPhone])
@@ -1623,41 +1625,41 @@ model FreeProject {
 /// Supports realtime (timer) and manual (past entry) modes.
 /// Linked to a formal Job OR a FreeProject, never both.
 model TimeEntry {
-  id                 String    @id @default(cuid())
-  tenantId           String
-  orgId              String
-  createdBy          String
-  mode               String    @default("manual") // realtime | manual
-  purpose            String    @default("personal") // personal | payable | job_linked
-  jobId              String?
-  freeProjectId      String?
-  status             String    @default("completed") // running | paused | completed | pending_review | approved | deleted
-  startedAt          DateTime
-  endedAt            DateTime?
-  resumedAt          DateTime?
-  pausedAt           DateTime?
-  breakMinutes       Int       @default(0)
-  durationMinutes    Int?
-  accumulatedSeconds Int       @default(0)
-  hourlyRate         Decimal?  @db.Decimal(10, 2)
-  currency           String    @default("MXN")
-  location           String?
-  checkInLatitude       Decimal? @db.Decimal(10, 7)
-  checkInLongitude      Decimal? @db.Decimal(10, 7)
+  id                    String    @id @default(cuid())
+  tenantId              String
+  orgId                 String
+  createdBy             String
+  mode                  String    @default("manual") // realtime | manual
+  purpose               String    @default("personal") // personal | payable | job_linked
+  jobId                 String?
+  freeProjectId         String?
+  status                String    @default("completed") // running | paused | completed | pending_review | approved | deleted
+  startedAt             DateTime
+  endedAt               DateTime?
+  resumedAt             DateTime?
+  pausedAt              DateTime?
+  breakMinutes          Int       @default(0)
+  durationMinutes       Int?
+  accumulatedSeconds    Int       @default(0)
+  hourlyRate            Decimal?  @db.Decimal(10, 2)
+  currency              String    @default("MXN")
+  location              String?
+  checkInLatitude       Decimal?  @db.Decimal(10, 7)
+  checkInLongitude      Decimal?  @db.Decimal(10, 7)
   checkInDistanceMeters Int?
   checkInMethod         String? // "proximity_confirmed" | "proximity_auto" | "manual_tagged"
-  notes              String?
-  editedBy           String?
-  editReason         String?
-  contextEntityType  String? // e.g. FieldUnit, Job, Animal, CropLot
-  contextEntityId    String?
+  notes                 String?
+  editedBy              String?
+  editReason            String?
+  contextEntityType     String? // e.g. FieldUnit, Job, Animal, CropLot
+  contextEntityId       String?
   /// Idempotency key supplied by the client (Time Tracker local queue event id).
   /// Lets a retried "start timer" / "manual entry" sync resolve to the same
   /// row instead of inserting a duplicate payable time entry. Null for entries
   /// created through paths that don't originate from the offline-safe queue.
-  clientEventId      String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  clientEventId         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   job         Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
@@ -2410,9 +2412,9 @@ model ContractorLead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   communicationThreads CommunicationThread[]
-  contactIdentities   ContactIdentity[]
+  contactIdentities    ContactIdentity[]
 
   @@index([tenantId, orgId, status, createdAt])
   @@index([tenantId, status])
@@ -2463,7 +2465,7 @@ model WorkerApplication {
 
 /// Persistent log of AI system posture incidents detected by Mission Control.
 model MissionControlIncident {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   tenantId        String?
   source          String
   posture         String
@@ -2471,9 +2473,9 @@ model MissionControlIncident {
   title           String
   detail          String
   alertIds        String[]
-  kind            String   @default("ai")
+  kind            String    @default("ai")
   orgId           String?
-  status          String   @default("OPEN")
+  status          String    @default("OPEN")
   actorUserId     String?
   targetType      String?
   targetId        String?
@@ -2481,8 +2483,8 @@ model MissionControlIncident {
   runbookId       String?
   actionReceiptId String?
   resolvedAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status, createdAt])
@@ -3313,7 +3315,7 @@ model AgroFarm {
   complianceChecks  AgroComplianceCheck[]
   productionRecords AgroProductionRecord[]
   saleRecords       AgroSaleRecord[]
-  evidenceRecords   Evidence[]            @relation("EvidenceToFarm")
+  evidenceRecords   Evidence[]              @relation("EvidenceToFarm")
 
   @@index([ownerId])
 }
@@ -3552,17 +3554,17 @@ model AgroEvidenceItem {
 }
 
 model AgroAuditEvent {
-  id         String   @id @default(cuid())
-  farmId     String
-  farm       AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  actorId    String?
-  entityType String
-  entityId   String
-  action     String
-  before     Json?
-  after      Json?
-  source     String   @default("SYSTEM") // WEB | MOBILE | SYNC | SYSTEM | IMPORT
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  farmId        String
+  farm          AgroFarm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  actorId       String?
+  entityType    String
+  entityId      String
+  action        String
+  before        Json?
+  after         Json?
+  source        String   @default("SYSTEM") // WEB | MOBILE | SYNC | SYSTEM | IMPORT
+  createdAt     DateTime @default(now())
   // Clave de idempotencia de la cola offline: solo la llevan los marcadores de
   // sync. NULL en el resto de eventos de auditoria, y Postgres no considera
   // iguales dos NULL, asi que el unique no los afecta.
@@ -4018,16 +4020,16 @@ enum PrometeoProposedActionStatus {
 }
 
 model PrometeoProposedAction {
-  id                String                        @id @default(cuid())
+  id                String                       @id @default(cuid())
   tenantId          String
   orgId             String
   actorId           String
   namespace         String
   name              String
   approvalPolicy    String
-  status            PrometeoProposedActionStatus  @default(PROPOSED)
+  status            PrometeoProposedActionStatus @default(PROPOSED)
   inputJson         Json
-  requiredApprovals String[]                      @default([])
+  requiredApprovals String[]                     @default([])
   approvedBy        String?
   approvedAt        DateTime?
   rejectedBy        String?
@@ -4035,8 +4037,8 @@ model PrometeoProposedAction {
   rejectionReason   String?
   executedAt        DateTime?
   resultJson        Json?
-  createdAt         DateTime                      @default(now())
-  updatedAt         DateTime                      @updatedAt
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
 
   @@index([tenantId, status, createdAt])
   @@map("prometeo_proposed_action")
@@ -4094,19 +4096,19 @@ enum LiveSessionParticipantRole {
 }
 
 model LiveSession {
-  id             String                @id @default(cuid())
+  id             String               @id @default(cuid())
   tenantId       String
   scopeType      LiveSessionScopeType
   scopeId        String
   purpose        LiveSessionPurpose
-  status         LiveSessionStatus     @default(REQUESTED)
-  version        Int                   @default(0)
+  status         LiveSessionStatus    @default(REQUESTED)
+  version        Int                  @default(0)
   createdById    String
   idempotencyKey String
   expiresAt      DateTime?
   endedAt        DateTime?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
   tenant       Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdBy    User                     @relation(fields: [createdById], references: [id], onDelete: Restrict)
@@ -4218,15 +4220,15 @@ model CapabilityEvidence {
 }
 
 model GoldenRegression {
-  id             String                  @id @default(cuid())
-  key            String                  @unique
+  id             String                 @id @default(cuid())
+  key            String                 @unique
   description    String
   expectedResult String
   testReference  String
-  status         GoldenRegressionStatus  @default(NOT_WIRED)
+  status         GoldenRegressionStatus @default(NOT_WIRED)
   lastCheckedAt  DateTime?
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@index([status])
   @@map("golden_regression")
@@ -4323,6 +4325,7 @@ enum KnowledgeExtractionKind {
 
 enum KnowledgeExtractionStatus {
   PENDING
+  PROCESSING
   COMPLETED
   FAILED
 }
@@ -4428,7 +4431,7 @@ model KnowledgeMission {
 // modificar retroactivamente el pago de una misión ya aceptada") — later
 // edits to KnowledgeMission (a new .version) never change these snapshots.
 model KnowledgeMissionAcceptance {
-  id                        String                            @id @default(cuid())
+  id                        String                           @id @default(cuid())
   tenantId                  String
   missionId                 String
   missionVersionSnapshot    Int
@@ -4437,8 +4440,8 @@ model KnowledgeMissionAcceptance {
   currencySnapshot          String
   deadlineAtSnapshot        DateTime?
   status                    KnowledgeMissionAcceptanceStatus @default(ACCEPTED)
-  acceptedAt                DateTime                          @default(now())
-  updatedAt                 DateTime                          @updatedAt
+  acceptedAt                DateTime                         @default(now())
+  updatedAt                 DateTime                         @updatedAt
 
   tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   mission     KnowledgeMission      @relation(fields: [missionId], references: [id], onDelete: Cascade)
@@ -4462,15 +4465,17 @@ model KnowledgeSubmission {
   createdAt    DateTime                  @default(now())
   updatedAt    DateTime                  @updatedAt
 
-  tenant      Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  acceptance  KnowledgeMissionAcceptance @relation(fields: [acceptanceId], references: [id], onDelete: Cascade)
-  mission     KnowledgeMission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
-  user        User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
-  assets      KnowledgeAsset[]
-  reviews     KnowledgeReview[]
-  appeals     KnowledgeAppeal[]
-  extractions KnowledgeExtraction[]
-  reward      ContributorReward?
+  tenant             Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  acceptance         KnowledgeMissionAcceptance @relation(fields: [acceptanceId], references: [id], onDelete: Cascade)
+  mission            KnowledgeMission           @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  user               User                       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  assets             KnowledgeAsset[]
+  reviews            KnowledgeReview[]
+  appeals            KnowledgeAppeal[]
+  extractions        KnowledgeExtraction[]
+  transcriptSegments TranscriptSegment[]
+  observations       Observation[]
+  reward             ContributorReward?
 
   @@index([tenantId, userId, status])
   @@index([tenantId, missionId, status])
@@ -4494,10 +4499,11 @@ model KnowledgeAsset {
   createdAt        DateTime                       @default(now())
   updatedAt        DateTime                       @updatedAt
 
-  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submission  KnowledgeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  uploadedBy  User                  @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
-  extractions KnowledgeExtraction[]
+  tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission         KnowledgeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  uploadedBy         User                  @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  extractions        KnowledgeExtraction[]
+  transcriptSegments TranscriptSegment[]
 
   @@unique([submissionId, storageKey])
   @@index([tenantId, submissionId])
@@ -4522,18 +4528,18 @@ model KnowledgeReview {
 }
 
 model KnowledgeAppeal {
-  id               String               @id @default(cuid())
+  id               String                @id @default(cuid())
   tenantId         String
   submissionId     String
   userId           String
   originalReviewId String
-  reason           String               @db.Text
+  reason           String                @db.Text
   status           KnowledgeAppealStatus @default(OPEN)
   resolverUserId   String?
-  resolutionReason String?              @db.Text
+  resolutionReason String?               @db.Text
   resolvedAt       DateTime?
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   submission     KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
@@ -4562,20 +4568,87 @@ model KnowledgeExtraction {
   extractedAt    DateTime?
   createdAt      DateTime                  @default(now())
 
-  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  asset      KnowledgeAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission         KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  asset              KnowledgeAsset?     @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  transcriptSegments TranscriptSegment[]
+  observations       Observation[]
 
   @@index([tenantId, submissionId])
+}
+
+// PR-5 (docs/specs/core/knowledge-contributor-transcript-observation.spec.md):
+// one row per timestamped transcript span produced by a TRANSCRIPTION
+// extraction. Never edited in place — a re-run creates a new KnowledgeExtraction
+// (and thus new segments), same append-only provenance principle as
+// KnowledgeExtraction itself.
+model TranscriptSegment {
+  id           String   @id @default(cuid())
+  tenantId     String
+  submissionId String
+  assetId      String
+  extractionId String
+  startMs      Int
+  endMs        Int
+  text         String   @db.Text
+  confidence   Float?
+  createdAt    DateTime @default(now())
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  asset      KnowledgeAsset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  extraction KnowledgeExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, submissionId])
+  @@index([extractionId])
+  @@index([assetId, startMs])
+}
+
+// OBJECTIVE->CONDITION->DECISION->REASON->METHOD->ACTION->RESULT, each field
+// optional (spec §2 — not every clip yields all seven). sourceSegmentIdsJson
+// (never empty) is what makes an Observation citable instead of invented —
+// same array-of-ids-in-Json convention as requirementsJson/qualityFlagsJson
+// elsewhere in this file, not a join table. correctedBy*/correctedAt are
+// null until a human reviewer corrects a field (spec §3: only a human
+// correction is a write here; the worker only ever creates the original,
+// uncorrected row) — a corrected Observation is never overwritten again by
+// the pipeline (spec §5, 409 on double-correct, enforced at service layer).
+model Observation {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  submissionId         String
+  extractionId         String
+  objective            String?   @db.Text
+  condition            String?   @db.Text
+  decision             String?   @db.Text
+  reason               String?   @db.Text
+  method               String?   @db.Text
+  action               String?   @db.Text
+  result               String?   @db.Text
+  sourceSegmentIdsJson Json
+  generatedBy          String
+  correctedFieldsJson  Json?
+  correctedByUserId    String?
+  correctedReason      String?   @db.Text
+  correctedAt          DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  extraction KnowledgeExtraction @relation(fields: [extractionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, submissionId])
+  @@index([extractionId])
 }
 
 // One reward per submission (submissionId unique) is the idempotency guard
 // on creation; idempotencyKey + the tenant-scoped unique constraint is the
 // same durable-receipt convention DomainOutboxEvent uses for payout calls.
 model ContributorReward {
-  id                 String                   @id @default(cuid())
+  id                 String                  @id @default(cuid())
   tenantId           String
-  submissionId       String                   @unique
+  submissionId       String                  @unique
   userId             String
   amountCents        Int
   currency           String
@@ -4585,8 +4658,8 @@ model ContributorReward {
   authorizedAt       DateTime?
   paidAt             DateTime?
   failureReason      String?
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
 
   tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)

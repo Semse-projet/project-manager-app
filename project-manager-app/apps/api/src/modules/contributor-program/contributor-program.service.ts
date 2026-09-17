@@ -5,6 +5,7 @@ import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.servi
 import { StripeConnectService } from "../payments/stripe-connect.service.js";
 import { ContributorProgramRepository } from "./contributor-program.repository.js";
 import { assertOwnsResource, assertIsOpsAdmin, type ContributorActor } from "./contributor-program.policy.js";
+import { resolveTranscriptionProvider } from "./transcription-provider.js";
 
 type Ctx = ContributorActor & { requestId: string };
 
@@ -653,6 +654,241 @@ export class ContributorProgramService {
     }
 
     return resolved;
+  }
+
+  // ── Extractions: transcript + observation (PR-5) ───────────────────────
+  // docs/specs/core/knowledge-contributor-transcript-observation.spec.md §5.
+  // Read-only for the reviewer today; the only human write is a correction.
+
+  async getExtractionsForSubmission(ctx: Ctx, submissionId: string) {
+    assertIsOpsAdmin(ctx);
+    const submission = await this.repository.findSubmissionById(submissionId);
+    if (!submission || submission.tenantId !== ctx.tenantId) {
+      throw new NotFoundException({
+        code: "CONTRIBUTOR_PROGRAM_SUBMISSION_NOT_FOUND",
+        message: "Submission not found"
+      });
+    }
+    const extractions = await this.repository.listExtractionsForSubmission(ctx.tenantId, submissionId);
+    return extractions.map((extraction) => this.toExtractionView(extraction));
+  }
+
+  async correctObservation(
+    ctx: Ctx,
+    observationId: string,
+    input: { correctedFields: Record<string, string>; reason: string }
+  ) {
+    assertIsOpsAdmin(ctx);
+    const observation = await this.repository.findObservationById(observationId);
+    if (!observation || observation.tenantId !== ctx.tenantId) {
+      throw new NotFoundException({
+        code: "CONTRIBUTOR_PROGRAM_OBSERVATION_NOT_FOUND",
+        message: "Observation not found"
+      });
+    }
+
+    const updated = await this.repository.correctObservation({
+      id: observationId,
+      correctedFields: input.correctedFields,
+      correctedByUserId: ctx.userId,
+      reason: input.reason
+    });
+    if (!updated) {
+      throw new ConflictException({
+        code: "CONTRIBUTOR_PROGRAM_OBSERVATION_ALREADY_CORRECTED",
+        message: "This observation was already corrected — resolve the conflict explicitly instead of overwriting it"
+      });
+    }
+
+    await this.audit
+      .append({
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId,
+        actorUserId: ctx.userId,
+        action: "contributor_program.observation.corrected",
+        entityType: "Observation",
+        entityId: observationId,
+        requestId: ctx.requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { correctedFields: input.correctedFields, reason: input.reason }
+      })
+      .catch(() => undefined);
+
+    return this.toObservationView(updated);
+  }
+
+  // Driven by apps/worker (same pattern as sweepExpiredLiveSessions /
+  // POST .../sweep-expired) on an interval, kill-switch gated. Never
+  // fabricates a transcript: with no ASR provider configured — the only
+  // state possible today, see transcription-provider.ts — every claimed row
+  // ends FAILED with an honest reason, exactly as the spec (§2/§11) requires.
+  async processPendingExtractions(ctx: Ctx, maxItems: number) {
+    assertIsOpsAdmin(ctx);
+    let processed = 0;
+    let completed = 0;
+    let failed = 0;
+
+    for (let i = 0; i < maxItems; i += 1) {
+      const claimed = await this.repository.claimNextPendingTranscriptionExtraction();
+      if (!claimed) break;
+      processed += 1;
+
+      let provider;
+      try {
+        provider = resolveTranscriptionProvider();
+      } catch (error) {
+        await this.failClaimedExtraction(ctx, claimed, error instanceof Error ? error.message : String(error));
+        failed += 1;
+        continue;
+      }
+
+      if (!provider) {
+        await this.failClaimedExtraction(ctx, claimed, "ASR_PROVIDER_NOT_CONFIGURED");
+        failed += 1;
+        continue;
+      }
+
+      if (!claimed.assetId || !claimed.asset?.storageKey) {
+        await this.failClaimedExtraction(ctx, claimed, "EXTRACTION_MISSING_ASSET");
+        failed += 1;
+        continue;
+      }
+
+      try {
+        const segments = await provider.transcribe({
+          storageKey: claimed.asset.storageKey,
+          mimeType: claimed.asset.mimeType
+        });
+        await this.repository.completeExtractionWithTranscript({
+          extractionId: claimed.id,
+          tenantId: claimed.tenantId,
+          submissionId: claimed.submissionId,
+          assetId: claimed.assetId,
+          segments
+        });
+        completed += 1;
+        await this.audit
+          .append({
+            tenantId: claimed.tenantId,
+            orgId: ctx.orgId,
+            actorUserId: ctx.userId,
+            action: "contributor_program.extraction.completed",
+            entityType: "KnowledgeExtraction",
+            entityId: claimed.id,
+            requestId: ctx.requestId,
+            timestamp: new Date().toISOString(),
+            afterJson: { segmentCount: segments.length }
+          })
+          .catch(() => undefined);
+      } catch (error) {
+        await this.failClaimedExtraction(ctx, claimed, error instanceof Error ? error.message : String(error));
+        failed += 1;
+      }
+    }
+
+    return { processed, completed, failed };
+  }
+
+  private async failClaimedExtraction(ctx: Ctx, claimed: { id: string; tenantId: string }, reason: string) {
+    await this.repository.failExtraction(claimed.id, reason);
+    await this.audit
+      .append({
+        tenantId: claimed.tenantId,
+        orgId: ctx.orgId,
+        actorUserId: ctx.userId,
+        action: "contributor_program.extraction.failed",
+        entityType: "KnowledgeExtraction",
+        entityId: claimed.id,
+        requestId: ctx.requestId,
+        timestamp: new Date().toISOString(),
+        afterJson: { reason }
+      })
+      .catch(() => undefined);
+  }
+
+  private toExtractionView(extraction: {
+    id: string;
+    assetId: string | null;
+    kind: string;
+    status: string;
+    dataJson: unknown;
+    extractedAt: Date | null;
+    createdAt: Date;
+    transcriptSegments: Array<Parameters<ContributorProgramService["toSegmentView"]>[0]>;
+    observations: Array<Parameters<ContributorProgramService["toObservationView"]>[0]>;
+  }) {
+    const failureReason =
+      extraction.status === "FAILED"
+        ? ((extraction.dataJson as { failureReason?: string } | null)?.failureReason ?? null)
+        : null;
+    return {
+      id: extraction.id,
+      assetId: extraction.assetId,
+      kind: extraction.kind,
+      status: extraction.status,
+      failureReason,
+      extractedAt: extraction.extractedAt?.toISOString() ?? null,
+      createdAt: extraction.createdAt.toISOString(),
+      transcriptSegments: extraction.transcriptSegments.map((segment) => this.toSegmentView(segment)),
+      observations: extraction.observations.map((observation) => this.toObservationView(observation))
+    };
+  }
+
+  private toSegmentView(segment: {
+    id: string;
+    assetId: string;
+    startMs: number;
+    endMs: number;
+    text: string;
+    confidence: number | null;
+    createdAt: Date;
+  }) {
+    return {
+      id: segment.id,
+      assetId: segment.assetId,
+      startMs: segment.startMs,
+      endMs: segment.endMs,
+      text: segment.text,
+      confidence: segment.confidence,
+      createdAt: segment.createdAt.toISOString()
+    };
+  }
+
+  private toObservationView(observation: {
+    id: string;
+    objective: string | null;
+    condition: string | null;
+    decision: string | null;
+    reason: string | null;
+    method: string | null;
+    action: string | null;
+    result: string | null;
+    sourceSegmentIdsJson: unknown;
+    generatedBy: string;
+    correctedFieldsJson: unknown;
+    correctedByUserId: string | null;
+    correctedReason: string | null;
+    correctedAt: Date | null;
+    createdAt: Date;
+  }) {
+    return {
+      id: observation.id,
+      objective: observation.objective,
+      condition: observation.condition,
+      decision: observation.decision,
+      reason: observation.reason,
+      method: observation.method,
+      action: observation.action,
+      result: observation.result,
+      sourceSegmentIds: (observation.sourceSegmentIdsJson as string[]) ?? [],
+      generatedBy: observation.generatedBy,
+      isCorrected: observation.correctedAt !== null,
+      correctedFields: (observation.correctedFieldsJson as Record<string, string> | null) ?? null,
+      correctedByUserId: observation.correctedByUserId,
+      correctedReason: observation.correctedReason,
+      correctedAt: observation.correctedAt?.toISOString() ?? null,
+      createdAt: observation.createdAt.toISOString()
+    };
   }
 
   // ── Rewards ───────────────────────────────────────────────────────────
