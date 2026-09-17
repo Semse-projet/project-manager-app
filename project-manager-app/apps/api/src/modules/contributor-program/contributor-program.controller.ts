@@ -319,12 +319,13 @@ export class ContributorProgramController {
    */
   @Post("admin/extractions/process-pending")
   @RequirePermissions("contributor-program:manage")
-  async processPendingExtractions(@Req() req: Req_, @Body() body: { maxItems?: number }) {
+  async processPendingExtractions(@Req() req: Req_, @Body() body: { maxItems?: number; tenantId?: string }) {
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const result = await this.service.processPendingExtractions(
       { ...actor, requestId },
-      Number(body?.maxItems) || 20
+      Number(body?.maxItems) || 20,
+      { tenantId: body?.tenantId }
     );
     return ok(requestId, result);
   }

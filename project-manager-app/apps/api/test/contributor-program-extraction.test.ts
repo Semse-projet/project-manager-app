@@ -131,13 +131,18 @@ dbTest("claimNextPendingTranscriptionExtraction is idempotent under a concurrent
       modelOrProcess: "prometeo-intake-pipeline",
     });
 
-    const firstClaim = await repository.claimNextPendingTranscriptionExtraction();
+    // Scoped to this fixture's own tenant so this test is safe to run
+    // concurrently with every other DB-backed test file in this suite (CI
+    // runs them all against one shared Postgres) — without this, "next
+    // pending row, globally" could claim (and fail) another test's row.
+    const firstClaim = await repository.claimNextPendingTranscriptionExtraction(fixture.tenantId);
     assert.ok(firstClaim, "first worker must claim the pending row");
     assert.equal(firstClaim?.submissionId, fixture.submission.id);
 
     // Simulate a second worker racing for the same (now PROCESSING) row —
-    // there is nothing left PENDING, so it must find nothing to claim.
-    const secondClaim = await repository.claimNextPendingTranscriptionExtraction();
+    // there is nothing left PENDING for this tenant, so it must find
+    // nothing to claim.
+    const secondClaim = await repository.claimNextPendingTranscriptionExtraction(fixture.tenantId);
     assert.equal(secondClaim, null, "a second concurrent claim must not re-process the same row");
 
     const reloaded = await prisma.knowledgeExtraction.findUnique({ where: { id: firstClaim!.id } });
@@ -167,7 +172,10 @@ dbTest("processPendingExtractions honestly fails a PENDING row when no ASR provi
       modelOrProcess: "prometeo-intake-pipeline",
     });
 
-    const result = await service.processPendingExtractions(adminCtx(fixture), 5);
+    // tenantId-scoped: CI runs this file concurrently with every other
+    // DB-backed test file against one shared Postgres, and an unscoped sweep
+    // would claim (and fail) other tests' PENDING rows too.
+    const result = await service.processPendingExtractions(adminCtx(fixture), 5, { tenantId: fixture.tenantId });
     assert.equal(result.processed, 1);
     assert.equal(result.completed, 0);
     assert.equal(result.failed, 1);
@@ -199,7 +207,7 @@ dbTest("getExtractionsForSubmission returns segments+observations and enforces a
         status: "PENDING",
         modelOrProcess: "prometeo-intake-pipeline",
       });
-      return repository.claimNextPendingTranscriptionExtraction();
+      return repository.claimNextPendingTranscriptionExtraction(fixture.tenantId);
     })();
     assert.ok(claimed);
 

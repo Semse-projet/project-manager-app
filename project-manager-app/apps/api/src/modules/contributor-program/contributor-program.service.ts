@@ -722,14 +722,14 @@ export class ContributorProgramService {
   // fabricates a transcript: with no ASR provider configured — the only
   // state possible today, see transcription-provider.ts — every claimed row
   // ends FAILED with an honest reason, exactly as the spec (§2/§11) requires.
-  async processPendingExtractions(ctx: Ctx, maxItems: number) {
+  async processPendingExtractions(ctx: Ctx, maxItems: number, options?: { tenantId?: string }) {
     assertIsOpsAdmin(ctx);
     let processed = 0;
     let completed = 0;
     let failed = 0;
 
     for (let i = 0; i < maxItems; i += 1) {
-      const claimed = await this.repository.claimNextPendingTranscriptionExtraction();
+      const claimed = await this.repository.claimNextPendingTranscriptionExtraction(options?.tenantId);
       if (!claimed) break;
       processed += 1;
 

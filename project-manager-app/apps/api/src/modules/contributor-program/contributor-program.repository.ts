@@ -438,9 +438,15 @@ export class ContributorProgramRepository {
   // SELECT ... FOR UPDATE SKIP LOCKED needed for single-worker-instance
   // correctness, only for claim-contention throughput under many instances
   // (out of scope here, same "por definir en plan" the spec already flags).
-  async claimNextPendingTranscriptionExtraction() {
+  // tenantId is optional: omitted, this sweeps PENDING rows across every
+  // tenant (the real worker's normal mode — same as sweepExpiredLiveSessions
+  // having no tenant filter). Passing it scopes the sweep to one tenant,
+  // which is what the spec's §8 canary plan asks for ("procesar primero
+  // solo las entregas del tenant demo") — this was the only way to satisfy
+  // that requirement without ever touching another tenant's queue.
+  async claimNextPendingTranscriptionExtraction(tenantId?: string) {
     const candidate = await this.prisma.knowledgeExtraction.findFirst({
-      where: { kind: "TRANSCRIPTION", status: "PENDING" },
+      where: { kind: "TRANSCRIPTION", status: "PENDING", tenantId },
       orderBy: { createdAt: "asc" },
       include: { asset: true }
     });
