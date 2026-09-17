@@ -278,6 +278,14 @@ export class ContributorProgramService {
       });
     }
 
+    if (mission.isDemo) {
+      // Demo/example missions exist for onboarding only — never payable, never acceptable.
+      throw new BadRequestException({
+        code: "CONTRIBUTOR_PROGRAM_MISSION_IS_DEMO",
+        message: "This is a demo/example mission and cannot be accepted"
+      });
+    }
+
     const existing = await this.repository.findAcceptance(missionId, ctx.userId);
     if (existing) {
       throw new ConflictException({

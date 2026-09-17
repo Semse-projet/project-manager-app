@@ -36,12 +36,14 @@ function MissionCard({ mission }: { mission: KnowledgeMissionView }) {
             {t("contributors.missions.compensation")}
           </p>
           <p className="text-sm font-bold text-brand">
-            {formatCompensation(mission.baseCompensationCents, mission.currency, language)}
+            {mission.isDemo
+              ? t("contributors.missions.demoCompensation")
+              : formatCompensation(mission.baseCompensationCents, mission.currency, language)}
           </p>
         </div>
         <Link href={`/contributors/missions/${mission.id}`}>
           <Button size="sm" variant="ghost">
-            {t("contributors.missions.viewDetail")}
+            {mission.isDemo ? t("contributors.missions.viewExample") : t("contributors.missions.viewDetail")}
           </Button>
         </Link>
       </div>
@@ -71,19 +73,21 @@ export default function ContributorsHomePage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      {/* Hero — one primary action per screen: Participar */}
+      {/* Hero — mission-first, plain-language entry point */}
       <section className="text-center">
-        <h1 className="text-2xl font-black tracking-tight text-ink sm:text-4xl">{t("contributors.title")}</h1>
-        <p className="mt-1 text-sm font-semibold text-muted sm:text-base">{t("contributors.subtitle")}</p>
+        <p className="text-xs font-bold uppercase tracking-widest text-faint">{t("contributors.hero.eyebrow")}</p>
+        <h1 className="mt-2 text-2xl font-black tracking-tight text-ink sm:text-4xl">
+          {t("contributors.hero.heading")}
+        </h1>
         <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
           {t("contributors.intro")}
         </p>
         <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Link href="/login?from=%2Fcontributors%2Fdashboard" className="w-full sm:w-auto">
+          <a href="#missions" className="w-full sm:w-auto">
             <Button size="lg" className="w-full sm:w-auto">
-              {t("contributors.cta.participate")}
+              {t("contributors.cta.viewMissions")}
             </Button>
-          </Link>
+          </a>
           <a href="#how-it-works" className="w-full sm:w-auto">
             <Button size="lg" variant="ghost" className="w-full sm:w-auto">
               {t("contributors.cta.howItWorks")}
@@ -95,13 +99,19 @@ export default function ContributorsHomePage() {
             </Button>
           </Link>
         </div>
+        <p className="mt-5 text-xs text-muted">
+          {t("contributors.cta.participateHint")}{" "}
+          <Link href="/login?from=%2Fcontributors%2Fdashboard" className="font-semibold underline hover:text-ink">
+            {t("contributors.cta.participate")}
+          </Link>
+        </p>
       </section>
 
-      {/* How it works — six steps */}
+      {/* How it works — four steps */}
       <section id="how-it-works" className="mt-16 scroll-mt-20">
         <h2 className="text-center text-lg font-bold text-ink sm:text-xl">{t("contributors.howItWorks.title")}</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((step) => {
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((step) => {
             const Icon = STEP_ICONS[step - 1];
             return (
               <Card key={step} className="flex items-start gap-3">
@@ -121,7 +131,7 @@ export default function ContributorsHomePage() {
       </section>
 
       {/* Available missions */}
-      <section className="mt-16">
+      <section id="missions" className="mt-16 scroll-mt-20">
         <h2 className="text-center text-lg font-bold text-ink sm:text-xl">{t("contributors.missions.title")}</h2>
         <div className="mt-6">
           {loading ? (

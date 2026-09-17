@@ -4,12 +4,15 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, ErrorState, Spinner } from "../../../../components/ui";
 import { useLanguage } from "../../../../lib/language-context";
+import { ConsentGate } from "../../dashboard/ConsentGate";
 import {
   acceptContributorMission,
   fetchPublicContributorMission,
   SemseApiError,
   type KnowledgeMissionView,
 } from "../../../semse-api";
+
+const CONSENT_REQUIRED_CODE = "CONTRIBUTOR_PROGRAM_CONSENT_REQUIRED";
 
 function formatCompensation(cents: number, currency: string, locale: "es" | "en"): string {
   return new Intl.NumberFormat(locale === "es" ? "es-MX" : "en-US", {
@@ -45,6 +48,7 @@ export default function ContributorMissionDetailPage({ params }: { params: Promi
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [needsConsent, setNeedsConsent] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -68,10 +72,17 @@ export default function ContributorMissionDetailPage({ params }: { params: Promi
     setAcceptError(null);
     try {
       const acceptance = await acceptContributorMission(id);
+      setNeedsConsent(false);
       router.push(`/contributors/dashboard/submissions/${acceptance.id}`);
     } catch (err) {
       if (err instanceof SemseApiError && err.status === 401) {
         router.push(`/login?from=${encodeURIComponent(`/contributors/missions/${id}`)}`);
+        return;
+      }
+      if (err instanceof SemseApiError && err.code === CONSENT_REQUIRED_CODE) {
+        // First-time contributor: show terms/consent inline, then retry the
+        // same acceptance — never bounce to a generic dashboard mid-flow.
+        setNeedsConsent(true);
         return;
       }
       setAcceptError(err instanceof Error ? err.message : "error");
@@ -115,7 +126,9 @@ export default function ContributorMissionDetailPage({ params }: { params: Promi
               {t("contributors.missions.compensation")}
             </p>
             <p className="text-lg font-bold text-brand">
-              {formatCompensation(mission.baseCompensationCents, mission.currency, language)}
+              {mission.isDemo
+                ? t("contributors.missions.demoCompensation")
+                : formatCompensation(mission.baseCompensationCents, mission.currency, language)}
             </p>
           </div>
           <div>
@@ -141,11 +154,23 @@ export default function ContributorMissionDetailPage({ params }: { params: Promi
         </div>
       ) : null}
 
-      <div className="mt-6">
-        <Button size="lg" className="w-full sm:w-auto" onClick={handleAccept} loading={accepting} disabled={mission.status !== "PUBLISHED"}>
-          {t("contributors.missions.accept")}
-        </Button>
-      </div>
+      {needsConsent ? (
+        <div className="mt-6">
+          <ConsentGate onAccepted={() => void handleAccept()} />
+        </div>
+      ) : (
+        <div className="mt-6">
+          <Button
+            size="lg"
+            className="w-full sm:w-auto"
+            onClick={handleAccept}
+            loading={accepting}
+            disabled={mission.isDemo || mission.status !== "PUBLISHED"}
+          >
+            {mission.isDemo ? t("contributors.missions.demoNotAcceptable") : t("contributors.missions.accept")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

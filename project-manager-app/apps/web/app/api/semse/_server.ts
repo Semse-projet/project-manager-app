@@ -43,10 +43,31 @@ class SemseProxyError extends Error {
   constructor(
     public readonly status: number,
     public readonly path: string,
-    message: string
+    message: string,
+    public readonly code?: string
   ) {
     super(message);
   }
+}
+
+function extractErrorCode(raw: string): string | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{")) return undefined;
+  try {
+    const parsed = JSON.parse(trimmed) as { error?: { message?: unknown } };
+    const nestedMessage = parsed.error?.message;
+    if (
+      nestedMessage &&
+      typeof nestedMessage === "object" &&
+      "code" in nestedMessage &&
+      typeof (nestedMessage as { code?: unknown }).code === "string"
+    ) {
+      return (nestedMessage as { code: string }).code;
+    }
+  } catch {
+    // no structured code available
+  }
+  return undefined;
 }
 
 function normalizeErrorMessage(path: string, status: number, raw: string): string {
@@ -257,7 +278,12 @@ async function doFetch<T>(config: RuntimeConfig, path: string, init?: RequestIni
 
   if (!response.ok) {
     const text = await response.text();
-    throw new SemseProxyError(response.status, path, normalizeErrorMessage(path, response.status, text));
+    throw new SemseProxyError(
+      response.status,
+      path,
+      normalizeErrorMessage(path, response.status, text),
+      extractErrorCode(text)
+    );
   }
 
   const envelope = (await response.json()) as ApiEnvelope<T>;
@@ -305,11 +331,13 @@ export function isApiBaseConfigured(): boolean {
 export function handleServerError(error: unknown): NextResponse {
   const status = error instanceof SemseProxyError ? error.status : 502;
   const message = error instanceof Error ? error.message : "Unknown SEMSE integration error";
+  const code = error instanceof SemseProxyError ? error.code : undefined;
   return NextResponse.json(
     {
       error: {
         status,
-        message
+        message,
+        ...(code ? { code } : {})
       }
     },
     { status }
