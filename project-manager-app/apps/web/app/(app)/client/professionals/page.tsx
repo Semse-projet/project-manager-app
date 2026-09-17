@@ -435,7 +435,7 @@ export default function ClientProfessionalsPage() {
             disabled={loading || !selectedJobId}
             style={{
               padding: "10px 18px", borderRadius: 10, border: "none",
-              background: "linear-gradient(135deg,var(--ok),#059669)", color: "#fff",
+              background: "linear-gradient(135deg,var(--ok),var(--ok-dark))", color: "#fff",
               fontWeight: 700, fontSize: 13, cursor: loading || !selectedJobId ? "not-allowed" : "pointer",
               opacity: loading || !selectedJobId ? 0.5 : 1,
               display: "flex", alignItems: "center", gap: 6,
