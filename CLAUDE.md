@@ -91,6 +91,10 @@ A third skill sits alongside these two as an execution-discipline layer rather t
 
 - `aaa-zoom-loop-execution` — end-to-end completion discipline (don't stop at "it exists", trace the full chain, verify before advancing) for large or ambiguous multi-step work. Domain-agnostic method adapted from an uploaded pack; its own "don't ask for routine decisions" autonomy rule never overrides `semseproject`'s Approval Gate or `semse-audit-remediation`'s money/auth sign-off requirement — see its SKILL.md's "SEMSE overrides" section.
 
+A fourth, purely advisory layer helps pick *which* of the skills below actually applies to a given task, without loading all of them or blocking anything:
+
+- `semse-skill-router` — Phase 1 (report-only/shadow-mode) skill router: dynamically discovers every `.claude/skills/*/SKILL.md`, scores relevance against a task description, and explains the pick (`pnpm skill:route -- "<task>"` / `pnpm skill:route:report`). Never authorizes anything and can't be used to route around `semseproject`/`semse-audit-remediation`; see its SKILL.md.
+
 Task/module-specific skills (each documents a real, already-verified gap or gotcha — not aspirational design — and ends with a "notas para futuros agentes" section flagging what it doesn't cover):
 
 - `semse-design-tokens` — keeping `packages/design-tokens/src/colors.ts`, `apps/web/app/globals.css` (4 blocks), and `apps/mobile/src/theme` in sync; the `--brand-dark`/`--ok-dark` "bright second stop" pattern; the safe-fix heuristic for `#hex`→`var(--token)` sweeps, including the hex-alpha-suffix trap.
@@ -105,5 +109,7 @@ Task/module-specific skills (each documents a real, already-verified gap or gotc
 - `semse-security-baseline` — quick-reference for the RC4-RC6 root-cause bug shapes (IDOR, unverified payment status, auth weaknesses) already confirmed in this codebase.
 - `semse-ci-pr-workflow` — what `quality-gates`/`unit-coverage`/`e2e` actually check, the fact that CI workflow files live at the outer repo root not under `project-manager-app/`, the squash-merge branch-reset gotcha, and the `spec:preflight` naming trap (it runs Railway preflight, not spec validation).
 - `semse-upload-flow` — the canonical 3-step presigned-URL upload contract (plan → PUT to a BFF proxy → register) that fixed RC2, and the still-unsolved `external_transfer`/large-file gap.
+- `semse-schemas-contract` — `packages/schemas` is the API/domain-type source of truth in name only: nothing stops a page defining its own duplicate `type`/`interface` instead of importing it (confirmed in two admin/worker pages), nothing checks it stays in sync with `packages/db/prisma/schema.prisma`, and mobile's Jest config maps it to compiled `dist/`, not `src/`.
+- `semse-prometeo-orchestrator` — what "`ai-models/` — Prometeo orchestrator, not a generic model wrapper" means in code: the intent→agent→task-type→model routing pipeline, the two-orchestrator split (`AiModelGatewayService` vs. `LLMOrchestrator`/`AdaptiveRouter`) that lets 5 model slugs skip privacy/circuit-breaker enforcement per the still-unimplemented SPEC-GTW-001, and why "the local Ollama model" means three different things depending on the code path.
 
 A scoped `semse-ecosystem-architect` also exists for product/design work, and `semse-local-observability-testing`/`testing-worker-tracker` cover local-stack and tracker-UI testing respectively.
