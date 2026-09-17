@@ -65,7 +65,7 @@ const JOB_STATUS_META: Record<string, { label: string; color: string; bg: string
 };
 
 const MILESTONE_STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  DRAFT: { label: "Borrador", color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  DRAFT: { label: "Borrador", color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
   AWAITING_REVIEW: { label: "En revisión", color: "var(--warn)", bg: "rgba(245,158,11,.12)" },
   SUBMITTED: { label: "Enviado", color: "var(--info)", bg: "rgba(6,182,212,.12)" },
   APPROVED: { label: "Aprobado", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
@@ -85,7 +85,7 @@ const BID_STATUS_META: Record<BidView["status"], { label: string; color: string;
   submitted: { label: "Enviada", color: "var(--brand)", bg: "rgba(59,130,246,.12)" },
   accepted: { label: "Aceptada", color: "var(--ok)", bg: "rgba(16,185,129,.12)" },
   rejected: { label: "Rechazada", color: "var(--error)", bg: "rgba(239,68,68,.12)" },
-  withdrawn: { label: "Retirada", color: "#64748b", bg: "rgba(100,116,139,.12)" },
+  withdrawn: { label: "Retirada", color: "var(--faint)", bg: "rgba(100,116,139,.12)" },
 };
 
 function asString(value: unknown): string | undefined {
@@ -1052,7 +1052,7 @@ export default function ClientJobDetailPage() {
                         <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "210px" }}>
                           {key}
                         </div>
-                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: accessMode === "direct" ? "var(--ok)" : "#64748b", fontWeight: 700 }}>
+                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: accessMode === "direct" ? "rgba(16,185,129,.12)" : "rgba(100,116,139,.12)", color: accessMode === "direct" ? "var(--ok)" : "var(--faint)", fontWeight: 700 }}>
                           {accessMode === "direct" ? "Acceso directo" : "Desde proyecto"}
                         </span>
                       </div>

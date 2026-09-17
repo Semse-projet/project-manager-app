@@ -95,7 +95,7 @@ function AlertRow({ alert }: { alert: Alert }) {
         {expanded ? <ChevronUp size={12} color="var(--muted)" /> : <ChevronDown size={12} color="var(--muted)" />}
       </button>
       {expanded && (
-        <div style={{ padding: "0 14px 12px", fontSize: 11, color: "#94a3b8" }}>
+        <div style={{ padding: "0 14px 12px", fontSize: 11, color: "var(--muted)" }}>
           <span style={{ color: "#818cf8", fontWeight: 600 }}>→ </span>{alert.recommendation}
         </div>
       )}

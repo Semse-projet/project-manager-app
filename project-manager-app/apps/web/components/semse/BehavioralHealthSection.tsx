@@ -84,7 +84,7 @@ function BehavioralAlertRow({ alert }: { alert: BehavioralAlert }) {
         {expanded ? <ChevronUp size={10} color="var(--muted)" /> : <ChevronDown size={10} color="var(--muted)" />}
       </button>
       {expanded && (
-        <div style={{ padding: "0 12px 10px", fontSize: 10, color: "#94a3b8", lineHeight: 1.5 }}>
+        <div style={{ padding: "0 12px 10px", fontSize: 10, color: "var(--muted)", lineHeight: 1.5 }}>
           <span style={{ color: "#818cf8", fontWeight: 600 }}>→ </span>{alert.recommendation}
         </div>
       )}

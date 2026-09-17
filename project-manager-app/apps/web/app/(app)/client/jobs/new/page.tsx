@@ -726,7 +726,7 @@ export default function NewJobPage() {
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
                       background: budgetSuggestion.confidence === "high" ? "rgba(16,185,129,.15)" : budgetSuggestion.confidence === "medium" ? "rgba(251,191,36,.15)" : "rgba(148,163,184,.15)",
-                      color: budgetSuggestion.confidence === "high" ? "var(--ok)" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "#94a3b8",
+                      color: budgetSuggestion.confidence === "high" ? "var(--ok)" : budgetSuggestion.confidence === "medium" ? "#fbbf24" : "var(--muted)",
                       textTransform: "uppercase",
                     }}>
                       {budgetSuggestion.confidence}
@@ -741,7 +741,7 @@ export default function NewJobPage() {
                     </div>
                   )}
                   <p style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.6, marginBottom: 8 }}>{budgetSuggestion.aiNarrative}</p>
-                  <p style={{ fontSize: 10, color: "#475569" }}>
+                  <p style={{ fontSize: 10, color: "var(--muted)" }}>
                     {budgetSuggestion.basis} · {budgetSuggestion.similarJobsFound} trabajos similares
                   </p>
                   {budgetSuggestion.min > 0 && (
