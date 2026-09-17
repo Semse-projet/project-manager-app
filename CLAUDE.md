@@ -87,6 +87,10 @@ New Prisma model: edit `packages/db/prisma/schema.prisma` → `pnpm --filter @se
 - `semseproject` — the master governance skill (normative precedence hierarchy, identity/policy/approval/audit contracts, risk matrix, agent operating modes) that gates any mutating, financial, or cross-tenant agent action; read its `SKILL.md` before any of the others when the task involves agentic mutation.
 - `semse-audit-remediation` — RBAC/JobStatus/evidence-upload fixes tied to `docs/AUDIT_REMEDIATION_PLAN.md`; owns the SDD governance gate for that specific backlog.
 
+A third skill sits alongside these two as an execution-discipline layer rather than a governance one — it's subordinate to both where they'd conflict:
+
+- `aaa-zoom-loop-execution` — end-to-end completion discipline (don't stop at "it exists", trace the full chain, verify before advancing) for large or ambiguous multi-step work. Domain-agnostic method adapted from an uploaded pack; its own "don't ask for routine decisions" autonomy rule never overrides `semseproject`'s Approval Gate or `semse-audit-remediation`'s money/auth sign-off requirement — see its SKILL.md's "SEMSE overrides" section.
+
 Task/module-specific skills (each documents a real, already-verified gap or gotcha — not aspirational design — and ends with a "notas para futuros agentes" section flagging what it doesn't cover):
 
 - `semse-design-tokens` — keeping `packages/design-tokens/src/colors.ts`, `apps/web/app/globals.css` (4 blocks), and `apps/mobile/src/theme` in sync; the `--brand-dark`/`--ok-dark` "bright second stop" pattern; the safe-fix heuristic for `#hex`→`var(--token)` sweeps, including the hex-alpha-suffix trap.
