@@ -23,6 +23,7 @@ export type ColorPalette = {
   muted: string;
   faint: string;
   ok: string;
+  okBright: string;
   warn: string;
   error: string;
   info: string;
@@ -46,6 +47,7 @@ export const darkColors: ColorPalette = {
   muted: "#94a3b8",
   faint: "#4b6280",
   ok: "#10b981",
+  okBright: "#34d399",
   warn: "#f59e0b",
   error: "#ef4444",
   info: "#06b6d4",
@@ -69,6 +71,7 @@ export const lightColors: ColorPalette = {
   muted: "#475569",
   faint: "#64748b",
   ok: "#059669",
+  okBright: "#047857",
   warn: "#d97706",
   error: "#dc2626",
   info: "#0891b2",

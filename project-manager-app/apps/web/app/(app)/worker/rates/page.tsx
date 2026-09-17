@@ -250,7 +250,7 @@ export default function ContractorRatesPage() {
           disabled={saving || loading}
           style={{
             flex: 1, padding: "13px 24px", borderRadius: 12, border: "none",
-            background: saving ? "var(--border)" : "linear-gradient(135deg,var(--ok),#059669)",
+            background: saving ? "var(--border)" : "linear-gradient(135deg,var(--ok),var(--ok-dark))",
             color: "#fff", fontSize: 14, fontWeight: 800,
             cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
