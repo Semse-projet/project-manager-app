@@ -348,25 +348,32 @@ export default function AdminDisputesPage() {
     if (!multipartSession?.sessionId || !multipartSession.parts?.length || completingMultipart) return;
     setCompletingMultipart(true);
     try {
+      const etagsByPart = new Map<number, string>();
       for (const [index, part] of multipartSession.parts.entries()) {
         const partNumber = part.partNumber ?? index + 1;
+        // No real file input here either (size/name are typed in for
+        // planning purposes) — synthesize a chunk of the declared size so
+        // there are real bytes to hash instead of only a trusted header.
         const bytes = typeof part.endByte === "number" && typeof part.startByte === "number"
           ? Math.max(1, part.endByte - part.startByte + 1)
           : 1024 * 1024;
         setMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        await uploadMultipartPart({
+        const { etag } = await uploadMultipartPart({
           sessionId: multipartSession.sessionId,
           partNumber,
-          contentLength: bytes
+          chunk: new Blob([new Uint8Array(bytes)])
         });
+        etagsByPart.set(partNumber, etag);
         setMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
       }
       await completeMultipartUploadSession({
         sessionId: multipartSession.sessionId,
-        parts: multipartSession.parts.map((part, index) => ({
-          partNumber: part.partNumber ?? index + 1,
-          etag: `etag-part-${part.partNumber ?? index + 1}`
-        }))
+        parts: multipartSession.parts.map((part, index) => {
+          const partNumber = part.partNumber ?? index + 1;
+          const etag = etagsByPart.get(partNumber);
+          if (!etag) throw new Error(`Missing etag for part ${partNumber}`);
+          return { partNumber, etag };
+        })
       });
     } finally {
       setCompletingMultipart(false);

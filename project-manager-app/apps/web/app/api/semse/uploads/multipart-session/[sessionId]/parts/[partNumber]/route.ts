@@ -11,7 +11,13 @@ export async function PUT(
 ) {
   try {
     const { sessionId, partNumber } = await params;
-    const partSize = request.headers.get("x-part-size") ?? "0";
+
+    // The previous version never read the request body at all, so every
+    // part "upload" silently discarded the chunk's bytes before they even
+    // reached the API — the same data-loss bug fixed server-side in
+    // evidence.controller.ts, one layer up the stack. Forward the raw bytes,
+    // the same way the single-PUT /uploads/files/[...key] route already does.
+    const body = await request.arrayBuffer();
 
     const data = await fetchSemseDataForRequest<Record<string, unknown>>(
       `/v1/uploads/multipart-session/${encodeURIComponent(sessionId)}/parts/${encodeURIComponent(partNumber)}`,
@@ -19,8 +25,10 @@ export async function PUT(
       {
         method: "PUT",
         headers: {
-          "x-part-size": partSize
-        }
+          "content-length": String(body.byteLength),
+          "x-part-size": String(body.byteLength)
+        },
+        body
       }
     );
 

@@ -165,28 +165,37 @@ export default function JobEvidencePage({ params }: EvidencePageProps) {
     setError(null);
     setFeedback(null);
     try {
+      const etagsByPart = new Map<number, string>();
       for (const [index, part] of multipartSession.parts.entries()) {
         const partNumber = part.partNumber ?? index + 1;
+        // This page has no real file input (it's a manual API-exercise tool,
+        // not the end-user evidence upload flow) — synthesize a chunk of the
+        // declared size so the part upload has real bytes to hash, instead
+        // of only sending a Content-Length header the server used to trust
+        // blindly and never actually store.
         const bytes = typeof part.endByte === "number" && typeof part.startByte === "number"
           ? Math.max(1, part.endByte - part.startByte + 1)
           : 1024 * 1024;
         setMultipartProgress((current) => ({ ...current, [partNumber]: "uploading" }));
-        await uploadMultipartPart({
+        const { etag } = await uploadMultipartPart({
           sessionId: multipartSession.sessionId,
           partNumber,
-          contentLength: bytes
+          chunk: new Blob([new Uint8Array(bytes)])
         });
+        etagsByPart.set(partNumber, etag);
         setMultipartProgress((current) => ({ ...current, [partNumber]: "uploaded" }));
       }
       const completion = await completeMultipartUploadSession({
         sessionId: multipartSession.sessionId,
-        parts: multipartSession.parts.map((part, index) => ({
-          partNumber: part.partNumber ?? index + 1,
-          etag: `etag-part-${part.partNumber ?? index + 1}`
-        }))
+        parts: multipartSession.parts.map((part, index) => {
+          const partNumber = part.partNumber ?? index + 1;
+          const etag = etagsByPart.get(partNumber);
+          if (!etag) throw new Error(`Missing etag for part ${partNumber}`);
+          return { partNumber, etag };
+        })
       });
       setFeedback(
-        `Sesión multipart completada: ${String(completion.status ?? "completed")} · ${String(completion.partsReceived ?? multipartSession.parts.length)} partes confirmadas.`
+        `Sesión multipart completada: ${completion.status} · ${completion.partsReceived} partes confirmadas.`
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo completar la sesión multipart.");

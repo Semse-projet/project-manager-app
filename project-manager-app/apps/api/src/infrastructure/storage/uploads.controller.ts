@@ -20,7 +20,7 @@ import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { Public } from "../../common/public.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
 
-const ALLOWED_CONTENT_TYPES = new Set([
+export const ALLOWED_CONTENT_TYPES = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
@@ -35,10 +35,10 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "application/octet-stream",
 ]);
 
-const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB
+export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB — single-PUT ceiling.
 const SNIFF_BYTES = 32;
 
-function isAllowedContentType(contentType: string): boolean {
+export function isAllowedContentType(contentType: string): boolean {
   return ALLOWED_CONTENT_TYPES.has(contentType);
 }
 
@@ -51,7 +51,7 @@ function hasAscii(buffer: Buffer, value: string, offset = 0): boolean {
   return buffer.subarray(offset, offset + value.length).toString("ascii") === value;
 }
 
-function assertMagicBytes(contentType: string, buffer: Buffer): void {
+export function assertMagicBytes(contentType: string, buffer: Buffer): void {
   if (buffer.length === 0) {
     throw new UnprocessableEntityException("Empty uploads are not allowed");
   }
@@ -102,9 +102,10 @@ function assertMagicBytes(contentType: string, buffer: Buffer): void {
   }
 }
 
-function validateUploadStream(
+export function validateUploadStream(
   stream: AsyncIterable<Buffer | Uint8Array | string>,
   contentType: string,
+  maxBytes: number = MAX_UPLOAD_BYTES,
 ): Readable {
   async function* chunks() {
     const buffered: Buffer[] = [];
@@ -115,8 +116,8 @@ function validateUploadStream(
     for await (const chunk of stream) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       totalBytes += buffer.byteLength;
-      if (totalBytes > MAX_UPLOAD_BYTES) {
-        throw new UnprocessableEntityException(`File size exceeds maximum ${MAX_UPLOAD_BYTES}`);
+      if (totalBytes > maxBytes) {
+        throw new UnprocessableEntityException(`File size exceeds maximum ${maxBytes}`);
       }
 
       if (!validated) {
