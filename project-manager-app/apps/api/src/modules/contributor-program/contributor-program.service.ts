@@ -459,7 +459,10 @@ export class ContributorProgramService {
     // Pipeline stage placeholders (Upload -> Transcription -> ... -> Human
     // review): interfaces + provenance rows only. No video/audio ML model is
     // wired up yet, so every row is recorded PENDING, never COMPLETED with
-    // fabricated data — see docs/specs/core/knowledge-contributor-program.
+    // fabricated data — see
+    // docs/specs/core/knowledge-contributor-transcript-observation.spec.md
+    // (DRAFT; the real processing pipeline, transcript/observation read API
+    // and ASR provider decision are scoped there, not implemented here).
     for (const asset of submission.assets) {
       if (asset.kind === "VIDEO" || asset.kind === "AUDIO") {
         await this.repository
