@@ -5,11 +5,14 @@ import { Badge, Button, Card, ErrorState, Spinner, Textarea, statusVariant } fro
 import { useLanguage } from "../../../../../lib/language-context";
 import {
   appealContributorSubmission,
+  completeMultipartUploadSession,
   createContributorSubmission,
+  createMultipartUploadSession,
   fetchContributorDashboard,
   planUpload,
   registerContributorAsset,
   submitContributorSubmission,
+  uploadMultipartPart,
   type ContributorDashboardView,
   type KnowledgeAssetView,
   type KnowledgeSubmissionView,
@@ -50,11 +53,36 @@ function ClipUploader({
 }) {
   const { t } = useLanguage();
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  async function uploadLargeClip(file: File, contentType: string): Promise<string> {
+    const session = await createMultipartUploadSession({
+      domain: "knowledge_contribution",
+      filename: file.name,
+      contentType,
+      fileSizeBytes: file.size,
+      source: "local_device",
+    });
+    const parts: Array<{ partNumber: number; etag: string }> = [];
+    let uploadedBytes = 0;
+
+    for (const part of session.parts) {
+      const chunk = file.slice(part.startByte, part.endByte + 1);
+      const { etag } = await uploadMultipartPart({ sessionId: session.sessionId, partNumber: part.partNumber, chunk });
+      parts.push({ partNumber: part.partNumber, etag });
+      uploadedBytes += chunk.size;
+      setProgress(Math.round((uploadedBytes / file.size) * 100));
+    }
+
+    const completed = await completeMultipartUploadSession({ sessionId: session.sessionId, parts });
+    return completed.key;
+  }
+
   async function handleFile(file: File) {
     setUploading(true);
+    setProgress(0);
     setError(null);
     try {
       const contentType = file.type || "application/octet-stream";
@@ -65,18 +93,25 @@ function ClipUploader({
         fileSizeBytes: file.size,
         source: "local_device",
       });
-      const key = typeof plan.key === "string" ? plan.key : undefined;
       const strategy = typeof plan.recommendedStrategy === "string" ? plan.recommendedStrategy : "single_put";
-      if (!key || strategy === "external_transfer") {
-        throw new Error("El archivo es demasiado grande para subirlo aquí todavía (límite ~25MB).");
-      }
 
-      const putRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(key)}`, {
-        method: "PUT",
-        headers: { "content-type": contentType, "content-length": String(file.size) },
-        body: file,
-      });
-      if (!putRes.ok) throw new Error("No se pudo subir el archivo.");
+      let key: string;
+      if (strategy === "external_transfer") {
+        // Large clip (over the single-PUT recommendation threshold): upload
+        // in chunks via the multipart-session flow instead of failing.
+        key = await uploadLargeClip(file, contentType);
+      } else {
+        const planKey = typeof plan.key === "string" ? plan.key : undefined;
+        if (!planKey) throw new Error("No se pudo preparar la subida del archivo.");
+        const putRes = await fetch(`/api/semse/uploads/files/${encodeURIComponent(planKey)}`, {
+          method: "PUT",
+          headers: { "content-type": contentType, "content-length": String(file.size) },
+          body: file,
+        });
+        if (!putRes.ok) throw new Error("No se pudo subir el archivo.");
+        key = planKey;
+        setProgress(100);
+      }
 
       const asset = await registerContributorAsset(submissionId, {
         kind: mimeToKind(contentType),
@@ -91,6 +126,7 @@ function ClipUploader({
       setError(err instanceof Error ? err.message : "error");
     } finally {
       setUploading(false);
+      setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -109,7 +145,12 @@ function ClipUploader({
           if (file) void handleFile(file);
         }}
       />
-      {uploading ? <p className="mt-1 text-xs text-muted">{t("contributors.submission.uploading")}</p> : null}
+      {uploading ? (
+        <p className="mt-1 text-xs text-muted">
+          {t("contributors.submission.uploading")}
+          {progress !== null ? ` ${progress}%` : ""}
+        </p>
+      ) : null}
       {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
     </div>
   );

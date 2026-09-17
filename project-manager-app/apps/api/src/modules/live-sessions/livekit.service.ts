@@ -73,8 +73,16 @@ export class LiveKitService {
     return `${data}.${sig}`;
   }
 
-  /** Verifica la firma de un webhook de LiveKit (`Authorization: <jwt>` con sha256 del body). */
-  verifyWebhook(authHeader: string | undefined, rawBody: string): boolean {
+  /**
+   * Verifica la firma de un webhook de LiveKit (`Authorization: <jwt>` con
+   * sha256 del body). `rawBody` DEBE ser los bytes exactos recibidos por
+   * cable (Fastify `rawBody: true` / `@RawBody()`), nunca
+   * `JSON.stringify(parsedBody)`: Nest/Fastify ya deserializó el body a un
+   * objeto antes de llegar al controller, y volver a serializarlo no
+   * reproduce el orden de claves / espacios exactos que LiveKit firmó — el
+   * hash nunca coincidiría contra un servidor LiveKit real.
+   */
+  verifyWebhook(authHeader: string | undefined, rawBody: string | Buffer): boolean {
     if (!this.configured || !authHeader) return false;
     const parts = authHeader.split(".");
     if (parts.length !== 3) return false;
@@ -83,7 +91,13 @@ export class LiveKitService {
       .createHmac("sha256", this.apiSecret)
       .update(`${h}.${p}`)
       .digest("base64url");
-    if (!crypto.timingSafeEqual(Buffer.from(s), Buffer.from(expected))) return false;
+    // timingSafeEqual throws (instead of returning false) on a length
+    // mismatch — a malformed/truncated Authorization header must never crash
+    // this @Public() endpoint into a 500; reject it as an invalid signature.
+    const sigBuf = Buffer.from(s);
+    const expectedBuf = Buffer.from(expected);
+    if (sigBuf.length !== expectedBuf.length) return false;
+    if (!crypto.timingSafeEqual(sigBuf, expectedBuf)) return false;
     try {
       const claims = JSON.parse(Buffer.from(p, "base64url").toString("utf8")) as {
         iss?: string;

@@ -5,6 +5,7 @@ import {
   Headers,
   Logger,
   Post,
+  RawBody,
   UnauthorizedException,
 } from "@nestjs/common";
 import { Public } from "../../common/public.decorator.js";
@@ -36,9 +37,12 @@ export class LiveKitWebhookController {
   async handle(
     @Headers("authorization") auth: string | undefined,
     @Body() body: Record<string, unknown>,
+    @RawBody() rawBody?: Buffer,
   ) {
-    const raw = JSON.stringify(body ?? {});
-    if (!this.livekit.verifyWebhook(auth, raw)) {
+    if (!rawBody) {
+      throw new BadRequestException("raw request body required for LiveKit webhook signature verification");
+    }
+    if (!this.livekit.verifyWebhook(auth, rawBody)) {
       throw new UnauthorizedException("invalid LiveKit webhook signature");
     }
     const event = typeof body.event === "string" ? body.event : "";

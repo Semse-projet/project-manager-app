@@ -618,35 +618,61 @@ export async function planUpload(input: {
   return mutateSemse<Record<string, unknown>>(`/api/semse/uploads/plan`, input);
 }
 
+export type MultipartUploadPlan = {
+  sessionId: string;
+  key: string;
+  fileSizeBytes: number;
+  multipart: { recommendedChunkSizeBytes?: number; recommendedPartCount?: number } | null;
+  parts: Array<{ partNumber: number; startByte: number; endByte: number }>;
+};
+
 export async function createMultipartUploadSession(input: {
-  domain: "evidence" | "contract" | "dispute" | "travel";
+  domain: "evidence" | "contract" | "dispute" | "travel" | "knowledge_contribution";
   filename: string;
   contentType: string;
   fileSizeBytes: number;
   source?: "local_device" | "camera_capture" | "field_ops" | "project_copilot" | "external_transfer";
-}): Promise<Record<string, unknown>> {
-  return mutateSemse<Record<string, unknown>>(`/api/semse/uploads/multipart-session`, input);
+}): Promise<MultipartUploadPlan> {
+  return mutateSemse<MultipartUploadPlan>(`/api/semse/uploads/multipart-session`, input);
 }
+
+export type MultipartCompletionResult = {
+  sessionId: string;
+  status: string;
+  completedAt: string;
+  partsReceived: number;
+  totalParts: number;
+  key: string;
+  sizeBytes: number;
+};
 
 export async function completeMultipartUploadSession(input: {
   sessionId: string;
   parts: Array<{ partNumber: number; etag: string }>;
-}): Promise<Record<string, unknown>> {
-  return mutateSemse<Record<string, unknown>>(`/api/semse/uploads/multipart-session/complete`, input);
+}): Promise<MultipartCompletionResult> {
+  return mutateSemse<MultipartCompletionResult>(`/api/semse/uploads/multipart-session/complete`, input);
 }
 
+/**
+ * PUTs one chunk's bytes. Earlier versions of this function (and the BFF
+ * route it calls) never actually sent the chunk body — every "uploaded"
+ * part silently discarded its bytes. See the PR-4 report for the full
+ * chain; this and the BFF/API layers were fixed together.
+ */
 export async function uploadMultipartPart(input: {
   sessionId: string;
   partNumber: number;
-  contentLength: number;
-}): Promise<Record<string, unknown>> {
-  return fetchSemse<Record<string, unknown>>(
+  chunk: Blob;
+}): Promise<{ etag: string; bytesReceived: number }> {
+  return fetchSemse<{ etag: string; bytesReceived: number }>(
     `/api/semse/uploads/multipart-session/${encodeURIComponent(input.sessionId)}/parts/${input.partNumber}`,
     {
       method: "PUT",
       headers: {
-        "x-part-size": String(input.contentLength)
-      }
+        "content-type": "application/octet-stream",
+        "x-part-size": String(input.chunk.size)
+      },
+      body: input.chunk
     }
   );
 }
