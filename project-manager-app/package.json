@@ -38,6 +38,8 @@
     "typecheck": "pnpm run typecheck:all",
     "typecheck:all": "node ./scripts/workspace-runner.mjs typecheck:all",
     "lint": "pnpm --filter @semse/api lint && pnpm --filter @semse/web lint",
+    "skill:route": "node ./scripts/skill-router/cli.mjs",
+    "skill:route:report": "node ./scripts/skill-router/cli.mjs --report",
     "validate:workspace": "node ./scripts/validate-workspace.mjs",
     "verify:workspace": "pnpm verify:modules && pnpm audit:prisma-usage && pnpm check:toolchain && pnpm check:dockerfiles && pnpm run railway:preflight && pnpm --filter @semse/api test:unit",
     "verify:modules": "node ./scripts/verify-ecosystem-modules.mjs",

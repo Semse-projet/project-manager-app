@@ -91,6 +91,10 @@ A third skill sits alongside these two as an execution-discipline layer rather t
 
 - `aaa-zoom-loop-execution` — end-to-end completion discipline (don't stop at "it exists", trace the full chain, verify before advancing) for large or ambiguous multi-step work. Domain-agnostic method adapted from an uploaded pack; its own "don't ask for routine decisions" autonomy rule never overrides `semseproject`'s Approval Gate or `semse-audit-remediation`'s money/auth sign-off requirement — see its SKILL.md's "SEMSE overrides" section.
 
+A fourth, purely advisory layer helps pick *which* of the skills below actually applies to a given task, without loading all of them or blocking anything:
+
+- `semse-skill-router` — Phase 1 (report-only/shadow-mode) skill router: dynamically discovers every `.claude/skills/*/SKILL.md`, scores relevance against a task description, and explains the pick (`pnpm skill:route -- "<task>"` / `pnpm skill:route:report`). Never authorizes anything and can't be used to route around `semseproject`/`semse-audit-remediation`; see its SKILL.md.
+
 Task/module-specific skills (each documents a real, already-verified gap or gotcha — not aspirational design — and ends with a "notas para futuros agentes" section flagging what it doesn't cover):
 
 - `semse-design-tokens` — keeping `packages/design-tokens/src/colors.ts`, `apps/web/app/globals.css` (4 blocks), and `apps/mobile/src/theme` in sync; the `--brand-dark`/`--ok-dark` "bright second stop" pattern; the safe-fix heuristic for `#hex`→`var(--token)` sweeps, including the hex-alpha-suffix trap.
