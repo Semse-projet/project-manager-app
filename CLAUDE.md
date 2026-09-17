@@ -103,5 +103,7 @@ Task/module-specific skills (each documents a real, already-verified gap or gotc
 - `semse-mobile-offline-sync` — corrects the `CLAUDE.md` implication of one shared offline pattern: mobile's `localTimer.ts` is separate from web's `trackerLocalStore.ts`.
 - `semse-report-writer` — where/how to write the end-of-session report `AGENTS.md` requires, and the naming inconsistency already present in `docs/reportes/`.
 - `semse-security-baseline` — quick-reference for the RC4-RC6 root-cause bug shapes (IDOR, unverified payment status, auth weaknesses) already confirmed in this codebase.
+- `semse-ci-pr-workflow` — what `quality-gates`/`unit-coverage`/`e2e` actually check, the fact that CI workflow files live at the outer repo root not under `project-manager-app/`, the squash-merge branch-reset gotcha, and the `spec:preflight` naming trap (it runs Railway preflight, not spec validation).
+- `semse-upload-flow` — the canonical 3-step presigned-URL upload contract (plan → PUT to a BFF proxy → register) that fixed RC2, and the still-unsolved `external_transfer`/large-file gap.
 
 A scoped `semse-ecosystem-architect` also exists for product/design work, and `semse-local-observability-testing`/`testing-worker-tracker` cover local-stack and tracker-UI testing respectively.
