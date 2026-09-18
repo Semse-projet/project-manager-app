@@ -42,6 +42,7 @@ import type {
   PrometeoToolExecutionResult,
   PrometeoToolInvokeInput,
   AdminSettings,
+  CapabilityRecord,
 } from "@semse/schemas";
 import {
   buildStoredPrometeoAttachment,
@@ -88,7 +89,8 @@ export type {
   PrometeoResponseBlock,
   PrometeoToolDescriptor,
   PrometeoToolExecutionResult,
-  PrometeoToolInvokeInput
+  PrometeoToolInvokeInput,
+  CapabilityRecord
 } from "@semse/schemas";
 
 export type ApiEnvelope<T> = {
@@ -2295,6 +2297,17 @@ export async function fetchAiModelLogStats(): Promise<AiModelInteractionStats> {
 
 export async function fetchAiModelReadiness(): Promise<AiModelReadiness> {
   return fetchSemse<AiModelReadiness>("/api/semse/ai-models/readiness");
+}
+
+/**
+ * Capability Reality Registry (ADR-032) — the source of truth for a
+ * capability's maturity AND its operational reachability/lifecycle
+ * (ADR-037). Callers must read `reachability` from here, not re-derive it
+ * from `maturity` or maintain a parallel local status mapping.
+ */
+export async function fetchCapabilityRegistry(): Promise<CapabilityRecord[]> {
+  const { capabilities } = await fetchSemse<{ capabilities: CapabilityRecord[] }>("/api/semse/capabilities");
+  return capabilities;
 }
 
 export type MissionIncidentSeverity = "critical" | "high" | "medium" | "info";

@@ -1,4 +1,5 @@
 export * from "./policy-decision.types.js";
+export * from "./capability-registry.types.js";
 export * from "./agent-action.schema.js";
 export * from "./job.schema.js";
 export * from "./agent.schema.js";

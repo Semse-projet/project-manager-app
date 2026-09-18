@@ -2,15 +2,26 @@
 
 /**
  * Agentes — Catálogo de agentes SEMSE Project
- * Muestra los 16 agentes nombrados y 8 especializados del ecosistema
+ *
+ * "Conversacionales" es un catálogo de personas/UX distinto (marketplace
+ * legacy, sin relación con RuntimeAgentRole) — no se toca en este cambio.
+ *
+ * "Especializados" refleja los RuntimeAgentRole reales de packages/agents.
+ * Su estado operacional (reachability) y su madurez vienen EXCLUSIVAMENTE
+ * del Capability Reality Registry (ADR-032/037) — este archivo no mantiene
+ * ni infiere su propio mapping rol→estado. Lo único local es la
+ * presentación (nombre/emoji/color/descripción), que es cosmética y no
+ * hace ninguna afirmación de verdad operacional.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { useAgentPanelState, type PanelAgentId } from "../../../components/ai/agent-panel-state";
+import { fetchCapabilityRegistry } from "../../semse-api";
+import { deriveSpecializedAgents, reachabilityPresentation, type SpecializedAgent } from "./agent-role-presentation";
 
 // ──────────────────────────────────────────────────────────────────────────────
-// AGENT CATALOG — mirrored from @semse/agents
+// Conversational catalog — untouched, unrelated to RuntimeAgentRole
 // ──────────────────────────────────────────────────────────────────────────────
 
 const NAMED_AGENTS = [
@@ -30,17 +41,6 @@ const NAMED_AGENTS = [
   { id: "marketing",      name: "Marketing",       emoji: "📣", color: "var(--warn)", role: "Crecimiento",              desc: "Estrategias de adquisición y retención" },
   { id: "health",         name: "Health",          emoji: "💚", color: "#22c55e", role: "Bienestar",                desc: "Monitorea la salud del ecosistema y sus actores" },
   { id: "evidence_coach", name: "Evidence Coach",  emoji: "📷", color: "#14b8a6", role: "Evidencias",               desc: "Guía a profesionales en carga de evidencia" },
-] as const;
-
-const SPECIALIZED_AGENTS = [
-  { id: "pricing",        name: "Pricing Engine",   emoji: "💰", color: "var(--warn)", desc: "Estimación inteligente de precios por categoría" },
-  { id: "job-planner",    name: "Job Planner",       emoji: "📋", color: "var(--info)", desc: "Generación automática de milestones y cronogramas" },
-  { id: "trust-match",    name: "Trust Match",       emoji: "🤝", color: "var(--ok)", desc: "Matching de clientes y profesionales por confianza" },
-  { id: "evidence-coach", name: "Evidence Coach BE", emoji: "🔬", color: "#14b8a6", desc: "Validación y clasificación de evidencia fotográfica" },
-  { id: "risk",           name: "Risk Analyzer",     emoji: "⚠", color: "var(--error)", desc: "Evaluación de riesgo en contratos y transacciones" },
-  { id: "dispute",        name: "Dispute Resolver",  emoji: "⚖", color: "var(--violet)", desc: "Análisis y sugerencias para resolución de disputas" },
-  { id: "orchestrator",   name: "Orchestrator",      emoji: "◈", color: "var(--brand)", desc: "Coordinación de flujos multi-agente del backend" },
-  { id: "ecv",            name: "ECV Agent",         emoji: "✓",  color: "#22c55e", desc: "Verificación electrónica de credenciales" },
 ] as const;
 
 const PANEL_AGENT_ROUTE_MAP: Record<string, PanelAgentId> = {
@@ -72,6 +72,10 @@ const PANEL_AGENT_LABELS: Record<PanelAgentId, string> = {
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Specialized catalog data (reachability/maturity/presentation) comes from
+// ./agent-role-presentation.ts, which sources everything except cosmetics
+// from the Capability Registry response — see that file's own doc comment.
+// ──────────────────────────────────────────────────────────────────────────────
 
 const TABS = ["Conversacionales", "Especializados"] as const;
 type Tab = typeof TABS[number];
@@ -81,7 +85,29 @@ export default function AgentsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const { openPanel, setSelectedAgentId, setActiveConversationId } = useAgentPanelState();
 
-  const agents = tab === "Conversacionales" ? NAMED_AGENTS : SPECIALIZED_AGENTS;
+  const [specializedAgents, setSpecializedAgents] = useState<SpecializedAgent[]>([]);
+  const [capState, setCapState] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    setCapState("loading");
+    fetchCapabilityRegistry()
+      .then((capabilities) => {
+        if (cancelled) return;
+        setSpecializedAgents(deriveSpecializedAgents(capabilities));
+        setCapState("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Loading/error never fabricates availability — an empty, explicit
+        // error state beats guessing every role is fine.
+        setSpecializedAgents([]);
+        setCapState("error");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
@@ -91,7 +117,8 @@ export default function AgentsPage() {
           Catálogo de Agentes
         </h1>
         <p style={{ fontSize: "13px", color: "var(--muted)" }}>
-          {NAMED_AGENTS.length} agentes conversacionales · {SPECIALIZED_AGENTS.length} agentes especializados del backend SEMSE Project
+          {NAMED_AGENTS.length} agentes conversacionales ·{" "}
+          {capState === "ready" ? `${specializedAgents.length} agentes especializados del backend SEMSE Project` : "cargando agentes especializados del backend…"}
         </p>
       </div>
 
@@ -113,68 +140,111 @@ export default function AgentsPage() {
         ))}
       </div>
 
-      {/* Agent Grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
-        {agents.map(agent => {
-          const isSelected = selected === agent.id;
-          const routedAgent = tab === "Conversacionales" ? PANEL_AGENT_ROUTE_MAP[agent.id] : null;
-          const directChat = routedAgent === agent.id;
-          return (
-            <button
-              key={agent.id}
-              onClick={() => setSelected(isSelected ? null : agent.id)}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px",
-                padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "left",
-                background: isSelected ? `${agent.color}12` : "var(--surface)",
-                border: `1.5px solid ${isSelected ? agent.color : "var(--border)"}`,
-                transition: "all 0.15s",
-              }}
-              onMouseOver={e => { if (!isSelected) e.currentTarget.style.borderColor = agent.color + "60"; }}
-              onMouseOut={e => { if (!isSelected) e.currentTarget.style.borderColor = "var(--border)"; }}
-            >
-              {/* Avatar */}
-              <div style={{
-                width: "40px", height: "40px", borderRadius: "12px",
-                background: `${agent.color}20`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "20px",
-              }}>
-                {agent.emoji}
-              </div>
+      {tab === "Especializados" && capState === "error" && (
+        <p style={{ fontSize: "12px", color: "var(--error)", marginBottom: "16px" }}>
+          No se pudo cargar el estado operacional desde el Capability Registry. Reintentá más tarde — no se muestra ningún agente como disponible mientras esto falla.
+        </p>
+      )}
 
-              {/* Info */}
-              <div>
-                <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", marginBottom: "2px" }}>{agent.name}</p>
-                {"role" in agent && (
+      {/* Agent Grid */}
+      {tab === "Conversacionales" ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
+          {NAMED_AGENTS.map(agent => {
+            const isSelected = selected === agent.id;
+            const routedAgent = PANEL_AGENT_ROUTE_MAP[agent.id];
+            const directChat = routedAgent === agent.id;
+            return (
+              <button
+                key={agent.id}
+                onClick={() => setSelected(isSelected ? null : agent.id)}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px",
+                  padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "left",
+                  background: isSelected ? `${agent.color}12` : "var(--surface)",
+                  border: `1.5px solid ${isSelected ? agent.color : "var(--border)"}`,
+                  transition: "all 0.15s",
+                }}
+                onMouseOver={e => { if (!isSelected) e.currentTarget.style.borderColor = agent.color + "60"; }}
+                onMouseOut={e => { if (!isSelected) e.currentTarget.style.borderColor = "var(--border)"; }}
+              >
+                <div style={{
+                  width: "40px", height: "40px", borderRadius: "12px",
+                  background: `${agent.color}20`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "20px",
+                }}>
+                  {agent.emoji}
+                </div>
+                <div>
+                  <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", marginBottom: "2px" }}>{agent.name}</p>
                   <p style={{ fontSize: "10px", fontWeight: 700, color: agent.color, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                     {agent.role}
                   </p>
-                )}
-                <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.4 }}>{agent.desc}</p>
-              </div>
-
-              {/* Active indicator */}
-              <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "5px" }}>
-                <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--ok)" }} />
-                <span style={{ fontSize: "10px", color: "var(--faint)" }}>
-                  {tab === "Conversacionales"
-                    ? directChat
-                      ? "Chat directo"
-                      : `Canalizado vía ${PANEL_AGENT_LABELS[routedAgent ?? "assistant"]}`
-                    : "Backend activo"}
-                </span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+                  <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.4 }}>{agent.desc}</p>
+                </div>
+                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "5px" }}>
+                  <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--ok)" }} />
+                  <span style={{ fontSize: "10px", color: "var(--faint)" }}>
+                    {directChat ? "Chat directo" : `Canalizado vía ${PANEL_AGENT_LABELS[routedAgent ?? "assistant"]}`}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px" }}>
+          {specializedAgents.map(agent => {
+            const isSelected = selected === agent.id;
+            // Loading never renders a status dot at all — no color implies
+            // "fine" while the real state is still unknown.
+            const status = capState === "loading" ? null : reachabilityPresentation(agent.reachability);
+            return (
+              <button
+                key={agent.id}
+                onClick={() => setSelected(isSelected ? null : agent.id)}
+                style={{
+                  display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "10px",
+                  padding: "16px", borderRadius: "12px", cursor: "pointer", textAlign: "left",
+                  background: isSelected ? `${agent.color}12` : "var(--surface)",
+                  border: `1.5px solid ${isSelected ? agent.color : "var(--border)"}`,
+                  transition: "all 0.15s",
+                }}
+                onMouseOver={e => { if (!isSelected) e.currentTarget.style.borderColor = agent.color + "60"; }}
+                onMouseOut={e => { if (!isSelected) e.currentTarget.style.borderColor = "var(--border)"; }}
+              >
+                <div style={{
+                  width: "40px", height: "40px", borderRadius: "12px",
+                  background: `${agent.color}20`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "20px",
+                }}>
+                  {agent.emoji}
+                </div>
+                <div>
+                  <p style={{ fontSize: "13px", fontWeight: 800, color: "var(--ink)", marginBottom: "2px" }}>{agent.name}</p>
+                  <p style={{ fontSize: "10px", fontWeight: 700, color: "var(--faint)", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Madurez: {agent.maturity}
+                  </p>
+                  <p style={{ fontSize: "11px", color: "var(--muted)", lineHeight: 1.4 }}>{agent.desc}</p>
+                </div>
+                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: "5px" }}>
+                  {status && <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: status.dot }} />}
+                  <span style={{ fontSize: "10px", color: "var(--faint)" }}>
+                    {status ? status.label : "Verificando estado…"}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Selected agent detail */}
-      {selected && (() => {
-        const agent = [...NAMED_AGENTS, ...SPECIALIZED_AGENTS].find(a => a.id === selected);
+      {selected && tab === "Conversacionales" && (() => {
+        const agent = NAMED_AGENTS.find(a => a.id === selected);
         if (!agent) return null;
-        const routedAgent = tab === "Conversacionales" ? PANEL_AGENT_ROUTE_MAP[agent.id] ?? "assistant" : null;
+        const routedAgent = PANEL_AGENT_ROUTE_MAP[agent.id] ?? "assistant";
         const directChat = routedAgent === agent.id;
         return (
           <div style={{
@@ -190,33 +260,60 @@ export default function AgentsPage() {
               </div>
               <div>
                 <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)" }}>{agent.name}</p>
-                {"role" in agent && <p style={{ fontSize: "12px", color: agent.color, fontWeight: 600 }}>{agent.role}</p>}
+                <p style={{ fontSize: "12px", color: agent.color, fontWeight: 600 }}>{agent.role}</p>
               </div>
             </div>
             <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.6, marginBottom: "14px" }}>{agent.desc}</p>
-            {tab === "Conversacionales" && !directChat && routedAgent && (
+            {!directChat && (
               <p style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "12px" }}>
                 Este agente abre su conversación dentro de <strong>{PANEL_AGENT_LABELS[routedAgent]}</strong>, que hoy es uno de los 6 agentes operativos del panel.
               </p>
             )}
-            {tab === "Conversacionales" && (
-              <button
-                onClick={() => {
-                  const panelAgentId = routedAgent ?? "assistant";
-                  setSelectedAgentId(panelAgentId);
-                  setActiveConversationId(null);
-                  openPanel(panelAgentId);
-                }}
-                style={{
-                  padding: "9px 18px", borderRadius: "8px", border: "none",
-                  background: agent.color, color: "#fff",
-                  fontSize: "13px", fontWeight: 700, cursor: "pointer",
-                  display: "inline-flex", alignItems: "center", gap: "6px",
-                }}
-              >
-                <MessageSquare size={13} /> {directChat ? `Chatear con ${agent.name}` : `Abrir en ${PANEL_AGENT_LABELS[routedAgent ?? "assistant"]}`}
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setSelectedAgentId(routedAgent);
+                setActiveConversationId(null);
+                openPanel(routedAgent);
+              }}
+              style={{
+                padding: "9px 18px", borderRadius: "8px", border: "none",
+                background: agent.color, color: "#fff",
+                fontSize: "13px", fontWeight: 700, cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: "6px",
+              }}
+            >
+              <MessageSquare size={13} /> {directChat ? `Chatear con ${agent.name}` : `Abrir en ${PANEL_AGENT_LABELS[routedAgent]}`}
+            </button>
+          </div>
+        );
+      })()}
+
+      {selected && tab === "Especializados" && (() => {
+        const agent = specializedAgents.find(a => a.id === selected);
+        if (!agent) return null;
+        const status = reachabilityPresentation(agent.reachability);
+        return (
+          <div style={{
+            marginTop: "16px",
+            padding: "20px",
+            background: `${agent.color}08`,
+            border: `1px solid ${agent.color}30`,
+            borderRadius: "14px",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+              <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: `${agent.color}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>
+                {agent.emoji}
+              </div>
+              <div>
+                <p style={{ fontSize: "16px", fontWeight: 800, color: "var(--ink)" }}>{agent.name}</p>
+                <p style={{ fontSize: "12px", color: agent.color, fontWeight: 600 }}>Madurez: {agent.maturity}</p>
+              </div>
+            </div>
+            <p style={{ fontSize: "13px", color: "var(--ink)", lineHeight: 1.6, marginBottom: "10px" }}>{agent.desc}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+              <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: status.dot }} />
+              <span style={{ fontSize: "12px", color: "var(--muted)" }}>{status.label}</span>
+            </div>
           </div>
         );
       })()}
