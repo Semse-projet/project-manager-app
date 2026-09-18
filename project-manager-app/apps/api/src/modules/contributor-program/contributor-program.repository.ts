@@ -462,6 +462,58 @@ export class ContributorProgramRepository {
     });
   }
 
+  // PR-8 (docs/specs/core/knowledge-contributor-registry.spec.md): the
+  // registry only ever shows PROMOTED rows — PENDING/REJECTED never leak in,
+  // regardless of filters. `search` is a plain ILIKE across the Observation
+  // text fields (exact/substring match), not semantic search — that's PR-9's
+  // job (RAG ingestion), explicitly out of scope here per the spec.
+  async listPromotedObservations(input: {
+    tenantId: string;
+    trade?: string;
+    category?: string;
+    missionId?: string;
+    search?: string;
+    page: number;
+    pageSize: number;
+  }) {
+    const search = input.search;
+    const where: Prisma.ObservationWhereInput = {
+      tenantId: input.tenantId,
+      promotionStatus: "PROMOTED",
+      ...(input.missionId || input.trade || input.category
+        ? {
+            submission: {
+              mission: {
+                ...(input.missionId ? { id: input.missionId } : {}),
+                ...(input.trade ? { trade: input.trade } : {}),
+                ...(input.category ? { category: input.category } : {})
+              }
+            }
+          }
+        : {}),
+      ...(search
+        ? {
+            OR: (
+              ["objective", "condition", "decision", "reason", "method", "action", "result"] as const
+            ).map((field) => ({ [field]: { contains: search, mode: "insensitive" } }))
+          }
+        : {})
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.observation.findMany({
+        where,
+        include: { submission: { include: { mission: true } } },
+        orderBy: { promotedAt: "desc" },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize
+      }),
+      this.prisma.observation.count({ where })
+    ]);
+
+    return { rows, total };
+  }
+
   // Worker entry point. The findFirst + conditional updateMany (WHERE
   // status = 'PENDING') is the idempotency guard the spec (§6) asks for: the
   // UPDATE only affects a row still PENDING, so if a second worker races for

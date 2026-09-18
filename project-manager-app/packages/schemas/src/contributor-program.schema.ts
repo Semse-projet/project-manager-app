@@ -329,6 +329,34 @@ export const setObservationPromotionSchema = z.object({
   reason: z.string().min(1).max(5000)
 });
 
+// PR-8 (docs/specs/core/knowledge-contributor-registry.spec.md): a
+// registry row is an observationViewSchema plus the mission context it
+// belongs to — the registry always crosses submission -> mission, unlike
+// the review-panel views which already sit inside one mission's context.
+export const knowledgeRegistryEntryViewSchema = observationViewSchema.extend({
+  missionId: z.string().min(1),
+  missionTitle: z.string(),
+  trade: z.string(),
+  category: z.string()
+});
+
+export const listKnowledgeRegistryQuerySchema = z.object({
+  trade: z.string().min(1).max(200).optional(),
+  category: z.string().min(1).max(200).optional(),
+  missionId: z.string().min(1).optional(),
+  search: z.string().min(1).max(500).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20)
+});
+
+export const knowledgeRegistryPageSchema = z.object({
+  items: z.array(knowledgeRegistryEntryViewSchema),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  total: z.number().int(),
+  hasMore: z.boolean()
+});
+
 // ── Rewards ──────────────────────────────────────────────────────────────
 
 export const contributorRewardStatusSchema = z.enum([
@@ -390,3 +418,6 @@ export type SetObservationPromotionInput = z.infer<typeof setObservationPromotio
 export type KnowledgeExtractionView = z.infer<typeof knowledgeExtractionViewSchema>;
 export type ObservationFieldName = z.infer<typeof observationFieldNameSchema>;
 export type CorrectObservationInput = z.infer<typeof correctObservationSchema>;
+export type KnowledgeRegistryEntryView = z.infer<typeof knowledgeRegistryEntryViewSchema>;
+export type ListKnowledgeRegistryQuery = z.infer<typeof listKnowledgeRegistryQuerySchema>;
+export type KnowledgeRegistryPage = z.infer<typeof knowledgeRegistryPageSchema>;

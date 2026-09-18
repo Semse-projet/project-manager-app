@@ -3408,3 +3408,39 @@ export async function rejectAdminContributorObservationPromotion(
     input
   );
 }
+
+// PR-8 (docs/specs/core/knowledge-contributor-registry.spec.md)
+export type KnowledgeRegistryEntryView = ObservationView & {
+  missionId: string;
+  missionTitle: string;
+  trade: string;
+  category: string;
+};
+
+export type KnowledgeRegistryPage = {
+  items: KnowledgeRegistryEntryView[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export type KnowledgeRegistryFilters = {
+  trade?: string;
+  category?: string;
+  missionId?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export async function listAdminContributorKnowledgeRegistry(
+  filters: KnowledgeRegistryFilters = {}
+): Promise<KnowledgeRegistryPage> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "") params.set(key, String(value));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return fetchSemse<KnowledgeRegistryPage>(`/api/semse/contributors/admin/observations/registry${suffix}`);
+}
