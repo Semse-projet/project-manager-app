@@ -89,6 +89,71 @@ Durante la implementación del primer slice se encontró `docs/specs/core/univer
 | Resource-derived capability resolution | **REUSE/EXTEND** | `rbac.ts` + `Membership` por `orgId` del recurso ya es el mecanismo correcto (REUSE); se extiende solo para incorporar `Membership.status` en la resolución (ver punto 3 de la tabla principal) |
 | Sticky authorization context (sesión con "org activa" que determina permisos) | **REJECTED** | No es un gap a cerrar ni un `DEFER` — es un mecanismo explícitamente rechazado por el owner, dos veces (2026-08-04 y 2026-09-18). Ningún slice futuro debe reintroducirlo, ni con otro nombre |
 | Preferred organization / experience context (UX) | **EXTEND/NEW** — **sin autoridad de autorización** | No existe hoy. Es legítimo y queda pendiente de diseño; debe nombrarse de forma que su falta de autoridad sea obvia en el call site (ver ADR-040 para candidatos de nombre) y nunca ser input de un check de `rbac.ts`, un scope de query Prisma, ni un guard |
-| Intent continuity | **Pendiente de reconciliación específica** | La reconciliación de autorización-vs-experiencia de esta sección no resuelve por sí sola cómo un `Intent` R2/R3 debe referenciar "a qué org vuelve" tras una interrupción — sigue abierto, no asumir que quedó cubierto por esta sección |
+| Intent continuity | **REUSE/WRAP para R0-R1, NEW para R2-R3 — ver reconciliación abajo** | Resuelto en la sección "Intent continuity — reconciliación 2026-09-18" más abajo |
 
 Esta reconciliación **no cierra** los dos riesgos P0 (payment-governance, SSE) — siguen como workstreams de seguridad separados, sin relación con esta decisión de arquitectura.
+
+---
+
+## Intent continuity — reconciliación 2026-09-18
+
+Pregunta que quedaba abierta: la reconciliación de autorización-vs-experiencia
+(sección anterior) resuelve cómo se autoriza un recurso, pero no dice
+explícitamente cómo un `Intent` (WS-01C sección 03) debe referenciar "a qué
+org vuelve" tras una interrupción de auth/sesión — sin que esa referencia se
+convierta en autorización por la puerta de atrás. Esta sección cierra esa
+pregunta usando el mismo modelo de cuatro conceptos de `ADR-040`.
+
+### Regla general
+
+Un `Intent` nunca lleva autoridad. Lo único que un `Intent` puede llevar,
+respecto a organización, es **una referencia**, nunca una decisión ya tomada:
+
+- Si el `Intent` ya está atado a un recurso concreto (`resourceRef` en el
+  modelo original de WS-01C — ej. un `milestoneId`, un `escrowId`, un
+  `jobId` ya creado), **la org se deriva del recurso al resumir**, exactamente
+  igual que cualquier otra operación sobre ese recurso (ver `ADR-040`). El
+  `Intent` no necesita cargar ningún campo de org — sería información
+  redundante y, peor, una segunda fuente de verdad que podría divergir de la
+  real si el recurso cambió de dueño entre que se creó el Intent y se
+  resume.
+- Si el `Intent` **todavía no tiene recurso** (ej. "publicar un job" antes de
+  que el job exista — Journey A del documento original), la única org
+  disponible en ese momento es una **sugerencia**, no una decisión: la misma
+  `preferredOrganizationId` no-autoritativa de
+  `docs/specs/core/preferred-organization-context.spec.md`. El flujo de
+  creación la usa para pre-rellenar, el usuario puede cambiarla, y el
+  backend valida membership/capability sobre la org que efectivamente se
+  envíe al crear — nunca sobre lo que el Intent "recordaba".
+
+### Por qué esto no reabre el gap que `ADR-040` cerró
+
+Es tentador agregar `orgId`/`workspaceId` al modelo de `Intent` "para no
+perder contexto". Eso es exactamente el error que la reconciliación de
+autorización-vs-experiencia ya identificó una vez (un campo con forma de
+contexto que termina leyéndose como autoridad) — aplicado esta vez a un
+objeto que además cruza el límite de una interrupción de sesión, que es
+justo el escenario que **D-06** ("Consent is never resumed") del documento
+original ya cubre para consentimiento. La misma lógica aplica a org: un
+`Intent` que "recuerda" una org y la usa para saltarse la revalidación al
+resumir es tan peligroso como uno que recuerda que el usuario "ya autorizó"
+algo.
+
+### Mapeo contra las primitivas ya encontradas (tabla principal, punto "Draft persistence" e Intent primitives)
+
+| Risk class | Primitiva hoy | Cambia con esta reconciliación? |
+|---|---|---|
+| R0 (explorar, reabrir resultado) | `resolveSafeRedirectPath` (`from`/return-url) | No — sigue **WRAP**, no toca org en absoluto |
+| R1 (draft reversible — job/estimate/evidence) | `saveJobWizardDraft`/`loadJobWizardDraft` (localStorage) | No cambia su clasificación (**WRAP** same-device); al resumir, si el draft es pre-recurso, se pre-llena con `preferredOrganizationId` per la regla de arriba — eso es nuevo pero es del lado de la spec de preferencia, no del Intent mismo |
+| R2 (commit operacional — publicar job, submit evidence) | No existe primitiva reutilizable (confirmado en la pasada anterior) | Sigue **NEW** — y ahora con la regla explícita: si ya hay `resourceRef`, la org se deriva de ahí al reautorizar; si no, aplica la regla de preferencia de arriba |
+| R3 (sensible — liberar pago) | No existe primitiva reutilizable | Sigue **NEW** — reforzado: el resume nunca debe cargar ni implicar una org; la reautorización en el paso final (ya exigida por G0) deriva la org 100% del `escrowId`/recurso real, ignorando cualquier estado de sesión/preferencia por completo |
+
+### Consecuencia práctica para cuando se implemente el `IntentService`
+
+El campo `desiredWorkspaceType` que el documento externo WS-01C proponía
+originalmente (sección 03, modelo mínimo de Intent) **no debe implementarse
+tal cual** — asumía el modelo de "workspace"/context-switch ya rechazado. Si
+hace falta alguna señal de org al crear un Intent pre-recurso, es
+exactamente `preferredOrganizationId` (una lectura, no un campo propio del
+Intent) en el momento de la creación del recurso real, nunca persistida
+dentro del propio registro de Intent.
