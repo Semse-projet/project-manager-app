@@ -24,7 +24,7 @@ related_tests: []
 related_endpoints: []
 related_events: []
 related_agents: []
-last_verified: ""
+last_verified: "2026-09-18"
 ---
 
 # Spec: Preferred organization — non-authoritative navigation preference
