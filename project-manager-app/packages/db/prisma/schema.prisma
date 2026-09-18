@@ -565,6 +565,11 @@ model Membership {
   userId    String
   orgId     String
   roleId    String
+  // INVITED | ACTIVE | SUSPENDED | REVOKED — WS-01C org-context slice 1
+  // (docs/architecture/ADR-040). Only ACTIVE memberships authorize login/org
+  // selection or count toward @semse/users:me/capabilities; additive column,
+  // backfilled ACTIVE for every pre-existing row.
+  status    String   @default("ACTIVE")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   org       Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
   role      Role     @relation(fields: [roleId], references: [id], onDelete: Restrict)

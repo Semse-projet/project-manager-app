@@ -43,6 +43,7 @@ function createService() {
           userId: String(input.targetUserId),
           orgId: "org_client",
           roleId: "role_client",
+          status: "ACTIVE",
           org: { id: "org_client", name: "Org Cliente", type: "client" },
           role: { id: "role_client", key: "CLIENT", name: "Cliente" },
           createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -51,6 +52,7 @@ function createService() {
           userId: String(input.targetUserId),
           orgId: "org_pro",
           roleId: "role_pro",
+          status: "ACTIVE",
           org: { id: "org_pro", name: "Org Profesional", type: "pro" },
           role: { id: "role_pro", key: "PRO", name: "Profesional" },
           createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -117,7 +119,7 @@ test("users service rejects status updates for non-admin actors", async () => {
 
 // ── Capabilities (docs/specs/core/universal-identity-multi-role.spec.md) ──────
 
-test("getMyCapabilities returns the actor's own memberships, mapped to role/orgId", async () => {
+test("getMyCapabilities returns the actor's own memberships, mapped to role/orgId/status", async () => {
   const { service } = createService();
 
   const capabilities = await service.getMyCapabilities({
@@ -127,9 +129,11 @@ test("getMyCapabilities returns the actor's own memberships, mapped to role/orgI
     roles: ["CLIENT"],
   });
 
+  // status: docs/specs/core/org-membership-status.spec.md — surfaced
+  // alongside role/orgId, not filtered here (read-only endpoint).
   assert.deepEqual(capabilities, [
-    { role: "CLIENT", orgId: "org_client", verifiedAt: null },
-    { role: "PRO", orgId: "org_pro", verifiedAt: null },
+    { role: "CLIENT", orgId: "org_client", status: "ACTIVE", verifiedAt: null },
+    { role: "PRO", orgId: "org_pro", status: "ACTIVE", verifiedAt: null },
   ]);
 });
 
