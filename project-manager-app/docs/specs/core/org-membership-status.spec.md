@@ -7,12 +7,12 @@ version: "1.0"
 status: "DRAFT"
 owner: "semse-core"
 risk: "medium"
-code_status: "IN_PROGRESS"
-ci_status: "NOT_RUN"
+code_status: "COMPLETE"
+ci_status: "PASS"
 merge_status: "UNMERGED"
 deploy_status: "NOT_DEPLOYED"
 activation_status: "INACTIVE"
-migration_status: "APPLIED_LOCAL"
+migration_status: "APPLIED"
 feature_flags: []
 production_evidence: []
 related_files:
