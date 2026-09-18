@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { StorageService } from "../../infrastructure/storage/storage.service.js";
 import { StripeConnectService } from "../payments/stripe-connect.service.js";
 import { ContributorProgramRepository } from "./contributor-program.repository.js";
 import { assertOwnsResource, assertIsOpsAdmin, type ContributorActor } from "./contributor-program.policy.js";
@@ -51,26 +52,6 @@ function toMissionView(mission: {
   };
 }
 
-function toAssetView(asset: {
-  id: string;
-  kind: string;
-  clipRole: string;
-  mimeType: string | null;
-  sizeBytes: number | null;
-  processingStatus: string;
-  createdAt: Date;
-}) {
-  return {
-    id: asset.id,
-    kind: asset.kind,
-    clipRole: asset.clipRole,
-    mimeType: asset.mimeType,
-    sizeBytes: asset.sizeBytes,
-    processingStatus: asset.processingStatus,
-    createdAt: asset.createdAt.toISOString()
-  };
-}
-
 const REWARD_ELIGIBLE_TRANSITION = new Set(["APPROVED"]);
 
 @Injectable()
@@ -78,6 +59,7 @@ export class ContributorProgramService {
   constructor(
     private readonly repository: ContributorProgramRepository,
     private readonly audit: AuditService,
+    private readonly storage: StorageService,
     @Optional() private readonly sse?: SseEventBusService,
     @Optional() private readonly stripeConnect?: StripeConnectService
   ) {}
@@ -434,7 +416,7 @@ export class ContributorProgramService {
       })
       .catch(() => undefined);
 
-    return toAssetView(asset);
+    return this.toAssetView(asset);
   }
 
   async submitSubmission(ctx: Ctx, submissionId: string, notes?: string) {
@@ -1131,7 +1113,7 @@ export class ContributorProgramService {
     mission?: { title: string };
     status: string;
     notes: string | null;
-    assets: Array<Parameters<typeof toAssetView>[0]>;
+    assets: Array<Parameters<ContributorProgramService["toAssetView"]>[0]>;
     createdAt: Date;
     submittedAt: Date | null;
     acceptance?: { compensationCentsSnapshot: number; currencySnapshot: string };
@@ -1144,7 +1126,7 @@ export class ContributorProgramService {
       missionTitle: submission.mission?.title ?? "",
       status: submission.status,
       notes: submission.notes,
-      assets: submission.assets.map(toAssetView),
+      assets: submission.assets.map((asset) => this.toAssetView(asset)),
       compensationCentsSnapshot: submission.acceptance?.compensationCentsSnapshot ?? 0,
       currencySnapshot: submission.acceptance?.currencySnapshot ?? "USD",
       submittedAt: submission.submittedAt?.toISOString() ?? null,
@@ -1157,6 +1139,35 @@ export class ContributorProgramService {
             paidAt: submission.reward.paidAt?.toISOString() ?? null
           }
         : null
+    };
+  }
+
+  // PR-7 (docs/specs/core/knowledge-contributor-human-review-workspace.spec.md):
+  // previewUrl reuses StorageService.publicUrl — the same mechanism
+  // uploads.controller.ts already serves files with (GET is @Public() by a
+  // prior design decision this spec doesn't revisit) — so a reviewer can
+  // actually watch/listen to what they're approving instead of deciding
+  // blind from metadata alone. null for TEXT assets or any row missing a
+  // storageKey, never a broken <video>/<img> src.
+  private toAssetView(asset: {
+    id: string;
+    kind: string;
+    clipRole: string;
+    storageKey: string | null;
+    mimeType: string | null;
+    sizeBytes: number | null;
+    processingStatus: string;
+    createdAt: Date;
+  }) {
+    return {
+      id: asset.id,
+      kind: asset.kind,
+      clipRole: asset.clipRole,
+      mimeType: asset.mimeType,
+      sizeBytes: asset.sizeBytes,
+      processingStatus: asset.processingStatus,
+      previewUrl: asset.storageKey ? this.storage.publicUrl(asset.storageKey) : null,
+      createdAt: asset.createdAt.toISOString()
     };
   }
 }

@@ -3097,6 +3097,7 @@ export type KnowledgeAssetView = {
   mimeType: string | null;
   sizeBytes: number | null;
   processingStatus: string;
+  previewUrl: string | null;
   createdAt: string;
 };
 
