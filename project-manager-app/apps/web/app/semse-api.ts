@@ -3335,6 +3335,8 @@ export type TranscriptSegmentView = {
   createdAt: string;
 };
 
+export type ObservationPromotionStatus = "PENDING" | "PROMOTED" | "REJECTED";
+
 export type ObservationView = {
   id: string;
   objective: string | null;
@@ -3351,6 +3353,10 @@ export type ObservationView = {
   correctedByUserId: string | null;
   correctedReason: string | null;
   correctedAt: string | null;
+  promotionStatus: ObservationPromotionStatus;
+  promotedByUserId: string | null;
+  promotedAt: string | null;
+  promotionReason: string | null;
   createdAt: string;
 };
 
@@ -3378,6 +3384,26 @@ export async function correctAdminContributorObservation(
 ): Promise<ObservationView> {
   return mutateSemse<ObservationView>(
     `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/correct`,
+    input
+  );
+}
+
+export async function promoteAdminContributorObservation(
+  observationId: string,
+  input: { reason: string }
+): Promise<ObservationView> {
+  return mutateSemse<ObservationView>(
+    `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/promote`,
+    input
+  );
+}
+
+export async function rejectAdminContributorObservationPromotion(
+  observationId: string,
+  input: { reason: string }
+): Promise<ObservationView> {
+  return mutateSemse<ObservationView>(
+    `/api/semse/contributors/admin/observations/${encodeURIComponent(observationId)}/reject-promotion`,
     input
   );
 }

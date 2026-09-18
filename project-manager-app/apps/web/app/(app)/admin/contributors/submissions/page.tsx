@@ -10,6 +10,8 @@ import {
   fetchAdminContributorSubmissions,
   fetchAdminContributorExtractions,
   correctAdminContributorObservation,
+  promoteAdminContributorObservation,
+  rejectAdminContributorObservationPromotion,
   reviewAdminContributorSubmission,
   resolveAdminContributorAppeal,
   type ContributorAppealView,
@@ -125,6 +127,104 @@ function ObservationCorrectionForm({
   );
 }
 
+function promotionStatusVariant(status: ObservationView["promotionStatus"]): "default" | "success" | "error" {
+  if (status === "PROMOTED") return "success";
+  if (status === "REJECTED") return "error";
+  return "default";
+}
+
+function PromotionReasonPrompt({
+  label,
+  onSubmit,
+  onCancel,
+}: {
+  label: string;
+  onSubmit: (reason: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!reason.trim()) {
+      setError(t("contributors.admin.reasonRequired"));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onSubmit(reason.trim());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "error");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded border border-white/10 bg-white/[0.03] p-2">
+      <Textarea
+        label={label}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        rows={2}
+      />
+      {error ? <p className="mt-1 text-xs text-red-400">{error}</p> : null}
+      <div className="mt-2 flex gap-2">
+        <Button size="sm" loading={busy} onClick={submit}>
+          {t("contributors.admin.extractions.correctionSubmit")}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          {t("contributors.admin.extractions.correctionCancel")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function PromotionControls({ observation, onDecided }: { observation: ObservationView; onDecided: () => void }) {
+  const { t } = useLanguage();
+  const [prompting, setPrompting] = useState<"promote" | "reject" | null>(null);
+
+  async function decide(action: "promote" | "reject", reason: string) {
+    if (action === "promote") {
+      await promoteAdminContributorObservation(observation.id, { reason });
+    } else {
+      await rejectAdminContributorObservationPromotion(observation.id, { reason });
+    }
+    setPrompting(null);
+    onDecided();
+  }
+
+  return (
+    <div className="mt-2">
+      <div className="flex items-center gap-2">
+        <Badge variant={promotionStatusVariant(observation.promotionStatus)}>
+          {t(`contributors.admin.extractions.promotion.${observation.promotionStatus.toLowerCase()}`)}
+        </Badge>
+        {observation.promotionStatus !== "PROMOTED" ? (
+          <Button size="sm" variant="ghost" onClick={() => setPrompting("promote")}>
+            {t("contributors.admin.extractions.promotion.promote")}
+          </Button>
+        ) : null}
+        {observation.promotionStatus !== "REJECTED" ? (
+          <Button size="sm" variant="ghost" onClick={() => setPrompting("reject")}>
+            {t("contributors.admin.extractions.promotion.reject")}
+          </Button>
+        ) : null}
+      </div>
+      {prompting ? (
+        <PromotionReasonPrompt
+          label={t(`contributors.admin.extractions.promotion.${prompting}Reason`)}
+          onSubmit={(reason) => decide(prompting, reason)}
+          onCancel={() => setPrompting(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
 function ObservationCard({ observation, onCorrected }: { observation: ObservationView; onCorrected: () => void }) {
   const { t } = useLanguage();
   const [correcting, setCorrecting] = useState(false);
@@ -163,6 +263,7 @@ function ObservationCard({ observation, onCorrected }: { observation: Observatio
           onCancel={() => setCorrecting(false)}
         />
       ) : null}
+      <PromotionControls observation={observation} onDecided={onCorrected} />
     </div>
   );
 }
