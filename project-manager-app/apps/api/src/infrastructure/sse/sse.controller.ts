@@ -1,4 +1,4 @@
-import { Controller, Headers, MessageEvent, Param, Query, Req, Sse } from "@nestjs/common";
+import { Controller, MessageEvent, Param, Query, Req, Sse } from "@nestjs/common";
 import { Observable, from, interval, merge, of } from "rxjs";
 import { catchError, filter, map, startWith, switchMap } from "rxjs/operators";
 import { Public } from "../../common/public.decorator.js";
@@ -7,9 +7,14 @@ import { HealthService } from "../../modules/health/health.service.js";
 import { AgentWorkPlanService } from "../../modules/agents/agent-work-plan.service.js";
 import { AgentDelegationService } from "../../modules/agents/agent-delegation.service.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { resolveRequestContext } from "../../common/request-context.js";
+import { resolveRequestContext, type RequestContext } from "../../common/request-context.js";
 
 const KEEPALIVE_MS = 20_000;
+
+type SseRequest = {
+  headers?: Record<string, unknown>;
+  authContext?: RequestContext;
+};
 
 function keepalive$(): Observable<MessageEvent> {
   return interval(KEEPALIVE_MS).pipe(
@@ -40,14 +45,26 @@ export class SseController {
    * got live cross-tenant events regardless of the snapshot check's result.
    * Both streams below now gate the push$ subscription behind the ownership
    * check succeeding — no ownership, no push channel, keepalive-only.
+   *
+   * WS-01C G1 finding (point 24, docs/ws-01c/WS-01C-G1-AS-IS-Reconciliation.md):
+   * these streams (and contextStream/financeStream/buildopsStream below) were
+   * additionally @Public() and trusted a client-supplied `x-tenant-id` header
+   * as their only tenant signal — the ownership checks above were real, but
+   * they checked ownership against whatever tenantId the caller claimed, not
+   * against who the caller actually is. Any unauthenticated caller could set
+   * that header to any tenant's id directly against the public API (the web
+   * BFF's own auth doesn't protect this — it's a convenience proxy, not a
+   * network boundary; the API is reachable directly). Fixed the same way
+   * missionControlStream already does it correctly: no @Public(), tenantId
+   * comes from resolveRequestContext's verified session/token, never from a
+   * header the caller controls.
    */
   @Sse("plans/:planId")
-  @Public()
   planStream(
     @Param("planId") planId: string,
-    @Headers("x-tenant-id") tenantId: string,
+    @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    if (!tenantId) return keepalive$();
+    const { tenantId } = resolveRequestContext(req);
 
     return from(this.plans.findById(tenantId, planId).catch(() => null)).pipe(
       switchMap(plan => {
@@ -62,12 +79,11 @@ export class SseController {
   }
 
   @Sse("delegations")
-  @Public()
   delegationsStream(
     @Query("projectId") projectId: string | undefined,
-    @Headers("x-tenant-id") tenantId: string,
+    @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    if (!tenantId) return keepalive$();
+    const { tenantId } = resolveRequestContext(req);
 
     // No projectId → the channel is keyed by the caller's own tenantId, already safe.
     if (!projectId) {
@@ -114,12 +130,11 @@ export class SseController {
   }
 
   @Sse("context")
-  @Public()
   contextStream(
     @Query("projectId") projectId: string | undefined,
-    @Headers("x-tenant-id") tenantId: string,
+    @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    if (!tenantId) return keepalive$();
+    const { tenantId } = resolveRequestContext(req);
 
     return merge(
       this.bus.onPrefix<Record<string, unknown>>(`context:${tenantId}:`).pipe(
@@ -135,10 +150,10 @@ export class SseController {
   }
 
   @Sse("finance")
-  @Public()
   financeStream(
-    @Headers("x-tenant-id") tenantId: string,
+    @Req() req: SseRequest,
   ): Observable<MessageEvent> {
+    const { tenantId } = resolveRequestContext(req);
     const channel = `finance:${tenantId}`;
     return merge(
       this.bus.on<unknown>(channel).pipe(
@@ -150,15 +165,7 @@ export class SseController {
 
   @Sse("mission-control")
   missionControlStream(
-    @Req() req: {
-      headers?: Record<string, unknown>;
-      authContext?: {
-        userId: string;
-        tenantId: string;
-        orgId: string;
-        roles: string[];
-      };
-    },
+    @Req() req: SseRequest,
   ): Observable<MessageEvent> {
     const { tenantId } = resolveRequestContext(req);
     const global$ = this.bus.on<unknown>("mission-control:global").pipe(
@@ -172,11 +179,10 @@ export class SseController {
   }
 
   @Sse("buildops")
-  @Public()
   buildopsStream(
-    @Headers("x-tenant-id") tenantId: string,
+    @Req() req: SseRequest,
   ): Observable<MessageEvent> {
-    if (!tenantId) return keepalive$();
+    const { tenantId } = resolveRequestContext(req);
     return merge(
       this.bus.on<unknown>(`buildops:${tenantId}`).pipe(
         map(e => toMsgEvent(e.data, e.event)),
