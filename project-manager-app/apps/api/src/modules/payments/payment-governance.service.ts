@@ -2,6 +2,9 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { MilestonesRepository } from "../milestones/milestones.repository.js";
 import { WaiverPaymentGateService } from "../liens/waiver-payment-gate.service.js";
+import { assertMilestoneReadable, type MilestoneActor, type MilestoneOwnership } from "../milestones/milestones.policy.js";
+
+export type PaymentGovernanceActor = MilestoneActor;
 
 export type ReleaseStatus = "ready" | "blocked" | "needs_review" | "released" | "disputed";
 export type RiskLevel = "low" | "medium" | "high" | "critical";
@@ -42,7 +45,25 @@ export class PaymentGovernanceService {
     private readonly waiverGate: WaiverPaymentGateService,
   ) {}
 
-  async evaluate(milestoneId: string, tenantId: string): Promise<PaymentGovernanceResult> {
+  /**
+   * WS-01C G1 finding (point 19, docs/ws-01c/WS-01C-G1-AS-IS-Reconciliation.md):
+   * this evaluate() is a SIBLING class to PaymentGovernanceService in
+   * modules/payment-governance/ (same name, different module — the exact
+   * "duplicate writer" risk ADR-040 documents) and had the identical gap:
+   * scoped only by tenantId, never by org, even though it's reachable
+   * directly by an authenticated actor via GET
+   * /v1/milestones/:milestoneId/payment-governance (milestones:read,
+   * held by CLIENT/PRO, not just OPS_ADMIN) and via the Prometeo
+   * operational RAG context (POST /v1/buildops/projects/:id/rag-query).
+   *
+   * `actor` is optional and intentionally so: MilestonesService.approve()'s
+   * auto-release path (EscrowReleaseService.tryAutoRelease) calls this for a
+   * milestoneId that was already authorized for that exact actor one step
+   * earlier in the same request via assertMilestoneApprovable — that
+   * internal, already-authorized caller passes no actor and skips this
+   * check. Every other (externally-reachable) caller MUST pass one.
+   */
+  async evaluate(milestoneId: string, tenantId: string, actor?: PaymentGovernanceActor): Promise<PaymentGovernanceResult> {
     // 1. Core readiness from existing logic (evidence + dispute + approval)
     const readiness = await this.milestonesRepo.computePaymentReadiness(milestoneId, tenantId);
     const ms = readiness.milestone;
@@ -51,10 +72,18 @@ export class PaymentGovernanceService {
     const milestone = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, project: { tenantId } },
       include: {
-        project: { select: { id: true, jobId: true } },
+        project: { select: { id: true, jobId: true, assignedProOrgId: true, job: { select: { clientOrgId: true } } } },
         evidenceItems: { select: { status: true, required: true, label: true } },
       },
     });
+
+    if (actor && milestone?.project) {
+      const ownership: MilestoneOwnership = {
+        clientOrgId: milestone.project.job?.clientOrgId ?? "",
+        assignedProOrgId: milestone.project.assignedProOrgId ?? "",
+      };
+      assertMilestoneReadable(actor, ownership);
+    }
 
     const projectId = milestone?.project?.id ?? null;
 
