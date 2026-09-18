@@ -43,7 +43,12 @@ export class PaymentGovernanceRepository {
           take: 10,
         },
         project: {
-          select: { id: true, tenantId: true },
+          select: {
+            id: true,
+            tenantId: true,
+            assignedProOrgId: true,
+            job: { select: { clientOrgId: true } },
+          },
         },
       },
     });

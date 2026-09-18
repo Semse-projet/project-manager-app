@@ -2,6 +2,29 @@ import { Injectable, Logger, NotFoundException, ServiceUnavailableException } fr
 import { PaymentGovernanceRepository, type PaymentReleaseInput } from "./payment-governance.repository.js";
 import { PaymentGovernanceDiagnosticsService } from "./diagnostics.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
+import { assertMilestoneReadable, type MilestoneActor, type MilestoneOwnership } from "../milestones/milestones.policy.js";
+
+export type EscrowActor = MilestoneActor;
+
+type EscrowWithOwnership = {
+  project: { assignedProOrgId: string; job: { clientOrgId: string } | null } | null;
+};
+
+// The escrow's own project is the resource an actor needs access to — an
+// org is authorized only if it is the client org or the assigned pro org of
+// that project. Same rule `milestones.policy.ts` already enforces for
+// milestones; escrows previously had no equivalent check at all (only
+// tenantId scoping — see payment-governance.repository.ts#getEscrow), which
+// let any actor with a finance:* permission in one org of a tenant act on
+// another org's escrow within the same tenant. This is resource-derived
+// authorization per ADR-040: never based on a session-level "active org".
+function assertEscrowReadable(actor: EscrowActor, escrow: EscrowWithOwnership): void {
+  const ownership: MilestoneOwnership = {
+    clientOrgId: escrow.project?.job?.clientOrgId ?? "",
+    assignedProOrgId: escrow.project?.assignedProOrgId ?? "",
+  };
+  assertMilestoneReadable(actor, ownership);
+}
 
 export interface PaymentReleaseResult {
   success: boolean;
@@ -39,6 +62,7 @@ export class PaymentGovernanceService {
 
   async releasePayment(
     input: PaymentReleaseInput,
+    actor: EscrowActor,
   ): Promise<PaymentReleaseResult> {
     try {
       const escrow = await this.repository.getEscrow(input.escrowId, input.tenantId);
@@ -47,6 +71,7 @@ export class PaymentGovernanceService {
           `Escrow ${input.escrowId} not found`,
         );
       }
+      assertEscrowReadable(actor, escrow);
 
       // D02 mitigation (2026-09-14) — this method used to create a payment
       // transaction row, log a decision and report success WITHOUT ever
@@ -76,12 +101,14 @@ export class PaymentGovernanceService {
     reason: string,
     blockedBy: string,
     tenantId: string,
+    actor: EscrowActor,
   ): Promise<PaymentBlockResult> {
     try {
       const escrow = await this.repository.getEscrow(escrowId, tenantId);
       if (!escrow) {
         throw new NotFoundException(`Escrow ${escrowId} not found`);
       }
+      assertEscrowReadable(actor, escrow);
 
       // Update escrow status to PENDING_SETTLEMENT (blocked state)
       await this.repository.updateEscrowStatus(escrowId, "PENDING_SETTLEMENT");
@@ -121,31 +148,43 @@ export class PaymentGovernanceService {
   async getPaymentHistory(
     escrowId: string,
     tenantId: string,
+    actor: EscrowActor,
   ) {
-    return this.repository.getEscrow(escrowId, tenantId);
+    const escrow = await this.repository.getEscrow(escrowId, tenantId);
+    if (!escrow) {
+      return null;
+    }
+    assertEscrowReadable(actor, escrow);
+    return escrow;
   }
 
   async calculatePaymentScore(
     escrowId: string,
     milestoneId: string,
     tenantId: string,
+    actor: EscrowActor,
   ): Promise<PaymentScore> {
     let evidenceQuality = 0.5;
     let contractorVerification = 0.5;
     let operationalReadiness = 0.5;
 
-    try {
-      const escrow = await this.repository.getEscrow(escrowId, tenantId);
-      if (!escrow) {
-        return {
-          overall: 0.3,
-          evidenceQuality: 0.2,
-          contractorVerification: 0.2,
-          operationalReadiness: 0.2,
-          riskLevel: "high",
-        };
-      }
+    // Fetched and authorized outside the try/catch below on purpose: that
+    // catch-all is for calculation failures and must not swallow a
+    // ForbiddenException into a fabricated low-confidence score — an
+    // unauthorized caller must get denied, not a plausible-looking number.
+    const escrow = await this.repository.getEscrow(escrowId, tenantId);
+    if (!escrow) {
+      return {
+        overall: 0.3,
+        evidenceQuality: 0.2,
+        contractorVerification: 0.2,
+        operationalReadiness: 0.2,
+        riskLevel: "high",
+      };
+    }
+    assertEscrowReadable(actor, escrow);
 
+    try {
       // Check evidence quality
       const evidence = await this.repository.getMilestoneEvidence(
         escrow.projectId,

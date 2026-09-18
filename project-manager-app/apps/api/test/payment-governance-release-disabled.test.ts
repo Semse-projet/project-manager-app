@@ -12,13 +12,33 @@ import { PaymentGovernanceService } from "../dist/modules/payment-governance/pay
 // see tests/unit/payment-release-canonical-path.test.mjs for the still-open
 // canonical-path golden regression this does not yet close.
 
-const ESCROW = { id: "escrow_1", projectId: "proj_1", status: "PENDING_SETTLEMENT", tenantId: "tnt_owner" };
+const ESCROW = {
+  id: "escrow_1",
+  projectId: "proj_1",
+  status: "PENDING_SETTLEMENT",
+  tenantId: "tnt_owner",
+  clientOrgId: "org_client",
+  assignedProOrgId: "org_pro",
+};
+
+const ACTOR = { tenantId: "tnt_owner", orgId: "org_client", userId: "usr_admin", roles: [] as string[] };
 
 function makeService() {
   const repo = {
     async getEscrow(escrowId: string, tenantId: string) {
       if (escrowId !== ESCROW.id || tenantId !== ESCROW.tenantId) return null;
-      return { id: ESCROW.id, projectId: ESCROW.projectId, status: ESCROW.status, transactions: [], project: { id: ESCROW.projectId, tenantId } };
+      return {
+        id: ESCROW.id,
+        projectId: ESCROW.projectId,
+        status: ESCROW.status,
+        transactions: [],
+        project: {
+          id: ESCROW.projectId,
+          tenantId,
+          assignedProOrgId: ESCROW.assignedProOrgId,
+          job: { clientOrgId: ESCROW.clientOrgId },
+        },
+      };
     },
     async createPaymentTransaction() {
       throw new Error("createPaymentTransaction must not be called while release is disabled");
@@ -38,7 +58,7 @@ test("releasePayment on the owning tenant's escrow fails safe instead of fabrica
     () => service.releasePayment({
       escrowId: "escrow_1", milestoneId: "ms_1", amount: 1000, reason: "milestone complete",
       releasedBy: "usr_admin", tenantId: "tnt_owner",
-    }),
+    }, ACTOR),
     ServiceUnavailableException,
   );
 });
