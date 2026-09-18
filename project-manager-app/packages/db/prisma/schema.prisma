@@ -4186,22 +4186,40 @@ enum GoldenRegressionStatus {
   NOT_WIRED
 }
 
+// Lifecycle/reachability is a DIFFERENT axis from maturity (ADR-037, AG-03):
+// maturity answers "how much evidence backs this," reachability answers
+// "does anything real invoke it, and should it." A role can be maturity
+// INTEGRATED (a real, tested production-entrypoint chain exists) while its
+// reachability is DEPRECATED (the ADR decided this specific path should
+// stop receiving investment) — the two must never be collapsed into one
+// field, or a DEPRECATE-the-path decision silently reads as
+// DEPRECATE-the-capability for a role whose real feature lives elsewhere
+// (see the `agent-role:project-copilot` seed row and its regression test).
+enum CapabilityReachability {
+  PRODUCTION_REACHABLE
+  INTEGRATION_ONLY
+  DESIGNED_BUT_UNWIRED
+  DEPRECATED
+}
+
 model Capability {
-  id          String             @id @default(cuid())
-  key         String             @unique
-  domain      String
-  description String
-  maturity    CapabilityMaturity
-  health      CapabilityHealth   @default(UNKNOWN)
-  ownerModule String
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  id           String                  @id @default(cuid())
+  key          String                  @unique
+  domain       String
+  description  String
+  maturity     CapabilityMaturity
+  health       CapabilityHealth        @default(UNKNOWN)
+  reachability CapabilityReachability?
+  ownerModule  String
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
 
   evidence CapabilityEvidence[]
 
   @@index([domain])
   @@index([maturity])
   @@index([health])
+  @@index([reachability])
   @@map("capability")
 }
 
