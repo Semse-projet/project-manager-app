@@ -179,6 +179,10 @@ export const knowledgeAssetViewSchema = z.object({
   mimeType: z.string().nullable().optional(),
   sizeBytes: z.number().int().nullable().optional(),
   processingStatus: z.enum(["PENDING", "PROCESSING", "PROCESSED", "FAILED"]),
+  // PR-7 (docs/specs/core/knowledge-contributor-human-review-workspace.spec.md):
+  // null for TEXT assets or any row missing a storageKey — never a broken
+  // media element in the UI.
+  previewUrl: z.string().nullable().optional(),
   createdAt: z.string()
 });
 

@@ -21,10 +21,14 @@ function uniqueId(prefix: string) {
 }
 
 const fakeAudit = { async append() { /* not under test here */ } };
+const fakeStorage = { publicUrl: (key: string) => `https://storage.test/v1/uploads/files/${key}` };
 
 function makeService() {
   const repository = new ContributorProgramRepository(prisma as never);
-  return { service: new ContributorProgramService(repository as never, fakeAudit as never), repository };
+  return {
+    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never),
+    repository
+  };
 }
 
 async function createFixture() {
@@ -386,6 +390,103 @@ dbTest("knowledge extractions always keep provenance back to submission and asse
     assert.equal(extraction.assetId, asset.id);
     assert.equal(extraction.modelOrProcess, "prometeo-intake-pipeline");
     assert.equal(extraction.version, 1);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T: reviewers must be able to preview evidence inline — every asset with a
+// storageKey exposes a servable previewUrl built from StorageService, and
+// assets without one (TEXT kind, or missing storageKey) honestly report null
+// rather than a broken link.
+dbTest("submission view exposes previewUrl for assets with a storageKey, null otherwise", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+
+    const mission = await repository.createMission({
+      tenantId: fixture.tenantId,
+      createdByUserId: fixture.adminUserId,
+      title: "Preview URL test mission",
+      trade: "electrician",
+      category: "test",
+      description: "test",
+      difficulty: "beginner",
+      requirements: ["req"],
+      evidenceRequested: ["ev"],
+      acceptanceCriteria: ["crit"],
+      baseCompensationCents: 500,
+      currency: "USD",
+      isDemo: true,
+    });
+    const acceptance = await repository.createAcceptance({
+      tenantId: fixture.tenantId,
+      missionId: mission.id,
+      userId: fixture.contributorUserId,
+      missionVersionSnapshot: 1,
+      compensationCentsSnapshot: 500,
+      currencySnapshot: "USD",
+    });
+    const submission = await repository.createSubmission({
+      tenantId: fixture.tenantId,
+      acceptanceId: acceptance.id,
+      missionId: mission.id,
+      userId: fixture.contributorUserId,
+    });
+
+    const contributorCtx = {
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      userId: fixture.contributorUserId,
+      roles: ["WORKER"],
+      requestId: "req-contrib",
+    };
+    const adminCtx = {
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      userId: fixture.adminUserId,
+      roles: ["OPS_ADMIN"],
+      requestId: "req-admin",
+    };
+
+    const videoAsset = await service.registerAsset(contributorCtx, submission.id, {
+      kind: "VIDEO",
+      clipRole: "EXECUTION",
+      key: "tenants/x/knowledge_contribution/clip.mp4",
+      mimeType: "video/mp4",
+    });
+    assert.equal(videoAsset.previewUrl, "https://storage.test/v1/uploads/files/tenants/x/knowledge_contribution/clip.mp4");
+
+    const imageAsset = await service.registerAsset(contributorCtx, submission.id, {
+      kind: "IMAGE",
+      clipRole: "BEFORE",
+      key: "tenants/x/knowledge_contribution/photo.jpg",
+      mimeType: "image/jpeg",
+    });
+    assert.equal(imageAsset.previewUrl, "https://storage.test/v1/uploads/files/tenants/x/knowledge_contribution/photo.jpg");
+
+    const audioAsset = await service.registerAsset(contributorCtx, submission.id, {
+      kind: "AUDIO",
+      clipRole: "OTHER",
+      key: "tenants/x/knowledge_contribution/note.mp3",
+      mimeType: "audio/mpeg",
+    });
+    assert.equal(audioAsset.previewUrl, "https://storage.test/v1/uploads/files/tenants/x/knowledge_contribution/note.mp3");
+
+    const textAsset = await service.registerAsset(contributorCtx, submission.id, {
+      kind: "TEXT",
+      clipRole: "OTHER",
+      textContent: "some notes",
+    });
+    assert.equal(textAsset.previewUrl, null);
+
+    const view = await service.getSubmission(adminCtx, submission.id);
+    const viewById = new Map(view.assets.map((asset) => [asset.id, asset]));
+    assert.equal(
+      viewById.get(videoAsset.id)?.previewUrl,
+      "https://storage.test/v1/uploads/files/tenants/x/knowledge_contribution/clip.mp4"
+    );
+    assert.equal(viewById.get(textAsset.id)?.previewUrl, null);
   } finally {
     await cleanupFixture(fixture);
   }

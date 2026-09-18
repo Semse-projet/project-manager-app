@@ -442,10 +442,24 @@ function ReviewPanel({ submission, onDone }: { submission: KnowledgeSubmissionVi
 
       {submission.notes ? <p className="mt-2 text-xs text-muted">“{submission.notes}”</p> : null}
 
-      <ul className="mt-3 space-y-1 text-xs text-muted">
+      <ul className="mt-3 space-y-2 text-xs text-muted">
         {submission.assets.map((asset) => (
           <li key={asset.id}>
-            · {asset.kind} — {asset.clipRole} ({asset.processingStatus})
+            <p>
+              · {asset.kind} — {asset.clipRole} ({asset.processingStatus})
+            </p>
+            {asset.previewUrl && asset.kind === "VIDEO" ? (
+              <video controls className="mt-1 max-h-64 w-full max-w-md rounded border border-line" src={asset.previewUrl} />
+            ) : asset.previewUrl && asset.kind === "AUDIO" ? (
+              <audio controls className="mt-1 w-full max-w-md" src={asset.previewUrl} />
+            ) : asset.previewUrl && asset.kind === "IMAGE" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={asset.previewUrl}
+                alt={`${asset.kind} — ${asset.clipRole}`}
+                className="mt-1 max-h-64 max-w-md rounded border border-line object-contain"
+              />
+            ) : null}
           </li>
         ))}
       </ul>

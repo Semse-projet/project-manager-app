@@ -26,10 +26,14 @@ function uniqueId(prefix: string) {
 }
 
 const fakeAudit = { async append() { /* not under test here */ } };
+const fakeStorage = { publicUrl: (key: string) => `https://storage.test/v1/uploads/files/${key}` };
 
 function makeService() {
   const repository = new ContributorProgramRepository(prisma as never);
-  return { service: new ContributorProgramService(repository as never, fakeAudit as never), repository };
+  return {
+    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never),
+    repository
+  };
 }
 
 async function createFixture() {
