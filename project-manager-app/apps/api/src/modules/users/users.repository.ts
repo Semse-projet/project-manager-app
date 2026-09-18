@@ -37,6 +37,7 @@ type StoredMembership = {
   userId: string;
   orgId: string;
   roleId: string;
+  status: string;
   createdAt: Date;
   org: {
     id: string;
@@ -99,6 +100,7 @@ export type UserMembershipRecord = {
   userId: string;
   orgId: string;
   roleId: string;
+  status: string;
   org: {
     id: string;
     name: string;
@@ -205,6 +207,7 @@ export class UsersRepository {
       userId: membership.userId,
       orgId: membership.orgId,
       roleId: membership.roleId,
+      status: membership.status,
       org: membership.org,
       role: membership.role,
       createdAt: membership.createdAt

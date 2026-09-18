@@ -78,7 +78,7 @@ export class UsersService {
    * the actor's own tenant (same boundary as every other membership read);
    * capabilities are the actor's own Membership rows, one per org/role.
    */
-  async getMyCapabilities(actor: UserActor): Promise<{ role: string; orgId: string; verifiedAt: string | null }[]> {
+  async getMyCapabilities(actor: UserActor): Promise<{ role: string; orgId: string; status: string; verifiedAt: string | null }[]> {
     const memberships = await this.usersRepository.findMembershipsByUser({
       tenantId: actor.tenantId,
       orgId: actor.orgId,
@@ -89,9 +89,14 @@ export class UsersService {
     // verifiedAt: no per-Membership verification timestamp exists yet in the
     // schema (only account-level User.verificationStatus) — null until that
     // gap is closed, not fabricated.
+    // status: ADR-040/docs/specs/core/org-membership-status.spec.md — surfaces
+    // INVITED/ACTIVE/SUSPENDED/REVOKED so a caller can tell a dormant
+    // capability from one it can actually act on; does not filter here,
+    // callers decide what to do with a non-ACTIVE row.
     return memberships.map((membership) => ({
       role: membership.role.key,
       orgId: membership.orgId,
+      status: membership.status,
       verifiedAt: null
     }));
   }
