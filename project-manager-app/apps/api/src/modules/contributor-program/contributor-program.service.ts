@@ -717,6 +717,63 @@ export class ContributorProgramService {
     return this.toObservationView(updated);
   }
 
+  // PR-6 (docs/specs/core/knowledge-contributor-evidence-promotion.spec.md).
+  // promote / rejectPromotion share this: both are editorial decisions, both
+  // require a reason, neither is conflict-guarded like correctObservation —
+  // a reviewer can freely move an Observation between PROMOTED and REJECTED,
+  // and each transition gets its own audit entry so the prior decision is
+  // never silently lost.
+  async promoteObservation(ctx: Ctx, observationId: string, input: { reason: string }) {
+    return this.setObservationPromotion(ctx, observationId, "PROMOTED", input.reason);
+  }
+
+  async rejectObservationPromotion(ctx: Ctx, observationId: string, input: { reason: string }) {
+    return this.setObservationPromotion(ctx, observationId, "REJECTED", input.reason);
+  }
+
+  private async setObservationPromotion(
+    ctx: Ctx,
+    observationId: string,
+    status: "PROMOTED" | "REJECTED",
+    reason: string
+  ) {
+    assertIsOpsAdmin(ctx);
+    const observation = await this.repository.findObservationById(observationId);
+    if (!observation || observation.tenantId !== ctx.tenantId) {
+      throw new NotFoundException({
+        code: "CONTRIBUTOR_PROGRAM_OBSERVATION_NOT_FOUND",
+        message: "Observation not found"
+      });
+    }
+
+    const updated = await this.repository.setObservationPromotion({
+      id: observationId,
+      status,
+      promotedByUserId: ctx.userId,
+      reason
+    });
+
+    await this.audit
+      .append({
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId,
+        actorUserId: ctx.userId,
+        action:
+          status === "PROMOTED"
+            ? "contributor_program.observation.promoted"
+            : "contributor_program.observation.promotion_rejected",
+        entityType: "Observation",
+        entityId: observationId,
+        requestId: ctx.requestId,
+        timestamp: new Date().toISOString(),
+        beforeJson: { promotionStatus: observation.promotionStatus },
+        afterJson: { promotionStatus: status, reason }
+      })
+      .catch(() => undefined);
+
+    return this.toObservationView(updated);
+  }
+
   // Driven by apps/worker (same pattern as sweepExpiredLiveSessions /
   // POST .../sweep-expired) on an interval, kill-switch gated. Never
   // fabricates a transcript: with no ASR provider configured — the only
@@ -869,6 +926,10 @@ export class ContributorProgramService {
     correctedByUserId: string | null;
     correctedReason: string | null;
     correctedAt: Date | null;
+    promotionStatus: string;
+    promotedByUserId: string | null;
+    promotedAt: Date | null;
+    promotionReason: string | null;
     createdAt: Date;
   }) {
     return {
@@ -887,6 +948,10 @@ export class ContributorProgramService {
       correctedByUserId: observation.correctedByUserId,
       correctedReason: observation.correctedReason,
       correctedAt: observation.correctedAt?.toISOString() ?? null,
+      promotionStatus: observation.promotionStatus,
+      promotedByUserId: observation.promotedByUserId,
+      promotedAt: observation.promotedAt?.toISOString() ?? null,
+      promotionReason: observation.promotionReason,
       createdAt: observation.createdAt.toISOString()
     };
   }

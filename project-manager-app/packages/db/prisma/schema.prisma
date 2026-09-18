@@ -4353,6 +4353,18 @@ enum KnowledgeExtractionStatus {
   FAILED
 }
 
+// PR-6 (docs/specs/core/knowledge-contributor-evidence-promotion.spec.md):
+// an editorial decision, not a fact — unlike Observation's correction
+// fields, this has no "already decided" conflict guard. PENDING is the only
+// non-terminal value; PROMOTED and REJECTED are both freely reachable from
+// each other (a reviewer can change their mind), just never back to
+// PENDING.
+enum ObservationPromotionStatus {
+  PENDING
+  PROMOTED
+  REJECTED
+}
+
 enum ContributorRewardStatus {
   PENDING_REVIEW
   APPROVED
@@ -4637,25 +4649,29 @@ model TranscriptSegment {
 // uncorrected row) — a corrected Observation is never overwritten again by
 // the pipeline (spec §5, 409 on double-correct, enforced at service layer).
 model Observation {
-  id                   String    @id @default(cuid())
+  id                   String                     @id @default(cuid())
   tenantId             String
   submissionId         String
   extractionId         String
-  objective            String?   @db.Text
-  condition            String?   @db.Text
-  decision             String?   @db.Text
-  reason               String?   @db.Text
-  method               String?   @db.Text
-  action               String?   @db.Text
-  result               String?   @db.Text
+  objective            String?                    @db.Text
+  condition            String?                    @db.Text
+  decision             String?                    @db.Text
+  reason               String?                    @db.Text
+  method               String?                    @db.Text
+  action               String?                    @db.Text
+  result               String?                    @db.Text
   sourceSegmentIdsJson Json
   generatedBy          String
   correctedFieldsJson  Json?
   correctedByUserId    String?
-  correctedReason      String?   @db.Text
+  correctedReason      String?                    @db.Text
   correctedAt          DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  promotionStatus      ObservationPromotionStatus @default(PENDING)
+  promotedByUserId     String?
+  promotedAt           DateTime?
+  promotionReason      String?                    @db.Text
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
 
   tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   submission KnowledgeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)

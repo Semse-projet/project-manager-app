@@ -262,6 +262,8 @@ export const transcriptSegmentViewSchema = z.object({
   createdAt: z.string()
 });
 
+export const observationPromotionStatusSchema = z.enum(["PENDING", "PROMOTED", "REJECTED"]);
+
 export const observationViewSchema = z.object({
   id: z.string().min(1),
   objective: z.string().nullable().optional(),
@@ -278,6 +280,10 @@ export const observationViewSchema = z.object({
   correctedByUserId: z.string().nullable().optional(),
   correctedReason: z.string().nullable().optional(),
   correctedAt: z.string().nullable().optional(),
+  promotionStatus: observationPromotionStatusSchema,
+  promotedByUserId: z.string().nullable().optional(),
+  promotedAt: z.string().nullable().optional(),
+  promotionReason: z.string().nullable().optional(),
   createdAt: z.string()
 });
 
@@ -309,6 +315,13 @@ export const correctObservationSchema = z.object({
     .refine((fields) => Object.keys(fields).length > 0, {
       message: "correctedFields must contain at least one OBSERVATION field"
     }),
+  reason: z.string().min(1).max(5000)
+});
+
+// PR-6 (docs/specs/core/knowledge-contributor-evidence-promotion.spec.md):
+// shared by both the promote and reject-promotion endpoints — an editorial
+// decision, always with a reason, never conflict-guarded like correction.
+export const setObservationPromotionSchema = z.object({
   reason: z.string().min(1).max(5000)
 });
 
@@ -367,7 +380,9 @@ export type ContributorRewardView = z.infer<typeof contributorRewardViewSchema>;
 export type ContributorDashboardView = z.infer<typeof contributorDashboardViewSchema>;
 export type KnowledgeExtractionStatus = z.infer<typeof knowledgeExtractionStatusSchema>;
 export type TranscriptSegmentView = z.infer<typeof transcriptSegmentViewSchema>;
+export type ObservationPromotionStatus = z.infer<typeof observationPromotionStatusSchema>;
 export type ObservationView = z.infer<typeof observationViewSchema>;
+export type SetObservationPromotionInput = z.infer<typeof setObservationPromotionSchema>;
 export type KnowledgeExtractionView = z.infer<typeof knowledgeExtractionViewSchema>;
 export type ObservationFieldName = z.infer<typeof observationFieldNameSchema>;
 export type CorrectObservationInput = z.infer<typeof correctObservationSchema>;

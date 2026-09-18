@@ -439,6 +439,29 @@ export class ContributorProgramRepository {
     return this.prisma.observation.findUnique({ where: { id: input.id } });
   }
 
+  // PR-6 (docs/specs/core/knowledge-contributor-evidence-promotion.spec.md):
+  // an editorial decision, not a fact — unlike correctObservation, there is
+  // no conditional guard here. A reviewer can promote something they'd
+  // rejected, or reject something they'd promoted; each call just writes
+  // the new decision and the caller (service) audit-logs it, so the
+  // previous decision is never silently lost, only superseded.
+  async setObservationPromotion(input: {
+    id: string;
+    status: "PROMOTED" | "REJECTED";
+    promotedByUserId: string;
+    reason: string;
+  }) {
+    return this.prisma.observation.update({
+      where: { id: input.id },
+      data: {
+        promotionStatus: input.status,
+        promotedByUserId: input.promotedByUserId,
+        promotionReason: input.reason,
+        promotedAt: new Date()
+      }
+    });
+  }
+
   // Worker entry point. The findFirst + conditional updateMany (WHERE
   // status = 'PENDING') is the idempotency guard the spec (§6) asks for: the
   // UPDATE only affects a row still PENDING, so if a second worker races for

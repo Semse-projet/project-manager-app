@@ -8,6 +8,7 @@ import {
   registerKnowledgeAssetSchema,
   resolveKnowledgeAppealSchema,
   reviewKnowledgeSubmissionSchema,
+  setObservationPromotionSchema,
   submitKnowledgeSubmissionSchema
 } from "@semse/schemas";
 import { ok } from "../../common/api-response.js";
@@ -307,6 +308,30 @@ export class ContributorProgramController {
     const actor = resolveRequestContext(req);
     const requestId = resolveRequestId(req.headers ?? {});
     const observation = await this.service.correctObservation({ ...actor, requestId }, observationId, input);
+    return ok(requestId, observation);
+  }
+
+  @Post("admin/observations/:observationId/promote")
+  @RequirePermissions("contributor-program:manage")
+  async promoteObservation(@Req() req: Req_, @Param("observationId") observationId: string, @Body() body: unknown) {
+    const input = parseBody(setObservationPromotionSchema, body);
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const observation = await this.service.promoteObservation({ ...actor, requestId }, observationId, input);
+    return ok(requestId, observation);
+  }
+
+  @Post("admin/observations/:observationId/reject-promotion")
+  @RequirePermissions("contributor-program:manage")
+  async rejectObservationPromotion(
+    @Req() req: Req_,
+    @Param("observationId") observationId: string,
+    @Body() body: unknown
+  ) {
+    const input = parseBody(setObservationPromotionSchema, body);
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const observation = await this.service.rejectObservationPromotion({ ...actor, requestId }, observationId, input);
     return ok(requestId, observation);
   }
 

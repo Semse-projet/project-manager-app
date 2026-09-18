@@ -804,6 +804,13 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "contributors.admin.extractions.correctionSubmit": "Guardar corrección",
     "contributors.admin.extractions.correctionCancel": "Cancelar",
     "contributors.admin.extractions.alreadyCorrected": "Esta observación ya fue corregida.",
+    "contributors.admin.extractions.promotion.pending": "Sin decisión",
+    "contributors.admin.extractions.promotion.promoted": "Promovida",
+    "contributors.admin.extractions.promotion.rejected": "Rechazada",
+    "contributors.admin.extractions.promotion.promote": "Promover",
+    "contributors.admin.extractions.promotion.reject": "Rechazar",
+    "contributors.admin.extractions.promotion.promoteReason": "Motivo de la promoción",
+    "contributors.admin.extractions.promotion.rejectReason": "Motivo del rechazo",
   },
 
   en: {
@@ -1597,6 +1604,13 @@ const T: Record<LanguagePreference, Record<string, string>> = {
     "contributors.admin.extractions.correctionSubmit": "Save correction",
     "contributors.admin.extractions.correctionCancel": "Cancel",
     "contributors.admin.extractions.alreadyCorrected": "This observation was already corrected.",
+    "contributors.admin.extractions.promotion.pending": "No decision yet",
+    "contributors.admin.extractions.promotion.promoted": "Promoted",
+    "contributors.admin.extractions.promotion.rejected": "Rejected",
+    "contributors.admin.extractions.promotion.promote": "Promote",
+    "contributors.admin.extractions.promotion.reject": "Reject",
+    "contributors.admin.extractions.promotion.promoteReason": "Promotion reason",
+    "contributors.admin.extractions.promotion.rejectReason": "Rejection reason",
   },
 };
 

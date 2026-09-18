@@ -291,3 +291,91 @@ dbTest("correcting an already-corrected observation is rejected as a conflict", 
     await cleanupFixture(fixture);
   }
 });
+
+// T: promoting an Observation is an editorial decision, not a fact — unlike
+// correction, a reviewer must be able to change their mind (promote what
+// they'd rejected, or reject what they'd promoted) without hitting a
+// conflict. Each transition still requires a reason and lands in the
+// returned view (spec docs/specs/core/knowledge-contributor-evidence-
+// promotion.spec.md §4 P1-P3).
+dbTest("promoting and rejecting an observation moves freely between states, always with a reason", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "COMPLETED",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const observation = await repository.createObservation({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      extractionId: extraction.id,
+      objective: "Instalar un interruptor de tres vías",
+      sourceSegmentIds: [],
+      generatedBy: "prometeo-intake-pipeline",
+    });
+    assert.equal(observation.promotionStatus, "PENDING");
+
+    const promoted = await service.promoteObservation(adminCtx(fixture), observation.id, {
+      reason: "Observación clara y verificable",
+    });
+    assert.equal(promoted.promotionStatus, "PROMOTED");
+    assert.equal(promoted.promotedByUserId, fixture.adminUserId);
+    assert.equal(promoted.promotionReason, "Observación clara y verificable");
+    assert.ok(promoted.promotedAt);
+
+    // Changing their mind must not be a conflict — this is what tells
+    // promotion apart from correctObservation's 409 guard.
+    const rejected = await service.rejectObservationPromotion(adminCtx(fixture), observation.id, {
+      reason: "Revisión posterior encontró un dato incorrecto",
+    });
+    assert.equal(rejected.promotionStatus, "REJECTED");
+    assert.equal(rejected.promotionReason, "Revisión posterior encontró un dato incorrecto");
+
+    const rePromoted = await service.promoteObservation(adminCtx(fixture), observation.id, {
+      reason: "El dato incorrecto ya fue corregido en la entrega",
+    });
+    assert.equal(rePromoted.promotionStatus, "PROMOTED");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T: promotion decisions are OPS_ADMIN-only and tenant-scoped, same as
+// every other admin action in this module.
+dbTest("promoting/rejecting an observation is admin-only and tenant-scoped", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "COMPLETED",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const observation = await repository.createObservation({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      extractionId: extraction.id,
+      objective: "test",
+      sourceSegmentIds: [],
+      generatedBy: "prometeo-intake-pipeline",
+    });
+
+    await assert.rejects(() =>
+      service.promoteObservation(contributorCtx(fixture), observation.id, { reason: "no permission" })
+    );
+
+    await assert.rejects(() =>
+      service.promoteObservation(adminCtx(fixture), "nonexistent-observation-id", { reason: "test" })
+    );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
