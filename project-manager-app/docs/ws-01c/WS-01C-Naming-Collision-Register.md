@@ -106,3 +106,16 @@ Alternativa aceptable si el equipo prefiere un nombre más corto para uso repeti
 **No usar** `Workspace*` para nada de este dominio de negocio, y **no reusar** el nombre `ActorContextService` para el nuevo servicio de resolución — aunque el tipo de dato pueda llamarse informalmente "el actor context de negocio" en conversación, el símbolo de código no puede coincidir con el servicio de bootstrap ya existente.
 
 Esta recomendación es una propuesta, no una decisión final — la decisión formal y su razonamiento completo quedan en `ADR-040-ws01c-identity-organization-context.md`.
+
+### Actualización 2026-09-18 (owner) — la recomendación de arriba queda superada, no vigente
+
+El owner resolvió que un "context switch" con forma de autorización (lo que `ActiveOrganizationContext`/`OrgContextService`/`POST /v1/me/context/switch` describían) queda **rechazado**, no solo pospuesto — ver `ADR-040`, sección "Reconciliation decision 2026-09-18 (owner)". La recomendación de nombre de arriba sigue documentada por su valor de evidencia (por qué `Workspace`/`ActorContext` no sirven), pero **no debe usarse** para nombrar nada nuevo, porque describía un mecanismo que ya no se va a construir en esa forma.
+
+Si en el futuro se construye la preferencia de experiencia/UX (no-autoritativa) que sí sobrevive a la reconciliación, su nombre queda **reservado/`PROPOSED`** aquí para evitar que alguien reintroduzca por accidente un nombre con forma de autorización:
+
+| Candidato reservado | Para qué | Por qué esta forma |
+|---|---|---|
+| `preferredOrganizationId` | Campo plano de preferencia de navegación (no un tipo "Context") | El nombre debe dejar obvio en el call site que es un dato de preferencia, no una fuente de autorización — evita el error exacto que causó esta reconciliación (un campo con forma de "contexto" terminó leyéndose como autoridad) |
+| `NavigationPreferenceService` (si hace falta service) | Resolver/persistir la preferencia | Deliberadamente **no** contiene `Context`, `Actor`, `Workspace` ni `Session` — los cuatro términos ya colisionados o ambiguos en este registro (Colisiones A-C, F) |
+
+Ninguno de los dos está implementado todavía. Antes de implementarlos, confirmar que el nombre elegido sigue sin colisión (repetir el grep de este documento) y que ningún check de `rbac.ts`/guard/scope de Prisma los recibe como parámetro.
