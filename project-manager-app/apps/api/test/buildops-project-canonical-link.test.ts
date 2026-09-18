@@ -61,9 +61,9 @@ function makePrisma() {
 test("BuildOps DTO exposes the canonical project link for list and detail", async () => {
   const service = new BuildOpsService(makePrisma() as never);
 
-  const list = await service.listProjects("tenant_1");
+  const list = await service.listProjects("tenant_1", "org_pro_1", []);
   assert.equal(list[0]?.canonicalProjectId, "proj_1");
 
-  const detail = await service.getProject("tenant_1", "bop_1");
+  const detail = await service.getProject("tenant_1", "bop_1", "org_pro_1", []);
   assert.equal(detail.canonicalProjectId, "proj_1");
 });

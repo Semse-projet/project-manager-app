@@ -28,9 +28,23 @@ export class OperationalRagContextService {
     private readonly buildops: BuildOpsService,
   ) {}
 
+  /**
+   * WS-01C G1 finding (point 19/24-class, docs/ws-01c/WS-01C-G1-AS-IS-Reconciliation.md):
+   * every step below used to scope by tenantId alone (evidenceItemId's
+   * lookup didn't even check tenantId) — reachable by any actor with
+   * `projects:read` (CLIENT/PRO, not just OPS_ADMIN) via
+   * `POST /v1/buildops/projects/:projectId/rag-query`. Fixed with a single
+   * ownership gate on `projectId` up front (org-derived, resource-derived
+   * per ADR-040, OPS_ADMIN bypass), then every id-scoped sub-query
+   * additionally constrained to belong to that same verified project —
+   * closing both "wrong org, same tenant" and "unrelated evidence/change
+   * order id smuggled in alongside an owned projectId".
+   */
   async build(input: {
     projectId:               string;
     tenantId:                string;
+    orgId:                   string;
+    roles:                   string[];
     milestoneId?:            string;
     evidenceItemId?:         string;
     changeOrderId?:          string;
@@ -38,19 +52,36 @@ export class OperationalRagContextService {
     includeOperationalSignals?: boolean;
   }): Promise<OperationalRagContext> {
     const missing: string[] = [];
+    const actor = { tenantId: input.tenantId, orgId: input.orgId, userId: "", roles: input.roles };
 
-    // 1. Project health
+    const ownedProject = await this.prisma.buildOpsProject.findFirst({
+      where: {
+        tenantId: input.tenantId,
+        id: input.projectId,
+        ...(actor.roles.includes("OPS_ADMIN") ? {} : { orgId: input.orgId }),
+      },
+      select: { id: true },
+    });
+    if (!ownedProject) {
+      return {
+        project: null, milestone: null, paymentGovernance: null,
+        evidenceItems: [], evidenceHistory: [], changeOrders: [], operationalSignals: [],
+        missingSources: ["forbidden"],
+      };
+    }
+
+    // 1. Project health (ownership already verified above)
     let project: Record<string, unknown> | null = null;
     try {
-      const ph = await this.buildops.getProjectHealth(input.tenantId, input.projectId);
+      const ph = await this.buildops.getProjectHealth(input.tenantId, input.projectId, input.orgId, input.roles);
       project = toPlain(ph);
     } catch { missing.push("buildops_project"); }
 
-    // 2. Milestone
+    // 2. Milestone — constrained to the already-verified project, not just tenant
     let milestone: Record<string, unknown> | null = null;
     if (input.milestoneId) {
       const ms = await this.prisma.milestone.findFirst({
-        where: { id: input.milestoneId, project: { tenantId: input.tenantId } },
+        where: { id: input.milestoneId, project: { tenantId: input.tenantId, id: input.projectId } },
         select: { id: true, title: true, status: true, paymentReadiness: true, evidenceReadiness: true, amount: true },
       });
       if (ms) milestone = toPlain(ms);
@@ -59,16 +90,16 @@ export class OperationalRagContextService {
 
     // 3. Payment governance
     let paymentGovernance: Record<string, unknown> | null = null;
-    if (input.milestoneId) {
+    if (input.milestoneId && milestone) {
       try {
-        const gov = await this.governance.evaluate(input.milestoneId, input.tenantId);
+        const gov = await this.governance.evaluate(input.milestoneId, input.tenantId, actor);
         paymentGovernance = toPlain(gov);
       } catch { missing.push("payment_governance"); }
     }
 
-    // 4. Evidence items
+    // 4. Evidence items — same project-scoping as step 2
     const evidenceItems: Record<string, unknown>[] = [];
-    if (input.milestoneId) {
+    if (input.milestoneId && milestone) {
       const items = await this.prisma.milestoneEvidenceItem.findMany({
         where: { milestoneId: input.milestoneId },
         take: 20,
@@ -76,8 +107,8 @@ export class OperationalRagContextService {
       });
       evidenceItems.push(...items.map(toPlain));
     } else if (input.evidenceItemId) {
-      const item = await this.prisma.milestoneEvidenceItem.findUnique({
-        where: { id: input.evidenceItemId },
+      const item = await this.prisma.milestoneEvidenceItem.findFirst({
+        where: { id: input.evidenceItemId, milestone: { project: { tenantId: input.tenantId, id: input.projectId } } },
         select: { id: true, label: true, required: true, status: true, reviewNote: true, reviewedAt: true },
       });
       if (item) evidenceItems.push(toPlain(item));
@@ -100,10 +131,10 @@ export class OperationalRagContextService {
       }
     }
 
-    // 6. Change orders
+    // 6. Change orders — constrained to the already-verified project
     const changeOrders: Record<string, unknown>[] = [];
     const coWhere = input.changeOrderId
-      ? { tenantId: input.tenantId, id: input.changeOrderId }
+      ? { tenantId: input.tenantId, id: input.changeOrderId, buildOpsProjectId: input.projectId }
       : { tenantId: input.tenantId, buildOpsProjectId: input.projectId, status: { in: ["predicted", "submitted", "approved", "changes_requested", "applied"] } };
 
     const cos = await this.prisma.changeOrderCandidate.findMany({
