@@ -5,32 +5,47 @@ import { Card, ErrorState, Spinner } from "../../../components/ui";
 import { useLanguage } from "../../../lib/language-context";
 import { fetchActiveContributorTerms, type ContributorTermsVersionView } from "../../semse-api";
 
-// Terms content is plain-text Markdown-lite (## headers, blank-line
-// paragraphs) stored server-side in ContributorTermsVersion — this renders
-// it without pulling in a full Markdown dependency for one legal page.
+// Terms content is plain-text Markdown-lite (## headers stored on the same
+// line break as their body text, blank lines only between sections) stored
+// server-side in ContributorTermsVersion — this renders it without pulling
+// in a full Markdown dependency for one legal page. Each "# "/"## " block
+// is "heading line\nbody text": the heading's own line break must be split
+// out, or the body renders swallowed inside the heading element.
 function TermsBody({ content }: { content: string }) {
   const blocks = content.split(/\n{2,}/);
   return (
     <div className="space-y-4">
       {blocks.map((block, index) => {
-        if (block.startsWith("## ")) {
+        const isH2 = block.startsWith("## ");
+        const isH1 = !isH2 && block.startsWith("# ");
+        if (!isH1 && !isH2) {
           return (
-            <h2 key={index} className="mt-6 text-sm font-bold text-ink">
-              {block.replace(/^##\s+/, "")}
-            </h2>
+            <p key={index} className="whitespace-pre-line text-sm leading-relaxed text-muted">
+              {block.replace(/\*\*/g, "")}
+            </p>
           );
         }
-        if (block.startsWith("# ")) {
-          return (
-            <h1 key={index} className="text-lg font-black text-ink">
-              {block.replace(/^#\s+/, "")}
-            </h1>
-          );
-        }
+
+        const breakIndex = block.indexOf("\n");
+        const headingLine = breakIndex === -1 ? block : block.slice(0, breakIndex);
+        const body = breakIndex === -1 ? "" : block.slice(breakIndex + 1).trim();
+        const headingText = headingLine.replace(/^#{1,2}\s+/, "");
+
         return (
-          <p key={index} className="whitespace-pre-line text-sm leading-relaxed text-muted">
-            {block.replace(/\*\*/g, "")}
-          </p>
+          <div key={index}>
+            {isH2 ? (
+              <h2 className="border-t border-white/[0.08] pt-6 text-xs font-semibold uppercase tracking-widest text-brand">
+                {headingText}
+              </h2>
+            ) : (
+              <h1 className="text-lg font-black text-ink">{headingText}</h1>
+            )}
+            {body ? (
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-muted">
+                {body.replace(/\*\*/g, "")}
+              </p>
+            ) : null}
+          </div>
         );
       })}
     </div>
