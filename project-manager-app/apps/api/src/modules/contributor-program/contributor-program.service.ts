@@ -756,6 +756,43 @@ export class ContributorProgramService {
     return this.toObservationView(updated);
   }
 
+  // PR-8 (docs/specs/core/knowledge-contributor-registry.spec.md): read-only
+  // browse/search over PROMOTED observations across the whole tenant —
+  // deliberately not RAG/semantic search (that's PR-9), and deliberately
+  // still admin-only (contributor-program:manage), same as every other
+  // admin list in this module.
+  async getKnowledgeRegistry(
+    ctx: Ctx,
+    query: { trade?: string; category?: string; missionId?: string; search?: string; page: number; pageSize: number }
+  ) {
+    assertIsOpsAdmin(ctx);
+    const { rows, total } = await this.repository.listPromotedObservations({
+      tenantId: ctx.tenantId,
+      ...query
+    });
+    return {
+      items: rows.map((row) => this.toRegistryEntryView(row)),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      hasMore: query.page * query.pageSize < total
+    };
+  }
+
+  private toRegistryEntryView(
+    observation: Parameters<ContributorProgramService["toObservationView"]>[0] & {
+      submission: { mission: { id: string; title: string; trade: string; category: string } };
+    }
+  ) {
+    return {
+      ...this.toObservationView(observation),
+      missionId: observation.submission.mission.id,
+      missionTitle: observation.submission.mission.title,
+      trade: observation.submission.mission.trade,
+      category: observation.submission.mission.category
+    };
+  }
+
   // Driven by apps/worker (same pattern as sweepExpiredLiveSessions /
   // POST .../sweep-expired) on an interval, kill-switch gated. Never
   // fabricates a transcript: with no ASR provider configured — the only

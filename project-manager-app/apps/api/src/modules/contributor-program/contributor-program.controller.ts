@@ -5,6 +5,7 @@ import {
   createKnowledgeAppealSchema,
   createKnowledgeMissionSchema,
   createKnowledgeSubmissionSchema,
+  listKnowledgeRegistryQuerySchema,
   registerKnowledgeAssetSchema,
   resolveKnowledgeAppealSchema,
   reviewKnowledgeSubmissionSchema,
@@ -333,6 +334,17 @@ export class ContributorProgramController {
     const requestId = resolveRequestId(req.headers ?? {});
     const observation = await this.service.rejectObservationPromotion({ ...actor, requestId }, observationId, input);
     return ok(requestId, observation);
+  }
+
+  // PR-8 (docs/specs/core/knowledge-contributor-registry.spec.md).
+  @Get("admin/observations/registry")
+  @RequirePermissions("contributor-program:manage")
+  async getKnowledgeRegistry(@Req() req: Req_, @Query() query: Record<string, string | undefined>) {
+    const input = parseBody(listKnowledgeRegistryQuerySchema, query);
+    const actor = resolveRequestContext(req);
+    const requestId = resolveRequestId(req.headers ?? {});
+    const registry = await this.service.getKnowledgeRegistry({ ...actor, requestId }, input);
+    return ok(requestId, registry);
   }
 
   /**
