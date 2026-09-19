@@ -3358,6 +3358,7 @@ export type ObservationView = {
   promotedByUserId: string | null;
   promotedAt: string | null;
   promotionReason: string | null;
+  ragDocumentId: string | null;
   createdAt: string;
 };
 

@@ -3,12 +3,13 @@ import { PrismaModule } from "../../infrastructure/prisma/prisma.module.js";
 import { SseInfraModule } from "../../infrastructure/sse/sse-infra.module.js";
 import { StorageModule } from "../../infrastructure/storage/storage.module.js";
 import { PaymentsModule } from "../payments/payments.module.js";
+import { PrometeoModule } from "../prometeo/prometeo.module.js";
 import { ContributorProgramController } from "./contributor-program.controller.js";
 import { ContributorProgramRepository } from "./contributor-program.repository.js";
 import { ContributorProgramService } from "./contributor-program.service.js";
 
 @Module({
-  imports: [PrismaModule, SseInfraModule, StorageModule, PaymentsModule],
+  imports: [PrismaModule, SseInfraModule, StorageModule, PaymentsModule, PrometeoModule],
   controllers: [ContributorProgramController],
   providers: [ContributorProgramRepository, ContributorProgramService],
   exports: [ContributorProgramService]

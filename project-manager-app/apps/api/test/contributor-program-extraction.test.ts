@@ -28,11 +28,34 @@ function uniqueId(prefix: string) {
 const fakeAudit = { async append() { /* not under test here */ } };
 const fakeStorage = { publicUrl: (key: string) => `https://storage.test/v1/uploads/files/${key}` };
 
+// PR-9 (docs/specs/core/knowledge-contributor-rag-ingestion.spec.md): a
+// call-tracking fake — real enough to assert exactly what promote/reject
+// sent to Prometeo (tenant/org scoping, title, composed text) without
+// spinning up the real chunk/embed pipeline.
+let fakeDocCounter = 0;
+function makeFakePrometeo() {
+  const ingested: Array<{ tenantId: string; orgId: string; userId: string; title: string; text: string; sourceType?: string; sourceRef?: string }> = [];
+  const deleted: Array<{ tenantId: string; id: string }> = [];
+  return {
+    calls: { ingested, deleted },
+    async ingestText(input: { tenantId: string; orgId: string; userId: string; title: string; text: string; sourceType?: string; sourceRef?: string }) {
+      ingested.push(input);
+      fakeDocCounter += 1;
+      return { id: `doc_${fakeDocCounter}`, tenantId: input.tenantId, orgId: input.orgId, projectId: null, title: input.title, sourceType: input.sourceType ?? "text", sourceRef: input.sourceRef ?? null, status: "pending", chunkCount: 0, uploadedById: input.userId, errorMsg: null, metadataJson: null, createdAt: new Date(), updatedAt: new Date() };
+    },
+    async deleteDocument(input: { tenantId: string; id: string }) {
+      deleted.push(input);
+    }
+  };
+}
+
 function makeService() {
   const repository = new ContributorProgramRepository(prisma as never);
+  const fakePrometeo = makeFakePrometeo();
   return {
-    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never),
-    repository
+    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never),
+    repository,
+    fakePrometeo
   };
 }
 
@@ -301,11 +324,14 @@ dbTest("correcting an already-corrected observation is rejected as a conflict", 
 // they'd rejected, or reject what they'd promoted) without hitting a
 // conflict. Each transition still requires a reason and lands in the
 // returned view (spec docs/specs/core/knowledge-contributor-evidence-
-// promotion.spec.md §4 P1-P3).
+// promotion.spec.md §4 P1-P3). Also covers PR-9's RAG lifecycle (docs/specs/
+// core/knowledge-contributor-rag-ingestion.spec.md §4 P1-P3): promote
+// indexes into Prometeo, reject-after-promote de-indexes, re-promote
+// creates a fresh document rather than reusing the deleted one.
 dbTest("promoting and rejecting an observation moves freely between states, always with a reason", async () => {
   const fixture = await createFixture();
   try {
-    const { service, repository } = makeService();
+    const { service, repository, fakePrometeo } = makeService();
     const extraction = await repository.createExtraction({
       tenantId: fixture.tenantId,
       submissionId: fixture.submission.id,
@@ -323,6 +349,7 @@ dbTest("promoting and rejecting an observation moves freely between states, alwa
       generatedBy: "prometeo-intake-pipeline",
     });
     assert.equal(observation.promotionStatus, "PENDING");
+    assert.equal(observation.ragDocumentId, null);
 
     const promoted = await service.promoteObservation(adminCtx(fixture), observation.id, {
       reason: "Observación clara y verificable",
@@ -331,6 +358,13 @@ dbTest("promoting and rejecting an observation moves freely between states, alwa
     assert.equal(promoted.promotedByUserId, fixture.adminUserId);
     assert.equal(promoted.promotionReason, "Observación clara y verificable");
     assert.ok(promoted.promotedAt);
+    assert.ok(promoted.ragDocumentId, "promoting must index the observation into Prometeo");
+    assert.equal(fakePrometeo.calls.ingested.length, 1);
+    assert.equal(fakePrometeo.calls.ingested[0]!.tenantId, fixture.tenantId);
+    assert.equal(fakePrometeo.calls.ingested[0]!.orgId, fixture.orgId);
+    assert.equal(fakePrometeo.calls.ingested[0]!.sourceRef, observation.id);
+    assert.match(fakePrometeo.calls.ingested[0]!.text, /Instalar un interruptor de tres vías/);
+    const firstDocId = promoted.ragDocumentId;
 
     // Changing their mind must not be a conflict — this is what tells
     // promotion apart from correctObservation's 409 guard.
@@ -339,11 +373,54 @@ dbTest("promoting and rejecting an observation moves freely between states, alwa
     });
     assert.equal(rejected.promotionStatus, "REJECTED");
     assert.equal(rejected.promotionReason, "Revisión posterior encontró un dato incorrecto");
+    assert.equal(rejected.ragDocumentId, null, "rejecting a promotion must de-index it");
+    assert.equal(fakePrometeo.calls.deleted.length, 1);
+    assert.equal(fakePrometeo.calls.deleted[0]!.id, firstDocId);
+    assert.equal(fakePrometeo.calls.deleted[0]!.tenantId, fixture.tenantId);
 
     const rePromoted = await service.promoteObservation(adminCtx(fixture), observation.id, {
       reason: "El dato incorrecto ya fue corregido en la entrega",
     });
     assert.equal(rePromoted.promotionStatus, "PROMOTED");
+    assert.ok(rePromoted.ragDocumentId);
+    assert.notEqual(rePromoted.ragDocumentId, firstDocId, "re-promoting must index a fresh document, not reuse the deleted one");
+    assert.equal(fakePrometeo.calls.ingested.length, 2);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T: rejecting an Observation that was never promoted has nothing to
+// de-index — must not call Prometeo at all (spec §2 "fuera de alcance"
+// implicitly requires this: no ragDocumentId means no deleteDocument call).
+dbTest("rejecting a never-promoted observation does not call Prometeo", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository, fakePrometeo } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "COMPLETED",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const observation = await repository.createObservation({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      extractionId: extraction.id,
+      objective: "test",
+      sourceSegmentIds: [],
+      generatedBy: "prometeo-intake-pipeline",
+    });
+
+    const rejected = await service.rejectObservationPromotion(adminCtx(fixture), observation.id, {
+      reason: "nunca fue promovida",
+    });
+    assert.equal(rejected.promotionStatus, "REJECTED");
+    assert.equal(rejected.ragDocumentId, null);
+    assert.equal(fakePrometeo.calls.ingested.length, 0);
+    assert.equal(fakePrometeo.calls.deleted.length, 0);
   } finally {
     await cleanupFixture(fixture);
   }

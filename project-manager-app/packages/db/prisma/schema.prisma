@@ -4670,6 +4670,10 @@ model Observation {
   promotedByUserId     String?
   promotedAt           DateTime?
   promotionReason      String?                    @db.Text
+  // PR-9 (docs/specs/core/knowledge-contributor-rag-ingestion.spec.md):
+  // the PrometeoDocument this Observation was indexed into, null while
+  // not promoted (or after a promotion was rejected and de-indexed).
+  ragDocumentId        String?
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
 

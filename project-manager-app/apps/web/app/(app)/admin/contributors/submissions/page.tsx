@@ -203,6 +203,15 @@ function PromotionControls({ observation, onDecided }: { observation: Observatio
         <Badge variant={promotionStatusVariant(observation.promotionStatus)}>
           {t(`contributors.admin.extractions.promotion.${observation.promotionStatus.toLowerCase()}`)}
         </Badge>
+        {observation.promotionStatus === "PROMOTED" ? (
+          <Badge variant={observation.ragDocumentId ? "info" : "warn"}>
+            {t(
+              observation.ragDocumentId
+                ? "contributors.admin.extractions.promotion.indexed"
+                : "contributors.admin.extractions.promotion.notIndexed"
+            )}
+          </Badge>
+        ) : null}
         {observation.promotionStatus !== "PROMOTED" ? (
           <Button size="sm" variant="ghost" onClick={() => setPrompting("promote")}>
             {t("contributors.admin.extractions.promotion.promote")}

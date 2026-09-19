@@ -27,11 +27,22 @@ function uniqueId(prefix: string) {
 
 const fakeAudit = { async append() { /* not under test here */ } };
 const fakeStorage = { publicUrl: (key: string) => `https://storage.test/v1/uploads/files/${key}` };
+// PR-9: this file's tests create Observation rows directly via Prisma
+// (bypassing service.promoteObservation), so ingestText/deleteDocument are
+// never invoked — present only so the constructor is satisfied.
+const fakePrometeo = {
+  async ingestText() {
+    throw new Error("fakePrometeo.ingestText should not be called from this test file");
+  },
+  async deleteDocument() {
+    throw new Error("fakePrometeo.deleteDocument should not be called from this test file");
+  }
+};
 
 function makeService() {
   const repository = new ContributorProgramRepository(prisma as never);
   return {
-    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never),
+    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never),
     repository
   };
 }
