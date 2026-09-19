@@ -1088,17 +1088,30 @@ export class ContributorProgramService {
     if (reward.status === "PAID") {
       return reward; // idempotent: repeated authorize calls never pay twice
     }
-    if (reward.status !== "PENDING_REVIEW" && reward.status !== "BLOCKED_NO_PAYOUT_ACCOUNT" && reward.status !== "FAILED") {
-      throw new ConflictException({
-        code: "CONTRIBUTOR_PROGRAM_REWARD_NOT_PAYABLE",
-        message: `Reward in status ${reward.status} cannot be authorized for payout`
-      });
-    }
 
     if (!this.stripeConnect) {
       throw new ConflictException({
         code: "CONTRIBUTOR_PROGRAM_PAYOUTS_UNAVAILABLE",
         message: "Payout provider is not wired up in this environment"
+      });
+    }
+
+    // PR-10 (docs/specs/core/knowledge-contributor-reward-hardening.spec.md):
+    // the atomic claim IS the eligibility check now — a plain in-memory
+    // status read (the pre-PR-10 code) lets two concurrent authorize
+    // calls both pass before either writes, both call Stripe, and both
+    // pay out. The WHERE clause below is what actually prevents that;
+    // count === 0 means this call lost the race (or the reward simply
+    // isn't in a claimable state), and it must never reach the provider.
+    const claimed = await this.repository.claimRewardForPayout(rewardId, ctx.tenantId);
+    if (claimed.count === 0) {
+      const current = await this.repository.listRewardsForAdmin(ctx.tenantId).then((rows) => rows.find((row) => row.id === rewardId));
+      if (current?.status === "PAID") {
+        return current; // the other concurrent call already finished successfully
+      }
+      throw new ConflictException({
+        code: "CONTRIBUTOR_PROGRAM_REWARD_NOT_PAYABLE",
+        message: `Reward in status ${current?.status ?? reward.status} cannot be authorized for payout`
       });
     }
 
@@ -1113,7 +1126,8 @@ export class ContributorProgramService {
       const updated = await this.repository.updateRewardStatus(reward.id, "PAID", {
         authorizedByUserId: ctx.userId,
         authorizedAt: new Date(),
-        paidAt: new Date()
+        paidAt: new Date(),
+        transferId: transfer.transferId
       });
       await this.repository.updateSubmissionStatus(reward.submissionId, "PAID");
 
@@ -1159,6 +1173,40 @@ export class ContributorProgramService {
 
       return updated;
     }
+  }
+
+  // PR-10 (docs/specs/core/knowledge-contributor-reward-hardening.spec.md).
+  // Webhook-triggered, no human actor/ctx — mirrors PaymentsService.webhook()'s
+  // own shape (no tenant known ahead of time; the transferId is the only
+  // handle). Most transfer.reversed events belong to a milestone release,
+  // not a contributor reward, so "no match" is the normal, non-error case.
+  async reconcileReversedTransfer(transferId: string) {
+    const result = await this.repository.reconcileReversedTransfer(transferId);
+    if (!result.reconciled) {
+      return { reconciled: false as const };
+    }
+
+    await this.audit
+      .append({
+        tenantId: result.reward.tenantId,
+        orgId: "system",
+        actorUserId: "system",
+        action: "contributor_program.reward.payout_reversed",
+        entityType: "ContributorReward",
+        entityId: result.reward.id,
+        requestId: `webhook-${transferId}`,
+        timestamp: new Date().toISOString(),
+        beforeJson: { status: "PAID" },
+        afterJson: { status: "REVERSED", transferId }
+      })
+      .catch(() => undefined);
+
+    this.notify(result.reward.userId, "reward.reversed", {
+      submissionId: result.reward.submissionId,
+      amountCents: result.reward.amountCents
+    });
+
+    return { reconciled: true as const };
   }
 
   // ── Dashboard ────────────────────────────────────────────────────────

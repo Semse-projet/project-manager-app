@@ -659,7 +659,7 @@ export class ContributorProgramRepository {
   async updateRewardStatus(
     id: string,
     status: "PENDING_REVIEW" | "APPROVED" | "PAYMENT_PENDING" | "PAID" | "BLOCKED_NO_PAYOUT_ACCOUNT" | "FAILED" | "REVERSED",
-    extra?: { authorizedByUserId?: string; authorizedAt?: Date; paidAt?: Date; failureReason?: string }
+    extra?: { authorizedByUserId?: string; authorizedAt?: Date; paidAt?: Date; failureReason?: string; transferId?: string }
   ) {
     return this.prisma.contributorReward.update({
       where: { id },
@@ -668,9 +668,46 @@ export class ContributorProgramRepository {
         authorizedByUserId: extra?.authorizedByUserId,
         authorizedAt: extra?.authorizedAt,
         paidAt: extra?.paidAt,
-        failureReason: extra?.failureReason
+        failureReason: extra?.failureReason,
+        transferId: extra?.transferId
       }
     });
+  }
+
+  // PR-10 (docs/specs/core/knowledge-contributor-reward-hardening.spec.md):
+  // the atomic claim step the audit's 0.14/0.15 fix already established
+  // elsewhere (reserve -> provider -> finalize) but this reward-payout
+  // path never had. The WHERE clause's status list is the actual guard —
+  // count === 0 means either someone else already claimed it, or it's in
+  // a non-claimable state (already PAID, already PAYMENT_PENDING, etc.),
+  // and the caller must never call the payment provider in that case.
+  async claimRewardForPayout(id: string, tenantId: string) {
+    return this.prisma.contributorReward.updateMany({
+      where: {
+        id,
+        tenantId,
+        status: { in: ["PENDING_REVIEW", "BLOCKED_NO_PAYOUT_ACCOUNT", "FAILED"] }
+      },
+      data: { status: "PAYMENT_PENDING" }
+    });
+  }
+
+  // PR-10: only reconciles a reward that is currently PAID (a reversal
+  // only makes sense after a successful payout) — mirrors the same guard
+  // PaymentsRepository.reconcileTransactionStatus uses. Returns
+  // reconciled: false (never throws) when transferId doesn't match any
+  // reward, since most transfer.reversed events belong to a milestone
+  // release, not a contributor reward.
+  async reconcileReversedTransfer(transferId: string) {
+    const existing = await this.prisma.contributorReward.findUnique({ where: { transferId } });
+    if (!existing || existing.status !== "PAID") {
+      return { reconciled: false as const };
+    }
+    const reward = await this.prisma.contributorReward.update({
+      where: { id: existing.id },
+      data: { status: "REVERSED", failureReason: "Stripe reversed the transfer" }
+    });
+    return { reconciled: true as const, reward };
   }
 
   async listRewardsForAdmin(tenantId: string) {
