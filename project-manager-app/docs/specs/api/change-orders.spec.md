@@ -2,7 +2,16 @@
 id: "api-change-orders"
 title: "Change Orders API"
 domain: "change-orders"
-status: "VERIFIED"
+status: "APPROVED"
+sdd_version: "2.0"
+code_status: "IN_PROGRESS"
+ci_status: "NOT_RUN"
+merge_status: "UNMERGED"
+deploy_status: "NOT_DEPLOYED"
+activation_status: "INACTIVE"
+migration_status: "NOT_APPLICABLE"
+feature_flags: []
+production_evidence: []
 owner: "semse-core"
 risk: "high"
 related_files:
@@ -10,6 +19,7 @@ related_files:
   - "apps/api/src/modules/payment-governance"
   - "packages/db/prisma/schema.prisma"
 related_tests:
+  - "apps/api/test/change-orders-org-scope.test.ts"
   - "apps/api/test/change-order-lifecycle.test.ts"
   - "apps/api/test/bloque-z-change-orders.test.ts"
   - "tests/unit/change-order-risk-agent.test.ts"
@@ -19,7 +29,7 @@ related_events:
   - "change-order:updated"
 related_agents:
   - "ChangeOrderLifecycle"
-last_verified: "2026-06-09"
+last_verified: "2026-09-19"
 ---
 
 # Spec: Change Orders API
@@ -84,7 +94,7 @@ query:
   status: "optional"
   limit: "optional number, clamped 1-200"
 output:
-  change_orders: "tenant scoped candidates"
+  change_orders: "tenant and organization scoped candidates; authorization before limit"
 ```
 
 ### `POST /v1/change-orders`
@@ -131,7 +141,7 @@ effects:
   sse: "change-order:updated"
 errors:
   400: "invalid transition or missing required rejection/change note"
-  404: "not found or not tenant owned"
+  404: "not found or not accessible through every referenced resource"
 ```
 
 ### `GET /v1/change-orders/:id/impact`
@@ -178,7 +188,17 @@ output:
 
 ## Security / RBAC
 
-- All queries are tenant-scoped.
+- All queries are tenant-scoped; tenant alone does not authorize access.
+- Jobs allow the client organization or assigned professional organization;
+  milestones inherit the parent project's ownership. BuildOps references use
+  BuildOpsProject.orgId.
+- Every populated job/BuildOps/milestone reference must be accessible. A valid
+  reference never grants access to an unrelated inaccessible reference.
+- Non-admin orphan candidates fail closed. OPS_ADMIN has tenant-wide access.
+- Creation validates all referenced resources, including tenant boundaries for
+  OPS_ADMIN, before writing. Foreign/missing references produce 404.
+- List filtering applies before pagination; direct lookup protects all lifecycle,
+  impact and risk operations through the same policy.
 - Approve/reject/request-changes/apply require `change-orders:approve`.
 - Change orders must not bypass payment-governance readiness.
 - Rejection requires a note.
@@ -208,3 +228,19 @@ output:
 - [x] Invalid transitions are rejected.
 - [x] Applied change orders are idempotent.
 - [x] Payment release remains governed by payment-governance.
+
+## Organization-scope remediation (2026-09-19)
+
+This slice repairs canonical ownership invariants under the user's request to
+continue ecosystem remediation. The previous VERIFIED marker was legacy metadata;
+this revision does not claim current CI, deploy or activation verification.
+
+Scenarios: foreign organization and foreign tenant are denied; client and assigned
+pro retain their authorized job/milestone access; BuildOps owner retains access;
+all mixed links are checked; inaccessible creation makes no write; admin remains
+tenant-scoped; list limits apply after authorization. Regression:
+`apps/api/test/change-orders-org-scope.test.ts`.
+
+Plan/tasks/checklist: `change-orders-org-scope.*.md` in this directory.
+No migration, payment arithmetic, FSM or event contract change. SSE channel-level
+organization filtering is a separate remediation and is not claimed closed here.

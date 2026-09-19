@@ -65,6 +65,14 @@
 - **Fix:** agregar verificación de org-ownership antes de cualquier mutación.
 - **Estado:** [x] Corregido (Crew C, 2026-07-21) — `findOwned()` ahora verifica `actor.orgId === job.clientOrgId || actor.orgId === project.assignedProOrgId` (mismo patrón ya usado en `evidence.policy.ts`), con bypass para `OPS_ADMIN`. **Limitación documentada:** el check solo se aplica cuando `candidate.jobId` está presente — los change orders vinculados solo por `buildOpsProjectId` (una relación legacy pre-migración, semánticamente distinta de `Project.id`) mantienen únicamente scoping por tenant, para no adivinar un join incorrecto. Pendiente verificación en vivo.
 
+**Continuación local 2026-09-19 (sin merge/deploy):** se corrigió el listado,
+la creación y el acceso individual de órdenes de cambio para verificar organización
+en referencias Job, BuildOps e hitos, incluidas referencias múltiples. 68/68 tests
+dirigidos PASS. Gate global pendiente: 29 fallos por DB local inaccesible.
+[Reporte y límites](reportes/2026-09-19_change_orders_org_scope_remediation.md).
+La limitación económica de escrow para candidatos sin jobId y el canal SSE por
+tenant siguen separados; no se declaran corregidos por este slice.
+
 ### 0.6 — CRÍTICO (seguridad) — Cross-tenant en canal SSE del copiloto (explotable en vivo)
 - **Qué:** `planStream`/`delegationsStream` filtran por tenant solo en el snapshot inicial — el canal de push en vivo se suscribe directo a `plan:${planId}`/`delegations:${projectId}` sin revalidar tenant. Los 8 endpoints SSE además son `@Public()` sin verificación de sesión propia.
 - **Dónde:** `apps/api/src/infrastructure/sse/sse.controller.ts:31-84`
