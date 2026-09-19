@@ -4,6 +4,7 @@ import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { StorageService } from "../../infrastructure/storage/storage.service.js";
 import { StripeConnectService } from "../payments/stripe-connect.service.js";
+import { PrometeoService } from "../prometeo/prometeo.service.js";
 import { ContributorProgramRepository } from "./contributor-program.repository.js";
 import { assertOwnsResource, assertIsOpsAdmin, type ContributorActor } from "./contributor-program.policy.js";
 import { resolveTranscriptionProvider } from "./transcription-provider.js";
@@ -60,6 +61,7 @@ export class ContributorProgramService {
     private readonly repository: ContributorProgramRepository,
     private readonly audit: AuditService,
     private readonly storage: StorageService,
+    private readonly prometeo: PrometeoService,
     @Optional() private readonly sse?: SseEventBusService,
     @Optional() private readonly stripeConnect?: StripeConnectService
   ) {}
@@ -713,6 +715,33 @@ export class ContributorProgramService {
     return this.setObservationPromotion(ctx, observationId, "REJECTED", input.reason);
   }
 
+  // PR-9 (docs/specs/core/knowledge-contributor-rag-ingestion.spec.md):
+  // labeled, non-empty fields only — mirrors what a reader would actually
+  // want cited, not raw column dumps.
+  private composeObservationText(observation: {
+    objective: string | null;
+    condition: string | null;
+    decision: string | null;
+    reason: string | null;
+    method: string | null;
+    action: string | null;
+    result: string | null;
+  }): string {
+    const labels: Array<[keyof typeof observation, string]> = [
+      ["objective", "Objetivo"],
+      ["condition", "Condición"],
+      ["decision", "Decisión"],
+      ["reason", "Razón"],
+      ["method", "Método"],
+      ["action", "Acción"],
+      ["result", "Resultado"]
+    ];
+    return labels
+      .filter(([field]) => observation[field])
+      .map(([field, label]) => `${label}: ${observation[field]}`)
+      .join("\n\n");
+  }
+
   private async setObservationPromotion(
     ctx: Ctx,
     observationId: string,
@@ -728,11 +757,32 @@ export class ContributorProgramService {
       });
     }
 
+    // Index on promote, de-index on reject-after-promote — computed before
+    // the repository write so a Prometeo failure never leaves
+    // promotionStatus/ragDocumentId partially applied (spec §4 edge case).
+    let ragDocumentId: string | null = observation.ragDocumentId;
+    if (status === "PROMOTED") {
+      const doc = await this.prometeo.ingestText({
+        tenantId: ctx.tenantId,
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        title: `${observation.submission.mission.title} — observación de campo`,
+        text: this.composeObservationText(observation),
+        sourceType: "field_observation",
+        sourceRef: observation.id
+      });
+      ragDocumentId = doc.id;
+    } else if (status === "REJECTED" && observation.ragDocumentId) {
+      await this.prometeo.deleteDocument({ tenantId: ctx.tenantId, id: observation.ragDocumentId });
+      ragDocumentId = null;
+    }
+
     const updated = await this.repository.setObservationPromotion({
       id: observationId,
       status,
       promotedByUserId: ctx.userId,
-      reason
+      reason,
+      ragDocumentId
     });
 
     await this.audit
@@ -748,8 +798,8 @@ export class ContributorProgramService {
         entityId: observationId,
         requestId: ctx.requestId,
         timestamp: new Date().toISOString(),
-        beforeJson: { promotionStatus: observation.promotionStatus },
-        afterJson: { promotionStatus: status, reason }
+        beforeJson: { promotionStatus: observation.promotionStatus, ragDocumentId: observation.ragDocumentId },
+        afterJson: { promotionStatus: status, reason, ragDocumentId }
       })
       .catch(() => undefined);
 
@@ -949,6 +999,7 @@ export class ContributorProgramService {
     promotedByUserId: string | null;
     promotedAt: Date | null;
     promotionReason: string | null;
+    ragDocumentId: string | null;
     createdAt: Date;
   }) {
     return {
@@ -971,6 +1022,7 @@ export class ContributorProgramService {
       promotedByUserId: observation.promotedByUserId,
       promotedAt: observation.promotedAt?.toISOString() ?? null,
       promotionReason: observation.promotionReason,
+      ragDocumentId: observation.ragDocumentId,
       createdAt: observation.createdAt.toISOString()
     };
   }

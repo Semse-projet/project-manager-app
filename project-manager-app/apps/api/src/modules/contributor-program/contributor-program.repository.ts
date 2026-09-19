@@ -406,7 +406,10 @@ export class ContributorProgramRepository {
   }
 
   async findObservationById(id: string) {
-    return this.prisma.observation.findUnique({ where: { id } });
+    return this.prisma.observation.findUnique({
+      where: { id },
+      include: { submission: { include: { mission: true } } }
+    });
   }
 
   // Conditional update guards the 409 in the service: it only succeeds
@@ -450,6 +453,12 @@ export class ContributorProgramRepository {
     status: "PROMOTED" | "REJECTED";
     promotedByUserId: string;
     reason: string;
+    // PR-9 (docs/specs/core/knowledge-contributor-rag-ingestion.spec.md):
+    // the caller decides the new ragDocumentId (the freshly-ingested
+    // PrometeoDocument id on promote, null once de-indexed on reject) —
+    // the repository just persists it in the same write as the rest of
+    // the promotion decision.
+    ragDocumentId?: string | null;
   }) {
     return this.prisma.observation.update({
       where: { id: input.id },
@@ -457,7 +466,8 @@ export class ContributorProgramRepository {
         promotionStatus: input.status,
         promotedByUserId: input.promotedByUserId,
         promotionReason: input.reason,
-        promotedAt: new Date()
+        promotedAt: new Date(),
+        ...(input.ragDocumentId !== undefined ? { ragDocumentId: input.ragDocumentId } : {})
       }
     });
   }

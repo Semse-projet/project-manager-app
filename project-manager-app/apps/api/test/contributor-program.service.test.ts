@@ -22,11 +22,21 @@ function uniqueId(prefix: string) {
 
 const fakeAudit = { async append() { /* not under test here */ } };
 const fakeStorage = { publicUrl: (key: string) => `https://storage.test/v1/uploads/files/${key}` };
+// PR-9: not exercised by this file's tests (no promote/reject calls here) —
+// present only so ContributorProgramService's constructor is satisfied.
+const fakePrometeo = {
+  async ingestText() {
+    throw new Error("fakePrometeo.ingestText should not be called from this test file");
+  },
+  async deleteDocument() {
+    throw new Error("fakePrometeo.deleteDocument should not be called from this test file");
+  }
+};
 
 function makeService() {
   const repository = new ContributorProgramRepository(prisma as never);
   return {
-    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never),
+    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never),
     repository
   };
 }

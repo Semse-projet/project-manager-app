@@ -288,6 +288,10 @@ export const observationViewSchema = z.object({
   promotedByUserId: z.string().nullable().optional(),
   promotedAt: z.string().nullable().optional(),
   promotionReason: z.string().nullable().optional(),
+  // PR-9 (docs/specs/core/knowledge-contributor-rag-ingestion.spec.md):
+  // the PrometeoDocument this Observation is indexed into, null while not
+  // promoted or after a promotion was rejected and de-indexed.
+  ragDocumentId: z.string().nullable().optional(),
   createdAt: z.string()
 });
 
