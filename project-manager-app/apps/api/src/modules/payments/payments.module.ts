@@ -1,5 +1,6 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { ContractsModule } from "../contracts/contracts.module.js";
+import { ContributorProgramModule } from "../contributor-program/contributor-program.module.js";
 import { KnowledgeModule } from "../knowledge/knowledge.module.js";
 import { LiensModule } from "../liens/liens.module.js";
 import { MilestonesModule } from "../milestones/milestones.module.js";
@@ -32,7 +33,7 @@ const adyenProviders = process.env.ADYEN_API_KEY?.trim() && process.env.ADYEN_ME
   : [];
 
 @Module({
-  imports: [ProjectsModule, ContractsModule, KnowledgeModule, LiensModule, NotificationsModule, ReservationsModule, forwardRef(() => MilestonesModule), OriginatorModule],
+  imports: [ProjectsModule, ContractsModule, KnowledgeModule, LiensModule, NotificationsModule, ReservationsModule, forwardRef(() => MilestonesModule), OriginatorModule, forwardRef(() => ContributorProgramModule)],
   controllers: [PaymentsController, StripeConnectController],
   providers: [
     PaymentsRepository,

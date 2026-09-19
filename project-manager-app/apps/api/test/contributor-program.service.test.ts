@@ -33,10 +33,17 @@ const fakePrometeo = {
   }
 };
 
-function makeService() {
+function makeService(overrides?: { stripeConnect?: unknown }) {
   const repository = new ContributorProgramRepository(prisma as never);
   return {
-    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never),
+    service: new ContributorProgramService(
+      repository as never,
+      fakeAudit as never,
+      fakeStorage as never,
+      fakePrometeo as never,
+      undefined,
+      overrides?.stripeConnect as never
+    ),
     repository
   };
 }
@@ -335,6 +342,179 @@ dbTest("reward creation is idempotent per submission", async () => {
 
     const allRewardsForSubmission = await prisma.contributorReward.findMany({ where: { submissionId: submission.id } });
     assert.equal(allRewardsForSubmission.length, 1, "exactly one reward row must exist for the submission");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+async function createRewardFixture(fixture: Awaited<ReturnType<typeof createFixture>>, repository: ContributorProgramRepository, amountCents = 1000) {
+  const mission = await repository.createMission({
+    tenantId: fixture.tenantId,
+    createdByUserId: fixture.adminUserId,
+    title: "Payout hardening test mission",
+    trade: "electrician",
+    category: "test",
+    description: "test",
+    difficulty: "beginner",
+    requirements: ["req"],
+    evidenceRequested: ["ev"],
+    acceptanceCriteria: ["crit"],
+    baseCompensationCents: amountCents,
+    currency: "USD",
+    isDemo: true,
+  });
+  const acceptance = await repository.createAcceptance({
+    tenantId: fixture.tenantId,
+    missionId: mission.id,
+    userId: fixture.contributorUserId,
+    missionVersionSnapshot: 1,
+    compensationCentsSnapshot: amountCents,
+    currencySnapshot: "USD",
+  });
+  const submission = await repository.createSubmission({
+    tenantId: fixture.tenantId,
+    acceptanceId: acceptance.id,
+    missionId: mission.id,
+    userId: fixture.contributorUserId,
+  });
+  const reward = await repository.createReward({
+    tenantId: fixture.tenantId,
+    submissionId: submission.id,
+    userId: fixture.contributorUserId,
+    amountCents,
+    currency: "USD",
+    idempotencyKey: `contributor-reward:${submission.id}`,
+  });
+  return { mission, acceptance, submission, reward };
+}
+
+function makeFakeStripeConnect(transferId: string, delayMs = 15) {
+  let calls = 0;
+  return {
+    get calls() {
+      return calls;
+    },
+    async transferToContractor(input: { userId: string; amountUsd: number; currency: string }) {
+      calls += 1;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+      return { transferId, platformFeeCents: 0, netAmountUsd: input.amountUsd };
+    }
+  };
+}
+
+// T: two concurrent authorize-payout calls for the same reward (a
+// double-click, or two admin sessions) must never both reach the payment
+// provider — the pre-PR-10 code read status via a plain query with no
+// atomic claim, so both could pass the eligibility check before either
+// wrote, and both would call Stripe for real (docs/specs/core/
+// knowledge-contributor-reward-hardening.spec.md §4 P1).
+dbTest("authorizing the same reward concurrently never calls the payment provider twice", async () => {
+  const fixture = await createFixture();
+  try {
+    const stripeConnect = makeFakeStripeConnect("tr_test_concurrent");
+    const { service, repository } = makeService({ stripeConnect });
+    const { reward } = await createRewardFixture(fixture, repository);
+
+    const adminCtx = {
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      userId: fixture.adminUserId,
+      roles: ["OPS_ADMIN"],
+      requestId: "req-admin",
+    };
+
+    const results = await Promise.allSettled([
+      service.authorizePayout(adminCtx, reward.id),
+      service.authorizePayout(adminCtx, reward.id),
+    ]);
+
+    assert.equal(stripeConnect.calls, 1, "the real payment provider must be called exactly once, never twice");
+
+    const fulfilled = results.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof service.authorizePayout>>> => r.status === "fulfilled");
+    assert.ok(fulfilled.length >= 1, "at least one of the two concurrent calls must succeed");
+    assert.ok(
+      fulfilled.every((r) => r.value.status === "PAID"),
+      "any fulfilled result must reflect the real PAID outcome, never a fabricated success"
+    );
+
+    const finalReward = await prisma.contributorReward.findUnique({ where: { id: reward.id } });
+    assert.equal(finalReward?.status, "PAID");
+    assert.equal(finalReward?.transferId, "tr_test_concurrent");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T: authorizing an already-PAID reward again must stay idempotent — no
+// second provider call, same result returned.
+dbTest("authorizing an already-paid reward again does not call the provider again", async () => {
+  const fixture = await createFixture();
+  try {
+    const stripeConnect = makeFakeStripeConnect("tr_test_idempotent");
+    const { service, repository } = makeService({ stripeConnect });
+    const { reward } = await createRewardFixture(fixture, repository);
+
+    const adminCtx = {
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      userId: fixture.adminUserId,
+      roles: ["OPS_ADMIN"],
+      requestId: "req-admin",
+    };
+
+    const first = await service.authorizePayout(adminCtx, reward.id);
+    assert.equal(first.status, "PAID");
+    assert.equal(stripeConnect.calls, 1);
+
+    const second = await service.authorizePayout(adminCtx, reward.id);
+    assert.equal(second.status, "PAID");
+    assert.equal(second.id, first.id);
+    assert.equal(stripeConnect.calls, 1, "re-authorizing a PAID reward must not call the provider again");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T: a transfer.reversed Stripe event for a reward's transferId must move
+// it to REVERSED — otherwise a reward that Stripe later reversed (e.g.
+// insufficient platform balance) stays incorrectly PAID forever (spec §4 P3).
+dbTest("reconcileReversedTransfer moves a PAID reward with a matching transferId to REVERSED", async () => {
+  const fixture = await createFixture();
+  try {
+    const stripeConnect = makeFakeStripeConnect("tr_test_reversal");
+    const { service, repository } = makeService({ stripeConnect });
+    const { reward } = await createRewardFixture(fixture, repository);
+
+    const adminCtx = {
+      tenantId: fixture.tenantId,
+      orgId: fixture.orgId,
+      userId: fixture.adminUserId,
+      roles: ["OPS_ADMIN"],
+      requestId: "req-admin",
+    };
+    await service.authorizePayout(adminCtx, reward.id);
+
+    const result = await service.reconcileReversedTransfer("tr_test_reversal");
+    assert.equal(result.reconciled, true);
+
+    const finalReward = await prisma.contributorReward.findUnique({ where: { id: reward.id } });
+    assert.equal(finalReward?.status, "REVERSED");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T: a transferId that doesn't belong to any ContributorReward (the normal
+// case — most transfer.reversed events are milestone releases, not
+// contributor rewards) must not throw or reconcile anything (spec §4 P4).
+dbTest("reconcileReversedTransfer is a safe no-op for a transferId that isn't a reward", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+    await createRewardFixture(fixture, repository); // unrelated reward exists, never authorized
+
+    const result = await service.reconcileReversedTransfer("tr_not_a_reward_transfer");
+    assert.equal(result.reconciled, false);
   } finally {
     await cleanupFixture(fixture);
   }

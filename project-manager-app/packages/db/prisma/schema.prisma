@@ -4701,6 +4701,11 @@ model ContributorReward {
   authorizedAt       DateTime?
   paidAt             DateTime?
   failureReason      String?
+  // PR-10 (docs/specs/core/knowledge-contributor-reward-hardening.spec.md):
+  // set when a payout succeeds — lets a later transfer.reversed webhook
+  // find this exact reward and move it to REVERSED instead of leaving it
+  // incorrectly PAID forever.
+  transferId         String?                 @unique
   createdAt          DateTime                @default(now())
   updatedAt          DateTime                @updatedAt
 

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Optional, forwardRef } from "@nestjs/common";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { WorkspaceMemoryRepository } from "../knowledge/workspace-memory.repository.js";
 import {
@@ -15,6 +15,7 @@ import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.servi
 import { StripeConnectService } from "./stripe-connect.service.js";
 import { ProjectLifecycleProjectionEventProducer } from "../domain-events/project-lifecycle-projection-event-producer.service.js";
 import { OriginatorService } from "../originator/originator.service.js";
+import { ContributorProgramService } from "../contributor-program/contributor-program.service.js";
 
 /**
  * Maps a provider webhook event to the PaymentTxn status it confirms.
@@ -66,6 +67,8 @@ export class PaymentsService {
     @Optional()
     private readonly lifecycleProjectionEvents?: ProjectLifecycleProjectionEventProducer,
     @Optional() private readonly originator?: OriginatorService,
+    @Optional() @Inject(forwardRef(() => ContributorProgramService))
+    private readonly contributorProgram?: ContributorProgramService,
   ) {}
 
   async paymentReadinessByJob(input: {
@@ -1033,12 +1036,25 @@ export class PaymentsService {
         correlationId: input.requestId,
       });
     }
+
+    // PR-10 (docs/specs/core/knowledge-contributor-reward-hardening.spec.md):
+    // a transferId belongs to either a milestone release (PaymentTxn,
+    // handled above) or a contributor reward, never both — only try the
+    // reward path when the PaymentTxn reconciliation found nothing, and
+    // only for reversals (rewards are marked PAID synchronously already;
+    // a reversal is the one outcome that needs async reconciliation).
+    let contributorRewardReconciled = false;
+    if (!result.reconciled && targetStatus === "REVERSED") {
+      const rewardResult = await this.contributorProgram?.reconcileReversedTransfer(providerRef).catch(() => null);
+      contributorRewardReconciled = rewardResult?.reconciled ?? false;
+    }
+
     return {
       accepted: true,
       event: eventType,
       providerRef,
       requestId: input.requestId,
-      reconciled: result.reconciled
+      reconciled: result.reconciled || contributorRewardReconciled
     };
   }
 
