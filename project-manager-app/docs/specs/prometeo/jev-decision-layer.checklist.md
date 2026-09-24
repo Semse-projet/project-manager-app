@@ -12,7 +12,8 @@ date: "2026-09-24"
 - [x] Jev no decide autorización, identidad, permisos, dinero, escrow, borrados, contratos, cumplimiento, secretos ni acceso admin (registro cerrado + test).
 - [x] La capa no importa módulos sensibles (test de imports).
 - [x] Gate `human_required` de pagos en chat intacto; Jev no puede rebajar un ESCALATE de dinero.
-- [x] `JEV_API_KEY` solo server-side.
+- [x] `JEV_AI_API_KEY` solo server-side (v1.3).
+- [x] POST con resultado incierto no se reintenta; 429 respeta `Retry-After` (v1.3).
 - [x] Flags OFF por defecto; nada se activa al mergear.
 
 ## Robustez
