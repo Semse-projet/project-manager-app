@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useLanguage } from "../../../../lib/language-context";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import { BarChart3, Bot, Briefcase, Calculator, ChevronDown, Clock, Download, FolderOpen, LayoutDashboard, ListChecks, Pause, Play, Plus, Receipt, ShieldCheck, Square, Timer } from "lucide-react";
 import {
   fetchJobContract,
@@ -1908,9 +1908,7 @@ export default function WorkerTrackerPage() {
               {loading ? "Cargando tracker..." : "Cargando historial..."}
             </div>
           ) : error ? (
-            <div style={{ ...card, color: "var(--error)", fontSize: "13px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)" }}>
-              {error}
-            </div>
+            <ErrorState message={error} />
           ) : entries.length === 0 ? (
             <div style={{ ...card, color: "var(--muted)", fontSize: "13px" }}>Todavía no hay entradas registradas.</div>
           ) : filteredEntries.length === 0 ? (

@@ -4,6 +4,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { IncidentRecordView, IncidentSeverity, IncidentType } from "@semse/schemas";
 import { createIncident, fetchMyIncidents } from "../../api/incidents";
 import { useTheme } from "../../theme/theme";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 
 const TYPE_LABEL: Record<IncidentType, string> = {
   safety: "Seguridad",
@@ -94,7 +96,7 @@ export default function IncidentsScreen() {
   if (showForm) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <ErrorState message={error} /> : null}
 
         <Text style={styles.label}>ID del job</Text>
         <TextInput
@@ -170,14 +172,14 @@ export default function IncidentsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Pressable style={styles.button} onPress={() => setShowForm(true)}>
         <Text style={styles.buttonText}>+ Reportar incidente</Text>
       </Pressable>
 
       {incidents.length === 0 ? (
-        <Text style={styles.hint}>No has reportado incidentes.</Text>
+        <EmptyState title="No has reportado incidentes." />
       ) : (
         incidents.map((incident) => (
           <View key={incident.id} style={styles.card}>

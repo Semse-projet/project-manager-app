@@ -6,6 +6,8 @@ import type { BidRecordView } from "@semse/schemas";
 import { fetchMyBids } from "../../api/bids";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerTabParamList } from "../../navigation/types";
 import { BID_STATUS_COLOR_KEY, BID_STATUS_LABEL } from "./jobStatus";
 
@@ -52,8 +54,8 @@ export default function BidsScreen({ navigation }: Props) {
       contentContainerStyle={styles.container}
       data={bids}
       keyExtractor={(bid) => bid.id}
-      ListHeaderComponent={error ? <Text style={styles.error}>{error}</Text> : null}
-      ListEmptyComponent={<Text style={styles.hint}>Aún no has enviado propuestas.</Text>}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListEmptyComponent={<EmptyState title="Aún no has enviado propuestas." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}
       renderItem={({ item }) => {

@@ -5,6 +5,8 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { DisputeRecordView } from "@semse/schemas";
 import { createDispute, fetchDisputes } from "../../api/disputes";
 import { useTheme } from "../../theme/theme";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerMoreStackParamList } from "../../navigation/types";
 import { DISPUTE_STATUS_COLOR_KEY, DISPUTE_STATUS_LABEL } from "./jobStatus";
 
@@ -70,7 +72,7 @@ export default function DisputesScreen({ navigation }: Props) {
   if (showForm) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <ErrorState message={error} /> : null}
 
         <Text style={styles.label}>ID del job</Text>
         <TextInput
@@ -109,14 +111,14 @@ export default function DisputesScreen({ navigation }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Pressable style={styles.button} onPress={() => setShowForm(true)}>
         <Text style={styles.buttonText}>+ Abrir disputa</Text>
       </Pressable>
 
       {disputes.length === 0 ? (
-        <Text style={styles.hint}>No tienes disputas.</Text>
+        <EmptyState title="No tienes disputas." />
       ) : (
         disputes.map((dispute) => {
           const colorKey = DISPUTE_STATUS_COLOR_KEY[dispute.status] ?? "muted";

@@ -10,6 +10,8 @@ import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
 import type { WorkerJobsStackParamList } from "../../navigation/types";
 import { BIDDABLE_JOB_STATUSES, JOB_STATUS_COLOR_KEY, JOB_STATUS_LABEL, JOB_TAB_BUCKETS, WORKER_JOB_NEXT_ACTION } from "./jobStatus";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 
 type Props = NativeStackScreenProps<WorkerJobsStackParamList, "JobsList">;
 
@@ -95,7 +97,7 @@ export default function JobsListScreen({ navigation }: Props) {
       refreshing={refreshing}
       ListHeaderComponent={
         <View style={styles.header}>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <ErrorState message={error} /> : null}
 
           {disputeCount > 0 ? (
             <Pressable style={styles.disputeBanner} onPress={openDisputes}>
@@ -135,9 +137,9 @@ export default function JobsListScreen({ navigation }: Props) {
         </View>
       }
       ListEmptyComponent={
-        <Text style={styles.hint}>
-          {jobs.length === 0 ? "No hay jobs disponibles todavía." : "Sin resultados para este filtro."}
-        </Text>
+        <EmptyState
+          title={jobs.length === 0 ? "No hay jobs disponibles todavía." : "Sin resultados para este filtro."}
+        />
       }
       renderItem={({ item }) => {
         const colorKey = JOB_STATUS_COLOR_KEY[item.status];

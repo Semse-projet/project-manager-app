@@ -6,6 +6,8 @@ import type { TravelAssignmentSummaryView } from "@semse/schemas";
 import { fetchMyTravelAssignments } from "../../api/travel";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerMoreStackParamList } from "../../navigation/types";
 import { TRAVEL_STATUS_LABEL } from "./jobStatus";
 
@@ -52,8 +54,8 @@ export default function TravelScreen({ navigation }: Props) {
       contentContainerStyle={styles.container}
       data={assignments}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={error ? <Text style={styles.error}>{error}</Text> : null}
-      ListEmptyComponent={<Text style={styles.hint}>No tienes asignaciones de viaje.</Text>}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListEmptyComponent={<EmptyState title="No tienes asignaciones de viaje." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}
       renderItem={({ item }) => (

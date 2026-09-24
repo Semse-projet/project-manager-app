@@ -4,6 +4,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { MaterialRequestRecordView } from "@semse/schemas";
 import { createMaterialRequest, fetchMyMaterialRequests } from "../../api/materials";
 import { useTheme } from "../../theme/theme";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import { formatCurrency } from "../../utils/format";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -92,7 +94,7 @@ export default function MaterialsScreen() {
   if (showForm) {
     return (
       <ScrollView contentContainerStyle={styles.container}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? <ErrorState message={error} /> : null}
 
         <Text style={styles.label}>ID del job</Text>
         <TextInput style={styles.input} value={form.jobId} onChangeText={(jobId) => setForm((c) => ({ ...c, jobId }))} placeholder="job_..." placeholderTextColor={theme.colors.faint} />
@@ -131,14 +133,14 @@ export default function MaterialsScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
 
       <Pressable style={styles.button} onPress={() => setShowForm(true)}>
         <Text style={styles.buttonText}>+ Solicitar material</Text>
       </Pressable>
 
       {requests.length === 0 ? (
-        <Text style={styles.hint}>No has solicitado materiales.</Text>
+        <EmptyState title="No has solicitado materiales." />
       ) : (
         requests.map((req) => {
           const colorKey = STATUS_COLOR_KEY[req.status] ?? "brand";
