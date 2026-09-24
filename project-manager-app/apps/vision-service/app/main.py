@@ -3,6 +3,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.health import router as health_router
 from app.routes.evidence import router as evidence_router
+from app.routes.objects import router as objects_router
 
 app = FastAPI(
     title="SEMSE Vision Service",
@@ -49,3 +50,5 @@ async def require_api_key(x_vision_api_key: str = Header(default="", alias="X-Vi
 # Include routers. Health stays public (Railway/monitoring hits it with no key).
 app.include_router(health_router)
 app.include_router(evidence_router, prefix="/v1/evidence", dependencies=[Depends(require_api_key)])
+# Sense Vision object recognition (spec: vision/sense-vision-field-library).
+app.include_router(objects_router, prefix="/v1/objects", dependencies=[Depends(require_api_key)])

@@ -113,6 +113,7 @@ retroactiva.
 | [platform.production-convergence-f3-f9](specs/platform/production-convergence-program.spec.md) | platform | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | critical | yes | 2026-07-31 |
 | [prometeo.agent-decision-retrieval](specs/prometeo/agent-decision-retrieval.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
 | [prometeo.cache-control](specs/prometeo/cache-control.spec.md) | prometeo | REVIEW | NOT_STARTED | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | no | 2026-08-17 |
+| [prometeo.jev-decision-layer](specs/prometeo/jev-decision-layer.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 | [prometeo.live-sessions](specs/prometeo/live-sessions.spec.md) | prometeo | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | high | no | 2026-09-07 |
 | [prometeo.model-gateway-unification](specs/prometeo/model-gateway-unification.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | yes | 2026-08-27 |
 | [prometeo.tool-registry-governance-f2](specs/prometeo/tool-registry-governance.spec.md) | prometeo | APPROVED | legacy | legacy | legacy | legacy | legacy | critical | no | 2026-07-20 |
@@ -169,6 +170,7 @@ retroactiva.
 | [ui-public-landing-operational-entry](specs/ui/public-landing-operational-entry.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-06-10 |
 | [ui.semse-hub](specs/ui/semse-hub.spec.md) | ui | IMPLEMENTED | legacy | legacy | legacy | legacy | legacy | low | yes | 2026-07-12 |
 | [ui-work-os-navigation-decision-intelligence](specs/ui/work-os-navigation-decision-intelligence.spec.md) | ui | VERIFIED | legacy | legacy | legacy | legacy | legacy | high | yes | 2026-06-09 |
+| [vision.sense-vision-field-library](specs/vision/sense-vision-field-library.spec.md) | vision | APPROVED | IN_PROGRESS | NOT_RUN | UNMERGED | NOT_DEPLOYED | INACTIVE | medium | yes | 2026-09-24 |
 
 <!-- SPEC_INDEX:END -->
 

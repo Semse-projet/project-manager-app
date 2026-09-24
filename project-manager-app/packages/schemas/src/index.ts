@@ -64,3 +64,6 @@ export * from "./prometeo-orchestration.schema.js";
 export * from "./prometeo-copilot.schema.js";
 // Prometeo LiveSession (spec: prometeo/live-sessions; ADR-026)
 export * from "./live-session.schema.js";
+// Sense Vision — Construction Library + Mi Diccionario (spec: vision/sense-vision-field-library)
+export * from "./vision-library.schema.js";
+export * from "./construction-library.seed.js";

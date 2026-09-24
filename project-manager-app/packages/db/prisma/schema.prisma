@@ -306,6 +306,9 @@ model User {
   knowledgeAppealsRaised              KnowledgeAppeal[]             @relation("KnowledgeAppealUser")
   knowledgeAppealsResolved            KnowledgeAppeal[]             @relation("KnowledgeAppealResolver")
   contributorRewards                  ContributorReward[]
+  // Sense Vision — Mi Diccionario + correcciones
+  visionDictionaryItems               UserDictionaryItem[]
+  visionCorrections                   VisionCorrection[]
   createdAt                           DateTime                      @default(now())
   updatedAt                           DateTime                      @updatedAt
 
@@ -4715,4 +4718,116 @@ model ContributorReward {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, status])
+}
+
+// ── Sense Vision (spec: docs/specs/vision/sense-vision-field-library.spec.md)
+
+// Global platform catalog — "¿qué cosas conoce SEMSE?". Not tenant-scoped:
+// it is construction knowledge, not customer data. Rows are only written by
+// versioned migrations generated from packages/schemas/src/construction-library.seed.ts.
+// searchText is a denormalized, lowercased, accent-stripped concatenation of
+// names/aliases/searchTerms so manual search can use a single `contains`.
+model ConstructionLibraryItem {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  canonicalName     String
+  nameEn            String
+  nameEs            String
+  aliasesEn         String[] @default([])
+  aliasesEs         String[] @default([])
+  category          String
+  subcategory       String
+  trades            String[] @default([])
+  descriptionEn     String
+  descriptionEs     String
+  usageEn           String
+  usageEs           String
+  exampleSentenceEn String
+  exampleSentenceEs String
+  searchTerms       String[] @default([])
+  searchText        String
+  imageReferences   String[] @default([])
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  dictionaryEntries    UserDictionaryItem[]
+  predictedCorrections VisionCorrection[]   @relation("VisionCorrectionPredicted")
+  selectedCorrections  VisionCorrection[]   @relation("VisionCorrectionSelected")
+
+  @@index([category, active])
+}
+
+// Mi Diccionario — what each professional is learning. References the
+// library row instead of copying its content; removing an entry never
+// touches the global library.
+model UserDictionaryItem {
+  id            String   @id @default(cuid())
+  tenantId      String
+  userId        String
+  libraryItemId String
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @default(now())
+  timesViewed   Int      @default(0)
+  timesScanned  Int      @default(0)
+  favorite      Boolean  @default(false)
+  learned       Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryItem ConstructionLibraryItem @relation(fields: [libraryItemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, libraryItemId])
+  @@index([tenantId, userId, lastSeenAt])
+}
+
+// "No es esto / Not this?" — recorded for evaluation and future model
+// improvement only; never applied automatically to the library or model.
+// selectedLibraryItemId null = "not in the list".
+model VisionCorrection {
+  id                     String   @id @default(cuid())
+  tenantId               String
+  userId                 String
+  predictedLibraryItemId String?
+  selectedLibraryItemId  String?
+  predictedConfidence    Float?
+  source                 String
+  createdAt              DateTime @default(now())
+
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  predictedItem ConstructionLibraryItem? @relation("VisionCorrectionPredicted", fields: [predictedLibraryItemId], references: [id], onDelete: SetNull)
+  selectedItem  ConstructionLibraryItem? @relation("VisionCorrectionSelected", fields: [selectedLibraryItemId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([predictedLibraryItemId])
+}
+
+// ── Jev Decision Layer (spec: docs/specs/prometeo/jev-decision-layer.spec.md)
+
+// One row per decision taken while a Jev pilot flag is on, so "Jev decision
+// vs. final system action vs. outcome" can be compared. Not AiInteractionLog
+// (model-call log, no decision/final-action fields) and not AgentDecision
+// (autonomy-loop findings/proposals). Stores decision metadata only — never
+// the input context (messages, frames).
+model JevDecisionEvent {
+  id                String   @id @default(cuid())
+  tenantId          String
+  userId            String?
+  feature           String // agent_router | vision_gate
+  decision          String // what Jev (or the fallback) decided
+  confidence        Float
+  reasonCode        String
+  source            String // jev | deterministic
+  fallbackUsed      Boolean  @default(false)
+  fallbackReason    String?
+  latencyMs         Int
+  model             String?
+  finalSystemAction String
+  outcome           String? // user_corrected | user_saved | ...
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId, feature, createdAt])
+  @@index([feature, source, createdAt])
 }

@@ -1,3 +1,5 @@
+import base64
+import binascii
 import re
 import socket
 import ipaddress
@@ -110,3 +112,24 @@ def load_image_from_url(url: str) -> np.ndarray:
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail=f"Unexpected error decoding image: {str(e)}")
+
+
+# Sense Vision live frames (spec: vision/sense-vision-field-library §5.2).
+# The API already validated MIME, base64 and size; this re-checks size and
+# decodability because this service must not trust its caller blindly.
+DEFAULT_FRAME_MAX_BYTES = 700_000
+
+
+def load_image_from_base64(image_data: str, max_bytes: int = DEFAULT_FRAME_MAX_BYTES) -> np.ndarray:
+    try:
+        raw = base64.b64decode(image_data, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(status_code=400, detail="imageData is not valid base64.")
+    if not raw:
+        raise HTTPException(status_code=400, detail="imageData is empty.")
+    if len(raw) > max_bytes:
+        raise HTTPException(status_code=413, detail="Frame is too large.")
+    image = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(status_code=400, detail="imageData could not be decoded as an image.")
+    return image

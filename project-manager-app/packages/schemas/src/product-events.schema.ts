@@ -42,6 +42,14 @@ export const PRODUCT_EVENT_ALLOWLIST: Record<string, readonly string[]> = {
   "agro.dashboard_view": [],
   "prometeo.chat_opened": ["surface"],
   "prometeo.message_sent": ["surface"],
+  // Sense Vision (spec: vision/sense-vision-field-library §6) — nunca imágenes
+  // ni contenido: solo estado, latencia, confianza, fuente del modelo e idioma.
+  "vision.scan_started": [],
+  "vision.scan_completed": ["status", "latencyMs", "confidence", "source"],
+  "vision.scan_failed": ["status", "latencyMs"],
+  "vision.recognition_unknown": ["latencyMs", "source"],
+  "vision.recognition_low_confidence": ["latencyMs", "confidence", "source"],
+  "vision.pronunciation_played": ["lang"],
 };
 
 /** Eventos permitidos bajo consentimiento `restricted`. */
