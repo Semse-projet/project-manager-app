@@ -13,7 +13,7 @@
 import type { PolicyDecisionBase } from "@semse/schemas";
 import type { PrometeoToolPolicyResult } from "./tool-governance.policy.js";
 
-function assertSatisfiesPolicyDecisionBase<T extends PolicyDecisionBase>(): void {
+function assertSatisfiesPolicyDecisionBase<_T extends PolicyDecisionBase>(): void {
   // Type-only assertion — never called at runtime.
 }
 
