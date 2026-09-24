@@ -65,6 +65,7 @@ import {
   Wrench,
   X,
   Scale,
+  ScanSearch,
 } from "lucide-react";
 
 type NavRole = "worker" | "client" | "admin";
@@ -117,6 +118,8 @@ const NAV: Record<NavRole, { labelKey: string; color: string; icon: typeof HardH
       { labelKey: "nav.timeTracker", href: "/worker/tracker", icon: Clock },
       { labelKey: "nav.evidence", href: "/worker/evidence", icon: Camera },
       { labelKey: "nav.materials", href: "/worker/materials", icon: Package },
+      { labelKey: "nav.senseVision", href: "/worker/sense-vision", icon: ScanSearch },
+      { labelKey: "nav.myDictionary", href: "/worker/dictionary", icon: BookOpen },
       { labelKey: "nav.incidents", href: "/worker/incidents", icon: AlertTriangle },
       { labelKey: "nav.payments", href: "/worker/payments", icon: CreditCard },
       { labelKey: "nav.travel", href: "/worker/travel", icon: PlaneTakeoff },
