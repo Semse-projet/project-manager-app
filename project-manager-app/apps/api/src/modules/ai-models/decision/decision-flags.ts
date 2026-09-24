@@ -64,10 +64,12 @@ export function resolveDecisionLayerConfig(env: NodeJS.ProcessEnv = process.env)
       cooldownMs: number(env.SEMSE_JEV_BREAKER_COOLDOWN_MS, 30_000, 1000, 3_600_000),
     },
     provider: {
-      baseUrl: env.JEV_BASE_URL?.trim().replace(/\/+$/, "") || null,
-      apiKey: env.JEV_API_KEY?.trim() || null,
-      model: env.JEV_MODEL?.trim() || null,
-      timeoutMs: number(env.JEV_TIMEOUT_MS, 800, 50, 10_000),
+      // Jev AI (jev-ai.pro). JEV_AI_API_KEY is server-only: never in apps/web,
+      // NEXT_PUBLIC_*, logs or the repo.
+      baseUrl: env.JEV_AI_BASE_URL?.trim().replace(/\/+$/, "") || null,
+      apiKey: env.JEV_AI_API_KEY?.trim() || null,
+      model: env.JEV_AI_MODEL?.trim() || null,
+      timeoutMs: number(env.JEV_AI_TIMEOUT_MS, 800, 50, 10_000),
     },
   };
 }

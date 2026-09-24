@@ -2,7 +2,7 @@
 // Jev evaluation harness runner (handoff §56; spec prometeo/jev-decision-layer §9.5).
 //
 //   pnpm --filter @semse/api build
-//   JEV_API_KEY=... [JEV_MODEL=jev-latest] node apps/api/scripts/jev-eval.mjs [--feature agent_router|vision_gate] [--json]
+//   JEV_AI_API_KEY in apps/api/.env or the shell; [JEV_AI_MODEL=jev-latest] node apps/api/scripts/jev-eval.mjs [--feature agent_router|vision_gate] [--json]
 //   node apps/api/scripts/jev-eval.mjs --mock baseline     # dry run: a fake Jev that echoes the ground truth
 //
 // Forces both pilots ON + live for the run only (in-process config; nothing
@@ -51,7 +51,7 @@ if (mock === "baseline") {
   provider = { name: "mock-baseline", async decide(req) { return { raw: { action: expectedById.get(req.correlationId), confidence: 0.9, reasonCode: "MOCK_GROUND_TRUTH" }, model: "mock" }; } };
 } else {
   if (!config.provider.apiKey) {
-    console.error("JEV_API_KEY is required (TypeSafe AI key; JEV_BASE_URL defaults to https://api.typesafe.ai). Or use --mock baseline for a dry run.");
+    console.error("JEV_AI_API_KEY is required (Jev AI key; JEV_AI_BASE_URL defaults to https://jev-ai.pro/api). Or use --mock baseline for a dry run.");
     process.exit(2);
   }
   provider = new JevHttpProvider(config.provider);

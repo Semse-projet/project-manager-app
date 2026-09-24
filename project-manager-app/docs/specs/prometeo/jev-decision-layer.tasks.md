@@ -37,3 +37,12 @@ date: "2026-09-24"
 - [x] [T-026] Harness de evaluación + fixtures + `jev:eval`.
 - [~] [T-027] Métricas de shadow reales — bloqueado: requiere API real de Jev + activación humana en shadow.
 - [ ] [T-028] Wave 1 (Evidence / Change Order triage) — no iniciar hasta T-027 (§57).
+
+## v1.3 — cliente Jev AI (`jev-ai.pro`, spec §9.9)
+
+- [x] [T-030] `JevAiClient`: POST `/api/v1/systemone`, GET `/api/v1/models`, key server-only `JEV_AI_API_KEY`.
+- [x] [T-031] Respuestas tipadas `noul` / `choice` / `score` + `usage`.
+- [x] [T-032] Errores tipados 401/402/422/429/502/504; `Retry-After`; sin reintento de POST incierto.
+- [x] [T-033] Pre-chequeo de límites Laya (512 / 1.024 tokens por pregunta).
+- [x] [T-034] `JevHttpProvider` migrado al cliente; tests con respuestas simuladas; CLI `jev:models` / `jev:call`.
+- [ ] [T-035] Llamada en vivo con key válida (requiere que el dueño configure `JEV_AI_API_KEY`; host bloqueado en el entorno de desarrollo).

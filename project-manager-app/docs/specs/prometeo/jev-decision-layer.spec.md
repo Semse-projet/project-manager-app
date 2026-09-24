@@ -3,7 +3,7 @@ id: "prometeo.jev-decision-layer"
 title: "Jev Decision Layer — piloto: Agent Router + Sense Vision Decision Gate"
 domain: "prometeo"
 sdd_version: "2.0"
-version: "1.2"
+version: "1.3"
 status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
@@ -126,7 +126,7 @@ Prometeo, GPT/Claude, la librería, `AiModelRouterService` o `AdaptiveRouter`.
 - `ESCALATE`/`ASK_USER` del router **no ejecutan nada**: son etiquetas que
   la UI o el workflow autorizado interpretan. El gate `human_required` de
   pagos en `prometeo/chat` queda intacto.
-- `JEV_API_KEY` vive solo en el servidor (semse-API).
+- `JEV_AI_API_KEY` vive solo en el servidor (semse-API): nunca en `apps/web`, `NEXT_PUBLIC_*`, logs ni git.
 
 ## 4. Escenarios y criterios de aceptación
 
@@ -194,7 +194,7 @@ escribe cuando `SEMSE_JEV_ENABLED` y la feature están activos.
 | `SEMSE_JEV_AGENT_ROUTER_MODE` | `shadow` | `shadow` \| `assist` |
 | `SEMSE_JEV_CANARY_TENANT_IDS` | vacío = todos | lista separada por comas |
 | `SEMSE_JEV_MIN_CONFIDENCE` | `0.7` | umbral |
-| `JEV_BASE_URL`, `JEV_API_KEY`, `JEV_MODEL`, `JEV_TIMEOUT_MS` | —, —, —, `800` | proveedor |
+| `JEV_AI_BASE_URL`, `JEV_AI_API_KEY`, `JEV_AI_MODEL`, `JEV_AI_TIMEOUT_MS` | `https://jev-ai.pro/api`, —, `jev-latest`, `800` | proveedor (v1.3) |
 
 ## 8. Tests requeridos
 
@@ -285,7 +285,7 @@ contexto crudo.
 Métricas: accuracy determinista / Jev / final, acuerdo, abstención, validez de
 schema, downgrades inseguros bloqueados, fallbacks por motivo, latencia
 p50/p95 y costo. `pnpm --filter @semse/api jev:eval` corre contra el Jev real
-(`JEV_BASE_URL`/`JEV_API_KEY`); `--mock baseline` hace un dry run. Línea base
+(`JEV_AI_API_KEY`, §9.9); `--mock baseline` hace un dry run. Línea base
 actual en las fixtures: router 0.864, vision gate 0.929.
 
 ### 9.6 Criterios de activación (§58) — estado
@@ -295,7 +295,7 @@ actual en las fixtures: router 0.864, vision gate 0.929.
 | fallback determinista / timeout / schema inválido / proveedor caído / baja confianza probados | ✅ tests |
 | invariantes con tests verdes | ✅ `jev-invariants.test.ts` |
 | telemetría persistente | ✅ Postgres real |
-| sin secretos filtrados | ✅ `JEV_API_KEY` solo server-side; sin contexto crudo |
+| sin secretos filtrados | ✅ `JEV_AI_API_KEY` solo server-side; sin contexto crudo |
 | flag independiente por feature + rollback simple | ✅ `SEMSE_JEV_ENABLED=false` apaga todo |
 | API real de Jev conectada | ✅ adapter `/v1/systemone` (v1.2) — ❌ sin probar en vivo: falta API key válida y el host está bloqueado por la política de red del entorno de desarrollo |
 | datos de shadow revisados | ❌ requiere activación en shadow (decisión humana) |
@@ -308,7 +308,7 @@ actual en las fixtures: router 0.864, vision gate 0.929.
 - [x] `jev-agent-router.test.ts`, `jev-vision-gate.test.ts` actualizados
 - [x] `jev-decision-telemetry-integration.test.ts` (columnas nuevas en Postgres real)
 
-### 9.8 Adapter real: TypeSafe AI `/v1/systemone` (v1.2)
+### 9.8 Adapter real: TypeSafe AI `/v1/systemone` (v1.2 — reemplazado por §9.9)
 
 Jev es el "System One model" de TypeSafe AI. Contrato (docs públicas de
 TypeSafe/terceros; el dominio no es accesible desde el entorno de desarrollo):
@@ -340,3 +340,49 @@ Authorization: Bearer <JEV_API_KEY>
 - `JEV_BASE_URL` default `https://api.typesafe.ai`; `JEV_MODEL` default
   `jev-latest` (se recomienda fijar versión, p. ej. `jev-1.13.0`, antes de live).
 
+
+### 9.9 Cliente Jev AI `jev-ai.pro` (v1.3)
+
+Reemplaza el host/variables de §9.8. Punto de integración server-side:
+`apps/api/src/modules/ai-models/decision/jev-ai.client.ts` (`JevAiClient`),
+consumido por `JevHttpProvider` (la capa de decisión no cambia).
+
+```
+POST https://jev-ai.pro/api/v1/systemone
+Authorization: Bearer $JEV_AI_API_KEY      Content-Type: application/json
+{ "model": "jev-latest", "state": "My payment failed. Please help.",
+  "questions": { "urgent": { "type": "noul", "instructions": "Does this message need urgent support?" } } }
+→ answers.urgent.noul ∈ [0,1] (probabilidad de "sí"); usage.{input_tokens, output_tokens, …}
+GET  https://jev-ai.pro/api/v1/models      → modelos conectados a la key
+```
+
+- **Tipos de respuesta** validados contra la pregunta enviada: `noul`
+  (`noul` ∈ [0,1]), `choice` (`choice` ∈ criteria, `probabilities`,
+  `confidence?`), `score` (`score?`, `probabilities`, `confidence?`). Respuesta
+  fuera de contrato → `invalid_response` (la capa hace fallback).
+- `state` se envía como texto (JSON compacto de `{feature, context, …}`).
+- **Errores tipados** (`JevAiError.kind`): 401 `unauthorized`, 402
+  `payment_required`, 422 `invalid_request`, 429 `rate_limited` (+
+  `retryAfterMs`), 502 `bad_gateway`, 504 `gateway_timeout`, otros 5xx
+  `server_error`, `timeout`, `network`, `not_configured`, `input_too_long`.
+  Los mensajes nunca incluyen la key ni el cuerpo enviado.
+- **Reintentos**: un POST con resultado incierto (timeout, red, 5xx →
+  `outcomeUncertain=true`) **nunca** se reintenta. 429 respeta `Retry-After`
+  (segundos o fecha HTTP): el cliente rechaza localmente hasta que expira; un
+  único reintento sólo si el llamador lo habilita (`maxRateLimitRetryMs`). La
+  capa de decisión lo deja en 0.
+- **Mapeo a fallback**: 401/402/422/`input_too_long` → `provider_error`;
+  429/502/5xx/red/sin key → `unavailable`; 504/timeout → `timeout` (todos
+  cuentan para el circuit breaker).
+- **Laya** (`laya-english` 512, `laya-multilingual` 1.024 tokens por pregunta):
+  pre-chequeo conservador (~3 caracteres/token) antes de enviar; el 422 del
+  servidor sigue siendo la autoridad.
+- **Selección de modelo**: `JEV_AI_MODEL` (default `jev-latest`); la lista
+  válida es sólo la que devuelve `GET /v1/models` (`jev:models`), sin listas
+  hardcodeadas.
+- CLI: `pnpm --filter @semse/api jev:models` / `jev:call` (lee
+  `apps/api/.env`, nunca imprime la key).
+- Supuestos no verificados (docs bloqueadas por la política de red del
+  entorno de desarrollo): forma del cuerpo de error, forma de `/v1/models` y
+  campos de `score`. El parser acepta las variantes comunes y rechaza el resto.
+- Tests: `apps/api/test/jev-ai-client.test.ts` (respuestas simuladas).

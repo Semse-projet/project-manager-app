@@ -281,7 +281,7 @@ test("parseProviderDecision accepts only the strict contract", () => {
   assert.equal(parseProviderDecision({ action: "A", confidence: 0.5, reasonCode: "ok" }, ["A"]), null);
 });
 
-test("JevHttpProvider speaks TypeSafe /v1/systemone: one choice question over the allowed actions", async () => {
+test("JevHttpProvider speaks Jev AI /api/v1/systemone: one choice question over the allowed actions", async () => {
   await assert.rejects(
     new JevHttpProvider({ baseUrl: null, apiKey: null, model: null, timeoutMs: 100 }).decide({ feature: "agent_router", allowedActions: [], input: {} }),
     (e: any) => e.kind === "unavailable",
@@ -309,11 +309,12 @@ test("JevHttpProvider speaks TypeSafe /v1/systemone: one choice question over th
     candidates: ["x"],
     riskSignals: { money: false },
   });
-  assert.equal(seen.url, "https://api.typesafe.ai/v1/systemone", "defaults to the TypeSafe base URL");
+  assert.equal(seen.url, "https://jev-ai.pro/api/v1/systemone", "defaults to the Jev AI base URL");
   assert.equal(seen.init.headers.authorization, "Bearer k");
   const body = JSON.parse(seen.init.body);
   assert.equal(body.model, "jev-latest");
-  assert.deepEqual(body.state, { feature: "agent_router", context: { message: "cuánto cobro" }, candidates: ["x"], riskSignals: { money: false } });
+  assert.equal(typeof body.state, "string", "state is sent as text");
+  assert.deepEqual(JSON.parse(body.state), { feature: "agent_router", context: { message: "cuánto cobro" }, candidates: ["x"], riskSignals: { money: false } });
   assert.deepEqual(body.questions, {
     decision: { type: "choice", instructions: "Which capability?", criteria: { PROMETEO: "chat", ESTIMATE: "pricing", ESCALATE: "money" } },
   }, "only allowed actions are offered as options");
@@ -333,18 +334,18 @@ test("mapSystemOneResponse: confidence fallback and malformed answers", () => {
 });
 
 test("JevHttpProvider: auth error, timeout and HTTP errors map to fallback kinds", async () => {
-  const unauthorized = new JevHttpProvider({ baseUrl: "https://api.typesafe.ai", apiKey: "bad", model: null, timeoutMs: 500 }, (async () =>
+  const unauthorized = new JevHttpProvider({ baseUrl: "https://jev-ai.pro/api", apiKey: "bad", model: null, timeoutMs: 500 }, (async () =>
     new Response(JSON.stringify({ detail: { error_type: "authentication_error", message: "Cannot authenticate with the server." } }), { status: 401 })) as any);
   await assert.rejects(
     unauthorized.decide({ feature: "agent_router", allowedActions: [], input: {} }),
-    (e: any) => e.kind === "provider_error" && /401 \(authentication_error\)/.test(e.message) && !/bad/.test(e.message),
+    (e: any) => e.kind === "provider_error" && e.jevAiKind === "unauthorized" && /401/.test(e.message) && /authentication_error/.test(e.message) && !/Bearer|\bbad\b/.test(e.message),
   );
 
   const slow = new JevHttpProvider({ baseUrl: "https://jev.test", apiKey: "k", model: null, timeoutMs: 50 }, ((_url: string, init: any) =>
     new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))))) as any);
   await assert.rejects(slow.decide({ feature: "agent_router", allowedActions: [], input: {} }), (e: any) => e.kind === "timeout");
 
-  for (const [status, kind] of [[500, "provider_error"], [503, "unavailable"]] as const) {
+  for (const [status, kind] of [[402, "provider_error"], [422, "provider_error"], [429, "unavailable"], [500, "unavailable"], [502, "unavailable"], [503, "unavailable"], [504, "timeout"], [418, "provider_error"]] as const) {
     const failing = new JevHttpProvider({ baseUrl: "https://jev.test", apiKey: "k", model: null, timeoutMs: 500 }, (async () => new Response("x", { status })) as any);
     await assert.rejects(failing.decide({ feature: "agent_router", allowedActions: [], input: {} }), (e: any) => e.kind === kind);
   }
