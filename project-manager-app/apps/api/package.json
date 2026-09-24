@@ -11,7 +11,8 @@
     "test": "jest",
     "test:unit": "pnpm build && node ./scripts/run-tests.mjs",
     "test:integration": "node ./scripts/run-tests.mjs --integration",
-    "test:coverage": "node ./scripts/run-tests.mjs --coverage"
+    "test:coverage": "node ./scripts/run-tests.mjs --coverage",
+    "jev:eval": "node ./scripts/jev-eval.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.126.0",

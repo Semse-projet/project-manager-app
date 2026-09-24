@@ -25,3 +25,15 @@ date: "2026-09-24"
 - [x] [T-012] Documentación y reporte.
 - [ ] [T-013] Conectar con la API real de Jev (bloqueado: no documentada).
 - [ ] [T-014] Activación canary en Railway (decisión humana).
+
+## Wave 0 — cierre (handoff §34, §52–56)
+
+- [x] [T-020] Contrato central DecisionRequest/DecisionResult; un solo servicio.
+- [x] [T-021] Modo shadow/live por feature (Vision Gate pasa a shadow por defecto).
+- [x] [T-022] Canary por tenant/usuario/rol/porcentaje.
+- [x] [T-023] Circuit breaker por feature.
+- [x] [T-024] Registro de invariantes + un test por invariante.
+- [x] [T-025] Telemetría §55 (migración aditiva) + correlationId.
+- [x] [T-026] Harness de evaluación + fixtures + `jev:eval`.
+- [~] [T-027] Métricas de shadow reales — bloqueado: requiere API real de Jev + activación humana en shadow.
+- [ ] [T-028] Wave 1 (Evidence / Change Order triage) — no iniciar hasta T-027 (§57).
