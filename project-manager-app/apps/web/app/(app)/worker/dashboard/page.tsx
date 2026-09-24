@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   AlertTriangle,
   ArrowRight,
@@ -17,7 +16,7 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
-import { HtmlInCanvasPanel, JobCard, StatCard } from "@semse/ui";
+import { EmptyState, ErrorState, HtmlInCanvasPanel, JobCard, StatCard } from "@semse/ui";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 import { WorkerEvidenceSummary } from "../../../../components/semse/WorkerEvidenceSummary";
 import type { Job, JobRecordView } from "@semse/schemas";
@@ -74,32 +73,6 @@ function bidToUiJob(bid: MyBidView): Job {
     attachments: [],
     proposals: [],
   };
-}
-
-function EmptyPanel({
-  title,
-  description,
-  image,
-}: {
-  title: string;
-  description: string;
-  image: string;
-}) {
-  return (
-    <div
-      style={{
-        padding: "40px 24px",
-        textAlign: "center",
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderRadius: "14px",
-      }}
-    >
-      <Image src={image} alt="" width={56} height={56} style={{ margin: "0 auto 12px", display: "block" }} />
-      <p style={{ color: "var(--ink)", fontSize: "14px", fontWeight: 700, marginBottom: "6px" }}>{title}</p>
-      <p style={{ color: "var(--muted)", fontSize: "13px" }}>{description}</p>
-    </div>
-  );
 }
 
 const TRUST_TIER: Record<string, { label: string; color: string }> = {
@@ -274,22 +247,22 @@ export default function WorkerDashboardPage() {
       <WorkerEvidenceSummary />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
-        <Link href="/worker/jobs?tab=Activos" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(59,130,246,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+        <Link href="/worker/jobs?tab=Activos" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
           <StatCard label="Trabajos activos" value={loading ? "—" : metrics.active.length} icon={Briefcase} color="blue" loading={loading} />
         </Link>
-        <Link href="/worker/jobs?tab=Completados" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(16,185,129,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+        <Link href="/worker/jobs?tab=Completados" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
           <StatCard label="Completados" value={loading ? "—" : metrics.completed.length} icon={CheckSquare} color="green" loading={loading} />
         </Link>
-        <Link href="/worker/jobs?tab=Activos" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(245,158,11,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+        <Link href="/worker/jobs?tab=Activos" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
           <StatCard label="En revisión" value={loading ? "—" : metrics.review.length} icon={Star} color="amber" loading={loading} />
         </Link>
-        <Link href="/worker/disputes?status=open" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(239,68,68,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+        <Link href="/worker/disputes?status=open" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
           <StatCard label="Disputas abiertas" value={loading ? "—" : metrics.disputes.length} icon={AlertTriangle} color="red" loading={loading} />
         </Link>
-        <Link href="/worker/payments" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(255,106,0,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+        <Link href="/worker/payments" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
           <StatCard label="Presupuesto activo" value={loading ? "—" : metrics.activeBudget > 0 ? formatMoney(metrics.activeBudget) : "—"} icon={DollarSign} color="orange" loading={loading} />
         </Link>
-        <Link href="/worker/travel" style={{ textDecoration: "none", display: "block", borderRadius: "16px", transition: "transform .12s, box-shadow .12s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(139,92,246,.18)"; }} onMouseOut={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+        <Link href="/worker/travel" className="card-lift" style={{ textDecoration: "none", display: "block", borderRadius: "16px" }}>
           <StatCard label="Viajes y viáticos" value={loading ? "—" : "Abrir"} icon={Wallet} color="violet" loading={loading} />
         </Link>
       </div>
@@ -548,23 +521,21 @@ export default function WorkerDashboardPage() {
             ))}
           </div>
         ) : apiError ? (
-          <div style={{ padding: "16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "var(--error)", fontSize: "13px" }}>
-            {apiError}
-          </div>
+          <ErrorState message={apiError} />
         ) : metrics.active.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "32px 24px", borderRadius: "16px", border: "1px solid var(--border)", background: "var(--surface)" }}>
-            <Briefcase size={32} style={{ color: "var(--faint)", margin: "0 auto 14px", display: "block" }} />
-            <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--ink)", marginBottom: 8 }}>No tienes trabajos activos</p>
-            <p style={{ fontSize: "13px", color: "var(--muted)", marginBottom: 20 }}>
-              Explora las oportunidades disponibles y envía propuestas para comenzar.
-            </p>
-            <Link
-              href="/worker/opportunities"
-              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "9px", background: "var(--brand)", textDecoration: "none", color: "#fff", fontSize: "13px", fontWeight: 700 }}
-            >
-              Ver oportunidades →
-            </Link>
-          </div>
+          <EmptyState
+            title="No tienes trabajos activos"
+            description="Explora las oportunidades disponibles y envía propuestas para comenzar."
+            icon={Briefcase}
+            action={
+              <Link
+                href="/worker/opportunities"
+                style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 22px", borderRadius: "9px", background: "var(--brand)", textDecoration: "none", color: "#fff", fontSize: "13px", fontWeight: 700 }}
+              >
+                Ver oportunidades →
+              </Link>
+            }
+          />
         ) : (
           <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
             {metrics.active.slice(0, 4).map((bid) => (
@@ -613,7 +584,7 @@ export default function WorkerDashboardPage() {
         </div>
 
         {loading ? null : metrics.opportunities.length === 0 ? (
-          <EmptyPanel
+          <EmptyState
             title="No hay oportunidades abiertas ahora"
             description="Cuando entren trabajos publicados al pipeline, aparecerán aquí para evaluación."
             image="/brand/empty-states/worker-opportunities.png"
