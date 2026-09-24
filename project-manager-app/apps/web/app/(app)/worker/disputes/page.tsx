@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, ArrowUpRight, Inbox, MessageSquare, RefreshCw, ShieldAlert } from "lucide-react";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
-import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { DisputeResolutionWorkspace } from "../../../components/disputes/DisputeResolutionWorkspace";
 import {
   createJobDispute,
@@ -333,11 +333,7 @@ export default function WorkerDisputesPage() {
         </div>
       </HtmlInCanvasPanel>
 
-      {error ? (
-        <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", color: "var(--error)", fontSize: 13 }}>
-          {error}
-        </div>
-      ) : null}
+      {error ? <ErrorState message={error} /> : null}
 
       {loading ? (
         <div style={{ display: "grid", gap: 10 }}>

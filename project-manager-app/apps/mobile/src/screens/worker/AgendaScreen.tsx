@@ -5,6 +5,8 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { JobRecordView } from "@semse/schemas";
 import { fetchJobsList } from "../../api/jobs";
 import { useTheme } from "../../theme/theme";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import type { WorkerMoreStackParamList } from "../../navigation/types";
 import { JOB_STATUS_LABEL } from "./jobStatus";
 
@@ -73,8 +75,8 @@ export default function AgendaScreen({ navigation }: Props) {
       contentContainerStyle={styles.container}
       sections={sections}
       keyExtractor={(job) => job.id}
-      ListHeaderComponent={error ? <Text style={styles.error}>{error}</Text> : null}
-      ListEmptyComponent={<Text style={styles.hint}>No tienes jobs activos en tu agenda.</Text>}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListEmptyComponent={<EmptyState title="No tienes jobs activos en tu agenda." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}
       renderSectionHeader={({ section }) => <Text style={styles.sectionHeader}>{section.title}</Text>}

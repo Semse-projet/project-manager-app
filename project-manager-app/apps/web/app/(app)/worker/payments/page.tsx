@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../../../../lib/language-context";
 import Link from "next/link";
 import { ArrowDownLeft, Clock, CheckCircle, AlertTriangle, TrendingUp, Settings2, RefreshCw, Inbox, Scale, BadgeDollarSign, ExternalLink } from "lucide-react";
-import { HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatCard, StatusBadge } from "@semse/ui";
 import { PayoutMethodForm, type PayoutMethod } from "../../../components/payments/PayoutMethodForm";
 import { fetchMyJobs, fetchJobPayments, fetchDisputes, fetchProjects, fetchMyConnectAccount, createMyConnectAccount, createOnboardingLink, syncConnectAccount, fetchPaymentProviderReadiness, type StripeConnectAccountView, type PaymentProviderReadiness } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
@@ -254,11 +254,7 @@ export default function WorkerPaymentsPage() {
             </span>
           )}
         </div>
-        {connectError && (
-          <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,.08)", color: "var(--error)", fontSize: 12, marginBottom: 10 }}>
-            {connectError}
-          </div>
-        )}
+        {connectError && <ErrorState message={connectError} className="mb-2.5" />}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {!connectAccount && (
             <button

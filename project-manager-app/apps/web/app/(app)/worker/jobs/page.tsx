@@ -5,7 +5,7 @@ import { useLanguage } from "../../../../lib/language-context";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Briefcase, Search, DollarSign, Clock, XCircle } from "lucide-react";
-import { HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel, StatusBadge } from "@semse/ui";
 import { fetchMyBids, type MyBidView } from "../../../semse-api";
 import { NotificationBanner } from "../../../components/notifications/NotificationBanner";
 
@@ -157,9 +157,7 @@ export default function WorkerJobsPage() {
           ))}
         </div>
       ) : apiError ? (
-        <div style={{ padding: "16px", background: "rgba(239,68,68,.06)", border: "1px solid rgba(239,68,68,.2)", borderRadius: "10px", color: "var(--error)", fontSize: "13px" }}>
-          {apiError}
-        </div>
+        <ErrorState message={apiError} />
       ) : filtered.length === 0 ? (
         <HtmlInCanvasPanel as="section" style={{ padding: "48px 24px", textAlign: "center", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "12px" }} canvasClassName="rounded-2xl" minHeight={220}>
           <Briefcase size={36} style={{ color: "var(--faint)", margin: "0 auto 12px" }} />
@@ -230,15 +228,13 @@ export default function WorkerJobsPage() {
               <Link
                 key={bid.id}
                 href={`/worker/jobs/${bid.jobId}`}
+                className="row-hover"
                 style={{
                   display: "flex", alignItems: "flex-start", gap: "16px",
                   padding: "16px 18px",
                   background: "var(--surface)", border: "1px solid var(--border)",
                   borderRadius: "12px", textDecoration: "none",
-                  transition: "border-color 0.15s",
                 }}
-                onMouseOver={e => (e.currentTarget.style.borderColor = "var(--ok)")}
-                onMouseOut={e => (e.currentTarget.style.borderColor = "var(--border)")}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>

@@ -5,6 +5,8 @@ import type { PaymentTxnRecordView } from "@semse/schemas";
 import { fetchMyBids } from "../../api/bids";
 import { fetchJobPayments } from "../../api/payments";
 import { useTheme } from "../../theme/theme";
+import { EmptyState } from "../../components/EmptyState";
+import { ErrorState } from "../../components/ErrorState";
 import { formatCurrency } from "../../utils/format";
 
 type PaymentRow = PaymentTxnRecordView & { jobTitle?: string };
@@ -66,8 +68,8 @@ export default function PaymentsScreen() {
       contentContainerStyle={styles.container}
       data={rows}
       keyExtractor={(item) => item.id}
-      ListHeaderComponent={error ? <Text style={styles.error}>{error}</Text> : null}
-      ListEmptyComponent={<Text style={styles.hint}>No tienes movimientos de pago todavía.</Text>}
+      ListHeaderComponent={error ? <ErrorState message={error} /> : null}
+      ListEmptyComponent={<EmptyState title="No tienes movimientos de pago todavía." />}
       onRefresh={() => void load(true)}
       refreshing={refreshing}
       renderItem={({ item }) => {

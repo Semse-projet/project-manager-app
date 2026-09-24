@@ -14,6 +14,7 @@ import {
   ImageIcon,
   Video,
 } from "lucide-react";
+import { ErrorState } from "@semse/ui";
 import {
   fetchJob,
   fetchJobEscrow,
@@ -199,7 +200,7 @@ export default function WorkerJobDetailPage() {
           {[1, 2, 3].map(i => <div key={i} style={{ height: "120px", borderRadius: "16px", border: "1px solid var(--border)", background: "var(--surface)", animation: "pulse 1.5s ease-in-out infinite" }} />)}
         </div>
       ) : error ? (
-        <div style={{ padding: "18px 20px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: "14px", color: "var(--error)", fontSize: "13px" }}>{error}</div>
+        <ErrorState message={error} />
       ) : (
         <>
           {/* Next action banner */}
@@ -274,7 +275,7 @@ export default function WorkerJobDetailPage() {
           {/* Info summary */}
           <section style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px 22px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "14px" }}>
-              <a href="#milestones-section" style={{ textDecoration: "none", padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", display: "block", transition: "border-color .15s" }} onMouseOver={e => { e.currentTarget.style.borderColor = "var(--brand)"; }} onMouseOut={e => { e.currentTarget.style.borderColor = "var(--border)"; }}>
+              <a href="#milestones-section" className="row-hover" style={{ textDecoration: "none", padding: "12px 14px", borderRadius: "12px", background: "var(--bg)", border: "1px solid var(--border)", display: "block", ["--row-hover-color" as string]: "var(--brand)" }}>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Presupuesto</div>
                 <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--ink)" }}>{formatMoney(asNumber(job?.budgetMin))} {asNumber(job?.budgetMax) ? `- ${formatMoney(asNumber(job?.budgetMax))}` : ""}</div>
                 <div style={{ fontSize: "11px", color: "var(--brand)", marginTop: "4px" }}>Ver hitos →</div>

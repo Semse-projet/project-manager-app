@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BadgeDollarSign, Check, RefreshCw, Save, Trash2 } from "lucide-react";
-import { HtmlInCanvasPanel } from "@semse/ui";
+import { ErrorState, HtmlInCanvasPanel } from "@semse/ui";
 import {
   fetchMyLaborRates,
   saveMyLaborRates,
@@ -147,11 +147,7 @@ export default function ContractorRatesPage() {
         )}
       </div>
 
-      {error && (
-        <div style={{ padding: "12px 16px", background: "rgba(239,68,68,.08)", border: "1px solid rgba(239,68,68,.18)", borderRadius: 12, color: "var(--error)", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
+      {error && <ErrorState message={error} />}
 
       {saved && (
         <div style={{ padding: "12px 16px", background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.22)", borderRadius: 12, color: "var(--ok)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>

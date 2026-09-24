@@ -5,6 +5,7 @@ import type { LaborRatesResponseView } from "@semse/schemas";
 import { fetchLaborRates, resetLaborRates, saveLaborRates } from "../../api/pricing";
 import { useTheme } from "../../theme/theme";
 import { formatCurrency } from "../../utils/format";
+import { ErrorState } from "../../components/ErrorState";
 
 export default function RatesScreen() {
   const theme = useTheme();
@@ -86,7 +87,7 @@ export default function RatesScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <ErrorState message={error} /> : null}
       {saved ? <Text style={styles.saved}>✅ Tarifas guardadas.</Text> : null}
 
       {data ? (
