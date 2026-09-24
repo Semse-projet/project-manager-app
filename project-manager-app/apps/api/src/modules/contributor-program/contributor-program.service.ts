@@ -3,11 +3,13 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException, 
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { SseEventBusService } from "../../infrastructure/sse/sse-event-bus.service.js";
 import { StorageService } from "../../infrastructure/storage/storage.service.js";
+import { AiModelGatewayService } from "../ai-models/gateway/ai-model-gateway.service.js";
 import { StripeConnectService } from "../payments/stripe-connect.service.js";
 import { PrometeoService } from "../prometeo/prometeo.service.js";
 import { ContributorProgramRepository } from "./contributor-program.repository.js";
 import { assertOwnsResource, assertIsOpsAdmin, type ContributorActor } from "./contributor-program.policy.js";
 import { resolveTranscriptionProvider } from "./transcription-provider.js";
+import { buildSynthesisPrompt, parseSynthesisResponse } from "./observation-synthesis.js";
 
 type Ctx = ContributorActor & { requestId: string };
 
@@ -62,6 +64,7 @@ export class ContributorProgramService {
     private readonly audit: AuditService,
     private readonly storage: StorageService,
     private readonly prometeo: PrometeoService,
+    private readonly aiGateway: AiModelGatewayService,
     @Optional() private readonly sse?: SseEventBusService,
     @Optional() private readonly stripeConnect?: StripeConnectService
   ) {}
@@ -905,7 +908,7 @@ export class ContributorProgramService {
           storageKey: claimed.asset.storageKey,
           mimeType: claimed.asset.mimeType
         });
-        await this.repository.completeExtractionWithTranscript({
+        const { segments: createdSegments } = await this.repository.completeExtractionWithTranscript({
           extractionId: claimed.id,
           tenantId: claimed.tenantId,
           submissionId: claimed.submissionId,
@@ -926,6 +929,31 @@ export class ContributorProgramService {
             afterJson: { segmentCount: segments.length }
           })
           .catch(() => undefined);
+
+        // PR-12 (docs/specs/core/knowledge-contributor-observation-synthesis.spec.md):
+        // best-effort — the transcript itself already succeeded and is
+        // reviewable on its own, so a synthesis failure must never turn a
+        // real, persisted transcript into a FAILED extraction.
+        await this.synthesizeObservations(ctx, {
+          tenantId: claimed.tenantId,
+          submissionId: claimed.submissionId,
+          extractionId: claimed.id,
+          segments: createdSegments
+        }).catch((error) => {
+          this.audit
+            .append({
+              tenantId: claimed.tenantId,
+              orgId: ctx.orgId,
+              actorUserId: ctx.userId,
+              action: "contributor_program.observation.synthesis_failed",
+              entityType: "KnowledgeExtraction",
+              entityId: claimed.id,
+              requestId: ctx.requestId,
+              timestamp: new Date().toISOString(),
+              afterJson: { reason: error instanceof Error ? error.message : String(error) }
+            })
+            .catch(() => undefined);
+        });
       } catch (error) {
         await this.failClaimedExtraction(ctx, claimed, error instanceof Error ? error.message : String(error));
         failed += 1;
@@ -933,6 +961,72 @@ export class ContributorProgramService {
     }
 
     return { processed, completed, failed };
+  }
+
+  // PR-12: turns real TranscriptSegment rows into candidate Observation
+  // rows via a privacy-routed LLM call. privacyLevel: "sensitive" forces
+  // AiModelRouterService.selectRoute() straight to ollama-local — checked
+  // before any taskType routing or forceModelSlug — so field audio content
+  // never reaches a cloud model slug (see semse-prometeo-orchestrator: this
+  // sidesteps the SPEC-GTW-001 gap entirely, since ollama-local is one of
+  // the three slugs that goes through LLMOrchestrator, not one of the five
+  // that skip it). No fallback model is configured for a privacy-restricted
+  // route, so an unreachable/misconfigured ollama-local fails closed
+  // (response.success === false) rather than silently falling through to a
+  // cloud provider — handled below as zero observations synthesized, never
+  // a fabricated one.
+  private async synthesizeObservations(
+    ctx: Ctx,
+    input: { tenantId: string; submissionId: string; extractionId: string; segments: Array<{ id: string; startMs: number; endMs: number; text: string }> }
+  ): Promise<void> {
+    if (input.segments.length === 0) return;
+
+    const { systemPrompt, userPrompt, aliasToSegmentId } = buildSynthesisPrompt(input.segments);
+    const response = await this.aiGateway.generate({
+      agentId: "contributor-observation-synthesis",
+      taskType: "field_report_generation",
+      privacyLevel: "sensitive",
+      systemPrompt,
+      input: userPrompt,
+      requireJson: true,
+      temperature: 0,
+      metadata: { tenantId: input.tenantId, submissionId: input.submissionId, extractionId: input.extractionId }
+    });
+
+    if (!response.success || !response.output) {
+      throw new Error(response.errorMessage ?? "AI gateway returned no output");
+    }
+
+    const observations = parseSynthesisResponse(response.output, aliasToSegmentId);
+    for (const observation of observations) {
+      const created = await this.repository.createObservation({
+        tenantId: input.tenantId,
+        submissionId: input.submissionId,
+        extractionId: input.extractionId,
+        objective: observation.objective,
+        condition: observation.condition,
+        decision: observation.decision,
+        reason: observation.reason,
+        method: observation.method,
+        action: observation.action,
+        result: observation.result,
+        sourceSegmentIds: observation.sourceSegmentIds,
+        generatedBy: `contributor-observation-synthesis:${response.modelSlug}`
+      });
+      await this.audit
+        .append({
+          tenantId: input.tenantId,
+          orgId: ctx.orgId,
+          actorUserId: ctx.userId,
+          action: "contributor_program.observation.synthesized",
+          entityType: "Observation",
+          entityId: created.id,
+          requestId: ctx.requestId,
+          timestamp: new Date().toISOString(),
+          afterJson: { extractionId: input.extractionId, sourceSegmentCount: observation.sourceSegmentIds.length, modelSlug: response.modelSlug }
+        })
+        .catch(() => undefined);
+    }
   }
 
   private async failClaimedExtraction(ctx: Ctx, claimed: { id: string; tenantId: string }, reason: string) {

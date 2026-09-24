@@ -38,11 +38,18 @@ const fakePrometeo = {
     throw new Error("fakePrometeo.deleteDocument should not be called from this test file");
   }
 };
+// PR-12: this file's tests never call processPendingExtractions — present
+// only so the constructor is satisfied.
+const fakeAiGateway = {
+  async generate() {
+    throw new Error("fakeAiGateway.generate should not be called from this test file");
+  }
+};
 
 function makeService() {
   const repository = new ContributorProgramRepository(prisma as never);
   return {
-    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never),
+    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never, fakeAiGateway as never),
     repository
   };
 }

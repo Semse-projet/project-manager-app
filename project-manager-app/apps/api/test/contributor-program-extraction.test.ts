@@ -49,11 +49,44 @@ function makeFakePrometeo() {
   };
 }
 
-function makeService() {
+// PR-12 (docs/specs/core/knowledge-contributor-observation-synthesis.spec.md):
+// a call-tracking fake, real enough to assert what synthesizeObservations
+// sent to the gateway (taskType, privacyLevel) without a live model.
+function makeFakeAiGateway(response: { success: boolean; output?: string; errorMessage?: string; modelSlug?: string }) {
+  const calls: Array<{ taskType: string; privacyLevel?: string; input: string }> = [];
+  return {
+    calls,
+    async generate(request: { taskType: string; privacyLevel?: string; input: string }) {
+      calls.push(request);
+      return {
+        output: response.output ?? "",
+        provider: "ollama",
+        modelSlug: response.modelSlug ?? "ollama-local",
+        modelName: response.modelSlug ?? "ollama-local",
+        success: response.success,
+        errorMessage: response.errorMessage
+      };
+    }
+  };
+}
+
+const throwingAiGateway = {
+  async generate() {
+    throw new Error("aiGateway.generate should not be called from this test");
+  }
+};
+
+function makeService(overrides?: { aiGateway?: unknown }) {
   const repository = new ContributorProgramRepository(prisma as never);
   const fakePrometeo = makeFakePrometeo();
   return {
-    service: new ContributorProgramService(repository as never, fakeAudit as never, fakeStorage as never, fakePrometeo as never),
+    service: new ContributorProgramService(
+      repository as never,
+      fakeAudit as never,
+      fakeStorage as never,
+      fakePrometeo as never,
+      (overrides?.aiGateway ?? throwingAiGateway) as never
+    ),
     repository,
     fakePrometeo
   };
@@ -504,6 +537,153 @@ dbTest("promoting a demo-mission observation is refused and never indexes into P
       reason: "misión demo, no es conocimiento de campo",
     });
     assert.equal(rejected.promotionStatus, "REJECTED");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T (PR-12, docs/specs/core/knowledge-contributor-observation-synthesis.spec.md):
+// synthesizeObservations is private (only processPendingExtractions calls
+// it internally) — reached here via the same as-unknown-as cast pattern
+// already used elsewhere in this suite (event-outbox-dispatcher.test.ts,
+// satellite-webhooks-consumer.test.ts) to test private orchestration logic
+// directly rather than requiring a full live-ASR round trip.
+function callSynthesize(
+  service: ContributorProgramService,
+  ctx: ReturnType<typeof adminCtx>,
+  input: { tenantId: string; submissionId: string; extractionId: string; segments: Array<{ id: string; startMs: number; endMs: number; text: string }> }
+) {
+  return (
+    service as unknown as { synthesizeObservations: (ctx: unknown, input: unknown) => Promise<void> }
+  ).synthesizeObservations(ctx, input);
+}
+
+dbTest("synthesizeObservations creates Observation rows only for citations that match real segments, via a privacy-routed call", async () => {
+  const fixture = await createFixture();
+  try {
+    const aiGateway = makeFakeAiGateway({
+      success: true,
+      modelSlug: "ollama-local",
+      output: JSON.stringify({
+        observaciones: [
+          {
+            objective: "Instalar conduit EMT",
+            condition: "Pared con montantes de metal",
+            decision: null,
+            reason: null,
+            method: null,
+            action: "Cortó y dobló el conduit",
+            result: "Instalación completada",
+            segmentIds: ["s1"]
+          },
+          {
+            // Hallucinated citation ("s99" was never handed to the model) —
+            // must be dropped entirely, never persisted with an invented source.
+            objective: "Observación inventada",
+            segmentIds: ["s99"]
+          }
+        ]
+      })
+    });
+    const { service, repository } = makeService({ aiGateway });
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PROCESSING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const { segments } = await repository.completeExtractionWithTranscript({
+      extractionId: extraction.id,
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      segments: [{ startMs: 0, endMs: 4000, text: "Instalé el conduit EMT en la pared norte." }]
+    });
+
+    await callSynthesize(service, adminCtx(fixture), {
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      extractionId: extraction.id,
+      segments
+    });
+
+    assert.equal(aiGateway.calls.length, 1);
+    assert.equal(aiGateway.calls[0].taskType, "field_report_generation");
+    assert.equal(aiGateway.calls[0].privacyLevel, "sensitive", "field audio synthesis must always be routed as privacy-sensitive");
+
+    const created = await prisma.observation.findMany({ where: { extractionId: extraction.id } });
+    assert.equal(created.length, 1, "the hallucinated-citation observation must never be persisted");
+    assert.equal(created[0].objective, "Instalar conduit EMT");
+    assert.equal(created[0].generatedBy, "contributor-observation-synthesis:ollama-local");
+    assert.deepEqual(created[0].sourceSegmentIdsJson, [segments[0].id]);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+dbTest("synthesizeObservations is a no-op when there are no segments", async () => {
+  const fixture = await createFixture();
+  try {
+    const aiGateway = makeFakeAiGateway({ success: true, output: "{}" });
+    const { service, repository } = makeService({ aiGateway });
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PROCESSING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+
+    await callSynthesize(service, adminCtx(fixture), {
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      extractionId: extraction.id,
+      segments: []
+    });
+
+    assert.equal(aiGateway.calls.length, 0, "no segments means nothing to synthesize from — never call the model");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+dbTest("synthesizeObservations throws (never fabricates) when the AI gateway fails closed", async () => {
+  const fixture = await createFixture();
+  try {
+    const aiGateway = makeFakeAiGateway({ success: false, errorMessage: "ollama-local unreachable" });
+    const { service, repository } = makeService({ aiGateway });
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "PROCESSING",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const { segments } = await repository.completeExtractionWithTranscript({
+      extractionId: extraction.id,
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      segments: [{ startMs: 0, endMs: 1000, text: "algo" }]
+    });
+
+    await assert.rejects(
+      () =>
+        callSynthesize(service, adminCtx(fixture), {
+          tenantId: fixture.tenantId,
+          submissionId: fixture.submission.id,
+          extractionId: extraction.id,
+          segments
+        }),
+      /ollama-local unreachable/
+    );
+
+    const created = await prisma.observation.findMany({ where: { extractionId: extraction.id } });
+    assert.equal(created.length, 0, "a failed-closed AI call must never produce a fabricated Observation");
   } finally {
     await cleanupFixture(fixture);
   }
