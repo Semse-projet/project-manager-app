@@ -241,6 +241,21 @@ consumer no entrega, sin perder eventos encolados.
 - `evidence.accepted`
 - `evidence.rejected`
 
+## Sense Vision (spec: `docs/specs/vision/sense-vision-field-library.spec.md`)
+
+Eventos de auditoría (`AuditService`), emitidos solo por cambios de dominio del
+usuario — nunca por cada escaneo (ver "Regla anti-ruido"). Ningún payload
+contiene imágenes.
+
+- `vision.dictionary_saved` — `UserDictionaryItem`; `{ libraryItemId, slug, source }`
+- `vision.dictionary_removed` — `UserDictionaryItem`; `{ libraryItemId }`
+- `vision.recognition_corrected` — `VisionCorrection`; `{ predictedLibraryItemId, selectedLibraryItemId, predictedConfidence, source }`
+
+Consumidor: auditoría/evaluación del reconocedor. La telemetría de escaneo
+(`vision.scan_started`, `vision.scan_completed`, …) es ProductEvent de UI,
+no DomainEvent — vive en `PRODUCT_EVENT_ALLOWLIST`
+(`packages/schemas/src/product-events.schema.ts`).
+
 ## Project Originator (F10)
 
 - `project.originator_proposed.v1`
