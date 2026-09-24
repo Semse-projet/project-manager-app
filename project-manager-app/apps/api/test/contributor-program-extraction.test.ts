@@ -59,7 +59,9 @@ function makeService() {
   };
 }
 
-async function createFixture() {
+// isDemo defaults to false: promotion into Prometeo RAG is refused for demo
+// missions (docs/specs/core/knowledge-contributor-demo-mission-guards.spec.md P4).
+async function createFixture(options: { isDemo?: boolean } = {}) {
   const tenantId = uniqueId("tenant_kcp_ext");
   const orgId = uniqueId("org_kcp_ext");
   const adminUserId = uniqueId("usr_admin_ext");
@@ -90,7 +92,7 @@ async function createFixture() {
       acceptanceCriteriaJson: ["crit"],
       baseCompensationCents: 500,
       currency: "USD",
-      isDemo: true,
+      isDemo: options.isDemo ?? false,
     },
   });
   const acceptance = await prisma.knowledgeMissionAcceptance.create({
@@ -456,6 +458,51 @@ dbTest("promoting/rejecting an observation is admin-only and tenant-scoped", asy
     await assert.rejects(() =>
       service.promoteObservation(adminCtx(fixture), "nonexistent-observation-id", { reason: "test" })
     );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T (P4/P5, docs/specs/core/knowledge-contributor-demo-mission-guards.spec.md):
+// an observation from a demo mission never reaches Prometeo RAG, but can
+// still be rejected (so one promoted before this guard can be de-indexed).
+dbTest("promoting a demo-mission observation is refused and never indexes into Prometeo", async () => {
+  const fixture = await createFixture({ isDemo: true });
+  try {
+    const { service, repository, fakePrometeo } = makeService();
+    const extraction = await repository.createExtraction({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      assetId: fixture.asset.id,
+      kind: "TRANSCRIPTION",
+      status: "COMPLETED",
+      modelOrProcess: "prometeo-intake-pipeline",
+    });
+    const observation = await repository.createObservation({
+      tenantId: fixture.tenantId,
+      submissionId: fixture.submission.id,
+      extractionId: extraction.id,
+      objective: "Documentar un offset EMT (demo)",
+      sourceSegmentIds: [],
+      generatedBy: "prometeo-intake-pipeline",
+    });
+
+    await assert.rejects(
+      () => service.promoteObservation(adminCtx(fixture), observation.id, { reason: "ejemplo" }),
+      (error: unknown) => {
+        assert.equal((error as { getResponse?: () => { code?: string } }).getResponse?.().code, "CONTRIBUTOR_PROGRAM_MISSION_IS_DEMO");
+        return true;
+      }
+    );
+    assert.equal(fakePrometeo.calls.ingested.length, 0, "demo content must never be indexed into Prometeo");
+    const unchanged = await prisma.observation.findUnique({ where: { id: observation.id } });
+    assert.equal(unchanged?.promotionStatus, "PENDING");
+    assert.equal(unchanged?.ragDocumentId, null);
+
+    const rejected = await service.rejectObservationPromotion(adminCtx(fixture), observation.id, {
+      reason: "misión demo, no es conocimiento de campo",
+    });
+    assert.equal(rejected.promotionStatus, "REJECTED");
   } finally {
     await cleanupFixture(fixture);
   }

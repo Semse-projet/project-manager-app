@@ -333,6 +333,15 @@ export class ContributorProgramService {
       });
     }
     assertOwnsResource(ctx, acceptance.userId);
+    // acceptMission refuses demo missions, but acceptances created before
+    // that guard existed still reach here (docs/specs/core/
+    // knowledge-contributor-demo-mission-guards.spec.md P1).
+    if (acceptance.mission.isDemo) {
+      throw new BadRequestException({
+        code: "CONTRIBUTOR_PROGRAM_MISSION_IS_DEMO",
+        message: "This is a demo/example mission and cannot receive submissions"
+      });
+    }
 
     const submission = await this.repository.createSubmission({
       tenantId: ctx.tenantId,
@@ -756,6 +765,15 @@ export class ContributorProgramService {
         message: "Observation not found"
       });
     }
+    // Demo content is onboarding material, not field knowledge — never
+    // index it. REJECTED stays allowed so an already-promoted demo
+    // observation can still be de-indexed (spec P4/P5).
+    if (status === "PROMOTED" && observation.submission.mission.isDemo) {
+      throw new BadRequestException({
+        code: "CONTRIBUTOR_PROGRAM_MISSION_IS_DEMO",
+        message: "Observations from demo/example missions cannot be promoted"
+      });
+    }
 
     // Index on promote, de-index on reject-after-promote — computed before
     // the repository write so a Prometeo failure never leaves
@@ -1034,6 +1052,10 @@ export class ContributorProgramService {
       (await this.repository.findSubmissionById(submission.id))?.acceptanceId ?? ""
     );
     if (!acceptance) return;
+    // Demo missions are never payable (spec P2). Returning instead of
+    // throwing keeps the review/appeal decision the caller already wrote —
+    // the submission simply stays APPROVED with no reward.
+    if (acceptance.mission.isDemo) return;
 
     const idempotencyKey = `contributor-reward:${submission.id}`;
     const reward = await this.repository.createReward({
@@ -1087,6 +1109,14 @@ export class ContributorProgramService {
     }
     if (reward.status === "PAID") {
       return reward; // idempotent: repeated authorize calls never pay twice
+    }
+    // Checked before the atomic claim so a demo reward never changes status
+    // and never reaches the provider (spec P3).
+    if (reward.submission.mission.isDemo) {
+      throw new ConflictException({
+        code: "CONTRIBUTOR_PROGRAM_REWARD_NOT_PAYABLE",
+        message: "Rewards for demo/example missions are never payable"
+      });
     }
 
     if (!this.stripeConnect) {
