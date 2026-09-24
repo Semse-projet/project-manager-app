@@ -31,6 +31,15 @@ import {
 } from "../dto/index.js";
 import { parsePositiveInt } from "../../../common/parse-query.js";
 
+export type RecognizeObjectsPayload = {
+  imageUrl?: string;
+  imageData?: string;
+  mimeType?: string;
+  vocabulary: Array<{ slug: string; name: string }>;
+};
+
+export type RecognizeObjectsResponse = { disabled: true } | { disabled: false; body: unknown };
+
 @Injectable()
 export class VisionServiceClient {
   private readonly logger = new Logger(VisionServiceClient.name);
@@ -129,6 +138,42 @@ export class VisionServiceClient {
 
   async checkSafetyEnriched(payload: SafetyCheckDto): Promise<SafetyCheckResultDto> {
     return this.post<SafetyCheckResultDto>("/v1/evidence/safety-check-enriched", payload);
+  }
+
+  /**
+   * Sense Vision object recognition (spec: vision/sense-vision-field-library §5.2).
+   * Short timeout: this backs a live camera loop, so a slow provider must
+   * fail fast and let the next sampled frame try again. A 503
+   * `provider_disabled` is an expected state (no VISION_OBJECT_PROVIDER set
+   * on semse-vision), not an error.
+   */
+  async recognizeObjects(payload: RecognizeObjectsPayload): Promise<RecognizeObjectsResponse> {
+    const baseUrl = process.env.VISION_SERVICE_URL || "http://localhost:8080";
+    const timeoutMs = parsePositiveInt(process.env.VISION_RECOGNIZE_TIMEOUT_MS, 12000);
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(`${baseUrl}/v1/objects/recognize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...this.authHeaders() },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      if (response.status === 503) {
+        const body = (await response.json().catch(() => ({}))) as { detail?: unknown };
+        if (body.detail === "provider_disabled") return { disabled: true };
+      }
+      if (!response.ok) {
+        // Body may echo upstream provider errors — log the status only.
+        throw new Error(`Vision Service /v1/objects/recognize returned ${response.status}`);
+      }
+      return { disabled: false, body: (await response.json()) as unknown };
+    } catch (error: any) {
+      this.logger.warn(`Vision Service object recognition failed: ${error?.name === "AbortError" ? "timeout" : error?.message}`);
+      throw error;
+    } finally {
+      clearTimeout(id);
+    }
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
