@@ -71,7 +71,7 @@ export class VisionLibraryService {
    */
   async recognize(
     input: ValidatedVisionInput,
-    options: { actor?: { tenantId: string; userId: string }; trade?: string } = {},
+    options: { actor?: { tenantId: string; userId: string; roles?: readonly string[] }; trade?: string; correlationId?: string } = {},
   ): Promise<VisionRecognizeResult> {
     const startedAt = Date.now();
     const thresholds = resolveConfidenceThresholds();
@@ -122,7 +122,7 @@ export class VisionLibraryService {
    */
   private async decideGate(
     partial: Pick<VisionRecognizeResult, "status" | "reason" | "object" | "alternatives">,
-    options: { actor?: { tenantId: string; userId: string }; trade?: string },
+    options: { actor?: { tenantId: string; userId: string; roles?: readonly string[] }; trade?: string; correlationId?: string },
   ): Promise<VisionGateView> {
     const state: VisionGateState = {
       status: partial.status,
@@ -138,10 +138,15 @@ export class VisionLibraryService {
 
     const outcome = await this.decisionLayer.decide({
       feature: "vision_gate",
-      tenantId: options.actor.tenantId,
-      userId: options.actor.userId,
-      input: buildVisionGateInput(state),
-      fallback,
+      actor: options.actor,
+      correlationId: options.correlationId,
+      inputClass: `status:${state.status}${state.reason ? `/${state.reason}` : ""}`,
+      context: buildVisionGateInput(state),
+      candidates: state.alternatives.map((alt) => alt.slug),
+      // LOW_CONFIDENCE_NOT_CERTAINTY: anything the confidence policy didn't
+      // call "recognized" may never be turned into ACCEPT_RESULT by Jev.
+      riskSignals: { lowConfidence: state.status !== "recognized" },
+      deterministicDecision: fallback,
       isValid: visionGateInvariant(state),
     });
     return {

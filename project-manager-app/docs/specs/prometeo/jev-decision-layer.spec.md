@@ -3,7 +3,7 @@ id: "prometeo.jev-decision-layer"
 title: "Jev Decision Layer — piloto: Agent Router + Sense Vision Decision Gate"
 domain: "prometeo"
 sdd_version: "2.0"
-version: "1.0"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
@@ -18,7 +18,11 @@ feature_flags:
   - "SEMSE_JEV_AGENT_ROUTER_ENABLED"
   - "SEMSE_JEV_VISION_GATE_ENABLED"
   - "SEMSE_JEV_AGENT_ROUTER_MODE"
+  - "SEMSE_JEV_VISION_GATE_MODE"
   - "SEMSE_JEV_CANARY_TENANT_IDS"
+  - "SEMSE_JEV_CANARY_USER_IDS"
+  - "SEMSE_JEV_CANARY_ROLES"
+  - "SEMSE_JEV_CANARY_PERCENT"
 production_evidence: []
 related_files:
   - "apps/api/src/modules/ai-models/decision/decision.types.ts"
@@ -28,6 +32,10 @@ related_files:
   - "apps/api/src/modules/ai-models/decision/agent-router.ts"
   - "apps/api/src/modules/ai-models/decision/vision-gate.ts"
   - "apps/api/src/modules/ai-models/decision/decision-layer.module.ts"
+  - "apps/api/src/modules/ai-models/decision/decision-invariants.ts"
+  - "apps/api/src/modules/ai-models/decision/decision-circuit-breaker.ts"
+  - "apps/api/src/modules/ai-models/decision/decision-eval.ts"
+  - "apps/api/scripts/jev-eval.mjs"
   - "apps/api/src/modules/ai-models/ai-models.controller.ts"
   - "apps/api/src/modules/vision/vision-library.service.ts"
   - "packages/db/prisma/schema.prisma"
@@ -35,6 +43,8 @@ related_tests:
   - "apps/api/test/jev-decision-layer.test.ts"
   - "apps/api/test/jev-agent-router.test.ts"
   - "apps/api/test/jev-vision-gate.test.ts"
+  - "apps/api/test/jev-invariants.test.ts"
+  - "apps/api/test/jev-eval-harness.test.ts"
   - "apps/api/test/jev-decision-telemetry-integration.test.ts"
   - "tests/unit/sense-vision-client.test.ts"
 related_endpoints:
@@ -161,10 +171,8 @@ type DecisionOutcome<A> = StructuredDecision<A> & {
 };
 ```
 
-**Adapter Jev (supuesto — API real no documentada):**
-`POST {JEV_BASE_URL}/v1/decide` con `Authorization: Bearer {JEV_API_KEY}`,
-body `{ feature, allowedActions, input, model? }` → `{ action, confidence,
-reasonCode, model? }`. Si la API real difiere, solo cambia `jev.provider.ts`.
+**Adapter Jev:** ~~contrato supuesto `POST /v1/decide`~~ reemplazado en v1.2
+por la API real de TypeSafe AI — ver §9.8.
 
 ## 6. Datos
 
@@ -200,3 +208,135 @@ escribe cuando `SEMSE_JEV_ENABLED` y la feature están activos.
       `outcome` aislado por tenant.
 - [x] `sense-vision-client.test.ts`: `presentGate` (gate → UI) y compatibilidad
       con respuestas sin `gate`.
+
+---
+
+## 9. Wave 0 — cierre de la plataforma central (v1.1)
+
+**Aprobación:** handoff actualizado por el dueño del producto (mismo Google
+Doc, §33–60 "Jev Decision Layer — expansión a todo el ecosistema"). El §57 del
+propio handoff prohíbe empezar una wave nueva antes de cerrar la anterior con
+tests, **métricas de shadow** y fallback verificado; por eso esta versión
+cierra Wave 0 y **no** implementa Waves 1–5 (requieren datos de shadow de
+producción que solo existen tras una activación humana).
+
+### 9.1 Contrato central (§34)
+
+`DecisionRequest { feature, actor{tenantId,userId,roles}, context, candidates?,
+deterministicDecision, riskSignals?, correlationId?, inputClass? }` →
+`DecisionResult { action, confidence, reasonCode, source, provider, mode,
+shadowMode, fallbackReason?, deterministic, jev?, agreement?,
+invariantsViolated?, canary?, eventId?, latencyMs, model?, costUsd? }`.
+Un único `DecisionLayerService.decide()`; ningún módulo tiene adapter propio.
+La línea base determinista **no** se envía a Jev (el acuerdo en shadow solo
+significa algo si Jev decide de forma independiente).
+
+### 9.2 Modo, canary y circuit breaker (§52–53)
+
+- **Modo por feature** (`SEMSE_JEV_<FEATURE>_MODE`): `shadow` (default) o
+  `live` (`assist` es sinónimo para el router). En shadow el núcleo devuelve
+  siempre la decisión determinista y registra la de Jev. **Cambio respecto a
+  v1.0:** el Vision Gate ahora también arranca en shadow.
+- **Canary:** coincide por tenant, usuario, rol interno (p. ej. `OPS_ADMIN`)
+  o porcentaje estable (hash de feature+tenant+usuario). Sin configuración de
+  canary, todos (una vez encendidos los flags).
+- **Circuit breaker** por feature: tras `SEMSE_JEV_BREAKER_THRESHOLD` (5)
+  fallos de disponibilidad consecutivos, no se llama a Jev durante
+  `SEMSE_JEV_BREAKER_COOLDOWN_MS` (30 s) → `fallbackReason: "circuit_open"`;
+  luego una llamada de prueba (half-open). Respuestas inválidas no abren el
+  breaker.
+
+### 9.3 Registro de invariantes (§33, §54)
+
+`decision-invariants.ts`, aplicado por el núcleo a **toda** decisión de Jev
+(también en shadow, para medir intentos). El caller declara `riskSignals`;
+cada feature define un rango de `caution` por acción.
+
+| Invariante | Regla |
+|---|---|
+| `MONEY_NO_DOWNGRADE` | con `money`, Jev no puede bajar la cautela de la decisión determinista |
+| `PERMISSION_DENIAL_NO_DOWNGRADE` | ídem con `permissionDenied` |
+| `IDENTITY_FAILURE_NO_DOWNGRADE` | ídem con `identityFailure` |
+| `LEGAL_COMPLIANCE_NO_DOWNGRADE` | ídem con `legalCompliance` |
+| `SAFETY_CRITICAL_NO_DOWNGRADE` | ídem con `safetyCritical` |
+| `IRREVERSIBLE_REQUIRES_DETERMINISTIC_AUTH` | con `irreversible`, solo la decisión determinista puede quedar |
+| `LOW_CONFIDENCE_NOT_CERTAINTY` | con `lowConfidence`, Jev no puede elegir una acción de certeza (`ACCEPT_RESULT`) |
+| `PROVIDER_FAILURE_FALLS_BACK` | estructural: todo fallo del proveedor devuelve la decisión determinista |
+
+Un test por invariante en `jev-invariants.test.ts`. Pilotos: el router marca
+`money` en pedidos de liberar pagos (reemplaza la invariante ad-hoc de v1.0);
+el gate marca `lowConfidence` para todo estado que no sea `recognized`
+(**cambio:** Jev ya no puede aceptar un match `uncertain`).
+
+### 9.4 Telemetría (§55)
+
+Migración aditiva `20260924210000_jev_decision_event_wave0`: `provider`,
+`mode`, `canary`, `deterministicDecision`, `jevDecision`, `jevConfidence`,
+`jevReasonCode`, `agreement`, `invariantsViolated[]`, `inputClass`,
+`correlationId` (= requestId), `costUsd`, más índices `(feature, mode,
+agreement)` y `(correlationId)`. `decision/confidence/reasonCode` son ahora la
+decisión **final** devuelta; la de Jev va en `jev*`. Sigue sin guardarse el
+contexto crudo.
+
+### 9.5 Harness de evaluación (§56)
+
+`decision-eval.ts` + fixtures etiquetadas en `apps/api/test/fixtures/jev-eval/`
+(router: 22 casos; vision gate: 14) usando la línea base determinista real.
+Métricas: accuracy determinista / Jev / final, acuerdo, abstención, validez de
+schema, downgrades inseguros bloqueados, fallbacks por motivo, latencia
+p50/p95 y costo. `pnpm --filter @semse/api jev:eval` corre contra el Jev real
+(`JEV_BASE_URL`/`JEV_API_KEY`); `--mock baseline` hace un dry run. Línea base
+actual en las fixtures: router 0.864, vision gate 0.929.
+
+### 9.6 Criterios de activación (§58) — estado
+
+| Criterio (antes de canary) | Estado |
+|---|---|
+| fallback determinista / timeout / schema inválido / proveedor caído / baja confianza probados | ✅ tests |
+| invariantes con tests verdes | ✅ `jev-invariants.test.ts` |
+| telemetría persistente | ✅ Postgres real |
+| sin secretos filtrados | ✅ `JEV_API_KEY` solo server-side; sin contexto crudo |
+| flag independiente por feature + rollback simple | ✅ `SEMSE_JEV_ENABLED=false` apaga todo |
+| API real de Jev conectada | ✅ adapter `/v1/systemone` (v1.2) — ❌ sin probar en vivo: falta API key válida y el host está bloqueado por la política de red del entorno de desarrollo |
+| datos de shadow revisados | ❌ requiere activación en shadow (decisión humana) |
+
+### 9.7 Tests Wave 0
+
+- [x] `jev-decision-layer.test.ts` (modos, canary, breaker, telemetría completa)
+- [x] `jev-invariants.test.ts` (un test por invariante + integración con el núcleo)
+- [x] `jev-eval-harness.test.ts` (oráculo, adversario, fallos)
+- [x] `jev-agent-router.test.ts`, `jev-vision-gate.test.ts` actualizados
+- [x] `jev-decision-telemetry-integration.test.ts` (columnas nuevas en Postgres real)
+
+### 9.8 Adapter real: TypeSafe AI `/v1/systemone` (v1.2)
+
+Jev es el "System One model" de TypeSafe AI. Contrato (docs públicas de
+TypeSafe/terceros; el dominio no es accesible desde el entorno de desarrollo):
+
+```
+POST https://api.typesafe.ai/v1/systemone
+Authorization: Bearer <JEV_API_KEY>
+{ "state": <object>, "model": "jev-latest",
+  "questions": { "decision": { "type": "choice", "instructions": "...",
+                               "criteria": { "<ACTION>": "<descripción>", ... } } } }
+→ { "model": "jev-1.13.0",
+    "answers": { "decision": { "type": "choice", "choice": "<ACTION>",
+                               "probabilities": { "<ACTION>": p, ... }, "confidence": 0.82 } },
+    "usage": { "input_tokens": 312, "output_tokens": 48 } }
+```
+
+- Cada decisión = **una** pregunta `choice` cuyas opciones son exactamente las
+  acciones permitidas de la feature (`DECISION_FEATURES[f].question`), así el
+  espacio de respuesta de Jev es la allowlist por construcción.
+- `state` = `{ feature, context, candidates?, riskSignals? }` (sin baseline).
+- `confidence` de Jev → confianza; si falta, la probabilidad de la opción
+  elegida. `reasonCode` = `JEV_CHOICE` (Jev devuelve respuestas tipadas, no
+  razones).
+- `model` de la respuesta (versión resuelta) → telemetría; costo =
+  `usage.input_tokens × $0.042/M` (output gratis).
+- Errores `{"detail":{"error_type",...}}` (p. ej. 401 `authentication_error`)
+  → `provider_error` (cuenta para el circuit breaker); se registra solo el
+  `error_type`, nunca la key.
+- `JEV_BASE_URL` default `https://api.typesafe.ai`; `JEV_MODEL` default
+  `jev-latest` (se recomienda fijar versión, p. ej. `jev-1.13.0`, antes de live).
+

@@ -4812,22 +4812,37 @@ model VisionCorrection {
 // (autonomy-loop findings/proposals). Stores decision metadata only — never
 // the input context (messages, frames).
 model JevDecisionEvent {
-  id                String   @id @default(cuid())
-  tenantId          String
-  userId            String?
-  feature           String // agent_router | vision_gate
-  decision          String // what Jev (or the fallback) decided
-  confidence        Float
-  reasonCode        String
-  source            String // jev | deterministic
-  fallbackUsed      Boolean  @default(false)
-  fallbackReason    String?
-  latencyMs         Int
-  model             String?
-  finalSystemAction String
-  outcome           String? // user_corrected | user_saved | ...
-  createdAt         DateTime @default(now())
+  id                    String   @id @default(cuid())
+  tenantId              String
+  userId                String?
+  feature               String // agent_router | vision_gate
+  decision              String // what Jev (or the fallback) decided
+  confidence            Float
+  reasonCode            String
+  source                String // jev | deterministic
+  fallbackUsed          Boolean  @default(false)
+  fallbackReason        String?
+  latencyMs             Int
+  model                 String?
+  finalSystemAction     String
+  outcome               String? // user_corrected | user_saved | ...
+  // Wave 0 closure (handoff §52, §55): baseline vs. Jev vs. final, per mode/canary.
+  provider              String   @default("jev")
+  mode                  String   @default("shadow") // shadow | live
+  canary                String? // all | tenant | user | role | percent
+  deterministicDecision String?
+  jevDecision           String?
+  jevConfidence         Float?
+  jevReasonCode         String?
+  agreement             Boolean?
+  invariantsViolated    String[] @default([])
+  inputClass            String?
+  correlationId         String?
+  costUsd               Float?
+  createdAt             DateTime @default(now())
 
   @@index([tenantId, feature, createdAt])
   @@index([feature, source, createdAt])
+  @@index([feature, mode, agreement])
+  @@index([correlationId])
 }

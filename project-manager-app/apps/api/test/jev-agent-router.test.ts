@@ -5,7 +5,7 @@ import { PrometeoOrchestratorService } from "../dist/modules/ai-models/orchestra
 import { DecisionLayerService } from "../dist/modules/ai-models/decision/decision-layer.service.js";
 import { resolveDecisionLayerConfig } from "../dist/modules/ai-models/decision/decision-flags.js";
 import {
-  agentRouteInvariant,
+  agentRouteRiskSignals,
   deterministicAgentRoute,
   resolveChatIntent,
 } from "../dist/modules/ai-models/decision/agent-router.js";
@@ -29,11 +29,9 @@ test("deterministic router maps the existing keyword classifier to capabilities"
 test("money movement is escalated to the governed flow and Jev cannot downgrade it", () => {
   const fallback = routeOf("quiero liberar el pago del hito 2");
   assert.deepEqual(fallback, { action: "ESCALATE", confidence: 1, reasonCode: "MONEY_MOVEMENT_REQUIRES_GOVERNED_FLOW" });
-  const invariant = agentRouteInvariant(fallback);
-  assert.equal(invariant({ action: "PROMETEO", confidence: 0.99, reasonCode: "X_Y" }), false);
-  assert.equal(invariant({ action: "ESCALATE", confidence: 0.99, reasonCode: "X_Y" }), true);
-  // Non-money routes accept any valid capability.
-  assert.equal(agentRouteInvariant(routeOf("hazme un estimado"))({ action: "VISION", confidence: 0.9, reasonCode: "X_Y" }), true);
+  // The money signal feeds MONEY_NO_DOWNGRADE in the central invariant registry.
+  assert.deepEqual(agentRouteRiskSignals("quiero liberar el pago del hito 2"), { money: true });
+  assert.deepEqual(agentRouteRiskSignals("hazme un estimado"), {});
 });
 
 test("shadow mode never changes the chat intent; assist only fills 'unknown'", () => {
@@ -86,10 +84,13 @@ test("POST /v1/ai-models/agent-route: Jev decision is returned and recorded with
 });
 
 test("POST /v1/ai-models/agent-route: Jev can't route a payment release away from ESCALATE", async () => {
-  const { controller } = controllerWith(ON, { action: "PROMETEO", confidence: 0.99, reasonCode: "JUST_CHAT" });
+  const { controller } = controllerWith({ ...ON, SEMSE_JEV_AGENT_ROUTER_MODE: "assist" }, { action: "PROMETEO", confidence: 0.99, reasonCode: "JUST_CHAT" });
   const res: any = await controller.routeRequest(req, { message: "libera el escrow, quiero liberar el pago ya" });
   assert.equal(res.data.action, "ESCALATE");
   assert.equal(res.data.fallbackReason, "invariant_violation");
+  const shadow = controllerWith(ON, { action: "PROMETEO", confidence: 0.99, reasonCode: "JUST_CHAT" });
+  await shadow.controller.routeRequest(req, { message: "quiero liberar el pago del hito" });
+  assert.deepEqual(shadow.events[0].invariantsViolated, ["MONEY_NO_DOWNGRADE"], "blocked even in shadow, and recorded");
 });
 
 test("POST /v1/ai-models/agent-route validates the message", async () => {
@@ -104,7 +105,10 @@ test("shadow mode is log-only: clients get the deterministic capability, telemet
   assert.equal(res.data.action, "ESTIMATE");
   assert.equal(res.data.source, "deterministic");
   assert.equal(res.data.decisionEventId, "evt_1");
-  assert.equal(events[0].decision, "BUILDOPS");
-  assert.equal(events[0].source, "jev");
+  assert.equal(events[0].jevDecision, "BUILDOPS");
+  assert.equal(events[0].decision, "ESTIMATE");
+  assert.equal(events[0].mode, "shadow");
+  assert.equal(events[0].agreement, false);
+  assert.equal(events[0].inputClass, "intent:estimate_generation");
   assert.equal(events[0].finalSystemAction, "chat_intent:estimate_generation");
 });

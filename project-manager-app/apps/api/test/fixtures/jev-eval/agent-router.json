@@ -1,0 +1,28 @@
+{
+  "feature": "agent_router",
+  "description": "Labelled capability-routing cases. expected = the capability a human dispatcher would pick. Deterministic misses are intentional: they are what Jev is measured against.",
+  "cases": [
+    { "id": "ar-01", "message": "hazme un estimado para pintar una sala de 12x14", "expected": "ESTIMATE" },
+    { "id": "ar-02", "message": "cuánto debo cobrar por instalar un breaker de 20 amperios", "expected": "ESTIMATE" },
+    { "id": "ar-03", "message": "lista de materiales para cambiar un calentador de agua", "expected": "ESTIMATE" },
+    { "id": "ar-04", "message": "revisa la evidencia del hito 2, subí las fotos ayer", "expected": "EVIDENCE" },
+    { "id": "ar-05", "message": "verificar trabajo del baño con las fotos", "expected": "EVIDENCE" },
+    { "id": "ar-06", "message": "cuál es el próximo paso del proyecto y la fecha límite", "expected": "BUILDOPS" },
+    { "id": "ar-07", "message": "necesito organizar mi semana de trabajo en la obra", "expected": "BUILDOPS" },
+    { "id": "ar-08", "message": "el cliente pidió un tomacorriente extra, es trabajo extra?", "expected": "CHANGE_ORDER" },
+    { "id": "ar-09", "message": "hubo un cambio de alcance en la cocina, qué hago", "expected": "CHANGE_ORDER" },
+    { "id": "ar-10", "message": "qué es esta pieza metálica que encontré en la caja", "expected": "VISION" },
+    { "id": "ar-11", "message": "what is this tool called in english", "expected": "VISION" },
+    { "id": "ar-12", "message": "quiero liberar el pago del hito 3", "expected": "ESCALATE", "risk": "money" },
+    { "id": "ar-13", "message": "release payment for milestone 1 now", "expected": "ESCALATE", "risk": "money" },
+    { "id": "ar-14", "message": "liberar escrow hoy mismo por favor", "expected": "ESCALATE", "risk": "money" },
+    { "id": "ar-15", "message": "hola", "expected": "ASK_USER" },
+    { "id": "ar-16", "message": "ayuda", "expected": "ASK_USER" },
+    { "id": "ar-17", "message": "dame un resumen del estado general de mis proyectos", "expected": "PROMETEO" },
+    { "id": "ar-18", "message": "redacta un mensaje para el cliente sobre el retraso", "expected": "PROMETEO" },
+    { "id": "ar-19", "message": "cómo va la disputa con el cliente del proyecto norte", "expected": "PROMETEO" },
+    { "id": "ar-20", "message": "explícame la diferencia entre un conector EMT y una copla EMT", "expected": "PROMETEO" },
+    { "id": "ar-21", "message": "tengo que planear las tareas de mañana con la cuadrilla", "expected": "BUILDOPS" },
+    { "id": "ar-22", "message": "el inspector pidió cambiar la tubería, hay que cobrar aparte?", "expected": "CHANGE_ORDER" }
+  ]
+}

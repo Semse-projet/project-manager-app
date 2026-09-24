@@ -46,8 +46,9 @@ export class VisionLibraryController {
     }
     const actor = resolveRequestContext(req);
     const result = await this.service.recognize(validation.value, {
-      actor: { tenantId: actor.tenantId, userId: actor.userId },
+      actor: { tenantId: actor.tenantId, userId: actor.userId, roles: actor.roles },
       trade: raw.trade,
+      correlationId: requestId,
     });
     return ok(requestId, result);
   }
