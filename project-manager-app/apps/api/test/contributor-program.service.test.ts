@@ -347,7 +347,15 @@ dbTest("reward creation is idempotent per submission", async () => {
   }
 });
 
-async function createRewardFixture(fixture: Awaited<ReturnType<typeof createFixture>>, repository: ContributorProgramRepository, amountCents = 1000) {
+// isDemo defaults to false: payouts are only meant for real missions, and
+// authorizePayout now refuses demo ones outright (docs/specs/core/
+// knowledge-contributor-demo-mission-guards.spec.md P3).
+async function createRewardFixture(
+  fixture: Awaited<ReturnType<typeof createFixture>>,
+  repository: ContributorProgramRepository,
+  amountCents = 1000,
+  options: { isDemo?: boolean } = {}
+) {
   const mission = await repository.createMission({
     tenantId: fixture.tenantId,
     createdByUserId: fixture.adminUserId,
@@ -361,7 +369,7 @@ async function createRewardFixture(fixture: Awaited<ReturnType<typeof createFixt
     acceptanceCriteria: ["crit"],
     baseCompensationCents: amountCents,
     currency: "USD",
-    isDemo: true,
+    isDemo: options.isDemo ?? false,
   });
   const acceptance = await repository.createAcceptance({
     tenantId: fixture.tenantId,
@@ -515,6 +523,125 @@ dbTest("reconcileReversedTransfer is a safe no-op for a transferId that isn't a 
 
     const result = await service.reconcileReversedTransfer("tr_not_a_reward_transfer");
     assert.equal(result.reconciled, false);
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// ── Demo mission guards (docs/specs/core/knowledge-contributor-demo-mission-guards.spec.md) ──
+// acceptMission has refused demo missions since PR-2, but acceptances created
+// before that guard existed still flow through the rest of the pipeline.
+// These tests build such an acceptance directly through the repository — the
+// only way one can exist now — and check every later step refuses it.
+
+function isDemoError(code: string) {
+  return (error: unknown) => {
+    assert.equal((error as { getResponse?: () => { code?: string } }).getResponse?.().code, code);
+    return true;
+  };
+}
+
+// T (P1): a pre-existing demo acceptance can't be turned into a new submission.
+dbTest("creating a submission on a demo-mission acceptance is rejected", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+    const { acceptance, submission } = await createRewardFixture(fixture, repository, 500, { isDemo: true });
+
+    await assert.rejects(
+      () =>
+        service.createSubmission(
+          { tenantId: fixture.tenantId, orgId: fixture.orgId, userId: fixture.contributorUserId, roles: ["WORKER"], requestId: "req-1" },
+          acceptance.id
+        ),
+      isDemoError("CONTRIBUTOR_PROGRAM_MISSION_IS_DEMO")
+    );
+
+    const submissions = await prisma.knowledgeSubmission.findMany({ where: { acceptanceId: acceptance.id } });
+    assert.deepEqual(
+      submissions.map((row) => row.id),
+      [submission.id],
+      "no submission beyond the fixture's own must be created for a demo acceptance"
+    );
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T (P2): approving a demo submission records the review but never creates a reward.
+dbTest("approving a demo-mission submission never creates a reward", async () => {
+  const fixture = await createFixture();
+  try {
+    const { service, repository } = makeService();
+    const mission = await repository.createMission({
+      tenantId: fixture.tenantId,
+      createdByUserId: fixture.adminUserId,
+      title: "Documentar un offset EMT (demo)",
+      trade: "electrician",
+      category: "conduit_bending",
+      description: "test",
+      difficulty: "intermediate",
+      requirements: ["req"],
+      evidenceRequested: ["ev"],
+      acceptanceCriteria: ["crit"],
+      baseCompensationCents: 500,
+      currency: "USD",
+      isDemo: true,
+    });
+    const acceptance = await repository.createAcceptance({
+      tenantId: fixture.tenantId,
+      missionId: mission.id,
+      userId: fixture.contributorUserId,
+      missionVersionSnapshot: 1,
+      compensationCentsSnapshot: 500,
+      currencySnapshot: "USD",
+    });
+    const submission = await repository.createSubmission({
+      tenantId: fixture.tenantId,
+      acceptanceId: acceptance.id,
+      missionId: mission.id,
+      userId: fixture.contributorUserId,
+    });
+    await repository.updateSubmissionStatus(submission.id, "SUBMITTED");
+
+    const review = await service.reviewSubmission(
+      { tenantId: fixture.tenantId, orgId: fixture.orgId, userId: fixture.adminUserId, roles: ["OPS_ADMIN"], requestId: "req-admin" },
+      submission.id,
+      { decision: "APPROVED", reason: "Buen ejemplo" }
+    );
+    assert.equal(review.decision, "APPROVED");
+
+    const reward = await prisma.contributorReward.findUnique({ where: { submissionId: submission.id } });
+    assert.equal(reward, null, "a demo mission must never produce a reward row");
+
+    const after = await prisma.knowledgeSubmission.findUnique({ where: { id: submission.id } });
+    assert.equal(after?.status, "APPROVED", "a demo submission must not advance to PAYMENT_PENDING");
+  } finally {
+    await cleanupFixture(fixture);
+  }
+});
+
+// T (P3): a reward that already exists for a demo mission is never paid out.
+dbTest("authorizing payout for a demo-mission reward is refused and never calls the provider", async () => {
+  const fixture = await createFixture();
+  try {
+    const stripeConnect = makeFakeStripeConnect("tr_test_demo");
+    const { service, repository } = makeService({ stripeConnect });
+    const { reward } = await createRewardFixture(fixture, repository, 500, { isDemo: true });
+
+    await assert.rejects(
+      () =>
+        service.authorizePayout(
+          { tenantId: fixture.tenantId, orgId: fixture.orgId, userId: fixture.adminUserId, roles: ["OPS_ADMIN"], requestId: "req-admin" },
+          reward.id
+        ),
+      isDemoError("CONTRIBUTOR_PROGRAM_REWARD_NOT_PAYABLE")
+    );
+
+    assert.equal(stripeConnect.calls, 0, "a demo reward must never reach the payment provider");
+    const after = await prisma.contributorReward.findUnique({ where: { id: reward.id } });
+    assert.equal(after?.status, "PENDING_REVIEW", "a refused demo reward must not be claimed or change status");
+    assert.equal(after?.transferId, null);
   } finally {
     await cleanupFixture(fixture);
   }
