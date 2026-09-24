@@ -863,9 +863,11 @@ export class ContributorProgramService {
 
   // Driven by apps/worker (same pattern as sweepExpiredLiveSessions /
   // POST .../sweep-expired) on an interval, kill-switch gated. Never
-  // fabricates a transcript: with no ASR provider configured — the only
-  // state possible today, see transcription-provider.ts — every claimed row
-  // ends FAILED with an honest reason, exactly as the spec (§2/§11) requires.
+  // fabricates a transcript: resolveTranscriptionProvider() (see
+  // transcription-provider.ts) returns null unless SEMSE_ASR_PROVIDER is
+  // explicitly set (PR-11 wired a real OpenAI Whisper provider behind that
+  // opt-in), so every claimed row ends FAILED with an honest reason until a
+  // human deliberately activates it — exactly what the spec (§2/§11) requires.
   async processPendingExtractions(ctx: Ctx, maxItems: number, options?: { tenantId?: string }) {
     assertIsOpsAdmin(ctx);
     let processed = 0;
@@ -879,7 +881,7 @@ export class ContributorProgramService {
 
       let provider;
       try {
-        provider = resolveTranscriptionProvider();
+        provider = resolveTranscriptionProvider(this.storage);
       } catch (error) {
         await this.failClaimedExtraction(ctx, claimed, error instanceof Error ? error.message : String(error));
         failed += 1;
