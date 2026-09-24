@@ -181,15 +181,16 @@ dbTest("claimNextPendingTranscriptionExtraction is idempotent under a concurrent
   }
 });
 
-// T: with no ASR provider configured (the only state possible today per
-// docs/specs/core/knowledge-contributor-transcript-observation.spec.md §11),
-// the worker pipeline must move a PENDING extraction to FAILED with an
-// honest, specific reason — never leave it silently PENDING forever, and
+// T: with no ASR provider configured (SEMSE_ASR_PROVIDER unset — the
+// default; PR-11, docs/specs/core/knowledge-contributor-asr-openai-whisper.spec.md,
+// wired a real provider behind that explicit opt-in), the worker pipeline
+// must move a PENDING extraction to FAILED with an honest, specific reason
+// — never leave it silently PENDING forever, and
 // never fabricate a transcript.
 dbTest("processPendingExtractions honestly fails a PENDING row when no ASR provider is configured", async () => {
   const fixture = await createFixture();
-  const previousProviderUrl = process.env.SEMSE_ASR_PROVIDER_URL;
-  delete process.env.SEMSE_ASR_PROVIDER_URL;
+  const previousProvider = process.env.SEMSE_ASR_PROVIDER;
+  delete process.env.SEMSE_ASR_PROVIDER;
   try {
     const { service, repository } = makeService();
     const extraction = await repository.createExtraction({
@@ -213,8 +214,8 @@ dbTest("processPendingExtractions honestly fails a PENDING row when no ASR provi
     assert.equal(reloaded?.status, "FAILED");
     assert.equal((reloaded?.dataJson as { failureReason?: string } | null)?.failureReason, "ASR_PROVIDER_NOT_CONFIGURED");
   } finally {
-    if (previousProviderUrl === undefined) delete process.env.SEMSE_ASR_PROVIDER_URL;
-    else process.env.SEMSE_ASR_PROVIDER_URL = previousProviderUrl;
+    if (previousProvider === undefined) delete process.env.SEMSE_ASR_PROVIDER;
+    else process.env.SEMSE_ASR_PROVIDER = previousProvider;
     await cleanupFixture(fixture);
   }
 });
