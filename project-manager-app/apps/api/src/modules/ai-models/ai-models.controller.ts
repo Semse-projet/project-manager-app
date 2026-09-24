@@ -25,6 +25,7 @@ import type { AiGenerateRequest } from "./dto/ai-generate-request.dto.js";
 import { OperationalContextService, type SemseOperationalContext } from "./context/operational-context.service.js";
 import {
   PrometeoOrchestratorService,
+  type PrometeoIntentType,
   type PrometeoRoute,
 } from "./orchestrator/prometeo-orchestrator.service.js";
 import { BudgetIntelligenceService } from "../intelligence/budget-intelligence.service.js";
@@ -33,6 +34,14 @@ import { SkillMatcherService } from "../skills/skill-matcher.service.js";
 import { buildMemoryContextBlock } from "../skills/context-fencing.js";
 import { PrometeoToolExecutionService } from "../prometeo/prometeo-tool-execution.service.js";
 import { findPrometeoToolDescriptor } from "../prometeo/prometeo-tool-registry.js";
+import { DecisionLayerService } from "./decision/decision-layer.service.js";
+import type { AgentRouteAction, DecisionOutcome } from "./decision/decision.types.js";
+import {
+  agentRouteInvariant,
+  buildAgentRouterInput,
+  deterministicAgentRoute,
+  resolveChatIntent,
+} from "./decision/agent-router.js";
 
 type PrometeoChatMode = "runtime" | "report" | "context_only" | "fallback";
 
@@ -62,7 +71,92 @@ export class AiModelsController {
     private readonly budgetIntelligence: BudgetIntelligenceService,
     private readonly skillMatcher: SkillMatcherService,
     @Optional() private readonly prometeoTools?: PrometeoToolExecutionService,
+    // Jev Decision Layer (spec: prometeo/jev-decision-layer). Optional and
+    // flag-gated: absent or disabled, routing is exactly the keyword router.
+    @Optional() private readonly decisionLayer?: DecisionLayerService,
   ) {}
+
+  /**
+   * Agent Router pilot. The keyword classifier stays the source of truth;
+   * Jev's decision is recorded (shadow) or may only fill an `unknown`
+   * intent (assist). ESCALATE / ASK_USER / CHANGE_ORDER / VISION are hints
+   * for the client — nothing is executed from here.
+   */
+  private async routeAgentRequest(input: {
+    actor: RequestContext;
+    message: string;
+    pageRoute?: string;
+    attachmentCount?: number;
+    trade?: string;
+  }): Promise<{ intent: PrometeoIntentType; deterministicIntent: PrometeoIntentType; decision: DecisionOutcome<AgentRouteAction> }> {
+    const deterministicIntent = this.prometeoOrchestrator.classifyIntent(input.message);
+    const fallback = deterministicAgentRoute(deterministicIntent, input.message);
+    if (!this.decisionLayer) {
+      return {
+        intent: deterministicIntent,
+        deterministicIntent,
+        decision: { ...fallback, source: "deterministic", fallbackReason: "disabled", latencyMs: 0 },
+      };
+    }
+    const mode = this.decisionLayer.agentRouterMode;
+    const decision = await this.decisionLayer.decide({
+      feature: "agent_router",
+      tenantId: input.actor.tenantId,
+      userId: input.actor.userId,
+      input: buildAgentRouterInput({
+        message: input.message,
+        deterministicIntent,
+        role: input.actor.roles[0],
+        pageRoute: input.pageRoute,
+        attachmentCount: input.attachmentCount,
+        trade: input.trade,
+      }),
+      fallback,
+      isValid: agentRouteInvariant(fallback),
+      finalSystemAction: (outcome) => `chat_intent:${resolveChatIntent({ deterministicIntent, decision: outcome, mode })}`,
+    });
+    const intent = resolveChatIntent({ deterministicIntent, decision, mode });
+    // Shadow mode is log-only end to end: clients get the deterministic
+    // capability, and Jev's proposal lives only in JevDecisionEvent.
+    if (mode === "shadow" && decision.source === "jev") {
+      return {
+        intent,
+        deterministicIntent,
+        decision: { ...fallback, source: "deterministic", latencyMs: decision.latencyMs, eventId: decision.eventId },
+      };
+    }
+    return { intent, deterministicIntent, decision };
+  }
+
+  // Capability routing (which SEMSE capability handles a request). Distinct
+  // from POST /route below, which selects the *model* via AiModelRouterService.
+  @Post("agent-route")
+  @RequirePermissions("agents:run:create")
+  async routeRequest(@Req() req: { headers?: Record<string, unknown> }, @Body() body: unknown) {
+    const actor = resolveRequestContext(req);
+    const rid = resolveRequestId(req.headers ?? {});
+    const raw = (body ?? {}) as Record<string, unknown>;
+    const message = typeof raw.message === "string" ? raw.message.trim() : "";
+    if (!message || message.length > 4000) {
+      throw new BadRequestException({ message: "message is required (1-4000 chars)" });
+    }
+    const routed = await this.routeAgentRequest({
+      actor,
+      message,
+      pageRoute: typeof raw.pageRoute === "string" ? raw.pageRoute.slice(0, 200) : undefined,
+      attachmentCount: typeof raw.attachmentCount === "number" ? Math.max(0, Math.floor(raw.attachmentCount)) : undefined,
+      trade: typeof raw.trade === "string" ? raw.trade.slice(0, 40) : undefined,
+    });
+    return ok(rid, {
+      action: routed.decision.action,
+      confidence: routed.decision.confidence,
+      reasonCode: routed.decision.reasonCode,
+      source: routed.decision.source,
+      fallbackReason: routed.decision.fallbackReason ?? null,
+      deterministicIntent: routed.deterministicIntent,
+      decisionEventId: routed.decision.eventId ?? null,
+    });
+  }
 
   @Get("registry")
   @RequirePermissions("agents:run:create")
@@ -233,7 +327,13 @@ export class AiModelsController {
       role: actor.roles[0] ?? "CLIENT",
       projectId,
     });
-    const intent = this.prometeoOrchestrator.classifyIntent(message);
+    const routed = await this.routeAgentRequest({
+      actor,
+      message,
+      pageRoute: runtimeRequest.pageContext?.route,
+      attachmentCount: runtimeRequest.attachments.length,
+    });
+    const intent = routed.intent;
     const route = this.prometeoOrchestrator.routeToAgent(intent, agentId);
     const taskType = this.prometeoOrchestrator.mapIntentToTaskType(intent);
     const executionResults = await this.resolvePrometeoReadToolExecution(actor, rid, runtimeRequest);
@@ -375,7 +475,7 @@ export class AiModelsController {
     const response = await this.gateway.generate(request);
     await this.logger.logInteraction(request, response);
 
-    return ok(rid, this.buildPrometeoChatEnvelope({
+    const envelope = this.buildPrometeoChatEnvelope({
       threadId,
       agentId,
       provider: response.provider,
@@ -388,7 +488,19 @@ export class AiModelsController {
       runtimeRequest,
       executionResults,
       errorMessage: response.errorMessage,
-    }));
+    });
+    // Additive routing hint (Agent Router pilot). Clients may offer the
+    // suggested capability (e.g. open Sense Vision); nothing runs from here.
+    return ok(rid, {
+      ...envelope,
+      routing: {
+        action: routed.decision.action,
+        confidence: routed.decision.confidence,
+        reasonCode: routed.decision.reasonCode,
+        source: routed.decision.source,
+        deterministicIntent: routed.deterministicIntent,
+      },
+    });
   }
 
   private async resolvePrometeoReadToolExecution(
