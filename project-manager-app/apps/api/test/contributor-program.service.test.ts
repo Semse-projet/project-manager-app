@@ -32,6 +32,14 @@ const fakePrometeo = {
     throw new Error("fakePrometeo.deleteDocument should not be called from this test file");
   }
 };
+// PR-12: not exercised by this file's tests (no processPendingExtractions
+// calls here) — present only so ContributorProgramService's constructor is
+// satisfied.
+const fakeAiGateway = {
+  async generate() {
+    throw new Error("fakeAiGateway.generate should not be called from this test file");
+  }
+};
 
 function makeService(overrides?: { stripeConnect?: unknown }) {
   const repository = new ContributorProgramRepository(prisma as never);
@@ -41,6 +49,7 @@ function makeService(overrides?: { stripeConnect?: unknown }) {
       fakeAudit as never,
       fakeStorage as never,
       fakePrometeo as never,
+      fakeAiGateway as never,
       undefined,
       overrides?.stripeConnect as never
     ),
