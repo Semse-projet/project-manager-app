@@ -4803,3 +4803,31 @@ model VisionCorrection {
   @@index([tenantId, createdAt])
   @@index([predictedLibraryItemId])
 }
+
+// ── Jev Decision Layer (spec: docs/specs/prometeo/jev-decision-layer.spec.md)
+
+// One row per decision taken while a Jev pilot flag is on, so "Jev decision
+// vs. final system action vs. outcome" can be compared. Not AiInteractionLog
+// (model-call log, no decision/final-action fields) and not AgentDecision
+// (autonomy-loop findings/proposals). Stores decision metadata only — never
+// the input context (messages, frames).
+model JevDecisionEvent {
+  id                String   @id @default(cuid())
+  tenantId          String
+  userId            String?
+  feature           String // agent_router | vision_gate
+  decision          String // what Jev (or the fallback) decided
+  confidence        Float
+  reasonCode        String
+  source            String // jev | deterministic
+  fallbackUsed      Boolean  @default(false)
+  fallbackReason    String?
+  latencyMs         Int
+  model             String?
+  finalSystemAction String
+  outcome           String? // user_corrected | user_saved | ...
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId, feature, createdAt])
+  @@index([feature, source, createdAt])
+}
