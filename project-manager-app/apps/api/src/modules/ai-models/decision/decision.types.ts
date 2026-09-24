@@ -48,6 +48,8 @@ export type FeaturePolicy<A extends string> = {
   actions: readonly A[];
   caution: Record<A, number>;
   certaintyActions: readonly A[];
+  /** The Jev `choice` question: instructions + one criterion per allowed action. */
+  question: { instructions: string; criteria: Record<A, string> };
 };
 
 /**
@@ -70,6 +72,21 @@ export const DECISION_FEATURES = {
       ESCALATE: 2,
     },
     certaintyActions: [],
+    question: {
+      instructions:
+        "Which SEMSE capability should handle this request from a construction professional or client? " +
+        "Pick exactly one option based on the message.",
+      criteria: {
+        PROMETEO: "General question, explanation, summary, project or dispute status, or a message to draft; answered conversationally by the assistant.",
+        ESTIMATE: "Cost estimate, pricing, labor rate or list of materials for a job.",
+        BUILDOPS: "Scheduling, planning tasks, next steps, deadlines or organizing the crew.",
+        EVIDENCE: "Reviewing photos, documents or proof of completed work.",
+        CHANGE_ORDER: "Extra work, scope change or additional cost versus what was agreed for the job.",
+        VISION: "Identifying what a tool, part or material is, or what it is called.",
+        ASK_USER: "Too short or vague to route; the user must clarify first.",
+        ESCALATE: "Moving money (releasing a payment or escrow), or a legal, safety or permission-sensitive request that needs a governed human flow.",
+      },
+    },
   } satisfies FeaturePolicy<AgentRouteAction>,
   vision_gate: {
     actions: VISION_GATE_ACTIONS,
@@ -82,6 +99,19 @@ export const DECISION_FEATURES = {
       ESCALATE_MODEL: 2,
     },
     certaintyActions: ["ACCEPT_RESULT"],
+    question: {
+      instructions:
+        "A construction object recognizer produced this result, already matched against the construction library. " +
+        "What should the camera screen do next? Pick exactly one option.",
+      criteria: {
+        ACCEPT_RESULT: "The top match is clearly correct and specific enough; show it as the answer.",
+        SHOW_ALTERNATIVES: "The top match is plausible but similar items compete; show it together with the alternatives.",
+        RETRY_SCAN: "The result is too weak or ambiguous to act on; ask the user to rescan closer or with better light.",
+        ASK_USER: "There is one plausible match and no alternatives; ask the user to confirm it.",
+        ESCALATE_MODEL: "The recognizer output was malformed or unusable; a stronger model is needed.",
+        UNKNOWN: "The object is not in the library or recognition is unavailable.",
+      },
+    },
   } satisfies FeaturePolicy<VisionGateAction>,
 } as const;
 

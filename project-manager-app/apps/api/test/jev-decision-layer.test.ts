@@ -9,6 +9,7 @@ import { DecisionCircuitBreaker } from "../dist/modules/ai-models/decision/decis
 import {
   DecisionProviderError,
   JevHttpProvider,
+  mapSystemOneResponse,
   parseProviderDecision,
 } from "../dist/modules/ai-models/decision/jev.provider.js";
 
@@ -280,23 +281,64 @@ test("parseProviderDecision accepts only the strict contract", () => {
   assert.equal(parseProviderDecision({ action: "A", confidence: 0.5, reasonCode: "ok" }, ["A"]), null);
 });
 
-test("JevHttpProvider: unconfigured, bearer auth, model@version, cost, timeout and HTTP errors", async () => {
+test("JevHttpProvider speaks TypeSafe /v1/systemone: one choice question over the allowed actions", async () => {
   await assert.rejects(
     new JevHttpProvider({ baseUrl: null, apiKey: null, model: null, timeoutMs: 100 }).decide({ feature: "agent_router", allowedActions: [], input: {} }),
     (e: any) => e.kind === "unavailable",
   );
 
   let seen: any;
-  const ok = new JevHttpProvider({ baseUrl: "https://jev.test", apiKey: "k", model: "jev-1", timeoutMs: 500 }, (async (url: string, init: any) => {
+  const provider = new JevHttpProvider({ baseUrl: null, apiKey: "k", model: null, timeoutMs: 500 }, (async (url: string, init: any) => {
     seen = { url, init };
-    return new Response(JSON.stringify({ action: "ESTIMATE", confidence: 0.9, reasonCode: "X_Y", version: "2026.09", costUsd: 0.0001 }), { status: 200 });
+    return new Response(
+      JSON.stringify({
+        model: "jev-1.13.0",
+        answers: {
+          decision: { type: "choice", choice: "ESTIMATE", probabilities: { ESTIMATE: 0.85, PROMETEO: 0.1, ESCALATE: 0.05 }, confidence: 0.82 },
+        },
+        usage: { input_tokens: 312, output_tokens: 48 },
+      }),
+      { status: 200 },
+    );
   }) as any);
-  const result = await ok.decide({ feature: "agent_router", allowedActions: ["ESTIMATE"], input: { message: "m" } });
-  assert.equal(seen.url, "https://jev.test/v1/decide");
+  const result = await provider.decide({
+    feature: "agent_router",
+    allowedActions: ["PROMETEO", "ESTIMATE", "ESCALATE"],
+    question: { instructions: "Which capability?", criteria: { PROMETEO: "chat", ESTIMATE: "pricing", ESCALATE: "money", EXTRA: "ignored" } },
+    input: { message: "cuánto cobro" },
+    candidates: ["x"],
+    riskSignals: { money: false },
+  });
+  assert.equal(seen.url, "https://api.typesafe.ai/v1/systemone", "defaults to the TypeSafe base URL");
   assert.equal(seen.init.headers.authorization, "Bearer k");
-  assert.deepEqual(JSON.parse(seen.init.body), { feature: "agent_router", allowedActions: ["ESTIMATE"], input: { message: "m" }, model: "jev-1" });
-  assert.equal(result.model, "jev-1@2026.09");
-  assert.equal(result.costUsd, 0.0001);
+  const body = JSON.parse(seen.init.body);
+  assert.equal(body.model, "jev-latest");
+  assert.deepEqual(body.state, { feature: "agent_router", context: { message: "cuánto cobro" }, candidates: ["x"], riskSignals: { money: false } });
+  assert.deepEqual(body.questions, {
+    decision: { type: "choice", instructions: "Which capability?", criteria: { PROMETEO: "chat", ESTIMATE: "pricing", ESCALATE: "money" } },
+  }, "only allowed actions are offered as options");
+  assert.deepEqual(result.raw, { action: "ESTIMATE", confidence: 0.82, reasonCode: "JEV_CHOICE" });
+  assert.equal(result.model, "jev-1.13.0");
+  assert.equal(result.costUsd, 312 * 0.042 / 1_000_000);
+});
+
+test("mapSystemOneResponse: confidence fallback and malformed answers", () => {
+  assert.deepEqual(
+    mapSystemOneResponse({ answers: { decision: { type: "choice", choice: "A", probabilities: { A: 0.7, B: 0.3 } } } }),
+    { action: "A", confidence: 0.7, reasonCode: "JEV_CHOICE" },
+  );
+  for (const body of [null, {}, { answers: {} }, { answers: { decision: { type: "noul", value: 0.9 } } }, { answers: { decision: { type: "choice" } } }, { answers: { decision: { type: "choice", choice: "A" } } }]) {
+    assert.equal(mapSystemOneResponse(body), null, JSON.stringify(body));
+  }
+});
+
+test("JevHttpProvider: auth error, timeout and HTTP errors map to fallback kinds", async () => {
+  const unauthorized = new JevHttpProvider({ baseUrl: "https://api.typesafe.ai", apiKey: "bad", model: null, timeoutMs: 500 }, (async () =>
+    new Response(JSON.stringify({ detail: { error_type: "authentication_error", message: "Cannot authenticate with the server." } }), { status: 401 })) as any);
+  await assert.rejects(
+    unauthorized.decide({ feature: "agent_router", allowedActions: [], input: {} }),
+    (e: any) => e.kind === "provider_error" && /401 \(authentication_error\)/.test(e.message) && !/bad/.test(e.message),
+  );
 
   const slow = new JevHttpProvider({ baseUrl: "https://jev.test", apiKey: "k", model: null, timeoutMs: 50 }, ((_url: string, init: any) =>
     new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))))) as any);
@@ -306,6 +348,15 @@ test("JevHttpProvider: unconfigured, bearer auth, model@version, cost, timeout a
     const failing = new JevHttpProvider({ baseUrl: "https://jev.test", apiKey: "k", model: null, timeoutMs: 500 }, (async () => new Response("x", { status })) as any);
     await assert.rejects(failing.decide({ feature: "agent_router", allowedActions: [], input: {} }), (e: any) => e.kind === kind);
   }
+});
+
+test("a malformed /v1/systemone body falls back as invalid_response end to end", async () => {
+  const provider = new JevHttpProvider({ baseUrl: null, apiKey: "k", model: null, timeoutMs: 500 }, (async () =>
+    new Response(JSON.stringify({ model: "jev-1.13.0", answers: { decision: { type: "choice", choice: "RELEASE_ESCROW", confidence: 0.99 } } }), { status: 200 })) as any);
+  const service = new DecisionLayerService(provider, { async record() { return null; }, async recordOutcome() {} } as any, () => resolveDecisionLayerConfig(LIVE));
+  const outcome = await decideRouter(service);
+  assert.equal(outcome.fallbackReason, "invalid_response", "a choice outside the allowlist is rejected");
+  assert.equal(outcome.action, "PROMETEO");
 });
 
 test("the decision layer has no path to sensitive execution (no payments/escrow/evidence/auth imports)", () => {

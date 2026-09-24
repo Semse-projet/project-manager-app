@@ -150,6 +150,7 @@ export class DecisionLayerService {
         const { raw, model, costUsd } = await this.provider.decide({
           feature,
           allowedActions,
+          question: DECISION_FEATURES[feature].question as { instructions: string; criteria: Record<string, string> },
           input: request.context,
           candidates: request.candidates,
           riskSignals: request.riskSignals as Record<string, boolean> | undefined,

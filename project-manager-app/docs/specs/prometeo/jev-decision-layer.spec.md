@@ -3,7 +3,7 @@ id: "prometeo.jev-decision-layer"
 title: "Jev Decision Layer — piloto: Agent Router + Sense Vision Decision Gate"
 domain: "prometeo"
 sdd_version: "2.0"
-version: "1.1"
+version: "1.2"
 status: "APPROVED"
 owner: "semse-core"
 risk: "medium"
@@ -171,10 +171,8 @@ type DecisionOutcome<A> = StructuredDecision<A> & {
 };
 ```
 
-**Adapter Jev (supuesto — API real no documentada):**
-`POST {JEV_BASE_URL}/v1/decide` con `Authorization: Bearer {JEV_API_KEY}`,
-body `{ feature, allowedActions, input, model? }` → `{ action, confidence,
-reasonCode, model? }`. Si la API real difiere, solo cambia `jev.provider.ts`.
+**Adapter Jev:** ~~contrato supuesto `POST /v1/decide`~~ reemplazado en v1.2
+por la API real de TypeSafe AI — ver §9.8.
 
 ## 6. Datos
 
@@ -299,7 +297,7 @@ actual en las fixtures: router 0.864, vision gate 0.929.
 | telemetría persistente | ✅ Postgres real |
 | sin secretos filtrados | ✅ `JEV_API_KEY` solo server-side; sin contexto crudo |
 | flag independiente por feature + rollback simple | ✅ `SEMSE_JEV_ENABLED=false` apaga todo |
-| API real de Jev conectada | ❌ no documentada |
+| API real de Jev conectada | ✅ adapter `/v1/systemone` (v1.2) — ❌ sin probar en vivo: falta API key válida y el host está bloqueado por la política de red del entorno de desarrollo |
 | datos de shadow revisados | ❌ requiere activación en shadow (decisión humana) |
 
 ### 9.7 Tests Wave 0
@@ -309,4 +307,36 @@ actual en las fixtures: router 0.864, vision gate 0.929.
 - [x] `jev-eval-harness.test.ts` (oráculo, adversario, fallos)
 - [x] `jev-agent-router.test.ts`, `jev-vision-gate.test.ts` actualizados
 - [x] `jev-decision-telemetry-integration.test.ts` (columnas nuevas en Postgres real)
+
+### 9.8 Adapter real: TypeSafe AI `/v1/systemone` (v1.2)
+
+Jev es el "System One model" de TypeSafe AI. Contrato (docs públicas de
+TypeSafe/terceros; el dominio no es accesible desde el entorno de desarrollo):
+
+```
+POST https://api.typesafe.ai/v1/systemone
+Authorization: Bearer <JEV_API_KEY>
+{ "state": <object>, "model": "jev-latest",
+  "questions": { "decision": { "type": "choice", "instructions": "...",
+                               "criteria": { "<ACTION>": "<descripción>", ... } } } }
+→ { "model": "jev-1.13.0",
+    "answers": { "decision": { "type": "choice", "choice": "<ACTION>",
+                               "probabilities": { "<ACTION>": p, ... }, "confidence": 0.82 } },
+    "usage": { "input_tokens": 312, "output_tokens": 48 } }
+```
+
+- Cada decisión = **una** pregunta `choice` cuyas opciones son exactamente las
+  acciones permitidas de la feature (`DECISION_FEATURES[f].question`), así el
+  espacio de respuesta de Jev es la allowlist por construcción.
+- `state` = `{ feature, context, candidates?, riskSignals? }` (sin baseline).
+- `confidence` de Jev → confianza; si falta, la probabilidad de la opción
+  elegida. `reasonCode` = `JEV_CHOICE` (Jev devuelve respuestas tipadas, no
+  razones).
+- `model` de la respuesta (versión resuelta) → telemetría; costo =
+  `usage.input_tokens × $0.042/M` (output gratis).
+- Errores `{"detail":{"error_type",...}}` (p. ej. 401 `authentication_error`)
+  → `provider_error` (cuenta para el circuit breaker); se registra solo el
+  `error_type`, nunca la key.
+- `JEV_BASE_URL` default `https://api.typesafe.ai`; `JEV_MODEL` default
+  `jev-latest` (se recomienda fijar versión, p. ej. `jev-1.13.0`, antes de live).
 
