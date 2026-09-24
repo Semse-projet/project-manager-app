@@ -1,12 +1,20 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import type {
   DictionaryEntryView,
   DictionaryListView,
   DictionarySource,
   LibraryItemView,
   VisionCorrectionInput,
+  VisionGateView,
   VisionRecognizeResult,
 } from "@semse/schemas";
+import { DecisionLayerService } from "../ai-models/decision/decision-layer.service.js";
+import {
+  buildVisionGateInput,
+  deterministicVisionGate,
+  visionGateInvariant,
+  type VisionGateState,
+} from "../ai-models/decision/vision-gate.js";
 import { AuditService } from "../../infrastructure/audit/audit.service.js";
 import { VisionServiceClient } from "./clients/vision-service.client.js";
 import type { ValidatedVisionInput } from "./vision-frame.js";
@@ -40,6 +48,9 @@ export class VisionLibraryService {
     private readonly repository: VisionLibraryRepository,
     private readonly client: VisionServiceClient,
     private readonly audit: AuditService,
+    // Optional so the gate degrades to its deterministic form if the
+    // decision layer isn't wired (e.g. isolated tests).
+    @Optional() private readonly decisionLayer?: DecisionLayerService,
   ) {}
 
   private async activeLibrary(): Promise<LibraryRow[]> {
@@ -58,7 +69,10 @@ export class VisionLibraryService {
    * this call's memory and is forwarded to vision-service; nothing here
    * writes it anywhere (spec §2.1, handoff §15).
    */
-  async recognize(input: ValidatedVisionInput): Promise<VisionRecognizeResult> {
+  async recognize(
+    input: ValidatedVisionInput,
+    options: { actor?: { tenantId: string; userId: string }; trade?: string } = {},
+  ): Promise<VisionRecognizeResult> {
     const startedAt = Date.now();
     const thresholds = resolveConfidenceThresholds();
     const rows = await this.activeLibrary();
@@ -66,12 +80,15 @@ export class VisionLibraryService {
     const image =
       input.kind === "url" ? { imageUrl: input.imageUrl } : { imageData: input.imageData, mimeType: input.mimeType };
 
-    const finish = (partial: Omit<VisionRecognizeResult, "latencyMs" | "thresholds">): VisionRecognizeResult => {
-      const result = { ...partial, latencyMs: Date.now() - startedAt, thresholds };
+    const finish = async (partial: Omit<VisionRecognizeResult, "latencyMs" | "thresholds" | "gate">): Promise<VisionRecognizeResult> => {
+      // Camera → recognition → library matching → decision gate → UI.
+      const gate = await this.decideGate(partial, options);
+      const result = { ...partial, gate, latencyMs: Date.now() - startedAt, thresholds };
       // Metrics only — never the frame (spec §8).
       this.logger.log(
         `vision.recognize status=${result.status} source=${result.source} latencyMs=${result.latencyMs}` +
-          ` confidence=${result.object?.confidence ?? "n/a"}${result.reason ? ` reason=${result.reason}` : ""}`,
+          ` confidence=${result.object?.confidence ?? "n/a"}${result.reason ? ` reason=${result.reason}` : ""}` +
+          ` gate=${gate.action}/${gate.source}`,
       );
       return result;
     };
@@ -94,6 +111,51 @@ export class VisionLibraryService {
         : "unknown";
     const decision = decideRecognition(body.candidates, rows, thresholds);
     return finish({ ...decision, source });
+  }
+
+  /**
+   * Jev Decision Gate (spec: prometeo/jev-decision-layer §4 J9/J10): decides
+   * what the UI does with an already-matched result. Falls back to the
+   * deterministic gate derived from the confidence policy whenever Jev is
+   * off, unavailable, slow, malformed, unsure or proposes something the
+   * result can't support.
+   */
+  private async decideGate(
+    partial: Pick<VisionRecognizeResult, "status" | "reason" | "object" | "alternatives">,
+    options: { actor?: { tenantId: string; userId: string }; trade?: string },
+  ): Promise<VisionGateView> {
+    const state: VisionGateState = {
+      status: partial.status,
+      reason: partial.reason,
+      candidate: partial.object
+        ? { slug: partial.object.slug, confidence: partial.object.confidence, trades: partial.object.trades }
+        : null,
+      alternatives: partial.alternatives.map((alt) => ({ slug: alt.slug, confidence: alt.confidence })),
+      context: { trade: options.trade },
+    };
+    const fallback = deterministicVisionGate(state);
+    if (!this.decisionLayer || !options.actor) return { ...fallback, source: "deterministic" };
+
+    const outcome = await this.decisionLayer.decide({
+      feature: "vision_gate",
+      tenantId: options.actor.tenantId,
+      userId: options.actor.userId,
+      input: buildVisionGateInput(state),
+      fallback,
+      isValid: visionGateInvariant(state),
+    });
+    return {
+      action: outcome.action,
+      confidence: outcome.confidence,
+      reasonCode: outcome.reasonCode,
+      source: outcome.source,
+      ...(outcome.eventId ? { decisionEventId: outcome.eventId } : {}),
+    };
+  }
+
+  private async recordDecisionOutcome(actor: Actor, decisionEventId: string | undefined, outcome: string) {
+    if (!decisionEventId || !this.decisionLayer) return;
+    await this.decisionLayer.recordOutcome({ eventId: decisionEventId, tenantId: actor.tenantId, outcome });
   }
 
   // ── Library ──────────────────────────────────────────────────────────
@@ -140,7 +202,12 @@ export class VisionLibraryService {
     return { entries: rows.map(toDictionaryEntryView), stats };
   }
 
-  async saveToDictionary(actor: Actor, libraryItemId: string, source: DictionarySource = "manual"): Promise<DictionaryEntryView> {
+  async saveToDictionary(
+    actor: Actor,
+    libraryItemId: string,
+    source: DictionarySource = "manual",
+    decisionEventId?: string,
+  ): Promise<DictionaryEntryView> {
     const item = await this.repository.findLibraryItemById(libraryItemId);
     if (!item || !item.active) throw new NotFoundException({ message: "Library item not found" });
 
@@ -165,6 +232,7 @@ export class VisionLibraryService {
       })
       .catch(() => undefined);
 
+    await this.recordDecisionOutcome(actor, decisionEventId, "user_saved");
     return toDictionaryEntryView(entry);
   }
 
@@ -249,6 +317,7 @@ export class VisionLibraryService {
       })
       .catch(() => undefined);
 
+    await this.recordDecisionOutcome(actor, input.decisionEventId, "user_corrected");
     return { id: correction.id, createdAt: correction.createdAt.toISOString() };
   }
 }

@@ -5,6 +5,7 @@ import {
   createResultStabilizer,
   fitWithin,
   pickVoice,
+  presentGate,
 } from "../../apps/web/lib/sense-vision/live-loop.ts";
 
 // Sense Vision — live-camera client logic.
@@ -119,4 +120,24 @@ test("pickVoice prefers an exact locale, then the language, else null", () => {
   assert.equal(pickVoice(voices, "en-US")?.lang, "en-US");
   assert.equal(pickVoice(voices, "es-ES")?.lang, "es-MX");
   assert.equal(pickVoice([{ lang: "fr-FR" }], "en-US"), null);
+});
+
+test("decision gate drives what the camera screen shows (Jev pilot, J9)", () => {
+  const alts = [{}, {}];
+  assert.deepEqual(presentGate({ status: "uncertain", gate: { action: "ACCEPT_RESULT" }, alternatives: alts }).scan, "identified");
+  const show = presentGate({ status: "uncertain", gate: { action: "SHOW_ALTERNATIVES" }, alternatives: alts });
+  assert.equal(show.scan, "uncertain");
+  assert.equal(show.showAlternatives, true);
+  const retry = presentGate({ status: "uncertain", gate: { action: "RETRY_SCAN" }, alternatives: alts });
+  assert.equal(retry.showObject, false, "a rescan request hides the tentative object");
+  assert.ok(retry.hint);
+  assert.equal(presentGate({ status: "unknown", gate: { action: "UNKNOWN" }, alternatives: [] }).scan, "unknown");
+  assert.equal(presentGate({ status: "unknown", gate: { action: "ESCALATE_MODEL" }, alternatives: [] }).showObject, false);
+  assert.equal(presentGate({ status: "uncertain", gate: { action: "ASK_USER" }, alternatives: [] }).showAlternatives, false);
+});
+
+test("responses without a gate fall back to the recognition status", () => {
+  assert.equal(presentGate({ status: "recognized", alternatives: [] }).scan, "identified");
+  assert.equal(presentGate({ status: "uncertain", alternatives: [{}] }).showAlternatives, true);
+  assert.equal(presentGate({ status: "unknown", alternatives: [] }).showObject, false);
 });

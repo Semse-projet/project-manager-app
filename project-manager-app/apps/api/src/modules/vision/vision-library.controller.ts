@@ -44,7 +44,11 @@ export class VisionLibraryController {
     if (!validation.ok) {
       throw new BadRequestException({ code: validation.code, message: validation.message });
     }
-    const result = await this.service.recognize(validation.value);
+    const actor = resolveRequestContext(req);
+    const result = await this.service.recognize(validation.value, {
+      actor: { tenantId: actor.tenantId, userId: actor.userId },
+      trade: raw.trade,
+    });
     return ok(requestId, result);
   }
 
@@ -84,7 +88,10 @@ export class VisionLibraryController {
     const requestId = resolveRequestId(req.headers ?? {});
     const actor = resolveRequestContext(req);
     const input = parseWith(saveDictionaryItemSchema, body);
-    return ok(requestId, await this.service.saveToDictionary({ ...actor, requestId }, libraryItemId, input.source));
+    return ok(
+      requestId,
+      await this.service.saveToDictionary({ ...actor, requestId }, libraryItemId, input.source, input.decisionEventId),
+    );
   }
 
   @Patch("dictionary/:libraryItemId")

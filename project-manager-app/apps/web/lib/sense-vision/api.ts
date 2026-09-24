@@ -60,8 +60,11 @@ export function listDictionary(query: { q?: string; favorite?: boolean; learned?
   return request<DictionaryListView>(`/api/semse/vision/dictionary${qs ? `?${qs}` : ""}`);
 }
 
-export function saveWord(libraryItemId: string, source: DictionarySource) {
-  return request<DictionaryEntryView>(`/api/semse/vision/dictionary/${encodeURIComponent(libraryItemId)}`, json("POST", { source }));
+export function saveWord(libraryItemId: string, source: DictionarySource, decisionEventId?: string) {
+  return request<DictionaryEntryView>(
+    `/api/semse/vision/dictionary/${encodeURIComponent(libraryItemId)}`,
+    json("POST", { source, ...(decisionEventId ? { decisionEventId } : {}) }),
+  );
 }
 
 export function updateWord(
@@ -80,6 +83,8 @@ export function reportCorrection(input: {
   selectedLibraryItemId?: string | null;
   predictedConfidence?: number | null;
   source: string;
+  /** Jev Decision Gate event to annotate with the user's outcome. */
+  decisionEventId?: string;
 }) {
   return request<{ id: string; createdAt: string }>("/api/semse/vision/corrections", json("POST", input));
 }

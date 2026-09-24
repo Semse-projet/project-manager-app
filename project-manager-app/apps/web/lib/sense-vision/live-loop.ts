@@ -104,3 +104,45 @@ export function pickVoice<V extends { lang: string }>(voices: readonly V[], lang
   const prefix = lang.split("-")[0].toLowerCase();
   return voices.find((voice) => voice.lang.toLowerCase().startsWith(`${prefix}-`) || voice.lang.toLowerCase() === prefix) ?? null;
 }
+
+export type GateAction = "ACCEPT_RESULT" | "SHOW_ALTERNATIVES" | "RETRY_SCAN" | "ASK_USER" | "ESCALATE_MODEL" | "UNKNOWN";
+
+export type GatePresentation = {
+  /** Whether the recognized object may be shown / fed to the stabilizer. */
+  showObject: boolean;
+  scan: "identified" | "uncertain" | "unknown";
+  showAlternatives: boolean;
+  /** Hint copy when the gate asks for another look. */
+  hint: string | null;
+};
+
+/**
+ * Maps the Decision Gate (Jev, or its deterministic fallback) to what the
+ * camera screen does. Older API responses without `gate` fall back to the
+ * recognition status so the page keeps working during a rolling deploy.
+ * Spec: docs/specs/prometeo/jev-decision-layer.spec.md §4 J9.
+ */
+export function presentGate(result: { status: string; gate?: { action: GateAction } | null; alternatives: unknown[] }): GatePresentation {
+  const action: GateAction =
+    result.gate?.action ??
+    (result.status === "recognized"
+      ? "ACCEPT_RESULT"
+      : result.status === "uncertain"
+        ? result.alternatives.length > 0 ? "SHOW_ALTERNATIVES" : "ASK_USER"
+        : "RETRY_SCAN");
+  switch (action) {
+    case "ACCEPT_RESULT":
+      return { showObject: true, scan: "identified", showAlternatives: false, hint: null };
+    case "SHOW_ALTERNATIVES":
+      return { showObject: true, scan: "uncertain", showAlternatives: result.alternatives.length > 0, hint: null };
+    case "ASK_USER":
+      return { showObject: true, scan: "uncertain", showAlternatives: false, hint: "¿Es esto? Confírmalo o corrígelo." };
+    case "RETRY_SCAN":
+      return { showObject: false, scan: "unknown", showAlternatives: false, hint: "Acércate, mejora la luz y mantén una sola pieza en el recuadro." };
+    case "ESCALATE_MODEL":
+      return { showObject: false, scan: "unknown", showAlternatives: false, hint: "No pudimos leer bien esta imagen. Intenta otro ángulo." };
+    case "UNKNOWN":
+    default:
+      return { showObject: false, scan: "unknown", showAlternatives: false, hint: "No reconozco esta pieza todavía. Búscala por nombre abajo." };
+  }
+}

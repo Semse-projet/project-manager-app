@@ -119,6 +119,8 @@ export const visionRecognizeInputSchema = z
     imageUrl: z.string().url().max(2048).optional(),
     imageData: z.string().max(2_000_000).optional(),
     mimeType: z.enum(VISION_FRAME_MIME_TYPES).optional(),
+    /** Optional job context for the Jev Decision Gate (spec: prometeo/jev-decision-layer). */
+    trade: constructionTradeSchema.optional(),
   })
   .strict();
 export type VisionRecognizeInputRaw = z.infer<typeof visionRecognizeInputSchema>;
@@ -129,6 +131,27 @@ export interface RecognizedLibraryItem extends LibraryItemView {
   confidence: number;
 }
 
+export type VisionGateActionView =
+  | "ACCEPT_RESULT"
+  | "SHOW_ALTERNATIVES"
+  | "RETRY_SCAN"
+  | "ASK_USER"
+  | "ESCALATE_MODEL"
+  | "UNKNOWN";
+
+/**
+ * What the UI should do with the result (Jev Decision Gate, or its
+ * deterministic fallback). Never changes *what* was recognized.
+ */
+export interface VisionGateView {
+  action: VisionGateActionView;
+  confidence: number;
+  reasonCode: string;
+  source: "jev" | "deterministic";
+  /** JevDecisionEvent id — send back as decisionEventId on save/correction. */
+  decisionEventId?: string;
+}
+
 export interface VisionRecognizeResult {
   status: VisionRecognizeStatus;
   reason?: string;
@@ -137,6 +160,7 @@ export interface VisionRecognizeResult {
   source: string;
   latencyMs: number;
   thresholds: { recognized: number; uncertain: number };
+  gate: VisionGateView;
 }
 
 // ── Mi Diccionario ───────────────────────────────────────────────────────
@@ -145,7 +169,7 @@ export const dictionarySourceSchema = z.enum(["scan", "search", "manual"]);
 export type DictionarySource = z.infer<typeof dictionarySourceSchema>;
 
 export const saveDictionaryItemSchema = z
-  .object({ source: dictionarySourceSchema.optional() })
+  .object({ source: dictionarySourceSchema.optional(), decisionEventId: z.string().min(1).max(64).optional() })
   .strict();
 
 export const updateDictionaryItemSchema = z
@@ -191,6 +215,7 @@ export const visionCorrectionSchema = z
     selectedLibraryItemId: z.string().min(1).max(64).nullable().optional(),
     predictedConfidence: z.number().min(0).max(1).nullable().optional(),
     source: z.string().min(1).max(120),
+    decisionEventId: z.string().min(1).max(64).optional(),
   })
   .strict()
   .refine((value) => Boolean(value.predictedLibraryItemId || value.selectedLibraryItemId), {

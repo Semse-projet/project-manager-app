@@ -6,7 +6,7 @@ import { BookOpen, Camera, CameraOff, Check, Pause, Play, RefreshCw, ScanSearch,
 import type { LibraryItemView, RecognizedLibraryItem, VisionRecognizeResult } from "@semse/schemas";
 import { WordCard } from "../../../components/sense-vision/WordCard";
 import { captureVideoFrame } from "../../../../lib/sense-vision/browser";
-import { createFrameSampler, createResultStabilizer } from "../../../../lib/sense-vision/live-loop";
+import { createFrameSampler, createResultStabilizer, presentGate } from "../../../../lib/sense-vision/live-loop";
 import { recognizeFrame, reportCorrection, saveWord, searchLibrary } from "../../../../lib/sense-vision/api";
 import { trackProductEvent } from "../../../../lib/product-intelligence";
 
@@ -62,6 +62,7 @@ export default function SenseVisionPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [correcting, setCorrecting] = useState(false);
   const [correctionNote, setCorrectionNote] = useState<string | null>(null);
+  const [gateHint, setGateHint] = useState<string | null>(null);
 
   // ── Camera lifecycle ────────────────────────────────────────────────
   const stopCamera = useCallback(() => {
@@ -175,9 +176,14 @@ export default function SenseVisionPage() {
     for (const candidate of [next.object, ...next.alternatives]) {
       if (candidate) seenRef.current.set(candidate.slug, candidate);
     }
+    // Decision Gate (Jev or deterministic fallback) decides what to do with
+    // the match; the stabilizer then keeps the label from flickering.
+    const presentation = presentGate(next);
+    setGateHint(presentation.hint);
+    const gatedObject = presentation.showObject ? next.object : null;
     const { key, changed } = stabilizerRef.current.push({
-      key: next.object?.slug ?? null,
-      confidence: next.object?.confidence ?? 0,
+      key: gatedObject?.slug ?? null,
+      confidence: gatedObject?.confidence ?? 0,
     });
     if (key === undefined) return; // not stable yet — keep the previous card
     if (key === null) {
@@ -185,8 +191,8 @@ export default function SenseVisionPage() {
       if (changed) setShown(null);
       return;
     }
-    const latest = next.object?.slug === key ? next.object : seenRef.current.get(key) ?? null;
-    setScan(next.object?.slug === key && next.status === "uncertain" ? "uncertain" : "identified");
+    const latest = gatedObject?.slug === key ? gatedObject : seenRef.current.get(key) ?? null;
+    setScan(gatedObject?.slug === key ? presentation.scan : "identified");
     if (latest) {
       setShown(latest);
       setShownSource("scan");
@@ -230,7 +236,8 @@ export default function SenseVisionPage() {
   const onSave = async (item: LibraryItemView) => {
     setSaveError(null);
     try {
-      await saveWord(item.id, shownSource);
+      const decisionEventId = shownSource === "scan" ? result?.gate?.decisionEventId : undefined;
+      await saveWord(item.id, shownSource, decisionEventId);
       setSaved((current) => ({ ...current, [item.id]: true }));
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "No se pudo guardar");
@@ -245,6 +252,7 @@ export default function SenseVisionPage() {
         selectedLibraryItemId: selected?.id ?? null,
         predictedConfidence: predicted?.confidence ?? null,
         source: result?.source ?? "manual",
+        decisionEventId: result?.gate?.decisionEventId,
       });
       setCorrectionNote(selected ? `Gracias — anotamos que era “${selected.nameEn}”.` : "Gracias — lo anotamos como “no está en la lista”.");
     } catch {
@@ -274,7 +282,8 @@ export default function SenseVisionPage() {
       : SCAN_COPY[scan];
 
   const shownConfidence = shown && "confidence" in shown ? shown.confidence : undefined;
-  const alternatives = result?.status === "uncertain" && shown && result.object?.slug === shown.slug ? result.alternatives : [];
+  const alternatives =
+    result && presentGate(result).showAlternatives && shown && result.object?.slug === shown.slug ? result.alternatives : [];
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 16px 40px", display: "grid", gap: 16 }}>
@@ -375,6 +384,10 @@ export default function SenseVisionPage() {
         <p role="note" style={{ margin: 0, padding: 12, borderRadius: 10, background: "var(--raised)", color: "var(--muted)", fontSize: 14 }}>
           El reconocimiento automático todavía no está activado en este entorno. Puedes buscar cualquier pieza por su nombre en inglés o español aquí abajo.
         </p>
+      )}
+
+      {gateHint && camera === "live" && sampling && scan !== "unavailable" && (
+        <p role="status" style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>{gateHint}</p>
       )}
 
       {/* ── Result card ─────────────────────────────────────────────── */}
