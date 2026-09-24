@@ -107,12 +107,10 @@ export function resolveChatIntent(input: {
 }
 
 /**
- * Invariant applied to Jev's proposal: once the deterministic router has
- * escalated a money-movement request, Jev may not downgrade it to any other
- * capability. Jev can add caution (ESCALATE/ASK_USER elsewhere) but never
- * remove it here.
+ * Deterministic risk signals for the invariant registry (handoff §54):
+ * a money-movement request marks `money`, so MONEY_NO_DOWNGRADE forbids Jev
+ * from routing it anywhere less cautious than ESCALATE.
  */
-export function agentRouteInvariant(fallback: StructuredDecision<AgentRouteAction>) {
-  return (decision: StructuredDecision<AgentRouteAction>) =>
-    fallback.reasonCode !== "MONEY_MOVEMENT_REQUIRES_GOVERNED_FLOW" || decision.action === "ESCALATE";
+export function agentRouteRiskSignals(message: string): { money?: boolean } {
+  return includesAny(message.toLowerCase(), MONEY_MOVEMENT_KEYWORDS) ? { money: true } : {};
 }

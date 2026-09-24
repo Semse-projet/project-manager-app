@@ -37,7 +37,7 @@ import { findPrometeoToolDescriptor } from "../prometeo/prometeo-tool-registry.j
 import { DecisionLayerService } from "./decision/decision-layer.service.js";
 import type { AgentRouteAction, DecisionOutcome } from "./decision/decision.types.js";
 import {
-  agentRouteInvariant,
+  agentRouteRiskSignals,
   buildAgentRouterInput,
   deterministicAgentRoute,
   resolveChatIntent,
@@ -88,6 +88,7 @@ export class AiModelsController {
     pageRoute?: string;
     attachmentCount?: number;
     trade?: string;
+    correlationId?: string;
   }): Promise<{ intent: PrometeoIntentType; deterministicIntent: PrometeoIntentType; decision: DecisionOutcome<AgentRouteAction> }> {
     const deterministicIntent = this.prometeoOrchestrator.classifyIntent(input.message);
     const fallback = deterministicAgentRoute(deterministicIntent, input.message);
@@ -95,15 +96,26 @@ export class AiModelsController {
       return {
         intent: deterministicIntent,
         deterministicIntent,
-        decision: { ...fallback, source: "deterministic", fallbackReason: "disabled", latencyMs: 0 },
+        decision: {
+          ...fallback,
+          source: "deterministic",
+          provider: "none",
+          mode: "shadow",
+          shadowMode: true,
+          deterministic: fallback,
+          fallbackReason: "disabled",
+          latencyMs: 0,
+        },
       };
     }
     const mode = this.decisionLayer.agentRouterMode;
     const decision = await this.decisionLayer.decide({
       feature: "agent_router",
-      tenantId: input.actor.tenantId,
-      userId: input.actor.userId,
-      input: buildAgentRouterInput({
+      actor: { tenantId: input.actor.tenantId, userId: input.actor.userId, roles: input.actor.roles },
+      correlationId: input.correlationId,
+      inputClass: `intent:${deterministicIntent}`,
+      riskSignals: agentRouteRiskSignals(input.message),
+      context: buildAgentRouterInput({
         message: input.message,
         deterministicIntent,
         role: input.actor.roles[0],
@@ -111,21 +123,12 @@ export class AiModelsController {
         attachmentCount: input.attachmentCount,
         trade: input.trade,
       }),
-      fallback,
-      isValid: agentRouteInvariant(fallback),
+      deterministicDecision: fallback,
       finalSystemAction: (outcome) => `chat_intent:${resolveChatIntent({ deterministicIntent, decision: outcome, mode })}`,
     });
-    const intent = resolveChatIntent({ deterministicIntent, decision, mode });
-    // Shadow mode is log-only end to end: clients get the deterministic
-    // capability, and Jev's proposal lives only in JevDecisionEvent.
-    if (mode === "shadow" && decision.source === "jev") {
-      return {
-        intent,
-        deterministicIntent,
-        decision: { ...fallback, source: "deterministic", latencyMs: decision.latencyMs, eventId: decision.eventId },
-      };
-    }
-    return { intent, deterministicIntent, decision };
+    // Shadow mode is handled by the core: it returns the deterministic
+    // capability and keeps Jev's proposal only in JevDecisionEvent.
+    return { intent: resolveChatIntent({ deterministicIntent, decision, mode }), deterministicIntent, decision };
   }
 
   // Capability routing (which SEMSE capability handles a request). Distinct
@@ -146,6 +149,7 @@ export class AiModelsController {
       pageRoute: typeof raw.pageRoute === "string" ? raw.pageRoute.slice(0, 200) : undefined,
       attachmentCount: typeof raw.attachmentCount === "number" ? Math.max(0, Math.floor(raw.attachmentCount)) : undefined,
       trade: typeof raw.trade === "string" ? raw.trade.slice(0, 40) : undefined,
+      correlationId: rid,
     });
     return ok(rid, {
       action: routed.decision.action,
@@ -153,6 +157,7 @@ export class AiModelsController {
       reasonCode: routed.decision.reasonCode,
       source: routed.decision.source,
       fallbackReason: routed.decision.fallbackReason ?? null,
+      mode: routed.decision.mode,
       deterministicIntent: routed.deterministicIntent,
       decisionEventId: routed.decision.eventId ?? null,
     });
@@ -332,6 +337,7 @@ export class AiModelsController {
       message,
       pageRoute: runtimeRequest.pageContext?.route,
       attachmentCount: runtimeRequest.attachments.length,
+      correlationId: rid,
     });
     const intent = routed.intent;
     const route = this.prometeoOrchestrator.routeToAgent(intent, agentId);

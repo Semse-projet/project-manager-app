@@ -16,7 +16,8 @@ const ROWS = CONSTRUCTION_LIBRARY_SEED.map((item: any) => ({
   active: true,
 }));
 
-const ON = { SEMSE_JEV_ENABLED: "true", SEMSE_JEV_VISION_GATE_ENABLED: "true" };
+const ON = { SEMSE_JEV_ENABLED: "true", SEMSE_JEV_VISION_GATE_ENABLED: "true", SEMSE_JEV_VISION_GATE_MODE: "live" };
+const SHADOW = { SEMSE_JEV_ENABLED: "true", SEMSE_JEV_VISION_GATE_ENABLED: "true" };
 const actor = { tenantId: "t1", userId: "u1" };
 const frame = { kind: "data", imageData: "AAAA", mimeType: "image/jpeg", byteLength: 3 } as const;
 
@@ -154,4 +155,22 @@ test("pure gate helpers", () => {
   assert.equal(visionGateInvariant(state)({ action: "SHOW_ALTERNATIVES", confidence: 1, reasonCode: "X_Y" }), false);
   assert.equal(visionGateInvariant(state)({ action: "ACCEPT_RESULT", confidence: 1, reasonCode: "X_Y" }), true);
   assert.equal(visionGateInvariant({ ...state, candidate: null })({ action: "ASK_USER", confidence: 1, reasonCode: "X_Y" }), false);
+});
+
+test("vision gate defaults to shadow: Jev is recorded, the UI gets the deterministic gate", async () => {
+  const { service, events } = build({ candidates: ambiguous, env: SHADOW, jev: { action: "RETRY_SCAN", confidence: 0.9, reasonCode: "BLURRY_FRAME" } });
+  const result = await service.recognize(frame, { actor, correlationId: "req_9" });
+  assert.equal(result.gate.action, "SHOW_ALTERNATIVES");
+  assert.equal(result.gate.source, "deterministic");
+  assert.equal(events[0].jevDecision, "RETRY_SCAN");
+  assert.equal(events[0].mode, "shadow");
+  assert.equal(events[0].correlationId, "req_9");
+  assert.equal(events[0].inputClass, "status:uncertain/low_confidence");
+});
+
+test("LOW_CONFIDENCE_NOT_CERTAINTY: Jev can't accept an uncertain match", async () => {
+  const { service, events } = build({ candidates: ambiguous, env: ON, jev: { action: "ACCEPT_RESULT", confidence: 0.99, reasonCode: "LOOKS_FINE" } });
+  const result = await service.recognize(frame, { actor });
+  assert.equal(result.gate.action, "SHOW_ALTERNATIVES");
+  assert.deepEqual(events[0].invariantsViolated, ["LOW_CONFIDENCE_NOT_CERTAINTY"]);
 });
