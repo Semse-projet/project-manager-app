@@ -8,7 +8,7 @@ import json
 import os
 import sys
 import unittest
-from unittest import mock
+import unittest.mock
 
 import cv2
 import numpy as np
@@ -135,7 +135,7 @@ class TestRecognizeObjects(unittest.TestCase):
     def test_provider_output_is_parsed(self):
         config = resolve_config({"VISION_OBJECT_PROVIDER": "ollama"})
         reply = json.dumps({"candidates": [{"slug": "emt-coupling", "label": "EMT coupling", "confidence": 0.88}]})
-        with mock.patch.dict(object_recognizer._PROVIDER_CALLS, {"ollama": lambda *_: reply}):
+        with unittest.mock.patch.dict(object_recognizer._PROVIDER_CALLS, {"ollama": lambda *_: reply}):
             result = recognize_objects(np.zeros((32, 32, 3), dtype=np.uint8), VOCAB, config)
         self.assertEqual(result["provider"], "ollama")
         self.assertEqual(result["candidates"][0]["slug"], "emt-coupling")
@@ -149,7 +149,7 @@ class TestRoute(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_disabled_provider_returns_503(self):
-        with mock.patch.dict(os.environ, {"VISION_OBJECT_PROVIDER": ""}):
+        with unittest.mock.patch.dict(os.environ, {"VISION_OBJECT_PROVIDER": ""}):
             response = self.client.post(
                 "/v1/objects/recognize", json={"imageData": jpeg_b64(), "mimeType": "image/jpeg", "vocabulary": VOCAB}
             )
@@ -167,7 +167,7 @@ class TestRoute(unittest.TestCase):
 
     def test_success_with_patched_provider(self):
         reply = json.dumps({"candidates": [{"slug": "emt-connector", "label": "EMT connector", "confidence": 0.7}]})
-        with mock.patch.dict(os.environ, {"VISION_OBJECT_PROVIDER": "ollama"}), mock.patch.dict(
+        with unittest.mock.patch.dict(os.environ, {"VISION_OBJECT_PROVIDER": "ollama"}), unittest.mock.patch.dict(
             object_recognizer._PROVIDER_CALLS, {"ollama": lambda *_: reply}
         ):
             response = self.client.post(
@@ -182,7 +182,7 @@ class TestRoute(unittest.TestCase):
         def boom(*_):
             raise requests.Timeout()
 
-        with mock.patch.dict(os.environ, {"VISION_OBJECT_PROVIDER": "ollama"}), mock.patch.dict(
+        with unittest.mock.patch.dict(os.environ, {"VISION_OBJECT_PROVIDER": "ollama"}), unittest.mock.patch.dict(
             object_recognizer._PROVIDER_CALLS, {"ollama": boom}
         ):
             response = self.client.post(
