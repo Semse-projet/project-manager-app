@@ -11,9 +11,14 @@ export type DecisionProviderRequest = {
   feature: string;
   allowedActions: readonly string[];
   input: Record<string, unknown>;
+  candidates?: unknown[];
+  riskSignals?: Record<string, boolean>;
+  correlationId?: string;
+  // The deterministic baseline is deliberately NOT sent: shadow agreement is
+  // only meaningful if Jev decides independently of it.
 };
 
-export type DecisionProviderResult = { raw: unknown; model?: string };
+export type DecisionProviderResult = { raw: unknown; model?: string; costUsd?: number };
 
 export type DecisionProviderErrorKind = "unavailable" | "timeout" | "provider_error";
 
@@ -73,11 +78,12 @@ export class JevHttpProvider implements DecisionProvider {
       }
       if (!response.ok) throw new DecisionProviderError("provider_error", `Jev returned ${response.status}`);
       const raw = (await response.json().catch(() => null)) as unknown;
-      const model =
-        raw && typeof raw === "object" && typeof (raw as { model?: unknown }).model === "string"
-          ? (raw as { model: string }).model
-          : this.config.model ?? undefined;
-      return { raw, model };
+      const meta = raw && typeof raw === "object" ? (raw as { model?: unknown; version?: unknown; costUsd?: unknown }) : {};
+      const baseModel = typeof meta.model === "string" ? meta.model : this.config.model ?? undefined;
+      // provider/model/version for telemetry (handoff §55): "model@version" when Jev reports one.
+      const model = baseModel && typeof meta.version === "string" ? `${baseModel}@${meta.version}` : baseModel;
+      const costUsd = typeof meta.costUsd === "number" && Number.isFinite(meta.costUsd) && meta.costUsd >= 0 ? meta.costUsd : undefined;
+      return { raw, model, costUsd };
     } catch (error) {
       if (error instanceof DecisionProviderError) throw error;
       if ((error as { name?: string })?.name === "AbortError") {
