@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Info, Plus, Sparkles, Trash2 } from "lucide-react";
 import { AgroFarmNav } from "../../AgroFarmNav";
+import { uploadAgroEvidenceFile } from "../../agro-evidence-upload";
 import {
   agroFetch, INCIDENT_TYPE_LABEL, INCIDENT_TYPES, isForbidden, MEDIA_LABEL, MEDIA_TYPES, newClientEventId,
   SEVERITIES, SEVERITY_LABEL, STATUS_LABEL,
@@ -60,6 +61,7 @@ export default function ReportIncidentPage() {
   const [busy, setBusy] = useState<"" | "analyze" | "submit">("");
   const [error, setError] = useState<string | null>(null);
   const [savedLocally, setSavedLocally] = useState(false);
+  const [uploadingIdx, setUploadingIdx] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (!farmId) return;
@@ -98,6 +100,20 @@ export default function ReportIncidentPage() {
     } catch (e: any) {
       setError(`Prometeo no pudo analizar el reporte (${e.message}). Puedes clasificarlo manualmente.`);
     } finally { setBusy(""); }
+  }
+
+  // T-053: sube el archivo elegido (presign → PUT) y guarda la URL real en la
+  // fila; antes "Enlace del archivo" era texto libre, así que nadie subía nada.
+  async function handleEvidenceFile(idx: number, file: File) {
+    setUploadingIdx((m) => ({ ...m, [idx]: true }));
+    try {
+      const url = await uploadAgroEvidenceFile(file);
+      set("evidence", draft.evidence.map((x, i) => (i === idx ? { ...x, fileUrl: url } : x)));
+    } catch (e: any) {
+      setError(e?.message ?? "No se pudo subir el archivo");
+    } finally {
+      setUploadingIdx((m) => { const n = { ...m }; delete n[idx]; return n; });
+    }
   }
 
   function manual() {
@@ -254,9 +270,18 @@ export default function ReportIncidentPage() {
                 {ev.mediaType === "NOTE" || ev.mediaType === "MEASUREMENT" ? (
                   <input className="fi" aria-label="Nota" placeholder={ev.mediaType === "MEASUREMENT" ? "Ej. 38.5 °C" : "Nota"} value={ev.note}
                     onChange={(e) => set("evidence", draft.evidence.map((x, i) => (i === idx ? { ...x, note: e.target.value } : x)))} />
-                ) : (
-                  <input className="fi" type="url" aria-label="Enlace del archivo" placeholder="https://…" value={ev.fileUrl}
+                ) : ev.mediaType === "EXTERNAL_URL" ? (
+                  <input className="fi" type="url" aria-label="Enlace" placeholder="https://…" value={ev.fileUrl}
                     onChange={(e) => set("evidence", draft.evidence.map((x, i) => (i === idx ? { ...x, fileUrl: e.target.value } : x)))} />
+                ) : (
+                  <div>
+                    <input className="fi" type="file" aria-label="Archivo"
+                      accept={ev.mediaType === "PHOTO" ? "image/*" : ev.mediaType === "VIDEO" ? "video/*" : ev.mediaType === "AUDIO" ? "audio/*" : undefined}
+                      disabled={!!uploadingIdx[idx]}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleEvidenceFile(idx, f); e.target.value = ""; }} />
+                    {uploadingIdx[idx] && <p style={{ fontSize: 11, color: "var(--muted)" }}>Subiendo…</p>}
+                    {!uploadingIdx[idx] && ev.fileUrl && <p style={{ fontSize: 11, color: "var(--ok)" }}>Archivo listo ✓</p>}
+                  </div>
                 )}
                 <button type="button" className="btn-ghost" aria-label="Quitar evidencia" onClick={() => set("evidence", draft.evidence.filter((_, i) => i !== idx))}>
                   <Trash2 size={13} aria-hidden />
@@ -271,7 +296,9 @@ export default function ReportIncidentPage() {
           </fieldset>
 
           <div style={{ display: "flex", gap: 8, position: "sticky", bottom: 0, padding: "10px 0", background: "var(--bg, var(--surface))", borderTop: "1px solid var(--border)" }}>
-            <button type="submit" className="btn-accent" disabled={busy !== "" || !draft.type || !draft.title.trim()} style={{ flex: 1 }}>
+            <button type="submit" className="btn-accent"
+              disabled={busy !== "" || !draft.type || !draft.title.trim() || Object.keys(uploadingIdx).length > 0}
+              style={{ flex: 1 }}>
               {busy === "submit" ? "Enviando…" : savedLocally ? "Reintentar envío" : "Crear incidencia"}
             </button>
             <button type="button" className="btn-ghost" onClick={() => setStep("describe")}>Atrás</button>
