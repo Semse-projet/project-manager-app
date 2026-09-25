@@ -8,6 +8,7 @@ import { KnowledgeController } from "../dist/modules/knowledge/knowledge.control
 import { RepoKnowledgeController } from "../dist/modules/repo-knowledge/repo-knowledge.controller.js";
 import { RuntimeKnowledgeController } from "../dist/modules/runtime-knowledge/runtime-knowledge.controller.js";
 import { ToolsController } from "../dist/modules/tools/tools.controller.js";
+import { TasksController } from "../dist/modules/tasks/tasks.controller.js";
 import { VisionController } from "../dist/modules/vision/vision.controller.js";
 
 function classPermission(controller: Function): string[] | undefined {
@@ -101,3 +102,14 @@ test("domain RBAC: vision reads results separately from running analysis", () =>
   }
 });
 
+
+test("domain RBAC: cross-domain \"my tasks\" (T-058b) is narrower than jobs:read", () => {
+  // GET /v1/tasks ya filtra por assignedTo=actor server-side; el permiso solo
+  // decide quién puede pedir SUS tareas, sin abrir el resto de Jobs
+  // (by-job, materiales, incidencias, pagos, viáticos), que siguen en jobs:read.
+  assert.deepEqual(methodPermission(TasksController, "listByWorker"), ["tasks:read:self"]);
+  for (const method of ["listByJob", "create", "updateStatus"]) {
+    assert.notDeepEqual(methodPermission(TasksController, method), ["tasks:read:self"], method);
+  }
+  assert.deepEqual(methodPermission(TasksController, "listByJob"), ["jobs:read"]);
+});

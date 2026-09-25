@@ -64,6 +64,18 @@ test("agro-rbac: WORKER can read and report Agro but not write or verify", () =>
   assert.equal(hasPermission(["FIELD_WORKER"], "agro:report"), true);
 });
 
+test("agro-rbac: T-058b, WORKER sees its own cross-domain tasks; DEMO_AGRO sandbox stays isolated", () => {
+  assert.equal(hasPermission(["WORKER"], "tasks:read:self"), true);
+  assert.equal(hasPermission(["PRO"], "tasks:read:self"), true);
+  assert.equal(hasPermission(["CLIENT"], "tasks:read:self"), true);
+  assert.equal(hasPermission(["OPS_ADMIN"], "tasks:read:self"), true);
+  // El aislamiento del sandbox demo depende de que este set nunca crezca hacia jobs.
+  assert.equal(hasPermission(["DEMO_AGRO"], "tasks:read:self"), false);
+  assert.equal(hasPermission(["DEMO_AGRO"], "jobs:read"), false);
+  // tasks:read:self nunca abre el resto de Jobs — WORKER sigue sin jobs:read.
+  assert.equal(hasPermission(["WORKER"], "jobs:read"), false);
+});
+
 test("agro-rbac: catalog admin only for OPS_ADMIN; DEMO_AGRO stays agro-only", () => {
   assert.equal(hasPermission(["OPS_ADMIN"], "agro:workforce:admin"), true);
   assert.equal(hasPermission(["CLIENT"], "agro:workforce:admin"), false);
