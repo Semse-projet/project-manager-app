@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight as CR } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface Task {
   id: string; title: string; type: string; status: string;
@@ -74,7 +74,7 @@ export default function CalendarPage() {
   }
 
   const selectedTasks = selected != null ? tasksOnDay(selected) : [];
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ChevronRight, Users, ArrowLeft, Plus, Minus, RefreshCw, Tag } from "lucide-react";
-import { farmTabs } from "../../farm-tabs";
+import { useFarmTabs } from "../../use-farm-viewer";
 
 interface AnimalGroup {
   id: string;
@@ -113,7 +113,7 @@ export default function GroupDetailPage() {
     } catch (err: any) { setStatusError(err?.message); } finally { setChangingStatus(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
   const color = group ? (STATUS_COLOR[group.status] ?? "#94a3b8") : "#94a3b8";
 
   return (

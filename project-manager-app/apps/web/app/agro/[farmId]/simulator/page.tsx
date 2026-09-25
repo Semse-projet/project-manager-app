@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ChevronRight, Calculator, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface Simulation {
   totalProjectedCost: number;
@@ -72,7 +72,7 @@ export default function SimulatorPage() {
     finally { setBusy(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
   const rec = result ? REC_META[result.recommendation] : null;
   const RecIcon = rec?.icon ?? Calculator;
 

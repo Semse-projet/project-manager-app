@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Scale, MapPin, RefreshCw, ChevronRight, Beef, Users, Download, Search } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface Animal {
   id: string; tagCode?: string; species: string; breed?: string;
@@ -185,7 +185,7 @@ export default function AnimalsPage() {
     } catch (err: any) { setFormError(err?.message); } finally { setBusy(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   const filteredAnimals = animals.filter(a => {
     const q = search.toLowerCase();

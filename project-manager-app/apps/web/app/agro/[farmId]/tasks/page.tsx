@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, Play, CheckCircle2, Ban, XCircle, CheckSquare, ChevronRight } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs, useFarmViewer } from "../use-farm-viewer";
 import { useAgroSync } from "../../AgroSyncProvider";
 import { AgroSyncHttpError, shouldPreserveAgroLocalEvent } from "../../agroSyncUi";
 import type { AgroPendingEvent } from "../../agroLocalStore";
@@ -54,17 +54,10 @@ export default function TasksPage() {
   const [reason, setReason]       = useState("");
   // Rol del usuario en esta finca (T-050). null = desconocido → se muestran todas
   // las acciones y el API decide, como antes.
-  const [viewerRole, setViewerRole] = useState<string | null>(null);
-  const canManageTasks = viewerRole === null || ["OWNER", "MANAGER", "SUPERVISOR"].includes(viewerRole);
+  const viewer = useFarmViewer(farmId);
+  const canManageTasks = viewer === null || viewer.actions.includes("task.update");
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
-  useEffect(() => {
-    if (!farmId) return;
-    fetch(`/api/semse/agro/${encodeURIComponent(String(farmId))}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => setViewerRole(json?.data?.farm?.viewerRole ?? null))
-      .catch(() => setViewerRole(null));
-  }, [farmId]);
 
   async function load() {
     setLoading(true); setError(null);
@@ -175,7 +168,7 @@ export default function TasksPage() {
     }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

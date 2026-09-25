@@ -93,6 +93,13 @@ dbTest("agro T-050: farm members operate existing Agro services according to the
     const myFarms = await call("worker", "GET", "/v1/agro/farms");
     const listed = myFarms.data.farms.find((f: any) => f.id === farmId);
     assert.equal(listed?.viewerRole, "WORKER", "member farms appear in the farm list with the viewer role");
+    // viewerActions: pistas para que la UI oculte pestañas (el API sigue decidiendo).
+    const workerFarm = await call("worker", "GET", `/v1/agro/farms/${farmId}`);
+    assert.equal(workerFarm.data.farm.viewerRole, "WORKER");
+    assert.ok(workerFarm.data.farm.viewerActions.includes("farm.read"));
+    assert.ok(!workerFarm.data.farm.viewerActions.includes("farm.finance"));
+    const mgrFarm = await call("mgr", "GET", `/v1/agro/farms/${farmId}`);
+    assert.ok(mgrFarm.data.farm.viewerActions.includes("farm.finance"));
     for (const url of [`/v1/agro/farms/${farmId}`, `/v1/agro/farms/${farmId}/units`, `/v1/agro/farms/${farmId}/animals`, `/v1/agro/farms/${farmId}/tasks`, `/v1/agro/farms/${farmId}/inventory/items`]) {
       assert.equal((await call("worker", "GET", url)).status, 200, `worker GET ${url}`);
       assert.equal((await call("stranger", "GET", url)).status, 404, `stranger GET ${url}`);

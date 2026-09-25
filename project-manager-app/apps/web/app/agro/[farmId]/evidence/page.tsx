@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, FileText, Camera, Video, Link2, ChevronRight, Paperclip, StickyNote } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface Evidence {
   id: string;
@@ -76,7 +76,7 @@ export default function EvidencePage() {
     } catch (err: any) { setFormError(err?.message); } finally { setCreating(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

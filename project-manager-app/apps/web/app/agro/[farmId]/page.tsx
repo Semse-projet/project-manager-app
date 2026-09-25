@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { farmTabs } from "./farm-tabs";
+import { useFarmTabs } from "./use-farm-viewer";
 import {
   AlertTriangle, Info, AlertCircle, Beef, CheckSquare, Package,
   DollarSign, TrendingUp, Leaf, ChevronRight, ChevronLeft, Cloud,
@@ -275,7 +275,7 @@ export default function FarmDashboardPage() {
     finally { setLoading(false); }
   }
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

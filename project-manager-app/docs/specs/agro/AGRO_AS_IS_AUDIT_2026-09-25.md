@@ -236,6 +236,15 @@ económicos igual que el propietario. Producción, ciclos, trazabilidad,
 cumplimiento, simulador y analítica siguen siendo solo del propietario: no
 son datos económicos y abrirlos es otra tarea.
 
+**Navegación por rol (T-057):** `GET /agro/:farmId` devuelve, además de
+`viewerRole`, `viewerActions` (las acciones de la matriz que el rol puede hacer
+sin ser responsable asignado, calculadas con la misma política). La web oculta
+las pestañas que el rol no puede abrir: Costos, Rentabilidad, Ventas,
+Simulador, Analítica y Auditoría exigen `farm.finance`; Producción sigue solo
+para el propietario. Es solo una pista de UI: cada endpoint sigue autorizando.
+El simulador no lee datos de la finca, pero su resultado es económico y se
+agrupa con esas pantallas.
+
 ## 7. Plan de migración
 
 1. **Esta entrega (aditiva, sin tocar datos existentes).** Migración

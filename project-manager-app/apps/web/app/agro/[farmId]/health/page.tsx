@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 import {
   Plus, X, Heart, ChevronRight, Syringe, Stethoscope, ShieldCheck,
   AlertTriangle, CheckCircle2, Clock, Calendar,
@@ -75,7 +75,7 @@ export default function HealthPage() {
   const [newDue, setNewDue]         = useState("");
   const [newNotes, setNewNotes]     = useState("");
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   useEffect(() => { if (farmId) void load(); }, [farmId]);
 

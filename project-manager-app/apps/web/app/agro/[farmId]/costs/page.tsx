@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, X, DollarSign, ChevronRight, TrendingDown, Download, Printer } from "lucide-react";
-import { farmTabs } from "../farm-tabs";
+import { useFarmTabs } from "../use-farm-viewer";
 
 interface CostEntry {
   id: string; category: string; amount: number; currency: string;
@@ -102,7 +102,7 @@ export default function CostsPage() {
         return acc;
       }, []).sort((a, b) => b.total - a.total);
 
-  const tabs = farmId ? farmTabs(farmId) : [];
+  const tabs = useFarmTabs(farmId);
 
   return (
     <div className="agro-shell">

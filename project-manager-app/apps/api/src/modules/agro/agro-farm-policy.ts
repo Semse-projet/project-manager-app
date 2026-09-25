@@ -121,6 +121,12 @@ export function canPerformAgroFarmAction(
   return false;
 }
 
+/** Acciones que el rol puede hacer sin ser responsable asignado (para que la UI oculte lo que no aplica). */
+export function allowedAgroFarmActions(role: AgroFarmRole | null): AgroFarmAction[] {
+  if (!role) return [];
+  return (Object.keys(MATRIX) as AgroFarmAction[]).filter((action) => MATRIX[action].includes(role));
+}
+
 export function isProfessionalFarmRole(role: AgroFarmRole | null): boolean {
   return role !== null && PROFESSIONALS.includes(role);
 }
