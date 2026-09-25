@@ -4,6 +4,7 @@ import { ok } from "../../common/api-response.js";
 import { resolveRequestId } from "../../common/request-id.js";
 import { RequirePermissions } from "../../common/permissions.decorator.js";
 import { resolveRequestContext } from "../../common/request-context.js";
+import { parseWithSchema } from "../../common/zod-validation.js";
 import { AGRO_EVIDENCE_MEDIA_TYPES } from "./agro-evidence.service.js";
 import { AgroFarmAccessService } from "./agro-farm-access.service.js";
 import { AGRO_FARM_MEMBER_ROLES } from "./agro-farm-policy.js";
@@ -115,21 +116,21 @@ export class AgroWorkforceController {
   @Post("workforce/catalog/roles")
   @RequirePermissions("agro:workforce:admin")
   async createRole(@Body() body: unknown, @Req() req: any) {
-    const role = await this.service.createCatalogRole(createRoleSchema.parse(body));
+    const role = await this.service.createCatalogRole(parseWithSchema(createRoleSchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { role });
   }
 
   @Post("workforce/catalog/specialties")
   @RequirePermissions("agro:workforce:admin")
   async createSpecialty(@Body() body: unknown, @Req() req: any) {
-    const specialty = await this.service.createCatalogSpecialty(createSpecialtySchema.parse(body));
+    const specialty = await this.service.createCatalogSpecialty(parseWithSchema(createSpecialtySchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { specialty });
   }
 
   @Post("workforce/catalog/capabilities")
   @RequirePermissions("agro:workforce:admin")
   async createCapability(@Body() body: unknown, @Req() req: any) {
-    const capability = await this.service.createCatalogCapability(createCapabilitySchema.parse(body));
+    const capability = await this.service.createCatalogCapability(parseWithSchema(createCapabilitySchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { capability });
   }
 
@@ -155,7 +156,7 @@ export class AgroWorkforceController {
   @RequirePermissions("agro:write")
   async addMember(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const member = await this.service.addMember(farmId, ctx.userId, addMemberSchema.parse(body));
+    const member = await this.service.addMember(farmId, ctx.userId, parseWithSchema(addMemberSchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { member });
   }
 
@@ -168,7 +169,7 @@ export class AgroWorkforceController {
     @Req() req: any,
   ) {
     const ctx = resolveRequestContext(req);
-    const member = await this.service.updateMember(farmId, ctx.userId, memberId, updateMemberSchema.parse(body));
+    const member = await this.service.updateMember(farmId, ctx.userId, memberId, parseWithSchema(updateMemberSchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { member });
   }
 
@@ -194,7 +195,7 @@ export class AgroWorkforceController {
   @RequirePermissions("agro:report")
   async assignRole(@Param("farmId") farmId: string, @Param("workerId") workerId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const workerRole = await this.service.assignWorkerRole(farmId, ctx.userId, workerParam(workerId, ctx.userId), assignRoleSchema.parse(body));
+    const workerRole = await this.service.assignWorkerRole(farmId, ctx.userId, workerParam(workerId, ctx.userId), parseWithSchema(assignRoleSchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { workerRole });
   }
 
@@ -202,7 +203,7 @@ export class AgroWorkforceController {
   @RequirePermissions("agro:report")
   async declare(@Param("farmId") farmId: string, @Param("workerId") workerId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const workerCapability = await this.service.declareCapability(farmId, ctx.userId, workerParam(workerId, ctx.userId), declareCapabilitySchema.parse(body));
+    const workerCapability = await this.service.declareCapability(farmId, ctx.userId, workerParam(workerId, ctx.userId), parseWithSchema(declareCapabilitySchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { workerCapability });
   }
 
@@ -218,7 +219,7 @@ export class AgroWorkforceController {
   @RequirePermissions("agro:report")
   async addEvidence(@Param("farmId") farmId: string, @Param("workerCapabilityId") id: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const evidence = await this.service.addCapabilityEvidence(farmId, ctx.userId, id, evidenceSchema.parse(body));
+    const evidence = await this.service.addCapabilityEvidence(farmId, ctx.userId, id, parseWithSchema(evidenceSchema, body));
     return ok(resolveRequestId(req.headers ?? {}), { evidence });
   }
 
@@ -226,7 +227,7 @@ export class AgroWorkforceController {
   @RequirePermissions("agro:workforce:verify")
   async verify(@Param("farmId") farmId: string, @Param("workerCapabilityId") id: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const result = await this.service.verifyCapability(farmId, ctx.userId, id, verifySchema.parse(body));
+    const result = await this.service.verifyCapability(farmId, ctx.userId, id, parseWithSchema(verifySchema, body));
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 
@@ -234,7 +235,7 @@ export class AgroWorkforceController {
   @RequirePermissions("agro:workforce:verify")
   async revoke(@Param("farmId") farmId: string, @Param("workerCapabilityId") id: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
-    const result = await this.service.revokeVerification(farmId, ctx.userId, id, revokeSchema.parse(body));
+    const result = await this.service.revokeVerification(farmId, ctx.userId, id, parseWithSchema(revokeSchema, body));
     return ok(resolveRequestId(req.headers ?? {}), result);
   }
 
