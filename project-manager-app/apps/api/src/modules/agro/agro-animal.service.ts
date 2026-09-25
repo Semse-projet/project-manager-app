@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroAnimalRepository } from "./agro-animal.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
+import type { AgroFarmAction } from "./agro-farm-policy.js";
 
 const VALID_SPECIES = ["CATTLE", "PIG", "GOAT", "SHEEP", "HORSE", "CHICKEN", "OTHER"] as const;
 const VALID_SEX = ["MALE", "FEMALE", "UNKNOWN"] as const;
@@ -13,18 +15,18 @@ export class AgroAnimalService {
     private readonly repo: AgroAnimalRepository,
     private readonly farmRepo: AgroFarmRepository,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
-    const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
-    return farm;
+  /** Política de rol de finca (T-050); sin AgroFarmAccessService, solo el propietario. */
+  private authorize(farmId: string, userId: string, action: AgroFarmAction, opts: { isAssignee?: boolean } = {}) {
+    return authorizeFarmAction(this.access, this.farmRepo, farmId, userId, action, opts);
   }
 
   // ── Animals ───────────────────────────────────────────────────────────────
 
   async listAnimals(farmId: string, ownerId: string) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listAnimals(farmId);
   }
 
@@ -32,6 +34,13 @@ export class AgroAnimalService {
     const animal = await this.repo.findAnimal(animalId);
     if (!animal) throw new NotFoundException(`Animal not found: ${animalId}`);
     return animal;
+  }
+
+  /** Lectura autorizada por finca (evita leer registros de fincas ajenas por id). */
+  async getAnimalForUser(animalId: string, userId: string) {
+    const row = await this.getAnimal(animalId);
+    await this.authorize(row.farmId, userId, "farm.read");
+    return row;
   }
 
   async createAnimal(farmId: string, ownerId: string, input: {
@@ -51,7 +60,7 @@ export class AgroAnimalService {
     expectedSaleDate?: Date;
     notes?: string;
   }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.manage");
     if (!VALID_SPECIES.includes(input.species as any)) {
       throw new BadRequestException(`Invalid species: ${input.species}`);
     }
@@ -82,7 +91,7 @@ export class AgroAnimalService {
     notes?: string;
   }) {
     const animal = await this.getAnimal(animalId);
-    await this.assertFarmAccess(animal.farmId, ownerId);
+    await this.authorize(animal.farmId, ownerId, "farm.manage");
 
     const updated = await this.repo.updateAnimal(animalId, input);
     await this.audit.record({
@@ -98,7 +107,7 @@ export class AgroAnimalService {
 
   async moveAnimal(animalId: string, ownerId: string, targetUnitId: string | null, notes?: string) {
     const animal = await this.getAnimal(animalId);
-    await this.assertFarmAccess(animal.farmId, ownerId);
+    await this.authorize(animal.farmId, ownerId, "animal.operate");
     if (animal.status !== "ACTIVE") {
       throw new BadRequestException(`Cannot move animal with status: ${animal.status}`);
     }
@@ -118,7 +127,7 @@ export class AgroAnimalService {
   async weighAnimal(animalId: string, ownerId: string, weight: number, notes?: string) {
     if (weight <= 0) throw new BadRequestException("Weight must be positive");
     const animal = await this.getAnimal(animalId);
-    await this.assertFarmAccess(animal.farmId, ownerId);
+    await this.authorize(animal.farmId, ownerId, "animal.operate");
 
     const updated = await this.repo.updateAnimal(animalId, { currentWeight: weight });
     await this.audit.record({
@@ -137,7 +146,7 @@ export class AgroAnimalService {
       throw new BadRequestException(`Invalid status: ${status}`);
     }
     const animal = await this.getAnimal(animalId);
-    await this.assertFarmAccess(animal.farmId, ownerId);
+    await this.authorize(animal.farmId, ownerId, "animal.status");
 
     const updated = await this.repo.updateAnimal(animalId, { status });
     await this.audit.record({
@@ -153,14 +162,14 @@ export class AgroAnimalService {
 
   async getAnimalTimeline(animalId: string, ownerId: string) {
     const animal = await this.getAnimal(animalId);
-    await this.assertFarmAccess(animal.farmId, ownerId);
+    await this.authorize(animal.farmId, ownerId, "farm.read");
     return this.repo.getEntityTimeline(animal.farmId, "AgroAnimal", animalId);
   }
 
   // ── Animal Groups ─────────────────────────────────────────────────────────
 
   async listGroups(farmId: string, ownerId: string) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listGroups(farmId);
   }
 
@@ -168,6 +177,13 @@ export class AgroAnimalService {
     const group = await this.repo.findGroup(groupId);
     if (!group) throw new NotFoundException(`Animal group not found: ${groupId}`);
     return group;
+  }
+
+  /** Lectura autorizada por finca (evita leer registros de fincas ajenas por id). */
+  async getGroupForUser(groupId: string, userId: string) {
+    const row = await this.getGroup(groupId);
+    await this.authorize(row.farmId, userId, "farm.read");
+    return row;
   }
 
   async createGroup(farmId: string, ownerId: string, input: {
@@ -184,7 +200,7 @@ export class AgroAnimalService {
     expectedSaleDate?: Date;
     notes?: string;
   }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.manage");
     if (!input.name?.trim()) throw new BadRequestException("Group name is required");
     if (!VALID_SPECIES.includes(input.species as any)) {
       throw new BadRequestException(`Invalid species: ${input.species}`);
@@ -212,7 +228,7 @@ export class AgroAnimalService {
     notes?: string;
   }) {
     const group = await this.getGroup(groupId);
-    await this.assertFarmAccess(group.farmId, ownerId);
+    await this.authorize(group.farmId, ownerId, "farm.manage");
 
     const updated = await this.repo.updateGroup(groupId, input);
     await this.audit.record({
@@ -228,7 +244,7 @@ export class AgroAnimalService {
 
   async moveGroup(groupId: string, ownerId: string, targetUnitId: string | null, notes?: string) {
     const group = await this.getGroup(groupId);
-    await this.assertFarmAccess(group.farmId, ownerId);
+    await this.authorize(group.farmId, ownerId, "animal.operate");
     if (group.status !== "ACTIVE") {
       throw new BadRequestException(`Cannot move group with status: ${group.status}`);
     }
@@ -248,7 +264,7 @@ export class AgroAnimalService {
   async adjustGroupCount(groupId: string, ownerId: string, newCount: number, reason?: string) {
     if (newCount < 0) throw new BadRequestException("Count cannot be negative");
     const group = await this.getGroup(groupId);
-    await this.assertFarmAccess(group.farmId, ownerId);
+    await this.authorize(group.farmId, ownerId, "animal.status");
 
     const updated = await this.repo.updateGroup(groupId, { count: newCount });
     await this.audit.record({
@@ -267,7 +283,7 @@ export class AgroAnimalService {
       throw new BadRequestException(`Invalid status: ${status}`);
     }
     const group = await this.getGroup(groupId);
-    await this.assertFarmAccess(group.farmId, ownerId);
+    await this.authorize(group.farmId, ownerId, "animal.status");
 
     const updated = await this.repo.updateGroup(groupId, { status });
     await this.audit.record({
@@ -283,7 +299,7 @@ export class AgroAnimalService {
 
   async getGroupTimeline(groupId: string, ownerId: string) {
     const group = await this.getGroup(groupId);
-    await this.assertFarmAccess(group.farmId, ownerId);
+    await this.authorize(group.farmId, ownerId, "farm.read");
     return this.repo.getEntityTimeline(group.farmId, "AgroAnimalGroup", groupId);
   }
 }

@@ -260,7 +260,10 @@ export const rolePermissions: Record<string, string[]> = {
   // del sandbox depende de que este set nunca crezca hacia jobs/payments/matching.
   DEMO_AGRO: [
     "agro:read",
-    "agro:write"
+    "agro:write",
+    // Los endpoints operativos Agro (tareas, movimientos, evidencia, sync) piden
+    // agro:report desde T-050. Sigue siendo solo Agro: no amplía el sandbox.
+    "agro:report"
   ]
 };
 

@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
+import type { AgroFarmAction } from "./agro-farm-policy.js";
 import { AgroTaskRepository } from "./agro-task.repository.js";
 
 export const AGRO_TASK_TYPES = [
@@ -34,16 +36,24 @@ export class AgroTaskService {
     private readonly repo: AgroTaskRepository,
     private readonly farmRepo: AgroFarmRepository,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
-    const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
-    return farm;
+  /** Un responsable debe ser miembro activo o propietario de la finca (solo con AgroFarmAccessService). */
+  private async assertAssignable(farmId: string, userId: string) {
+    if (!this.access) return;
+    if (!(await this.access.resolveRole(farmId, userId))) {
+      throw new BadRequestException(`Assignee is not an active member of this farm: ${userId}`);
+    }
+  }
+
+  /** Política de rol de finca (T-050); sin AgroFarmAccessService, solo el propietario. */
+  private authorize(farmId: string, userId: string, action: AgroFarmAction, opts: { isAssignee?: boolean } = {}) {
+    return authorizeFarmAction(this.access, this.farmRepo, farmId, userId, action, opts);
   }
 
   async listTasks(farmId: string, ownerId: string, filters?: { status?: string; targetType?: string; targetId?: string }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listTasks(farmId, filters);
   }
 
@@ -53,8 +63,15 @@ export class AgroTaskService {
     return task;
   }
 
+  /** Lectura autorizada por finca (evita leer registros de fincas ajenas por id). */
+  async getTaskForUser(taskId: string, userId: string) {
+    const row = await this.getTask(taskId);
+    await this.authorize(row.farmId, userId, "farm.read");
+    return row;
+  }
+
   async listEntityTasks(farmId: string, ownerId: string, targetType: string, targetId: string) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listTasks(farmId, { targetType, targetId });
   }
 
@@ -68,7 +85,7 @@ export class AgroTaskService {
     dueAt?: Date;
     notes?: string;
   }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "task.create");
     if (!input.title?.trim()) throw new BadRequestException("Task title is required");
     if (!VALID_TYPES.includes(input.type as any)) {
       throw new BadRequestException(`Invalid task type: ${input.type}`);
@@ -79,6 +96,8 @@ export class AgroTaskService {
     if (input.targetType && !VALID_TARGET_TYPES.includes(input.targetType as any)) {
       throw new BadRequestException(`Invalid targetType: ${input.targetType}`);
     }
+
+    if (input.assignedToId) await this.assertAssignable(farmId, input.assignedToId);
 
     const task = await this.repo.createTask({ farmId, ...input });
     await this.audit.record({
@@ -99,13 +118,15 @@ export class AgroTaskService {
     notes?: string;
   }) {
     const task = await this.getTask(taskId);
-    await this.assertFarmAccess(task.farmId, ownerId);
+    await this.authorize(task.farmId, ownerId, "task.update");
     if (["COMPLETED", "CANCELLED"].includes(task.status)) {
       throw new BadRequestException(`Cannot edit task with status: ${task.status}`);
     }
     if (input.priority && !VALID_PRIORITIES.includes(input.priority as any)) {
       throw new BadRequestException(`Invalid priority: ${input.priority}`);
     }
+
+    if (input.assignedToId) await this.assertAssignable(task.farmId, input.assignedToId);
 
     const updated = await this.repo.updateTask(taskId, input);
     await this.audit.record({
@@ -124,7 +145,11 @@ export class AgroTaskService {
     cancelReason?: string;
   }) {
     const task = await this.getTask(taskId);
-    await this.assertFarmAccess(task.farmId, ownerId);
+    // Cancelar es de supervisión; iniciar/completar/bloquear lo hace también el
+    // trabajador si la tarea es suya o no está asignada a nadie.
+    await this.authorize(task.farmId, ownerId, toStatus === "CANCELLED" ? "task.update" : "task.execute", {
+      isAssignee: !task.assignedToId || task.assignedToId === ownerId,
+    });
     const allowed = TRANSITIONS[task.status] ?? [];
     if (!allowed.includes(toStatus)) {
       throw new BadRequestException(`Cannot transition task from ${task.status} to ${toStatus}`);
@@ -167,7 +192,7 @@ export class AgroTaskService {
 
   async getTaskTimeline(taskId: string, ownerId: string) {
     const task = await this.getTask(taskId);
-    await this.assertFarmAccess(task.farmId, ownerId);
+    await this.authorize(task.farmId, ownerId, "farm.read");
     return this.repo.getEntityTimeline(task.farmId, "AgroFarmTask", taskId);
   }
 }

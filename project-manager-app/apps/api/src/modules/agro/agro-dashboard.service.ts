@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { PrismaService } from "../../infrastructure/prisma/prisma.service.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
+import { canPerformAgroFarmAction } from "./agro-farm-policy.js";
 
 export interface AgroAlert {
   type: "OVERDUE_TASK" | "BLOCKED_TASK" | "LOW_STOCK" | "MISSING_EVIDENCE" | "ANIMAL_INACTIVITY";
@@ -15,16 +17,16 @@ export class AgroDashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly farmRepo: AgroFarmRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
-    const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
-    return farm;
-  }
-
   async getDashboard(farmId: string, ownerId: string) {
-    const farm = await this.assertFarmAccess(farmId, ownerId);
+    // Cualquier miembro ve el estado operativo; los datos económicos y la
+    // actividad auditada se ocultan según el rol de finca (T-050).
+    const actor = await authorizeFarmAction(this.access, this.farmRepo, farmId, ownerId, "farm.read");
+    const canSeeFinance = canPerformAgroFarmAction(actor.role, "farm.finance");
+    const canSeeActivity = canPerformAgroFarmAction(actor.role, "farm.audit_read");
+    const farm = (await this.farmRepo.findFarm(farmId))!;
     const now = new Date();
     const monthAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
     const weekAgo = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
@@ -111,18 +113,19 @@ export class AgroDashboardService {
         inventoryItems: items.length,
         lowStockItems: lowStockItems.length,
       },
-      monthCostSummary: { total: monthCost, since: monthAgo, currency: "USD" },
-      capital: { livestock: livestockCapital, currency: "USD" },
-      monthIncomeSummary: {
+      viewerRole: actor.role,
+      monthCostSummary: canSeeFinance ? { total: monthCost, since: monthAgo, currency: "USD" } : null,
+      capital: canSeeFinance ? { livestock: livestockCapital, currency: "USD" } : null,
+      monthIncomeSummary: canSeeFinance ? {
         production: monthProductionIncome,
         sales: monthSalesRevenue,
         total: monthIncome,
         projectedProfit: monthIncome - monthCost,
         since: monthAgo,
         currency: "USD",
-      },
+      } : null,
       alerts,
-      recentActivity: recentAuditEvents,
+      recentActivity: canSeeActivity ? recentAuditEvents : [],
       recentEvidence,
       nextBestActions: this.computeNextActions(overdueTasks, blockedTasks, lowStockItems),
     };

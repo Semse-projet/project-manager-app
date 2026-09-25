@@ -45,7 +45,8 @@ export class AgroDashboardController {
   }
 
   @Post("sync/events")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async syncEvents(@Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const { events } = syncBatchSchema.parse(body);

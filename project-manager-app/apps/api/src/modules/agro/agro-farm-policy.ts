@@ -39,7 +39,20 @@ export type AgroFarmAction =
   | "workforce.self_report"
   | "workforce.assign"
   | "capability.verify"
-  | "capability.verify_professional";
+  | "capability.verify_professional"
+  // Operación diaria de la finca (T-050): servicios Agro existentes.
+  | "farm.manage"
+  | "farm.audit_read"
+  | "farm.finance"
+  | "task.create"
+  | "task.update"
+  | "task.execute"
+  | "animal.operate"
+  | "animal.status"
+  | "evidence.create"
+  | "evidence.update_any"
+  | "inventory.consume"
+  | "inventory.manage";
 
 const MANAGERS: readonly AgroFarmRole[] = ["OWNER", "MANAGER"];
 const SUPERVISORS: readonly AgroFarmRole[] = ["OWNER", "MANAGER", "SUPERVISOR"];
@@ -69,7 +82,28 @@ const MATRIX: Record<AgroFarmAction, readonly AgroFarmRole[]> = {
   "workforce.assign": SUPERVISORS,
   "capability.verify": [...SUPERVISORS, ...PROFESSIONALS],
   "capability.verify_professional": PROFESSIONALS,
+  // Estructura de la finca (datos de la finca, unidades, alta de animales/grupos, catálogo de inventario).
+  "farm.manage": MANAGERS,
+  "farm.audit_read": SUPERVISORS,
+  // Datos económicos (costos, ventas, rentabilidad, valores): se mantiene solo
+  // el propietario, como antes de T-050. Ampliar a MANAGER es una decisión de producto.
+  "farm.finance": ["OWNER"],
+  "task.create": SUPERVISORS,
+  "task.update": SUPERVISORS,
+  // El trabajador ejecuta (iniciar/completar/bloquear) sus tareas o las no asignadas (ver `isAssignee`).
+  "task.execute": [...SUPERVISORS, ...PROFESSIONALS],
+  // Mover y pesar animales es trabajo de campo.
+  "animal.operate": EVERYONE,
+  // Estado (muerto, perdido, vendido…) y ajustes de conteo: supervisión y veterinaria.
+  "animal.status": [...SUPERVISORS, "VETERINARIAN"],
+  "evidence.create": EVERYONE,
+  "evidence.update_any": SUPERVISORS,
+  // Registrar consumo (salidas) de inventario es trabajo de campo; entradas y ajustes, supervisión.
+  "inventory.consume": EVERYONE,
+  "inventory.manage": SUPERVISORS,
 };
+
+const ASSIGNEE_ACTIONS: readonly AgroFarmAction[] = ["incident.start", "incident.resolve", "task.execute"];
 
 export function isAgroFarmMemberRole(value: string): value is AgroFarmMemberRole {
   return (AGRO_FARM_MEMBER_ROLES as readonly string[]).includes(value);
@@ -82,7 +116,7 @@ export function canPerformAgroFarmAction(
 ): boolean {
   if (!role) return false;
   if (MATRIX[action].includes(role)) return true;
-  if (opts.isAssignee && (action === "incident.start" || action === "incident.resolve")) return true;
+  if (opts.isAssignee && ASSIGNEE_ACTIONS.includes(action)) return true;
   return false;
 }
 

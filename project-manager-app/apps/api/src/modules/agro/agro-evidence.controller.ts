@@ -48,7 +48,8 @@ export class AgroEvidenceController {
   }
 
   @Post("farms/:farmId/evidence")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async createEvidence(@Param("farmId") farmId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = createEvidenceSchema.parse(body);
@@ -59,12 +60,14 @@ export class AgroEvidenceController {
   @Get("evidence/:evidenceId")
   @RequirePermissions("agro:read")
   async getEvidence(@Param("evidenceId") evidenceId: string, @Req() req: any) {
-    const evidence = await this.service.getEvidence(evidenceId);
+    const ctx = resolveRequestContext(req);
+    const evidence = await this.service.getEvidenceForUser(evidenceId, ctx.userId);
     return ok(resolveRequestId(req.headers ?? {}), { evidence });
   }
 
   @Patch("evidence/:evidenceId")
-  @RequirePermissions("agro:write")
+  // Operativo (T-050): la política de rol de finca decide qué puede cada miembro.
+  @RequirePermissions("agro:report")
   async updateEvidence(@Param("evidenceId") evidenceId: string, @Body() body: unknown, @Req() req: any) {
     const ctx = resolveRequestContext(req);
     const input = updateEvidenceSchema.parse(body);

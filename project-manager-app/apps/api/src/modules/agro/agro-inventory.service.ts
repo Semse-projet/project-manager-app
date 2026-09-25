@@ -1,6 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { AgroAuditRepository } from "./agro-audit.repository.js";
 import { AgroFarmRepository } from "./agro-farm.repository.js";
+import { AgroFarmAccessService, authorizeFarmAction } from "./agro-farm-access.service.js";
+import type { AgroFarmAction } from "./agro-farm-policy.js";
 import { AgroInventoryRepository } from "./agro-inventory.repository.js";
 
 const VALID_CATEGORIES = [
@@ -30,18 +32,18 @@ export class AgroInventoryService {
     private readonly repo: AgroInventoryRepository,
     private readonly farmRepo: AgroFarmRepository,
     private readonly audit: AgroAuditRepository,
+    @Optional() private readonly access?: AgroFarmAccessService,
   ) {}
 
-  private async assertFarmAccess(farmId: string, ownerId: string) {
-    const farm = await this.farmRepo.findFarm(farmId);
-    if (!farm || farm.ownerId !== ownerId) throw new NotFoundException(`Farm not found: ${farmId}`);
-    return farm;
+  /** Política de rol de finca (T-050); sin AgroFarmAccessService, solo el propietario. */
+  private authorize(farmId: string, userId: string, action: AgroFarmAction, opts: { isAssignee?: boolean } = {}) {
+    return authorizeFarmAction(this.access, this.farmRepo, farmId, userId, action, opts);
   }
 
   // ── Items ─────────────────────────────────────────────────────────────────
 
   async listItems(farmId: string, ownerId: string) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listItems(farmId);
   }
 
@@ -51,9 +53,16 @@ export class AgroInventoryService {
     return item;
   }
 
+  /** Lectura autorizada por finca (evita leer registros de fincas ajenas por id). */
+  async getItemForUser(itemId: string, userId: string) {
+    const row = await this.getItem(itemId);
+    await this.authorize(row.farmId, userId, "farm.read");
+    return row;
+  }
+
   async getItemStock(itemId: string, ownerId: string) {
     const item = await this.getItem(itemId);
-    await this.assertFarmAccess(item.farmId, ownerId);
+    await this.authorize(item.farmId, ownerId, "farm.read");
     const stock = await this.repo.computeStock(itemId);
     return { item, stock };
   }
@@ -65,7 +74,7 @@ export class AgroInventoryService {
     minimumStock?: number;
     notes?: string;
   }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.manage");
     if (!input.name?.trim()) throw new BadRequestException("Item name is required");
     if (!VALID_CATEGORIES.includes(input.category as any)) {
       throw new BadRequestException(`Invalid category: ${input.category}`);
@@ -91,7 +100,7 @@ export class AgroInventoryService {
     notes?: string;
   }) {
     const item = await this.getItem(itemId);
-    await this.assertFarmAccess(item.farmId, ownerId);
+    await this.authorize(item.farmId, ownerId, "farm.manage");
 
     const updated = await this.repo.updateItem(itemId, input);
     await this.audit.record({
@@ -108,7 +117,7 @@ export class AgroInventoryService {
   // ── Movements ─────────────────────────────────────────────────────────────
 
   async listMovements(farmId: string, ownerId: string, itemId?: string) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.read");
     return this.repo.listMovements(farmId, itemId);
   }
 
@@ -124,7 +133,10 @@ export class AgroInventoryService {
     occurredAt?: Date;
     notes?: string;
   }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    // Registrar una salida (consumo) es trabajo de campo; entradas, ajustes o
+    // cualquier movimiento con costo (genera AgroCostEntry) exigen supervisión.
+    const isFieldConsumption = input.movementType === "OUT" && !input.unitCost;
+    await this.authorize(farmId, ownerId, isFieldConsumption ? "inventory.consume" : "inventory.manage");
     const item = await this.getItem(input.itemId);
     if (item.farmId !== farmId) throw new BadRequestException("Item does not belong to this farm");
 
@@ -198,7 +210,7 @@ export class AgroInventoryService {
   // ── Cost Entries ──────────────────────────────────────────────────────────
 
   async listCosts(farmId: string, ownerId: string, filters?: { targetType?: string; targetId?: string }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.finance");
     return this.repo.listCosts(farmId, filters);
   }
 
@@ -211,7 +223,7 @@ export class AgroInventoryService {
     description?: string;
     occurredAt?: Date;
   }) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.finance");
     if (!VALID_COST_CATEGORIES.includes(input.category as any)) {
       throw new BadRequestException(`Invalid cost category: ${input.category}`);
     }
@@ -239,7 +251,7 @@ export class AgroInventoryService {
   }
 
   async getCostSummary(farmId: string, ownerId: string, days = 30) {
-    await this.assertFarmAccess(farmId, ownerId);
+    await this.authorize(farmId, ownerId, "farm.finance");
     const since = new Date(Date.now() - days * 24 * 3600 * 1000);
     const byCategory = await this.repo.costSummary(farmId, since);
     const total = byCategory.reduce((s, r) => s + r.total, 0);
